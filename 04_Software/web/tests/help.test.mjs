@@ -124,7 +124,7 @@ test("the glossary keeps the delivery terms and human boundaries", () => {
 test("help names settings as the localized interface shows them", async () => {
   const { localizedSettingLabel } = await import("../src/settingsCopy.ts");
   const keys = ["readiness.require_priority_label", "readiness.require_acceptance_criteria", "delivery.remove_source_branch",
-    "metrics.enabled", "metrics.capture_tokens", "executor.stage_host_auth", "review.max_review_rounds"];
+    "metrics.enabled", "metrics.capture_tokens", "review.max_review_rounds"];
   for (const locale of ["fr", "de", "ro"]) {
     const text = HELP_TOPICS.map(topic => read(locale, topic)).join("\n");
     for (const key of keys) {

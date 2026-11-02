@@ -54,7 +54,7 @@ def test_project_directory_filters_with_grants_and_status(tmp_path):
         rows = client.get("/api/v1/projects").json()
         assert {row["name"]: row["readiness"] for row in rows} == {
             "alpha": "configured", "beta": "paused", "gamma": "archived"}
-        assert rows[0]["executor"] == "opencode"
+        assert rows[0]["executor"] == "pi"
         assert rows[0]["last_activity"] == "2026-09-30T10:30:00+00:00"
         assert [row["name"] for row in client.get(
             "/api/v1/projects?q=ORG/BETA&state=paused").json()] == ["beta"]
@@ -104,7 +104,7 @@ def test_web_project_has_stable_absolute_worktree_root(tmp_path, monkeypatch):
         body = {
             "name": "alpha", "kind": "gitlab", "repo": "group/alpha",
             "repo_path": str(clone), "reviewers": "reviewer",
-            "executor_cli": "opencode", "model": "openai/gpt-5.5",
+            "model": "openai/gpt-5.5",
             "auth_mode": "api-key", "image": "adore-test:latest",
         }
         headers = {"X-CSRF-Token": session["csrf"]}

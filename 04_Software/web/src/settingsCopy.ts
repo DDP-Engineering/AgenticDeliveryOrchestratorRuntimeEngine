@@ -151,7 +151,6 @@ const localizedSettingLabels: Partial<Record<Locale, Record<string, string>>> = 
     "delivery.remove_source_branch": "Supprimer la branche après la fusion humaine",
     "metrics.enabled": "Enregistrer les mesures des tâches terminées",
     "metrics.capture_tokens": "Enregistrer les jetons déclarés par l’agent",
-    "executor.stage_host_auth": "Utiliser la connexion de l’agent de l’hôte",
     "review.max_review_rounds": "Nombre maximal de tours de révision",
   },
   de: {
@@ -160,7 +159,6 @@ const localizedSettingLabels: Partial<Record<Locale, Record<string, string>>> = 
     "delivery.remove_source_branch": "Branch nach menschlichem Merge entfernen",
     "metrics.enabled": "Messwerte abgeschlossener Aufträge erfassen",
     "metrics.capture_tokens": "Vom Agenten gemeldete Token erfassen",
-    "executor.stage_host_auth": "Host-Anmeldung des Agenten verwenden",
     "review.max_review_rounds": "Maximale Überarbeitungsrunden",
   },
   ro: {
@@ -169,7 +167,6 @@ const localizedSettingLabels: Partial<Record<Locale, Record<string, string>>> = 
     "delivery.remove_source_branch": "Șterge ramura după integrarea făcută de o persoană",
     "metrics.enabled": "Înregistrează măsurătorile lucrărilor finalizate",
     "metrics.capture_tokens": "Înregistrează tokenurile raportate de agent",
-    "executor.stage_host_auth": "Folosește autentificarea agentului de pe gazdă",
     "review.max_review_rounds": "Numărul maxim de runde de revizie",
   },
 };
@@ -192,8 +189,8 @@ export function settingLabel(key: string): string {
  "execution.preparation_total_timeout_seconds": "Preparation total limit (seconds)",
  "execution.preparation_max_attempts": "Maximum preparation attempts",
 
- "container.runtime_env.OPENAI_BASE_URL": "Model endpoint URL", "agent.name": "Agent display name", "agent.slug": "Agent resource name", "agent.email": "Commit author email", "platform.kind": "Repository service", "platform.repo": "Repository owner and name", "platform.login": "Gitea login name",
- "executor.default": "Default coding agent", "executor.mode": "Agent execution mode", "executor.stage_host_auth": "Use host agent sign-in", "executor.questions_file": "Agent question file", "executor.env_keys": "Credential variable names",
+ "agent.name": "Agent display name", "agent.slug": "Agent resource name", "agent.email": "Commit author email", "platform.kind": "Repository service", "platform.repo": "Repository owner and name", "platform.login": "Gitea login name",
+ "executor.mode": "Agent execution mode", "executor.questions_file": "Agent question file", "executor.env_keys": "Credential variable names",
  "polling.mode": "Ticket checking mode", "polling.poll_interval_seconds": "Ticket check interval (seconds)", "polling.poll_jitter_seconds": "Random check delay (seconds)", "polling.poll_backoff": "Wait longer after ticket service errors", "polling.max_concurrent_runs": "Active job limit", "polling.quiet_hours": "Hours with no pickup or advancement",
  "budgets.max_iterations": "Maximum executor launches per job", "budgets.max_files_touched": "Maximum changed files per job", "budgets.max_cost_usd": "Job cost cap (USD)", "budgets.max_wall_clock_seconds": "Active work time limit (seconds)", "budgets.per_gate_timeout_seconds": "Stage attempt time limit (seconds)",
  "container.runtime": "Container runtime command", "container.image": "Agent container image", "container.selinux_relabel": "Shared mount access on SELinux", "container.egress.mode": "Outbound network policy", "container.egress.proxy_port": "Network proxy port", "container.egress.proxy_image": "Network proxy image", "container.egress.network_prefix": "Isolated network name prefix", "container.keep_parked": "Keep containers while waiting", "container.parked_ttl_mode": "Waiting-container retention unit", "container.parked_ttl_seconds": "Waiting-container retention (seconds)", "container.parked_ttl_polls": "Waiting-container retention (checks)",
@@ -207,11 +204,10 @@ export function settingLabel(key: string): string {
  };
  if (labels[key]) return labels[key];
  const parts = key.split(".");
- if (key.startsWith("executor.commands.")) return `${parts[2]} ${parts[3] === "model" ? "model identifier" : "launch command"}`;
  if (key.startsWith("container.runtime_env.")) return `Container environment: ${parts.slice(2).join(".")}`;
  if (key.startsWith("workflow.stage_timeout_overrides.")) return `${parts[2]} attempt time limit (seconds)`;
  if (key.startsWith("workflow.kind_labels.")) return `Task type for ticket label ${parts[2]}`;
- if (key.startsWith("labels.")) return `${parts[1] === "lifecycle" ? "Job status" : parts[1] === "control" ? "Pickup control" : parts[1] === "selection" ? "Ticket selection" : "Agent selection"}: ${parts[2].replaceAll("_", " ")} label`;
+ if (key.startsWith("labels.")) return `${parts[1] === "lifecycle" ? "Job status" : parts[1] === "control" ? "Pickup control" : parts[1] === "selection" ? "Ticket selection" : "Labels"}: ${parts[2].replaceAll("_", " ")} label`;
  return parts.slice(1).join(" ").replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase());
 }
 

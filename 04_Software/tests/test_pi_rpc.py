@@ -346,7 +346,6 @@ def test_pi_usage_event_passes_validation_and_reaches_statistics(tmp_path: Path)
     gate = PiExecutor("pi", "openai/gpt-5.6-luna").run_gate(
         SpawnTarget(fake), worktree, io_dir, PROMPT, timeout=30)
     engine, *_ = make_engine(tmp_path)
-    engine.config.executor.default = "pi"
     run = make_run(engine)
     run.iterations = 1
     engine._journal_usage(run, "build", gate)

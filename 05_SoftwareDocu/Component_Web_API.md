@@ -59,8 +59,9 @@ operations, administrator pause/resume pickup, administrator audit history and
 retention policy, and
 role-filtered metrics and administrator-managed estimated prices. It never invokes an executor
 from an HTTP request.
-Project creation uses the shared wizard validator, so an unsupported Pi/Qwen
-host-auth request fails before a profile is saved.
+Project creation uses the shared wizard validator, so an invalid executor
+setting (for example an auth mode other than API keys for a container
+project) fails before a profile is saved.
 It supplies an absolute, project-specific worktree root under the web home;
 the worker can then run from any process working directory without changing
 the path used by a retry.
@@ -119,19 +120,10 @@ If a process stops after replacing TOML but before updating profile labels,
 retrying Apply with the same candidate revision reconciles the labels and
 clears the pending record. Candidate bytes and revision remain identical on
 Windows and Linux.
-For an OpenCode profile, one local endpoint edit can update the selected
-`provider/model` and URL atomically, then writes its compatible provider
-override into `OPENCODE_CONFIG_CONTENT`;
-an optional API-key reference must name an allowlisted executor environment
-variable. The service stores OpenCode's `{env:KEY}` reference, not the secret,
-and omits the inline provider JSON from configuration read responses. The edit
-accepts only the OpenAI chat-completions protocol, a 1–600 second OpenCode
-request timeout, and an optional absolute custom-CA path for HTTPS inside the
-executor image. The safe pending-config response includes the resulting model,
-protocol, timeout, auth reference and CA path for review. Other executors
-reject that edit. The separate readiness route checks the selected executor
-binary in the configured image with a no-network, no-pull container, then
-probes a configured local model from the runtime container context.
+There is no local model endpoint edit: local OpenAI-compatible endpoints
+are not configurable in this version. The separate readiness route checks the
+Pi binary in the configured image with a no-network, no-pull container; it
+has no model endpoint check.
 
 ## 4. Dependencies
 
@@ -188,9 +180,9 @@ a comment-only source edit invalidates confirmation.
 config/candidate revisions and 16 `mapping` rows (`key`, `source_value`,
 `server_value`, `effect: "copy-rule"`). Server values are installed defaults.
 All portable rules override target defaults; target identity, repository, runtime,
-model, references, labels and reviewers are supplied afresh. Credential/endpoint
-references are excluded from sources. Standard provider setup uses target model
-and supported auth; custom target endpoints use separate stopped Settings setup.
+model, references, labels and reviewers are supplied afresh. Credential
+references are excluded from sources. Provider setup uses the target model and
+supported auth.
 
 `transfer-check` and `transfer-create` add reviewed `revision`. Check uses the
 existing bounded explicit ephemeral probes and rechecks source afterwards.
@@ -363,7 +355,7 @@ All three routes require Admin and valid CSRF. The browser uploads TOML only;
 operators supply credential values through protected server stores.
 The project list accepts a bounded `q` search over name, description and
 repository plus an exact `state` filter. Both apply after project grants.
-Project views include static config validity, executor selection, UTC last run
+Project views include static config validity, the executor (`pi`), UTC last run
 activity and a status of configured, needs-config, paused, archived or
 invalid-state. Config validity does not claim live forge/model readiness;
 malformed persisted run timestamps return 503 instead of a misleading date.
@@ -374,12 +366,11 @@ reused name cannot inherit its prior grant.
 The administrator-only, CSRF-protected
 `POST /api/v1/projects/{name}/readiness-check` runs bounded host-side doctor
 probes on explicit request. It returns booleans for Git, the selected forge CLI
-and authentication, the selected executor CLI, AEGIS file presence in the
+and authentication, the Pi CLI, AEGIS file presence in the
 configured repository, and a directly selected Docker/Podman runtime. It does
-not execute repository code from the API process. A configured local OpenCode
-model is additionally checked from a disposable executor container with the
-project image and egress policy; the result includes model, context, readiness,
-and a redacted reason. WSL-wrapped runtime detection remains unverified.
+not execute repository code from the API process and does not test the model;
+model access is proven only by the explicit AI connection test. WSL-wrapped
+runtime detection remains unverified.
 Captured command output and
 credentials never enter the response. Corrupt configuration returns 503, while
 a syntactically valid but invalid configuration returns 409. Unit tests inject
@@ -388,10 +379,9 @@ the command runner and never invoke external tools.
 to administrators and developers assigned to that project. Other project
 identities return 404. The read response excludes credential-looking keys
 (except ADORE's own non-secret `metrics.capture_tokens` while it holds a boolean) and
-inline provider JSON; every configuration mutation remains administrator-only.
+the value of any `container.runtime_env` or `local.environment` variable named for a removed coding agent (`OPENCODE_`, `CODEX_`, `QWEN_`); every configuration mutation remains administrator-only.
 Its `settings` list holds, per effective setting sorted by key, `key`,
-`edit_key` (the file key; `executor.<name>.<field>` for
-`executor.commands.<name>.<field>`), `source` (`project` when the project's
+`edit_key` (the file key, equal to `key`), `source` (`project` when the project's
 TOML file contains the edit key, else `default`), `editable` (the same key rule
 the edit routes enforce, and a single string, number or boolean value) and
 `restart` (applying needs paused pickup and no active work) and `default`
@@ -400,8 +390,8 @@ configuration with slug-derived names - after redaction, a whole built-in map
 for a map the project emptied, or null when it has no such key).
 Catalog rows additionally supply `type` (boolean/integer/number/text/list/map),
 `choices`, inclusive `minimum` and `maximum` (null when unbounded). Types derive
-from built-in configuration model defaults; configured executor entries supply
-agent choices and scalar domains project the existing validator. Whole-config
+from built-in configuration model defaults; `executor.command` offers the Pi launch
+preset (container projects only) and scalar domains project the existing validator. Whole-config
 validation remains decisive for dependent rules. Corrupt declared scalar types
 return 503 `config_corrupt`. Dev configuration omits `budgets.max_cost_usd` before
 row/default generation. Credential-bearing URLs are redacted in effective reads.
@@ -421,10 +411,7 @@ paused pickup; the profile directory's repository/platform/runtime labels are
 updated after commit. Host edits to TOML invalidate the staged base revision.
 Pending review adds `proposed_value`, parsed and type-checked from candidate TOML.
 The compatibility `value` string is canonicalized from that value. Review exposes
-saved UTC `created_at` and no invented actor. Safe current endpoint protocol/auth
-variable metadata is returned only when observed in the compatible provider
-configuration; missing metadata remains null. Stored endpoint protocol/credential
-corruption returns 503 `pending_config_corrupt` before review or apply. A
+saved UTC `created_at` and no invented actor. A
 candidate carrying an `image_build` binding, or a candidate for an
 operator-owned (externally managed) environment key, could only be staged by an
 earlier build; it is 503 `pending_config_corrupt` on view and on apply, and an
@@ -523,8 +510,6 @@ repository labels.
 Attributed usage JSON and CSV include nullable cache-read and cache-write
 counts. They are subsets of input tokens for Pi. Malformed category values or
 an incompatible overlap declaration fail the usage read with a typed error.
-An empty endpoint `ca_file` clears a previous custom-CA reference; a nonempty
-path is accepted only for HTTPS and must be an absolute container path.
 
 The UI calls the API, which queues commands for the separate worker. Selected
 ticket starts retain the orchestrator's ready/hold/exclude checks. Draft MR/PR
@@ -546,8 +531,8 @@ viewer requests; it is a functional scope check, not a throughput guarantee.
 
 ## 10. Limitations And Future Work
 
-The web editor covers single-value settings, edited on their rows, and the
-compatible OpenCode endpoint; administrators can also import a TOML profile. Direct host file
+The web editor covers single-value settings, edited on their rows;
+administrators can also import a TOML profile. Direct host file
 edits outside ADORE do not use the shared lock, but revision checks reject a
 stale browser edit. Multi-host API deployment and a shell-style log viewer are
 not provided.
@@ -594,7 +579,7 @@ Existing identity/status/paused fields remain. No read or setup preview probes t
 
 `ProjectInput` adds typed bounded run budgets, ready/approval labels and optional
 credential environment names; omitted fields keep their defaults. Unknown fields are
-forbidden; malformed/duplicate API-key names and host-auth references are rejected (an empty API-key list is allowed)
+forbidden; malformed/duplicate API-key names, and API-key names with `auth_mode` `existing` (a local project's own Pi sign-in), are rejected (an empty API-key list is allowed)
 with value-free findings. Server clones are absolute existing Git roots.
 Preparation uses the existing wizard in prepare-only mode and its configuration validator.
 The generated comment is deterministic for web setup, so identical drafts yield identical
@@ -642,10 +627,10 @@ the persisted route regression.
 `POST /api/v1/projects/{name}/readiness-check` retains bounded explicit probes and
 atomically writes profile-owned `readiness.json`, independent of runtime schema.
 Schema 1 contains immutable `project_id`, exact config-byte SHA-256 `revision`, UTC
-`checked_at`, API-host context, typed prerequisite checks and redacted model probe.
-Checks cover git, forge CLI/auth, runtime, executor CLI, AEGIS files and model endpoint.
-The model probe records executor-container context, readiness, model and an allowed
-reason. Commands/output/credentials are never persisted. Schema, keys, types,
+`checked_at`, API-host context and typed prerequisite checks.
+Checks cover git, forge CLI/auth, runtime, the Pi CLI and AEGIS files; there is no
+model endpoint check (model access comes only from the explicit AI connection test).
+Commands/output/credentials are never persisted. Schema, keys, types,
 identity, digest, time and redacted values are validated on read; corrupt evidence
 fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`).
 
@@ -659,9 +644,6 @@ Storage failures return a safe `readiness_store_failed` finding.
 Offline contract proof is in `test_web_enrollment.py` and `test_web_errors.py`,
 including concurrency, worker discovery, rollback, stable project identity, secret handling,
 RBAC/CSRF, revision races and corrupt persisted evidence.
-
-Restored endpoint CA paths are revalidated before review/apply against the same HTTPS, absolute executor path, bounded length and no traversal/control-character domain as preparation; malformed paths return `pending_config_corrupt`.
-
 
 ## Project repository authentication
 
@@ -732,15 +714,15 @@ and an unreadable run to 503 `run_state_corrupt`; no partial list is returned. I
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi model. Each explicit click sends one short request in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For Pi installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`), the launch command (`executor.command`; only the Pi preset for container projects, validated native argv for local projects), allowed credential variables (`executor.env_keys`), project API keys, the execution environment and estimated prices. Model and command are ordinary reviewed settings (prepare candidate, review, apply on a paused/idle project). Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that reuses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ## Preparation review and apply
 
@@ -763,4 +745,4 @@ reviewed environment candidate. See Component_Project_Images.md.
 
 ## Reviewed executor configuration
 
-The web-only executor.selection candidate owns default agent and its command/model atomically; executor.env_keys owns a complete names-only list. Both require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.
+`executor.model` and `executor.command` are ordinary single-key candidates (there is no agent selection); executor.env_keys owns a complete names-only list. All require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.

@@ -47,7 +47,7 @@ TEA = "tea"
 GLAB_AUTH = "glab-auth"
 GH_AUTH = "gh-auth"
 TEA_AUTH = "tea-auth"
-OPENCODE = "opencode"
+PI = "pi"
 AEGIS = "aegis"
 GIT_PUSH = "git-push"
 GITIGNORE = "gitignore"
@@ -159,11 +159,11 @@ GUIDANCE: dict[str, dict[str, str]] = {
             "set `[platform] login = \"<name>\"` in the profile config."
         )
     },
-    OPENCODE: {
+    PI: {
         "*": (
-            "opencode is baked into the executor base image, so you only need "
-            "it on the HOST for the `host` runtime. Build the base and any "
-            "runtime-project image per docker/README.md."
+            "Pi, ADORE's coding agent, is pinned in the executor base image, so "
+            "you only need it on the HOST for a local (native) run. Build the "
+            "base and any runtime-project image per docker/README.md."
         )
     },
     AEGIS: {
@@ -571,10 +571,10 @@ def detect_push_access(
     )
 
 
-def detect_executor(name: str = OPENCODE, runner: CommandRunner = run_command) -> ToolStatus:
+def detect_executor(name: str = PI, runner: CommandRunner = run_command) -> ToolStatus:
     """
     @brief      Whether an executor CLI is present on the host.
-    @param[in]  name Executor CLI name (default opencode).
+    @param[in]  name Executor CLI name (default pi).
     @param[in]  runner Injectable command runner.
     @return     The ToolStatus.
     """

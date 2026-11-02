@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { validExecutorSelection, validCredentialNames, type ExecutorSelection } from "./executorSettings.ts";
+import { validCredentialNames } from "./executorSettings.ts";
 import { validImplementationCollection } from "./implementationSettings.ts";
 import type { MessageKey } from "./i18n";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan.ts";
@@ -25,9 +25,9 @@ export type SettingMeta = {
 };
 
 /** How a row's value is edited in the browser; `none` means not editable here. */
-export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "agent-selection" | "credential-names" | "none";
+export type InputKind = "boolean" | "number" | "choice" | "text" | "reviewers" | "duration" | "retry-delays" | "stage-timeouts" | "credential-names" | "none";
 
-type CommonKind = "text" | "positive" | "forge" | "runtime" | "executor";
+type CommonKind = "text" | "positive" | "forge" | "runtime";
 
 /** The settings most projects tune, shown first under their own labels. */
 export const COMMON_SETTINGS: Array<{ key: string; label: MessageKey; kind: CommonKind }> = [
@@ -36,7 +36,6 @@ export const COMMON_SETTINGS: Array<{ key: string; label: MessageKey; kind: Comm
   { key: "execution.backend", label: "runsIn", kind: "text" },
   { key: "container.runtime", label: "runtime", kind: "runtime" },
   { key: "container.image", label: "image", kind: "text" },
-  { key: "executor.default", label: "executor", kind: "executor" },
   { key: "polling.poll_interval_seconds", label: "pollInterval", kind: "positive" },
   { key: "polling.max_concurrent_runs", label: "concurrentJobs", kind: "positive" },
   { key: "budgets.max_iterations", label: "maxIterations", kind: "positive" },
@@ -74,7 +73,6 @@ export const settingValue = (config: Record<string, unknown>, key: string): unkn
     current && typeof current === "object" ? (current as Record<string, unknown>)[part] : undefined, config);
 
 const inputKind = (item: SettingMeta): InputKind => {
-  if (item.editable && item.key === "executor.default") return "agent-selection";
   if (item.editable && item.key === "executor.env_keys") return "credential-names";
   if (item.key === "metrics.db_path") return "none";
   if (settingPurpose(item.key) === "technical" || item.key.startsWith("worktree.") && !BRANCH_NAMING_KEYS.has(item.key)) return "none";
@@ -121,7 +119,7 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
 
 /** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
-  "labels.executor.prefix", "readiness.max_scope_hint",
+  "readiness.max_scope_hint",
   "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
   "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
@@ -152,8 +150,7 @@ export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.
   "local.account", "local.home", "local.path", "local.cgroup_root"]);
 
 /** Only known informational worktree fields accompany the external environment. */
-export function settingVisible(key: string, executorOnly = false, agent?:string, backend = "container"): boolean {
-  if (agent && key.startsWith("executor.commands.") && key.split(".")[2] !== agent) return false;
+export function settingVisible(key: string, executorOnly = false, backend = "container"): boolean {
   if (HIDDEN_SETTING_KEYS.has(key)) return false;
   // Container rows for container projects, local-account rows for local ones.
   if (CHOSEN_ENVIRONMENT_KEYS.has(key)) return key === "execution.backend" || key.startsWith("local.") === (backend === "local");
@@ -164,7 +161,7 @@ export function settingVisible(key: string, executorOnly = false, agent?:string,
 
 /** Optional topic disclosures inside a workflow category; ordinary rows stay direct. */
 export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | "authentication" | null {
-  if (["executor.env_keys", "executor.stage_host_auth"].includes(key)) return "authentication";
+  if (key === "executor.env_keys") return "authentication";
   if (key.startsWith("clarification.")) return "clarification";
   if (key.startsWith("recovery.")) return "recovery";
   if (key.startsWith("workflow.stage_timeout_overrides")) return "stageLimits";
@@ -247,7 +244,7 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | ExecutorSelection; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan; endpoint?: { protocol: string; model: string; auth_env: string | null; timeout_seconds: number | null; ca_file: string | null } };
+export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number>; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan };
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -258,21 +255,15 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   const reviewerList = item.key === "delivery.reviewers" && Array.isArray(item.proposed_value)
     && item.proposed_value.every(name => typeof name === "string"
       && name.length > 0 && name.length <= 255 && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
-  const agentSelection = item.key === "executor.selection" && validExecutorSelection(item.proposed_value);
   const credentials = item.key === "executor.env_keys" && validCredentialNames(item.proposed_value);
   const collection = validImplementationCollection(item.key, item.proposed_value);
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
-    && item.value === (reviewerList || collection || agentSelection || credentials ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && (collection || reviewerList || agentSelection || credentials || !["executor.selection", "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
+    && item.value === (reviewerList || collection || credentials ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
+    && (collection || reviewerList || credentials || !["executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.execution_plan === undefined || validExecutionPlan(item.execution_plan))
     && (item.key !== "execution.preparation" || !item.proposed_value || !!item.execution_plan && item.execution_plan.selection === item.proposed_value)
-    && typeof item.created_at === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(item.created_at) && Number.isFinite(Date.parse(item.created_at))
-    && (item.key !== "container.runtime_env.OPENAI_BASE_URL" || !!item.endpoint)
-    && (!item.endpoint || item.key === "container.runtime_env.OPENAI_BASE_URL" && item.endpoint.protocol === "openai-chat-completions" && typeof item.endpoint.model === "string"
-      && (item.endpoint.auth_env === null || /^[A-Z][A-Z0-9_]{0,63}$/.test(item.endpoint.auth_env))
-      && (item.endpoint.timeout_seconds === null || Number.isInteger(item.endpoint.timeout_seconds) && item.endpoint.timeout_seconds >= 1 && item.endpoint.timeout_seconds <= 600)
-      && (item.endpoint.ca_file === null || typeof item.endpoint.ca_file === "string"));
+    && typeof item.created_at === "string" && /(?:Z|[+-]\d{2}:\d{2})$/.test(item.created_at) && Number.isFinite(Date.parse(item.created_at));
 }

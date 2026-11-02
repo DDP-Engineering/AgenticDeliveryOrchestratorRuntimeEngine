@@ -49,7 +49,7 @@ for daily interactive work after you trust the selection.
 
 | Layer | What belongs there | Example |
 | --- | --- | --- |
-| ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `adore-executor-base:1.0.0` |
+| ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and the pinned Pi coding agent. | `adore-executor-base:1.0.0` |
 | Runtime-project image | AEGIS prerequisites plus project build, test, and verification tools and caches. | `adore-executor-<runtime-project>:<tag>` |
 | Per-run container | One isolated claim of one ticket. | Created by ADORE; a failed run retains it for explicit retry or cleanup. |
 

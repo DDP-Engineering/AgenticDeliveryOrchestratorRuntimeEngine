@@ -313,7 +313,7 @@ def test_pending_review_uses_safe_typed_candidate_values(tmp_path):
                              headers=headers).status_code == 200
         before = path.read_bytes()
         secret = client.post("/api/v1/projects/alpha/config/pending", json={
-            "key": "executor.opencode.model",
+            "key": "executor.model",
             "value": "https://user:password@model.local/v1", "revision": revision,
         }, headers=headers)
         assert secret.status_code == 400
@@ -383,7 +383,7 @@ def test_developer_catalog_redacts_financial_setting_and_credential_url(tmp_path
     """@brief Granted Dev gets safe purpose rows without financial or URL secrets."""
     profiles, path, _state = _project(tmp_path)
     path.write_text(path.read_text(encoding="utf-8").replace(
-        'model = "openai/gpt-5.4-fast"',
+        'model = "openai/gpt-5.5"',
         'model = "https://user:secret-value@model.local/v1"'), encoding="utf-8")
     assert "secret-value" in path.read_text(encoding="utf-8")
     app = create_app(profiles.home)
@@ -396,7 +396,6 @@ def test_developer_catalog_redacts_financial_setting_and_credential_url(tmp_path
         assert viewed.status_code == 200
         assert "max_cost_usd" not in viewed.text
         assert "secret-value" not in viewed.text
-        assert "OPENCODE_CONFIG_CONTENT" not in viewed.text
         assert client.get("/api/v1/projects/alpha/config/pending").status_code == 403
         for route in ("config/pending", "config/apply"):
             assert client.post(f"/api/v1/projects/alpha/{route}", json={
@@ -426,47 +425,6 @@ def test_apply_binds_the_reviewed_base_as_well_as_candidate(tmp_path):
         assert client.post("/api/v1/projects/alpha/config/apply", json={
             "candidate_revision": pending["candidate_revision"], "base_revision": revision,
         }, headers=headers).status_code == 200
-
-
-@pytest.mark.parametrize("old,new", [
-    ("@ai-sdk/openai-compatible", "@ai-sdk/anthropic"),
-    ("{env:OPENAI_API_KEY}", "raw-credential-value"),
-    ("/etc/ssl/model-ca.pem", "https://user:ca-secret@model.local/ca"),
-    ("/etc/ssl/model-ca.pem", "../invalid-ca.pem"),
-])
-def test_restored_endpoint_review_rejects_changed_protocol_or_credentials(tmp_path, old, new):
-    """@brief Corrupt restored connection metadata fails before review or apply."""
-    from hashlib import sha256
-
-    profiles, path, state = _project(tmp_path)
-    state.pause()
-    with TestClient(create_app(profiles.home)) as client:
-        headers = _headers(client)
-        original = path.read_bytes()
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        staged = client.post("/api/v1/projects/alpha/config/pending", json={
-            "key": "container.runtime_env.OPENAI_BASE_URL", "value": "https://model.local/v1",
-            "model": "local/test", "auth_env": "OPENAI_API_KEY",
-            "ca_file": "/etc/ssl/model-ca.pem", "revision": revision,
-        }, headers=headers)
-        assert staged.status_code == 200
-        pending_path = profiles.profile_dir("alpha") / "pending_config.json"
-        record = json.loads(pending_path.read_text(encoding="utf-8"))
-        assert old in record["candidate_text"]
-        record["candidate_text"] = record["candidate_text"].replace(old, new)
-        record["candidate_revision"] = sha256(record["candidate_text"].encode()).hexdigest()
-        pending_path.write_text(json.dumps(record), encoding="utf-8")
-        viewed = client.get("/api/v1/projects/alpha/config/pending")
-        assert viewed.status_code == 503
-        assert new not in viewed.text
-        rejected = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": record["candidate_revision"], "base_revision": revision,
-        }, headers=headers)
-        assert rejected.status_code == 503
-        assert rejected.json()["detail"]["code"] == "pending_config_corrupt"
-        assert path.read_bytes() == original
-        assert client.delete("/api/v1/projects/alpha/config/pending",
-                             headers=headers).status_code == 200
 
 
 def test_catalog_fails_closed_on_corrupt_declared_scalar_type(tmp_path):

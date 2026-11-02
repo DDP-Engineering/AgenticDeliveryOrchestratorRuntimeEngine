@@ -19,11 +19,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## 1. Purpose
 
-Launch the configured executor - **opencode, pi, codex, or qwen**, chosen by
-`[executor] default` - headless inside the run's container, one gate per
-launch, and read every result back deterministically. All code reasoning
-lives in the executor; the launcher only composes commands and collects
-outcomes.
+Launch Pi (`@earendil-works/pi-coding-agent`), ADORE's only coding agent,
+headless for one gate per launch - over RPC inside the run's container, or
+with the configured `[executor] command` for a local (native) run - and read
+every result back deterministically. All code reasoning lives in the
+executor; the launcher only composes commands and collects outcomes.
 
 ## 2. Responsibilities
 
@@ -31,21 +31,20 @@ outcomes.
   seam, bound by the orchestrator to the run's container) + `GateRun` (the
   conductor's decision inputs: exit code, questions, raw output, immutable
   artifact archive directories). There is deliberately no session id.
-- `FileProtocolExecutor` (`launcher.py`): the shared, executor-agnostic
-  file-based gate protocol (section 3), template substitution,
-  questions-file detection, and per-launch archiving. Subclasses supply only
-  the optional usage parser.
+- `FileProtocolExecutor` (`launcher.py`): the file-based gate protocol of a
+  native run (section 3), template substitution, questions-file detection,
+  and per-launch archiving. The subclass supplies only the usage parser.
 - Every launch is a FRESH executor session. The durable AEGIS journal is the
   resume authority, so nothing is continued and no session id is tracked. The
   `--session` continuation, the dead-session self-heal relaunch, and the
   per-executor `_extract_session_id` hooks were removed: the orchestrator
   always launched with an empty session and never stored one back, so none of
   that machinery could ever run.
-- `OpencodeExecutor`: the `--auto` refusal and `step_finish` token/cost usage.
-- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`). On a container
-  target (one with a `spawn` seam) every gate is one `pi --mode rpc` process
-  driven by `pi_rpc` (section "Pi RPC launch"); the configured `[executor.pi]`
-  command is not used there. A native target keeps the file protocol, where
+- `PiExecutor`: the only implementation of the `Executor` interface. On a
+  container target (one with a `spawn` seam) every gate is one `pi --mode rpc`
+  process driven by `pi_rpc` (section "Pi RPC launch") using the image's
+  pinned Pi; the configured `[executor] command` is not used there. A native
+  target keeps the file protocol with the configured command, where
   final `turn_end` events report input/output and cache read/write tokens.
   Pi's embedded cost is an executor estimate, so ADORE leaves reported cost
   unavailable on both paths.
@@ -53,14 +52,10 @@ outcomes.
   event reading, completion on `agent_settled`, `abort` on the stage timeout
   or a cancel, termination after a grace period, failure classification and
   usage summed per turn; returns a `PiRpcResult`.
-- `CodexExecutor`: OpenAI Codex CLI; the command is plain `codex exec`
-  (default `codex exec --json --model {model} --ignore-user-config --disable
-  plugins --dangerously-bypass-approvals-and-sandbox {prompt}`). The removed
-  `{resume}` placeholder is refused by config validation as unsupported.
-- `QwenExecutor`: Qwen Code; nothing executor-specific beyond the `--yolo`
-  refusal.
-- `build_executor(kind, command_template, model, questions_file)` - the config
-  selection point (`kind` = `opencode` | `pi` | `codex` | `qwen`).
+- `build_executor(command_template, model, questions_file)` - the config
+  selection point; returns a `PiExecutor`. `command_template` is the native
+  `[executor] command` (default `pi -p --mode json --model {model} {prompt}`,
+  `branding.PI_NATIVE_COMMAND`).
 
 Explicitly not owned: *which* gate to run and what to do with the outcome
 (orchestrator, design 7a), container lifecycle (isolation), posting anything
@@ -68,14 +63,14 @@ to the Git platform (forge; the executor never touches the remote).
 
 ## 3. Implementation Overview
 
-**The file-based gate protocol** - every byte crosses process boundaries in
-files, never argv or live stdout, because of two verified findings:
-`wsl.exe` splits argv elements containing spaces, and opencode buffers stdout
-so live streaming looks hung.
+**The file-based gate protocol** (native Pi runs) - every byte crosses
+process boundaries in files, never argv or live stdout, because of two
+verified findings: `wsl.exe` splits argv elements containing spaces, and a
+headless CLI may buffer stdout so live streaming looks hung.
 
 1. Delete a stale questions file from the worktree - its presence after the
    gate must mean it was written by THIS gate.
-2. Render the command from the `[executor.<name>]` template: `{prompt}` ->
+2. Render the command from the `[executor] command` template: `{prompt}` ->
    shell-quoted prompt text, `{model}` -> quoted model, `{worktree}` ->
    `/adore/work` (the container-side mount). No other placeholder is
    supplied. Nothing is appended for continuation: each gate is a fresh session.
@@ -98,27 +93,20 @@ so live streaming looks hung.
    `stderr.log`, and `meta.json`. One launch per gate, so the suffix is
    constant; a reused stem is disambiguated with a numeric suffix.
 
-Steps 1-5 live in `FileProtocolExecutor`; subclasses customize only stream
-parsing. All supported executors read the repo's
-`AGENTS.md` gate contract natively and get their push/merge guardrails from
+Steps 1-5 live in `FileProtocolExecutor`; `PiExecutor` customizes only stream
+parsing. Pi reads the repo's
+`AGENTS.md` gate contract natively and gets its push/merge guardrails from
 the repo adapter plus container isolation - there are no remote credentials in
 the container, so the executor cannot push regardless.
 - The live exchange files (`gate.sh`, `output.jsonl`, `stderr.log`) remain in
   `.adore/runs/<run-id>/io/` and are overwritten by the next launch. Immutable
   per-launch archives persist under `io/archive/`; being outside the worktree,
   the executor can never `git add` them.
-- **Safety:** a forbidden flag (`--auto` for opencode, `--yolo` for qwen)
-  anywhere in the template raises `ValueError` at construction, and
-  `validate_config` reports it before any run starts - it would auto-approve
-  the push/pr/merge permissions that keep the executor off the remote (prereq
-  report section 6). The check tokenizes with `shlex` and catches both the bare
-  flag and its `--flag=value` form; it stays a safety belt, not the boundary
-  (container isolation is). Codex full-auto is allowed only
-  because ADORE owns the external container/worktree sandbox and keeps remote
-  delivery outside the executor; `validate_config` still requires `--json`,
-  a non-interactive sandbox mode, `--ignore-user-config`, and
-  `--disable plugins` so workstation plugin/marketplace state cannot be
-  materialized into the target worktree.
+- **Safety:** `validate_config` refuses `--auto` in the native
+  `[executor] command` before any run starts - it would auto-approve the
+  push/pr/merge permissions that keep the executor off the remote (prereq
+  report section 6). The command must also contain `{prompt}`. This is a
+  safety belt, not the boundary (no forge credential in the run is).
 
 ## 3a. Pi RPC launch (container targets)
 
@@ -168,9 +156,9 @@ in depth: the boundary stays that no forge credential is in the container.
   directory `/home/adore/.adore-pi-agent` (`docker/Dockerfile.executor-base`;
   `docker/verify-runtime.sh` checks the versions). pi-web-access is
   installed but not loaded.
-- External: the executor CLI inside the `adore-executor` image; target-repo
-  executor policy files such as `opencode.json`, `.pi`, `.codex`, and `.qwen`
-  arrive with the worktree.
+- External: Pi inside the `adore-executor` image (container runs) or on the
+  host (native runs only); the target repo's `AGENTS.md` arrives with the
+  worktree (its `.pi` directory is not loaded by a container RPC run).
 
 ## 5. Inputs And Outputs
 
@@ -193,13 +181,7 @@ in depth: the boundary stays that no forge credential is in the container.
   conductor still checks `has_questions` and runs `invariants`.
 - `GateRun.timed_out` copies `CommandResult.timed_out` from the physical launch;
   it is never inferred from exit code or stderr. Archive-error returns preserve
-  it, archive metadata records it, and a timed-out launch cannot trigger the
-  dead-session self-heal.
-- `GateRun.session_id` falls back to the passed-in session when the output
-  stream yields none, so continuation is never lost to a parse gap.
-- **Dead-session self-heal** (live finding 2026-07-04): a launch failing
-  with "Session not found" (the session died with its container or was
-  pruned) relaunches once with a fresh session instead of failing the gate.
+  it and archive metadata records it.
 - The questions-file convention: executor writes
   `ADORE_QUESTIONS.md` (configurable) in the worktree and stops; presence
   after the gate = park.
@@ -239,41 +221,34 @@ gate is still running that long after the marker was seen.
 from functools import partial
 from adore.executor.launcher import build_executor
 
-executor = build_executor("opencode",
-                          "opencode run --dir {worktree} -m {model} --format json {prompt}",
+executor = build_executor("pi -p --mode json --model {model} {prompt}",
                           "openai/gpt-5.4-fast")
-execute = partial(containers.exec, "adore-run-<run-id>")
-run = executor.run_gate(execute, worktree_path, io_path, intake_prompt,
+# A container target is the orchestrator's BoundTarget (it has `spawn`, so
+# the gate runs over Pi RPC); a native target uses the command above.
+run = executor.run_gate(target, worktree_path, io_path, intake_prompt,
                         timeout=3600, archive_stem="001-intake")
 if run.has_questions:
     park(run.questions)
 elif run.ok:
-    advance(session=run.session_id)
+    advance()
 ```
 
 ## 9. Validation And Tests
 
 - `tests/test_executor.py` (offline, fake exec seam): WSL-safe script
   protocol (two-token argv, LF-only script, quoted prompt, redirections),
-  session continuation and fallback, questions detection, stale-questions
-  clearing, failure/timeout as data, normal/missing-output/nonzero/session-
-  reset archive behavior, authoritative timeout propagation (including archive
-  failure and reset-like stderr), archive-write failure as data, `--auto`
-  rejection, factory wiring.
-- `tests/test_config.py`: `--auto` flagged by `validate_config`; Codex must
-  be non-interactive JSON, ignore machine-local user config, and disable
-  bundled plugins.
+  questions detection, stale-questions clearing, failure/timeout as data,
+  normal/missing-output/nonzero archive behavior, archive-write failure as
+  data, Pi `turn_end` usage parsing, and factory wiring (`build_executor`
+  returns a `PiExecutor`).
+- `tests/test_config.py`: `--auto` in the native command and a command
+  without `{prompt}` are flagged by `validate_config`; removed `[executor]`
+  keys and `[executor.<name>]` tables are refused as unknown keys.
 - **Live verification done 2026-07-03** (real container, Docker in WSL2,
   8/8 steps): a hostile prompt (quotes, `$`,
   backticks, `%`, newline) round-trips byte-exact through the WSL boundary;
   questions detection, stale clearing, exit-code passthrough, artifact
   persistence.
-- **Mutating opencode spike done 2026-07-03** (a real gpt-5.5
-  session on a scratch worktree of the real repo): opencode
-  executed the `.agentic` CLI non-interactively, loaded the
-  `agentic-development` skill unprompted, committed evidence under the bot
-  identity, and the push attempt was auto-rejected headless - all three
-  design assertions proven through this launcher.
 - `tests/test_pi_rpc.py` (offline): a fake Pi (`tests/fake_pi_rpc.py`)
   replays the PI-01 spike recordings in `tests/fixtures/pi_rpc/` over real
   pipes - tool-call run and per-turn usage, exit code after settling, timeout
@@ -291,40 +266,23 @@ elif run.ok:
 
 - Pi final-turn usage records cache-read and cache-write token counts on
   `GateRun`. `tokens_in` includes these categories, so reports expose them as
-  subsets rather than adding them to input again. Missing categories remain
-  unavailable for other executors.
+  subsets rather than adding them to input again.
 
 - `GateRun.cost_reported` distinguishes an explicitly emitted cost (including
   zero) from the default zero used when the executor has no cost telemetry.
   `GateRun.tokens_reported` similarly distinguishes a complete zero-token
   report from absent or partial usage. File-protocol launchers set this flag
   from valid final executor events; older injected results may leave it unset.
-  OpenCode and Codex detect their explicit cost fields; Pi and Qwen have no
-  billed-cost telemetry. The orchestrator journals this
-  coverage along with executor, model and review-round identifiers.
+  Pi has no billed-cost telemetry, so `cost_reported` stays False. The
+  orchestrator journals this coverage along with executor, model and
+  review-round identifiers.
 
 - Pi RPC runs only in containers; a native (local) Pi keeps the file
   protocol and the configured command. Killing the `docker exec` client closes
   Pi's stdin but sends no signal inside the container; on cancel the
   conductor's container stop remains the backstop.
 
-- **OpenCode and Pi are live-proven; Codex and Qwen are selectable variants
-  with offline contract coverage.** Live pilots remain executor-specific because
-  each CLI has its own trust/auth/session quirks.
-- Codex live finding 2026-07-06: avoid copying host desktop Codex config into
-  the run. Use `--ignore-user-config`; the orchestrator stages only
-  `auth.json` into an ADORE-owned `CODEX_HOME`. Use `--disable plugins` as
-  well; otherwise Codex may materialize bundled plugin marketplace files in
-  the target worktree during headless runs.
-- Observed event schema (live, 2026-07-03): NDJSON with `step_start` /
-  `tool_use` / `step_finish` events, top-level `sessionID`, full tool
-  inputs/outputs/exit codes; `step_finish` carries `tokens`
-  (input/output/reasoning/cache) and `cost` - the metrics phase reads usage
-  straight from the persisted `output.jsonl`.
-- **An auto-rejected permission ends the opencode run at that point** (spike
-  finding). The conductor must treat a rejection as end-of-gate and never
-  sequence required work after an expected rejection.
-- No mid-gate progress visibility: results are read at exit. If gates prove
+- No mid-gate progress visibility for a native run: results are read at exit. If gates prove
   too long to run blind, add tailing of `output.jsonl` (it grows during the
   run) without changing the protocol.
 

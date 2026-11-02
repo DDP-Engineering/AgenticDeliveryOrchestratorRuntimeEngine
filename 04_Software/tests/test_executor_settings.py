@@ -24,11 +24,10 @@ import pytest
 from tests.test_model_connection import project
 
 
-@pytest.mark.parametrize("kind", ["opencode", "pi", "codex", "qwen"])
-def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkeypatch, kind):
+def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkeypatch):
     """@brief Save only an approved variable used by real executor environment injection."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    profiles = project(tmp_path, kind=kind)
+    profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     env = profiles.profile_dir("alpha") / ".env"
     env.write_text("# retained\nANTHROPIC_API_KEY=other-private\n", encoding="utf-8")
@@ -145,11 +144,11 @@ def test_credential_boundary_preserves_original_bytes(tmp_path, monkeypatch, mod
 
 def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypatch):
     """@brief A local agent that cannot run its shell call yields saved, readable evidence."""
-    profiles = project(tmp_path, kind="pi")
+    profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
 
-    model = load_config(profiles.config_path("alpha")).executor.commands["pi"].model
+    model = load_config(profiles.config_path("alpha")).executor.model
     monkeypatch.setattr(
         module,
         "probe_model_connection",
@@ -172,11 +171,11 @@ def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypa
 
 def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path, monkeypatch):
     """@brief A current explicit result survives host checks and credential drift hides it."""
-    profiles = project(tmp_path, kind="pi")
+    profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
 
-    model = load_config(profiles.config_path("alpha")).executor.commands["pi"].model
+    model = load_config(profiles.config_path("alpha")).executor.model
     monkeypatch.setattr(
         module,
         "probe_model_connection",
@@ -204,13 +203,6 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
                     "container_runtime": True,
                     "executor_cli": True,
                     "aegis_files": True,
-                    "model_endpoint": "not-checked",
-                },
-                "model_probe": {
-                    "context": "executor-container",
-                    "ready": False,
-                    "model": model,
-                    "reason": "unsupported-executor",
                 },
             },
         )
@@ -239,11 +231,11 @@ def test_model_evidence_corruption_fails_closed(tmp_path, monkeypatch, mode):
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
 
-    model = load_config(profiles.config_path("alpha")).executor.commands["opencode"].model
+    model = load_config(profiles.config_path("alpha")).executor.model
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "opencode", "model": model, "ready": True, "reason": "ready"},
+        lambda *args: {"executor": "pi", "model": model, "ready": True, "reason": "ready"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
@@ -316,8 +308,8 @@ def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monk
         """@brief Change an external credential after the initial snapshot."""
         env_file.write_text("OPENAI_API_KEY=concurrent-change\n", encoding="utf-8")
         return {
-            "executor": config.executor.default,
-            "model": config.executor.commands[config.executor.default].model,
+            "executor": "pi",
+            "model": config.executor.model,
             "ready": True,
             "reason": "ready",
         }

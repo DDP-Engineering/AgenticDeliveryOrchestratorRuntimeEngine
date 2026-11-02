@@ -42,7 +42,7 @@ Un Dev ne voit jamais de valeurs monétaires et ne peut pas ouvrir les pages d�
 ## Premiers pas {#getting-started}
 
 1. Les administrateurs inscrivent le dépôt : [Ajouter un dépôt](/help/projects).
-2. Choisissez l’agent de programmation et le modèle : [Exécuteurs et modèles](/help/executors).
+2. Choisissez le modèle utilisé par l’agent de programmation Pi : [Exécuteurs et modèles](/help/executors).
 3. Préparez les tickets pour qu’ADORE puisse les prendre en charge : [Tickets et prise en charge automatique](/help/tickets).
 4. Suivez chaque tâche jusqu’à sa MR/PR en brouillon : [Cycle de vie d’une tâche](/help/jobs).
 
@@ -54,7 +54,7 @@ Les développeurs commencent à l’étape 3 dès qu’un administrateur leur a 
 - [Visite de l’interface](/help/interface) : barre latérale, en-tête, hub du projet et libellés d’état.
 - [Ajouter un dépôt](/help/projects) : inscrire un projet.
 - [Paramètres du projet](/help/settings) : ce que contrôle chaque groupe de paramètres.
-- [Exécuteurs et modèles](/help/executors) : agents de programmation, modèles et authentification.
+- [Exécuteurs et modèles](/help/executors) : l’agent de programmation Pi, les modèles et l’authentification.
 - [Tickets et prise en charge automatique](/help/tickets) : étiquettes et démarrage des tickets.
 - [Cycle de vie d’une tâche](/help/jobs) : états, attentes, relance et annulation.
 - [Statistiques et coûts](/help/statistics) : utilisation, qualité, tendances et coûts estimés.

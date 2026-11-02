@@ -46,13 +46,20 @@ credentials in executor environment allowlists, rejects unsafe executor modes,
 requires boolean review-state delivery, and validates paths, labels, retries, duration,
 and resource limits instead of letting a later component guess.
 `validate_config()` refuses every key this build does not read, in every
-section and subtable (`labels.*`, `executor.<name>`, `container.egress`), with
+section and subtable (`labels.*`, `[executor]`, `container.egress`), with
 `[section] unknown key 'x': remove it from config.toml`; missing keys take the
-documented defaults. `[state] channel` and the Codex `{resume}` placeholder no
-longer exist and are refused as an unknown key and an unsupported placeholder.
-ADORE-managed `stage_host_auth` supports only OpenCode and Codex. Pi may use an
-operator-provided credential mount with staging disabled; unsupported
-executor/staging pairs fail validation before a run starts.
+documented defaults. `[state] channel`, `[executor] default`,
+`[executor] stage_host_auth`, any `[executor.<name>]` table and
+`[labels.executor]` are refused this way.
+Pi is the only coding agent. `ExecutorConfig` holds `model` (required,
+provider/model), `command` (default `branding.PI_NATIVE_COMMAND`,
+`pi -p --mode json --model {model} {prompt}`, used only by a native run),
+`mode`, `questions_file` and `env_keys`. The command must contain `{prompt}`,
+must not contain the `--auto` token, and may use only the `{prompt}`, `{model}`
+and `{worktree}` placeholders (a literal brace is doubled). `[container]
+runtime_env` and `[local] environment` names starting `OPENCODE_`, `CODEX_` or
+`QWEN_` (`REMOVED_AGENT_ENV_PREFIXES`) are refused with
+`... configures a removed coding agent: remove it from config.toml`.
 `delivery.publish_checkpoints` is a strict boolean, enabled by default for CLI
 and web with explicit false respected; candidate-bound MR/PR
 approval remains mandatory. The reported-cost cap accepts finite nonnegative
@@ -78,6 +85,8 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-ca17a8e8` - boolean review-state delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
+- `REQ-FUNC-2df31adf` - Pi is the only executor; `[executor]` needs only a model.
+- `REQ-FUNC-78b0ad95` - configuration of another coding agent is refused with the fix.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
   validator.
 - `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.

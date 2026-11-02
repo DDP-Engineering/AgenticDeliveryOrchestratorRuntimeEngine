@@ -40,8 +40,13 @@ runtime before it can replace a profile, so invalid profiles are never saved.
 Secrets are never written: only required environment-variable names are
 derived. The wizard validates branch-rule compatibility and reports missing
 tools or unsuitable AEGIS payloads as setup guidance, not a hidden mutation.
-ADORE-managed host-auth staging is offered only for OpenCode and Codex; an
-unsupported Pi/Qwen staging answer fails before the profile is written.
+Pi is the only coding agent, so the wizard asks no agent question. It asks the
+model (`provider/model`, default `openai/gpt-5.5`); a container profile uses
+the api-key auth mode without a question, and a local profile asks the
+installed native Pi argv (default `branding.PI_NATIVE_COMMAND`) and api-key or
+existing (the local account's own Pi sign-in). It writes `[executor] model`,
+`command` only when it differs from the default, and `env_keys` (empty for
+existing, else the provider key names implied by the model).
 The reported-cost prompt accepts finite nonnegative USD input; zero disables
 that cap for a subscription/local model while other run limits remain.
 
@@ -59,6 +64,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-3d8f6f5e` - offline preparation and field-specific safe findings;
   `test_web_enrollment.py` proves preparation and preserved default CLI mode.
 
+- `REQ-FUNC-2df31adf` - the wizard writes Pi's model without an agent choice.
 - `REQ-FUNC-5771eecc` - generated configuration validates before it is saved.
 - `REQ-FUNC-6c82ad42` - invalid/unconfirmed answers cannot create or overwrite a profile.
 - `REQ-FUNC-7ce5b17a` - web project creation reuses guided answers and the

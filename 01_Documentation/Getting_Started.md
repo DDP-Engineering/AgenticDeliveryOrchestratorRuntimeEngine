@@ -17,7 +17,8 @@ human approval. It never merges.
 - Git and a non-interactively pushable target clone;
 - Docker or rootless Podman for container profiles; native scope controls for local profiles;
 - authenticated `gh`, `glab`, or `tea` on the host;
-- an executor supported by the configured launcher;
+- Pi, ADORE's only coding agent: built into the executor base image for container
+  profiles, installed for the service account (`pi --version`) for local profiles;
 - AEGIS installed in the target repository as `.agentic/aegis.py`;
 - schema 1 from `status --all --json` and valid configured AEGIS tests.
 
@@ -54,6 +55,9 @@ repo_path = "D:/source/runtime-project"
 [container]
 runtime = "docker"
 image = "my-project-adore:latest"
+
+[executor]
+model = "openai/gpt-5.5" # Pi model in provider/model form
 
 [workflow]
 aegis_python = "python"

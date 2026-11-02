@@ -273,11 +273,10 @@ elif [ "${EGRESS_MODE}" = "none" ]; then
 fi
 
 # 9. tool usability (exit 0, not mere presence)
-step "executor-base toolchain usable (python/uv/node/git/opencode/pi/codex/qwen)"
+step "executor-base toolchain usable (python/uv/node/git/pi)"
 TOOLS_OK=1
 for tool_cmd in "python --version" "uv --version" "node --version" \
-                "git --version" "opencode --version" "pi --help" \
-                "codex --version" "qwen --version"; do
+                "git --version" "pi --help"; do
     # shellcheck disable=SC2086
     if ! "${RT[@]}" exec "${NAME}" ${tool_cmd} >/dev/null 2>&1; then
         TOOLS_OK=0

@@ -16,11 +16,9 @@
 from pathlib import Path
 
 from adore.profiles import ProfileStore
-from adore.state import StateStore
 from adore.util import CommandResult
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
-import pytest
 
 
 def _project(tmp_path):
@@ -60,7 +58,7 @@ def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_pa
         assert value["checks"]["forge_auth"] is False
         assert value["checks"]["aegis_files"] is False
         assert value["checks"]["executor_cli"] is True
-        assert value["checks"]["model_endpoint"] == "not-checked"
+        assert "model_endpoint" not in value["checks"] and "model_probe" not in value
         assert "secret" not in response.text
         assert calls and all(timeout <= 8 for _argv, timeout in calls)
         assert any("--pull=never" in argv and "--network" in argv
@@ -87,7 +85,7 @@ def test_host_executor_presence_does_not_hide_missing_image_tool(tmp_path):
         assert response.json()["checks"]["executor_cli"] is False
         assert "private" not in response.text
         assert any("--entrypoint" in argv for argv in calls)
-        assert not any(argv[0] == "opencode" for argv in calls)
+        assert any(argv[-1] == "pi" for argv in calls if "--entrypoint" in argv)
 
 
 def test_readiness_probe_requires_admin_csrf_and_valid_config(tmp_path):
@@ -117,79 +115,4 @@ def test_readiness_probe_requires_admin_csrf_and_valid_config(tmp_path):
                            headers={"X-CSRF-Token": dev_csrf}).status_code == 403
 
 
-def test_local_model_readiness_uses_disposable_executor_container(tmp_path):
-    """@brief A streamed tool probe must run in the configured image context."""
-    profiles, path = _project(tmp_path)
-    StateStore(tmp_path / "state").pause()
-    calls = []
-
-    def runner(argv, *, cwd=None, timeout=None, env=None):
-        calls.append((list(argv), timeout))
-        if argv[0] == "docker" and "inspect" in argv and "image" not in argv:
-            return CommandResult(argv=list(argv), exit_code=1, stdout="",
-                                 stderr="No such object")
-        if argv[0] == "docker" and "exec" in argv:
-            assert "python" in argv and "-c" in argv
-            assert env["ADORE_PROBE_MODEL"] == "test"
-            assert env["SSL_CERT_FILE"] == "/etc/ssl/adore-model-ca.pem"
-            return CommandResult(argv=list(argv), exit_code=0,
-                                 stdout="ready\n", stderr="")
-        return CommandResult(argv=list(argv), exit_code=0,
-                             stdout="", stderr="")
-
-    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
-        csrf = client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"}).json()["csrf"]
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        saved = client.put("/api/v1/projects/alpha/config", json={
-            "key": "container.runtime_env.OPENAI_BASE_URL",
-            "value": "https://model.internal:1234/v1", "model": "local/test",
-            "ca_file": "/etc/ssl/adore-model-ca.pem", "timeout_seconds": 45,
-            "revision": revision}, headers={"X-CSRF-Token": csrf})
-        assert saved.status_code == 200, saved.text
-        response = client.post("/api/v1/projects/alpha/readiness-check",
-                               headers={"X-CSRF-Token": csrf})
-        assert response.status_code == 200, response.text
-        assert response.json()["checks"]["model_endpoint"] is True
-        assert response.json()["model_probe"] == {
-            "context": "executor-container", "ready": True,
-            "model": "local/test", "reason": "ready"}
-        assert any("--pull=never" in argv for argv, _ in calls)
-        assert any("rm" in argv for argv, _ in calls)
-        assert all(timeout is None or timeout <= 8 for _, timeout in calls)
-    assert "model.internal" in path.read_text(encoding="utf-8")
-
-
-@pytest.mark.parametrize("reason", (
-    "tool-stream-incompatible", "redirect-rejected", "http-401",
-    "endpoint-unreachable-or-incompatible", "credential-missing",
-))
-def test_local_model_readiness_rejects_incompatible_container_result(tmp_path, reason):
-    """@brief Host success does not substitute for an incompatible model stream."""
-    profiles, _path = _project(tmp_path)
-    StateStore(tmp_path / "state").pause()
-
-    def runner(argv, *, cwd=None, timeout=None, env=None):
-        if argv[0] == "docker" and "inspect" in argv and "image" not in argv:
-            return CommandResult(argv=list(argv), exit_code=1, stdout="",
-                                 stderr="No such object")
-        if argv[0] == "docker" and "exec" in argv:
-            return CommandResult(argv=list(argv), exit_code=2,
-                                 stdout=f"{reason}\n", stderr="secret")
-        return CommandResult(argv=list(argv), exit_code=0, stdout="", stderr="")
-
-    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
-        csrf = client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"}).json()["csrf"]
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        saved = client.put("/api/v1/projects/alpha/config", json={
-            "key": "container.runtime_env.OPENAI_BASE_URL",
-            "value": "http://model.internal/v1", "model": "local/test",
-            "revision": revision}, headers={"X-CSRF-Token": csrf})
-        assert saved.status_code == 200, saved.text
-        response = client.post("/api/v1/projects/alpha/readiness-check",
-                               headers={"X-CSRF-Token": csrf})
-        assert response.status_code == 200, response.text
-        assert response.json()["checks"]["model_endpoint"] is False
-        assert response.json()["model_probe"]["reason"] == reason
-        assert "secret" not in response.text
+# END OF FILE

@@ -10,7 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Applies to ADORE 0.13.0 and its AEGIS schema-1 contract.
 
 Use this when you want ADORE to pick up a ticket, skip a ticket, resume a parked
-ticket, or route a ticket to a specific executor.
+ticket, or request a revision.
 
 ![ADORE ticket lifecycle](assets/ticket-lifecycle.svg)
 
@@ -60,7 +60,6 @@ Defaults can be renamed in `config.toml`, but the roles stay the same.
 | Bug/fix | `bug` or `fix` | Human | Selects an AEGIS fix run. |
 | Change | `change` | Human | Selects an AEGIS change run. |
 | Quick | `agent-quick` | Human | Hints that framing may select the quick path; AEGIS records the final path decision. |
-| Executor pin | `agent-exec:<name>` | Human | Forces a configured executor for this ticket. |
 | Revise | `agent-revise` | Reviewer | Requests a post-MR revision cycle. |
 
 ## ADORE-Managed Lifecycle Labels
@@ -121,6 +120,5 @@ Check the active configuration:
 | Make the ticket human-only. | Add `no-agent`. |
 | Answer a clarification. | Reply in a normal human comment, then add `agent-answered`. |
 | Request a revision after draft MR/PR review. | Add `agent-revise` to the MR/PR, then run another poll. |
-| Force opencode for one ticket. | Add `agent-exec:opencode`. |
 
 Do not remove or edit the hidden ADORE marker lines in status comments.

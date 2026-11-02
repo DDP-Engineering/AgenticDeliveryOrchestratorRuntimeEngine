@@ -27,8 +27,8 @@ means.
 
 ## Public interface
 
-- `build_executor(kind, command_template, model, questions_file)` selects the
-  `opencode`, `pi`, `codex`, or `qwen` implementation.
+- `build_executor(command_template, model, questions_file)` returns a
+  `PiExecutor`; Pi is the only executor implementation.
 - `FileProtocolExecutor.run_gate(...)` accepts an injected backend command seam,
   worktree/io paths, prompt, timeout, archive stem and an optional `cancel`
   check; it returns a typed `GateRun`.
@@ -52,14 +52,13 @@ argv or streamed output. A timeout is taken solely from `CommandResult.timed_out
 not guessed from exit text. Each requested archive is immutable under
 `io/archive/`, so a retry cannot destroy prior evidence.
 
-The executor receives no forge credentials and cannot publish. Unsafe
-auto-approval flags are rejected by configuration validation. The launcher
-starts a fresh session for each gate and never guesses a retry from timeout text.
-OpenCode and Codex mark cost as reported only when their event stream has an
-explicit cost field; token-only usage does not prove a zero-dollar cost.
-Complete OpenCode, Pi and Codex token records mark token coverage even when
-their counts are zero; missing or partial records do not claim coverage.
-Pi counts only completed `turn_end` JSON events, including cache-read and
+The executor receives no forge credentials and cannot publish. The launcher
+does not inspect command flags; configuration validation rejects `--auto`
+before a run. The launcher starts a fresh session for each gate and never
+guesses a retry from timeout text.
+Complete Pi token records mark token coverage even when their counts are zero;
+missing or partial records do not claim coverage.
+A native Pi run counts only completed `turn_end` JSON events, including cache-read and
 cache-write input tokens; streaming and message-end copies are ignored. Invalid
 usage values are skipped. Pi's embedded monetary value is an executor estimate,
 so the launcher leaves billed cost unavailable for administrator price rules.
@@ -69,7 +68,7 @@ Container Pi runs `node /opt/pi/.../cli.js --mode rpc --no-session
 --no-mcp -e /opt/adore/pi/adore-guard.ts --model <model>` with
 `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`, `PI_OFFLINE=1`,
 `PI_TELEMETRY=0`, `PI_SKIP_VERSION_CHECK=1`; the prompt goes over stdin and the
-configured `[executor.pi]` command is not used. A launch is complete only on
+configured `[executor] command` is not used. A launch is complete only on
 `agent_settled` that is not aborted with a last assistant stopReason other
 than `error`; the exit code is not the result. Timeout or cancel sends `abort`,
 waits 10 s for settling, closes stdin, terminates after 5 s and kills after 5
@@ -95,8 +94,9 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-e397f7f6`: Bound targets supply shell/worktree/IO paths and verified resource identity; plain injected callables retain the container defaults. Prompts/scripts remain file transported and quoted.
 
+- `REQ-FUNC-2df31adf` - every stage launches Pi with `[executor] model`.
 - `REQ-FUNC-59ccdb74` - WSL-safe file transport and typed timeout propagation
-  for every container executor except Pi.
+  for file-protocol launches.
 - `REQ-FUNC-116450ef` - container Pi stage through one RPC process.
 - `REQ-FUNC-7caa53e1` - Pi usage summed over turns, no billed cost.
 - `REQ-REL-0859d96e` / `REQ-REL-2d48ea39` - abort on timeout / cancel, then end.

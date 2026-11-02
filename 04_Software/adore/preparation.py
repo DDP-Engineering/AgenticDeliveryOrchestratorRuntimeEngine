@@ -374,16 +374,11 @@ def execution_policy(config: Config) -> dict:
             }
         },
         "executor": {
-            "default": config.executor.default,
+            "model": config.executor.model,
+            "command": config.executor.command,
             "mode": config.executor.mode,
             "questions_file": config.executor.questions_file,
-            "command": (
-                asdict(config.executor.commands[config.executor.default])
-                if config.executor.default in config.executor.commands
-                else {}
-            ),
             "env_keys": config.executor.env_keys,
-            "stage_host_auth": config.executor.stage_host_auth,
         },
     }
     if config.execution.backend == "local":
@@ -434,10 +429,9 @@ def validate_plan(plan: object) -> dict:
         for key in ("selection", "source", "source_sha256", "image_source")
     ):
         raise PreparationError("plan: text fields must be strings")
-    from adore.config import Config, ExecutorCommand
+    from adore.config import Config
 
     template = execution_policy(Config())
-    template["executor"]["command"] = asdict(ExecutorCommand())
     if plan["backend"] == "local":
         template.pop("container")
         template["local"] = {
@@ -453,8 +447,6 @@ def validate_plan(plan: object) -> dict:
             if field in {"container.runtime_env", "local.settings.environment"}:
                 if any(not isinstance(k, str) or not isinstance(v, str) for k, v in value.items()):
                     raise PreparationError("plan.policy: invalid environment")
-            elif field == "executor.command" and value == {}:
-                return
             else:
                 if set(value) != set(example):
                     raise PreparationError("plan.policy: unsupported fields")

@@ -72,7 +72,7 @@ test("exact enrollment explains source, server locations, unchanged copy and sto
   await expect(page.getByRole("heading", { name: "Review and enroll", exact: true })).toBeFocused();
   for (const value of [file.clone, file.root + "/state",
     file.root + "/trees", file.root + "/state/metrics.db", file.root + "/state/runs.jsonl",
-    file.root + "/state/stats.html", "opencode", "docker", "Exact service"])
+    file.root + "/state/stats.html", "docker", "Exact service"])
     await expect(page.locator(".import-review")).toContainText(value);
   await page.screenshot({ path: info.outputPath("import-review-desktop-light.png"), fullPage: true });
   await page.evaluate(() => document.documentElement.dataset.theme = "dark");

@@ -12,7 +12,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 This reference describes the ADORE configuration. The canonical
 annotated example is [config.example.toml](../04_Software/config.example.toml).
 Unknown top-level sections fail validation. Every section and subtable,
-including `labels.*`, `executor.<name>` and `container.egress`, refuses a key
+including `labels.*`, `executor` and `container.egress`, refuses a key
 this build does not read with `[section] unknown key 'x': remove it from
 config.toml`. A missing key takes its documented default. Run `adore config
 validate` after an edit. Secrets do not belong in TOML.
@@ -79,15 +79,31 @@ lifecycle or control labels.
 
 `labels.control.exclude` names the **Exclude from pickup label** (default `no-agent`). ADORE skips a ticket while that label is present, including tickets carrying the ready label. Removing it permits pickup if all other eligibility conditions hold. Adding it does not stop an already-started job. Apply the configured label on the ticket in its GitHub, GitLab or Gitea repository.
 
-The GUI exposes `labels.lifecycle.ready` directly in Tickets as **Ready for pickup label**. `answered` is **Clarification answered label** and needs a new reply comment as well as the label. `answered`, `clarify`, `done`, `failed`, `review` and `working` are in the initially closed **Status labels** group; ADORE manages their ticket state presentation. `working` includes waiting for publication approval, `review` covers a published draft or ready PR/MR, and `done` follows a human merge. Manual status-label changes do not transition the saved job; retry is a separate action. Reserved `labels.executor.prefix` and `readiness.max_scope_hint` remain accepted technical configuration with no runtime effect and have no GUI controls.
+The GUI exposes `labels.lifecycle.ready` directly in Tickets as **Ready for pickup label**. `answered` is **Clarification answered label** and needs a new reply comment as well as the label. `answered`, `clarify`, `done`, `failed`, `review` and `working` are in the initially closed **Status labels** group; ADORE manages their ticket state presentation. `working` includes waiting for publication approval, `review` covers a published draft or ready PR/MR, and `done` follows a human merge. Manual status-label changes do not transition the saved job; retry is a separate action. Reserved `readiness.max_scope_hint` remains accepted technical configuration with no runtime effect and has no GUI control. There is no `[labels.executor]` table: a ticket cannot choose the coding agent, and the key is refused with `[labels] unknown key 'executor': remove it from config.toml`.
 
 ## Executor and Container
 
-`executor.default` selects a command table. Every command is non-interactive
-and must contain `{prompt}`. The supported placeholders are `{prompt}`,
-`{model}` and `{worktree}`; any other, `{resume}` included, is refused. The
-default Codex command is
-`codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}`.
+Pi is ADORE's only coding agent. The `[executor]` table holds:
+
+| Key | Meaning | Default |
+| --- | --- | --- |
+| `executor.model` | Pi model in `provider/model` form, for example `openai/gpt-5.4`. | required |
+| `executor.command` | Argv template of a native (installed on the server) Pi run. A container run ignores it and starts the image's pinned Pi in RPC mode. | `pi -p --mode json --model {model} {prompt}` |
+| `executor.mode` | `thick` or `headless`; see below. | `thick` |
+| `executor.questions_file` | Clarification questions file the agent writes in the worktree. | `<SLUG>_QUESTIONS.md` |
+| `executor.env_keys` | Model-provider environment variables passed to Pi. | `["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]` |
+
+```toml
+[executor]
+model = "openai/gpt-5.5"
+```
+
+`executor.command` must be non-interactive, contain `{prompt}` and not use
+`--auto`. The supported placeholders are `{prompt}`, `{model}` and
+`{worktree}`; any other, `{resume}` included, is refused. `executor.default`,
+`executor.stage_host_auth` and every `[executor.<name>]` table (`opencode`,
+`codex`, `qwen`, `pi`) are refused with `[executor] unknown key '<key>':
+remove it from config.toml`.
 `executor.env_keys` is the allowlist of model-provider environment variables copied into a container. Forge credential
 names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 `GITEA_TOKEN`, and `TEA_TOKEN` are rejected.
@@ -288,9 +304,9 @@ SQLite bytes, authorization, scope and financial redaction.
 
 ## Web executor configuration
 
-**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** shows **Test AI connection**, the Pi model (`executor.model`), the launch command (`executor.command`), the allowed credential variables (`executor.env_keys`), **Provider API keys**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. The model and the launch command are ordinary reviewed settings: Prepare reviews the change, then Apply writes one complete paused/idle candidate. A model ID must be supplied explicitly. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project accepts any native argv that contains `{prompt}` and does not use `--auto`. Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions. An OpenAI-compatible endpoint (for example LM Studio) cannot be configured in this version.
 
-The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
+The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that uses the account's existing Pi sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container project always uses provider API keys; no host sign-in is copied into the container. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
 
 ## Container preparation
 

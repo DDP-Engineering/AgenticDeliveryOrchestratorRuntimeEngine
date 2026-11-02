@@ -21,7 +21,7 @@ import { CONTEXT_TOPICS } from "./help/topics.ts";
 
 type Draft = {
   clone_url: string; name: string; display_name: string; description: string; kind: string; repo: string;
-  repo_path: string; target_branch: string; login: string; executor_cli: string; model: string;
+  repo_path: string; target_branch: string; login: string; model: string;
   runtime: string; image: string; auth_mode: string; env_keys: string; reviewers: string;
   execution_backend: string; local_account: string; local_home: string; local_path: string; local_cgroup_root: string;
   executor_command: string;
@@ -57,12 +57,12 @@ function shownValue(key: string, value: unknown, locale: Locale): string {
 }
 
 /** Read-only list of the settings that keep ADORE's defaults, grouped like Settings. */
-function DefaultSettings({ defaults, locale, agent, backend }: {
-  defaults?: { key: string; value: unknown }[]; locale: Locale; agent: string; backend: string;
+function DefaultSettings({ defaults, locale, backend }: {
+  defaults?: { key: string; value: unknown }[]; locale: Locale; backend: string;
 }) {
   const c = enrollmentCopy[locale];
-  // Same visibility as Settings for this project's agent and backend.
-  const rows = (Array.isArray(defaults) ? defaults : []).filter(item => typeof item?.key === "string" && settingVisible(item.key, false, agent, backend));
+  // Same visibility as Settings for this project's backend.
+  const rows = (Array.isArray(defaults) ? defaults : []).filter(item => typeof item?.key === "string" && settingVisible(item.key, false, backend));
   if (!rows.length) return null;
   return <details className="enrollment-review enrollment-defaults">
     <summary>{c.defaultsTitle} ({rows.length})</summary>
@@ -85,11 +85,11 @@ class SetupError extends ApiError {
 const initial: Draft = { clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
   execution_backend: "container", local_account: "current", local_home: "", local_path: "", local_cgroup_root: "",
   executor_command: "",
-  target_branch: "main", login: "", executor_cli: "opencode", model: "", runtime: "docker", image: "adore-executor-base:1.0.0",
+  target_branch: "main", login: "", model: "", runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "12", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
 const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
-  ["executor_cli", "model", "execution_backend", "runtime", "image", "executor_command", "local_account",
+  ["model", "execution_backend", "runtime", "image", "executor_command", "local_account",
     "local_home", "local_path", "local_cgroup_root", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"]];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
@@ -98,14 +98,14 @@ const isFindings = (value: unknown): value is Finding[] => Array.isArray(value) 
   item && typeof item.code === "string" && typeof item.field === "string" && typeof item.remediation === "string");
 const payload = (draft: Draft): Omit<Draft, typeof numeric[number] | "env_keys"> & {
   env_keys: string[]; max_iterations: number; max_wall_clock_seconds: number; max_cost_usd: number; max_files_touched: number;
-} => ({ ...draft, env_keys: ["host-auth", "existing"].includes(draft.auth_mode) ? [] :
+} => ({ ...draft, env_keys: draft.auth_mode === "existing" ? [] :
   draft.env_keys.split(",").map(value => value.trim()).filter(Boolean),
   max_iterations: Number(draft.max_iterations), max_wall_clock_seconds: Number(draft.max_wall_clock_seconds),
   max_cost_usd: Number(draft.max_cost_usd), max_files_touched: Number(draft.max_files_touched) });
 const fieldFor = (path: string): FieldName | undefined => {
   const aliases: Record<string, FieldName> = { "executor.env_keys": "env_keys", "worktree.repo_path": "repo_path",
     "platform.repo": "repo", "container.runtime": "runtime", "container.image": "image",
-    "executor.default": "executor_cli", "delivery.reviewers": "reviewers", "delivery.target_branch": "target_branch" };
+    "executor.model": "model", "delivery.reviewers": "reviewers", "delivery.target_branch": "target_branch" };
   const first = path.split(".")[0], last = path.split(".").at(-1) ?? path;
   return aliases[path] ?? (path in initial ? path as FieldName : first in initial ? first as FieldName :
     last in initial ? last as FieldName : undefined);
@@ -214,8 +214,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       ...(prefilled !== null && current.display_name === prefilled ? { display_name: "" } : {}),
       // A new URL needs a new read and a new derived ID.
       ...(field === "clone_url" ? { name: "", repo: "", repo_path: "" } : {}),
-      ...(field === "execution_backend" ? {auth_mode: value === "local" ? "existing" : "api-key"} : {}),
-      ...(field === "executor_cli" && current.execution_backend !== "local" && !["opencode", "codex"].includes(value) ? { auth_mode: "api-key" } : {}) }));
+      ...(field === "execution_backend" ? {auth_mode: value === "local" ? "existing" : "api-key"} : {}) }));
   };
   const validateLocal = (groups: number[]) => {
     const errors: Finding[] = [];
@@ -226,7 +225,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           || key === "repo"
           || key.startsWith("local_") && draft.execution_backend !== "local"
           || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
-          || key === "env_keys" && ["host-auth", "existing"].includes(draft.auth_mode)) continue;
+          || key === "env_keys" && draft.auth_mode === "existing") continue;
       const value = draft[key];
       let valid = !!value.trim();
       if (key === "clone_url") valid = !!detected && detected.url === value;
@@ -281,10 +280,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   useEffect(() => {
     // Replace only the built-in default or an earlier proposal, never a typed image.
     if (!images?.available || ![initial.image, "", proposedImage.current].includes(draft.image)) return;
-    const next = proposeImage(images.images, draft.executor_cli);
+    const next = proposeImage(images.images, "pi");
     // A proposal is not a user edit: it keeps confirmations and is skipped once a preview exists.
     if (next && next !== draft.image && !preview) { proposedImage.current = next; setDraft(current => ({ ...current, image: next })); }
-  }, [images, draft.executor_cli]);
+  }, [images]);
   const readRepository = async () => {
     if (detecting) return;
     if (!draft.clone_url.trim()) { setFindings([{ code: "invalid_input", field: "clone_url", remediation: c.readFirst }]); return; }
@@ -341,14 +340,14 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     try {
       const value = await call(transfer ? "transfer-check" : "setup-check", requestBody(targetPayload(), preview.revision)) as Verification;
       if (!alive.current || token !== generation.current) return;
-      const expected = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "model_endpoint"];
+      const expected = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"];
       if (!value || !["failed", "partial", "verified"].includes(value.status) || value.draft_revision !== preview.revision ||
         value.revision !== preview.config_revision || typeof value.checked_at !== "string" ||
         !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
         Object.keys(value.checks).length !== expected.length || expected.some(key => !(key in value.checks) ||
           typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null) &&
           // AEGIS files are checked at creation when the repository is cloned then.
-          !(["model_endpoint", "aegis_files"].includes(key) && value.checks[key] === "not-checked")))
+          !(key === "aegis_files" && value.checks[key] === "not-checked")))
         throw new ApiError("unexpected_response");
       if (value.status === "verified" && Object.values(value.checks).some(result => result !== true))
         throw new ApiError("unexpected_response");
@@ -383,7 +382,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     local_home: localCopy[locale].home, local_path: localCopy[locale].path, local_cgroup_root: localCopy[locale].cgroup,
     clone_url: c.url, name: c.id, display_name: c.display, description: t("description"), kind: t("forge"), repo: t("repository"),
     login: "Gitea tea login", repo_path: t("clonePath"), target_branch: t("targetBranch"),
-    executor_cli: t("executor"), model: t("model"), runtime: t("runtime"), image: t("image"),
+    model: t("model"), runtime: t("runtime"), image: t("image"),
     auth_mode: t("authMode"), env_keys: c.env, reviewers: t("reviewers"), ready_label: c.ready, approval_label: c.approval,
     max_iterations: c.iterations, max_wall_clock_seconds: c.seconds, max_cost_usd: c.cost, max_files_touched: c.files,
   };
@@ -392,15 +391,14 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     ["env_keys", "auth_mode"].includes(key) ? "credentials" : fields[2].includes(key) ? "environment" :
     numeric.includes(key as typeof numeric[number]) ? "limits" : "rules";
   const control = (key: FieldName) => {
-    if (key === "login" && draft.kind !== "gitea" || key === "env_keys" && ["host-auth", "existing"].includes(draft.auth_mode)
+    if (key === "login" && draft.kind !== "gitea" || key === "env_keys" && draft.auth_mode === "existing"
         || key.startsWith("local_") && draft.execution_backend !== "local"
         || key === "executor_command" && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local") return null;
     const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea"],
       // A cloned WSL-wrapped runtime stays selectable instead of silently showing docker.
       execution_backend: ["container", "local"], runtime: ["docker", "podman", ...(draft.runtime && !["docker", "podman"].includes(draft.runtime) ? [draft.runtime] : [])],
-      executor_cli: ["opencode", "codex", "pi", "qwen"],
-      auth_mode: draft.execution_backend === "local" ? ["existing", "api-key"] : ["api-key", ...(["opencode", "codex"].includes(draft.executor_cli) ? ["host-auth"] : [])] };
+      auth_mode: draft.execution_backend === "local" ? ["existing", "api-key"] : ["api-key"] };
     const error = findings.some(item => fieldFor(item.field) === key);
     const common = { id: "enroll-" + key, value: draft[key],
       "aria-describedby": "enrollment-help-" + helpId(key) + (error ? " error-" + key : ""),
@@ -534,7 +532,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
               worktree_root: c.worktrees, repo_path: t("clonePath"), metrics_db: "metrics.db", metrics_jsonl: "metrics JSONL", metrics_html: "metrics HTML" }[key]}</dt>
               <dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}</dl></section>
           <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
-          <DefaultSettings defaults={reviewed.preview.defaults} locale={locale} agent={reviewed.draft.executor_cli} backend={reviewed.draft.execution_backend} />
+          <DefaultSettings defaults={reviewed.preview.defaults} locale={locale} backend={reviewed.draft.execution_backend} />
           <label className="forge-labels-option"><input type="checkbox" checked={createLabels} onChange={event => setCreateLabels(event.target.checked)} />
             <span>{forgeLabelsCopy[locale].option}</span></label>
         </>}

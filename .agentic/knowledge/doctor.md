@@ -29,7 +29,7 @@ workstation or in the repository; all subprocess work flows through an injected
 `detect_aegis()` returns an `AegisStatus`, `aegis_version_supported()` answers
 for one `aegis --version` text, and `guidance_for()` returns the per-platform
 remedy text, which names the supported range (`AEGIS_SUPPORTED_TEXT`) and
-schema 1.
+schema 1. `detect_executor()` probes Pi (`doctor.PI`) with `pi --version`.
 
 ## Invariants
 

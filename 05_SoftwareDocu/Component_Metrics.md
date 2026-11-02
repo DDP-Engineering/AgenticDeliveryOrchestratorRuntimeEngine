@@ -49,8 +49,8 @@ transitions), token extraction (executor launcher), resource probing
 
 - **Usage flows through the journal**, not the io stream: `output.jsonl` is
   overwritten per gate, so the launcher extracts token/cost totals per
-  launch (`GateRun.tokens_in/out/cost_usd` from opencode `step_finish`
-  events - schema pinned live 2026-07-03) and the orchestrator journals a
+  launch (`GateRun.tokens_in/out/cost_usd` and cache counts from Pi's usage
+  records; Pi reports no billed cost) and the orchestrator journals a
   `usage` event per launch (gated by `[metrics] capture_tokens`). Metrics
   sums those events. Every usage event carries a run/attempt ID; identical
   replay is counted once in terminal summaries and web views, while a
@@ -152,7 +152,8 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 - Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
   attempt, context: <gate|phase>, executor, model, review_round, tokens_in,
   tokens_out, cost_usd, cost_reported}`. Every usage event carries the
-  versioned identity and the full current fields.
+  versioned identity and the full current fields. New events record executor
+  `pi`; stored rows keep whatever executor name they were written with.
 
 ## 7. Workflow Integration
 

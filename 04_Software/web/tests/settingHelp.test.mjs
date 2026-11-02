@@ -35,7 +35,8 @@ test("translations differ from the English text", () => {
 });
 
 test("named entries resolve to their pattern text; unknown keys have none", () => {
-  assert.equal(settingHelp("executor.commands.codex.model", "en"), SETTING_HELP.en["executor.commands.*.model"]);
+  assert.equal(settingHelp("executor.model", "en"), SETTING_HELP.en["executor.model"]);
+  assert.equal(settingHelp("executor.commands.pi.model", "en"), undefined);  // no per-agent tables
   assert.equal(settingHelp("container.runtime_env.UV_LINK_MODE", "de"), SETTING_HELP.de["container.runtime_env.*"]);
   assert.equal(settingHelp("workflow.stage_timeout_overrides.build", "fr"), SETTING_HELP.fr["workflow.stage_timeout_overrides.*"]);
   assert.equal(settingHelp("workflow.kind_labels.enhancement", "ro"), SETTING_HELP.ro["workflow.kind_labels.*"]);

@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import {agentSettingsCopy,credentialEditorCopy} from "../src/executorSettings";
 import {test, expect} from "@playwright/test";
 
+const PI_PRESET="pi -p --mode json --model {model} {prompt}";
+
 test("executor workspace owns model, credentials and coherent evidence", async ({page}) => {
  await page.context().route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill("admin"); await page.getByLabel("Password",{exact:false}).fill("admin"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
@@ -28,15 +30,17 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  expect(titleBox && testBox).toBeTruthy();
  expect(testBox!.x).toBeGreaterThan(titleBox!.x+titleBox!.width);
  expect(Math.abs((testBox!.y+testBox!.height/2)-(titleBox!.y+titleBox!.height/2))).toBeLessThan(10);
- await panel.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
- await expect(panel.getByLabel("Default coding agent",{exact:true})).toHaveValue("opencode");
- await panel.getByRole("button",{name:"Cancel",exact:true}).click();
+ // Pi is the only coding agent: no agent choice and no agent sign-in hint.
+ await expect(panel.getByRole("button",{name:"Edit Default coding agent",exact:true})).toHaveCount(0);
+ await expect(panel.getByLabel("Default coding agent",{exact:true})).toHaveCount(0);
+ await expect(panel.getByText("Subscription or browser sign-in",{exact:true})).toHaveCount(0);
+ await expect(panel).not.toContainText(".pi/agent");
  await panel.getByRole("button",{name:"Edit Executor launch command",exact:true}).click();
  const command=panel.getByLabel("Executor launch command",{exact:true});
  await expect(command).toHaveJSProperty("tagName","SELECT");
- await command.selectOption("opencode run --dir {worktree} -m {model} --format json {prompt}");
+ await command.selectOption(PI_PRESET);
  await panel.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
- await expect(page.locator(".candidate-review")).toContainText("opencode run --dir {worktree}");
+ await expect(page.locator(".candidate-review")).toContainText("pi -p --mode json");
  await page.locator(".candidate-review").getByRole("button",{name:"Discard change",exact:true}).click();
  await page.getByLabel("Credential variable",{exact:true}).selectOption("OPENAI_API_KEY");
  await page.getByLabel("API key",{exact:true}).fill("offline-private-key");
@@ -63,8 +67,8 @@ for (const user of ["admin", "developer"]) {
   const projects=await(await page.request.get("/api/v1/projects")).json();
   const id=projects.find((p:{name:string})=>p.name==="alpha").id;
   const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
-  const current="opencode run --dir {worktree} -m {model} {prompt}";
-  config.config.executor.commands.opencode.command=current;
+  const current="pi -p --mode json --model {model} --thinking medium {prompt}";
+  config.config.executor.command=current;
   await page.route("**/projects/*/config", route=>route.fulfill({json:config}));
   await page.goto(`/projects/${id}/executor`);
   await expect(page.getByRole("tab",{name:"Agent and model",exact:true})).toHaveCount(0);
@@ -77,7 +81,7 @@ for (const user of ["admin", "developer"]) {
    const command=panel.getByLabel("Executor launch command",{exact:true});
    await expect(command).toHaveValue(current);
    await expect(panel.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
-   await command.selectOption(config.settings.find((s:{key:string})=>s.key==="executor.commands.opencode.command").choices[0]);
+   await command.selectOption(config.settings.find((s:{key:string})=>s.key==="executor.command").choices[0]);
    await expect(panel.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true})).toBeEnabled();
    await panel.getByRole("button",{name:"Cancel",exact:true}).click();
    await page.setViewportSize({width:390,height:844});
@@ -99,9 +103,9 @@ test("current model evidence remains coherent in Summary and host check details"
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
  const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
- const result={project_id:id,revision:config.revision,checked_at:new Date().toISOString(),executor:"opencode",model:config.config.executor.commands.opencode.model,ready:true,reason:"ready"};
+ const result={project_id:id,revision:config.revision,checked_at:new Date().toISOString(),executor:"pi",model:config.config.executor.model,ready:true,reason:"ready"};
  await page.route("**/projects/*/config",route=>route.fulfill({json:{...config,model_connection:result}}));
- await page.route("**/readiness-check",route=>route.fulfill({json:{status:"verified",project_id:id,revision:config.revision,checked_at:new Date().toISOString(),context:"api-host",checks:{git:true,forge_cli:true,forge_auth:true,container_runtime:true,executor_cli:true,aegis_files:true,model_endpoint:"not-checked"},model_probe:{context:"executor-container",ready:false,model:result.model,reason:"not-configured"}}}));
+ await page.route("**/readiness-check",route=>route.fulfill({json:{status:"verified",project_id:id,revision:config.revision,checked_at:new Date().toISOString(),context:"api-host",checks:{git:true,forge_cli:true,forge_auth:true,container_runtime:true,executor_cli:true,aegis_files:true}}}));
  await page.goto(`/projects/${id}`);
  await expect(page.getByText("AI model connected",{exact:true})).toHaveCount(0);
  await page.getByRole("button",{name:"Check host prerequisites",exact:true}).click();
@@ -119,22 +123,18 @@ test("current model evidence remains coherent in Summary and host check details"
  await expect(row).toContainText(result.model);
 });
 
-test("agent and provider drafts have complete review and fit mobile",async({page})=>{
+test("model and provider drafts have complete review and fit mobile",async({page})=>{
  await page.context().route("**/*", route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill("admin"); await page.getByLabel("Password",{exact:false}).fill("admin"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await(await page.request.get("/api/v1/projects")).json(); const id=projects.find((p:{name:string})=>p.name==="alpha").id;
  await page.goto(`/projects/${id}/configuration`); await page.getByText(/^Agent and model \(\d+\)$/).click();
- await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
- await expect(page.getByLabel("Default coding agent",{exact:true}).locator("option")).toHaveText(["OpenCode","Pi","Codex","Qwen Code"]);
- await page.getByLabel("Default coding agent",{exact:true}).selectOption("codex");
- await expect(page.getByLabel("Executor launch command",{exact:true})).toContainText("codex exec");
- await expect(page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
- await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-codex-model");
+ await page.getByRole("button",{name:"Edit Executor model identifier",exact:true}).click();
+ await page.getByLabel("Executor model identifier",{exact:true}).fill("openai/offline-pi-model");
  await page.setViewportSize({width:390,height:844});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
- const review=page.locator(".candidate-review"); await expect(review).toContainText("codex"); await expect(review).toContainText("codex exec"); await expect(review).toContainText("offline-codex-model");
+ const review=page.locator(".candidate-review"); await expect(review).toContainText("openai/offline-pi-model");
  await review.getByRole("button",{name:"Discard change",exact:true}).click();
  await page.locator('[data-setting-topic="authentication"] > summary').click();
  await page.getByRole("button",{name:"Edit Allowed credential variables",exact:true}).click();
@@ -150,38 +150,20 @@ test("inline executor editors retain columns and use a credential dropdown",asyn
  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
  const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+ const model=(await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).config.executor.model;
  await page.goto(`/projects/${id}/configuration`);await page.getByText(/^Agent and model \(\d+\)$/).click();
- const row=page.locator('[id="setting-executor.default"]');
+ await expect(page.locator('[id="setting-executor.default"]')).toHaveCount(0);
+ const row=page.locator('[id="setting-executor.model"]');
  const before=await row.locator(':scope > div').nth(1).boundingBox();
- await row.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ await row.getByRole("button",{name:"Edit Executor model identifier",exact:true}).click();
  const editor=await row.locator(':scope > form').boundingBox();
  expect(Math.abs(editor!.x-before!.x)).toBeLessThan(2);
  expect(Math.abs(editor!.width-before!.width)).toBeLessThan(2);
- const select=await row.getByLabel("Default coding agent",{exact:true}).boundingBox();
- const actions=await row.locator(".button-row").boundingBox();
- expect(actions!.x).toBeGreaterThanOrEqual(select!.x+select!.width);
- expect(Math.abs(actions!.y+actions!.height/2-select!.y-select!.height/2)).toBeLessThan(2);
- await expect(row.getByLabel("Executor launch command",{exact:true})).toHaveCount(0);
- await expect(page.locator('[id="setting-executor.commands.opencode.command"]').getByLabel("Executor launch command",{exact:true})).toBeVisible();
- await expect(page.locator('[id="setting-executor.commands.opencode.model"]').getByLabel("Executor model identifier",{exact:true})).toBeVisible();
- for(const agent of ["pi","codex","qwen","opencode"]){
-  await page.getByLabel("Default coding agent",{exact:true}).selectOption(agent);
-  await page.getByLabel("Executor model identifier",{exact:true}).fill("");
-  await expect(row.getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
-  await expect(row.getByRole("alert")).toBeVisible();
-  const nextSelect=await row.getByLabel("Default coding agent",{exact:true}).boundingBox();
-  const nextActions=await row.locator(".button-row").boundingBox();
-  expect(nextActions!.x).toBeGreaterThanOrEqual(nextSelect!.x+nextSelect!.width);
-  expect(Math.abs(nextActions!.y+nextActions!.height/2-nextSelect!.y-nextSelect!.height/2)).toBeLessThan(2);
-  expect(Math.abs(nextActions!.x-actions!.x)).toBeLessThan(2);
- }
- await page.getByLabel("Default coding agent",{exact:true}).selectOption("codex");
- await expect(row.getByRole("button",{name:"Prepare candidate",exact:true})).toBeDisabled();
- await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-inline-model");
+ await row.getByLabel("Executor model identifier",{exact:true}).fill("offline-inline-model");
  await row.getByRole("button",{name:"Prepare candidate",exact:true}).click();
  await expect(page.locator(".candidate-review")).toContainText("offline-inline-model");
  await page.locator(".candidate-review").getByRole("button",{name:"Discard change",exact:true}).click();
- await expect(row.locator("code")).toHaveText("opencode");
+ await expect(row.locator("code")).toHaveText(model);
  await page.locator('[data-setting-topic="authentication"] > summary').click();
  await page.getByRole("button",{name:"Edit Allowed credential variables",exact:true}).click();
  const names=page.locator('[id="setting-executor.env_keys"]');
@@ -206,10 +188,10 @@ test("inline executor and credential dropdown controls preserve four locales",as
   await page.goto("/account");const saved=page.waitForResponse(r=>r.url().endsWith("/me/preferences")&&r.request().method()!=="GET");
   await page.locator(".form-stack select").first().selectOption(locale);await saved;
   await page.goto(`/projects/${id}/configuration`);await page.locator('[data-setting-purpose="executor"] > summary').click();
-  const agent=page.locator('[id="setting-executor.default"]');await agent.getByRole("button").click();
-  await expect(agent.getByLabel(agentSettingsCopy[locale].agent,{exact:true})).toBeVisible();
-  await expect(page.locator('[id="setting-executor.commands.opencode.model"]').getByLabel(agentSettingsCopy[locale].model,{exact:true})).toBeVisible();
-  await agent.locator('button.ghost').click();await page.locator('[data-setting-topic="authentication"] > summary').click();
+  const model=page.locator('[id="setting-executor.model"]');await model.getByRole("button").click();
+  await expect(model.getByLabel(agentSettingsCopy[locale].model,{exact:true})).toBeVisible();
+  await expect(model).toContainText(agentSettingsCopy[locale].modelHelp);
+  await model.locator('button.ghost').click();await page.locator('[data-setting-topic="authentication"] > summary').click();
   const names=page.locator('[id="setting-executor.env_keys"]');await names.getByRole("button").click();
   await names.getByLabel(credentialEditorCopy[locale].add,{exact:true}).selectOption("OPENROUTER_API_KEY");
   await names.getByRole("button",{name:`${credentialEditorCopy[locale].remove} OPENROUTER_API_KEY`,exact:true}).click();
@@ -228,7 +210,7 @@ test("compact review shows only differences above settings and blocks unchanged 
  const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
  await page.goto(`/projects/${id}/configuration`);await page.getByText(/^Agent and model \(\d+\)$/).click();
  const before=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
- await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ await page.getByRole("button",{name:"Edit Executor model identifier",exact:true}).click();
  await page.getByLabel("Executor model identifier",{exact:true}).fill("offline-review-model");
  await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
  const review=page.locator(".candidate-review"),changes=review.locator(".candidate-changes tbody tr"),details=review.locator(".candidate-details");
@@ -238,12 +220,13 @@ test("compact review shows only differences above settings and blocks unchanged 
  expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(groups!.y);expect(bounds!.height).toBeLessThan(420);
  const apply=review.getByRole("button",{name:"Apply change",exact:true}),discard=review.getByRole("button",{name:"Discard change",exact:true});
  expect(Math.abs((await apply.boundingBox())!.y-(await discard.boundingBox())!.y)).toBeLessThan(2);
- await details.locator(":scope > summary").click();await expect(details.locator(".candidate-complete tbody tr")).toHaveCount(3);
+ await details.locator(":scope > summary").click();await expect(details.locator(".candidate-complete tbody tr")).toHaveCount(1);
+ await expect(details).toContainText(agentSettingsCopy.en.modelHelp);
  await details.getByRole("button",{name:"Copy safe review",exact:true}).click();
- const copied=await page.evaluate(()=>navigator.clipboard.readText());expect(copied).toContain("Default coding agent");expect(copied).toContain("Executor launch command");expect(copied).toContain("offline-review-model");expect(copied).not.toContain("OPENCODE_CONFIG_CONTENT");
+ const copied=await page.evaluate(()=>navigator.clipboard.readText());expect(copied).toContain("Executor model identifier");expect(copied).toContain("offline-review-model");expect(copied).not.toContain("Default coding agent");
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await discard.click();expect((await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(before.revision);
- await page.getByRole("button",{name:"Edit Default coding agent",exact:true}).click();
+ await page.getByRole("button",{name:"Edit Executor model identifier",exact:true}).click();
  await page.locator(".setting-editor").getByRole("button",{name:"Prepare candidate",exact:true}).click();
  await expect(review).toContainText("No values have changed.");await expect(apply).toBeDisabled();await expect(changes).toHaveCount(0);
  await discard.click();await expect(review).toHaveCount(0);expect(await(await page.request.get(`/api/v1/projects/${id}/config/pending`)).json()).toBeNull();
@@ -256,9 +239,9 @@ test("estimated prices live in Agent and model for administrators only",async({p
  await signIn("admin","admin");
  const projects=await (await page.request.get("/api/v1/projects")).json();
  const project=projects.find((p:{name:string})=>p.name==="alpha");
+ expect(project.executor).toBe("pi");
  const config=(await (await page.request.get(`/api/v1/projects/${project.id}/config`)).json()).config;
- const agent=config.executor?.default ?? project.executor;
- const model=config.executor?.commands?.[agent]?.model ?? "";
+ const model=config.executor?.model ?? "";
  expect(model).not.toBe("");
  await page.goto(`/projects/${project.id}/prices`);
  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/configuration$`));
@@ -277,7 +260,7 @@ test("estimated prices live in Agent and model for administrators only",async({p
  await form.getByRole("button",{name:"Save",exact:true}).click();
  const row=prices.locator("tbody tr").filter({hasText:String(model)});
  await expect(row).toHaveCount(1);
- await expect(row.locator("td").first()).toHaveText(agent);
+ await expect(row.locator("td").first()).toHaveText("pi");
  await expect(row).toContainText("1.25");
  await page.context().clearCookies();
  await signIn("developer","test-password");

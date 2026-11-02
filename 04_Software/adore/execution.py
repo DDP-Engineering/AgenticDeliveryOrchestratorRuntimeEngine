@@ -25,7 +25,6 @@ from pathlib import Path
 import re
 from typing import Protocol
 
-from adore.branding import CONTAINER_CODEX_HOME, CONTAINER_OPENCODE_AUTH_DIR
 from adore.isolation import (
     CONTAINER_IO_MOUNT,
     CONTAINER_WORKTREE_MOUNT,
@@ -85,12 +84,8 @@ class ExecutionBackend(Protocol):
 
     paths: ExecutionPaths
 
-    def executor_environment(self, executor: str) -> dict[str, str]:
+    def executor_environment(self) -> dict[str, str]:
         """@brief Supply backend-specific executor homes without new credentials."""
-        ...
-
-    def auth_directory(self, executor: str) -> str:
-        """@brief Return the backend-native directory for existing auth staging."""
         ...
 
     def provision(
@@ -178,15 +173,9 @@ class ContainerBackend:
     def __init__(self, manager: ContainerManager) -> None:
         self.manager = manager
 
-    def executor_environment(self, executor: str) -> dict[str, str]:
-        """@brief Retain the container Codex home environment contract."""
-        return {"CODEX_HOME": CONTAINER_CODEX_HOME} if executor == "codex" else {}
-
-    def auth_directory(self, executor: str) -> str:
-        """@brief Preserve container-native staged authentication destinations."""
-        return {"opencode": CONTAINER_OPENCODE_AUTH_DIR, "codex": CONTAINER_CODEX_HOME}.get(
-            executor, ""
-        )
+    def executor_environment(self) -> dict[str, str]:
+        """@brief A container gets no backend-specific executor home."""
+        return {}
 
     def provision(
         self,
@@ -286,7 +275,6 @@ def run_preparation_step(
     *,
     timeout: float,
     secrets: dict[str, str],
-    auth_file: str | None = None,
 ) -> dict:
     """
     @brief Execute one pinned script through bounded files and return its evidence.
@@ -297,7 +285,6 @@ def run_preparation_step(
     @param[in] step Normalized name/run mapping.
     @param[in] timeout Remaining bounded wall time.
     @param[in] secrets In-memory values used for output redaction.
-    @param[in] auth_file Existing staged executor auth path, solely for redaction.
     @return Closed timestamped outcome with authoritative exit/timeout evidence.
     @exception IsolationError For missing or malformed file-protocol evidence.
     """
@@ -327,8 +314,6 @@ def run_preparation_step(
         f"{target.paths.io}/{relative}",
         target.paths.worktree,
     ]
-    if auth_file is not None:
-        argv.append(auth_file)
     result = target(argv, timeout=timeout + 10)
     outcome = {
         "index": index,

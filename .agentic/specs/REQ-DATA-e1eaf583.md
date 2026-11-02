@@ -41,8 +41,8 @@ Review Change links focus the matching step and retain all answers.
 No browser secrets are collected or local/session storage drafts written.
 Dirty navigation and beforeunload require a loss warning; sign-out clears the draft.
 
-Verification explains host CLI/auth checks, disposable offline executor container and
-configured model endpoint effects before the button. No probe occurs on typing or preview.
+Verification explains host CLI/auth checks and the disposable offline executor
+container check before the button. No probe occurs on typing or preview.
 Failed/partial/unverified states remain textually explicit. Structural validity gates
 creation; incomplete readiness does not pretend to be success and does not invent a new
 mandatory readiness gate for stopped enrollment. Review includes verification status.

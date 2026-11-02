@@ -95,7 +95,7 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   const facts = page.locator(".project-summary");
   await expect(facts.locator(".summary-fact").filter({ hasText: "Container type" })).toContainText("Docker");
-  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toContainText("OpenCode");
+  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toContainText("Pi");
   await expect(facts.locator(".summary-fact").filter({ hasText: "Active jobs" })).toContainText("3");
   await expect(page.locator(".statistics-job-scope, .job-workspace .scope-note")).toHaveCount(0);
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
@@ -665,22 +665,15 @@ test("summary with corrupt job evidence shows unknown counters and no fabricated
 
 function readinessFixture(project: string, changes: Record<string, unknown> = {}) {
   return { status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
-    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, model_endpoint: "not-checked" as boolean | "not-checked", ...changes },
-    model_probe: { context: "executor-container", ready: false, model: "", reason: "unsupported-executor" } };
+    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, ...changes } };
 }
 
-for (const scenario of ["passed", "partial", "model-passed", "model-failed", "unconfigured", "malformed", "wrong-project"] as const) {
+for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as const) {
   test(`host prerequisites explain ${scenario} evidence`, async ({ page }, info) => {
     await page.route("**/api/v1/projects/*/readiness-check", route => {
       const project = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]);
       const result = readinessFixture(scenario === "wrong-project" ? "another-project" : project,
         scenario === "partial" ? { container_runtime: null } : scenario === "malformed" ? { git: "yes" } : {});
-      if (scenario === "model-passed" || scenario === "model-failed") {
-        result.checks.model_endpoint = scenario === "model-passed";
-        result.status = scenario === "model-passed" ? "verified" : "failed";
-        result.model_probe = { context: "executor-container", ready: scenario === "model-passed", model: "local/model", reason: scenario === "model-passed" ? "ready" : "http-401" };
-      }
-      if (scenario === "unconfigured") result.model_probe.reason = "not-configured";
       return route.fulfill({ status: 200, json: result });
     });
     await signIn(page);
@@ -696,7 +689,7 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
       await expect(panel.locator(".readiness-verdict")).toHaveCount(0);
       await expect(panel.locator(".readiness-check")).toHaveCount(7);
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
-      await expect(model).toContainText(scenario === "unconfigured" ? "No compatible model endpoint" : scenario === "model-passed" ? "✓ Passed" : scenario === "model-failed" ? "! Action needed" : "Use Test AI connection in Settings → Agent and model");
+      await expect(model).toContainText("Use Test AI connection in Settings → Agent and model");
       await expect(panel).toContainText("does not test a complete job");
       await expect(page.locator(".readiness-metadata")).toHaveCount(0);
       if (scenario === "partial") await expect(panel.locator(".readiness-check").filter({ hasText: "Container engine" })).toContainText("Could not verify");
@@ -708,10 +701,14 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
 }
 
 test("local host prerequisites state the local notice once and give the agent row its own fix", async ({ page }) => {
-  await page.route("**/api/v1/projects/*/readiness-check", route => {
-    const result = readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false });
-    result.model_probe = { context: "executor-local", ready: false, model: "", reason: "not-configured" };
-    return route.fulfill({ status: 200, json: result });
+  await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,
+    json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false }) }));
+  // The project directory reports the local backend as the project's runtime.
+  await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
+    const response = await route.fetch();
+    const rows = await response.json();
+    for (const row of rows) if (row.name === "alpha") row.runtime = "local";
+    await route.fulfill({ response, json: rows });
   });
   await signIn(page);
   await page.goto("/projects/alpha");

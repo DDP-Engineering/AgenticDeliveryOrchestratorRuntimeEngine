@@ -14,8 +14,9 @@ Python 3.11 or later with `uv`; the runtime itself uses only the standard
 library. Verification uses pytest and Ruff from the `dev` dependency group in
 `04_Software/pyproject.toml`. Git is required. Live operation additionally
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
-Windows, and an authenticated `glab`, `gh` or `tea`. Node.js supports npm-based installed executors in container images or under
-the native local service account.
+Windows, and an authenticated `glab`, `gh` or `tea`. Node.js runs Pi in container images
+(the base image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0) or an
+installed Pi under the native local service account.
 The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
 also needed on the web **build** machine for `04_Software/web/npm run build`;
 the installed web runtime serves local assets without Node.js.
@@ -111,9 +112,9 @@ Protected per-profile tokens are used only by forge CLI commands and explicit
 web host checks, with external CLI auth as the missing-record default. Corrupt
 or mismatched scoped records fail closed.
 
-Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
+Explicit administrator model connectivity uses Pi through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Settings → Agent and model owns agent/model settings, reviewed backend-specific launch configuration and approved provider key save/remove within one panel, with inline selected-agent fields and credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+Project Settings → Agent and model owns the Pi model setting, reviewed backend-specific launch command and approved provider key save/remove within one panel, with a credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login of an installed Pi remains the local service account's own flow.
 
 ## Reviewed container preparation
 

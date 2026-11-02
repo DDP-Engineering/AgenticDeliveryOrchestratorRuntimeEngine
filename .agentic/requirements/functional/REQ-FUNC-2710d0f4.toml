@@ -11,10 +11,10 @@ id = "REQ-FUNC-2710d0f4"
 
 title = "Model endpoint execution-context readiness"
 
-status = "active"
+status = "retired"
 
 requirement = """
-When an administrator requests local-model readiness, ADORE shall make a bounded compatibility and reachability probe from the executor's configured container/network context and report the tested model and failure reason without exposing credentials or claiming readiness from a host-only connection.
+When an administrator requests local-model readiness, ADORE shall make a bounded compatibility and reachability probe from the executor's configured container/network context and report the tested model and failure reason without exposing credentials or claiming readiness from a host-only connection. Retired 2026-11-02: OpenCode support was removed; readiness has no model endpoint probe and model access is proved only by the explicit Test AI connection through Pi.
 """
 
 verification = "Use a fake runtime and an internal-network OpenAI-compatible fixture to verify a successful streamed/tool-compatible probe from the configured executor context. Verify unreachable, incompatible, timed-out, redirected and egress-denied endpoints report explicit failure while host-only connectivity remains unverified."
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-09-30
-updated = 2026-09-30
+updated = 2026-11-02

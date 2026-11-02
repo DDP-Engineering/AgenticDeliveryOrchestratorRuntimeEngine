@@ -38,6 +38,7 @@ from adore import doctor
 from adore.branding import (
     DEFAULT_STATE_ROOT,
     EXECUTOR_BASE_IMAGE,
+    PI_NATIVE_COMMAND,
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
 )
@@ -54,15 +55,6 @@ _LICENSE_LINES = (
     "# See the LICENSE.txt file for full license details.",
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
-_OPENCODE_COMMAND = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-_PI_COMMAND = "pi -p --mode json --model {model} {prompt}"
-_CODEX_COMMAND = (
-    "codex exec --json --model {model} "
-    "--ignore-user-config --disable plugins "
-    "--dangerously-bypass-approvals-and-sandbox {prompt}"
-)
-_QWEN_COMMAND = "qwen -p --model {model} --output-format json {prompt}"
-_KNOWN_EXECUTORS = ("opencode", "pi", "codex", "qwen")
 _DEFAULT_MODEL = "openai/gpt-5.5"
 _RECOMMENDED_BUDGETS = {
     "max_iterations": 12,
@@ -546,36 +538,22 @@ def run_wizard(
         f"{EXECUTOR_BASE_IMAGE}  |  adore-executor-project:latest",
         default=EXECUTOR_BASE_IMAGE, validate=_require,
     ), asker, out)
-    executor_cli = ask(FieldSpec(
-        "executor_cli", "Executor CLI:",
-        "the agent that runs each gate (both read AGENTS.md and get their "
-        "push/merge guardrails from the repo adapter)", "opencode",
-        default="opencode", choices=_KNOWN_EXECUTORS,
-    ), asker, out)
-    executor_command = _command_for(executor_cli)
+    executor_command = PI_NATIVE_COMMAND
     if execution_backend == "local":
         executor_command = ask(FieldSpec(
-            "executor_command", "Installed native executor argv:",
+            "executor_command", "Installed native Pi argv:",
             "Quoted native executable paths; Windows npm CLIs use explicit node.exe and "
             "an absolute installed JavaScript entrypoint. No shell wrappers or compounds.",
             default=executor_command, validate=_require), asker, out)
     model = ask(FieldSpec(
         "model", "Model id (provider/model):",
-        "the executor's model", _DEFAULT_MODEL, default=_DEFAULT_MODEL,
+        "the Pi model", _DEFAULT_MODEL, default=_DEFAULT_MODEL,
         validate=_require,
     ), asker, out)
-    auth_mode = ask(FieldSpec(
+    auth_mode = "api-key" if execution_backend == "container" else ask(FieldSpec(
         "auth_mode", "Executor auth mode:",
-        "api-key sets a provider key in .env (production); host-auth bridges a "
-        "local OpenCode/Codex OAuth session (pilot only)",
-        "api-key", default="existing" if execution_backend == "local" else "api-key",
-        choices=("api-key", "existing") if execution_backend == "local"
-        else ("api-key", "host-auth"),
-        validate=lambda value: (
-            "host-auth is supported only for opencode or codex"
-            if value == "host-auth" and executor_cli not in ("opencode", "codex")
-            else None
-        ),
+        "api-key sets a provider key in .env; existing reuses the account's own Pi sign-in",
+        "existing", default="existing", choices=("api-key", "existing"),
     ), asker, out)
     local_settings = {}
     if execution_backend == "local":
@@ -691,7 +669,7 @@ def run_wizard(
         agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
         repo_path=repo_path, worktree_root=worktree_root, branch_template=branch_template,
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
-        executor_cli=executor_cli, command=executor_command, model=model,
+        command=executor_command, model=model,
         auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
         approval_label=approval_label,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
@@ -735,31 +713,11 @@ def run_wizard(
         store_root=store_root,
     )
     if execution_backend == "container":
-        _print_next_steps(out, name, kind, auth_mode, model, runtime, image)
+        _print_next_steps(out, name, kind, model, runtime, image)
     return profile
 
 
 # LOCAL HELPERS
-
-
-def _command_for(executor_cli: str) -> str:
-    """
-    @brief      A safe command template for an executor CLI.
-    @details    opencode uses the proven template; any other CLI gets a generic
-                one that still carries {prompt} and never --auto (so config
-                validation passes). Advanced users edit config.toml by hand.
-    @param[in]  executor_cli Executor name.
-    @return     The command template.
-    """
-    if executor_cli == "opencode":
-        return _OPENCODE_COMMAND
-    if executor_cli == "pi":
-        return _PI_COMMAND
-    if executor_cli == "codex":
-        return _CODEX_COMMAND
-    if executor_cli == "qwen":
-        return _QWEN_COMMAND
-    return f"{executor_cli} run --dir {{worktree}} -m {{model}} {{prompt}}"
 
 
 def _suggest_runtime(os_key: str, runtimes: doctor.RuntimeDetection) -> str:
@@ -884,19 +842,12 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
         container["run_args"] = a["run_args"]
     sections.append(("container", container))
 
-    executor: dict[str, object] = {}
-    if a["executor_cli"] != "opencode":
-        executor["default"] = a["executor_cli"]
-    if a["auth_mode"] == "host-auth":
-        executor["stage_host_auth"] = True
-    elif a["auth_mode"] == "existing":
-        executor["env_keys"] = []
-    else:
-        executor["env_keys"] = _env_keys_for_model(str(a["model"]))
-    if executor:
-        sections.append(("executor", executor))
-    sections.append((f"executor.{a['executor_cli']}",
-                     {"command": a["command"], "model": a["model"]}))
+    executor: dict[str, object] = {"model": a["model"]}
+    if a["command"] != PI_NATIVE_COMMAND:
+        executor["command"] = a["command"]
+    executor["env_keys"] = ([] if a["auth_mode"] == "existing"
+                            else _env_keys_for_model(str(a["model"])))
+    sections.append(("executor", executor))
 
     delivery: dict[str, object] = {
         "reviewers": a["reviewers"],
@@ -989,18 +940,15 @@ def _print_summary(
 
 
 def _print_next_steps(
-    out: Callable[[str], None], name: str, kind: str, auth_mode: str,
+    out: Callable[[str], None], name: str, kind: str,
     model: str, runtime: str, image: str,
 ) -> None:
     """@brief Print OS-agnostic next steps after a successful write."""
     out(f"\nProfile '{name}' created and validated.")
     out("Next steps:")
-    if auth_mode == "api-key":
-        keys = " / ".join(_env_keys_for_model(model))
-        out(f"  1. Put your provider key ({keys}) in .env beside this profile's "
-            f"config.toml (`adore profile path {name}`).")
-    else:
-        out("  1. host-auth mode: ensure your local opencode session is authorized.")
+    keys = " / ".join(_env_keys_for_model(model))
+    out(f"  1. Put your provider key ({keys}) in .env beside this profile's "
+        f"config.toml (`adore profile path {name}`).")
     out(f"  2. Build the executor image ({image}) - see docker/README.md.")
     out(f"  3. Validate:  adore --profile {name} config validate")
     out(f"  4. Dry-run:   adore --profile {name} run --dry-run")

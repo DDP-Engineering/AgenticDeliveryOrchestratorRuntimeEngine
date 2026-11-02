@@ -38,11 +38,12 @@ from adore.branding import (
     EGRESS_PROXY_IMAGE,
     EXECUTOR_BASE_IMAGE,
     NPM_CACHE_VOLUME,
+    PI_NATIVE_COMMAND,
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
-from adore.util import parse_duration, strict_json_loads
+from adore.util import parse_duration
 
 # CONSTANTS
 
@@ -57,7 +58,6 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "GIT_AUTHOR_EMAIL",
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
-    "CODEX_HOME",
     "HTTP_PROXY",
     "HTTPS_PROXY",
     "ALL_PROXY",
@@ -68,6 +68,9 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "no_proxy",
 })
 _SHELL_CONTROL_CHARS = frozenset("|&;<>")
+#: Environment names of the coding agents ADORE no longer supports; Pi is the
+#: only one. A variable with one of these prefixes is refused, not ignored.
+REMOVED_AGENT_ENV_PREFIXES = ("OPENCODE_", "CODEX_", "QWEN_")
 _FORGE_CREDENTIAL_ENV = frozenset({
     "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
     "TEA_TOKEN",
@@ -233,15 +236,6 @@ class ControlLabels:
 
 
 @dataclass
-class ExecutorLabels:
-    """
-    @brief   [labels.executor] - optional per-ticket executor pin.
-    """
-
-    prefix: str = "agent-exec:"
-
-
-@dataclass
 class LabelsConfig:
     """
     @brief   [labels.*] - all label categories; roles, never hard-coded strings.
@@ -250,40 +244,27 @@ class LabelsConfig:
     lifecycle: LifecycleLabels = field(default_factory=LifecycleLabels)
     selection: SelectionLabels = field(default_factory=SelectionLabels)
     control: ControlLabels = field(default_factory=ControlLabels)
-    executor: ExecutorLabels = field(default_factory=ExecutorLabels)
-
-
-@dataclass
-class ExecutorCommand:
-    """
-    @brief   One [executor.<name>] entry: command template plus model.
-    """
-
-    command: str = ""
-    model: str = ""
 
 
 @dataclass
 class ExecutorConfig:
     """
-    @brief   [executor] - which executor to launch and how.
-    @details env_keys names the secret subset injected into the container
-             (from the environment / .env); only these keys ever reach the
-             executor (design 12b: scope minimally). stage_host_auth copies
-             the HOST's opencode auth.json into the run container at
-             provision - a pilot-only bridge for OAuth (ChatGPT-account)
-             sessions that have no API key (Security_And_Credentials.md);
-             production should use a real provider key instead.
+    @brief   [executor] - how ADORE launches Pi, its only coding agent.
+    @details `model` is the Pi model in provider/model form. `command` is the
+             argv template of a native (installed) Pi run; a container run
+             uses the image's pinned Pi and ignores it. env_keys names the
+             secret subset injected into the executor (from the environment /
+             .env); only these keys ever reach it (design 12b: scope
+             minimally).
     """
 
-    default: str = "opencode"
+    model: str = ""
+    command: str = PI_NATIVE_COMMAND
     mode: str = "thick"
     questions_file: str = ""
     env_keys: list[str] = field(
         default_factory=lambda: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
     )
-    stage_host_auth: bool = False
-    commands: dict[str, ExecutorCommand] = field(default_factory=dict)
 
 
 @dataclass
@@ -619,28 +600,7 @@ def _build_labels(data: Any) -> LabelsConfig:
         lifecycle=_build_section(LifecycleLabels, data.get("lifecycle")),
         selection=_build_section(SelectionLabels, data.get("selection")),
         control=_build_section(ControlLabels, data.get("control")),
-        executor=_build_section(ExecutorLabels, data.get("executor")),
     )
-
-
-def _build_executor(data: Any) -> ExecutorConfig:
-    """
-    @brief      Build [executor] including the per-executor command tables.
-    @details    Scalar keys configure the launcher; every dict-valued key is an
-                [executor.<name>] command/model entry.
-    @param[in]  data Raw [executor] mapping.
-    @return     A populated ExecutorConfig.
-    """
-    if not isinstance(data, dict):
-        return ExecutorConfig()
-    scalars = {key: value for key, value in data.items() if not isinstance(value, dict)}
-    section = _build_section(ExecutorConfig, scalars)
-    section.commands = {
-        name: _build_section(ExecutorCommand, table)
-        for name, table in data.items()
-        if isinstance(table, dict)
-    }
-    return section
 
 
 def _build_container(data: Any) -> ContainerConfig:
@@ -657,7 +617,7 @@ def _build_container(data: Any) -> ContainerConfig:
     return section
 
 
-def _command_placeholder_issues(default: str, command: str) -> list[str]:
+def _command_placeholder_issues(command: str) -> list[str]:
     """
     @brief      Reject a command template whose braces the launcher cannot fill.
     @details    The launcher renders the template with `str.format`, so any
@@ -668,7 +628,6 @@ def _command_placeholder_issues(default: str, command: str) -> list[str]:
                 fails the same way.
                 Catching it here turns an opaque runtime failure into a setup
                 message.
-    @param[in]  default The selected executor kind.
     @param[in]  command The configured command template.
     @return     One issue per unsupported or malformed placeholder.
     """
@@ -679,11 +638,11 @@ def _command_placeholder_issues(default: str, command: str) -> list[str]:
         }
     except ValueError as exc:
         return [
-            f"[executor.{default}] command has malformed placeholder braces: {exc}"
+            f"[executor] command has malformed placeholder braces: {exc}"
         ]
     unsupported = sorted(name for name in fields if name.split(".")[0] not in supported)
     return [
-        f"[executor.{default}] command uses a placeholder the launcher cannot "
+        "[executor] command uses a placeholder the launcher cannot "
         f"fill: {{{name}}} (supported: {', '.join(sorted(supported))}). A literal "
         "brace must be doubled."
         for name in unsupported
@@ -777,7 +736,7 @@ def load_config(path: str | Path) -> Config:
         polling=_build_section(PollingConfig, raw.get("polling")),
         readiness=_build_section(ReadinessConfig, raw.get("readiness")),
         labels=_build_labels(raw.get("labels")),
-        executor=_build_executor(raw.get("executor")),
+        executor=_build_section(ExecutorConfig, raw.get("executor")),
         execution=_build_section(ExecutionConfig, raw.get("execution")),
         local=_build_section(LocalConfig, raw.get("local")),
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
@@ -911,18 +870,14 @@ def _unknown_key_issues(raw: dict) -> list[str]:
     labels = raw.get("labels")
     if isinstance(labels, dict):
         tables = {"lifecycle": LifecycleLabels, "selection": SelectionLabels,
-                  "control": ControlLabels, "executor": ExecutorLabels}
+                  "control": ControlLabels}
         for key in sorted(set(labels) - tables.keys()):
             issues.append(f"[labels] unknown key {key!r}: remove it from config.toml")
         for name, cls in tables.items():
             check(f"labels.{name}", labels.get(name), cls)
-    executor = raw.get("executor")
-    if isinstance(executor, dict):
-        check("executor", {key: value for key, value in executor.items()
-                           if not isinstance(value, dict)}, ExecutorConfig)
-        for name, table in executor.items():
-            if isinstance(table, dict):
-                check(f"executor.{name}", table, ExecutorCommand)
+    # A table of a removed coding agent ([executor.<name>]) is a key of
+    # [executor] here, so it is refused by name like any other key.
+    check("executor", raw.get("executor"), ExecutorConfig)
     container = raw.get("container")
     if isinstance(container, dict):
         check("container", {key: value for key, value in container.items()
@@ -936,7 +891,7 @@ def validate_config(config: Config) -> list[str]:
     @brief      Validate a Config and return a list of human-readable issues.
     @details    Structural and cross-field checks per Configuration_Reference:
                 enum values, positive bounds, parseable durations, and a
-                matching [executor.<default>] entry. Run at startup so typos
+                Pi model and launch template. Run at startup so typos
                 are caught before the poll loop starts.
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
@@ -999,63 +954,16 @@ def validate_config(config: Config) -> list[str]:
         "[executor] env_keys must not expose forge credentials to executors: "
         f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
     )
-    default = config.executor.default
+    command = config.executor.command
+    issues.extend(_command_placeholder_issues(command))
+    check(bool(command.strip()), "[executor] command is required")
+    check(bool(config.executor.model.strip()), "[executor] model is required")
+    check("{prompt}" in command, "[executor] command must contain a {prompt} placeholder")
     check(
-        not config.executor.stage_host_auth or default in ("opencode", "codex"),
-        "[executor] stage_host_auth supports only opencode or codex, "
-        f"not {default!r}",
+        "--auto" not in command.split(),
+        "[executor] command must not use --auto (it would auto-approve the "
+        "push/pr/merge permissions that keep the executor off the remote)",
     )
-    entry = config.executor.commands.get(default)
-    if entry is None:
-        issues.append(f"[executor] default {default!r} has no [executor.{default}] table")
-    else:
-        issues.extend(_command_placeholder_issues(default, entry.command))
-        check(bool(entry.command.strip()), f"[executor.{default}] command is required")
-        check(bool(entry.model.strip()), f"[executor.{default}] model is required")
-        check(
-            "{prompt}" in entry.command,
-            f"[executor.{default}] command must contain a {{prompt}} placeholder",
-        )
-        check(
-            "--auto" not in entry.command.split(),
-            f"[executor.{default}] command must not use --auto (it would "
-            "auto-approve the push/pr/merge permissions that keep the "
-            "executor off the remote)",
-        )
-        if default == "codex":
-            command = entry.command
-            check(
-                "--json" in command
-                and (
-                    "--sandbox workspace-write" in command
-                    or "--dangerously-bypass-approvals-and-sandbox" in command
-                    or "--full-auto" in command
-                ),
-                "[executor.codex] command must run non-interactively: add "
-                "--json with --sandbox workspace-write, --full-auto, or "
-                "--dangerously-bypass-approvals-and-sandbox so Codex does not "
-                "block waiting for approval headless",
-            )
-            check(
-                "--ignore-user-config" in command.split(),
-                "[executor.codex] command must include --ignore-user-config so "
-                "headless runs use ADORE's staged CODEX_HOME instead of a "
-                "machine-local desktop config/plugin state",
-            )
-            check(
-                "--disable plugins" in command,
-                "[executor.codex] command must include --disable plugins so "
-                "Codex does not materialize its bundled plugin marketplace "
-                "inside the target worktree",
-            )
-        if default == "qwen":
-            command = entry.command
-            check(
-                "--yolo" not in command.split() and "--approval-mode yolo" not in command,
-                "[executor.qwen] command must not use --yolo / --approval-mode yolo "
-                "(auto-approves all tools; rely on the .qwen deny-hooks + "
-                "container isolation)",
-            )
 
     check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
     durations_ok = True
@@ -1113,6 +1021,11 @@ def validate_config(config: Config) -> list[str]:
             check(
                 key not in _MANAGED_CONTAINER_ENV,
                 f"[container] runtime_env.{key} is managed by ADORE and cannot be overridden",
+            )
+            check(
+                not str(key).upper().startswith(REMOVED_AGENT_ENV_PREFIXES),
+                f"[container] runtime_env.{key} configures a removed coding agent: "
+                "remove it from config.toml",
             )
     check(
         isinstance(config.container.required_tool_checks, list),
@@ -1183,45 +1096,22 @@ def validate_config(config: Config) -> list[str]:
                 "HOME", "USERPROFILE", "PATH", "SYSTEMROOT", "COMSPEC", "USERNAME",
                 "USER", "LOGNAME", "GIT_DIR", "GIT_WORK_TREE", "PYTHONPATH",
             }, "[local] environment cannot override managed account or forge variables")
-        inline = local.environment.get("OPENCODE_CONFIG_CONTENT")
-        if inline is not None:
-            try:
-                if not isinstance(inline, str) or len(inline.encode("utf-8")) > 131072:
-                    raise ValueError
-                data = strict_json_loads(inline)
-                if not isinstance(data, dict):
-                    raise ValueError
-                pending = [(data, 0)]
-                while pending:
-                    item, depth = pending.pop()
-                    if depth > 16:
-                        raise ValueError
-                    if isinstance(item, dict):
-                        for name, value in item.items():
-                            if (name.casefold() in {"apikey", "token", "password", "secret"}
-                                    and value and not (isinstance(value, str)
-                                    and re.fullmatch(r"\{env:[A-Za-z_][A-Za-z0-9_]*\}", value))):
-                                raise ValueError
-                            pending.append((value, depth + 1))
-                    elif isinstance(item, list):
-                        pending.extend((value, depth + 1) for value in item)
-            except (ValueError, TypeError, RecursionError):
-                issues.append(
-                    "[local] inline configuration must be bounded JSON with env auth refs")
+            check(not str(key).upper().startswith(REMOVED_AGENT_ENV_PREFIXES),
+                  f"[local] environment.{key} configures a removed coding agent: "
+                  "remove it from config.toml")
     if config.execution.backend == "local":
         check(not config.execution.preparation, "[local] container preparation is unsupported")
         check(config.container.egress.mode == "open", "[local] container egress must be open")
-        check(not config.executor.stage_host_auth, "[local] host-auth staging is unsupported")
         check(not config.container.run_args and not config.container.required_tool_checks
               and config.container.selinux_relabel == "off",
               "[local] container runtime options/tool checks are unsupported")
         check(config.container.runtime_env == ContainerConfig().runtime_env,
               "[local] configure environment in [local], not [container] runtime_env")
         try:
-            tokens = shlex.split(config.executor.commands[default].command)
+            tokens = shlex.split(config.executor.command)
             check(not any(token in {"&&", "||", ";", "|", ">", "<", "&"} for token in tokens),
                   "[local] executor command must be argv without shell compounds")
-        except (ValueError, KeyError):
+        except ValueError:
             issues.append("[local] executor command is invalid")
     if "execution" in config.raw:
         declaration = config.raw["execution"]

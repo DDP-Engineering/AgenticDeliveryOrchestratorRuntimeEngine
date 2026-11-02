@@ -274,11 +274,10 @@ def test_explicit_import_probe_outcomes_reinspect_and_redact(tmp_path, monkeypat
         clone.mkdir(parents=True)
         (clone / "aegis.py").touch()
         (clone / "aegis.toml").touch()
-    if mode == "verified":
-        import adore.web.app as web_app
-        monkeypatch.setattr(web_app, "probe_endpoint", lambda config, runner: {
-            "context": "executor-container", "ready": True,
-            "model": "fixture/model", "reason": "ready"})
+    if mode == "partial":
+        # A WSL-wrapped runtime cannot be probed from the API host: coverage stays partial.
+        assert 'runtime = "docker"' in document
+        document = document.replace('runtime = "docker"', 'runtime = "wsl -d fixture -- docker"')
     with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
         headers = {"X-CSRF-Token": _csrf(client)}
         body = {"name": "alpha", "config_text": document}

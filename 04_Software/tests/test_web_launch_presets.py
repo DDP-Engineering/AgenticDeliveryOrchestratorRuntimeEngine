@@ -23,22 +23,12 @@ from adore.profiles import ProfileStore
 from adore.state import StateStore
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
-import pytest
 
-PRESETS = {
-    "opencode": "opencode run --dir {worktree} -m {model} --format json {prompt}",
-    "pi": "pi -p --mode json --model {model} {prompt}",
-    "codex": (
-        "codex exec --json --model {model} --ignore-user-config "
-        "--disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
-    ),
-    "qwen": "qwen -p --model {model} --output-format json {prompt}",
-}
+PRESET = "pi -p --mode json --model {model} {prompt}"
 
 
-@pytest.mark.parametrize("executor", PRESETS)
-def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
-    """@brief Only configured supported presets pass authenticated reviewed apply."""
+def test_launch_preset_is_reviewed_and_fails_closed(tmp_path):
+    """@brief Only the Pi preset passes authenticated reviewed apply on a container project."""
     profiles = ProfileStore(tmp_path / "home")
     state_root = tmp_path / "state"
     profiles.create("alpha", store_root=str(state_root))
@@ -46,13 +36,10 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
     original = Path(__file__).resolve().parents[1] / "config.example.toml"
     text = original.read_text(encoding="utf-8")
     text = text.replace('store_root = ".adore"', f'store_root = "{state_root.as_posix()}"')
-    text = text.replace("[executor.opencode]", f"[executor.{executor}]")
-    text = text.replace('default = "opencode"', f'default = "{executor}"')
-    text = text.replace(PRESETS["opencode"], PRESETS[executor])
-    if executor == "pi":
-        text = text.replace(
-            PRESETS["pi"], "pi -p --mode json --model {model} --thinking medium {prompt}", 1
-        )
+    text = text.replace(
+        f'# command = "{PRESET}"',
+        'command = "pi -p --mode json --model {model} --thinking medium {prompt}"', 1)
+    assert "--thinking medium" in text
     path.write_text(text, encoding="utf-8")
     state = StateStore(state_root)
     state.pause()
@@ -69,13 +56,13 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
         row = next(
             item
             for item in config["settings"]
-            if item["key"] == f"executor.commands.{executor}.command"
+            if item["key"] == "executor.command"
         )
         assert row["editable"] is True
-        assert row["choices"] == [PRESETS[executor]]
+        assert row["choices"] == [PRESET]
         body = {
-            "key": f"executor.{executor}.command",
-            "value": PRESETS[executor],
+            "key": "executor.command",
+            "value": PRESET,
             "revision": config["revision"],
         }
         saved = path.read_bytes()
@@ -87,12 +74,9 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
             == 409
         )
         for key, value in (
-            (body["key"], PRESETS[executor] + "; echo unsafe"),
+            (body["key"], PRESET + "; echo unsafe"),
             ("executor.unknown.command", "unknown {prompt}"),
-            (
-                f"executor.{'pi' if executor != 'pi' else 'qwen'}.command",
-                PRESETS["pi" if executor != "pi" else "qwen"],
-            ),
+            ("executor.opencode.command", "opencode run {prompt}"),
         ):
             invalid = {**body, "key": key, "value": value}
             assert client.post(base + "/pending", json=invalid, headers=headers).status_code == 400
@@ -100,7 +84,7 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
             assert path.read_bytes() == saved
         staged = client.post(base + "/pending", json=body, headers=headers)
         assert staged.status_code == 200, staged.text
-        assert staged.json()["proposed_value"] == PRESETS[executor]
+        assert staged.json()["proposed_value"] == PRESET
         assert path.read_bytes() == saved
         apply = {"candidate_revision": staged.json()["candidate_revision"],
                  "base_revision": staged.json()["base_revision"]}
@@ -110,20 +94,20 @@ def test_launch_presets_are_reviewed_and_fail_closed(tmp_path, executor):
         state.pause()
         response = client.post(base + "/apply", json=apply, headers=headers)
         assert response.status_code == 200, response.text
-        assert load_config(path).executor.commands[executor].command == PRESETS[executor]
+        assert load_config(path).executor.command == PRESET
         assert client.post(base + "/apply", json=apply, headers=headers).status_code == 404
         revision = client.get(base).json()["revision"]
         body["revision"] = revision
         direct = client.put(base, json=body, headers=headers)
         assert direct.status_code == 200, direct.text
-        assert load_config(path).executor.commands[executor].command == PRESETS[executor]
+        assert load_config(path).executor.command == PRESET
         body["revision"] = client.get(base).json()["revision"]
         assert client.post(base + "/pending", json=body, headers=headers).status_code == 200
         pending = profiles.profile_dir("alpha") / "pending_config.json"
         record = json.loads(pending.read_text(encoding="utf-8"))
-        record["value"] = PRESETS[executor] + "; echo unsafe"
+        record["value"] = PRESET + "; echo unsafe"
         record["candidate_text"] = record["candidate_text"].replace(
-            PRESETS[executor], record["value"], 1
+            PRESET, record["value"], 1
         )
         record["candidate_revision"] = sha256(record["candidate_text"].encode()).hexdigest()
         pending.write_text(json.dumps(record), encoding="utf-8")

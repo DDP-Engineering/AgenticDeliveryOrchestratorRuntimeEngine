@@ -32,7 +32,7 @@ from adore.aegis import (
     AegisTaskError,
     AegisTimeoutError,
 )
-from adore.config import Config, ContainerEgressConfig, ExecutorCommand
+from adore.config import Config, ContainerEgressConfig
 from adore.executor.base import GateRun
 from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.isolation import ContainerManager, IsolationError
@@ -2701,10 +2701,7 @@ def test_from_config_env_filter_and_process_precedence(
     """
     config = make_config(tmp_path)
     config.executor.env_keys = ["ADORE_TEST_SECRET", "ADORE_FILE_ONLY"]
-    config.executor.commands["opencode"] = ExecutorCommand(
-        command="opencode run {prompt}",
-        model="test-model",
-    )
+    config.executor.model = "test-model"
     env_file = tmp_path / ".env"
     env_file.write_text(
         "ADORE_TEST_SECRET=file\nADORE_FILE_ONLY=file-only\nIGNORED=value\n",

@@ -38,8 +38,10 @@ CONTAINER_WORKTREE_MOUNT = "/adore/work"
 CONTAINER_IO_MOUNT = "/adore/io"
 CONTAINER_UV_CACHE_MOUNT = f"{CONTAINER_HOME}/.cache/uv"
 CONTAINER_NPM_CACHE_MOUNT = f"{CONTAINER_HOME}/.npm"
-CONTAINER_OPENCODE_AUTH_DIR = f"{CONTAINER_HOME}/.local/share/opencode"
-CONTAINER_CODEX_HOME = f"{CONTAINER_HOME}/.adore-codex"
+# Pi is ADORE's only coding agent; usage events and project views name it so.
+EXECUTOR_NAME = "pi"
+# Native (installed) Pi launch template until PI-07 drives it over RPC.
+PI_NATIVE_COMMAND = "pi -p --mode json --model {model} {prompt}"
 # Pi in the executor image: the pinned prefix, ADORE's guard extension, and the
 # ADORE-owned agent directory that replaces the personal ~/.pi/agent.
 CONTAINER_PI_PREFIX = "/opt/pi"

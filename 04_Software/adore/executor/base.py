@@ -100,7 +100,7 @@ class GateRun:
 
 class Executor(ABC):
     """
-    @brief   Abstract executor launcher (opencode/pi/codex).
+    @brief   Abstract executor launcher; Pi is its only implementation.
     """
 
     @abstractmethod

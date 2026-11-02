@@ -11,10 +11,10 @@ id = "REQ-FUNC-fec24fc3"
 
 title = "Local model endpoint profile and readiness"
 
-status = "active"
+status = "retired"
 
 requirement = """
-When an administrator configures a local model endpoint, ADORE web shall save a validated executor-compatible profile with protocol, URL, model ID, credential reference, timeout and TLS/CA policy, and pass it to the selected executor without silently falling back to a cloud provider.
+When an administrator configures a local model endpoint, ADORE web shall save a validated executor-compatible profile with protocol, URL, model ID, credential reference, timeout and TLS/CA policy, and pass it to the selected executor without silently falling back to a cloud provider. Retired 2026-11-02: OpenCode support was removed; Pi is the only coding agent and the web interface has no model endpoint profile.
 """
 
 verification = "Save a compatible OpenAI-style endpoint and inspect the generated executor configuration and an offline internal-network request. Reject unsupported protocol or executor combinations, invalid URLs, credential values instead of references, unsafe redirects and missing TLS/CA inputs without changing the active configuration."
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-09-30
-updated = 2026-09-30
+updated = 2026-11-02

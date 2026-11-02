@@ -115,7 +115,7 @@ def main() -> int:
         raise SystemExit("invalid image manifest")
     executor_cli = manifest.get("executor_image_cli", "any")
     executor_image = manifest.get("executor_image_tag", "")
-    if (executor_cli not in ("any", "opencode", "pi", "codex")
+    if (executor_cli not in ("any", "pi")
             or not isinstance(executor_image, str)
             or (executor_image and executor_image not in {
                 item["tag"] for item in images})):

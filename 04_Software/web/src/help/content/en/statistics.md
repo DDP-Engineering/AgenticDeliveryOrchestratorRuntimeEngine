@@ -47,7 +47,7 @@ Two cost figures are kept apart, and neither is a bill.
 - **Reported cost** is what the executor reported, taken as observed evidence. If it reported none, the value reads **Not available**.
 - **Estimated cost** is the recorded token counts multiplied by prices that administrators set. It is an estimate, not an invoice and not a spending cap.
 
-Administrators record prices in a project's **Settings → Agent and model** under **Estimated prices**: choose **Effective from**, then enter **Input USD / 1M tokens** and **Output USD / 1M tokens** and **Save**. A price applies to the selected coding agent and its configured model, so set the model first. Each usage event is priced by the executor, model and the day it was consumed. Events with no matching price are counted as **Unpriced usage events** in the Usage totals.
+Administrators record prices in a project's **Settings → Agent and model** under **Estimated prices**: choose **Effective from**, then enter **Input USD / 1M tokens** and **Output USD / 1M tokens** and **Save**. A price applies to Pi and its configured model, so set the model first. Each usage event is priced by the executor, model and the day it was consumed. Events with no matching price are counted as **Unpriced usage events** in the Usage totals.
 
 > A price entered with an earlier effective date can change past estimates. Export a CSV if you need a point-in-time figure.
 

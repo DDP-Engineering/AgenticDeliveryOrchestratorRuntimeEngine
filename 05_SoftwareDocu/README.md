@@ -87,7 +87,6 @@ guides belong in `01_Documentation/`.
 
 - `Component_Web_Identity.md` - SQLite accounts, sessions, grants and queue.
 - `Component_Web_API.md` - same-origin HTTP API and role enforcement.
-- `Component_Web_Endpoint_Probe.md` - disposable executor-context local-model readiness.
 - `Component_Web_Worker.md` - authorized queued CLI operations and scheduling.
 - `Component_Web_Frontend.md` - React views, locale catalogs and themes.
 - `Component_Repository_Source.md` - enrollment from a repository URL: address

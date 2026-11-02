@@ -53,12 +53,12 @@ def main() -> int:
     parser.add_argument("--require-image", action="append", default=[],
                         help="Image tag already supplied offline on the install host")
     parser.add_argument("--executor-image", default="",
-                        help="Which listed image contains the selected executor CLI")
+                        help="Which listed image must contain Pi")
     parser.add_argument("--runtime", choices=("docker", "podman"), default="docker")
     parser.add_argument("--forge", choices=("any", "gitlab", "github", "gitea"),
                         default="any", help="Forge CLI required on the install host")
-    parser.add_argument("--executor", choices=("any", "opencode", "pi", "codex"),
-                        default="any", help="Executor CLI required on the install host")
+    parser.add_argument("--executor", choices=("any", "pi"), default="any",
+                        help="pi checks that the listed image contains Pi; any skips the check")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     software = repo / "04_Software"

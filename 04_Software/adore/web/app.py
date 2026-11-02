@@ -45,9 +45,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, doctor, metrics
 from adore.aegis import RUN_KINDS
+from adore.branding import EXECUTOR_NAME
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.clone_cleanup import project_clone_decision
 from adore.config import (
+    REMOVED_AGENT_ENV_PREFIXES,
     SELINUX_RELABEL_MODES,
     branch_naming_preview,
     default_config,
@@ -86,14 +88,7 @@ from adore.selection import start_blocker, start_preparation
 from adore.state import StateError, StateStore
 from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
 from adore.web import analytics
-from adore.web.endpoint_probe import probe_endpoint
-from adore.web.executor_configuration import (
-    LAUNCH_PRESETS,
-    SUPPORTED_AGENTS,
-    selection_value,
-    set_selection,
-    valid_selection,
-)
+from adore.web.executor_configuration import LAUNCH_PRESETS
 from adore.web.executor_settings import (
     PROVIDER_KEYS,
     ExecutorSettingsError,
@@ -282,7 +277,6 @@ class ProjectInput(BaseModel):
     repo: str
     repo_path: str
     reviewers: str = ""
-    executor_cli: str = "opencode"
     execution_backend: Literal["container", "local"] = "container"
     executor_command: str = ""
     local_account: str = "current"
@@ -293,7 +287,7 @@ class ProjectInput(BaseModel):
     runtime: str = "docker"
     image: str = ""
     target_branch: str = "main"
-    auth_mode: str = "host-auth"
+    auth_mode: Literal["api-key", "existing"] = "api-key"
     description: str = ""
     login: str = ""
     env_keys: list[str] | None = None
@@ -373,11 +367,6 @@ class ConfigEdit(BaseModel):
     key: str
     value: str
     revision: str
-    model: str | None = None
-    auth_env: str | None = None
-    protocol: Literal["openai-chat-completions"] | None = None
-    timeout_seconds: int | None = Field(default=None, ge=1, le=600)
-    ca_file: str | None = None
 
 
 class BranchPreview(BaseModel):
@@ -517,10 +506,18 @@ def _config_findings(config) -> list[dict]:
                 for key in secrets_found]
     findings = []
     for message in validate_config(config):
+        unknown = re.match(r"\[([a-z][a-z0-9_.-]*)\] unknown key '([^']+)'", message)
+        removed = re.match(r"\[([a-z]+)\] ((?:runtime_env|environment)\.[A-Za-z_][A-Za-z0-9_]*)"
+                           r" configures a removed coding agent", message)
         match = re.match(r"\[([a-z][a-z0-9_.-]*)\]\s+([a-z][a-z0-9_]*)", message)
-        field = ".".join(match.groups()) if match else "config"
-        findings.append(_finding("config_invalid", field,
-                                 "Correct this setting using the configuration reference."))
+        if unknown or removed:
+            # Name exactly what to delete: this build has no migration.
+            field = ".".join((unknown or removed).groups())
+            remediation = "Remove this key from config.toml; this build does not read it."
+        else:
+            field = ".".join(match.groups()) if match else "config"
+            remediation = "Correct this setting using the configuration reference."
+        findings.append(_finding("config_invalid", field, remediation))
     return findings
 
 
@@ -533,8 +530,7 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
         if path.stat().st_size > 16384:
             raise ValueError("oversized readiness")
         value = json.loads(path.read_text(encoding="utf-8"))
-        keys = {"schema", "project_id", "revision", "checked_at", "context", "checks",
-                "model_probe"}
+        keys = {"schema", "project_id", "revision", "checked_at", "context", "checks"}
         if (not isinstance(value, dict) or set(value) != keys
                 or type(value["schema"]) is not int or value["schema"] != 1
                 or value["project_id"] != profile.project_id
@@ -549,31 +545,14 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             raise ValueError("invalid readiness time")
         checks = value["checks"]
         check_keys = {"git", "forge_cli", "forge_auth", "container_runtime", "executor_cli",
-                      "aegis_files", "model_endpoint"}
+                      "aegis_files"}
         if not isinstance(checks, dict) or set(checks) != check_keys:
             raise ValueError("invalid readiness checks")
         for key, result in checks.items():
             if type(result) is not bool and not (
                 key == "container_runtime" and result is None
-                or key == "model_endpoint" and result == "not-checked"
             ):
                 raise ValueError("invalid readiness check value")
-        probe = value["model_probe"]
-        reasons = {"ready", "credential-missing", "tool-stream-incompatible",
-                   "redirect-rejected", "http-error", "endpoint-unreachable-or-incompatible",
-                   "probe-failed", "not-configured", "unsupported-executor", "invalid-endpoint",
-                   "invalid-provider-config", "invalid-credential-reference", "image-missing",
-                   "timeout", "runtime-error"}
-        if (not isinstance(probe, dict) or set(probe) != {"context", "ready", "model", "reason"}
-                or probe["context"] not in {"executor-container", "executor-local"}
-                or type(probe["ready"]) is not bool
-                or not isinstance(probe["model"], str) or len(probe["model"]) > 200
-                or not isinstance(probe["reason"], str)
-                or not (probe["reason"] in reasons
-                        or re.fullmatch(r"http-[45]\d\d", probe["reason"]))
-                or probe["model"] and not re.fullmatch(
-                    r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", probe["model"])):
-            raise ValueError("invalid readiness model evidence")
     except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
         raise _contract_rejection("readiness_corrupt", "readiness",
                               "Inspect the stored readiness record on the ADORE host.") from exc
@@ -666,10 +645,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                             "forge_auth": auth.authenticated,
                             "container_runtime": True, "executor_cli": executor,
                             "aegis_files": (aegis_root / "aegis.py").is_file()
-                            and (aegis_root / "aegis.toml").is_file(),
-                            "model_endpoint": "not-checked"},
-                "model_probe": {"context": "executor-local", "ready": False,
-                                "model": "", "reason": "not-configured"}}
+                            and (aegis_root / "aegis.toml").is_file()}}
     try:
         image_runtime = ContainerManager(
             config.container.runtime, config.container.image,
@@ -683,7 +659,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
             "--network", "none", "--entrypoint", "python",
             config.container.image, "-c",
             "import shutil,sys; sys.exit(0 if shutil.which(sys.argv[1]) else 1)",
-            config.executor.default,
+            EXECUTOR_NAME,
         ], timeout=8).ok
     except (IsolationError, OSError, TimeoutError, ValueError):
         executor = False
@@ -700,20 +676,8 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         "executor_cli": executor,
         "aegis_files": ((aegis_root / "aegis.py").is_file()
                         and (aegis_root / "aegis.toml").is_file()),
-        "model_endpoint": "not-checked",
     }
-    try:
-        model_probe = probe_endpoint(config, bounded_runner)
-    except (IsolationError, OSError, TimeoutError, ValueError) as exc:
-        model_probe = {"context": "executor-container", "ready": False,
-                       "model": config.executor.commands.get(
-                           config.executor.default).model if config.executor.default
-                           in config.executor.commands else "",
-                       "reason": ("timeout" if isinstance(exc, TimeoutError)
-                                  else "runtime-error")}
-    if model_probe["reason"] not in ("not-configured", "unsupported-executor"):
-        checks["model_endpoint"] = model_probe["ready"]
-    return {"checks": checks, "model_probe": model_probe}
+    return {"checks": checks}
 
 
 def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, WizardSetup | None]:
@@ -734,7 +698,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
                                "Custom native argv is available only for local execution."))
     # Reviewers are optional: an empty list requests no review on the MR/PR.
     for field in ("ready_label", "approval_label", "kind", "repo", "repo_path",
-                  "runtime", "target_branch", "auth_mode", "executor_cli"):
+                  "runtime", "target_branch", "auth_mode"):
         if not str(answers[field]).strip():
             issues.append(_finding("setup_field_invalid", field,
                                    "Supply a non-empty supported value."))
@@ -795,13 +759,14 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             not clone.is_absolute() or not (clone / ".git").exists()):
         issues.append(_finding("setup_field_invalid", "repo_path",
                                "Use an absolute existing repository clone on the ADORE server."))
-    # An executor whose image or service signs in by itself needs no forwarded names.
+    # A local Pi that uses the account's existing sign-in needs no forwarded names.
     if body.env_keys is not None and (
             len(body.env_keys) > 32 or len(set(body.env_keys)) != len(body.env_keys)
             or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) for key in body.env_keys)
-            or body.auth_mode in {"host-auth", "existing"} and body.env_keys):
+            or body.auth_mode == "existing" and body.env_keys):
         issues.append(_finding("setup_field_invalid", "env_keys",
-                               "Use unique uppercase environment names outside host-auth mode."))
+                               "Use unique uppercase environment names; the existing sign-in "
+                               "mode forwards none."))
     for key in ("model", "image"):
         if not answers[key]:
             del answers[key]
@@ -850,8 +815,8 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         preview["review"] = {
             **body.model_dump(exclude={"revision", "env_keys"}),
             "display_name": display,
-            "model": config.executor.commands[config.executor.default].model,
-            "executor_command": config.executor.commands[config.executor.default].command,
+            "model": config.executor.model,
+            "executor_command": config.executor.command,
             "image": config.container.image, "env_keys": config.executor.env_keys,
             "hold_label": config.labels.control.hold,
             "exclude_label": config.labels.control.exclude,
@@ -1240,106 +1205,23 @@ def _web_config_edit_lock(path: Path):
         raise _error(409, "config_edit_locked") from exc
 
 
-def _set_endpoint(text: str, value: str, model: str,
-                  auth_env: str | None = None,
-                  timeout_seconds: int | None = None,
-                  ca_file: str | None = None) -> str:
-    """@brief Configure OpenCode's compatible provider and endpoint."""
-    provider_id, separator, model_id = model.partition("/")
-    if (not separator or not re.fullmatch(r"[a-z][a-z0-9._-]*", provider_id)
-            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", model_id)):
-        raise ValueError("OpenCode model must be provider/model")
-    document = tomllib.loads(text)
-    runtime_env = document.get("container", {}).get("runtime_env", {})
-    if not isinstance(runtime_env, dict):
-        raise ValueError("container.runtime_env is not a table")
-    existing = runtime_env.get("OPENCODE_CONFIG_CONTENT", "{}")
-    inline = json.loads(existing)
-    if not isinstance(inline, dict):
-        raise ValueError("OpenCode inline config is not an object")
-    providers = inline.setdefault("provider", {})
-    if not isinstance(providers, dict):
-        raise ValueError("OpenCode provider config is not an object")
-    options = {"baseURL": value}
-    prior = providers.get(provider_id)
-    if auth_env is None and isinstance(prior, dict):
-        old_options = prior.get("options")
-        if isinstance(old_options, dict):
-            reference = old_options.get("apiKey")
-            if isinstance(reference, str) and re.fullmatch(
-                r"\{env:[A-Z][A-Z0-9_]{0,63}\}", reference
-            ):
-                options["apiKey"] = reference
-    if auth_env:
-        options["apiKey"] = f"{{env:{auth_env}}}"
-    if timeout_seconds is not None:
-        options["timeout"] = timeout_seconds * 1000
-    elif isinstance(prior, dict) and isinstance(prior.get("options"), dict):
-        prior_timeout = prior["options"].get("timeout")
-        if type(prior_timeout) is int and 1000 <= prior_timeout <= 600000:
-            options["timeout"] = prior_timeout
-    providers[provider_id] = {
-        "npm": "@ai-sdk/openai-compatible",
-        "name": "ADORE local endpoint",
-        "options": options,
-        "models": {model_id: {"name": model_id}},
-    }
-    key = "container.runtime_env.OPENAI_BASE_URL"
-    if "[container.runtime_env]" in text:
-        changed = _set_toml_scalar(text, key, value)
-        changed = _set_toml_scalar(
-            changed, "container.runtime_env.OPENCODE_CONFIG_CONTENT",
-            json.dumps(inline, separators=(",", ":")),
-        )
-        return (_set_toml_scalar(changed, "container.runtime_env.NODE_EXTRA_CA_CERTS",
-                                 ca_file) if ca_file is not None else changed)
-    lines = text.split("\n")  # LF only: lines keep their CR (see _set_toml_scalar)
-    inside_container = False
-    inline_index = None
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped == "[container]":
-            inside_container = True
-        elif stripped.startswith("[") and stripped.endswith("]"):
-            inside_container = False
-        elif inside_container and re.match(r"^\s*runtime_env\s*=", line):
-            inline_index = index
-            break
-    if inline_index is None:
-        changed = _set_toml_scalar(text, key, value)
-        changed = _set_toml_scalar(
-            changed, "container.runtime_env.OPENCODE_CONFIG_CONTENT",
-            json.dumps(inline, separators=(",", ":")),
-        )
-        return (_set_toml_scalar(changed, "container.runtime_env.NODE_EXTRA_CA_CERTS",
-                                 ca_file) if ca_file is not None else changed)
-    runtime_env["OPENAI_BASE_URL"] = value
-    removed_last = inline_index == len(lines) - 1
-    del lines[inline_index]
-    newline = _newline(text)
-    section = f"{newline}[container.runtime_env]{newline}" + "".join(
-        f"{name} = {json.dumps(item, ensure_ascii=False)}{newline}"
-        for name, item in sorted(runtime_env.items())
-    )
-    kept = "\n".join(lines)  # every other line byte for byte
-    if removed_last:
-        # The removed line was the unterminated last one: give back the LF it
-        # took from the line before it, so that line keeps its own ending.
-        kept += "\n"
-    elif kept and not kept.endswith("\n"):
-        kept += newline  # the file had no final newline
-    changed = kept + section
-    changed = _set_toml_scalar(
-        changed, "container.runtime_env.OPENCODE_CONFIG_CONTENT",
-        json.dumps(inline, separators=(",", ":")),
-    )
-    return (_set_toml_scalar(changed, "container.runtime_env.NODE_EXTRA_CA_CERTS",
-                             ca_file) if ca_file is not None else changed)
-
-
 def _store_for(profiles: ProfileStore, profile) -> StateStore:
     root = profile.store_root or str(profiles.default_store_root(profile.name))
     return StateStore(root)
+
+
+def _removed_agent_environment(path: str) -> bool:
+    """
+    @brief      Whether a dotted key is an environment variable of a removed coding agent.
+    @details    Validation refuses such a configuration, but the configuration view still
+                renders it; its value (for example an inline provider JSON) is never shown.
+    @param[in]  path Dotted configuration key.
+    @return     True for `container.runtime_env.*` / `local.environment.*` removed-agent names.
+    """
+    for section in ("container.runtime_env.", "local.environment."):
+        if path.startswith(section):
+            return path[len(section):].upper().startswith(REMOVED_AGENT_ENV_PREFIXES)
+    return False
 
 
 def _redact_config(value, prefix: str = ""):
@@ -1357,7 +1239,7 @@ def _redact_config(value, prefix: str = ""):
         shown = {}
         for key, item in value.items():
             path = f"{prefix}.{key}" if prefix else key
-            if (_is_secret_key(path) or key == "OPENCODE_CONFIG_CONTENT"
+            if (_is_secret_key(path) or _removed_agent_environment(path)
                     or (path in _NOT_SECRET_KEYS and type(item) is not bool)):
                 continue
             shown[key] = _redact_config(item, path)
@@ -1434,7 +1316,7 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
         "repo": config.platform.repo if config_valid and config else profile.repo,
         "runtime": ("local" if config.execution.backend == "local" else config.container.runtime)
         if config_valid and config else profile.runtime,
-        "executor": config.executor.default if config_valid and config else "",
+        "executor": EXECUTOR_NAME if config_valid and config else "",
         "config_valid": config_valid,
         "readiness": readiness,
         "last_activity": last_activity.isoformat() if last_activity else None,
@@ -1452,8 +1334,6 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     @param[in] proposed Parsed candidate value.
     @return True for a declared scalar type or an exact approved collection.
     """
-    if key == "executor.selection":
-        return valid_selection(proposed)
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
     if key == "delivery.reviewers":
@@ -1464,9 +1344,9 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
         return isinstance(proposed, str) and (backend == "local" and bool(proposed.strip())
                                               or proposed in _LAUNCH_PRESETS.get(key, ()))
     expected = _value_at(default_config().to_dict(), key)
-    if (re.fullmatch(r"executor\.[^.]+\.model", key)
-            or key == "container.runtime_env.OPENAI_BASE_URL"):
-        expected = ""
+    if key == "executor.model":
+        return (isinstance(proposed, str)
+                and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", proposed) is not None)
     if type(expected) is float:
         return type(proposed) in (int, float) and math.isfinite(proposed)
     if isinstance(expected, str | int | bool):
@@ -1489,8 +1369,6 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     @return Candidate text, preserving unrelated keys and line endings.
     @exception ValueError When collection input or existing key spelling is unsupported.
     """
-    if key == "executor.selection":
-        return set_selection(text, value)
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
     if key != "delivery.reviewers":
@@ -1531,40 +1409,14 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
 
 
 def _candidate_value(tree: dict, key: str):
-    """@brief Read one scalar/collection or the complete synthetic agent review."""
-    return selection_value(tree) if key == "executor.selection" else _value_at(tree, key)
+    """@brief Read one scalar or collection value of a candidate."""
+    return _value_at(tree, key)
 
 
 def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
     """@brief Produce one validated scalar or reviewer-list edit without changing live TOML."""
-    endpoint_key = body.key == "container.runtime_env.OPENAI_BASE_URL"
-    if (body.model is not None or body.auth_env is not None
-            or body.protocol is not None or body.timeout_seconds is not None
-            or body.ca_file is not None) and not endpoint_key:
-        raise _error(400, "model_requires_endpoint")
-    if not _editable_setting_key(body.key, endpoint=endpoint_key):
+    if not _editable_setting_key(body.key):
         raise _error(400, "setting_not_editable")
-    if endpoint_key:
-        if (body.ca_file and (not body.value.startswith("https://")
-                or not body.ca_file.startswith("/")
-                or ".." in Path(body.ca_file).parts
-                or any(ord(char) < 32 for char in body.ca_file)
-                or len(body.ca_file) > 256)):
-            raise _error(400, "invalid_endpoint_ca")
-        try:
-            endpoint = urlsplit(body.value)
-            valid = (
-                endpoint.scheme in ("http", "https")
-                and bool(endpoint.hostname)
-                and endpoint.username is None
-                and endpoint.password is None
-                and not endpoint.fragment
-                and not endpoint.query
-            )
-        except ValueError:
-            valid = False
-        if not valid:
-            raise _error(400, "invalid_endpoint_url")
     try:
         raw = path.read_bytes()
         if not secrets.compare_digest(sha256(raw).hexdigest(), body.revision):
@@ -1573,25 +1425,10 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
         if body.key.endswith(".command") and (
             not _valid_candidate_scalar(body.key, body.value,
                     tomllib.loads(current).get("execution", {}).get("backend", "container"))
-            or not isinstance(_value_at(tomllib.loads(current), body.key), str)
+            or not isinstance(_value_at(tomllib.loads(current), body.key), str | None)
         ):
             raise _error(400, "invalid_config")
-        if endpoint_key:
-            active = load_config(path)
-            if active.executor.default != "opencode":
-                raise _error(400, "unsupported_local_endpoint_executor")
-            if (body.auth_env is not None
-                    and (not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", body.auth_env)
-                         or body.auth_env not in active.executor.env_keys)):
-                raise _error(400, "invalid_endpoint_auth_reference")
-            model = (body.model if body.model is not None
-                     else active.executor.commands["opencode"].model)
-            if body.model is not None:
-                current = _set_toml_scalar(current, "executor.opencode.model", body.model)
-            changed = _set_endpoint(current, body.value, model, body.auth_env,
-                                    body.timeout_seconds, body.ca_file)
-        else:
-            changed = _set_candidate_value(current, body.key, body.value)
+        changed = _set_candidate_value(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
         if not _valid_candidate_scalar(
             body.key, _candidate_value(parsed_change, body.key),
@@ -1649,8 +1486,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
     """@brief Return review metadata without exposing the full TOML document."""
     # Only an earlier build could stage an image binding or an operator-owned key.
     if "image_build" in value or (
-            isinstance(value.get("key"), str) and _external_environment_key(
-                value["key"], endpoint=value["key"] == "container.runtime_env.OPENAI_BASE_URL")):
+            isinstance(value.get("key"), str) and _external_environment_key(value["key"])):
         raise _error(503, "pending_config_corrupt")
     public = {key: value[key] for key in (
         "base_revision", "candidate_revision", "key", "value", "created_at",
@@ -1663,8 +1499,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
             raise _error(503, "pending_config_corrupt") from exc
     try:
         candidate = tomllib.loads(value["candidate_text"])
-        endpoint_key = value["key"] == "container.runtime_env.OPENAI_BASE_URL"
-        if not _editable_setting_key(value["key"], endpoint=endpoint_key):
+        if not _editable_setting_key(value["key"]):
             raise ValueError("unreviewable setting")
         proposed = _candidate_value(candidate, value["key"])
         if not _valid_candidate_scalar(value["key"], proposed,
@@ -1673,12 +1508,12 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         if _secret_config_keys({"setting": proposed}):
             raise ValueError("unsafe proposed value")
         claimed = (strict_json_loads(value["value"])
-                   if value["key"] in COLLECTION_KEYS or value["key"] == "executor.selection"
+                   if value["key"] in COLLECTION_KEYS
                    else _value_at(tomllib.loads(_set_candidate_value(
                        "", value["key"], value["value"])), value["key"]))
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
-        if ((value["key"] in COLLECTION_KEYS or value["key"] == "executor.selection")
+        if (value["key"] in COLLECTION_KEYS
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
@@ -1697,46 +1532,6 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
                 raise ValueError("image candidate lost its tool-check review binding")
     except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
         raise _error(503, "pending_config_corrupt") from exc
-    if endpoint_key:
-        try:
-            model = candidate["executor"]["opencode"]["model"]
-            if not isinstance(model, str) or not model.strip():
-                raise ValueError("invalid endpoint model")
-            provider = model.partition("/")[0]
-            runtime_env = candidate["container"]["runtime_env"]
-            options = json.loads(runtime_env[
-                "OPENCODE_CONFIG_CONTENT"])["provider"][provider]["options"]
-            auth_ref = options.get("apiKey", "")
-            if (auth_ref and (not re.fullmatch(
-                    r"\{env:[A-Z][A-Z0-9_]{0,63}\}", auth_ref)
-                    or auth_ref[5:-1] not in candidate["executor"]["env_keys"])):
-                raise ValueError("invalid auth reference")
-            if (candidate["executor"]["default"] != "opencode"
-                    or json.loads(runtime_env["OPENCODE_CONFIG_CONTENT"])["provider"][provider]
-                    .get("npm") != "@ai-sdk/openai-compatible"
-                    or options.get("baseURL") != proposed
-                    or options.get("timeout") is not None and (
-                        type(options["timeout"]) is not int
-                        or not 1000 <= options["timeout"] <= 600000
-                        or options["timeout"] % 1000)):
-
-                raise ValueError("invalid endpoint profile")
-            ca_file = runtime_env.get("NODE_EXTRA_CA_CERTS")
-            if (ca_file is not None and not isinstance(ca_file, str)
-                    or ca_file and (not proposed.startswith("https://")
-                        or not ca_file.startswith("/") or ".." in Path(ca_file).parts
-                        or any(ord(char) < 32 for char in ca_file) or len(ca_file) > 256)):
-                raise ValueError("invalid endpoint CA path")
-            public["endpoint"] = {
-                "protocol": "openai-chat-completions", "model": model,
-                "auth_env": auth_ref[5:-1] if auth_ref else None,
-                "timeout_seconds": (options["timeout"] // 1000
-                                    if type(options.get("timeout")) is int else None),
-                "ca_file": ca_file or None,
-            }
-        except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError,
-                json.JSONDecodeError) as exc:
-            raise _error(503, "pending_config_corrupt") from exc
     return public
 
 
@@ -1767,26 +1562,23 @@ def _valid_environment_value(key: str, value: object) -> bool:
     return True
 
 
-def _external_environment_key(key: str, *, endpoint: bool = False) -> bool:
+def _external_environment_key(key: str) -> bool:
     """@brief Identify externally owned environment keys at web mutation boundaries.
     @param[in] key Dotted configuration key.
-    @param[in] endpoint Dedicated validated AI endpoint editing exception.
     @return True for operator-owned environment settings.
     """
-    return (not endpoint and key not in {"worktree.branch_template", "worktree.branch_rule"}
+    return (key not in {"worktree.branch_template", "worktree.branch_rule"}
             and key not in _CHOSEN_ENVIRONMENT_KEYS
             and not _is_secret_key(key)
             and key.startswith(("container.", "execution.", "local.", "worktree.")))
 
 
-def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
+def _editable_setting_key(key: str) -> bool:
     """
     @brief      The one rule for which configuration keys the web may edit.
     @details    Used by the edit endpoints and by the per-setting metadata the
                 configuration view returns, so the two always agree.
     @param[in]  key Dotted TOML key.
-    @param[in]  endpoint True for the OpenAI-compatible endpoint key, which is
-                edited through its own validated form.
     @return     True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
@@ -1796,7 +1588,7 @@ def _editable_setting_key(key: str, *, endpoint: bool = False) -> bool:
         return True
     return not (
         _is_secret_key(key)
-        or (not endpoint and not _SETTING_KEY_RE.fullmatch(key))
+        or not _SETTING_KEY_RE.fullmatch(key)
         or key.split(".")[0] not in _EDITABLE_SECTIONS
         or key.endswith(".command") and key not in _LAUNCH_PRESETS
     )
@@ -1837,14 +1629,12 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
     @brief Project the current configuration validation domain for a setting.
     @param[in] key Effective dotted configuration key.
     @param[in] value Redacted effective value; establishes scalar/list/map type.
-    @param[in] config Redacted configuration; supported agents and provider names supply choices.
+    @param[in] config Redacted configuration; provider names and presets supply choices.
     @param[in] declared Built-in model default supplying the declared type.
     @return Type, allowed choices and inclusive numeric bounds for browser guidance.
     @note Full configuration validation remains authoritative for dependent rules.
     """
     expected = declared
-    if key.startswith("executor.commands.") and key.endswith((".model", ".command")):
-        expected = ""
     if key.startswith("workflow.stage_timeout_overrides."):
         expected = 1
     if key.startswith(("workflow.kind_labels.", "container.runtime_env.", "local.environment.")):
@@ -1859,7 +1649,6 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "platform.kind": ["gitlab", "github", "gitea"],
         "polling.mode": ["loop", "once"],
         "executor.mode": ["thick", "headless"],
-        "executor.default": list(SUPPORTED_AGENTS),
         "executor.env_keys": sorted(
             PROVIDER_KEYS | set(config.get("executor", {}).get("env_keys", []))),
         "clarification.timeout_state": ["failed", "stale"],
@@ -1875,10 +1664,8 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "reconcile.on_ticket_closed": ["cancel", "ignore"],
         "reconcile.on_trigger_removed": ["pause", "abort", "ignore"],
     }.get(key, [])
-    if key.startswith("executor.commands.") and key.endswith(".command"):
-        choices = list(_LAUNCH_PRESETS.get(
-            "executor." + key.removeprefix("executor.commands."), (),
-        ))
+    if key in _LAUNCH_PRESETS:
+        choices = list(_LAUNCH_PRESETS[key])
     if key.endswith(".command") and config.get("execution", {}).get("backend") == "local":
         choices = []
     if key.startswith("workflow.kind_labels."):
@@ -1909,14 +1696,10 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
     """
     @brief      Source, editability and restart need of every effective setting.
     @details    `config` is the redacted effective configuration; `raw` the
-                project's TOML file. The file key of an executor command field
-                is `executor.<name>.<field>`, while the effective configuration
-                nests it under `executor.commands`. A setting is from the
-                project when its file key is a leaf of the file, whatever its
-                value; it is editable when the shared key rule accepts the file
-                key and its value has a supported scalar or closed collection type. Missing
-                agent fields expose noneditable preset metadata for the atomic
-                selection editor. Its
+                project's TOML file. A setting is from the
+                project when its key is a leaf of the file, whatever its
+                value; it is editable when the shared key rule accepts the
+                key and its value has a supported scalar or closed collection type. Its
                 default is the value at the same key in ADORE's built-in
                 configuration (names derived, redacted) - the whole built-in
                 map for a map the project emptied - or None when that
@@ -1934,27 +1717,15 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
               and not key.startswith("workflow.stage_timeout_overrides.")]
     leaves.append(("workflow.stage_timeout_overrides",
                    config.get("workflow", {}).get("stage_timeout_overrides", {})))
-    present = {key for key, _ in leaves}
-    virtual = set()
-    for agent in SUPPORTED_AGENTS:
-        for field in ("command", "model"):
-            key = f"executor.commands.{agent}.{field}"
-            if key not in present:
-                leaves.append((key, ""))
-                virtual.add(key)
     for key, value in leaves:
-        edit_key = ("executor." + key.removeprefix("executor.commands.")
-                    if key.startswith("executor.commands.") else key)
-        source_key = edit_key
-        if key == "executor.default":
-            edit_key = "executor.selection"
+        edit_key = key
         settings.append({
             "key": key,
             "edit_key": edit_key,
-            "source": "project" if (source_key in in_file or edit_key in COLLECTION_KEYS
+            "source": "project" if (key in in_file or edit_key in COLLECTION_KEYS
                                      and any(k.startswith(edit_key + ".") for k in in_file))
             else "default",
-            "editable": (key not in virtual and not _external_environment_key(edit_key)
+            "editable": (not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
                          and (isinstance(value, str | int | float)
                               or edit_key == "delivery.reviewers" and valid_reviewers(value)
@@ -1991,11 +1762,10 @@ def _write_pending_config(path: Path, value: dict) -> None:
         candidate.unlink(missing_ok=True)
 
 
-def _secret_config_keys(value: object, prefix: str = "", *, provider: bool = False) -> list[str]:
+def _secret_config_keys(value: object, prefix: str = "") -> list[str]:
     """@brief Find embedded secret values without returning their contents."""
     if isinstance(value, list):
-        return [key for child in value
-                for key in _secret_config_keys(child, prefix, provider=provider)]
+        return [key for child in value for key in _secret_config_keys(child, prefix)]
     if not isinstance(value, dict):
         return []
     found = []
@@ -2003,18 +1773,8 @@ def _secret_config_keys(value: object, prefix: str = "", *, provider: bool = Fal
         name = f"{prefix}.{key}" if prefix else key
         if name in _NOT_SECRET_KEYS and type(child) is bool:
             continue
-        if key == "OPENCODE_CONFIG_CONTENT":
-            try:
-                inline = json.loads(child)
-                if not isinstance(inline, dict):
-                    raise ValueError("invalid provider config")
-                found.extend(_secret_config_keys(inline, name, provider=True))
-            except (ValueError, TypeError):
-                found.append(name)
-        elif _SECRET_KEY_RE.search(key) and child:
-            if not (provider and key == "apiKey" and isinstance(child, str)
-                    and re.fullmatch(r"\{env:[A-Z][A-Z0-9_]{0,63}\}", child)):
-                found.append(name)
+        if _SECRET_KEY_RE.search(key) and child:
+            found.append(name)
         elif isinstance(child, str) and child.lower().startswith(("https://", "http://")):
             try:
                 url = urlsplit(child)
@@ -2024,7 +1784,7 @@ def _secret_config_keys(value: object, prefix: str = "", *, provider: bool = Fal
             except ValueError:
                 found.append(name)
         else:
-            found.extend(_secret_config_keys(child, name, provider=provider))
+            found.extend(_secret_config_keys(child, name))
     return found
 
 
@@ -2108,10 +1868,8 @@ def _inspect_project_import(
                       "target_branch": config.delivery.target_branch,
                       "agent": {"name": config.agent.name, "slug": config.agent.slug,
                                 "email": config.agent.email},
-                      "executor": {"default": config.executor.default,
-                                   "model": config.executor.commands[config.executor.default].model,
-                                   "env_keys": config.executor.env_keys,
-                                   "stage_host_auth": config.executor.stage_host_auth},
+                      "executor": {"model": config.executor.model,
+                                   "env_keys": config.executor.env_keys},
                       "container": {"runtime": ("local" if config.execution.backend == "local"
                                                 else config.container.runtime),
                                     "image": config.container.image,
@@ -3348,9 +3106,8 @@ def create_app(home: str | Path | None = None,
                         raise _error(409, "stale_config_revision")
                     if credential_binding(directory, config) != binding:
                         raise _error(409, "stale_config_revision")
-                    if (result.get("executor") != config.executor.default
-                            or result.get("model") !=
-                            config.executor.commands[config.executor.default].model):
+                    if (result.get("executor") != EXECUTOR_NAME
+                            or result.get("model") != config.executor.model):
                         raise ExecutorSettingsError("executor_evidence_corrupt")
                     result = {**result, "project_id": item.project_id, "revision": revision,
                               "checked_at": datetime.now(UTC).isoformat()}
@@ -3381,10 +3138,9 @@ def create_app(home: str | Path | None = None,
                     profiles.config_path(item.name).parent / ".env")
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
-            checks, model_probe = evidence["checks"], evidence["model_probe"]
             value = {"schema": 1, "project_id": item.project_id, "revision": revision,
                      "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
-                     "checks": checks, "model_probe": model_probe}
+                     "checks": evidence["checks"]}
             try:
                 with _web_config_edit_lock(profiles.config_path(item.name)):
                     current = project(name, user)
@@ -3498,24 +3254,6 @@ def create_app(home: str | Path | None = None,
         data.pop("raw", None)
         if user["role"] != "admin":
             data.get("budgets", {}).pop("max_cost_usd", None)
-        timeout_seconds = None
-        endpoint_profile = None
-        try:
-            inline = json.loads(config.container.runtime_env.get(
-                "OPENCODE_CONFIG_CONTENT", "{}"))
-            provider = config.executor.commands["opencode"].model.partition("/")[0]
-            options = inline["provider"][provider]["options"]
-            auth_ref = options.get("apiKey", "")
-            if auth_ref and not re.fullmatch(r"\{env:[A-Z][A-Z0-9_]{0,63}\}", auth_ref):
-                raise ValueError("unsafe credential reference")
-            if inline["provider"][provider].get("npm") == "@ai-sdk/openai-compatible":
-                endpoint_profile = {"protocol": "openai-chat-completions",
-                                    "auth_env": auth_ref[5:-1] if auth_ref else None}
-            milliseconds = options.get("timeout")
-            if type(milliseconds) is int and milliseconds % 1000 == 0:
-                timeout_seconds = milliseconds // 1000
-        except (KeyError, TypeError, ValueError):
-            pass
         try:
             settings = _setting_metadata(data, raw)
         except (UnicodeError, ValueError, TypeError, tomllib.TOMLDecodeError) as exc:
@@ -3548,8 +3286,6 @@ def create_app(home: str | Path | None = None,
                 },
                 "local_execution": local_context,
                 "issues": issues, "execution_plan": plan,
-                "local_endpoint_timeout_seconds": timeout_seconds,
-                "local_endpoint": endpoint_profile,
                 "model_connection": connection if not issues else None, "settings": settings}
 
     @app.post("/api/v1/projects/{name}/config/branch-preview")
@@ -3618,46 +3354,14 @@ def create_app(home: str | Path | None = None,
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
         item = project(name, user)
-        if body.key in {"executor.selection", "executor.env_keys"}:
+        if body.key == "executor.env_keys":
             raise _error(409, "pending_config_required")
-        endpoint_key = body.key == "container.runtime_env.OPENAI_BASE_URL"
-        if (
-            body.model is not None
-            or body.auth_env is not None
-            or body.protocol is not None
-            or body.timeout_seconds is not None
-            or body.ca_file is not None
-        ) and not endpoint_key:
-            raise _error(400, "model_requires_endpoint")
-        if _external_environment_key(body.key, endpoint=endpoint_key):
+        if _external_environment_key(body.key):
             raise _error(400, "environment_managed_externally")
-        if not _editable_setting_key(body.key, endpoint=endpoint_key):
+        if not _editable_setting_key(body.key):
             raise _error(400, "setting_not_editable")
         if body.key.startswith(("execution.", "local.")) or body.key in _CHOSEN_ENVIRONMENT_KEYS:
             raise _error(409, "pending_config_required")
-        if endpoint_key:
-            if body.ca_file and (
-                not body.value.startswith("https://")
-                or not body.ca_file.startswith("/")
-                or ".." in Path(body.ca_file).parts
-                or any(ord(char) < 32 for char in body.ca_file)
-                or len(body.ca_file) > 256
-            ):
-                raise _error(400, "invalid_endpoint_ca")
-            try:
-                endpoint = urlsplit(body.value)
-                valid = (
-                    endpoint.scheme in ("http", "https")
-                    and bool(endpoint.hostname)
-                    and endpoint.username is None
-                    and endpoint.password is None
-                    and not endpoint.fragment
-                    and not endpoint.query
-                )
-            except ValueError:
-                valid = False
-            if not valid:
-                raise _error(400, "invalid_endpoint_url")
         path = profiles.config_path(item.name)
         with (
             config_lock,
@@ -3683,39 +3387,10 @@ def create_app(home: str | Path | None = None,
                 if body.key.endswith(".command") and (
                     not _valid_candidate_scalar(body.key, body.value,
                     tomllib.loads(current).get("execution", {}).get("backend", "container"))
-                    or not isinstance(_value_at(tomllib.loads(current), body.key), str)
+                    or not isinstance(_value_at(tomllib.loads(current), body.key), str | None)
                 ):
                     raise _error(400, "invalid_config")
-                if endpoint_key:
-                    active = load_config(path)
-                    if active.executor.default != "opencode":
-                        raise _error(400, "unsupported_local_endpoint_executor")
-                    if body.auth_env is not None and (
-                        not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", body.auth_env)
-                        or body.auth_env not in active.executor.env_keys
-                    ):
-                        raise _error(400, "invalid_endpoint_auth_reference")
-                    model = (
-                        body.model
-                        if body.model is not None
-                        else active.executor.commands["opencode"].model
-                    )
-                    if body.model is not None:
-                        current = _set_toml_scalar(
-                            current,
-                            "executor.opencode.model",
-                            body.model,
-                        )
-                    changed = _set_endpoint(
-                        current,
-                        body.value,
-                        model,
-                        body.auth_env,
-                        body.timeout_seconds,
-                        body.ca_file,
-                    )
-                else:
-                    changed = _set_candidate_value(current, body.key, body.value)
+                changed = _set_candidate_value(current, body.key, body.value)
                 descriptor, candidate_name = tempfile.mkstemp(
                     prefix="config.web-", suffix=".toml", dir=path.parent
                 )
@@ -3773,8 +3448,7 @@ def create_app(home: str | Path | None = None,
     ) -> dict:
         """@brief Save a validated candidate revision while live config stays put."""
         item = project(name, user)
-        if _external_environment_key(
-                body.key, endpoint=body.key == "container.runtime_env.OPENAI_BASE_URL"):
+        if _external_environment_key(body.key):
             raise _error(400, "environment_managed_externally")
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"

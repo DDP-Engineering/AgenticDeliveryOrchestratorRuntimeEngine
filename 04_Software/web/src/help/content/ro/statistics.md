@@ -47,7 +47,7 @@ Două cifre de cost sunt ținute separat, iar niciuna nu este o factură.
 - **Cost raportat** este ceea ce a raportat executorul, luat ca dovadă observată. Dacă nu a raportat nimic, valoarea afișează **Indisponibil**.
 - **Cost estimat** este numărul de tokenuri înregistrat înmulțit cu prețurile setate de administratori. Este o estimare, nu o factură și nu un plafon de cheltuieli.
 
-Administratorii înregistrează prețurile în **Setări → Agent și model** al unui proiect, sub **Prețuri estimative**: alegeți **Valabil de la**, apoi introduceți **USD intrare / 1 mil. tokenuri** și **USD ieșire / 1 mil. tokenuri** și **Salvează**. Un preț se aplică agentului de programare selectat și modelului lui configurat, deci setați mai întâi modelul. Fiecare eveniment de utilizare este evaluat după executor, model și ziua în care a fost consumat. Evenimentele fără preț potrivit sunt numărate ca **Utilizări fără preț** în totalurile Utilizării.
+Administratorii înregistrează prețurile în **Setări → Agent și model** al unui proiect, sub **Prețuri estimative**: alegeți **Valabil de la**, apoi introduceți **USD intrare / 1 mil. tokenuri** și **USD ieșire / 1 mil. tokenuri** și **Salvează**. Un preț se aplică lui Pi și modelului lui configurat, deci setați mai întâi modelul. Fiecare eveniment de utilizare este evaluat după executor, model și ziua în care a fost consumat. Evenimentele fără preț potrivit sunt numărate ca **Utilizări fără preț** în totalurile Utilizării.
 
 > Un preț introdus cu o dată de intrare în vigoare anterioară poate schimba estimările din trecut. Exportați un CSV dacă aveți nevoie de o cifră la un anumit moment.
 

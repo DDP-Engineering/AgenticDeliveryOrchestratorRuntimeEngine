@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 
-def project(tmp_path, provider="gitlab", kind="opencode"):
+def project(tmp_path, provider="gitlab"):
     """@brief Create an offline project with real API identity/config storage."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
@@ -39,31 +39,21 @@ def project(tmp_path, provider="gitlab", kind="opencode"):
     raw = raw.replace('store_root = ".adore"', f'store_root = "{(tmp_path / "state").as_posix()}"')
     raw = raw.replace('repo = "group/subgroup/project"', 'repo = "mygroup/myproject"')
     raw = raw.replace('kind = "gitlab"', f'kind = "{provider}"')
-    raw = raw.replace('default = "opencode"', f'default = "{kind}"')
-    if kind != "opencode":
-        raw = raw.replace(f"# [executor.{kind}]", f"[executor.{kind}]")
-        lines = raw.splitlines()
-        start = lines.index(f"[executor.{kind}]")
-        for index in (start + 1, start + 2):
-            lines[index] = lines[index].removeprefix("# ")
-        raw = "\n".join(lines)
     path.write_text(raw, encoding="utf-8")
     return profiles
 
 
-@pytest.mark.parametrize("kind", ["opencode", "pi", "codex", "qwen"])
-def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch, kind):
-    """@brief Only explicit requests run the selected model probe."""
+def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch):
+    """@brief Only explicit requests run the Pi model probe."""
     module = importlib.import_module("adore.web.app")
-    profiles = project(tmp_path, kind=kind)
+    profiles = project(tmp_path)
     calls = []
 
     def probe(config, runner, env_file):
         """@brief Fake one external model call without a paid provider."""
-        assert config.executor.default == kind
         calls.append(env_file)
-        return {"ready": True, "reason": "ready", "executor": kind,
-                "model": config.executor.commands[kind].model}
+        return {"ready": True, "reason": "ready", "executor": "pi",
+                "model": config.executor.model}
 
     monkeypatch.setattr(module, "probe_model_connection", probe, raising=False)
     with TestClient(module.create_app(profiles.home)) as client:
@@ -75,7 +65,7 @@ def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch, kind
         )
         assert result.status_code == 200
         assert result.json()["project_id"] == profiles.load("alpha").project_id
-        assert result.json()["executor"] == kind and result.json()["ready"] is True
+        assert result.json()["executor"] == "pi" and result.json()["ready"] is True
         assert len(calls) == 1
 
 
@@ -92,8 +82,8 @@ def test_model_test_rejects_trust_boundary(tmp_path, monkeypatch, mode):
         if mode == "stale":
             path = profiles.config_path("alpha")
             path.write_text(path.read_text() + "\n# changed\n")
-        return {"ready": True, "reason": "ready", "executor": "opencode",
-                "model": config.executor.commands[config.executor.default].model}
+        return {"ready": True, "reason": "ready", "executor": "pi",
+                "model": config.executor.model}
 
     monkeypatch.setattr(module, "probe_model_connection", probe)
     app = module.create_app(profiles.home)
@@ -130,11 +120,10 @@ def test_model_test_rejects_trust_boundary(tmp_path, monkeypatch, mode):
                 store.release_lock()
 
 
-@pytest.mark.parametrize("kind", ["opencode", "pi", "codex", "qwen"])
 @pytest.mark.parametrize("invalid", [False, True, "wrong-nonce", "tool"])
-def test_public_probe_challenge_protocol_and_cleanup(tmp_path, monkeypatch, kind, invalid):
-    """@brief Run the actual diagnostic script with fake CLI responses offline."""
-    profiles = project(tmp_path, kind=kind)
+def test_public_probe_challenge_protocol_and_cleanup(tmp_path, monkeypatch, invalid):
+    """@brief Run the actual diagnostic script with fake Pi responses offline."""
+    profiles = project(tmp_path)
     config = load_config(profiles.config_path("alpha"))
     calls, roots, cli = [], [], []
 
@@ -148,12 +137,7 @@ def test_public_probe_challenge_protocol_and_cleanup(tmp_path, monkeypatch, kind
             nonce = argv[-1].split()[-1]
             if invalid == "wrong-nonce":
                 nonce = "wrong"
-            if kind == "qwen":
-                events = [
-                    {"type": "result", "result": nonce, "subtype": "success", "is_error": False}
-                ]
-            elif kind == "pi":
-                events = [
+            events = [
                     {
                         "type": "message_end",
                         "message": {
@@ -163,19 +147,9 @@ def test_public_probe_challenge_protocol_and_cleanup(tmp_path, monkeypatch, kind
                         },
                     }
                 ]
-            elif kind == "codex":
-                events = [
-                    {"type": "item.completed", "item": {"type": "agent_message", "text": nonce}},
-                    {"type": "turn.completed"},
-                ]
-            else:
-                events = [
-                    {"type": "text", "part": {"text": nonce}},
-                    {"type": "step_finish", "part": {"reason": "stop"}},
-                ]
             if invalid == "tool":
                 events.append({"type": "tool_use"})
-            raw = json.dumps(events) if kind == "qwen" else "\n".join(json.dumps(e) for e in events)
+            raw = "\n".join(json.dumps(e) for e in events)
             kwargs["stdout"].write(("invalid secret-value" if invalid is True else raw).encode())
 
         def poll(self):
@@ -207,7 +181,7 @@ def test_public_probe_challenge_protocol_and_cleanup(tmp_path, monkeypatch, kind
     assert result["ready"] is (not invalid)
     assert result["reason"] == ("invalid-response" if invalid else "ready")
     assert "secret-value" not in json.dumps(result)
-    assert cli[0][0] == kind
+    assert cli[0][0] == "pi"
     assert any("rm" in argv for argv, _ in calls)
     assert all(not root.exists() for root in roots)
     assert all("pull" not in argv for argv, _ in calls)
@@ -299,32 +273,4 @@ def test_environment_selection_and_runtime_failure(tmp_path, monkeypatch, mode):
         assert not any("run" in argv for argv, _ in calls)
 
 
-@pytest.mark.parametrize("kind", ["opencode", "pi"])
-def test_connection_test_refreshes_the_opencode_catalogue(tmp_path, monkeypatch, kind):
-    """@brief OpenCode's catalogue is refreshed in the test container and saved for jobs."""
-    profiles = project(tmp_path, kind=kind)
-    config = load_config(profiles.config_path("alpha"))
-    saved = Path(config.state.store_root) / "opencode-models.json"
-    commands, roots = [], []
-
-    def runner(argv, **kwargs):
-        """@brief Simulate the runtime: the refresh fills OpenCode's cache, cp copies it out."""
-        argv = list(argv)
-        commands.append(argv)
-        if "inspect" in argv and "image" not in argv:
-            return CommandResult(argv, 1, stderr="No such container")
-        if "run" in argv:
-            mounts = [arg for arg in argv if ":/adore/io" in arg]
-            roots.append(Path(mounts[0].split(":/adore/io")[0]))
-        if "cp" in argv and argv[-1] == "/adore/io/opencode-models.json":
-            (roots[0] / "opencode-models.json").write_text(
-                '{"openai": {"models": {"gpt-6.1-sol": {}}}}', encoding="utf-8")
-        if "/adore/io/probe.py" in argv:
-            return CommandResult(argv, stdout='{"ready": true, "reason": "ready"}')
-        return CommandResult(argv)
-
-    result = probe_model_connection(config, runner, profiles.profile_dir("alpha") / ".env")
-    assert result["ready"] is True
-    refreshed = any(argv[-3:] == ["opencode", "models", "--refresh"] for argv in commands)
-    assert refreshed is (kind == "opencode")
-    assert saved.is_file() is (kind == "opencode")
+# END OF FILE

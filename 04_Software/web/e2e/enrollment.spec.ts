@@ -124,9 +124,10 @@ test("agent and model chooses where the executor runs", async ({ page }) => {
   const image = page.getByLabel(/^Executor image/);
   await expect(runsIn).toHaveValue("container");
   await expect(page.getByLabel(/^Container runtime/)).toHaveValue("docker");
-  // Images come from the server; choosing Pi proposes its image instead of the old default.
+  // Images come from the server; Pi is the only agent, so its image is proposed
+  // instead of the old default and there is no agent to choose.
   await expect(page.locator("#enroll-image-options option")).toHaveCount(3);
-  await page.getByLabel(/^Executor \*/).selectOption("pi");
+  await expect(page.getByLabel(/^Executor \*/)).toHaveCount(0);
   await expect(image).toHaveValue("adore-executor-base:pi-0.87.1");
   await image.fill("missing-image:1");
   await expect(page.getByText(/not on the ADORE server/)).toBeVisible();
@@ -142,7 +143,7 @@ test("agent and model chooses where the executor runs", async ({ page }) => {
   await expect(page.getByLabel(/^Installed native executor argv/)).toBeVisible();
   await expect(page.getByText(/runs on the ADORE server under its current OS account/)).toBeVisible();
   await runsIn.selectOption("container");
-  // Credential names are optional: an image that signs in by itself needs none.
+  // Credential names are optional in the form.
   await page.getByLabel(/^Model \*/).fill("openai-codex/gpt-6-sol");
   await expect(page.getByLabel("Credential environment references", { exact: false })).toHaveValue("");
   await page.getByRole("button", { name: "Continue", exact: true }).click();

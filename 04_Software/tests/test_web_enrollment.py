@@ -158,8 +158,8 @@ def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
         assert not list((tmp_path / "home").glob("**/readiness.json"))
 
 
-def test_draft_probe_reports_partial_and_honors_selected_gitea_login(tmp_path):
-    """@brief Successful host checks retain honest unprobed model evidence."""
+def test_draft_probe_reports_verified_and_honors_selected_gitea_login(tmp_path):
+    """@brief Successful host checks verify the prerequisites; no model check is claimed."""
     calls = []
 
     def fake(argv, **kwargs):
@@ -182,27 +182,24 @@ def test_draft_probe_reports_partial_and_honors_selected_gitea_login(tmp_path):
         result = client.post("/api/v1/projects/setup-check", json={
             **body, "revision": preview["revision"]}, headers=headers)
         assert result.status_code == 200, result.text
-        assert result.json()["status"] == "partial"
+        assert result.json()["status"] == "verified"
         assert result.json()["checks"]["git"]
-        assert result.json()["checks"]["model_endpoint"] == "not-checked"
+        assert "model_endpoint" not in result.json()["checks"]
         assert ["tea", "api", "-i", "--method", "GET", "--login", "ddp", "user"] in calls
         assert not app.state.profiles.profile_dir("alpha").exists()
 
 
-def test_reviewed_host_auth_uses_no_api_key_references(tmp_path):
-    """@brief Explicit host session mode preserves an empty credential allowlist."""
+@pytest.mark.parametrize("field,value", [("auth_mode", "host-auth"), ("executor_cli", "codex")])
+def test_enrollment_refuses_host_sign_in_and_agent_choice(tmp_path, field, value):
+    """@brief Pi is the only agent and host sign-in staging is gone: both fields are refused."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    body = _body(tmp_path, auth_mode="host-auth", env_keys=[])
+    body = {**_body(tmp_path), field: value}
     with TestClient(app) as client:
         headers = _login(client)
-        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
-        assert preview["structural_valid"]
-        assert preview["review"]["env_keys"] == []
-        result = client.post("/api/v1/projects/setup-create", json={
-            **body, "revision": preview["revision"]}, headers=headers)
-        assert result.status_code == 200, result.text
-    config = load_config(app.state.profiles.config_path("alpha"))
-    assert config.executor.stage_host_auth and config.executor.env_keys == []
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers)
+        assert preview.status_code == 422, preview.text
+        assert field in preview.text
+    assert not app.state.profiles.profile_dir("alpha").exists()
 
 
 @pytest.mark.parametrize("route", ["setup-preview", "setup-check", "setup-create"])
@@ -628,12 +625,9 @@ def test_import_visibility_rollback_and_retained_state(tmp_path, monkeypatch):
     {"OPENAI_API_KEY": "fixture-sensitive-value"},
     {"OPENAI_BASE_URL": "https://user:fixture-sensitive-value@model.invalid/v1"},
     {"OPENAI_BASE_URL": "https://model.invalid/v1?token=fixture-sensitive-value"},
-    {"OPENCODE_CONFIG_CONTENT": json.dumps({"provider": {"local": {
-        "options": {"apiKey": "fixture-sensitive-value"}}}})},
-    {"OPENCODE_CONFIG_CONTENT": "malformed"},
 ])
 def test_import_rejects_secret_runtime_values_and_provider_json(tmp_path, env):
-    """@brief Secret rejection traverses inline config and URLs without values in findings."""
+    """@brief Secret rejection covers values and URLs without values in findings."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _import_body(tmp_path)
     inline = ", ".join(key + " = " + json.dumps(value) for key, value in env.items())
@@ -652,21 +646,52 @@ def test_import_rejects_secret_runtime_values_and_provider_json(tmp_path, env):
     assert not app.state.profiles.profile_dir("imported").exists()
 
 
-def test_import_accepts_supported_provider_environment_reference(tmp_path):
-    """@brief Credential references remain supported without receiving credentials."""
+@pytest.mark.parametrize("value", [
+    json.dumps({"provider": {"local": {"options": {"apiKey": "fixture-sensitive-value"}}}}),
+    json.dumps({"provider": {"local": {"options": {"apiKey": "{env:LOCAL_API_KEY}"}}}}),
+])
+def test_import_refuses_removed_agent_environment(tmp_path, value):
+    """@brief A removed agent's environment variable is refused without echoing its value."""
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _import_body(tmp_path)
-    value = json.dumps({"provider": {"local": {"options": {"apiKey": "{env:LOCAL_API_KEY}"}}}})
     body["config_text"] = body["config_text"].replace(
         'runtime_env = { UV_LINK_MODE = "copy" }',
         "runtime_env = { OPENCODE_CONFIG_CONTENT = " + json.dumps(value) + " }")
     with TestClient(app) as client:
         headers = _login(client)
         preview = client.post("/api/v1/projects/import-preview", json=body, headers=headers)
-        assert preview.status_code == 200 and preview.json()["issues"] == []
+        assert preview.status_code == 200, preview.text
+        assert not preview.json()["validation"]["structural_valid"]
+        assert "fixture-sensitive-value" not in preview.text
+        assert {"code": "config_invalid",
+                "field": "container.runtime_env.OPENCODE_CONFIG_CONTENT",
+                "remediation": "Remove this key from config.toml; this build does not read it."
+                } in preview.json()["validation"]["issues"]
         response = client.post("/api/v1/projects/import", json={
             **body, "revision": preview.json()["revision"]}, headers=headers)
-        assert response.status_code == 200, response.text
+        assert response.status_code == 400 and "fixture-sensitive-value" not in response.text
+    assert not app.state.profiles.profile_dir("imported").exists()
+
+
+@pytest.mark.parametrize(("old", "new", "field"), [
+    ("[executor]\n", '[executor]\ndefault = "opencode"\n', "executor.default"),
+    ("[executor]\n", "[executor.codex]\nmodel = \"m\"\n\n[executor]\n", "executor.codex"),
+    ("[executor]\n", "[executor]\nstage_host_auth = true\n", "executor.stage_host_auth"),
+])
+def test_import_names_the_removed_agent_key_to_delete(tmp_path, old, new, field):
+    """@brief An earlier build's agent configuration is refused, naming the key to delete."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _import_body(tmp_path)
+    assert old in body["config_text"]
+    body["config_text"] = body["config_text"].replace(old, new, 1)
+    with TestClient(app) as client:
+        preview = client.post("/api/v1/projects/import-preview", json=body,
+                              headers=_login(client))
+        assert preview.status_code == 200, preview.text
+        assert not preview.json()["validation"]["structural_valid"]
+        assert {"code": "config_invalid", "field": field,
+                "remediation": "Remove this key from config.toml; this build does not read it."
+                } in preview.json()["validation"]["issues"]
 
 
 @pytest.mark.parametrize("display", [None, "", " x "])

@@ -19,7 +19,7 @@ Fiecare grup este închis când deschideți Setări, iar numărul de lângă num
 | Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
 | PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |
 | Statistici | **Înregistrează măsurătorile lucrărilor finalizate** și **Înregistrează tokenurile raportate de agent**. **Fișierul bazei de date pentru statistici** este afișat doar cu titlu informativ. |
-| Agent și model | Agentul de programare, comanda de lansare, modelul, autentificarea și **Testează conexiunea AI**. Vezi [Executori și modele](/help/executors). |
+| Agent și model | Modelul, comanda de lansare, autentificarea și **Testează conexiunea AI**. Vezi [Executori și modele](/help/executors). |
 | Detalii tehnice | Valori de instalare doar pentru citire, precum dosarul de stare al lucrărilor, calea repository-ului local și folderele de lucru ale lucrărilor. Se modifică în `config.toml` al proiectului, pe server, iar schimbarea unei căi nu mută datele existente. |
 
 ## Valori și ajutor {#values}

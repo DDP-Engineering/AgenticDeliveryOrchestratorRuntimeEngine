@@ -29,10 +29,9 @@ from tests.test_model_connection import project
 
 
 # PUBLIC API
-@pytest.mark.parametrize("agent", ["opencode", "pi", "codex", "qwen"])
-def test_agent_selection_reviews_and_applies_complete_exact_candidate(tmp_path, agent):
-    """@brief All supported agents, including missing tables, use one complete reviewed edit."""
-    profiles = project(tmp_path, kind="pi")
+def test_model_is_a_reviewed_setting_and_no_agent_choice_exists(tmp_path):
+    """@brief Pi is the only agent: the model is one reviewed edit and no agent row exists."""
+    profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     path = profiles.config_path("alpha")
     original = path.read_bytes()
@@ -41,30 +40,29 @@ def test_agent_selection_reviews_and_applies_complete_exact_candidate(tmp_path, 
         headers = {"X-CSRF-Token": login.json()["csrf"]}
         view = client.get("/api/v1/projects/alpha/config").json()
         metadata = {row["key"]: row for row in view["settings"]}
-        assert set(metadata["executor.default"]["choices"]) == {"opencode", "pi", "codex", "qwen"}
-        command = metadata[f"executor.commands.{agent}.command"]["choices"][0]
-        selected = {"agent": agent, "command": command, "model": "openai/offline-model"}
-        payload = {"key": "executor.selection", "value": json.dumps(selected),
+        removed = ("executor.default", "executor.commands", "executor.selection",
+                   "executor.stage_host_auth", "labels.executor")
+        assert not any(key.startswith(removed) for key in metadata)
+        assert metadata["executor.model"]["editable"] is True
+        assert metadata["executor.command"]["choices"] == [
+            "pi -p --mode json --model {model} {prompt}"]
+        payload = {"key": "executor.model", "value": "openai/offline-model",
                    "revision": view["revision"]}
-        direct = client.put("/api/v1/projects/alpha/config", json=payload, headers=headers)
-        assert direct.status_code == 409
         response = client.post("/api/v1/projects/alpha/config/pending",
                                json=payload, headers=headers)
         assert response.status_code == 200, response.text
         pending = response.json()
-        assert pending["proposed_value"] == selected
+        assert pending["proposed_value"] == "openai/offline-model"
         assert pending["restart_required"] is True
         assert path.read_bytes() == original
-        assert client.get("/api/v1/projects/alpha/config/pending").json() == pending
         response = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
                                json={"candidate_revision": pending["candidate_revision"],
                                      "base_revision": pending["base_revision"]})
         assert response.status_code == 200, response.text
     expected = deepcopy(tomllib.loads(original.decode()))
-    expected["executor"]["default"] = agent
-    expected["executor"][agent] = {"command": command, "model": selected["model"]}
+    expected["executor"]["model"] = "openai/offline-model"
     assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
-    assert load_config(path).executor.default == agent
+    assert load_config(path).executor.model == "openai/offline-model"
 
 
 @pytest.mark.parametrize("variables", [["OPENROUTER_API_KEY"], [],
@@ -97,11 +95,11 @@ def test_provider_names_are_reviewed_without_changing_private_values(tmp_path, v
 
 
 @pytest.mark.parametrize("key,value", [
-    ("executor.selection", {"agent": "unknown", "command": "pi {prompt}", "model": "model"}),
-    ("executor.selection", {"agent": "pi", "command": "echo unsafe {prompt}", "model": "model"}),
-    ("executor.selection", {"agent": "pi", "command": "pi {prompt}", "model": ""}),
-    ("executor.selection", {"agent": "pi", "command": "pi {prompt}", "model": "model",
-                            "token": "private"}),
+    ("executor.selection", {"agent": "pi", "command": "pi {prompt}", "model": "model"}),
+    ("executor.default", "codex"),
+    ("executor.command", "echo unsafe {prompt}"),
+    ("executor.model", ""),
+    ("executor.model", "model with spaces"),
     ("executor.env_keys", ["GITHUB_TOKEN"]),
     ("executor.env_keys", ["OPENAI_API_KEY", "OPENAI_API_KEY"]),
     ("executor.env_keys", ["NEW_UNKNOWN_KEY"]),
@@ -110,7 +108,7 @@ def test_provider_names_are_reviewed_without_changing_private_values(tmp_path, v
     ("executor.env_keys", {"OPENAI_API_KEY": "private"}),
 ])
 def test_executor_candidate_boundary_preserves_live_files(tmp_path, key, value):
-    """@brief Malformed selections and unsafe credential names fail without a staged edit."""
+    """@brief Agent choices, malformed values and unsafe credential names fail unstaged."""
     profiles = project(tmp_path)
     path = profiles.config_path("alpha")
     original = path.read_bytes()
@@ -118,7 +116,8 @@ def test_executor_candidate_boundary_preserves_live_files(tmp_path, key, value):
         login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         response = client.post("/api/v1/projects/alpha/config/pending",
                                headers={"X-CSRF-Token": login.json()["csrf"]},
-                               json={"key": key, "value": json.dumps(value),
+                               json={"key": key, "value": value if isinstance(value, str)
+                                     else json.dumps(value),
                                      "revision": sha256(original).hexdigest()})
         assert response.status_code == 400, response.text
         assert client.get("/api/v1/projects/alpha/config/pending").json() is None
@@ -126,8 +125,8 @@ def test_executor_candidate_boundary_preserves_live_files(tmp_path, key, value):
 
 
 @pytest.mark.parametrize("mode", ["stale", "unpaused", "developer", "tampered"])
-def test_agent_selection_rejects_authority_and_persisted_scope_changes(tmp_path, mode):
-    """@brief New selection follows revision, idle, role and complete persisted scope checks."""
+def test_executor_edit_rejects_authority_and_persisted_scope_changes(tmp_path, mode):
+    """@brief An executor edit follows revision, idle, role and complete persisted scope checks."""
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     path = profiles.config_path("alpha")
@@ -136,10 +135,7 @@ def test_agent_selection_rejects_authority_and_persisted_scope_changes(tmp_path,
         login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         headers = {"X-CSRF-Token": login.json()["csrf"]}
         view = client.get("/api/v1/projects/alpha/config").json()
-        command = next(row for row in view["settings"]
-                       if row["key"] == "executor.commands.codex.command")["choices"][0]
-        payload = {"key": "executor.selection",
-                   "value": json.dumps({"agent": "codex", "command": command, "model": "model"}),
+        payload = {"key": "executor.env_keys", "value": '["OPENAI_API_KEY"]',
                    "revision": "0" * 64 if mode == "stale" else view["revision"]}
         if mode == "developer":
             web = client.app.state.web_store

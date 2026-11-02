@@ -127,7 +127,8 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   const panel = page.locator("#project-settings");
   await expect(panel.getByText("Ready for pickup label", { exact: true })).toBeVisible();
   await expect(panel.getByText("Clarification answered label", { exact: true })).not.toBeVisible();
-  for (const key of ["labels.executor.prefix", "readiness.max_scope_hint"]) {
+  expect(before.settings.some((item: { key: string }) => item.key === "labels.executor.prefix")).toBe(false);
+  for (const key of ["readiness.max_scope_hint"]) {
     expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(true);
     await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   }
@@ -149,7 +150,6 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   await expect(review).toContainText("human publication approval");
   const unchanged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(unchanged.revision).toBe(before.revision);
-  expect(unchanged.config.labels.executor.prefix).toBe(before.config.labels.executor.prefix);
   expect(unchanged.config.readiness.max_scope_hint).toBe(before.config.readiness.max_scope_hint);
   await review.getByRole("button", { name: "Discard change", exact: true }).click();
 });
@@ -290,7 +290,6 @@ test("purpose guidance, correction, exact safe review/copy and candidate-only di
   await review.getByRole("button", { name: "Copy safe review" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain("offline/reviewed-repository");
-  expect(copied).not.toContain("OPENCODE_CONFIG_CONTENT");
   await review.getByRole("button", { name: "Discard change", exact: true }).click();
   await expect(review).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
@@ -349,31 +348,11 @@ test("late prepare cannot populate another project and repeated clicks prepare o
   await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": csrf } });
 });
 
-test("endpoint review compares complete supported connection without credential values", async ({ page }, info) => {
-  await openSettings(page);
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  const form = page.locator(".config-form");
-  const model = await form.locator('[name="model"]').inputValue();
-  await form.locator('[name="endpoint"]').fill("https://model.local/v1");
-  await form.locator('[name="auth_env"]').selectOption("OPENAI_API_KEY");
-  await form.locator('[name="timeout_seconds"]').fill("45");
-  await form.locator('[name="ca_file"]').fill("/etc/ssl/model-ca.pem");
-  await form.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
-  for (const value of ["https://model.local/v1", model, "openai-chat-completions", "OPENAI_API_KEY", "45", "/etc/ssl/model-ca.pem", "Not recorded"]) await expect(review).toContainText(value);
-  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await review.screenshot({ path: info.outputPath("settings-endpoint-review-390.png") });
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
-});
-
 test("Dev redacted purpose view remains read-only at 390px in both themes", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openSettings(page, "alpha", "developer");
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
   expect(await page.locator("#project-settings").innerText()).not.toContain("Job cost cap");
-  expect(await page.locator("#project-settings").innerText()).not.toContain("OPENCODE_CONFIG_CONTENT");
   await page.locator("#project-settings > .setting-groups > details > summary").first().focus();
   await page.keyboard.press("Space");
   await page.keyboard.press("Space");
@@ -422,9 +401,9 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
     const agent = page.locator('[data-setting-purpose="executor"]');
     await agent.locator(":scope > summary").click();
-    await expect(agent.locator('[id="setting-executor.default"] strong')).toHaveText(agentSettingsCopy[locale].agent);
-    await expect(agent.locator('[id="setting-executor.commands.opencode.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
-    await expect(agent.locator('[id="setting-executor.commands.opencode.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
+    await expect(agent.locator('[id="setting-executor.default"]')).toHaveCount(0);
+    await expect(agent.locator('[id="setting-executor.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
+    await expect(agent.locator('[id="setting-executor.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
     await agent.locator('[data-setting-topic="authentication"] > summary').click();
     await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
     const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
@@ -532,7 +511,7 @@ for (const user of ["admin", "developer"]) {
   await expect(stateFolder).toBeVisible();
   await expect(stateFolder).toContainText(configuration.config.state.store_root);
   await expect(stateFolder.getByRole("button")).toHaveCount(0);
-  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false, configuration.config.executor.default));
+  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false));
   await expect(panel.locator(".setting-row[id]")).toHaveCount(shown.length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
@@ -629,7 +608,7 @@ for (const user of ["admin", "developer"]) {
    Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
    "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
    Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
-   "Agent and model": ["executor.default", "executor.commands.opencode.command", "executor.commands.opencode.model", "executor.env_keys", "executor.stage_host_auth", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
+   "Agent and model": ["executor.command", "executor.model", "executor.env_keys", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
    "Technical details": ["state.store_root", "agent.slug", "worktree.repo_path", "worktree.root", "workflow.aegis_python"],
   };
   for (const [name, keys] of Object.entries(placements)) for (const key of keys) {

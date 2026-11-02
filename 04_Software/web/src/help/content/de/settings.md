@@ -19,7 +19,7 @@ Jede Gruppe ist beim Öffnen der Einstellungen eingeklappt, und die Zahl neben i
 | Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
 | PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |
 | Statistik | **Messwerte abgeschlossener Aufträge erfassen** und **Vom Agenten gemeldete Token erfassen**. **Statistik-Datenbankdatei** wird nur zur Information angezeigt. |
-| Agent und Modell | Der Coding-Agent, der Startbefehl, das Modell, die Authentifizierung und **KI-Verbindung testen**. Siehe [Executor und Modelle](/help/executors). |
+| Agent und Modell | Das Modell, der Startbefehl, die Authentifizierung und **KI-Verbindung testen**. Siehe [Executor und Modelle](/help/executors). |
 | Technische Details | Schreibgeschützte Installationswerte wie der Auftragsstatus-Ordner, der lokale Repository-Pfad und die Arbeitsordner der Aufträge. Sie werden in der `config.toml` des Projekts auf dem Server geändert, und das Ändern eines Pfads verschiebt keine vorhandenen Daten. |
 
 ## Werte und Hilfe {#values}

@@ -11,9 +11,9 @@ id = "REQ-FUNC-c829c366"
 
 title = "Reviewed coding agent selection includes command and model atomically"
 
-status = "active"
+status = "retired"
 
-requirement = "When an administrator prepares a coding-agent selection, ADORE shall validate and review the supported agent, its launch command and explicit model as one candidate, preserving other executor entries and unrelated configuration, and apply it only at the existing idle/revision boundary."
+requirement = "When an administrator prepares a coding-agent selection, ADORE shall validate and review the supported agent, its launch command and explicit model as one candidate, preserving other executor entries and unrelated configuration, and apply it only at the existing idle/revision boundary. Retired 2026-11-02: Pi is the only coding agent; there is no agent selection, and model and launch command are separate reviewed settings."
 
 verification = "Authenticated API tests select all four agents including absent entries, inspect complete review values, apply and verify exact TOML meaning; malformed values, unsafe commands, stale revisions, developers and tampered persisted candidates fail closed."
 
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-09
-updated = 2026-10-09
+updated = 2026-11-02

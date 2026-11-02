@@ -28,7 +28,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 from threading import Event, Thread
 import time
 from typing import Any
@@ -50,10 +49,9 @@ from adore.aegis import (
     logged_stages,
 )
 from adore.branding import (
-    CONTAINER_CODEX_HOME,
-    CONTAINER_OPENCODE_AUTH_DIR,
     DEFAULT_QUESTIONS_FILE,
     EXECUTOR_BASE_IMAGE,
+    EXECUTOR_NAME,
 )
 from adore.config import Config
 from adore.execution import (
@@ -75,7 +73,6 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
-from adore.opencode_catalogue import catalogue_path, stage_or_refresh
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
@@ -106,10 +103,6 @@ WORKING_STAGES = tuple(stage for stage in FULL_STAGES if stage != "done")
 RESETTABLE_STAGES = (*WORKING_STAGES, "publishing")
 ACTIVE_LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing", "in-review",
-}
-_HOST_AUTH_PATHS = {
-    "opencode": (".local/share/opencode/auth.json", CONTAINER_OPENCODE_AUTH_DIR),
-    "codex": (".codex/auth.json", CONTAINER_CODEX_HOME),
 }
 _REDACTIONS = (
     re.compile(r"(?i)(authorization\s*[:=]\s*)(\S+)"),
@@ -232,11 +225,6 @@ class Orchestrator:
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
-        host_src, container_dir = _HOST_AUTH_PATHS.get(
-            config.executor.default, _HOST_AUTH_PATHS["opencode"]
-        )
-        self.host_auth_path = Path.home() / host_src
-        self.host_auth_container_dir = container_dir
         self._in_flight_run_id = ""
 
     @classmethod
@@ -251,7 +239,6 @@ class Orchestrator:
         @param[in]  env_file Secret file; direct callers default to cwd `.env`.
         @return     Production-wired orchestrator.
         """
-        entry = config.executor.commands[config.executor.default]
         env = {**load_env_file(env_file), **os.environ}
         secrets = {key: env[key] for key in config.executor.env_keys if env.get(key)}
         return cls(
@@ -275,9 +262,8 @@ class Orchestrator:
                 selinux_relabel=config.container.selinux_relabel,
             ),
             executor=build_executor(
-                config.executor.default,
-                entry.command,
-                entry.model,
+                config.executor.command,
+                config.executor.model,
                 config.executor.questions_file,
             ),
             secrets=secrets,
@@ -2899,10 +2885,6 @@ class Orchestrator:
         self.backend.verify_required_tools(
             run.container, self.config.container.required_tool_checks, env=env
         )
-        if self.config.executor.stage_host_auth:
-            self._stage_host_auth(run)
-        if self.config.executor.default == "opencode" and self.config.execution.backend != "local":
-            self._stage_opencode_catalogue(run)
         if recipe and record["status"] != "success":
             self._prepare_execution(run)
         self.store.save(run)
@@ -2973,11 +2955,6 @@ class Orchestrator:
                         step,
                         timeout=remaining,
                         secrets=self.secrets,
-                        auth_file=(
-                            self.backend.auth_directory(self.config.executor.default) + "/auth.json"
-                            if self.config.executor.stage_host_auth
-                            else None
-                        ),
                     )
                 except PreparationResultError as exc:
                     outcome, protocol_error = exc.outcome, exc
@@ -3034,7 +3011,7 @@ class Orchestrator:
     def _container_env(self, run: RunState) -> dict[str, str]:
         """@brief Compose the constrained executor environment."""
         if self.config.execution.backend == "local":
-            env = self.backend.executor_environment(self.config.executor.default)
+            env = self.backend.executor_environment()
             env.update({key: value for key, value in self.secrets.items()
                         if key in self.config.executor.env_keys})
             return env
@@ -3045,51 +3022,8 @@ class Orchestrator:
         )
         env.update(self.config.container.runtime_env)
         env.update(self.secrets)
-        env.update(self.backend.executor_environment(self.config.executor.default))
+        env.update(self.backend.executor_environment())
         return env
-
-    def _stage_host_auth(self, run: RunState) -> None:
-        """@brief Stage only executor authentication; forge credentials stay absent."""
-        if not self.host_auth_path.is_file():
-            self.log(f"{run.run_id}: configured executor auth file is missing")
-            return
-        io_dir = self._io_dir(run.run_id)
-        io_dir.mkdir(parents=True, exist_ok=True)
-        staged = io_dir / "host-auth.json"
-        shutil.copy2(self.host_auth_path, staged)
-        with contextlib.suppress(OSError):
-            staged.chmod(0o644)
-        try:
-            execute = self._execute(run)
-            auth_directory = self.backend.auth_directory(self.config.executor.default)
-            created = execute(["mkdir", "-p", auth_directory])
-            if not created.ok:
-                raise IsolationError("executor auth directory creation failed")
-            copied = execute([
-                "cp",
-                f"{self.backend.paths.io}/host-auth.json",
-                f"{auth_directory}/auth.json",
-            ])
-            if not copied.ok:
-                raise IsolationError("executor auth staging failed", copied.argv, copied.stderr)
-        finally:
-            staged.unlink(missing_ok=True)
-
-    def _stage_opencode_catalogue(self, run: RunState) -> None:
-        """@brief Give the container an OpenCode catalogue that knows the project's model."""
-        io_dir = self._io_dir(run.run_id)
-        io_dir.mkdir(parents=True, exist_ok=True)
-        execute = self._execute(run)
-        try:
-            outcome = stage_or_refresh(
-                lambda argv, timeout=None: execute(argv, timeout=timeout),
-                catalogue_path(self.store.root), io_dir, self.backend.paths.io,
-                self.config.executor.commands["opencode"].model)
-        except (OSError, IsolationError, KeyError):
-            outcome = "built-in"
-        if outcome == "built-in":
-            self.log(f"{run.run_id}: OpenCode model catalogue could not be refreshed; "
-                     "using the one built into OpenCode")
 
     def _cost_spent(self, run: RunState) -> float:
         """@brief Sum durable per-launch executor cost records."""
@@ -3231,9 +3165,7 @@ class Orchestrator:
                            if result.tokens_reported is not None
                            else bool(result.tokens_in or result.tokens_out))
         observed_cost = result.cost_reported or result.cost_usd > 0
-        configured_executor = self.config.executor.commands.get(
-            self.config.executor.default)
-        model = configured_executor.model if configured_executor else None
+        model = self.config.executor.model or None
         self.store.journal(
             run.run_id,
             "usage-observation",
@@ -3242,7 +3174,7 @@ class Orchestrator:
             attempt=run.iterations,
             stage=context,
             review_round=run.review_rounds,
-            executor=self.config.executor.default,
+            executor=EXECUTOR_NAME,
             model=model,
             token_status=("disabled" if not captured else
                           "reported" if observed_tokens else "unavailable"),
@@ -3273,7 +3205,7 @@ class Orchestrator:
                   input_includes_cache=True,
                 cost_usd=result.cost_usd,
                 cost_reported=result.cost_reported or result.cost_usd > 0,
-                executor=self.config.executor.default,
+                executor=EXECUTOR_NAME,
                 model=model,
                 review_round=run.review_rounds,
             )

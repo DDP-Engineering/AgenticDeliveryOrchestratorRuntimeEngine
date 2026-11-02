@@ -42,7 +42,7 @@ Un Dev nu vede niciodată valori monetare și nu poate deschide paginile de Admi
 ## Primii pași {#getting-started}
 
 1. Administratorii înrolează repository-ul: [Adăugarea unui repository](/help/projects).
-2. Alegeți agentul de programare și modelul: [Executori și modele](/help/executors).
+2. Alegeți modelul folosit de agentul de programare Pi: [Executori și modele](/help/executors).
 3. Pregătiți tichetele pentru ca ADORE să le poată prelua: [Tichete pentru preluare automată](/help/tickets).
 4. Urmăriți fiecare lucrare până la MR/PR-ul ciornă: [Ciclul de viață al lucrării](/help/jobs).
 
@@ -54,7 +54,7 @@ Dezvoltatorii încep de la pasul 3, după ce un administrator le-a dat acces la 
 - [Prezentarea interfeței](/help/interface): bara laterală, antetul, pagina proiectului și etichetele de stare.
 - [Adăugarea unui repository](/help/projects): înrolarea unui proiect.
 - [Setările proiectului](/help/settings): ce controlează fiecare grup de setări.
-- [Executori și modele](/help/executors): agenți de programare, modele și autentificare.
+- [Executori și modele](/help/executors): agentul de programare Pi, modele și autentificare.
 - [Tichete pentru preluare automată](/help/tickets): etichete și pornirea tichetelor.
 - [Ciclul de viață al lucrării](/help/jobs): stări, stări de așteptare, reîncercare și anulare.
 - [Statistici și costuri](/help/statistics): utilizare, calitate, tendințe și costuri estimate.

@@ -88,8 +88,9 @@ start. `tea` reads its logins only from its own config file
 
 ## Executor Credentials
 
-The selected executor runs inside an ADORE-managed container. Give it only the
-model-provider keys it needs by listing their names in `[executor] env_keys`.
+Pi, ADORE's only coding agent, runs inside an ADORE-managed container. Give it
+only the model-provider keys it needs by listing their names in
+`[executor] env_keys`.
 
 ```toml
 [executor]
@@ -112,38 +113,30 @@ MR/PR creation, merge, and creating AEGIS child task journals (`task --parent`)
 outside the single pinned task. ADORE alone creates local checkpoint commits and
 performs remote publication after a fingerprint-bound human approval.
 
-The optional `stage_host_auth` bridge stages only the selected executor's own
-authentication file into its container-specific home. It does not stage host
-Git or forge CLI credentials.
-
 Every required problem/approval comment is written to a local outbox before
 transport. Evidence is bounded and common credential forms are redacted. A
 notification failure stops active code work instead of silently losing the
 operator signal.
 
-Keep the list small and remove keys the selected executor does not need.
+Keep the list small and remove keys Pi does not need.
 
-## Host-Auth Mode
+## Pi Sign-In
 
-`stage_host_auth = true` is a pilot-only bridge for an existing local OAuth
-session. It is currently implemented only for:
+ADORE copies no host sign-in into a container: the former `stage_host_auth`
+bridge is removed, and the key is refused with `[executor] unknown key
+'stage_host_auth': remove it from config.toml`. Pi in a container runs with
+ADORE's own agent directory (`/home/adore/.adore-pi-agent`) and reads nothing
+from `~/.pi`, so a container project always uses a provider API key in the
+provider's environment variable. ADORE's guard extension, loaded for every
+container Pi run, refuses `git push` and the `gh`, `glab` and `tea` commands in
+the agent's shell; the boundary stays that no forge credential is in the
+container.
 
-- OpenCode: `~/.local/share/opencode/auth.json`;
-- Codex: `~/.codex/auth.json`, staged into an ADORE-owned container
-  `CODEX_HOME`.
-
-Configuration validation and assisted setup reject host-auth for Pi or Qwen.
-Pi in a container runs with ADORE's own agent directory
-(`/home/adore/.adore-pi-agent`) and reads nothing from `~/.pi`: a Pi agent
-directory mounted at `/home/adore/.pi/agent` is not read, so a ChatGPT
-subscription or a custom endpoint's `models.json` cannot reach a container Pi
-run in this build. Give container Pi its provider API key in the provider's
-environment variable. ADORE's guard extension, loaded for every container Pi
-run, refuses `git push` and the `gh`, `glab` and `tea` commands in the agent's
-shell; the boundary stays that no forge credential is in the container.
-For unattended operation, prefer an
-explicit model-provider key and `api-key` mode. Host-auth does not remove the
-need to protect the host account's own credential store.
+A project installed on the server (local execution) may instead reuse the
+account's own Pi sign-in in place (`PI_CODING_AGENT_DIR`, default
+`~/.pi/agent`); see [Local execution](Local_Execution.md). That does not remove
+the need to protect the account's own credential store. For unattended
+operation, prefer an explicit model-provider key.
 
 ## Git Identity
 
@@ -178,7 +171,7 @@ Before the first real poll, confirm:
 
 1. The run-as account can authenticate the selected forge CLI.
 2. The profile contains no secret values.
-3. The selected executor has only the keys listed in `env_keys`.
+3. Pi has only the keys listed in `env_keys`.
 4. The target project's branch protections require human review and merge.
 5. The chosen image contains no secret files.
 6. The configured egress mode meets the target project's policy.

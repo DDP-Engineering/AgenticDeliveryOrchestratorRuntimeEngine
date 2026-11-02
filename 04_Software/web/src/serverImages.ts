@@ -15,7 +15,7 @@ export function validServerImages(value: unknown): value is ServerImages {
     && item.images.length <= 1000 && item.images.every(name => typeof name === "string" && name.length > 0 && name.length <= 255);
 }
 
-/** The server image for an executor: tag `<executor>-*`, preferring adore-executor-base. */
+/** The server image for the coding agent: tag `<agent>-*`, preferring adore-executor-base. */
 export function proposeImage(names: string[], executor: string): string {
   const matching = names.filter(name => name.slice(name.lastIndexOf(":") + 1).startsWith(executor + "-"));
   return matching.find(name => name.startsWith("adore-executor-base:")) ?? matching[0] ?? "";

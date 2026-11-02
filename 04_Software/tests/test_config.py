@@ -30,9 +30,8 @@ repo = "group/project"
 [worktree]
 repo_path = "../runtime-project"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+model = "openai/gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -105,21 +104,53 @@ def test_reviewer_config_requires_account_list(tmp_path, reviewers):
     assert any("reviewers" in issue for issue in validate_config(config))
 
 
-def test_host_auth_requires_supported_executor(tmp_path: Path) -> None:
-    """@brief Host OAuth staging works for OpenCode but rejects Pi."""
-    supported = MINIMAL_VALID.replace(
-        "[executor.opencode]", "[executor]\nstage_host_auth = true\n\n[executor.opencode]"
-    )
-    assert validate_config(load_config(_write_config(tmp_path, supported))) == []
+@pytest.mark.parametrize(("addition", "key"), [
+    ('[executor.opencode]\ncommand = "opencode run {prompt}"\nmodel = "m"\n',
+     "[executor] unknown key 'opencode'"),
+    ('[executor.codex]\ncommand = "codex exec {prompt}"\nmodel = "m"\n',
+     "[executor] unknown key 'codex'"),
+    ('[executor.qwen]\ncommand = "qwen -p {prompt}"\nmodel = "m"\n',
+     "[executor] unknown key 'qwen'"),
+    ('[executor.pi]\ncommand = "pi -p {prompt}"\nmodel = "m"\n',
+     "[executor] unknown key 'pi'"),
+    ('[labels.executor]\nprefix = "agent-exec:"\n', "[labels] unknown key 'executor'"),
+])
+def test_removed_agent_tables_are_refused_with_the_fix(tmp_path, addition, key) -> None:
+    """@brief A table of a removed coding agent is refused, naming the key and the fix."""
+    issues = validate_config(load_config(_write_config(tmp_path, MINIMAL_VALID + addition)))
+    assert f"{key}: remove it from config.toml" in issues
 
-    unsupported = supported.replace(
-        "stage_host_auth = true", "default = 'pi'\nstage_host_auth = true"
-    )
-    unsupported = unsupported.replace("[executor.opencode]", "[executor.pi]")
-    unsupported = unsupported.replace("opencode run --dir {worktree} -m {model} {prompt}",
-                                      "pi -p --mode json --model {model} {prompt}")
-    issues = validate_config(load_config(_write_config(tmp_path, unsupported)))
-    assert any("stage_host_auth" in issue and "pi" in issue for issue in issues)
+
+@pytest.mark.parametrize("line", ['default = "codex"', 'default = "opencode"',
+                                  'default = "pi"', "stage_host_auth = true"])
+def test_removed_agent_keys_are_refused_with_the_fix(tmp_path, line) -> None:
+    """@brief The agent choice and host sign-in staging keys are refused, naming the key."""
+    text = MINIMAL_VALID.replace("[executor]\n", f"[executor]\n{line}\n")
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    name = line.split(" ")[0]
+    assert f"[executor] unknown key {name!r}: remove it from config.toml" in issues
+
+
+@pytest.mark.parametrize(("table", "name"), [
+    ("[container.runtime_env]", "OPENCODE_CONFIG_CONTENT"),
+    ("[container.runtime_env]", "CODEX_HOME"),
+    ("[local.environment]", "QWEN_CODE_UNATTENDED_RETRY"),
+])
+def test_removed_agent_environment_is_refused_with_the_fix(tmp_path, table, name) -> None:
+    """@brief An environment variable of a removed coding agent is refused, naming it."""
+    text = MINIMAL_VALID + f'\n{table}\n{name} = "x"\n'
+    section = table.strip("[]")
+    issues = validate_config(load_config(_write_config(tmp_path, text)))
+    assert (f"[{section.split('.')[0]}] {section.split('.')[1]}.{name} configures a "
+            "removed coding agent: remove it from config.toml") in issues
+
+
+def test_pi_is_the_only_executor_and_needs_only_a_model(tmp_path: Path) -> None:
+    """@brief [executor] model alone is valid; the Pi launch template is the default."""
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert validate_config(config) == []
+    assert config.executor.model == "openai/gpt-5.4-fast"
+    assert config.executor.command == "pi -p --mode json --model {model} {prompt}"
 
 
 def test_derived_names_follow_the_slug(tmp_path: Path) -> None:
@@ -140,9 +171,8 @@ def test_explicit_values_are_never_overridden(tmp_path: Path) -> None:
     @brief   Explicit store_root/questions_file win over derivation.
     """
     text = (
-        MINIMAL_VALID
+        MINIMAL_VALID.replace("[executor]\n", '[executor]\nquestions_file = "ASK.md"\n')
         + '\n[state]\nstore_root = ".custom"\n'
-        + '\n[executor]\nquestions_file = "ASK.md"\n'
     )
     config = load_config(_write_config(tmp_path, text))
     assert config.state.store_root == ".custom"
@@ -160,8 +190,7 @@ kind = "bitbucket"
 [state]
 channel = "smoke-signals"
 
-[executor.opencode]
-command = "opencode {prompt}"
+[executor]
 model = "m"
 
 [delivery]
@@ -205,22 +234,23 @@ def test_platform_gitea_repo_shape_and_login_rules(tmp_path: Path) -> None:
     assert any("login is only supported for gitea" in issue for issue in issues)
 
 
-def test_validation_requires_matching_executor_table(tmp_path: Path) -> None:
+def test_validation_requires_a_model_and_prompt_placeholder(tmp_path: Path) -> None:
     """
-    @brief   The default executor must have a command table with {prompt}.
+    @brief   Pi needs a model, and a command template must carry {prompt}.
     """
     text = """
 [platform]
 repo = "g/p"
 
 [executor]
-default = "pi"
+command = "pi -p --model {model}"
 
 [delivery]
 reviewers = ["r"]
 """
     issues = validate_config(load_config(_write_config(tmp_path, text)))
-    assert any("[executor.pi]" in issue or "default 'pi'" in issue for issue in issues)
+    assert "[executor] model is required" in issues
+    assert "[executor] command must contain a {prompt} placeholder" in issues
 
 
 def test_validation_catches_bad_durations(tmp_path: Path) -> None:
@@ -339,8 +369,8 @@ def test_validation_rejects_auto_flag_in_executor_command(tmp_path: Path) -> Non
              auto-approve the push/merge permissions; prereq report sec. 6).
     """
     text = MINIMAL_VALID.replace(
-        'command = "opencode run --dir {worktree} -m {model} {prompt}"',
-        'command = "opencode run --auto --dir {worktree} -m {model} {prompt}"',
+        "[executor]\n",
+        '[executor]\ncommand = "pi -p --auto --model {model} {prompt}"\n',
     )
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert any("--auto" in issue for issue in issues)
@@ -413,130 +443,14 @@ def test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill(
              way. Both are caught at setup instead.
     """
     text = MINIMAL_VALID.replace(
-        'command = "opencode run --dir {worktree} -m {model} {prompt}"',
-        'command = "opencode run -m {model} {resume}${HOME} {prompt}"',
+        "[executor]\n",
+        '[executor]\ncommand = "pi -p --model {model} {resume}${HOME} {prompt}"\n',
     )
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     placeholder = [issue for issue in issues if "placeholder" in issue]
     assert len(placeholder) == 2
     assert any("{resume}" in issue for issue in placeholder)
     assert any("{HOME}" in issue for issue in placeholder)
-
-
-def _codex_config(command: str) -> str:
-    """
-    @brief      A minimal config with codex as the default executor.
-    @param[in]  command The [executor.codex] command template to test.
-    @return     The TOML text.
-    """
-    return f"""
-[platform]
-kind = "gitlab"
-repo = "group/project"
-
-[worktree]
-repo_path = "../runtime-project"
-
-[executor]
-default = "codex"
-
-[executor.codex]
-command = "{command}"
-model   = "gpt-5.5-codex"
-
-[delivery]
-reviewers = ["dan.pasare"]
-"""
-
-
-def test_codex_requires_non_interactive_sandboxed_json(tmp_path: Path) -> None:
-    """
-    @brief   A codex command without JSON + workspace sandboxing is reported;
-             adding the current non-interactive CLI shape fixes it.
-    """
-    blocking = "codex exec --json --model {model} {prompt}"
-    issues = validate_config(load_config(_write_config(tmp_path, _codex_config(blocking))))
-    assert any("non-interactively" in issue for issue in issues)
-
-    ok = (
-        "codex exec --json --model {model} --ignore-user-config "
-        "--disable plugins --sandbox workspace-write {prompt}"
-    )
-    assert validate_config(load_config(_write_config(tmp_path, _codex_config(ok)))) == []
-
-
-def test_codex_accepts_external_container_sandbox_bypass(tmp_path: Path) -> None:
-    """
-    @brief   Codex full-auto mode is accepted because ADORE provides the
-             external container sandbox boundary.
-    """
-    bypass = (
-        "codex exec --json --model {model} "
-        "--ignore-user-config --disable plugins "
-        "--dangerously-bypass-approvals-and-sandbox {prompt}"
-    )
-    assert validate_config(load_config(_write_config(tmp_path, _codex_config(bypass)))) == []
-
-
-def test_codex_rejects_machine_local_user_config(tmp_path: Path) -> None:
-    """
-    @brief   Codex runs must ignore machine-local user config/plugin state and
-             use ADORE's staged CODEX_HOME instead.
-    """
-    command = (
-        "codex exec --json --model {model} "
-        "--dangerously-bypass-approvals-and-sandbox {prompt}"
-    )
-    issues = validate_config(load_config(_write_config(tmp_path, _codex_config(command))))
-    assert any("--ignore-user-config" in issue for issue in issues)
-
-
-def test_codex_rejects_plugin_materialization(tmp_path: Path) -> None:
-    """
-    @brief   Codex runs must disable bundled plugins so marketplace files are
-             not materialized into the target worktree.
-    """
-    command = (
-        "codex exec --json --model {model} --ignore-user-config "
-        "--dangerously-bypass-approvals-and-sandbox {prompt}"
-    )
-    issues = validate_config(load_config(_write_config(tmp_path, _codex_config(command))))
-    assert any("--disable plugins" in issue for issue in issues)
-
-
-def test_qwen_bans_yolo(tmp_path: Path) -> None:
-    """
-    @brief   A qwen command with --yolo (or --approval-mode yolo) is reported;
-             a plain qwen command is accepted.
-    """
-    base = """
-[platform]
-kind = "gitlab"
-repo = "group/project"
-
-[worktree]
-repo_path = "../runtime-project"
-
-[executor]
-default = "qwen"
-
-[executor.qwen]
-command = "{command}"
-model   = "qwen3-coder-plus"
-
-[delivery]
-reviewers = ["dan.pasare"]
-"""
-    yolo = base.replace("{command}",
-                        "qwen -p --model {model} --yolo {prompt}")
-    assert any("--yolo" in i for i in
-               validate_config(load_config(_write_config(tmp_path, yolo))))
-
-    ok = base.replace("{command}",
-                     "qwen -p --model {model} --output-format json {prompt}")
-    qwen_issues = [i for i in validate_config(load_config(_write_config(tmp_path, ok)))
-                   if "qwen" in i]
-    assert qwen_issues == []
 
 
 def test_container_runtime_env_defaults_and_validation(tmp_path: Path) -> None:
@@ -553,9 +467,8 @@ repo = "group/project"
 [worktree]
 repo_path = "../runtime-project"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+model = "openai/gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -808,10 +721,9 @@ retry_backoff_seconds = []
 
 def test_executor_cannot_receive_forge_credentials(tmp_path: Path) -> None:
     """@brief Executor env allowlists reject host forge credential names."""
-    text = MINIMAL_VALID + """
-[executor]
-env_keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "GITLAB_TOKEN"]
-"""
+    text = MINIMAL_VALID.replace(
+        "[executor]\n",
+        '[executor]\nenv_keys = ["OPENAI_API_KEY", "GITHUB_TOKEN", "GITLAB_TOKEN"]\n')
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert any("must not expose forge credentials" in item for item in issues)
 

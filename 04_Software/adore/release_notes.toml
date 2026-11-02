@@ -73,7 +73,7 @@ text = { en = "Before you create a project, see which settings keep their defaul
 [[release.entry]]
 category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
-text = { en = "Choose where the agent runs, with image suggestions; Pi in an image is newer and stops at once.", fr = "Choisissez où tourne l'agent, avec suggestions d'images ; Pi en image, plus récent, s'arrête net.", de = "Wählen Sie, wo der Agent läuft, mit Vorschlägen; Pi im Image ist neuer und stoppt sofort.", ro = "Alegeți unde rulează agentul, cu sugestii de imagini; Pi din imagine e mai nou, se oprește imediat." }
+text = { en = "Pi is the only coding agent: choose where it runs, with image suggestions; it stops at once.", fr = "Pi est le seul agent : choisissez où il tourne, avec suggestions d'images ; il s'arrête net.", de = "Pi ist der einzige Agent: wählen Sie, wo er läuft, mit Image-Vorschlägen; er stoppt sofort.", ro = "Pi este singurul agent: alegeți unde rulează, cu sugestii de imagini; se oprește imediat." }
 
 [[release.entry]]
 category = "improved"
@@ -118,7 +118,7 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 [[release.entry]]
 category = "fixed"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Local OpenCode uses ADORE's settings; AI tests of local OpenCode, Pi, Codex run a command.", fr = "OpenCode local suit les réglages d'ADORE ; test IA local : OpenCode, Pi, Codex lancent une commande.", de = "Lokales OpenCode nutzt ADOREs Einstellungen; lokaler KI-Test: OpenCode, Pi, Codex starten Befehle.", ro = "OpenCode local folosește setările ADORE; testul AI local la OpenCode, Pi, Codex rulează o comandă." }
+text = { en = "The AI connection test of a local Pi also checks that it can run a command.", fr = "Le test de connexion IA d'un Pi local vérifie aussi qu'il peut lancer une commande.", de = "Der KI-Verbindungstest eines lokalen Pi prüft auch, ob er einen Befehl ausführen kann.", ro = "Testul conexiunii AI pentru un Pi local verifică și că poate rula o comandă." }
 
 [[release.entry]]
 category = "fixed"

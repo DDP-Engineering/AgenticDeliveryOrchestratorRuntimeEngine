@@ -152,8 +152,8 @@ Minimum validation after changes:
   for Windows reporting), license, SHA-256 manifest and a `pip --no-index`
   installer. Installation rejects missing, changed or unlisted media before
   creating a runtime. The manifest also records required host tool groups:
-  Git, one selected forge CLI, and a container runtime. The selected executor
-  CLI is recorded as an image prerequisite and checked by project readiness
+  Git, one selected forge CLI, and a container runtime. With `--executor pi`
+  Pi is recorded as an image prerequisite and checked by project readiness
   inside the already prepared image.
   `install.py --check-only` verifies these and checksummed media without
   changing the target; embedded images load or are inspected before virtual
@@ -167,10 +167,10 @@ Minimum validation after changes:
   installed entrypoints independently with its own restart policy.
   Container images can be embedded with `--image` or required as preinstalled
   tags with `--require-image`; both are verified before runtime creation.
-  A selected executor is checked with a no-network, no-pull Python probe inside
+  With `--executor pi`, Pi is checked with a no-network, no-pull Python probe inside
   `--executor-image TAG`, or the sole listed image.
   Forge CLIs remain host
-  prerequisites, while executor CLIs and project toolchains belong in prepared
+  prerequisites, while Pi and project toolchains belong in prepared
   project images. See
   `01_Documentation/Web_Interface.md`.
 

@@ -85,12 +85,12 @@ accepted. Links, submodules, traversal, absolute/backslash paths, and `.git`,
 The selected job declares the effective image. A profile's explicitly declared
 `container.image` must match, or may be empty in recipe mode. An omitted default
 image is not a competing declaration. The image must already exist locally;
-ADORE never pulls it for recipe execution. It must supply `python3`, `sh`, the
-executor and declared image tool checks. Existing egress, mounts, cache volumes,
-non-secret `container.runtime_env`, allowlisted executor credentials and supported
-host-auth staging remain in force. Forge credentials are excluded.
+ADORE never pulls it for recipe execution. It must supply `python3`, `sh`, Pi
+and declared image tool checks. Existing egress, mounts, cache volumes,
+non-secret `container.runtime_env` and allowlisted executor credentials remain
+in force. Forge credentials are excluded.
 
-Provision and image-tool checks precede auth staging and preparation. Preparation
+Provision and image-tool checks precede preparation. Preparation
 finishes before any AEGIS task or AI gate starts, using the same container and
 worktree. Steps execute sequentially with `sh -eu`; shell exports are step-local.
 To expose newly installed tools to later gates, configure a shared non-secret
@@ -118,7 +118,7 @@ plan, actual container/image IDs, status, attempt count, ordered step outcomes a
 prior attempt history. Missing legacy evidence does not imply preparation success.
 The immutable `execution-plan.json` and timestamped redacted stdout/stderr receipts
 under `preparation/attempt-N/step-M.json` remain outside the mounted exchange
-folder. Each stream is capped at 64 KiB per step; inherited credential values and the already-staged supported executor auth values are redacted before file retention. Job details show status, attempts,
+folder. Each stream is capped at 64 KiB per step; inherited credential values are redacted before file retention. Job details show status, attempts,
 image and authoritative step exits, timestamps, timeouts and cancellation.
 
 Profiles without recipes retain their existing recovery/profile-update contract and do not acquire preparation records. Recipe success is reusable only with the same plan, policy, verified container and image

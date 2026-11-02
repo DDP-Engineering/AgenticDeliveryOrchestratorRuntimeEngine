@@ -97,9 +97,9 @@ Project Settings retains the effective durable state folder as a read-only row.
 `state.channel` is removed: it is not in the setting catalog, and config
 validation refuses it as an unknown key.
 
-**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing, `execution.backend`, the container runtime and image (and the local account, home, PATH and cgroup root for local projects) and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Edit keeps agent, command and model controls inside their existing description/value rows; the default-agent row owns Prepare/Cancel for the complete draft, beside its dropdown using the shared editor layout and normal responsive wrapping. Grouped-edit guidance stays in the description column. Validation occupies its own line after the controls, keeping selector/actions aligned when the selected agent needs a model; Prepare remains disabled until the complete draft is valid. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`, an ordinary reviewed setting), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), allowed credential variables (`executor.env_keys`), project API keys, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. A new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. Model, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in, including in API-key mode when the image or the installed executor signs in by itself (`env_keys = []`). Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow.
+The names-only credential selector offers known provider names and retained custom names. An empty list (`env_keys = []`) suits a local project that reuses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges.
 
 The shared shell presents Overview, Projects, Jobs and Statistics as semantic
 links, with My account for each authenticated user and administrator-only
@@ -251,8 +251,9 @@ Actual provider/model values are entered explicitly. **Runs in** offers Containe
 Installed on the server (`execution.backend`); Container adds **Container runtime**
 and a free-text **Executor image** whose suggestions come from `serverImages.ts`
 (`GET /api/v1/executor-images`), and Installed shows the native command and local
-account fields. Host-auth is supported for OpenCode/Codex, while Pi/Qwen use API-key
-mode, where credential references are optional.
+account fields. There is no agent choice: Pi is the only coding agent. A
+container project uses API-key mode; a local project chooses API-key mode or
+the account's own Pi sign-in (`existing`). Credential references are optional.
 `ForgeLabels.tsx` offers the label option on Review and create (ticked by default; after
 creation the wizard calls `labels/ensure` and shows the report, a failure leaving the project
 created) and **Create missing labels** in Settings → Repository.
@@ -274,7 +275,7 @@ Required guidance is associated with controls through aria-describedby.
 
 setup-preview is structural and never probes. Explicit setup-check explains effects
 first and displays revision/time-bound failed/partial/unverified/current evidence
-with prerequisite-specific remediation. The model endpoint and undetected WSL
+with prerequisite-specific remediation. Undetected WSL
 checks remain explicitly unverified. Review is the canonical response paired with
 the unchanged draft. setup-create submits its frozen revision and uses an immediate
 ref lock to prevent double clicks; failure requires a deliberate new review.
@@ -344,7 +345,7 @@ a Default badge for inherited values, its type and contextual help; common
 settings also describe their valid domain. `web/src/settings.ts` builds, filters and groups the rows. Each row's visible guidance shows the setting's own text in the selected language
 from `web/src/settingHelp.ts` (keyed by the catalog `web/src/settingKeys.json`,
 with `*` for project-chosen names) and its ADORE default. Administrators can stage and apply
-project configuration, local endpoint and estimated-price changes there, while
+project configuration and estimated-price changes there, while
 a developer's projects are edited together under Users, and one project's
 developers on its Access tab. My account holds account
 appearance and password controls. Project details groups this content into
@@ -357,7 +358,7 @@ keyboard tab navigation. Access
 `PUT /projects/{name}/access/{user_id}`; a developer's `/access` route falls
 back to Overview.
 Administrators can explicitly run a host-prerequisite check there. The view
-labels model-endpoint and WSL runtime results as unverified when they cannot
+labels WSL runtime results as unverified when they cannot
 be established from the API host, and never treats static config validity as
 live readiness.
 Administration polls `/api/v1/ready` every five seconds and shows whether the
@@ -452,13 +453,6 @@ after a successful response. User creation owns its staged
 transient draft and clears credentials after confirmed creation.
 Statistics reads reconcile retained usage journals; administrators can also call
 `POST /api/v1/usage/rebuild` (no UI button).
-The local endpoint form is shown for OpenCode profiles. It saves model ID and
-URL in one request and explains the required provider package in the executor
-image. An optional allowlisted environment-variable name references an API
-key without collecting its value in the browser. The form exposes the supported
-chat-completions protocol, bounded request timeout, and HTTPS custom-CA file
-path inside the executor image. Its pending-change panel shows the resulting
-endpoint fields before Apply.
 Settings presents six purpose categories plus closed Technical details with frequent rows first in each,
 source badges, visible localized purpose/units/consequence help, Active value and
 ADORE default. Server catalog type/choices/numeric bounds continue to constrain editors; permanent descriptions provide guidance. Browser controls use server metadata; malformed catalog/candidate
@@ -468,12 +462,11 @@ localized common labels and localized setting guidance for remaining headings.
 
 `PendingReview` compares safe active values to typed server-derived proposed values,
 names the affected display project. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. Preparation focuses the review heading; discard returns keyboard
-focus to the edited row or endpoint field. Endpoint review includes URL, model, protocol, credential variable,
-timeout and CA; unobserved active connection fields stay unknown. Safe clipboard
+focus to the edited row. Safe clipboard
 copy uses only review values and full revisions. A single mutation ref lock and
 captured session/request/view identities suppress duplicate submission and late
 cross-project completions. Editing waits for the pending read and freezes while a
-candidate exists. The endpoint fields share those guards.
+candidate exists.
 
 Apply sends both candidate/base revisions; stale base or required unpaused pickup
 disables the browser action. Server idle/lock/pause checks remain decisive and a
@@ -512,8 +505,7 @@ identity/repository/environment/eligibility/verification/review steps. Copied
 budget controls are read-only; canonical review shows every source rule, installed
 server default and effect, with independent allocated config/state/worktree/metrics
 paths. Target reference/environment reconfirmation is required and invalidated by
-identity/environment edits. Custom endpoints remain explicit separate target setup
-while pickup is stopped; source references never seed that setup.
+identity/environment edits. Source credential references never seed the target.
 
 Target/source edits invalidate reviews and checks; ref/generation guards prevent
 repeated submits and superseded responses. Selected files are reread before review
@@ -572,8 +564,8 @@ Project tabs support arrow keys, Home and End; `/configuration` is Settings and
 the older `/executor` and `/prices` paths open it, while `/history` selects
 terminal jobs in the same authorized hub. The Admin-only estimated-price form sits
 in the Agent and model settings group (`executorAfter` slot of `SettingsList`),
-asks only for effective date and rates, submits the applied `executor.default` and
-its configured model as hidden fields, shows set-a-model guidance when that model
+asks only for effective date and rates, submits executor `pi` and the applied
+`executor.model` as hidden fields, shows set-a-model guidance when that model
 is empty, and remounts per project and configuration revision. A successful empty Statistics response shows the measured zero lifecycle counts and explicit unavailable consumption; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
@@ -633,8 +625,6 @@ license banner, plus the bundled `LICENSE.txt`.
 
 The usage table displays reported cache-read and cache-write counts; a dash
 marks unavailable categories. These counts are already part of input tokens.
-The endpoint form submits an empty CA path explicitly so an administrator can
-remove a previous custom trust reference during a staged edit.
 
 The API serves the build from its own process. Developers can start, retry and
 cancel assigned jobs; job details show retry for failed runs and cancel for
@@ -736,7 +726,7 @@ automated accessibility audits and live log streaming are future work.
 read-only malformed metadata, labels and strict candidate transport. Offline
 `web/e2e/settings.spec.ts` covers correction, safe before/after/copy, unchanged
 active revision, exact apply payload, blocked/pause/stale/malformed review, discard,
-duplicate/late requests, endpoint connection review, four locales and keyboard/
+duplicate/late requests, four locales and keyboard/
 390px/light/dark views. Screenshot inspection complements automated checks; live
 infrastructure, full accessibility and participant acceptance remain human work.
 
@@ -761,12 +751,11 @@ Git supplies isolated working copies; the repository command tool reads issues a
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
 in the local image; workflow availability checks the two configured AEGIS files.
-A compatible configured OpenCode endpoint receives a temporary-container streamed
-model/tool-call check. Current saved explicit model-access evidence is shown for every executor. When no current result exists, model access remains untested. OpenCode endpoint/tool compatibility is identified separately when it was performed. Unknown container detection is incomplete;
+There is no model endpoint check. Current saved explicit model-access evidence is shown when present; when no current result exists, model access remains untested. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
-check time, exact check keys/types and consistent model-probe results before display;
+check time and exact check keys/types before display;
 invalid results produce a localized error and withhold the new check rows.
 
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,
@@ -805,22 +794,22 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi model. Each explicit click sends one short request in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For Pi installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Settings → Agent and model. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project within Settings; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings belong to Settings → Agent and model. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project within Settings; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing, `execution.backend`, the container runtime and image (and the local account, home, PATH and cgroup root for local projects) and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Edit keeps agent, command and model controls inside their existing description/value rows; the default-agent row owns Prepare/Cancel for the complete draft, beside its dropdown using the shared editor layout and normal responsive wrapping. Grouped-edit guidance stays in the description column. Validation occupies its own line after the controls, keeping selector/actions aligned when the selected agent needs a model; Prepare remains disabled until the complete draft is valid. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the model (`executor.model`, an ordinary reviewed setting), the launch command (`executor.command`; a container project may choose only the one Pi preset, a local project edits validated native argv), allowed credential variables (`executor.env_keys`), project API keys, the execution environment (`execution.backend`, the container runtime and image, and the local account, home, PATH and cgroup root for local projects, with external container guidance) and estimated prices. A new model ID must be supplied explicitly. Credential names are added through a dropdown and remain visible as individually removable selections. Model, command, backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in, including in API-key mode when the image or the installed executor signs in by itself (`env_keys = []`). Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only credential selector offers known provider names and retained custom names. An empty list (`env_keys = []`) suits a local project that reuses the account's own Pi sign-in. Applying names does not delete saved `.env` values. Project API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ### Transient application notifications
 
@@ -828,7 +817,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, selected-agent settings, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## Preparation review and outcomes
 
@@ -858,6 +847,6 @@ owned by the existing settings API. See Component_Web_Worker.md and
 Component_Polling.md for runtime scheduling contracts. Existing settings/catalog
 browser and helper tests verify the shared presentation surface.
 
-## Agent selection editor
+## Agent and model settings
 
-executorSettings.ts supplies four-locale generic labels, exact selection/list guards and existing-value drafts; ExecutorSelectionEditor.tsx renders one draft field in each existing row, choosing saved commands/models or server presets and requiring an explicit model for a new agent. CredentialNamesEditor.tsx adds distinct names from a native dropdown and shows removable selected names; duplicates are disabled and malformed drafts cannot enable preparation. SettingsList hides other agents' command/model rows, groups private API keys inside Authentication, and PendingReview displays changed selection fields and discloses all three in the complete comparison. routes.ts redirects old /executor links to /configuration for both roles. The field editors and selected-name list wrap at390px without horizontal overflow. Offline executor/settings/images/model-connection browser journeys cover migration, role boundaries, four locales and narrow layout.
+executorSettings.ts supplies four-locale labels and row help for the Pi settings `executor.model`, `executor.command` and `executor.env_keys`, and the names-only credential guard; there is no agent choice. The model and the launch command are ordinary reviewed rows edited by the generic SettingsList editor: a container project offers only the Pi preset for the command, a local project accepts native argv. CredentialNamesEditor.tsx adds distinct names from a native dropdown and shows removable selected names; duplicates are disabled and malformed drafts cannot enable preparation. SettingsList groups private API keys inside Authentication. routes.ts redirects old /executor links to /configuration for both roles. The field editors and selected-name list wrap at 390px without horizontal overflow. Offline executor/settings/images/model-connection browser journeys cover role boundaries, four locales and narrow layout.

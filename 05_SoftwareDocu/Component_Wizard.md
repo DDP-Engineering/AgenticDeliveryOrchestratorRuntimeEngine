@@ -54,16 +54,19 @@ commands + `--profile` resolution.
 - **Re-prompting vs fail-fast:** `ask()` re-prompts on an interactive asker and
   raises `WizardError` on a non-interactive one - so `--answers` fails fast on a
   bad value rather than looping.
-- **Executor authentication:** host-auth is accepted only for OpenCode and
-  Codex, the two executors with a supported OAuth file staging path. Pi and
-  Qwen setup asks for API-key mode instead of writing a profile that will fail
-  when a job provisions its container.
+- **Executor:** Pi is the only coding agent, so there is no agent choice.
+  A container profile always uses API-key mode and keeps the default Pi
+  command; a local profile asks for the installed native Pi argv
+  (`executor_command`) and an auth mode: `api-key` (provider key in `.env`)
+  or `existing` (the account's own Pi sign-in at `PI_CODING_AGENT_DIR`,
+  default `~/.pi/agent/auth.json`; writes `env_keys = []`). There is no
+  host sign-in staging into containers.
 - **Branch cross-check:** the branch-template validator renders a sample with
   `{slug}/{run_id}/{iid}` and, when a push rule is set, rejects a template the
   rule would reject (the exact check that bit the first pilot) - inline, before
   anything is written.
 - **Minimal + valid output:** required-for-validation fields are always written
-  (platform, repo, worktree, executor command/model, reviewers, runtime, image,
+  (platform, repo, worktree, executor model, reviewers, runtime, image,
   profile-owned state_root); optional fields only when they differ from the
   dataclass default. The image prompt defaults to the generic executor base
   (`adore-executor-base:1.0.0`) and points project profiles at derived
@@ -99,8 +102,8 @@ commands + `--profile` resolution.
 - Answer keys (interactive prompts and `--answers`) are the `FieldSpec.key`
   values: `profile_name, description, agent_name, kind, login, repo,
   repo_path, worktree_root, target_branch,
-  has_push_rule, branch_rule, branch_template, runtime, image, executor_cli,
-  model, auth_mode, reviewers, budgets_choice, max_*, polling_mode,
+  has_push_rule, branch_rule, branch_template, execution_backend, runtime,
+  image, executor_command, model, auth_mode, reviewers, budgets_choice, max_*, polling_mode,
   state_location, confirm`. `kind` accepts gitlab/github/gitea. GitLab/GitHub
   deliberately ask no hosting, host URL, or visibility questions because
   routing follows the platform CLI's active/default authenticated host; the
@@ -170,8 +173,10 @@ adore init <profile-name> --force   # overwrite an existing profile
   the user confirms.
 - Version-vs-requirement checks (`required_tools`) are a separate backlog item;
   the wizard reports presence via `doctor`, not versions.
-- The executor command template is fixed per known CLI (opencode proven);
-  exotic executors get a generic `{prompt}` template to edit by hand.
+- A container profile always keeps the default Pi command
+  (`pi -p --mode json --model {model} {prompt}`), which the container run
+  ignores; only a local profile's native Pi argv is asked for. `[executor]
+  command` is written only when it differs from that default.
 
 ## Offline candidate preparation
 

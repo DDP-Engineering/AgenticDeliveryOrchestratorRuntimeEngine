@@ -28,8 +28,8 @@ executor/
 
 Record build commands, required versions, verification and profile selection in
 `executor/README.md`. Start from a compatible base already installed on the ADORE
-server. The canonical base tag must contain Python, sh and the selected executor;
-a base for another executor must be adapted or replaced externally.
+server. The canonical base tag already contains Python, sh and the pinned Pi,
+ADORE's only coding agent; a different base must provide them itself.
 
 ```dockerfile
 # Copyright (c) 2026 DDP Engineering
@@ -56,7 +56,7 @@ docker build --file executor/Dockerfile --tag adore-executor-project:1.0 .
 docker run --rm --network none --entrypoint python3 adore-executor-project:1.0 --version
 ```
 
-Verify the selected executor and every project tool as the image's non-root user.
+Verify Pi and every project tool as the image's non-root user.
 Use controlled versioned tags or immutable image IDs for reproducible deployment.
 Adding `executor/Dockerfile` to the repository does not trigger a build in ADORE.
 The suggested location is an operator convention, not a watched file contract.
@@ -87,7 +87,7 @@ required_tool_checks = ["python3 --version"]
 ```
 
 These are sections of the existing profile, not a complete replacement profile.
-Add the selected executor/project checks and keep any configured recipe's image
+Add the Pi and project checks and keep any configured recipe's image
 consistent: its validated plan owns the effective image when preparation is set.
 Run `adore --profile <name> config validate`, then the explicit host/model checks
 as appropriate before resuming pickup. Image/tool availability, preparation,
@@ -107,7 +107,7 @@ ADORE has no image definition or build feature. The routes
 no image builds. Environment setting edits and staging return HTTP 400
 `environment_managed_externally`, except `execution.backend`, `container.runtime`,
 `container.image` and the `local.*` account keys, which use the reviewed
-configuration flow; dedicated AI endpoint edits remain available.
+configuration flow.
 
 A pending candidate with an image-build binding, or for an operator-owned
 environment key, could only be staged by an earlier build. Viewing or applying it

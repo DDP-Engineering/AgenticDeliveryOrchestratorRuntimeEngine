@@ -89,7 +89,6 @@ _INLINE_ENV_KEYS = frozenset({
     "GIT_AUTHOR_EMAIL",
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
-    "CODEX_HOME",
     "PI_CODING_AGENT_DIR",
     "PI_OFFLINE",
     "PI_TELEMETRY",
@@ -220,7 +219,7 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         # Force the container user's home explicitly: some daemons (Docker
         # Engine in WSL2) inject the host user's HOME into every container,
         # overriding the image and breaking every HOME-based cache - tflint's
-        # bundled plugin, uv, npm, opencode auth (live finding 2026-07-04).
+        # bundled plugin, uv, npm, agent auth (live finding 2026-07-04).
         "HOME": CONTAINER_HOME,
         "GIT_DIR": f"{CONTAINER_REPO_MOUNT}/.git/worktrees/{git_dir_name}",
         "GIT_COMMON_DIR": f"{CONTAINER_REPO_MOUNT}/.git",
@@ -1134,7 +1133,7 @@ class ContainerManager:
                     never appear in argv: secret env keys are passed as bare
                     `--env KEY` and the values travel via the runtime CLI's
                     own process environment. Safe runtime variables (HOME,
-                    Git mount paths, CODEX_HOME, bot identity) are passed
+                    Git mount paths, Pi agent settings, bot identity) are passed
                     inline so they survive wrapped runtimes consistently. In
                     WSL mode the mount sources are translated to /mnt/<drive>/
                     form and bare env keys are additionally listed in WSLENV
@@ -1184,8 +1183,8 @@ class ContainerManager:
             env = {**env, **self._proxy_env()}
         # Safe runtime values go inline: they are not secrets, and the
         # bare-key/WSLENV path is brittle across wrapped runtimes (HOME is
-        # reset by login shells; CODEX_HOME was dropped by the WSL/Podman
-        # path in the Codex pilot). Bare keys stay reserved for secrets.
+        # reset by login shells; an agent home variable was dropped by
+        # the WSL/Podman path in an earlier pilot). Bare keys stay reserved for secrets.
         secret_env = dict(env)
         for key in _INLINE_ENV_KEYS:
             value = secret_env.pop(key, None)

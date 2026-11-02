@@ -63,9 +63,9 @@ can never be accepted without an option to apply. The modes are `off` and
 `shared`; the private SELinux `Z`
 label is refused because it would bind the shared repository clone to a single
 container.
-`stage_host_auth` is valid only with the OpenCode or Codex executor, whose
-host OAuth files ADORE knows how to stage. Pi and Qwen must use provider-key
-configuration; validation rejects their host-auth setting before a run starts.
+`[container] runtime_env` and `[local] environment` names starting with a
+removed coding agent's prefix (`OPENCODE_`, `CODEX_`, `QWEN_`) are refused
+with a message to remove them from `config.toml`.
 
 ## 4. Inputs and Outputs
 
@@ -73,15 +73,30 @@ Input is a TOML file plus derived profile paths. Output is a `Config` dataclass
 and a stable list of validation problems. Missing keys take the documented
 defaults. There is no compatibility with earlier builds: an unknown top-level
 section is an error, and `validate_config` refuses any key the build does not
-read, in every section and subtable (`labels.*`, `executor.<name>`,
-`container.egress`), with `[section] unknown key 'x': remove it from
-config.toml`; `[local]` and `[execution]` have their own strict validators. The
-removed `[state] channel` key is refused like any other unknown key.
+read, in every section and subtable (`labels.*`, `container.egress`), with
+`[section] unknown key 'x': remove it from config.toml`; `[local]` and
+`[execution]` have their own strict validators. The removed `[state] channel`
+key is refused like any other unknown key.
 
-Executor command templates support only the `{prompt}`, `{model}` and
-`{worktree}` placeholders; any other placeholder, including the removed Codex
-`{resume}`, is refused as unsupported. The default Codex command is
-`codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}`.
+`ExecutorConfig` (`[executor]`) configures Pi, ADORE's only coding agent:
+`model` (required, Pi `provider/model`), `command`, `mode` (`thick` or
+`headless`), `questions_file` and `env_keys` (default `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`). The removed `default` and `stage_host_auth` keys and
+every `[executor.<name>]` table are refused as unknown `[executor]` keys, and
+the removed `[labels] executor` table as an unknown `[labels]` key. There is
+no migration.
+
+```toml
+[executor]
+model = "openai/gpt-5.4-fast"
+```
+
+`command` is the argv template of a native (local) Pi run only; the default
+is `branding.PI_NATIVE_COMMAND`
+(`pi -p --mode json --model {model} {prompt}`). It must contain `{prompt}`
+and must not use `--auto`; a container run ignores it and drives the image's
+pinned Pi over RPC. Templates support only the `{prompt}`, `{model}` and
+`{worktree}` placeholders; any other placeholder is refused as unsupported.
 
 ## 5. Validation and Tests
 

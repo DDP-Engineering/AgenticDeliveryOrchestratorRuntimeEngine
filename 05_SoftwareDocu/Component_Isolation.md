@@ -74,8 +74,9 @@ guardrails, not a sandbox.
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
 
 `pull_never=True` adds `--pull=never` to executor and allowlist-proxy container
-creation. The web endpoint probe uses it after local image inspection so an
-explicit readiness check cannot fetch images at first use. The default keeps
+creation. The web readiness check and the explicit AI connection test use it
+after local image inspection so an explicit check cannot fetch images at
+first use. The default keeps
 the conductor's existing image policy.
 
 `interrupt(name)` uses a two-second runtime stop grace with a 20-second host
@@ -130,8 +131,9 @@ side keeps working normally with its absolute paths. The admin dir name is
   `--env KEY` and the values travel via the runtime CLI's own process
   environment, so `docker run` command lines (process listings, journals)
   never contain a key.
-- **Safe runtime values go inline:** ADORE-managed Git/Home/Codex variables
-  plus common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
+- **Safe runtime values go inline:** ADORE-managed Git/Home/Pi variables
+  (`PI_CODING_AGENT_DIR`, `PI_OFFLINE`, `PI_TELEMETRY`,
+  `PI_SKIP_VERSION_CHECK`), proxy variables and common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
   `UV_PROJECT_ENVIRONMENT`) are non-secret and are passed as
   `--env KEY=value`. This keeps wrapped Docker/Podman runtimes from dropping
   them between create-time and exec-time launches. Other configured env still
@@ -172,7 +174,7 @@ side keeps working normally with its absolute paths. The admin dir name is
   can start after dropping privileges to the `proxy` user.
 - Windows host paths are normalized (`Path.as_posix()`) for mount syntax.
 - Commit authorship comes from `agent.name` / `agent.email` via
-  `GIT_AUTHOR_*` / `GIT_COMMITTER_*`; credential and host-auth boundaries are
+  `GIT_AUTHOR_*` / `GIT_COMMITTER_*`; credential boundaries are
   documented in `01_Documentation/Security_And_Credentials.md`.
 
 ## 4. Dependencies
@@ -184,8 +186,8 @@ side keeps working normally with its absolute paths. The admin dir name is
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
   `adore-executor-base:1.0.0` image (built from
   `docker/Dockerfile.executor-base`: Ubuntu 22.04, Python 3.11 + uv, Node
-  22.23.4, git with `safe.directory *`, opencode/codex/qwen CLIs, Pi 1.4.0 and
-  pi-web-access 0.46.0 under `/opt/pi` with ADORE's guard extension,
+  22.23.4, git with `safe.directory *`, Pi 1.4.0 and pi-web-access 0.46.0
+  under `/opt/pi` with ADORE's guard extension (Pi is the only coding agent),
   glab/gh, non-root user `adore`) or a runtime-project image derived from it.
   `ContainerManager.spawn` starts a streaming `exec -i` command with `exec`'s
   environment rules (Pi's RPC launch); the caller bounds and ends it.
@@ -277,7 +279,7 @@ env["UV_LINK_MODE"] = "copy"              # non-secret runtime behavior
 env["ANTHROPIC_API_KEY"] = "..."          # executor's secret subset only
 containers.ensure_volumes()
 containers.provision("adore-run-gitlab-x-14", "../project", path, env)
-result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
+result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
 ```
 
 ## 9. Validation And Tests
@@ -318,7 +320,7 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
 
 - The repo clone is mounted read-write into the executor container (commits
   need the shared object store). The executor cannot push (no credentials in
-  the container; opencode denies push), but a misbehaving executor could
+  the container; ADORE's Pi guard blocks `git push`), but a misbehaving executor could
   damage the *local* clone - acceptable for v1 since the clone is
   disposable; re-clone recovers it.
 - With `GIT_DIR` set container-wide, git inside the container always targets

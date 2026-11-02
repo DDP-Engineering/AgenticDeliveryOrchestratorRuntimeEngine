@@ -21,15 +21,14 @@ test("technical guidance covers external ownership and existing data in all loca
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "../src/implementationSettings.ts";
 import { SETTING_HELP } from "../src/settingHelp.ts";
 
-test("Settings owns executor rows and accepts only complete agent selection review", async () => {
+test("Settings owns the Pi model row and reviews it as one scalar", async () => {
  const {settingVisible} = await import("../src/settings.ts");
- assert.equal(settingVisible("executor.default"), true);
- const selection = {agent:"codex",command:"codex exec --json --model {model} {prompt}",model:"offline-model"};
- const pending = {base_revision:"a".repeat(64),candidate_revision:"b".repeat(64),key:"executor.selection",value:JSON.stringify(selection),proposed_value:selection,created_at:"2026-10-09T00:00:00Z",restart_required:true};
+ assert.equal(settingVisible("executor.model"), true);
+ assert.equal(settingVisible("executor.model", true), true);
+ const pending = {base_revision:"a".repeat(64),candidate_revision:"b".repeat(64),key:"executor.model",value:"openai/offline-model",proposed_value:"openai/offline-model",created_at:"2026-10-09T00:00:00Z",restart_required:true};
  assert.equal(validPendingConfig(pending), true);
- for (const invalid of [{...selection,agent:"unknown"},{...selection,model:""},{...selection,token:"secret"}]) {
-  assert.equal(validPendingConfig({...pending,value:JSON.stringify(invalid),proposed_value:invalid}), false);
- }
+ const selection = {agent:"pi",command:"pi -p {prompt}",model:"offline-model"};
+ assert.equal(validPendingConfig({...pending,key:"executor.selection",value:JSON.stringify(selection),proposed_value:selection}), false);
 });
 
 test("implementation drafts serialize only complete valid human values", () => {
@@ -100,11 +99,11 @@ test("flow visibility omits inactive and external fields and keeps technical row
  // The chosen environment keys follow the backend: container rows or local-account rows.
  for (const key of ["execution.backend", "container.runtime", "container.image"]) assert.equal(settingVisible(key, true), true, key);
  assert.equal(settingVisible("local.account", true), false);
- assert.equal(settingVisible("local.account", true, undefined, "local"), true);
- assert.equal(settingVisible("container.image", true, undefined, "local"), false);
+ assert.equal(settingVisible("local.account", true, "local"), true);
+ assert.equal(settingVisible("container.image", true, "local"), false);
  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);
- assert.equal(settingVisible("executor.default"), true);
- assert.equal(settingVisible("executor.default", true), true);
+ assert.equal(settingVisible("executor.command"), true);
+ assert.equal(settingVisible("executor.command", true), true);
  assert.equal(settingVisible("platform.repo", true), false);
  const technical = settingRows({}, ["worktree.repo_path", "worktree.root", "agent.slug", "state.store_root", "workflow.aegis_python", "future.new_key"].map(key => meta(key, "project", true)));
  for (const row of technical) assert.equal(row.input, "none", row.key);
@@ -146,7 +145,7 @@ test("reviewer list alone is editable and pending arrays have exact authority", 
 
 const config = {
   platform: { kind: "gitlab", repo: "group/project" },
-  executor: { default: "opencode", commands: { opencode: { command: "opencode run", model: "openai/gpt" } } },
+  executor: { command: "pi -p {prompt}", model: "openai/gpt" },
   budgets: { max_iterations: 20, max_cost_usd: 5.5 },
   delivery: { reviewers: ["dan"], draft: true },
   container: { egress: { allowlist: [] } },
@@ -154,39 +153,38 @@ const config = {
 const meta = (key, source, editable, restart = false, edit_key = key) =>
   ({ key, edit_key, source, editable, restart, default: key === "budgets.max_iterations" ? 20 : null,
     type: key === "budgets.max_iterations" ? "integer" : key === "budgets.max_cost_usd" ? "number" : key === "delivery.draft" ? "boolean" : "text",
-    choices: key === "platform.kind" ? ["gitlab", "github", "gitea"] : key === "executor.default" ? ["opencode", "pi", "codex", "qwen"] : [], minimum: null, maximum: null });
+    choices: key === "platform.kind" ? ["gitlab", "github", "gitea"] : key === "executor.command" ? ["pi -p {prompt}"] : [], minimum: null, maximum: null });
 const settings = [
   meta("budgets.max_cost_usd", "default", true),
   meta("budgets.max_iterations", "project", true),
   meta("container.egress.allowlist", "default", false, true),
   meta("delivery.draft", "default", true),
   meta("delivery.reviewers", "project", false),
-  meta("executor.commands.opencode.command", "project", false, true, "executor.opencode.command"),
-  meta("executor.commands.opencode.model", "project", true, true, "executor.opencode.model"),
-  meta("executor.default", "default", true, true),
+  meta("executor.command", "project", false, true),
+  meta("executor.model", "project", true, true),
   meta("platform.kind", "project", true, true),
   meta("platform.repo", "project", true, true),
 ];
 
 test("rows carry value, source, edit key, restart and an input kind", () => {
   const rows = new Map(settingRows(config, settings).map(row => [row.key, row]));
-  const model = rows.get("executor.commands.opencode.model");
+  const model = rows.get("executor.model");
   assert.deepEqual(
     { group: model.group, value: model.value, source: model.source, editKey: model.editKey, restart: model.restart, input: model.input },
-    { group: "executor", value: "openai/gpt", source: "project", editKey: "executor.opencode.model", restart: true, input: "text" },
+    { group: "executor", value: "openai/gpt", source: "project", editKey: "executor.model", restart: true, input: "text" },
   );
   assert.equal(rows.get("budgets.max_cost_usd").input, "number");
   assert.equal(rows.get("delivery.draft").input, "boolean");
   assert.equal(rows.get("platform.kind").input, "choice");
   assert.deepEqual(rows.get("platform.kind").choices, ["gitlab", "github", "gitea"]);
-  assert.deepEqual(rows.get("executor.default").choices, ["opencode", "pi", "codex", "qwen"]);
+  assert.deepEqual(rows.get("executor.command").choices, ["pi -p {prompt}"]);
   assert.equal(rows.get("budgets.max_iterations").input, "number");
   assert.equal(rows.get("budgets.max_iterations").step, "1");  // whole number, at least 1
   assert.equal(rows.get("budgets.max_iterations").defaultValue, 20);
   assert.equal(rows.get("budgets.max_cost_usd").defaultValue, null);
   assert.equal(rows.get("budgets.max_cost_usd").step, "any");
-  assert.equal(rows.get("executor.commands.opencode.model").step, undefined);
-  for (const key of ["delivery.reviewers", "executor.commands.opencode.command", "container.egress.allowlist"]) {
+  assert.equal(rows.get("executor.model").step, undefined);
+  for (const key of ["delivery.reviewers", "executor.command", "container.egress.allowlist"]) {
     assert.equal(rows.get(key).input, "none", key);
   }
 });
@@ -205,7 +203,7 @@ test("the project-set filter keeps project rows and drops empty groups", () => {
     ["repository", ["platform.repo", "platform.kind"]],
     ["implementation", ["budgets.max_iterations"]],
     ["reviews", ["delivery.reviewers"]],
-    ["executor", ["executor.commands.opencode.command", "executor.commands.opencode.model"]],
+    ["executor", ["executor.command", "executor.model"]],
   ]);
 });
 
@@ -238,7 +236,7 @@ test("catalog and candidate transport reject malformed or missing authority", ()
   const candidate = { base_revision: "a".repeat(64), candidate_revision: "b".repeat(64), key: "budgets.max_iterations", value: "12", proposed_value: 12, created_at: "2026-10-05T12:00:00Z", restart_required: false };
   assert.equal(validPendingConfig(candidate), true);
   assert.equal(validPendingConfig(null), true);
-  for (const bad of [{}, { ...candidate, proposed_value: {} }, { ...candidate, base_revision: "stale" }, { ...candidate, created_at: "2026-10-05T12:00:00" }, { ...candidate, endpoint: { protocol: "anthropic" } }]) assert.equal(validPendingConfig(bad), false);
+  for (const bad of [{}, { ...candidate, proposed_value: {} }, { ...candidate, base_revision: "stale" }, { ...candidate, created_at: "2026-10-05T12:00:00" }]) assert.equal(validPendingConfig(bad), false);
 });
 
 
@@ -288,16 +286,14 @@ test("Implementation typed controls keep narrow collection review authority", ()
 });
 
 
-test("agent labels, selected fields and credential names retain exact authority in four locales", async () => {
- const {agentSettingsCopy,executorSettingLabel,validCredentialNames}=await import("../src/executorSettings.ts");
- const {settingVisible}=await import("../src/settings.ts");
+test("executor labels, help and credential names retain exact authority in four locales", async () => {
+ const {agentSettingsCopy,executorSettingHelp,executorSettingLabel,validCredentialNames}=await import("../src/executorSettings.ts");
  for (const locale of ["en","ro","fr","de"]) {
-  for (const agent of ["opencode","pi","codex","qwen"]) {
-   assert.equal(executorSettingLabel(`executor.commands.${agent}.command`,locale),agentSettingsCopy[locale].command);
-   assert.equal(executorSettingLabel(`executor.commands.${agent}.model`,locale),agentSettingsCopy[locale].model);
-   assert.equal(settingVisible(`executor.commands.${agent}.command`,false,"pi"),agent==="pi");
-  }
+  assert.equal(executorSettingLabel("executor.command",locale),agentSettingsCopy[locale].command);
+  assert.equal(executorSettingLabel("executor.model",locale),agentSettingsCopy[locale].model);
   assert.equal(executorSettingLabel("executor.env_keys",locale),agentSettingsCopy[locale].variables);
+  assert.equal(executorSettingHelp("executor.model",locale),agentSettingsCopy[locale].modelHelp);
+  assert.equal(executorSettingLabel("executor.default",locale),null);
  }
  for (const names of [[],["OPENAI_API_KEY"],["CUSTOM_PROVIDER_KEY","OPENROUTER_API_KEY"]]) assert.equal(validCredentialNames(names),true);
  for (const names of [null,{},[true],["OPENAI_API_KEY=value"],["OPENAI_API_KEY","OPENAI_API_KEY"],["invalid"],Array(33).fill("OPENAI_API_KEY")]) assert.equal(validCredentialNames(names),false);

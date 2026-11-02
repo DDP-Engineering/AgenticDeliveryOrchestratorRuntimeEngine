@@ -42,7 +42,7 @@ Ein Dev sieht nie Geldbeträge und kann die Verwaltungsseiten nicht öffnen. Ein
 ## Erste Schritte {#getting-started}
 
 1. Administratoren richten das Repository ein: [Repository hinzufügen](/help/projects).
-2. Coding-Agent und Modell wählen: [Executor und Modelle](/help/executors).
+2. Modell für den Coding-Agenten Pi wählen: [Executor und Modelle](/help/executors).
 3. Tickets so vorbereiten, dass ADORE sie aufnehmen kann: [Tickets für die automatische Aufnahme](/help/tickets).
 4. Jeden Auftrag bis zum MR/PR-Entwurf verfolgen: [Lebenszyklus eines Auftrags](/help/jobs).
 
@@ -54,7 +54,7 @@ Entwickler beginnen bei Schritt 3, sobald ein Administrator ihnen Zugriff auf ei
 - [Rundgang durch die Oberfläche](/help/interface): Seitenleiste, Kopfzeile, Projektzentrale und Statuslabels.
 - [Repository hinzufügen](/help/projects): ein Projekt einrichten.
 - [Projekteinstellungen](/help/settings): was jede Einstellungsgruppe steuert.
-- [Executor und Modelle](/help/executors): Coding-Agenten, Modelle und Authentifizierung.
+- [Executor und Modelle](/help/executors): der Coding-Agent Pi, Modelle und Authentifizierung.
 - [Tickets für die automatische Aufnahme](/help/tickets): Labels und das Starten von Tickets.
 - [Lebenszyklus eines Auftrags](/help/jobs): Status, Wartezustände, Wiederholen und Abbrechen.
 - [Statistiken und Kosten](/help/statistics): Nutzung, Qualität, Trends und geschätzte Kosten.

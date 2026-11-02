@@ -9,15 +9,15 @@ schema = 1
 
 id = "REQ-UX-d93fab0f"
 
-title = "Record estimated prices for the applied executor and model"
+title = "Record estimated prices for Pi and the applied model"
 
 status = "active"
 
 requirement = """
-When an administrator records an estimated price in a project's Agent and model settings, the form shall ask only for the effective date and the input and output rates and shall save the price for the project's applied coding agent and that agent's configured model; while that agent has no configured model, the section shall show guidance to set the model instead of the form.
+When an administrator records an estimated price in a project's Agent and model settings, the form shall ask only for the effective date and the input and output rates and shall save the price for Pi and the model in the project's applied executor.model setting; while executor.model is empty, the section shall show guidance to set the model instead of the form.
 """
 
-verification = "Automated: e2e opens Settings > Agent and model as administrator, confirms the price form has no executor or model field, fills effective date and rates, saves, and sees a table row with the applied agent and its configured model. Manual: for a project whose applied agent has no configured model, the section shows the set-a-model guidance and no form."
+verification = "Automated: e2e opens Settings > Agent and model as administrator, confirms the price form has no executor or model field, fills effective date and rates, saves, and sees a table row with pi and the applied executor.model. Manual: for a project with an empty executor.model, the section shows the set-a-model guidance and no form."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-10
+updated = 2026-11-02

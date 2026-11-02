@@ -14,12 +14,12 @@ Also governs REQ-FUNC-c6c71dbd (the default value the help shows).
 
 1. **Setting catalog.** `04_Software/web/src/settingKeys.json` lists every
    setting key the configuration view can return. Variable parts use `*`:
-   `executor.commands.*.command`, `executor.commands.*.model`,
    `container.runtime_env.*`, `workflow.kind_labels.*` and
    `workflow.stage_timeout_overrides.*`; the bare map keys
-   `container.runtime_env`, `workflow.kind_labels`,
-   `workflow.stage_timeout_overrides` and `executor.commands` cover an empty
-   map. A Python test keeps the catalog equal to the keys ADORE's
+   `container.runtime_env`, `workflow.kind_labels` and
+   `workflow.stage_timeout_overrides` cover an empty map. The executor keys
+   are `executor.command`, `executor.env_keys`, `executor.mode`,
+   `executor.model` and `executor.questions_file`. A Python test keeps the catalog equal to the keys ADORE's
    configuration produces, so a new setting fails the build until it is
    catalogued.
 2. **Help texts.** `04_Software/web/src/settingHelp.ts` holds one text per
@@ -40,8 +40,8 @@ Also governs REQ-FUNC-c6c71dbd (the default value the help shows).
    (`agent.slug` `adore`, `agent.email` `adore-bot@local`, `state.store_root`
    `.adore`, `executor.questions_file` `ADORE_QUESTIONS.md`, metrics paths
    under `.adore`), with the redaction the configuration view applies, or
-   `null` when the default configuration has no such key (for example an
-   executor command table it does not define).
+   `null` when the default configuration has no such key (for example a
+   `container.runtime_env.*` name it does not define).
 
 ## Data / interface
 
@@ -55,8 +55,8 @@ Also governs REQ-FUNC-c6c71dbd (the default value the help shows).
 - `recovery.max_stage_failures`, en: explains attempts per stage, that the
   last one fails the run, and that the count resets when the stage advances;
   "ADORE default: 3".
-- `executor.commands.codex.model` uses the `executor.commands.*.model` text;
-  its default is `null` ("none").
+- `executor.command` shows "ADORE default: pi -p --mode json --model {model}
+  {prompt}".
 - `metrics.db_path` shows "ADORE default: .adore/metrics.db".
 
 ## Acceptance

@@ -47,7 +47,7 @@ Deux chiffres de coût sont tenus séparés, et aucun n’est une facture.
 - Le **Coût déclaré** est ce que l’exécuteur a déclaré, retenu comme preuve observée. S’il n’en a déclaré aucun, la valeur indique **Non disponible**.
 - Le **Coût estimé** est le nombre de jetons enregistré multiplié par des tarifs que les administrateurs définissent. C’est une estimation, pas une facture ni un plafond de dépense.
 
-Les administrateurs enregistrent les tarifs dans **Paramètres → Agent et modèle** d’un projet, sous **Tarifs estimatifs** : choisissez **Valable à partir du**, puis saisissez **USD entrée / 1 M jetons** et **USD sortie / 1 M jetons** et **Enregistrer**. Un tarif s’applique à l’agent de programmation sélectionné et à son modèle configuré ; définissez donc d’abord le modèle. Chaque événement d’utilisation est tarifé selon l’exécuteur, le modèle et le jour de consommation. Les événements sans tarif correspondant sont comptés comme **Utilisations sans tarif** dans les totaux d’Utilisation.
+Les administrateurs enregistrent les tarifs dans **Paramètres → Agent et modèle** d’un projet, sous **Tarifs estimatifs** : choisissez **Valable à partir du**, puis saisissez **USD entrée / 1 M jetons** et **USD sortie / 1 M jetons** et **Enregistrer**. Un tarif s’applique à Pi et à son modèle configuré ; définissez donc d’abord le modèle. Chaque événement d’utilisation est tarifé selon l’exécuteur, le modèle et le jour de consommation. Les événements sans tarif correspondant sont comptés comme **Utilisations sans tarif** dans les totaux d’Utilisation.
 
 > Un tarif saisi avec une date d’effet antérieure peut modifier les estimations passées. Exportez un CSV si vous avez besoin d’un chiffre à un instant donné.
 

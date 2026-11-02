@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-78b0ad95"
+
+title = "Refuse configuration that names a removed coding agent"
+
+status = "active"
+
+requirement = """
+When config.toml contains an [executor] key or table this build does not read, such as default, stage_host_auth or an [executor.<name>] table of a removed coding agent, a [labels.executor] table, or a [container] runtime_env or [local] environment name starting OPENCODE_, CODEX_ or QWEN_, ADORE shall refuse the configuration with one issue per key naming the key and telling the operator to remove it from config.toml, and shall not show such a variable's value in the configuration view.
+"""
+
+verification = "Offline: configurations with [executor.opencode], [executor.codex], [executor.qwen], [executor.pi], default = \"codex\", stage_host_auth = true and [labels.executor] each yield the issue naming that key and 'remove it from config.toml'; the example and a minimal [executor] model configuration validate clean."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/config.example.toml", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_removed_agent_tables_are_refused_with_the_fix", "04_Software/tests/test_config.py::test_removed_agent_keys_are_refused_with_the_fix", "04_Software/tests/test_config.py::test_removed_agent_environment_is_refused_with_the_fix", "04_Software/tests/test_web_enrollment.py::test_import_refuses_removed_agent_environment", "04_Software/tests/test_web_config.py::test_config_view_hides_a_removed_agents_environment_value", "04_Software/tests/test_web_enrollment.py::test_import_names_the_removed_agent_key_to_delete"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

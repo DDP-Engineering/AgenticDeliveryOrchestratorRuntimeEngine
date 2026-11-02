@@ -393,7 +393,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
         tmp_path / "worktrees" / "x",
         io_dir,
         {"HOME": "/home/adore", "GIT_DIR": "/adore/repo/.git/worktrees/x",
-         "CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
+         "PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
          "ANTHROPIC_API_KEY": "sk-secret"},
     )
     run_argv = runner.calls[1]
@@ -404,7 +404,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
                   if part == "--env"]
     assert "HOME=/home/adore" in env_values
     assert "GIT_DIR=/adore/repo/.git/worktrees/x" in env_values
-    assert "CODEX_HOME=/home/adore/.adore-codex" in env_values
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in env_values
     assert "UV_LINK_MODE=copy" in env_values
     assert "HOME" not in env_values  # bare key would take the WSL user's HOME
     assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}" in run_argv
@@ -907,26 +907,26 @@ def test_container_exec_returns_result_as_data() -> None:
              command is a conductor signal, not an isolation error.
     """
     runner = FakeRunner(_fail("gate failed", exit_code=3))
-    result = _manager(runner).exec("c", ["opencode", "run", "prompt"])
+    result = _manager(runner).exec("c", ["pi", "-p", "prompt"])
     assert result.exit_code == 3
     assert runner.calls[0][:3] == ["docker", "exec", "c"]
 
 
 def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     """
-    @brief   Exec-time env mirrors provision: CODEX_HOME is inline so Podman
+    @brief   Exec-time env mirrors provision: PI_CODING_AGENT_DIR is inline so Podman
              exec sees it; secret values stay out of argv.
     """
     runner = FakeRunner(_ok())
     _manager(runner).exec(
         "c",
         ["env"],
-        env={"CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
+        env={"PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
              "OPENAI_API_KEY": "sk-secret"},
     )
     argv = runner.calls[0]
     assert argv[:2] == ["docker", "exec"]
-    assert "CODEX_HOME=/home/adore/.adore-codex" in argv
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in argv
     assert "UV_LINK_MODE=copy" in argv
     assert "OPENAI_API_KEY" in argv
     assert not any("sk-secret" in part for part in argv)

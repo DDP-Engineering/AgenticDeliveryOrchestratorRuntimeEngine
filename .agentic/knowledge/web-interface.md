@@ -276,7 +276,7 @@ SQLite bytes, authorization, scope and financial redaction.
   while its value is a boolean (`REQ-SEC-63767e17`).
 - Web config edits use a SHA-256 revision and the same per-directory process
   lock as CLI `config set`; direct host file changes do not use that lock.
-  Staged, applied, direct and OpenCode endpoint edits write bytes and keep the
+  Staged, applied and direct edits write bytes and keep the
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
 - The administrator UI prepares one validated config candidate per project,
   reviews changed safe values above categories with adjacent Apply/Discard; complete comparison, effect, observed time and full base/candidate revisions are disclosed in Technical details and applies it only with no active run, conductor or
@@ -284,19 +284,19 @@ SQLite bytes, authorization, scope and financial redaction.
   interrupted apply reconciles exact candidate bytes and profile labels.
 - Explicit administrator readiness checks use bounded doctor probes from the
   API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
-  executing repository code. A configured local OpenCode model is tested from
-  a disposable executor container with the project egress policy and a
-  redacted reason. WSL runtime detection remains unverified; CLI output and
-  credentials are never returned.
-- The OpenCode local-endpoint form saves `provider/model`, URL, and an optional
-  allowlisted credential environment reference atomically;
-  its compatible provider override, bounded timeout and optional HTTPS CA path
-  are generated in the same config revision. Pending review exposes only these
-  non-secret endpoint fields.
-- Project creation and shared config validation permit ADORE-managed host-auth
-  staging only for OpenCode and Codex. Pi and Qwen use the non-staged choice;
-  Pi can authenticate through an operator-provided, protected credential mount
-  while `stage_host_auth` remains false.
+  executing repository code. The stored checks are exactly `git`, `forge_cli`,
+  `forge_auth`, `container_runtime`, `executor_cli` and `aegis_files`; model
+  access is proved only by the explicit Test AI connection. WSL runtime
+  detection remains unverified; CLI output and credentials are never returned.
+- Model, launch command and credential-name edits use the reviewed candidate
+  flow in Settings → Agent and model (executor-configuration.md); there is no
+  AI endpoint form.
+- Project creation offers no coding-agent choice: Pi is the only agent, and
+  `ProjectInput` has no `executor_cli` field (422 when sent). `auth_mode` is
+  `api-key` or `existing` (the local account's own Pi sign-in, with empty
+  `env_keys`); any other value, such as `host-auth`, is 422. A container project
+  uses api-key. The project view reports `executor` = `pi`, and import review
+  shows `executor` = {model, env_keys}.
 - Web-created profiles use an absolute, project-specific worktree root under
   ADORE home. ADORE uses the configured agent identity for host-side checkpoint
   commits, even when the fresh clone has no local Git identity.
@@ -346,7 +346,7 @@ SQLite bytes, authorization, scope and financial redaction.
   as separate pages (/projects/new, /projects/import, /projects/clone).
   Administrators open Enroll new project as a five-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
-  executor/model values describe the selected agent; environment setup is external. Back retains
+  the model value is Pi's provider/model ID; environment setup is external. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup
   before the explicit Open project action.
   Exact configuration enrollment mounts ImportWizard with four-locale visible file
@@ -483,8 +483,8 @@ both roles reach a top-level My account page. Every view has a path URL
 Summary/Settings/Access/Jobs/Statistics/History tabs (`/projects/<id>/jobs?run=`, `/projects/<id>/statistics?tab=&from=`). Project details shows effective
 configuration in six purpose categories plus closed Technical details with frequent settings first within each,
 with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
-endpoint changes there. The Agent and model group also holds the Admin-only estimated-price form, which asks for the
-effective date and input/output rates and records them for the applied coding agent and its configured model
+changes there. The Agent and model group also holds the Admin-only estimated-price form, which asks for the
+effective date and input/output rates and records them for Pi and the applied model in `executor.model`
 (guidance replaces the form while no model is set), and the project's price table. The
 settings response is scoped to the current project identity so switching
 projects cannot briefly show another project's values. Audit policy defaults to unlimited
@@ -749,14 +749,17 @@ or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
-in the local image; workflow availability checks the two configured AEGIS files.
-A compatible configured OpenCode endpoint receives a temporary-container streamed
-model/tool-call check. Other executors and unconfigured endpoints show Not checked
-with explicit model-access uncertainty. Unknown container detection is incomplete;
+in the local image (or, for a local project, that the installed Pi has a
+sign-in or approved key); workflow availability checks the two configured AEGIS files.
+An AI model connection row follows the six checks and shows the saved Test AI
+connection evidence (passed or failed, with executor and model), or Not checked
+with guidance to run Test AI connection when none is saved. A project whose
+runtime is `local` hides the container runtime row and shows local-agent copy
+for the agent row. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
-check time, exact check keys/types and consistent model-probe results before display;
+check time and the exact six check keys/types before display;
 invalid results produce a localized error and withhold the new check rows.
 
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,
@@ -798,14 +801,14 @@ HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi model. Each explicit click sends one short request in a temporary container, or in a temporary folder for a Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. OpenCode endpoint tool compatibility remains separately reported. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For a Pi installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container it proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
 
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's effective configuration controls and inherited defaults. Executor/model and AI endpoint fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's effective configuration controls and inherited defaults. Model, launch command and credential fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -821,7 +824,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, selected-agent settings, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## External executor environment seam
 
@@ -844,6 +847,6 @@ no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
 
-Default-agent editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow its dropdown on wide screens, with shared responsive wrapping. Grouped-draft guidance stays in the description column.
+Model and launch-command editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow the control on wide screens, with shared responsive wrapping.
 
-Inline editor validation follows the controls/actions on its own flex line. Incomplete agent/model selections retain the same selector/action placement and disabled Prepare, while responsive wrapping remains shared.
+Inline editor validation follows the controls/actions on its own flex line. Incomplete model or command edits keep the same control/action placement and disabled Prepare, while responsive wrapping remains shared.

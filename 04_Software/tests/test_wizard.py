@@ -19,6 +19,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Sequence
 from pathlib import Path
+import tomllib
 
 from adore.config import load_config, validate_config
 from adore.profiles import ProfileStore
@@ -135,11 +136,27 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
 
 
-def test_wizard_rejects_pi_host_auth_before_saving(tmp_path: Path) -> None:
-    """@brief Scripted setup rejects an auth mode that Pi cannot stage."""
+def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -> None:
+    """@brief The wizard asks for no agent, writes [executor] model and refuses host-auth."""
     store = _store(tmp_path)
+    clone = _clone(tmp_path)
+    asked: list[str] = []
+    asker = ScriptedAsker(_answers(clone), interactive=False)
+    original = asker.read
+
+    def record(spec):
+        asked.append(spec.key)
+        return original(spec)
+
+    asker.read = record
+    run_wizard(store, asker=asker, out=lambda _line: None,
+               runner=_runner(), os_key="linux", name="pi")
+    assert "executor_cli" not in asked and "auth_mode" not in asked
+    document = tomllib.loads(store.config_path("pi").read_text(encoding="utf-8"))
+    assert document["executor"] == {"model": "openai/gpt-5.5",
+                                    "env_keys": ["OPENAI_API_KEY"]}
     asker = ScriptedAsker(_answers(
-        _clone(tmp_path), executor_cli="pi", auth_mode="host-auth"
+        clone, execution_backend="local", auth_mode="host-auth"
     ), interactive=False)
     with pytest.raises(WizardError, match="auth_mode"):
         run_wizard(store, asker=asker, out=lambda _line: None,

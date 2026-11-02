@@ -33,8 +33,7 @@ repo = "grp/proj"
 [worktree]
 repo_path = "x"
 
-[executor.opencode]
-command = "opencode run --dir {{worktree}} -m {{model}} {{prompt}}"
+[executor]
 model = "openai/gpt-5.5"
 
 [delivery]

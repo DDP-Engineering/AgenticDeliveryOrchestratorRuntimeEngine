@@ -22,6 +22,7 @@ from pathlib import Path
 import re
 import tempfile
 
+from adore.branding import EXECUTOR_NAME
 from adore.web.model_connection import REASONS as MODEL_TEST_REASONS
 
 # CONSTANTS
@@ -175,56 +176,14 @@ def update_credential(directory: Path, config, variable: str, token: str | None)
 
 
 def credential_binding(directory: Path, config) -> str:
-    """@brief Bind evidence to effective allowlisted keys and known external auth files.
-    @note The digest stays server-side. External auth is read only for change detection.
+    """@brief Bind evidence to the effective values of the allowlisted provider keys.
+    @note The digest stays server-side; values are read only for change detection.
     """
     _, values = _environment(directory)
     effective = {
         key: os.environ[key] if key in os.environ else values.get(key, "")
         for key in config.executor.env_keys
     }
-    paths = []
-    if config.executor.stage_host_auth:
-        relative = (
-            ".codex/auth.json"
-            if config.executor.default == "codex"
-            else ".local/share/opencode/auth.json"
-        )
-        paths.append(Path.home() / relative)
-    # Configured subscription mounts are trusted host configuration, never request paths.
-    args = config.container.run_args
-    for index, arg in enumerate(args):
-        mount = (
-            args[index + 1]
-            if arg in ("-v", "--volume") and index + 1 < len(args)
-            else arg.removeprefix("--volume=")
-            if arg.startswith("--volume=")
-            else ""
-        )
-        for target, files in (
-            ("/home/adore/.pi/agent", ["auth.json", "models.json"]),
-            ("/home/adore/.qwen", ["oauth_creds.json", "settings.json"]),
-            ("/home/adore/.codex", ["auth.json"]),
-            ("/home/adore/.local/share/opencode", ["auth.json"]),
-        ):
-            marker = ":" + target
-            if marker in mount:
-                root = Path(mount.split(marker)[0])
-                suffix = mount.split(marker, 1)[1].split(":", 1)[0]
-                if suffix in {"/" + name for name in files}:
-                    paths.append(root)
-                elif suffix == "":
-                    paths.extend(root / name for name in files)
-    try:
-        for path in paths:
-            if path.exists():
-                if not path.is_file() or path.stat().st_size > 1048576:
-                    raise ExecutorSettingsError("executor_credentials_corrupt")
-                effective[str(path)] = sha256(path.read_bytes()).hexdigest()
-            else:
-                effective[str(path)] = "missing"
-    except OSError as exc:
-        raise ExecutorSettingsError("executor_credentials_corrupt") from exc
     return sha256(json.dumps(effective, sort_keys=True).encode("utf-8")).hexdigest()
 
 
@@ -236,7 +195,7 @@ def validate_model_result(value: dict, project_id: str) -> None:
             or set(value) != RESULT_KEYS
             or value["project_id"] != project_id
             or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
-            or value["executor"] not in {"opencode", "pi", "codex", "qwen"}
+            or value["executor"] != EXECUTOR_NAME
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", value["model"])
             or type(value["ready"]) is not bool
             or value["reason"] not in REASONS
@@ -270,8 +229,8 @@ def model_evidence(directory: Path, config, project_id: str, revision: str) -> d
         if (
             result["revision"] != revision
             or value["binding"] != credential_binding(directory, config)
-            or result["executor"] != config.executor.default
-            or result["model"] != config.executor.commands[config.executor.default].model
+            or result["executor"] != EXECUTOR_NAME
+            or result["model"] != config.executor.model
         ):
             return None
         return result

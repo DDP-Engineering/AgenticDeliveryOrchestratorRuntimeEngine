@@ -20,7 +20,7 @@ Key components:
   MR/PR operations, deliberately without merge;
 - `adore/isolation.py` - worktrees, local checkpoints, fingerprints,
   Docker/Podman lifecycle and executor command seam;
-- `adore/executor/` - OpenCode, Pi, Codex and Qwen launchers;
+- `adore/executor/` - the Pi launcher (RPC in a container, native file protocol locally);
 - `adore/config.py`, `doctor.py`, `wizard.py`, `cli.py` - validated setup and
   operator surfaces;
 - `tests/` - fully offline unit/contract suite.

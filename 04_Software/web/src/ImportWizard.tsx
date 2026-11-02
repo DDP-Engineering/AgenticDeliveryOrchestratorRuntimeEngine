@@ -15,7 +15,7 @@ type Draft = { name: string; display_name: string; description: string; config_t
 type Review = { name: string; display_name: string; description: string; config_path: string;
   paths: Record<string, string>; resolved_paths: Record<string, string>;
   platform: Record<string, string>; target_branch: string;
-  agent: Record<string, string>; executor: { default: string; model: string; env_keys: string[]; stage_host_auth: boolean };
+  agent: Record<string, string>; executor: { model: string; env_keys: string[] };
   container: Record<string, string> };
 type Preview = { revision: string; config_revision: string; review: Review | null;
   validation: { structural_valid: boolean; issues: Finding[] }; issues: string[] };
@@ -149,9 +149,8 @@ export function ImportWizard({ locale, csrf, t, onCancel, onOpen, onCreated, reg
           !stringRecord(value.review.platform, ["kind", "repo", "login"]) ||
           !stringRecord(value.review.agent, ["name", "slug", "email"]) ||
           !stringRecord(value.review.container, ["runtime", "image", "egress"]) ||
-          typeof value.review.target_branch !== "string" || typeof value.review.executor?.stage_host_auth !== "boolean" ||
-          Object.keys(value.review.executor).length !== 4 ||
-          typeof value.review.executor?.default !== "string" || typeof value.review.executor?.model !== "string" ||
+          typeof value.review.target_branch !== "string" || !value.review.executor ||
+          Object.keys(value.review.executor).length !== 2 || typeof value.review.executor.model !== "string" ||
           !Array.isArray(value.review.executor.env_keys) || value.review.executor.env_keys.some(key =>
             typeof key !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(key))))
         throw new ApiError("unexpected_response");
@@ -166,12 +165,11 @@ export function ImportWizard({ locale, csrf, t, onCancel, onOpen, onCreated, reg
       if (!await sourceUnchanged(draft.config_text) || token !== generation.current) return;
       const value = await call("import-check", { ...draft, revision: preview.revision }) as Evidence;
       if (!alive.current || token !== generation.current) return;
-      const keys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "model_endpoint"];
+      const keys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"];
       if (!value || value.revision !== preview.revision || value.config_revision !== preview.config_revision || value.context !== "api-host" ||
         typeof value.checked_at !== "string" || !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
         Object.keys(value.checks).length !== keys.length || keys.some(key => !(key in value.checks) ||
-          typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null ||
-            key === "model_endpoint" && value.checks[key] === "not-checked"))) throw new ApiError("unexpected_response");
+          typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null))) throw new ApiError("unexpected_response");
       const status = Object.values(value.checks).some(v => v === false) ? "failed" :
         Object.values(value.checks).some(v => typeof v !== "boolean") ? "partial" : "verified";
       if (status !== value.status) throw new ApiError("unexpected_response");
