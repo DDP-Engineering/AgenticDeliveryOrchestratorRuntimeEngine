@@ -40,6 +40,14 @@ CONTAINER_UV_CACHE_MOUNT = f"{CONTAINER_HOME}/.cache/uv"
 CONTAINER_NPM_CACHE_MOUNT = f"{CONTAINER_HOME}/.npm"
 CONTAINER_OPENCODE_AUTH_DIR = f"{CONTAINER_HOME}/.local/share/opencode"
 CONTAINER_CODEX_HOME = f"{CONTAINER_HOME}/.adore-codex"
+# Pi in the executor image: the pinned prefix, ADORE's guard extension, and the
+# ADORE-owned agent directory that replaces the personal ~/.pi/agent.
+CONTAINER_PI_PREFIX = "/opt/pi"
+CONTAINER_PI_CLI = (
+    f"{CONTAINER_PI_PREFIX}/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+)
+CONTAINER_PI_GUARD = "/opt/adore/pi/adore-guard.ts"
+CONTAINER_PI_AGENT_DIR = f"{CONTAINER_HOME}/.adore-pi-agent"
 EGRESS_PROXY_ALIAS = "adore-egress-proxy"
 
 EXECUTOR_BASE_IMAGE = "adore-executor-base:1.0.0"

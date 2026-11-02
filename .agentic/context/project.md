@@ -37,7 +37,8 @@ OpenCode, Pi, Codex and Qwen Code.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
   fingerprints and the Docker/Podman lifecycle; `adore/executor/` launches
-  the supported executors through a file-based gate protocol.
+  the supported executors through a file-based gate protocol, except Pi in a
+  container, which runs as one `pi --mode rpc` process per stage (`pi_rpc.py`).
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
   profile homes and the `adore` command; `metrics.py`, `process_log.py`,

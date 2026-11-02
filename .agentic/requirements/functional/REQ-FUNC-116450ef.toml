@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-116450ef"
+
+title = "Run a container Pi stage through one RPC process"
+
+status = "active"
+
+requirement = """When the orchestrator launches a stage with the Pi executor on a container target, ADORE shall start one `pi --mode rpc --no-session` process in the worktree, keep its stdin open, send the stage prompt as one RPC prompt command, read events until `agent_settled`, close stdin, and report the launch as successful when the prompt started a run, the run was not aborted and its last assistant message did not end with stopReason `error`, regardless of the process exit code."""
+
+verification = "A fake Pi process replaying the recorded tool-call run receives the prompt command, the launch returns exit 0 with no timeout, and a replay whose process exits non-zero after a clean `agent_settled` still succeeds."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/executor/base.py", "04_Software/adore/isolation.py", "04_Software/adore/execution.py", "04_Software/adore/branding.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_successful_run_with_tool_calls_sums_usage_over_turns", "04_Software/tests/test_pi_rpc.py::test_exit_code_after_settling_is_not_the_result", "04_Software/tests/test_pi_rpc.py::test_pi_executor_launches_an_isolated_rpc_process", "04_Software/tests/test_pi_rpc.py::test_pi_executor_keeps_the_file_protocol_without_a_spawn_seam", "04_Software/tests/test_isolation.py::test_container_spawn_attaches_stdin_with_the_exec_env_contract", "04_Software/tests/test_execution.py::test_bound_target_spawn_verifies_identity_and_merges_env"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

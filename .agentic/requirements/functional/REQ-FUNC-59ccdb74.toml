@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When an executor gate is launched in a container, the runtime shall use the file-based gate protocol and preserve a typed timeout outcome.
+When an executor gate other than Pi is launched in a container, the runtime shall use the file-based gate protocol and preserve a typed timeout outcome.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Executor prompts and output must survive Windows/WSL/container boundaries without weakening recovery semantics."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-02

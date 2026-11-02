@@ -151,6 +151,21 @@ class BoundTarget:
         self.backend.verify_identity(self.name, self.expected, running=True)
         return self.backend.manager.exec(self.name, argv, timeout=timeout, env=self.env)
 
+    def spawn(self, argv: Sequence[str], *, env: dict[str, str] | None = None):
+        """
+        @brief      Start a streaming command after verifying the pinned identity.
+        @details    The bound executor environment is extended by `env` (for
+                    example Pi's isolation variables); the caller bounds and
+                    ends the returned process.
+        @param[in]  argv Command and arguments to run inside the container.
+        @param[in]  env Extra exec-time variables for this command only.
+        @return     The started `subprocess.Popen` with binary pipes.
+        @exception  ExecutionRecoveryError When the resource identity changed.
+        """
+        self.backend.verify_identity(self.name, self.expected, running=True)
+        return self.backend.manager.spawn(
+            self.name, argv, env={**self.env, **(env or {})})
+
 
 # PUBLIC API
 

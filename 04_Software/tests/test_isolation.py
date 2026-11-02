@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+import subprocess
 
 from adore.config import ContainerEgressConfig
 from adore.isolation import (
@@ -932,6 +933,34 @@ def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     assert argv[-2:] == ["c", "env"]
     assert runner.envs[0] is not None
     assert runner.envs[0]["OPENAI_API_KEY"] == "sk-secret"
+
+
+def test_container_spawn_attaches_stdin_with_the_exec_env_contract() -> None:
+    """
+    @brief   spawn starts `exec -i` with live pipes and exec's env handling:
+             Pi isolation values inline, secret values only in the process env.
+    """
+    started = {}
+
+    def popen(argv, **kwargs):
+        started.update(argv=list(argv), **kwargs)
+        return "process"
+
+    process = _manager(FakeRunner()).spawn(
+        "c", ["node", "cli.js", "--mode", "rpc"],
+        env={"PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "PI_OFFLINE": "1",
+             "OPENAI_API_KEY": "sk-secret"},
+        popen=popen,
+    )
+    assert process == "process"
+    argv = started["argv"]
+    assert argv[:3] == ["docker", "exec", "-i"]
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in argv
+    assert "PI_OFFLINE=1" in argv and "OPENAI_API_KEY" in argv
+    assert not any("sk-secret" in part for part in argv)
+    assert argv[-5:] == ["c", "node", "cli.js", "--mode", "rpc"]
+    assert started["env"]["OPENAI_API_KEY"] == "sk-secret"
+    assert {started[key] for key in ("stdin", "stdout", "stderr")} == {subprocess.PIPE}
 
 
 def test_container_verify_required_tools_execs_checks() -> None:

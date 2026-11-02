@@ -10,7 +10,7 @@ For each job ADORE starts the project's coding agent in an isolated working copy
 
 Open **Settings → Agent and model**. The rows are **Default coding agent**, **Executor launch command** and **Executor model identifier**.
 
-Administrators choose **Edit** on the Default coding agent row and select OpenCode, Pi, Codex or Qwen Code. Selecting an agent loads its saved command and model, or the documented command preset. Enter the model ID yourself for a new agent: the ID your agent and provider accept, usually `provider/model`. There is no universal default. The launch command must contain `{prompt}`. **Prepare candidate** reviews agent, command and model together, and **Apply change** writes them as one change. Expect to pause monitoring first; see [Project settings](/help/settings#editing).
+Administrators choose **Edit** on the Default coding agent row and select OpenCode, Pi, Codex or Qwen Code. Selecting an agent loads its saved command and model, or the documented command preset. Enter the model ID yourself for a new agent: the ID your agent and provider accept, usually `provider/model`. There is no universal default. The launch command must contain `{prompt}`. **Prepare candidate** reviews agent, command and model together, and **Apply change** writes them as one change. Expect to pause monitoring first; see [Project settings](/help/settings#editing). Pi in a container is the exception: ADORE starts the Pi built into the image itself, with fixed settings, and stops it at the stage time limit or when you cancel; there the command is not used, Pi reads only the provider API key, and a Pi sign-in folder mounted into the container is not read.
 
 ## Authentication {#credentials}
 

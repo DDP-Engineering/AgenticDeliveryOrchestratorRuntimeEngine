@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-1cb4bcc0"
+
+title = "Report a failed Pi run with a classified reason"
+
+status = "active"
+
+requirement = """If Pi rejects the stage prompt or its run ends with an assistant stopReason `error`, then ADORE shall report a failed launch whose evidence starts with the failure class (credential, sign-in, rate-limit, model, network or provider) and Pi's error message with masked key hints redacted."""
+
+verification = "Replaying the recorded invalid-key, refresh-failure, rate-limit, unreachable endpoint and no-credential runs yields a non-zero, non-timeout launch whose evidence names credential, sign-in, rate-limit, network and credential respectively and contains no masked key hint."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_provider_failures_are_classified", "04_Software/tests/test_pi_rpc.py::test_pi_executor_failure_reaches_the_existing_failure_path"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

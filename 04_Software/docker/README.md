@@ -11,9 +11,14 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 ADORE uses a two-layer executor-image contract:
 
 - `Dockerfile.executor-base` builds `adore-executor-base:1.0.0`. It contains
-  the generic executor tools: Python 3.11 via uv, Node/npm, git, `glab`, `gh`,
-  OpenCode, Pi, Codex, Qwen, the non-root `adore` user, fixed mount points,
-  caches, HOME pinning, and Git safe-directory setup.
+  the generic executor tools: Python 3.11 via uv, Node 22.23.4/npm, git,
+  `glab`, `gh`, OpenCode, Codex, Qwen, Pi 1.4.0 with pi-web-access 0.46.0
+  under `/opt/pi`, ADORE's Pi guard extension (`pi/adore-guard.ts`, copied to
+  `/opt/adore/pi/`), the ADORE-owned Pi agent directory
+  `/home/adore/.adore-pi-agent`, the non-root `adore` user, fixed mount points,
+  caches, HOME pinning, and Git safe-directory setup. `verify-runtime.sh`
+  checks the Node, Pi and pi-web-access versions. Rebuild the image after
+  pulling a change to these pins.
 - Each runtime project supplies a Dockerfile that extends the base with that
   project's build and test tools. Tag the resulting image as
   `adore-executor-<project>:<tag>` and select it in the profile's

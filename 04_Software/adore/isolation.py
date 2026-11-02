@@ -36,6 +36,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import shlex
 import stat
+import subprocess
 import time
 
 from adore.branding import (
@@ -89,6 +90,10 @@ _INLINE_ENV_KEYS = frozenset({
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
     "CODEX_HOME",
+    "PI_CODING_AGENT_DIR",
+    "PI_OFFLINE",
+    "PI_TELEMETRY",
+    "PI_SKIP_VERSION_CHECK",
     "UV_CACHE_DIR",
     "UV_LINK_MODE",
     "UV_PROJECT_ENVIRONMENT",
@@ -1328,7 +1333,59 @@ class ContainerManager:
         """
         if timeout is None:
             timeout = DEFAULT_COMMAND_TIMEOUT
-        full = [*self.runtime_argv, "exec"]
+        full, process_env = self._exec_command(name, argv, env, interactive=False)
+        return self.runner(full, timeout=timeout, env=process_env)
+
+    def spawn(
+        self,
+        name: str,
+        argv: Sequence[str],
+        *,
+        env: dict[str, str] | None = None,
+        popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+    ) -> subprocess.Popen:
+        """
+        @brief      Start a long-lived command inside the container with live pipes.
+        @details    The streaming counterpart of `exec` for executors driven over
+                    stdin/stdout (Pi's RPC mode): `exec -i` keeps the command's
+                    stdin attached, and the environment follows exactly `exec`'s
+                    rules (safe values inline, secret values only in the client
+                    process environment). The caller owns the process: it bounds
+                    the run and ends it. Closing stdin, or ending the client,
+                    closes the command's stdin inside the container.
+        @param[in]  name Container name.
+        @param[in]  argv Command and arguments to run inside.
+        @param[in]  env Optional exec-time env, as for `exec`.
+        @param[in]  popen Process factory (tests inject a recorder).
+        @return     The started client process with binary stdin/stdout/stderr pipes.
+        @exception  OSError When the runtime client cannot be started.
+        """
+        full, process_env = self._exec_command(name, argv, env, interactive=True)
+        return popen(  # noqa: S603 - fixed argv, no shell
+            full,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=process_env,
+        )
+
+    def _exec_command(
+        self,
+        name: str,
+        argv: Sequence[str],
+        env: dict[str, str] | None,
+        *,
+        interactive: bool,
+    ) -> tuple[list[str], dict[str, str] | None]:
+        """
+        @brief      Build one `exec` argv and the client process environment.
+        @param[in]  name Container name.
+        @param[in]  argv Command and arguments to run inside.
+        @param[in]  env Optional exec-time env; safe keys inline, secrets bare.
+        @param[in]  interactive Attach stdin (`-i`) for a streaming command.
+        @return     (full argv, process env or None when no env is passed).
+        """
+        full = [*self.runtime_argv, "exec", *(["-i"] if interactive else [])]
         exec_env = dict(env or {})
         if self.egress.mode == "allowlist-proxy":
             exec_env.update(self._proxy_env())
@@ -1345,7 +1402,7 @@ class ContainerManager:
             existing = process_env.get("WSLENV", "")
             shared = ":".join(secret_env)
             process_env["WSLENV"] = f"{existing}:{shared}" if existing else shared
-        return self.runner(full, timeout=timeout, env=process_env if exec_env else None)
+        return full, process_env if exec_env else None
 
     # -- internals ------------------------------------------------------------------
 

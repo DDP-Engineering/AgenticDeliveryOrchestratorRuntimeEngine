@@ -14,6 +14,8 @@
          Containers execute a WSL-safe shell script; native targets receive
          argv with substitutions applied after tokenization. Both retain
          bounded output, questions, usage and immutable invocation archives.
+         Pi on a container target is the exception: it runs as one
+         `pi --mode rpc` process per gate driven by `pi_rpc` over live pipes.
          The durable AEGIS journal is the sole session-resume authority.
          Native worktrees rely on the selected account's host permissions;
          container profiles retain their existing isolation contract.
@@ -22,16 +24,23 @@
 from __future__ import annotations
 
 # IMPORTS
+from collections.abc import Callable
 import json
 from pathlib import Path
 import re
 import shlex
 import shutil
 
-from adore.branding import DEFAULT_QUESTIONS_FILE
+from adore.branding import (
+    CONTAINER_PI_AGENT_DIR,
+    CONTAINER_PI_CLI,
+    CONTAINER_PI_GUARD,
+    DEFAULT_QUESTIONS_FILE,
+)
 from adore.execution import SHELL_HEADER, ExecutionPaths
+from adore.executor import pi_rpc
 from adore.executor.base import ExecTarget, Executor, GateRun
-from adore.util import utc_now_iso
+from adore.util import CommandResult, utc_now_iso
 
 # CONSTANTS
 
@@ -41,6 +50,26 @@ STDERR_FILE = "stderr.log"
 ARCHIVE_DIR = "archive"
 
 _ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+#: Pi RPC launch flags: RPC mode, no session file, no project trust, and none
+#: of the account's personal skills, extensions, templates, themes or MCP.
+PI_RPC_FLAGS = (
+    "--mode", "rpc", "--no-session", "--no-approve", "--no-skills", "--no-extensions",
+    "--no-prompt-templates", "--no-themes", "--no-mcp",
+)
+#: Pi environment for a container launch: the ADORE-owned agent directory
+#: replaces the personal ~/.pi/agent; no network calls of Pi's own.
+PI_RPC_ENV = {
+    "PI_CODING_AGENT_DIR": CONTAINER_PI_AGENT_DIR,
+    "PI_OFFLINE": "1",
+    "PI_TELEMETRY": "0",
+    "PI_SKIP_VERSION_CHECK": "1",
+}
+#: Seconds a cancelled Pi gate needs to abort and end before the conductor
+#: stops the container instead.
+PI_CANCEL_GRACE_SECONDS = (
+    pi_rpc.ABORT_GRACE_SECONDS + pi_rpc.EXIT_GRACE_SECONDS + pi_rpc.KILL_GRACE_SECONDS + 5.0
+)
 
 # PUBLIC API
 
@@ -107,6 +136,7 @@ class FileProtocolExecutor(Executor):
         *,
         timeout: float | None = None,
         archive_stem: str = "",
+        cancel: Callable[[], bool] | None = None,
     ) -> GateRun:
         """
         @brief      Run one gate headless; read every result from files.
@@ -130,6 +160,7 @@ class FileProtocolExecutor(Executor):
         @param[in]  prompt Gate instruction (native argv or container script).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  cancel Unused: the conductor stops the target on cancel.
         @return     A GateRun describing the outcome.
         """
         worktree = Path(worktree)
@@ -292,6 +323,7 @@ class FileProtocolExecutor(Executor):
         timeout: float | None,
         output_present: bool,
         stderr_present: bool,
+        output_file: Path | None = None,
     ) -> Path:
         """
         @brief      Copy one completed launch's live exchange files to archive.
@@ -307,6 +339,7 @@ class FileProtocolExecutor(Executor):
         @param[in]  timeout Launch timeout.
         @param[in]  output_present Whether live output.jsonl existed.
         @param[in]  stderr_present Whether live stderr.log existed.
+        @param[in]  output_file Bounded output file copied instead of `output`.
         @return     Archive directory path.
         @exception  OSError When any archive write fails.
         """
@@ -323,7 +356,10 @@ class FileProtocolExecutor(Executor):
             suffix += 1
         archive_dir.mkdir()
         shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
-        (archive_dir / OUTPUT_FILE).write_text(output, encoding="utf-8")
+        if output_file is not None and output_file.is_file():
+            shutil.copy2(output_file, archive_dir / OUTPUT_FILE)
+        else:
+            (archive_dir / OUTPUT_FILE).write_text(output, encoding="utf-8")
         (archive_dir / STDERR_FILE).write_text(stderr, encoding="utf-8")
         meta = {
             "created_at": utc_now_iso(),
@@ -433,22 +469,123 @@ class OpencodeExecutor(FileProtocolExecutor):
 class PiExecutor(FileProtocolExecutor):
     """
     @brief   Pi (@earendil-works/pi-coding-agent) executor launcher.
-    @details Runs headless via the [executor.pi] template, e.g.
-             `pi -p --mode json --model {model} {prompt}`; every gate runs a
-             fresh Pi session. Pi reads the repo's AGENTS.md gate contract
-             natively and enforces the push/merge guardrails through the repo's
-             .pi agentic-guard extension (a return-value block, active in every
-             mode including print/json) - plus container isolation (no remote
-             credentials in the container). Completed `turn_end` events carry
-             input, output, cache-read and cache-write token counts. Pi's
-             cost object is an executor estimate, not provider-billed cost;
-             administrator price rules may estimate from captured tokens.
+    @details On a container target (one with a `spawn` seam) every gate runs
+             one fresh `pi --mode rpc --no-session` process from the image's
+             pinned installation, driven by `pi_rpc`: fixed argv, prompt over
+             stdin, `abort` on the stage timeout or a cancel. The account's
+             personal Pi resources are off (`PI_RPC_FLAGS`, an ADORE-owned
+             agent directory) and ADORE's guard extension is loaded with `-e`,
+             so it blocks `git push` and forge CLIs without project trust; the
+             boundary stays that no forge credential is in the container. The
+             configured [executor.pi] command is not used there.
+
+             A native target has no `spawn` seam and keeps the file protocol
+             with the configured template, where completed `turn_end` events
+             carry the usage.
+
+             Usage is summed over the assistant turns, cached prompt tokens
+             included in input. Pi's cost is an executor estimate, not
+             provider-billed cost, so no cost is reported; administrator price
+             rules may estimate from the captured tokens.
     """
 
-    # Pi loads its project-local guard/skills only after the project is
-    # trusted; ADORE must pre-trust the worktree for headless runs (container
-    # isolation still prevents remote writes regardless). See the executor
-    # component doc / TODO for the trust-provisioning spike.
+    def run_gate(
+        self,
+        execute: ExecTarget,
+        worktree: str | Path,
+        io_dir: str | Path,
+        prompt: str,
+        *,
+        timeout: float | None = None,
+        archive_stem: str = "",
+        cancel: Callable[[], bool] | None = None,
+    ) -> GateRun:
+        """
+        @brief      Run one gate through Pi's RPC mode on a container target.
+        @details    Clears stale questions and streams, writes a descriptive
+                    gate.sh (no shell runs; the prompt never enters it), runs
+                    `pi_rpc`, archives the bounded evidence and reads the
+                    questions file. Targets without `spawn` use the file
+                    protocol unchanged.
+        @param[in]  execute Exec seam bound to the run's target.
+        @param[in]  worktree HOST path of the run's worktree.
+        @param[in]  io_dir HOST path of the run's io exchange dir.
+        @param[in]  prompt Gate instruction, sent over stdin.
+        @param[in]  timeout Stage wall-clock bound.
+        @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  cancel Cancellation check polled during the run.
+        @return     A GateRun: exit 0 completed, 1 failed, 124 timed out,
+                    130 cancelled, otherwise a protocol failure.
+        """
+        spawn = getattr(execute, "spawn", None)
+        if spawn is None:
+            return super().run_gate(execute, worktree, io_dir, prompt,
+                                    timeout=timeout, archive_stem=archive_stem)
+        worktree = Path(worktree)
+        io_dir = Path(io_dir)
+        io_dir.mkdir(parents=True, exist_ok=True)
+        questions_path = worktree / self.questions_file
+        questions_path.unlink(missing_ok=True)
+        output_path = io_dir / OUTPUT_FILE
+        stderr_path = io_dir / STDERR_FILE
+        output_path.unlink(missing_ok=True)
+        stderr_path.unlink(missing_ok=True)
+        argv = pi_rpc_argv(self.model)
+        with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(
+                SHELL_HEADER
+                + "# Pi RPC launch through the container exec seam; no shell is executed.\n"
+                + "# The stage prompt is sent over stdin.\n"
+                + "# argv: " + json.dumps(argv, ensure_ascii=True) + "\n"
+                + "# env: " + json.dumps(PI_RPC_ENV, ensure_ascii=True) + "\n"
+            )
+        result = pi_rpc.run_pi_rpc(
+            lambda command, env: spawn(command, env=env),
+            argv, dict(PI_RPC_ENV), prompt,
+            timeout=timeout, cancelled=cancel,
+            output_path=output_path, stderr_path=stderr_path,
+            redact=getattr(execute, "redact", None),
+        )
+        evidence = pi_rpc.bounded_text("\n".join(
+            part for part in (result.message, *result.notes, result.stderr) if part))
+        artifacts: list[str] = []
+        if archive_stem:
+            launch = CommandResult(argv=argv, exit_code=result.exit_code,
+                                   timed_out=result.timed_out)
+            try:
+                artifacts.append(str(self._archive_launch(
+                    io_dir, archive_stem, launch, result.output, evidence, timeout,
+                    output_path.is_file(), stderr_path.is_file(), output_file=output_path)))
+            except OSError as exc:
+                return GateRun(exit_code=result.exit_code or 1, output=result.output,
+                               stderr=(evidence + f"\narchive write failed: {exc}").strip(),
+                               timed_out=result.timed_out)
+        usage = result.usage
+        reported = usage.complete and usage.turns > 0
+        return GateRun(
+            exit_code=result.exit_code,
+            has_questions=questions_path.is_file(),
+            questions=self._read(questions_path),
+            output=result.output,
+            stderr=evidence,
+            timed_out=result.timed_out,
+            tokens_in=usage.tokens_in if reported else 0,
+            tokens_out=usage.tokens_out if reported else 0,
+            cache_read_tokens=usage.cache_read if reported else None,
+            cache_write_tokens=usage.cache_write if reported else None,
+            tokens_reported=reported,
+            cost_usd=0.0,
+            cost_reported=False,
+            artifact_dirs=artifacts,
+        )
+
+    def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
+        """
+        @brief      A container Pi gate aborts itself on cancel.
+        @param[in]  execute Exec seam the gate will run on.
+        @return     The abort-and-exit grace on a container target, else None.
+        """
+        return PI_CANCEL_GRACE_SECONDS if hasattr(execute, "spawn") else None
 
     def _tokens_reported(self, output: str) -> bool:
         """@brief Recognize a complete final turn, including a zero-token turn."""
@@ -623,6 +760,16 @@ class QwenExecutor(FileProtocolExecutor):
     """
 
     forbidden_flags = ("--yolo",)
+
+
+def pi_rpc_argv(model: str) -> list[str]:
+    """
+    @brief      Fixed command line of a container Pi RPC launch.
+    @param[in]  model Model in provider/model form.
+    @return     `node <cli.js> --mode rpc ... -e <guard> --model <model>`.
+    """
+    return ["node", CONTAINER_PI_CLI, *PI_RPC_FLAGS, "-e", CONTAINER_PI_GUARD,
+            "--model", model]
 
 
 def build_executor(

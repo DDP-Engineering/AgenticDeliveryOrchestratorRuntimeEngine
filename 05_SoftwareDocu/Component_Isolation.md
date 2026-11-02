@@ -184,8 +184,11 @@ side keeps working normally with its absolute paths. The admin dir name is
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
   `adore-executor-base:1.0.0` image (built from
   `docker/Dockerfile.executor-base`: Ubuntu 22.04, Python 3.11 + uv, Node
-  24, git with `safe.directory *`, opencode/pi/codex/qwen CLIs as configured,
+  22.23.4, git with `safe.directory *`, opencode/codex/qwen CLIs, Pi 1.4.0 and
+  pi-web-access 0.46.0 under `/opt/pi` with ADORE's guard extension,
   glab/gh, non-root user `adore`) or a runtime-project image derived from it.
+  `ContainerManager.spawn` starts a streaming `exec -i` command with `exec`'s
+  environment rules (Pi's RPC launch); the caller bounds and ends it.
 
 ## 5. Inputs And Outputs
 

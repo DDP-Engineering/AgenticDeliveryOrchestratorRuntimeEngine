@@ -73,7 +73,7 @@ text = { en = "Before you create a project, see which settings keep their defaul
 [[release.entry]]
 category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
-text = { en = "Choose whether the agent runs in an image on the server or installed on it, with image suggestions.", fr = "Choisissez si l'agent tourne dans une image du serveur ou y est installé, avec suggestions d'images.", de = "Wählen Sie, ob der Agent in einem Server-Image läuft oder dort installiert ist; mit Vorschlägen.", ro = "Alegeți dacă agentul rulează într-o imagine de pe server sau instalat pe el, cu sugestii de imagini." }
+text = { en = "Choose where the agent runs, with image suggestions; Pi in an image is newer and stops at once.", fr = "Choisissez où tourne l'agent, avec suggestions d'images ; Pi en image, plus récent, s'arrête net.", de = "Wählen Sie, wo der Agent läuft, mit Vorschlägen; Pi im Image ist neuer und stoppt sofort.", ro = "Alegeți unde rulează agentul, cu sugestii de imagini; Pi din imagine e mai nou, se oprește imediat." }
 
 [[release.entry]]
 category = "improved"

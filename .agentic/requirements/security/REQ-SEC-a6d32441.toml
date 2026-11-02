@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-a6d32441"
+
+title = "Guard Pi against publication and isolate personal resources"
+
+status = "active"
+
+requirement = """ADORE shall start container Pi with an ADORE-owned agent directory, PI_OFFLINE, PI_TELEMETRY=0 and PI_SKIP_VERSION_CHECK, the flags --no-approve, --no-skills, --no-extensions, --no-prompt-templates, --no-themes and --no-mcp, and its guard extension loaded explicitly with -e, and the guard shall block `git push` and the gh, glab and tea commands in the bash and powershell tools and answer project trust with no."""
+
+verification = "The launch argv and environment carry the agent directory, variables, flags and guard path; replaying the recorded guard run yields blocked tool results for git push, gh, glab and tea and a successful echo; a live container run with a hostile personal ~/.pi records the guard blocking and no personal resource loaded."
+
+affected_paths = ["04_Software/adore/executor/launcher.py", "04_Software/adore/branding.py", "04_Software/docker/pi/adore-guard.ts", "04_Software/docker/Dockerfile.executor-base"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_launches_an_isolated_rpc_process", "04_Software/tests/test_pi_rpc.py::test_guard_blocks_publication_commands_in_rpc_mode"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

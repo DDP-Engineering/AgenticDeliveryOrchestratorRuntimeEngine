@@ -10,7 +10,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 > Component documentation per `component_documentation_template.md`.
 > Sources: `04_Software/adore/executor/base.py`,
-> `04_Software/adore/executor/launcher.py`.
+> `04_Software/adore/executor/launcher.py`,
+> `04_Software/adore/executor/pi_rpc.py`; Pi guard:
+> `04_Software/docker/pi/adore-guard.ts`.
 > Design context: `00_Planning/ADORE_System_Overview.md`;
 > Runtime-image and credential contracts: `04_Software/docker/README.md` and
 > `01_Documentation/Security_And_Credentials.md`.
@@ -40,10 +42,17 @@ outcomes.
   always launched with an empty session and never stored one back, so none of
   that machinery could ever run.
 - `OpencodeExecutor`: the `--auto` refusal and `step_finish` token/cost usage.
-- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`); final `turn_end`
-  events report input/output and cache read/write tokens. Streaming updates
-  and message-end duplicates are ignored. Its embedded cost is an executor
-  estimate, so ADORE leaves reported cost unavailable.
+- `PiExecutor`: Pi (`@earendil-works/pi-coding-agent`). On a container
+  target (one with a `spawn` seam) every gate is one `pi --mode rpc` process
+  driven by `pi_rpc` (section "Pi RPC launch"); the configured `[executor.pi]`
+  command is not used there. A native target keeps the file protocol, where
+  final `turn_end` events report input/output and cache read/write tokens.
+  Pi's embedded cost is an executor estimate, so ADORE leaves reported cost
+  unavailable on both paths.
+- `pi_rpc.run_pi_rpc(...)`: the Pi RPC client - prompt over stdin, bounded
+  event reading, completion on `agent_settled`, `abort` on the stage timeout
+  or a cancel, termination after a grace period, failure classification and
+  usage summed per turn; returns a `PiRpcResult`.
 - `CodexExecutor`: OpenAI Codex CLI; the command is plain `codex exec`
   (default `codex exec --json --model {model} --ignore-user-config --disable
   plugins --dangerously-bypass-approvals-and-sandbox {prompt}`). The removed
@@ -111,10 +120,54 @@ the container, so the executor cannot push regardless.
   `--disable plugins` so workstation plugin/marketplace state cannot be
   materialized into the target worktree.
 
+## 3a. Pi RPC launch (container targets)
+
+`PiExecutor.run_gate` on a target with `spawn` (the container `BoundTarget`,
+which verifies the pinned container identity, then calls
+`ContainerManager.spawn`: `<runtime> exec -i` with `exec`'s environment rules):
+
+1. Clear the stale questions file, `output.jsonl` and `stderr.log`; write a
+   descriptive `gate.sh` with the argv and environment (no shell runs; the
+   prompt never enters it).
+2. Start `node /opt/pi/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+   --mode rpc --no-session --no-approve --no-skills --no-extensions
+   --no-prompt-templates --no-themes --no-mcp -e /opt/adore/pi/adore-guard.ts
+   --model <model>` with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
+   `PI_OFFLINE=1`, `PI_TELEMETRY=0`, `PI_SKIP_VERSION_CHECK=1` (inline
+   `--env` values; the provider key keeps the bare-key rule). Nothing comes
+   from the personal `~/.pi`, `~/.agents/skills` or the project's `.pi`; the
+   project's `AGENTS.md` context file stays on.
+3. Send `{"type":"prompt"}` and keep stdin open. Reader threads split stdout
+   on LF, hold at most one record of 16 MiB, reduce it to small facts (usage,
+   stop reason, bounded error text, tool status, `agent_settled`) and persist
+   a bounded copy; the main loop polls every 0.2 s against the deadline and
+   the cancel check.
+4. Done = `agent_settled`. After a clean settle, `get_session_stats` is asked
+   once (5 s) to cross-check the per-turn usage; a mismatch is a note in the
+   evidence. Then stdin is closed (Pi's shutdown request); after 5 s the
+   process is terminated, after 5 more killed.
+5. Deadline or cancel: send `abort`, wait up to 10 s for `agent_settled`,
+   then step 4's shutdown.
+6. Archive as in the file protocol; `output.jsonl` is copied from the
+   bounded persisted file.
+
+The guard extension blocks `git push` and `gh`/`glab`/`tea` in the `bash` and
+`powershell` tools (`tool_call` handler returning a block; Pi reports a
+failed tool result starting with "ADORE blocks") and answers `project_trust`
+with "no". It is loaded with `-e`, so it needs no project trust. It is defence
+in depth: the boundary stays that no forge credential is in the container.
+
 ## 4. Dependencies
 
 - Internal: `adore.isolation` (mount constants; `ContainerManager.exec` is
-  the usual `ExecTarget`), `adore.util.CommandResult`; `[executor]` config.
+  the usual `ExecTarget`, `ContainerManager.spawn` the Pi RPC seam),
+  `adore.execution.BoundTarget`, `adore.branding` (Pi paths in the image),
+  `adore.util.CommandResult`; `[executor]` config.
+- Executor image: Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0 under
+  `/opt/pi`, the guard at `/opt/adore/pi/adore-guard.ts` and the agent
+  directory `/home/adore/.adore-pi-agent` (`docker/Dockerfile.executor-base`;
+  `docker/verify-runtime.sh` checks the versions). pi-web-access is
+  installed but not loaded.
 - External: the executor CLI inside the `adore-executor` image; target-repo
   executor policy files such as `opencode.json`, `.pi`, `.codex`, and `.qwen`
   arrive with the worktree.
@@ -150,13 +203,35 @@ the container, so the executor cannot push regardless.
 - The questions-file convention: executor writes
   `ADORE_QUESTIONS.md` (configurable) in the worktree and stops; presence
   after the gate = park.
+- Pi RPC `GateRun`: exit 0 completed (settled, not aborted, last assistant
+  stopReason not `error`, whatever the process exit code); 1 failed, with
+  `stderr` starting `Pi run failed (<class>): <message>` where the class is
+  credential, sign-in, rate-limit, model, network or provider and masked key
+  hints are redacted; 124 + `timed_out` at the stage timeout; 130 on cancel;
+  the process code (or 1) for a protocol failure (exit before settling,
+  malformed stdout record, unreadable last assistant record, rejected command), 127/126 when Pi cannot start.
+  The orchestrator maps these to `EXECUTOR_TIMEOUT` / `EXECUTOR_EXIT`.
+- Pi RPC usage: `tokens_in` = input + cache-read + cache-write and
+  `tokens_out` = output, summed over every assistant `message_end`; cache
+  categories separate; `cost_usd` 0 and `cost_reported` False. A skipped or
+  invalid assistant record makes `tokens_reported` False. The orchestrator's
+  existing versioned `usage` event (one per launch) carries it.
+- Pi RPC evidence: streaming `message_update` deltas are never persisted,
+  records over 64 KiB are persisted as `{"type", "adore_omitted_bytes"}`
+  stubs, `output.jsonl` stops at 32 MiB and `stderr.log` at 1 MiB; `GateRun`
+  keeps 64 KiB tails.
 
 ## 7. Workflow Integration
 
 The conductor loop (phase 3) calls `run_gate` once per gate with the gate's
-prompt, passing the session id from the previous `GateRun` so opencode keeps
-its context, then branches on the result: questions -> park; failure/budget
+prompt, then branches on the result: questions -> park; failure/budget
 -> retry or escalate; clean -> verify invariants and advance.
+
+Cancellation: `Executor.cancel_grace_seconds(execute)` is None by default and
+the conductor stops the container when the cancel marker appears. `PiExecutor`
+on a container target returns its abort-and-exit grace (25 s); the conductor
+then passes a `cancel` check to `run_gate` and stops the container only if the
+gate is still running that long after the marker was seen.
 
 ## 8. Usage
 
@@ -199,7 +274,18 @@ elif run.ok:
   `agentic-development` skill unprompted, committed evidence under the bot
   identity, and the push attempt was auto-rejected headless - all three
   design assertions proven through this launcher.
-- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py`.
+- `tests/test_pi_rpc.py` (offline): a fake Pi (`tests/fake_pi_rpc.py`)
+  replays the PI-01 spike recordings in `tests/fixtures/pi_rpc/` over real
+  pipes - tool-call run and per-turn usage, exit code after settling, timeout
+  abort and kill, cancel abort, six provider failure classes with key-hint
+  redaction, crash before settling, malformed record, start failure, large
+  output and an over-limit record, the guard run, the isolation argv and
+  environment, the usage event through `_journal_usage`, and the conductor's
+  cancel grace. `tests/test_isolation.py` covers `ContainerManager.spawn`.
+- Live check 2026-11-02 (image built from this Dockerfile in WSL Docker, a
+  fake chat-completions endpoint in the container, no key): see the TASK-41fd0159
+  journal for the recorded guard and isolation result.
+- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py tests/test_pi_rpc.py`.
 
 ## 10. Limitations And Future Work
 
@@ -216,6 +302,11 @@ elif run.ok:
   OpenCode and Codex detect their explicit cost fields; Pi and Qwen have no
   billed-cost telemetry. The orchestrator journals this
   coverage along with executor, model and review-round identifiers.
+
+- Pi RPC runs only in containers; a native (local) Pi keeps the file
+  protocol and the configured command. Killing the `docker exec` client closes
+  Pi's stdin but sends no signal inside the container; on cancel the
+  conductor's container stop remains the backstop.
 
 - **OpenCode and Pi are live-proven; Codex and Qwen are selectable variants
   with offline contract coverage.** Live pilots remain executor-specific because

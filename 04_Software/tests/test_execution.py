@@ -166,6 +166,38 @@ def test_standalone_preparation_runner_bounds_output_and_process_lifetime(
     assert calls
 
 
+def test_bound_target_spawn_verifies_identity_and_merges_env():
+    """@brief Streaming spawn checks the pinned container first and adds the extra env."""
+    from adore.execution import BoundTarget, ContainerBackend, ExecutionRecoveryError
+
+    calls = []
+
+    class Manager:
+        def spawn(self, name, argv, *, env=None):
+            calls.append(("spawn", name, list(argv), dict(env)))
+            return "process"
+
+    backend = ContainerBackend(Manager())
+    backend.verify_identity = lambda name, expected, running=False: calls.append(
+        ("verify", name, expected, running))
+    target = BoundTarget(backend, "c", {"OPENAI_API_KEY": "k", "HOME": "/h"}, {"pinned": 1})
+    assert target.spawn(["node", "cli.js"], env={"PI_OFFLINE": "1"}) == "process"
+    assert calls == [
+        ("verify", "c", {"pinned": 1}, True),
+        ("spawn", "c", ["node", "cli.js"],
+         {"OPENAI_API_KEY": "k", "HOME": "/h", "PI_OFFLINE": "1"}),
+    ]
+
+    def refuse(name, expected, running=False):
+        raise ExecutionRecoveryError("execution resource identity changed")
+
+    backend.verify_identity = refuse
+    calls.clear()
+    with pytest.raises(ExecutionRecoveryError):
+        target.spawn(["node"])
+    assert calls == []
+
+
 def test_redacted_unicode_output_respects_byte_limit():
     """@brief Multibyte truncation never exceeds the retained UTF-8 byte limit."""
     assert len(redact_output("\U0001f600" * 20000, {}).encode()) <= 65536

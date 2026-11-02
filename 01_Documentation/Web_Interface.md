@@ -579,15 +579,15 @@ default** - the value used when the project's file does not set it. Assigned
 developers see read-only purpose categories with financial settings and secrets
 omitted, plus field types and help. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
-inside ADORE home. For Pi authenticated through an existing ChatGPT
-subscription, mount the Pi agent credential directory into the container at
-`/home/adore/.pi/agent` using `[container] run_args`, and leave
-`[executor] stage_host_auth = false`. Protect the host directory as a secret.
-`run_args` is a list, so Project details shows it as **Not editable here**; set
-the mount in the project's `config.toml`. An administrator can edit the
-profile TOML while pickup is paused or import an existing profile with
-absolute paths, then validate and resume it.
-Pi's completed JSON turns supply token counts, including cached input tokens.
+inside ADORE home. Pi in a container runs with ADORE's own agent directory
+and reads only its provider API key from the environment: a Pi agent directory
+mounted at `/home/adore/.pi/agent` through `[container] run_args` is not read,
+so a ChatGPT subscription or a custom endpoint does not reach a container Pi
+run in this build. `run_args` is a list, so Project details shows it as
+**Not editable here**. An administrator can edit the profile TOML while pickup
+is paused or import an existing profile with absolute paths, then validate and
+resume it.
+Pi's assistant turns supply token counts, including cached input tokens.
 Its CLI cost number is an estimate and is not presented as billed cost;
 administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary

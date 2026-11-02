@@ -133,10 +133,14 @@ session. It is currently implemented only for:
   `CODEX_HOME`.
 
 Configuration validation and assisted setup reject host-auth for Pi or Qwen.
-An existing Pi subscription session can be supplied separately with a
-container bind mount from a protected Pi agent directory to
-`/home/adore/.pi/agent`; keep `stage_host_auth = false`. The mounted directory
-contains credentials and must not be placed in a repository or web upload.
+Pi in a container runs with ADORE's own agent directory
+(`/home/adore/.adore-pi-agent`) and reads nothing from `~/.pi`: a Pi agent
+directory mounted at `/home/adore/.pi/agent` is not read, so a ChatGPT
+subscription or a custom endpoint's `models.json` cannot reach a container Pi
+run in this build. Give container Pi its provider API key in the provider's
+environment variable. ADORE's guard extension, loaded for every container Pi
+run, refuses `git push` and the `gh`, `glab` and `tea` commands in the agent's
+shell; the boundary stays that no forge credential is in the container.
 For unattended operation, prefer an
 explicit model-provider key and `api-key` mode. Host-auth does not remove the
 need to protect the host account's own credential store.

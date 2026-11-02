@@ -1209,6 +1209,11 @@ class Orchestrator:
         timeout = self.config.workflow.stage_timeout_overrides.get(
             run.stage, self.config.budgets.per_gate_timeout_seconds
         )
+        execute = self._execute(run)
+        # An executor that watches the cancel marker itself (Pi over RPC sends
+        # `abort`) gets that grace before the container is stopped underneath it.
+        grace_of = getattr(self.executor, "cancel_grace_seconds", None)
+        cancel_grace = grace_of(execute) if grace_of is not None else None
         watch_done = Event()
         watcher: Thread | None = None
         if run.lifecycle == "working":
@@ -1218,6 +1223,8 @@ class Orchestrator:
                     try:
                         if not self.store.cancel_requested(run.run_id):
                             continue
+                        if cancel_grace is not None and watch_done.wait(cancel_grace):
+                            return
                         self.backend.interrupt(
                             run.container, expected=run.execution.get("resource") or None
                         )
@@ -1227,14 +1234,16 @@ class Orchestrator:
 
             watcher = Thread(target=interrupt_on_cancel, daemon=True)
             watcher.start()
+        options = {} if cancel_grace is None else {"cancel": self._cancel_check(run)}
         try:
             result = self.executor.run_gate(
-                self._execute(run),
+                execute,
                 run.worktree,
                 self._io_dir(run.run_id),
                 self._stage_prompt(run, ticket, task, failure_context, thread),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
+                **options,
             )
         finally:
             watch_done.set()
@@ -1246,6 +1255,29 @@ class Orchestrator:
             # The executor has exited, so no container writer can race human ownership.
             raise _CheckpointHalted("human handoff requested")
         return result
+
+    def _cancel_check(self, run: RunState) -> Callable[[], bool]:
+        """
+        @brief      Build the cancel check an executor polls during its gate.
+        @details    Same rule as the interrupt watcher: an unreadable marker is
+                    logged once and then no longer consulted; the conductor's
+                    own check after the gate decides how to proceed.
+        @param[in]  run The running run.
+        @return     A callable returning True once a cancel was requested.
+        """
+        broken = Event()
+
+        def requested() -> bool:
+            if broken.is_set():
+                return False
+            try:
+                return self.store.cancel_requested(run.run_id)
+            except StateError as exc:
+                broken.set()
+                self.log(f"cancel check failed: {_sanitize(exc)}")
+                return False
+
+        return requested
 
     def _stage_prompt(
         self,

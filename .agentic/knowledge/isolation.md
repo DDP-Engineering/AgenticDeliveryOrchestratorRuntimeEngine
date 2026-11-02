@@ -32,6 +32,10 @@ container through a Docker, Podman, or WSL-wrapped runtime. Runtime commands
 are injected for offline testing, and predictable branding names bind resources
 to their run. `WorktreeManager` accepts the configured agent name/email for
 host-side checkpoint commits, so a new clone needs no local Git identity.
+`ContainerManager.spawn(name, argv, env=...)` starts a streaming `exec -i`
+command with live binary pipes and exactly `exec`'s environment rules (safe
+keys, including Pi's `PI_*` isolation variables, inline; secrets as bare keys
+with values only in the client environment); the caller bounds and ends it.
 
 ## Invariants
 

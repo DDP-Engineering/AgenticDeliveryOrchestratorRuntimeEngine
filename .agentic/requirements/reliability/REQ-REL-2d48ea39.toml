@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-2d48ea39"
+
+title = "Abort a Pi stage when the run is cancelled"
+
+status = "active"
+
+requirement = """When the run's cancellation marker appears while a Pi RPC stage is running, ADORE shall send the RPC `abort` command, end the process as on a timeout, and report the launch as cancelled rather than as a successful or timed-out stage."""
+
+verification = "A fake Pi replaying the recorded aborted run is launched with a cancellation check that turns true; the fake receives `abort`, the launch reports a non-zero exit that is not a timeout, and the orchestrator only interrupts the container when the launch has not returned within the abort and exit grace."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/executor/base.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_cancellation_marker_sends_abort_and_reports_cancelled", "04_Software/tests/test_pi_rpc.py::test_orchestrator_lets_an_rpc_executor_abort_before_interrupting", "04_Software/tests/test_pi_rpc.py::test_orchestrator_interrupts_when_the_rpc_grace_runs_out"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

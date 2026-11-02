@@ -58,6 +58,14 @@ ALLOWLIST="${ALLOWLIST:-example.com}"
 ALLOWED_URL="${ALLOWED_URL:-https://example.com}"
 DENIED_URL="${DENIED_URL:-https://github.com}"
 PROXY_IMAGE="${PROXY_IMAGE:-adore-egress-proxy:1.0.0}"
+# Pinned in Dockerfile.executor-base; a different version fails the check.
+EXPECTED_NODE_VERSION="v22.23.4"
+EXPECTED_PI_VERSION="1.4.0"
+EXPECTED_PI_WEB_ACCESS_VERSION="0.46.0"
+PI_PREFIX="/opt/pi/lib/node_modules"
+PI_CLI="${PI_PREFIX}/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+PI_GUARD="/opt/adore/pi/adore-guard.ts"
+PI_AGENT_DIR="/home/adore/.adore-pi-agent"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAME="adore-verify-$$"
 PROXY_NAME="${NAME}-egress-proxy"
@@ -278,6 +286,24 @@ for tool_cmd in "python --version" "uv --version" "node --version" \
     fi
 done
 [ "${TOOLS_OK}" -eq 1 ] && ok || bad "one or more tools unusable"
+
+step "pinned Node ${EXPECTED_NODE_VERSION}"
+FOUND="$("${RT[@]}" exec "${NAME}" node --version 2>&1 || true)"
+[ "${FOUND}" = "${EXPECTED_NODE_VERSION}" ] && ok || bad "node is '${FOUND}'"
+
+step "pinned Pi ${EXPECTED_PI_VERSION} (node <cli.js> --version)"
+FOUND="$("${RT[@]}" exec "${NAME}" node "${PI_CLI}" --version 2>&1 || true)"
+[ "${FOUND}" = "${EXPECTED_PI_VERSION}" ] && ok || bad "pi is '${FOUND}'"
+
+step "pinned pi-web-access ${EXPECTED_PI_WEB_ACCESS_VERSION} next to Pi"
+FOUND="$("${RT[@]}" exec "${NAME}" node -p \
+    "require('${PI_PREFIX}/pi-web-access/package.json').version" 2>&1 || true)"
+[ "${FOUND}" = "${EXPECTED_PI_WEB_ACCESS_VERSION}" ] && ok || bad "pi-web-access is '${FOUND}'"
+
+step "Pi guard extension present and agent directory writable"
+"${RT[@]}" exec "${NAME}" sh -c \
+    "test -r '${PI_GUARD}' && test ! -w '${PI_GUARD}' && test -w '${PI_AGENT_DIR}'" \
+    && ok || bad "guard missing/writable or agent dir not writable"
 
 if [ -n "${REQUIRED_TOOL_CHECKS:-}" ]; then
     step "runtime-project required tool checks"
