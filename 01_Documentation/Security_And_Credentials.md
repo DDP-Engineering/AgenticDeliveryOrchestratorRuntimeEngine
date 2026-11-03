@@ -148,8 +148,7 @@ every sign-in route, and every change needs the CSRF token.
   administrator opens the shown OpenAI link on their own computer and pastes
   the browser's redirect address (`http://127.0.0.1:1455/auth/callback?...`)
   back; the server needs no browser. ADORE checks the address and its `state`
-  before passing it on. A started sign-in waits at most 15 minutes. The legacy
-  Codex-client flow is not offered.
+  before passing it on. A started sign-in waits at most 15 minutes.
 - **Where it lives.** `<ADORE home>/chatgpt/` (mode 0700 on Linux) holds Pi's
   `auth.json` (written by Pi's own credential store, mode 0600), Pi's lock
   directory `auth.json.lock`, ADORE's installation id `device-id` (the agent
@@ -167,8 +166,8 @@ every sign-in route, and every change needs the CSRF token.
   container. Because an access token lasts about an hour, a ChatGPT project
   refuses stage time limits above 3000 seconds and refuses local execution.
 - **Concurrent stages.** Several stages may ask for a token at once; the
-  directory (not a single file) is mounted, so Pi's `auth.json.lock` serializes
-  the refresh and the stored credential stays valid.
+  helpers share the credential directory. Pi's `auth.json.lock` serializes
+  access when they refresh the stored credential.
 - **Status.** Signed in, Not signed in or Sign in again (the stored sign-in
   cannot be read, or OpenAI refused its refresh, for example `invalid_grant`).
   A stage that gets no token fails without starting Pi and names the cause.

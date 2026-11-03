@@ -206,4 +206,4 @@ Focused proof: `tests/test_automatic_processes.py` and `tests/test_branch_naming
 
 ## Agent-controlled system packages
 
-Strict boolean container.system_packages defaults false. Enabled mode is container-only, rejects host-oriented runtime overrides and requires the Codex container sandbox preset. Egress remains independent. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+Strict boolean container.system_packages defaults false. Enabled mode is container-only, rejects host-oriented runtime overrides and retains ADORE's managed package permissions. Egress remains independent. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.

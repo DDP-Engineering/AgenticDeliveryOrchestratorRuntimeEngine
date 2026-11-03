@@ -11,9 +11,9 @@ id = "REQ-FUNC-a8865e64"
 
 title = "Classify native OpenCode model responses accurately"
 
-status = "active"
+status = "retired"
 
-requirement = "When explicitly testing a local model through its configured executor, ADORE shall verify the completed challenge, recognize completed OpenCode text with its completion timestamp when the finish event is absent, and classify provider authentication/model failures even on exit zero while rejecting malformed, incomplete, wrong-challenge or tool-bearing output."
+requirement = "When explicitly testing a local model through its configured executor, ADORE shall verify the completed challenge, recognize completed OpenCode text with its completion timestamp when the finish event is absent, and classify provider authentication/model failures even on exit zero while rejecting malformed, incomplete, wrong-challenge or tool-bearing output. Retired 2026-11-03: managed Pi RPC replaced the OpenCode response contract. See REQ-FUNC-8f369d55 for the native Pi challenge."
 verification = "Offline native runner tests cover four executors, OpenCode completed text without finish, timestamp/shape/duplicate boundaries, zero-exit provider failures, nonzero/timeout/cleanup and unchanged configured command authority."
 affected_paths = ["04_Software/adore/web/model_connection.py"]
 
@@ -26,4 +26,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-22
-updated = 2026-10-22
+updated = 2026-11-03

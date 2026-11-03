@@ -22,29 +22,23 @@ working Git SSH access; the forge CLI login is used separately for tickets,
 comments and PR/MR operations. Successful repository reading alone does not prove
 forge API authentication.
 
-Install and sign in to the chosen coding agent under the same OS account. A
-desktop launch normally uses the desktop user's account; a service uses its
-configured service account. Tools or credentials installed only on another
-computer or under another account are insufficient.
+A desktop launch normally uses the desktop user's account. A service uses its
+configured service account. Prepare Git, forge access and the selected execution
+environment for that account on the ADORE host.
 
-## Native local executors
+## Pi installed on the server
 
-Choose **Installed on the server** and a detected OpenCode, Pi, Codex or Qwen Code
-installation. Verify the **Runs as** identity and set the model identifier that
-your executor/provider supports. Existing executor sign-in is reused.
+As the ADORE service account, install Node.js 22.23.4 or later in the 22.x line
+with npm, then run `adore pi install` and `adore pi verify` using the service's
+ADORE home. Choose **Installed on the server**, confirm the current account,
+and configure the provider and model. Save the project key in **Provider API
+key** if required. Set **Project tools PATH** only when the job needs different
+tool directories. ADORE starts the pinned Pi installation through its managed
+Node executable and ignores the account's personal Pi settings and sign-in.
 
-Normally leave home and PATH overrides empty. PATH is a list of directories
-containing tools, not the path to the executor executable. Use **Advanced** only
-for a custom launch command, manual executable or prepared environment.
-
-Windows requires a real executable; npm batch/PowerShell wrappers are not native
-launch targets. Detected installations can supply the real binary or an installed
-Node/JavaScript pair. Keep their full command when choosing a Node-based agent.
-
-Linux requires a writable delegated cgroup-v2 root with `cgroup.kill`. Prepare
-delegation through the host's service administration and enter that root in
-**Advanced**. A user name in advanced settings verifies the existing account;
-it cannot switch the process to a different user.
+Windows uses an owned Job Object. On Linux, set `ADORE_LOCAL_CGROUP_ROOT` in
+the service environment to a writable delegated cgroup v2 root that supports
+`cgroup.kill`. See [Local execution](../Local_Execution.md) for setup and checks.
 
 Project code can access what that OS account permits. Prepare tools, versions,
 SDKs and libraries on the execution machine and use an appropriately restricted
@@ -52,7 +46,7 @@ account. A Git worktree is not a host sandbox.
 
 ## Container executors
 
-Prepare Docker or Podman and an image containing Python, sh, the coding agent
+Prepare Docker or Podman and an image containing Python, sh, the pinned Pi runtime
 and the project tools. ADORE uses a locally available image; missing images are
 not pulled automatically. Build and verify project images outside the interface.
 The in-app **Executors and models** help contains the image preparation guidance.

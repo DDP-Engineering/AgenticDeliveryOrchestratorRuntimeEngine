@@ -9,15 +9,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## Routing
 
-Installed agent detection, prefilled commands and manual executable paths start at
-`adore/executor_discovery.py`, `web/src/LocalExecutorPicker.tsx` and
-the authenticated inventory endpoint. Native launch enforcement belongs to local-execution.md;
-reviewed saved configuration belongs to executor-configuration.md.
+Read-only installed Pi inventory starts at `adore/executor_discovery.py` and
+the authenticated inventory endpoint. The managed runtime and reviewed
+configuration are described in `local-execution.md` and
+`executor-configuration.md`.
 
 ## Purpose and boundaries
 
-Suggest native installed launches for the current ADORE host/account. Installation,
-authentication and model probes stay with the operator and existing components.
+Inventory installed Pi paths for the current ADORE host and account.
 
 ## Public interface
 
@@ -30,8 +29,8 @@ has executable, nullable entrypoint, standard command and PATH/npm source.
 
 Read-only installed paths and native account identity: no CLI invocation, shim parsing, credential reads or installation.
 Absolute non-project native paths, bounded roots/results, Windows real exe or Node
-plus installed JS. Existing native policy independently validates launch identity.
-Manual edits and saved commands retain authority; stale results are ignored.
+plus installed JS. Native launch identity comes from the verified managed Pi
+installation.
 
 ## Change map
 
@@ -42,7 +41,6 @@ Manual edits and saved commands retain authority; stale results are ignored.
 ## Key behaviors
 
 - REQ-FUNC-cd5bffc3: admin-only bounded installed host launch discovery.
-- REQ-UX-3ce12a1a: automatic enrollment proposals and explicit installed/manual choices.
 
 ## Files
 

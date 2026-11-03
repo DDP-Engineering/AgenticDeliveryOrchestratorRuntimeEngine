@@ -186,7 +186,7 @@ Retry is refused while a required notification remains pending.
 
 ## Native local execution
 
-Choose native local or container execution in setup. Local profiles require installed CLI/native Python and Windows Jobs or delegated Linux cgroup v2. Prepare project tools and account login independently on the ADORE machine.
+Choose server or container execution in setup. Server profiles require the [managed Pi installation](Local_Execution.md), native Python for AEGIS and Windows Jobs or delegated Linux cgroup v2. Prepare project tools and forge login for the service account on the ADORE machine.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.

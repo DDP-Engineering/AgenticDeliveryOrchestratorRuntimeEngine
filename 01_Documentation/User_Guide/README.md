@@ -54,7 +54,7 @@ short starting point; the in-app help describes each screen and setting.
 6. Creation leaves monitoring stopped. Review the saved project and its
    prerequisites, then activate monitoring when ready.
 
-Git, a signed-in forge CLI, the selected executor and project tools belong on the
+Git, a signed-in forge CLI, the managed Pi runtime and project tools belong on the
 computer running ADORE. A native local executor uses a new process under the
 ADORE account; it does not attach to a terminal session. Linux native execution
 also requires administrator-prepared cgroup delegation.

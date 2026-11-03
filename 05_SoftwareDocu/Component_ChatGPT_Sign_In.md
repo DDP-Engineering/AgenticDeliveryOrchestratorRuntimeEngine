@@ -226,7 +226,7 @@ memory, guarded by one lock; starting a new sign-in cancels the previous one.
 
 ## 5. Data Contracts
 
-Credential directory `<ADORE home>/chatgpt` (mounted at `/adore/chatgpt`):
+Credential directory `<ADORE home>/chatgpt` (mounted at `/adore/chatgpt` only in sign-in and token helpers):
 
 | Entry | Owner | Content |
 |---|---|---|
