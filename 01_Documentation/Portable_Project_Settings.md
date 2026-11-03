@@ -21,10 +21,9 @@ compatible ADORE installation. On Projects, choose **Clone project config**, the
 server** for an authorized source project. Review recognized rules and exclusions, then **Set up new target**.
 Supply a new display name/stable ID, repository identifier and existing server
 clone, runtime/image/model, reviewers/labels and target credential environment
-names or supported host authentication. Reconfirm the target environment,
-credential references and endpoint setup explicitly. Standard provider connections
-use the selected model; custom target endpoints are a separate Settings action
-while pickup remains stopped. All source references are excluded.
+names. Reconfirm the target environment and credential references explicitly.
+Provider connections use the selected Pi model. All source references are
+excluded.
 
 Validate setup to see **Source value / This server value / Effect** for all 15
 rules. This server value is the installed default; the source rule becomes the

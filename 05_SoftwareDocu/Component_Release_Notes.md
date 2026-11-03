@@ -25,8 +25,8 @@ them short, user-oriented and aligned with `CHANGELOG.md`.
 - `contract_issues`: the authoring contract - every locale present, topic at
   most 40 and text at most 100 characters, no backticks, file names, paths,
   endpoints, URLs, snake_case or UPPER_SNAKE names, REQ/TASK ids or CamelCase
-  identifiers (product names listed in `PRODUCT_NAMES`, such as GitHub, GitLab
-  and OpenCode, are allowed; add new ones there), at most 10 entries per
+  identifiers (product names listed in `PRODUCT_NAMES`, such as GitHub and
+  GitLab, are allowed; add new ones there), at most 10 entries per
   category in a release, `Unreleased` first, released versions descending.
 
 ## 3. Implementation Overview

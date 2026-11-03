@@ -9,8 +9,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
 ADORE turns an opt-in forge ticket into a governed, isolated, human-approved
-draft merge request. It selects a ticket from GitHub, GitLab or Gitea, runs a
-coding executor through the repository's installed AEGIS workflow one stage at
+draft merge request. It selects a ticket from GitHub, GitLab or Gitea, runs the Pi
+coding agent through the repository's installed AEGIS workflow one stage at
 a time inside a dedicated branch, worktree and container, verifies the result
 independently, and publishes a draft or ready MR/PR according to `delivery.draft` after a fresh human approval.
 It never merges.
@@ -45,14 +45,14 @@ label is only a hint.
 - **A real approval gate.** After strict verification ADORE presents the
   candidate and waits for a fresh `agent-approved` label bound to the exact
   candidate fingerprint and target commit. Drift or mutation invalidates it.
-- **Executors stay off the remote.** They run in a container with no forge
-  credentials and never commit, push, open or merge. ADORE owns checkpoints,
+- **The executor stays off the remote.** Pi runs in a container with no forge
+  credentials and never commits, pushes, opens or merges. ADORE owns checkpoints,
   push and draft creation, and has no merge operation at all.
 - **Truthful state.** One conductor per state root, a persisted notification
   outbox, typed failures instead of guesses, and retained evidence for
   explicit recovery.
-- **Four executors, three forges.** OpenCode, Pi, Codex and Qwen Code as
-  executors; `gh`, `glab` and `tea` as the forge CLIs.
+- **One coding agent, three forges.** Pi as the executor, driven through its
+  RPC mode in the container; `gh`, `glab` and `tea` as the forge CLIs.
 - **Optional web interface.** A local React/FastAPI dashboard adds project and
   job visibility, account/project permissions, reported usage, administrator
   costs, and a durable worker. See
@@ -68,7 +68,7 @@ label is only a hint.
 - An authenticated `gh`, `glab` or `tea` for the target forge.
 - A target repository that carries AEGIS as `.agentic/aegis.py` at 0.15.0 or
   later on the major-0 line, reporting JSON schema 1.
-- A model-provider key for the chosen executor, kept in the environment or a
+- A model-provider key for the Pi model, kept in the environment or a
   gitignored `.env`.
 
 ## Quick start
@@ -162,6 +162,6 @@ commercial license from DDP Engineering.
 
 ## Native local executor
 
-Explicit local profiles run an installed authenticated CLI under the ADORE machine
+Explicit local profiles run an installed, signed-in Pi under the ADORE machine
 and service account with dedicated worktrees and verified Windows Job/Linux cgroup
 process ownership. Project tools remain user-owned. See [Local execution](01_Documentation/Local_Execution.md).

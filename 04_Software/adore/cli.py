@@ -316,7 +316,7 @@ def _newline(text: str) -> str:
     return "\r\n" if "\r\n" in text else "\n"
 
 
-def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
+def _set_toml_scalar(text: str, dotted_key: str, value: str, *, literal: str | None = None) -> str:
     """
     @brief      Set one scalar key in TOML text, preserving comments/other lines.
     @details    `dotted_key` is `<table...>.<name>` (for example
@@ -331,6 +331,8 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
     @param[in]  text Current config file text.
     @param[in]  dotted_key Dotted table+key path.
     @param[in]  value Raw value (type inferred by _toml_scalar_literal).
+    @param[in]  literal Exact TOML literal to write instead of inferring one
+                (callers pass a validated, already quoted string).
     @return     The updated config text.
     @exception  ValueError When the key is not a `<table>.<name>` path.
     """
@@ -342,7 +344,7 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
         )
     *table_parts, key = parts
     header = "[" + ".".join(table_parts) + "]"
-    new_line = f"{key} = {_toml_scalar_literal(value)}"
+    new_line = f"{key} = {literal if literal is not None else _toml_scalar_literal(value)}"
     newline = _newline(text)
     # Split on LF only: each line keeps its own CR, so joining with LF gives
     # every untouched line back byte for byte.

@@ -359,3 +359,44 @@ def test_unconfirmed_recovery_is_terminal_without_another_executor_attempt(
 
 # END OF FILE
 
+
+
+@pytest.mark.parametrize("unsafe", [False, True])
+def test_pi_rpc_timeout_settles_container_before_next_gate(tmp_path, monkeypatch, unsafe):
+    """@brief RPC timeout parks all container writers and refuses unconfirmed recovery."""
+    from adore.executor import pi_rpc
+    from adore.executor.launcher import PiExecutor
+
+    runtime = Runtime(fault="stop-noop" if unsafe else "")
+    backend, target, _ = bound(runtime, True)
+    backend.manager.spawn = lambda *a, **k: object()
+    def timeout(spawn, argv, env, *args, **kwargs):
+        spawn(argv, env)
+        return pi_rpc.PiRpcResult(outcome="timed-out", exit_code=124, timed_out=True)
+
+    monkeypatch.setattr(pi_rpc, "run_pi_rpc", timeout)
+    executor = PiExecutor("pi", "m")
+    if unsafe:
+        with pytest.raises(ExecutionRecoveryError, match="interruption unconfirmed"):
+            executor.run_gate(target, tmp_path, tmp_path / "io", "prepare")
+        with pytest.raises(ExecutionRecoveryError):
+            target.spawn(["pi"])
+    else:
+        assert executor.run_gate(target, tmp_path, tmp_path / "io", "prepare").timed_out
+        assert runtime.stops == 1 and runtime.status == "exited"
+        observed = []
+        backend.manager.spawn = lambda name, argv, **kwargs: observed.append(name)
+        target.spawn(["pi"])
+        assert runtime.starts == 1 and observed == [CID]
+
+
+def test_rpc_timeout_does_not_interrupt_a_replacement_after_unpinned_spawn():
+    """@brief The admitted streaming invocation remains the authority without durable pins."""
+    runtime = Runtime()
+    backend, target, _ = bound(runtime, False)
+    backend.manager.spawn = lambda *a, **k: object()
+    target.spawn(["pi"])
+    runtime.resource_id = "c" * 64
+    with pytest.raises(ExecutionRecoveryError):
+        target.settle_timeout()
+    assert runtime.stops == 0

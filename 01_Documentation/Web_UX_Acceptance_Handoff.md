@@ -129,8 +129,8 @@ The concrete #16 owner decision remains pending: approve or revise separate
 executor conversation human + assistant counts, separate tool counts, separate
 forge observed/received-external/posted-by-ADORE sets, no mixed total, fresh
 retry/revision instances without replay/echo/edit inflation, proven version-pinned
-count-only source mappings and 90-day metadata retention. Current OpenCode, Pi,
-Codex and Qwen evidence proves no normalized conversation-count contract; forge
+count-only source mappings and 90-day metadata retention. Current Pi evidence
+proves no normalized conversation-count contract; forge
 comment candidates are partial. Unsupported roles/sources remain unavailable.
 The published recommendation is **not approval**. Owner records the decision in
 #16; revisions need an explicit amended contract. Only then can authorized #17
@@ -241,8 +241,8 @@ One web worker per home; no concurrent `adore run --loop` scheduler.
 | Prepared check / supported entry | Expected observation / owner |
 | --- | --- |
 | `adore --profile <name> config validate`, `status`, `runs`, `logs <run-id>`; `/api/v1/health`, `/api/v1/ready`, `/admin/status` | Valid config distinguished from verified environment; liveness distinguished from worker readiness. Infrastructure owner records actual versions and failures. |
-| `/projects/new` Check environment; guided and exact `/projects/import` | Separately authorize bounded tool/auth/disposable-container/local-model probes. GitLab/GitHub/Gitea via glab/gh/tea; Docker/Podman/WSL-wrapped runtime; OpenCode/Pi/Codex/Qwen supported choices, actual available combinations recorded. Missing combinations remain untested. No automatic cloning; Pi/Qwen host-auth unsupported. |
-| Existing local image, clone/AEGIS files, branch, .env, egress open/none/allowlist and optional custom endpoint | Infrastructure owner prepares resources first; secret values stay on host, only allowed environment names pass to executor. No paid proof run. Unavailable/stale/partial/failed checks remain explicit; creation leaves pickup stopped. |
+| `/projects/new` Check environment; guided and exact `/projects/import` | Separately authorize bounded tool/auth/disposable-container probes. GitLab/GitHub/Gitea via glab/gh/tea; Docker/Podman/WSL-wrapped runtime; Pi is the only coding agent; actual available combinations recorded. Missing combinations remain untested. No automatic cloning; no host sign-in is copied into a container. |
+| Existing local image, clone/AEGIS files, branch, .env and egress open/none/allowlist | Infrastructure owner prepares resources first; secret values stay on host, only allowed environment names pass to executor. No paid proof run. Unavailable/stale/partial/failed checks remain explicit; creation leaves pickup stopped. |
 | `/projects/{id}/configuration`; config pending/apply routes | Operator checks meaningful before/after, base/candidate revision, idle/lock/pickup guards, correction/discard, stale revision refusal, unchanged active config after failed apply. Mutation requires authenticated Admin/CSRF; missing/stale CSRF denies. |
 | `/jobs?project=<id>&run=<run-id>`, `adore --profile <name> pause`, `handoff <run-id>` | Stopped pickup leaves active work intact; clarification reply versus candidate approval occurs on forge; handoff is separate and preserves evidence. No arbitrary job pause/resume. No merges. Do not apply ready/approval labels automatically. |
 | `/admin/users`, `/projects/{id}/access`; `/api/v1/users/with-access`, `/api/v1/projects/{name}/config/portable-settings` | Security owner checks Admin/Dev/no-grant/disabled/revoked sessions, direct URLs/API/export and worker reauthorization; denied users learn no unassigned project/financial/admin metadata. Reviewed creation is atomic on stale grant failure. |

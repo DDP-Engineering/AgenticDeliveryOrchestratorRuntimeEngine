@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-7d12bd00"
+
+title = "Offer the ChatGPT model list"
+
+status = "active"
+
+requirement = """When the web interface or the CLI wizard offers models for ChatGPT subscription, ADORE shall list the models of Pi's ChatGPT catalog as read from the pinned Pi package, and shall accept a model id typed outside the list."""
+
+verification = "Catalog test: pi_catalog.json carries chatgpt_models, all also in the openai models, and public_catalog returns them under chatgpt.models; a malformed chatgpt_models fails the catalog; web unit test: the model list for chatgpt holds those ids."
+
+affected_paths = ["04_Software/adore/pi_catalog.json", "04_Software/adore/pi_providers.py", "02_Tools/generate_pi_catalog.py", "04_Software/web/src/agentConnection.ts", "04_Software/web/src/AgentConnectionEditor.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/adore/wizard.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_chatgpt_models_come_from_pis_chatgpt_catalog", "04_Software/tests/test_pi_providers.py::test_corrupt_catalog_fails_closed", "04_Software/tests/test_web_executor_configuration.py::test_provider_catalog_is_served_to_signed_in_users_only", "04_Software/web/tests/agentConnection.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

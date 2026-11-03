@@ -17,7 +17,7 @@ Supply fixed container-only permission code. The agent chooses, installs and ada
 
 ## Public interface
 
-PACKAGE_AUTHORIZATION_SCRIPT runs with the exact numeric UID through root-owned OS Python inside the owned container. PACKAGE_AUTHORIZATION_ACK is the only accepted confirmation. staged_auth_redactions reads only the bounded approved auth snapshot and returns in-memory redaction values, rejecting duplicates, excessive depth/size and malformed JSON. Manager errors are typed IsolationError.
+PACKAGE_AUTHORIZATION_SCRIPT runs with the exact numeric UID through root-owned OS Python inside the owned container. PACKAGE_AUTHORIZATION_ACK is the only accepted confirmation. Manager errors are typed IsolationError.
 
 ## Invariants
 

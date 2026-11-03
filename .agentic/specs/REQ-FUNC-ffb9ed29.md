@@ -11,7 +11,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 `[execution] backend = "local"` is explicit; omitted backend stays container.
 Local mode rejects nonempty preparation, container egress other than open,
-container run_args/required_tool_checks/SELinux relabel, host-auth staging and
+container run_args/required_tool_checks/SELinux relabel and
 explicit container runtime_env customization. These cannot silently become host
 commands or pretend local containment. Ignored default image/cache settings
 have no local effects. Existing #24 container plans keep their exact policy
@@ -84,8 +84,8 @@ limits, candidate-bound approval and draft-only delivery. ADORE never merges.
 Only an explicit system/user-environment allowlist plus `[local].environment` and
 approved `[executor].env_keys` is passed, including the selected home/PATH and
 executor credential/config locations. Forge token names are refused. Existing
-Pi/OpenCode/Codex/Qwen account stores are reused in place; no login flow, auth-file
-copy or credential archive. Known approved environment/auth-store string values
+Pi account store (`$PI_CODING_AGENT_DIR/auth.json`, default `~/.pi/agent/auth.json`)
+is reused in place; no login flow, auth-file copy or credential archive. Known approved environment/auth-store string values
 are redacted before bounded retained output. Corrupt supported auth JSON fails
 closed before a command. Missing auth is a readiness finding; actual provider/model
 access is proved only by an explicit bounded nonce challenge using the same

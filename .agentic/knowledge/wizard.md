@@ -40,8 +40,23 @@ runtime before it can replace a profile, so invalid profiles are never saved.
 Secrets are never written: only required environment-variable names are
 derived. The wizard validates branch-rule compatibility and reports missing
 tools or unsuitable AEGIS payloads as setup guidance, not a hidden mutation.
-ADORE-managed host-auth staging is offered only for OpenCode and Codex; an
-unsupported Pi/Qwen staging answer fails before the profile is written.
+Pi is the only coding agent, so the wizard asks no agent question. It asks the
+provider (default `openai`, validated against `pi_providers.provider_ids()`:
+a Pi API-key provider id, `chatgpt` for the server's ChatGPT Plus/Pro sign-in,
+or `custom`), for `custom` the endpoint base URL and API type (default
+`openai-completions`), then the model ID within the provider (`MODEL_ID_RE`;
+default `gpt-5.5` only for `openai`). For `chatgpt` the model prompt lists the
+catalog's `chatgpt_models` and defaults to the first of them; a container profile uses the api-key auth mode without a
+question, and a local profile asks the installed native Pi argv (default
+`branding.PI_NATIVE_COMMAND`) and api-key or existing (the local account's own
+Pi sign-in). It writes `[executor] provider`, `model`, `command` only when it
+differs from the default, `env_keys = []` (additional names; the provider's key
+variable always reaches Pi) and `[executor.endpoint]` for `custom`. Container
+next steps name the provider's credential variable. For `chatgpt` the first
+next step is to sign in with ChatGPT once for the server in the web interface
+(Settings -> Agent and model -> Sign in with ChatGPT). Config validation refuses
+a `chatgpt` profile with a local run or a stage limit above 3000 s, so the
+wizard never saves one.
 The reported-cost prompt accepts finite nonnegative USD input; zero disables
 that cap for a subscription/local model while other run limits remain.
 
@@ -59,6 +74,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-3d8f6f5e` - offline preparation and field-specific safe findings;
   `test_web_enrollment.py` proves preparation and preserved default CLI mode.
 
+- `REQ-FUNC-2df31adf` - the wizard writes Pi's provider and model without an agent choice.
 - `REQ-FUNC-5771eecc` - generated configuration validates before it is saved.
 - `REQ-FUNC-6c82ad42` - invalid/unconfirmed answers cannot create or overwrite a profile.
 - `REQ-FUNC-7ce5b17a` - web project creation reuses guided answers and the

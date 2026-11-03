@@ -30,9 +30,9 @@ worktree effects and prior attempt receipts. No publication or merging authority
 
 ## Key behaviors
 
-- REQ-REL-6922cfe5: enabled container policies include canonical system_packages=true. Disabled legacy policies omit it and retain fingerprints. Strict persisted validation rejects false, string or numeric opt-in fields.
+- REQ-REL-6922cfe5: enabled container policies include canonical system_packages=true. Disabled policies omit the marker. Strict persisted validation rejects false, string or numeric opt-in fields.
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Local plans use backend=local, empty image/selection/steps and image_source=local. Closed local policy fingerprints machine/account/environment/executable without commands. Container policy keys and fingerprints retain their established shape.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Local plans use backend=local, empty image/selection/steps and image_source=local. Closed local policy fingerprints machine/account/environment/executable without commands. Current policies include the complete Pi provider and network configuration.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
@@ -56,3 +56,5 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_preparation.py`: injected contract proof.
 - `05_SoftwareDocu/Component_Preparation.md`: detailed component documentation.
 - `01_Documentation/Container_Preparation.md`: operator contract.
+
+The execution policy pins the complete non-secret Pi configuration: provider, model, endpoint, internet switch, web search, native command and additional secret names. Changing network/provider authority changes the fingerprint and requires a fresh job; stored plans must match the current closed structure. No earlier-plan reader or migration is supplied.

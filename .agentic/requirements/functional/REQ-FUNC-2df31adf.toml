@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-2df31adf"
+
+title = "Launch every stage with Pi, the only coding agent"
+
+status = "active"
+
+requirement = """
+When ADORE launches a stage, tests the AI connection or reports its executor, it shall use Pi, its only coding agent, with the model from [executor] model, and no setting, label, enrollment step or wizard question shall offer another agent.
+"""
+
+verification = "Offline: build_executor returns the Pi launcher for the configured model; usage events record executor pi; the enrollment and wizard drafts write [executor] model without an agent; the settings API exposes no agent choice. Browser: Settings > Agent and model and enrollment step 2 show no agent selector."
+
+affected_paths = ["04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py", "04_Software/adore/wizard.py", "04_Software/adore/web/app.py", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/tests/test_executor.py::test_factory_selects_pi", "04_Software/tests/test_config.py::test_pi_is_the_only_executor_and_needs_only_a_provider_and_model", "04_Software/tests/test_web_executor_configuration.py::test_connection_is_one_reviewed_edit_and_no_agent_choice_exists", "04_Software/tests/test_wizard.py::test_wizard_writes_pi_without_agent_choice_or_host_sign_in", "04_Software/tests/test_web_enrollment.py::test_enrollment_refuses_host_sign_in_and_agent_choice", "04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

@@ -42,6 +42,7 @@ from adore.local_process import (
     native_context,
     read_record,
 )
+from adore.pi_providers import secret_names
 from adore.util import CommandResult, automatic_environment, strict_json_loads
 
 # CONSTANTS
@@ -64,7 +65,6 @@ SYSTEM_ENV_KEYS = frozenset(
         "XDG_CONFIG_HOME",
         "XDG_DATA_HOME",
         "XDG_CACHE_HOME",
-        "CODEX_HOME",
         "PI_CODING_AGENT_DIR",
     }
 )
@@ -91,21 +91,6 @@ WINDOWS_SYSTEM_ENV_KEYS = frozenset(
         "ALLUSERSPROFILE",
         "PUBLIC",
     }
-)
-# Local OpenCode commands resolve this policy instead of the account's personal
-# permissions: tools work non-interactively, push and forge CLIs are denied.
-OPENCODE_PERMISSION_POLICY = {
-    "edit": "allow",
-    "bash": {
-        "*": "allow",
-        "git push*": "deny",
-        "tea *": "deny",
-        "gh *": "deny",
-        "glab *": "deny",
-    },
-}
-MANAGED_OPENCODE_ENV_KEYS = frozenset(
-    {"XDG_CONFIG_HOME", "OPENCODE_DISABLE_CLAUDE_CODE", "OPENCODE_PERMISSION"}
 )
 RESOURCE_KEYS = {"kind", "id", "host", "account", "name", "worktree", "io"}
 FORBIDDEN_EXECUTABLES = {
@@ -172,16 +157,6 @@ def local_argv(template: str, *, prompt: str, model: str, worktree: str) -> list
         raise LocalExecutionError("local executor requires a native argv template") from exc
 
 
-def managed_opencode_config(config) -> Path | None:
-    """@brief Locate the ADORE-managed OpenCode configuration home of a local profile.
-    @param[in] config Validated local profile.
-    @return `<state root>/executor-config` when OpenCode is the default executor, else None.
-    """
-    if config.executor.default != "opencode":
-        return None
-    return Path(config.state.store_root).resolve() / "executor-config"
-
-
 def local_environment(config, context: dict, secrets: dict | None = None) -> dict[str, str]:
     """@brief Build the selected account's explicit environment without forge tokens.
     @param[in] config Validated local profile.
@@ -205,18 +180,6 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     if context["system"] == "Windows":
         allowed = allowed | WINDOWS_SYSTEM_ENV_KEYS
     env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
-    managed = managed_opencode_config(config)
-    if managed is not None:
-        # Replaces the account's personal OpenCode configuration home; explicit [local] values win.
-        env.update(
-            XDG_CONFIG_HOME=str(managed),
-            OPENCODE_DISABLE_CLAUDE_CODE="1",
-            OPENCODE_PERMISSION=json.dumps(OPENCODE_PERMISSION_POLICY, separators=(",", ":")),
-        )
-    if managed is not None and context["system"] == "Windows":
-        # A differently cased explicit managed name replaces the managed entry.
-        explicit = {key.upper() for key in config.local.environment} & MANAGED_OPENCODE_ENV_KEYS
-        env = {key: value for key, value in env.items() if key not in explicit}
     env.update(config.local.environment)
     env.update(
         HOME=home,
@@ -226,9 +189,8 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
         LOGNAME=context["account"],
         USERNAME=context["account"],
     )
-    env.setdefault("CODEX_HOME", str(Path(home) / ".codex"))
     env.setdefault("PI_CODING_AGENT_DIR", str(Path(home) / ".pi" / "agent"))
-    approved = set(config.executor.env_keys)
+    approved = set(secret_names(config.executor, "local"))
     env.update({key: value for key, value in (secrets or {}).items() if key in approved})
     return automatic_environment(env)
 
@@ -276,9 +238,9 @@ def local_policy(config, *, context: dict | None = None, resolver=resolve_execut
     """
     context = context or native_context()
     env = local_environment(config, context)
-    entry = config.executor.commands[config.executor.default]
     argv = local_argv(
-        entry.command, prompt="", model=entry.model, worktree=config.worktree.repo_path
+        config.executor.command, prompt="", model=config.executor.model,
+        worktree=config.worktree.repo_path,
     )
     executable = resolver(argv[0], env, context["system"])
     details = Path(executable).stat()
@@ -370,31 +332,16 @@ class LocalBackend:
         self.resolver = resolver
         self.policy = local_policy(config, context=self.context, resolver=resolver)
         self.environment = local_environment(config, self.context)
-        managed = managed_opencode_config(config)
-        if managed is not None and self.environment.get("XDG_CONFIG_HOME") == str(managed):
-            try:
-                managed.mkdir(parents=True, exist_ok=True)
-            except OSError as exc:
-                raise LocalExecutionError(
-                    "managed executor configuration directory is unavailable"
-                ) from exc
         self.controller = controller or LocalProcessController(
             NativeScopes(self.context["system"], config.local.cgroup_root)
         )
         self.targets: dict[str, dict] = {}
 
-    def executor_environment(self, executor: str) -> dict[str, str]:
+    def executor_environment(self) -> dict[str, str]:
         """@brief Return the actual selected native home/environment without auth copies.
-        @param[in] executor Selected executor kind.
         @return Verified native operation result.
         """
         return dict(self.environment)
-
-    def auth_directory(self, executor: str) -> str:
-        """@brief Native auth is reused in place; container staging is unsupported.
-        @param[in] executor Selected executor kind.
-        """
-        raise LocalExecutionError("local authentication is reused in place, never staged")
 
     def image_identity(self, image: str) -> str:
         """@brief Local execution never inspects or creates executor images.
@@ -547,9 +494,9 @@ class LocalBackend:
                 "local project tool discovery/check manifests are unsupported"
             )
         target = self.bind(name, env)
-        entry = self.config.executor.commands[self.config.executor.default]
         argv = local_argv(
-            entry.command, prompt="", model=entry.model, worktree=target.paths.worktree
+            self.config.executor.command, prompt="", model=self.config.executor.model,
+            worktree=target.paths.worktree,
         )
         prefix = argv[:2] if Path(argv[0]).stem.casefold() == "node" else argv[:1]
         checked = target([*prefix, "--version"], timeout=10)
@@ -559,7 +506,7 @@ class LocalBackend:
             raise LocalPrerequisiteError("executor-exit", checked.exit_code)
         # Native CLIs may report their version on stderr. Require an actual
         # version line, rather than accepting digits in an unrelated warning.
-        version = (r"(?:(?:opencode|pi(?:-coding-agent)?|codex(?:-cli)?|qwen(?:-code)?)"
+        version = (r"(?:(?:pi(?:-coding-agent)?)"
                    r"(?: version)?:?\s*)?v?\d+\.\d+(?:\.\d+)?(?:[-+][\w.-]+)?")
         if not any(re.fullmatch(version, line.strip(), re.I)
                    for line in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "",
@@ -615,29 +562,21 @@ class LocalTarget:
         self.output_limit = 65536
 
     def _auth_path(self) -> Path:
-        """@brief Locate the installed executor's existing account credential store."""
-        config = self.backend.config
-        home = Path(self.env["HOME"])
-        locations = {
-            "opencode": Path(self.env.get("XDG_DATA_HOME", str(home / ".local/share")))
-            / "opencode/auth.json",
-            "codex": Path(self.env["CODEX_HOME"]) / "auth.json",
-            "pi": Path(self.env["PI_CODING_AGENT_DIR"]) / "auth.json",
-            "qwen": home / ".qwen/oauth_creds.json",
-        }
-        return locations[config.executor.default]
+        """@brief Locate the installed Pi's existing account credential store."""
+        return Path(self.env["PI_CODING_AGENT_DIR"]) / "auth.json"
 
     def auth_available(self) -> bool:
         """@brief Check bounded existing auth or approved provider values without login."""
         self._secrets()
         return self._auth_path().is_file() or any(
-            self.env.get(key) for key in self.backend.config.executor.env_keys
+            self.env.get(key) for key in secret_names(self.backend.config.executor, "local")
         )
 
     def _secrets(self) -> list[str]:
         """@brief Read approved existing auth values only for in-memory redaction."""
         config = self.backend.config
-        values = {self.env[key] for key in config.executor.env_keys if self.env.get(key)}
+        values = {self.env[key] for key in secret_names(config.executor, "local")
+                  if self.env.get(key)}
         path = self._auth_path()
         if path.exists():
             try:

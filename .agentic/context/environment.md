@@ -22,8 +22,9 @@ Python 3.11 or later with `uv`; the runtime itself uses only the standard
 library. Verification uses pytest and Ruff from the `dev` dependency group in
 `04_Software/pyproject.toml`. Git is required. Live operation additionally
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
-Windows, and an authenticated `glab`, `gh` or `tea`. Node.js supports npm-based installed executors in container images or under
-the native local service account.
+Windows, and an authenticated `glab`, `gh` or `tea`. Node.js runs Pi in container images
+(the base image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0) or an
+installed Pi under the native local service account.
 The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
 also needed on the web **build** machine for `04_Software/web/npm run build`;
 the installed web runtime serves local assets without Node.js.
@@ -51,7 +52,8 @@ Runtime configuration is `config.toml`, started from
 `04_Software/config.example.toml` and documented in
 `01_Documentation/Configuration_Reference.md`. `adore init <profile>` creates
 it under the profile home, `%APPDATA%\adore` on Windows or `~/.config/adore`
-on Linux, unless `ADORE_HOME` overrides the location. Executor provider keys
+on Linux, unless `ADORE_HOME` overrides the location. The executor provider key
+(the variable Pi reads for `[executor].provider`) and any additional secrets
 named by `[executor].env_keys` live only in a gitignored `.env` beside the
 configuration or in the process environment; forge authentication belongs to
 the host CLI. Run state, the conductor lock and metrics live under the
@@ -72,10 +74,13 @@ The package has no build step: run `adore` from the synced `.venv`
 (`.venv\Scripts\adore.exe` on Windows, `.venv/bin/adore` on Linux) with
 `run --dry-run`, `run --once` or `run --loop`. Executor images are built from
 `04_Software/docker/` as its README documents: the generic
-`adore-executor-base:1.0.0`, the optional `adore-egress-proxy:1.0.0`, and one
-project image per runtime project. The three public tools are `setup_environment.py`, `create_package.py` and
-`verify_package.py` under `02_Tools/`. Delivery contains only final native
-portable archives and optional adjacent hashes; no technical outputs are retained.
+`adore-executor-base:1.0.0`, `adore-egress-proxy:1.0.0` (needed by every container project with
+`[executor] internet = false`, the default), and one
+project image per runtime project. Runtime bundles are produced by
+`02_Tools/package_runtime.ps1` or `package_runtime.sh` into `07_Delivery/`.
+The optional host-specific offline web media comes from
+`02_Tools/package_web_offline.py`; its installer uses local locked wheels with
+`pip --no-index`, and its launcher starts API and worker processes.
 For web service monitoring, `/api/v1/health` checks the API listener and
 `/api/v1/ready` requires a recent heartbeat from the separate control worker.
 
@@ -118,9 +123,9 @@ Protected per-profile tokens are used only by forge CLI commands and explicit
 web host checks, with external CLI auth as the missing-record default. Corrupt
 or mismatched scoped records fail closed.
 
-Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
+Explicit administrator model connectivity uses Pi through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Settings → Agent and model owns agent/model settings, reviewed backend-specific launch configuration and approved provider key save/remove within one panel, with inline selected-agent fields and credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+Project Settings → Agent and model owns the Pi model setting, reviewed backend-specific launch command and approved provider key save/remove within one panel, with a credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login of an installed Pi remains the local service account's own flow.
 
 ## Reviewed container preparation
 
@@ -135,7 +140,8 @@ remain filtered; project tools are still installed by the operator.
 Local profiles require independently installed CLI/native Python under the ADORE
 service account. Windows needs executable entrypoints (or installed Node/JS argv)
 and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
-preparation, reuses auth and rejects container egress restrictions. Tools remain
+preparation, reuses auth, rejects a container egress allowlist and is not restricted by
+`[executor] internet`. Tools remain
 independently prepared. See 01_Documentation/Local_Execution.md.
 
 ## Project image build clients
@@ -187,7 +193,7 @@ Targeted tests inject native/process/CLI boundaries and do not contact a model.
 
 Windows no-console executor launch needs explicit stdout/stderr bindings from
 the supervisor to its child. The native helper closes stdin and retains the
-existing parent capture pipes; no global terminal/Git/OpenCode settings are needed.
+existing parent capture pipes; no global terminal/Git/Pi settings are needed.
 
 ## Agent package image readiness
 

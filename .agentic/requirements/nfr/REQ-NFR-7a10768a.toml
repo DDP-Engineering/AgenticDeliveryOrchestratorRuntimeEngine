@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-NFR-7a10768a"
+
+title = "Keep Pi event streaming within bounded memory"
+
+status = "active"
+
+requirement = """While streaming a Pi RPC launch, ADORE shall hold at most one stdout record of up to 16 MiB in memory, skip longer records, persist streaming deltas never, persist records over 64 KiB only as a size stub, stop the persisted output at 32 MiB and stderr at 1 MiB, and retain at most 64 KiB of output and stderr as the launch evidence."""
+
+verification = "A fake Pi that writes many large records and one record over the per-record limit completes successfully; the returned output and stderr evidence and each persisted record stay within their limits."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_large_output_stays_bounded", "04_Software/tests/test_pi_rpc.py::test_unreadable_assistant_record_makes_tokens_unavailable"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

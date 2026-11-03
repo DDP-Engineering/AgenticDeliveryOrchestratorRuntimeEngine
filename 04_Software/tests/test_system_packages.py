@@ -18,7 +18,7 @@ from copy import deepcopy
 from hashlib import sha256
 import json
 
-from adore.config import ContainerEgressConfig, ExecutorCommand, default_config, validate_config
+from adore.config import EgressPolicy, default_config, validate_config
 from adore.isolation import ContainerManager, IsolationError
 from adore.preparation import PreparationError, execution_policy, resolve_plan, validate_plan
 from adore.state import StateError, validate_execution_record
@@ -33,9 +33,8 @@ def package_config():
     config.platform.kind = "github"
     config.platform.repo = "owner/repo"
     config.worktree.repo_path = "/repo"
-    config.executor.commands["opencode"] = ExecutorCommand(
-        command="opencode run --format json -m {model} {prompt}", model="provider/model",
-    )
+    config.executor.provider = "openai"
+    config.executor.model = "model"
     config.container.system_packages = True
     return config
 
@@ -96,7 +95,7 @@ def test_package_authority_uses_owned_container_without_network_or_host_installs
                              else "adore-system-packages-ready\n")
 
     manager = ContainerManager(runtime, "project:1", "uv", "npm", runner,
-                               egress=ContainerEgressConfig(mode=mode, allowlist=["example.com"]))
+                               egress=EgressPolicy(mode=mode, allowlist=["example.com"]))
     authorize = getattr(manager, "authorize_system_packages", None)
     assert callable(authorize), "missing container package authorization"
     authorize("owned-run")
@@ -260,10 +259,8 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
         )),
     )
     engine.config.container.system_packages = True
-    engine.config.executor.default = "pi"
-    engine.config.executor.commands["pi"] = ExecutorCommand(
-        command="pi -p --mode json --model {model} {prompt}", model="provider/model",
-    )
+    engine.config.executor.provider = "openai"
+    engine.config.executor.model = "model"
     identity = {"container_id": "a" * 64, "image_id": "sha256:" + "b" * 64,
                 "status": "running"}
     containers.resource_identity = lambda _: dict(identity)
@@ -296,7 +293,7 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
     assert saved.execution["resource"]["container_id"] == "a" * 64
     assert saved.execution["status"] == "not-required"
     assert "sudo -n" in executor.prompts[-1]
-    assert "independently configured as open" in executor.prompts[-1]
+    assert "independently configured as allowlist-proxy" in executor.prompts[-1]
     assert not forge.opened
     before = len(authorized)
     saved.lifecycle = "failed"
@@ -304,7 +301,7 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
     if drift == "permission":
         engine.config.container.system_packages = False
     elif drift == "network":
-        engine.config.container.egress.mode = "none"
+        engine.config.executor.internet = True
     elif drift in {"container", "image"}:
         identity[drift + "_id"] = ("c" * 64 if drift == "container"
                                    else "sha256:" + "c" * 64)
@@ -321,20 +318,9 @@ def test_public_retry_pins_package_authority_and_container(tmp_path, monkeypatch
         assert len(authorized) == before
 
 
-def test_package_permission_rejects_codex_workspace_sandbox():
-    """@brief A sandbox that blocks elevation cannot claim package support."""
-    config = package_config()
-    config.executor.default = "codex"
-    config.executor.commands["codex"] = ExecutorCommand(
-        command="codex exec --json --ignore-user-config --disable plugins "
-                "--sandbox workspace-write --model {model} {prompt}", model="provider/model",
-    )
-    assert any("system_packages" in x for x in validate_config(config))
-
-
 def test_package_gate_retains_bounded_redacted_installation_output(tmp_path):
     """@brief Long package logs cannot retain known credentials or claim full usage."""
-    from adore.executor.launcher import OpencodeExecutor
+    from adore.executor.launcher import PiExecutor
 
     io = tmp_path / "io"
     io.mkdir()
@@ -345,7 +331,7 @@ def test_package_gate_retains_bounded_redacted_installation_output(tmp_path):
         (io / "stderr.log").write_text("Bearer abcdef\n" + secret, encoding="utf-8")
         return CommandResult(exit_code=1)
 
-    executor = OpencodeExecutor("opencode run -m {model} {prompt}", "provider/model")
+    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "provider/model")
     result = executor.run_gate(execute, tmp_path, io, "install missing dependency",
                                archive_stem="build", package_secrets={"KEY": secret})
     assert result.exit_code == 1
@@ -366,7 +352,7 @@ def test_package_gate_retains_bounded_redacted_installation_output(tmp_path):
 ], ids=["newline-archive", "redaction-expansion", "invalid-utf8-expansion"])
 def test_package_retention_bounds_encoded_files_after_normalization(tmp_path, payload, secrets):
     """@brief Retained live/archive UTF-8 bytes stay bounded after all transformations."""
-    from adore.executor.launcher import OpencodeExecutor
+    from adore.executor.launcher import PiExecutor
 
     io = tmp_path / "io"
     io.mkdir()
@@ -376,7 +362,7 @@ def test_package_retention_bounds_encoded_files_after_normalization(tmp_path, pa
         (io / "stderr.log").write_bytes(payload)
         return CommandResult(exit_code=1)
 
-    executor = OpencodeExecutor("opencode run -m {model} {prompt}", "provider/model")
+    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "provider/model")
     result = executor.run_gate(execute, tmp_path, io, "install dependency",
                                archive_stem="encoded", package_secrets=secrets)
     assert result.exit_code == 1
@@ -395,7 +381,7 @@ def test_package_gate_refuses_linked_output_without_reading_target(tmp_path, mon
     import stat
     from types import SimpleNamespace
 
-    from adore.executor.launcher import OpencodeExecutor
+    from adore.executor.launcher import PiExecutor
 
     io = tmp_path / "io"
     io.mkdir()
@@ -407,121 +393,32 @@ def test_package_gate_refuses_linked_output_without_reading_target(tmp_path, mon
         return original(path)
 
     monkeypatch.setattr(Path, "lstat", lstat)
-    executor = OpencodeExecutor("opencode run -m {model} {prompt}", "provider/model")
+    executor = PiExecutor("pi -p --mode json --model {model} {prompt}", "provider/model")
     with pytest.raises(IsolationError, match="linked"):
         executor.run_gate(lambda *a, **k: CommandResult(), tmp_path, io, "prepare",
                           package_secrets={})
 
 
-@pytest.mark.parametrize("agent", ["opencode", "codex", "pi"])
-def test_package_log_retention_preserves_complete_original_usage(tmp_path, agent):
-    """@brief Usage after long tool output still contributes to existing budgets."""
+def test_package_log_retention_preserves_complete_original_usage(tmp_path):
+    """@brief Late Pi usage after long tool output still counts toward budgets."""
     from adore.executor.launcher import build_executor
 
     io = tmp_path / "io"
     io.mkdir()
-    if agent == "opencode":
-        events = [{"part": {"tokens": {"input": 10, "output": 20}, "cost": cost}}
-                  for cost in (1, 100)]
-    elif agent == "codex":
-        events = [{"usage": {"input_tokens": 10, "output_tokens": 20, "cost_usd": cost}}
-                  for cost in (1, 100)]
-    else:
-        events = [{"type": "turn_end", "message": {"usage": {
-            "input": 10, "output": 20, "cacheRead": 2, "cacheWrite": 3}}}] * 2
-    full_output = (json.dumps(events[0]) + "\n" + json.dumps({"tool": "x" * 100000})
-                   + "\n" + json.dumps(events[1]) + "\n")
+    event = {"type": "turn_end", "message": {"usage": {
+        "input": 10, "output": 20, "cacheRead": 2, "cacheWrite": 3}}}
+    full_output = json.dumps(event) + "\n" + json.dumps({"tool": "x" * 100000})
+    full_output += "\n" + json.dumps(event) + "\n"
 
     def execute(argv, **kwargs):
         (io / "output.jsonl").write_text(full_output, encoding="utf-8")
         return CommandResult()
 
-    executor = build_executor(agent, agent + " -m {model} {prompt}", "provider/model")
+    executor = build_executor("pi -p --model {model} {prompt}", "model")
     result = executor.run_gate(execute, tmp_path, io, "prepare", package_secrets={})
-    assert result.tokens_in == (30 if agent == "pi" else 20)
-    assert result.tokens_out == 40 and result.tokens_reported is True
-    assert result.cost_usd == (0 if agent == "pi" else 101)
-    assert result.cost_reported is (agent != "pi")
+    assert result.tokens_in == 30 and result.tokens_out == 40 and result.tokens_reported
+    assert result.cost_usd == 0 and not result.cost_reported
     assert len(result.output.encode()) <= 65536
-
-
-def test_subscription_auth_snapshot_is_redacted_without_environment_keys(tmp_path, monkeypatch):
-    """@brief The exact staged subscription snapshot supplies retained-output secrets."""
-    from types import SimpleNamespace
-
-    from adore import orchestrator as module
-    from adore.executor.base import GateRun
-
-    from tests.test_orchestrator import (
-        TASK_ID,
-        FakeAegis,
-        FakeExecutor,
-        make_engine,
-        make_run,
-        task,
-    )
-
-    class Executor(FakeExecutor):
-        """@brief Inspect the redaction input that reaches the real launcher contract."""
-
-        def run_gate(self, *args, **kwargs):
-            values = kwargs.get("package_secrets", {}).values()
-            assert "subscription-auth-secret" in values
-            assert "refreshed-host-secret" not in values, "must use staged snapshot"
-            return GateRun(exit_code=0, has_questions=True, questions="Need clarification")
-
-    engine, forge, worktrees, containers, executor = make_engine(tmp_path, executor=Executor())
-    engine.config.container.system_packages = True
-    engine.config.executor.stage_host_auth = True
-    engine.config.executor.default = "codex"
-    engine.config.executor.commands["codex"] = ExecutorCommand(
-        command="codex exec {prompt}", model="provider/model",
-    )
-    auth = tmp_path / "auth.json"
-    auth.write_text('{"access_token":"subscription-auth-secret"}', encoding="utf-8")
-    engine.host_auth_path = auth
-    containers.resource_identity = lambda _: {
-        "container_id": "a" * 64, "image_id": "sha256:" + "b" * 64, "status": "running"}
-    containers.image_identity = lambda _: "sha256:" + "b" * 64
-    containers.authorize_system_packages = lambda _: None
-
-    class Client(FakeAegis):
-        """@brief Rotate host auth after staging, before invoking the agent."""
-
-        def __init__(self, *args):
-            super().__init__([task("frame")])
-
-        def probe(self):
-            auth.write_text('{"access_token":"refreshed-host-secret"}', encoding="utf-8")
-            return SimpleNamespace(version="0.14.0", schema=1)
-
-        def create_task(self, *args):
-            return TASK_ID
-
-    monkeypatch.setattr(module, "AegisClient", Client)
-    run = make_run(engine)
-    run.active_task_id = None
-    run.task_ids = []
-    run.lifecycle = "failed"
-    engine.store.save(run)
-    assert engine.retry(run.run_id)
-    saved = engine.store.load(run.run_id)
-    assert saved.lifecycle == "parked-clarification", saved.outcome
-
-
-@pytest.mark.parametrize("content", [
-    "[]", "not-json", '{"token":"one","token":"two"}',
-    '{"token":"' + "x" * 131073 + '"}',
-    '{"token":' + "[" * 18 + '"secret"' + "]" * 18 + "}",
-], ids=["array", "malformed", "duplicate", "oversized", "nested"])
-def test_package_auth_redaction_rejects_ambiguous_or_unbounded_snapshots(tmp_path, content):
-    """@brief Corrupt subscription snapshots never authorize unredacted retention."""
-    from adore.package_permissions import staged_auth_redactions
-
-    path = tmp_path / "snapshot.json"
-    path.write_text(content, encoding="utf-8")
-    with pytest.raises(IsolationError, match="safely redacted"):
-        staged_auth_redactions(path)
 
 
 @pytest.mark.parametrize("failure", ["none", "missing-sudo", "unsafe-directory", "visudo"])
@@ -590,3 +487,19 @@ def test_container_authorization_policy_with_offline_processes(tmp_path, monkeyp
         assert not (directory / "adore-system-packages").exists()
 
 
+
+
+@pytest.mark.parametrize("field,value", [("provider", "anthropic"), ("internet", True),
+                                        ("web.search", "none"),
+                                        ("endpoint.base_url", "https://endpoint.invalid/v1")])
+def test_execution_plan_pins_pi_network_and_provider_policy(field, value):
+    """@brief A changed model route or network authority cannot reuse a prepared plan."""
+    config = package_config()
+    original = resolve_plan(config)
+    owner = config.executor
+    for part in field.split(".")[:-1]:
+        owner = getattr(owner, part)
+    setattr(owner, field.split(".")[-1], value)
+    changed = resolve_plan(config)
+    assert original["fingerprint"] != changed["fingerprint"]
+    assert validate_plan(changed) == changed

@@ -21,10 +21,10 @@ AEGIS-governed repositories for a team. It selects opt-in GitHub, GitLab or
 Gitea tickets, runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
-Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while inactive executor-prefix and scope-hint controls are omitted.
+Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
 Its users are the operator who runs the conductor on a host, the reviewers who
-approve and merge on the forge, and the coding executors it launches:
-OpenCode, Pi, Codex and Qwen Code.
+approve and merge on the forge, and the coding executor it launches: Pi,
+ADORE's only coding agent.
 
 ## Product responsibilities
 
@@ -37,7 +37,8 @@ OpenCode, Pi, Codex and Qwen Code.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
   fingerprints and the Docker/Podman lifecycle; `adore/executor/` launches
-  the supported executors through a file-based gate protocol.
+  Pi in a container as one `pi --mode rpc` process per stage (`pi_rpc.py`)
+  and an installed native Pi through a file-based gate protocol.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
   profile homes and the `adore` command; `metrics.py`, `process_log.py`,
@@ -54,8 +55,9 @@ OpenCode, Pi, Codex and Qwen Code.
   worker faults remain visible, with reporting/technical evidence in dedicated views.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
-  Settings → Agent and model unifies agent selection, provider credentials and model testing,
-  with server-authoritative agent and exact launch-preset choices through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
+  Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
+  Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one reviewed `executor.connection` edit; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
+  (no agent choice); a ChatGPT-subscription project shows the server's one ChatGPT sign-in instead of the key (admin-only Pi OAuth through a helper container, a short-lived access token per stage; container runs and stage limits up to 3000 s only), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
   Settings uses six purpose
   categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev
@@ -207,9 +209,9 @@ Protected per-profile tokens are used only by forge CLI commands and explicit
 web host checks, with external CLI auth as the missing-record default. Corrupt
 or mismatched scoped records fail closed.
 
-Explicit administrator model connectivity uses the selected OpenCode/Pi/Codex/Qwen CLI through a bounded disposable container; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
+Explicit administrator model connectivity uses Pi through a bounded disposable container, or an installed Pi in a disposable native workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Settings → Agent and model owns agent/model settings and approved provider key save/remove; strict durable credential-bound model access evidence is reused inside Summary’s collapsed host-check details. See knowledge/executor-configuration.md. Subscription login remains the installed CLI service-account flow.
+Project Settings → Agent and model owns the Pi model and launch command settings and approved provider key save/remove; strict durable credential-bound model access evidence is reused inside Summary’s collapsed host-check details. See knowledge/executor-configuration.md. Subscription login of an installed Pi remains the local service account's own flow.
 
 ## Reviewed container preparation
 
@@ -220,9 +222,9 @@ Project Settings → Agent and model owns agent/model settings and approved prov
 LocalBackend and owned Windows Job/Linux delegated cgroup scopes share the existing
 conductor. Actual machine/account, non-secret environment and installed executable
 identity are pinned. Tools and auth remain operator-owned; worktrees are not host
-sandboxes. OpenCode profiles resolve an ADORE-managed configuration home and
-permission policy instead of the account's personal OpenCode configuration home;
-the account's `~/.opencode` and `~/.agents/skills` are still read. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
+sandboxes. The installed Pi uses the account's existing sign-in at
+`$PI_CODING_AGENT_DIR/auth.json` (default `~/.pi/agent/auth.json`) or approved
+provider keys. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
 
 ## Project executor images
 
@@ -280,11 +282,7 @@ bounded metadata discovery in standard Windows/Linux account configuration roots
 Protected project connections and explicit XDG retain priority. Closed failures
 lead to four-locale Connect repository guidance; see repository-auth.md.
 
-Native host checks retain closed measured prerequisite causes and process status
-in optional executor_probe readiness evidence. Summary uses concise local copy
-and actual model failure reasons; native OpenCode challenges accept completed
-exact text timestamps and classify typed provider failures. See local-execution.md
-and model-connection.md knowledge for strict nonce/credential/cleanup boundaries.
+Native host checks measure Pi prerequisites for the service account. Current readiness stores only closed prerequisite booleans; the separate bound model-connection evidence provides the concrete Pi provider/tool failure in Summary. Container Pi runs through RPC; native Pi uses the nonce-based shell challenge and file protocol.
 
 Windows native supervisors explicitly forward both captured streams when using
 CREATE_NO_WINDOW. Version and model checks consume the same bounded parent-owned

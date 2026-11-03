@@ -46,13 +46,48 @@ credentials in executor environment allowlists, rejects unsafe executor modes,
 requires boolean review-state delivery, and validates paths, labels, retries, duration,
 and resource limits instead of letting a later component guess.
 `validate_config()` refuses every key this build does not read, in every
-section and subtable (`labels.*`, `executor.<name>`, `container.egress`), with
-`[section] unknown key 'x': remove it from config.toml`; missing keys take the
-documented defaults. `[state] channel` and the Codex `{resume}` placeholder no
-longer exist and are refused as an unknown key and an unsupported placeholder.
-ADORE-managed `stage_host_auth` supports only OpenCode and Codex. Pi may use an
-operator-provided credential mount with staging disabled; unsupported
-executor/staging pairs fail validation before a run starts.
+section and subtable (`labels.*`, `[executor]`, `[executor.web]`,
+`container.egress`), with `[section] unknown key 'x': remove it from
+config.toml`; missing keys take the documented defaults. `[container.egress]
+mode` is refused with the added hint that `[executor] internet` decides the
+agent's network access.
+`ExecutorConfig.internet` (bool, default false) and `ExecutorConfig.web`
+(`ExecutorWebConfig.search`: `exa` default, `brave`, `tavily`, `none`) are
+validated in `_provider_issues` ("[executor] internet must be true or false",
+"[executor.web] search must be one of ..."). `ContainerEgressConfig` holds
+`allowlist` (extra hosts while internet is off; may be empty), `no_proxy`,
+`proxy_image`, `proxy_port`, `network_prefix`. `egress_policy(config)` derives
+the runtime `EgressPolicy`: internet off -> `allowlist-proxy` with the sorted
+union of `pi_providers.provider_hosts(executor)` and the allowlist; internet
+on -> `open`. A local profile refuses a non-empty allowlist. `[state] channel`, `[executor] default`,
+`[executor] stage_host_auth`, an inline `[executor] api_key`, unknown
+`[executor.endpoint]` keys, any other `[executor.<name>]` table and
+`[labels.executor]` are refused this way.
+Pi is the only coding agent. `ExecutorConfig` holds `provider` (required: a Pi
+API-key provider id from the shipped catalog `adore/pi_catalog.json`,
+`chatgpt` or `custom`), `model` (required, the model ID within the provider,
+matching `pi_providers.MODEL_ID_RE`), `endpoint` (`ExecutorEndpointConfig`:
+`base_url`, `api` default `openai-completions`), `command` (default
+`branding.PI_NATIVE_COMMAND`, `pi -p --mode json --model {model} {prompt}`,
+used only by a native run), `mode`, `questions_file` and `env_keys` (default
+empty; additional secret names, the provider's key variable is always passed).
+`_provider_issues` requires `[executor.endpoint]` for `custom` and refuses the
+table for any other provider; `base_url` is http(s) with a host and no user
+info, query or fragment, and `api` is one of `openai-completions`,
+`openai-responses`, `anthropic-messages`, `google-generative-ai`. `custom` with
+`[execution] backend = "local"` is refused (no ADORE-owned agent directory for
+`models.json`). `_chatgpt_issues` refuses `chatgpt` with `[execution] backend =
+"local"` (no ADORE-managed Pi to refresh the ChatGPT sign-in), refuses
+`[budgets] per_gate_timeout_seconds` above 3000 with `chatgpt`, and refuses each
+`[workflow] stage_timeout_overrides.<stage>` above 3000 with `chatgpt`; 3000 is
+`chatgpt.MAX_STAGE_SECONDS`, because a ChatGPT access token lasts about an hour
+and is not refreshed during a stage. A `chatgpt` model is not checked against
+the catalog's `chatgpt_models`. The command must contain `{prompt}`,
+must not contain the `--auto` token, and may use only the `{prompt}`, `{model}`
+and `{worktree}` placeholders (a literal brace is doubled). `[container]
+runtime_env` and `[local] environment` names starting `OPENCODE_`, `CODEX_` or
+`QWEN_` (`REMOVED_AGENT_ENV_PREFIXES`) are refused with
+`... configures a removed coding agent: remove it from config.toml`.
 `delivery.publish_checkpoints` is a strict boolean, enabled by default for CLI
 and web with explicit false respected; candidate-bound MR/PR
 approval remains mandatory. The reported-cost cap accepts finite nonnegative
@@ -68,9 +103,7 @@ Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
 
-- REQ-SEC-c5d56d9f / REQ-FUNC-c405688e: strict container.system_packages defaults false; native mode, unsafe host-oriented run arguments and incompatible Codex workspace sandbox presets fail validation.
-
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, a non-empty container egress allowlist, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
@@ -80,11 +113,19 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-ca17a8e8` - boolean review-state delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
+- `REQ-FUNC-06b861ec` / `REQ-FUNC-77b798cf` - `[executor] internet` and
+  `[executor.web] search` defaults and validation.
+- `REQ-FUNC-f5e692dc` - `[container.egress] mode` is refused naming the switch.
+- `REQ-SEC-e2ca6d05` / `REQ-FUNC-f801e9f3` - `egress_policy`: provider hosts
+  only while off, open while on.
+- `REQ-FUNC-2df31adf` - Pi is the only executor; `[executor]` needs a provider and a model.
+- `REQ-FUNC-78b0ad95` - configuration of another coding agent is refused with the fix.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed
   validator.
 - `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
 
 - `REQ-DATA-eebc4f88` - stage timeout overrides accept only the five executor stages.
+- `REQ-FUNC-a5d65a57` - `chatgpt` is refused for a local run and for a stage limit above 3000 s.
 
 ## Files
 
@@ -93,11 +134,6 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
 
-- `04_Software/adore/config.py`
-- `04_Software/tests/test_config.py`
-
-## Background rule subprocess
-
-Branch rule evaluation uses shared automatic environment/no-console helpers,
-with the existing bounded JSON-stdin protocol and explicit error findings.
-Focused proof: test_automatic_processes.py and test_branch_naming.py.
+- `04_Software/adore/config.py`, `04_Software/adore/pi_providers.py`
+- `04_Software/adore/chatgpt.py` (`MAX_STAGE_SECONDS`)
+- `04_Software/tests/test_config.py`, `04_Software/tests/test_pi_providers.py` (the `chatgpt` refusals)

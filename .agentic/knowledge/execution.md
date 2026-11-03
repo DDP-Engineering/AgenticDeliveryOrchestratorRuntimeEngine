@@ -15,11 +15,11 @@ to `orchestrator.md`; CLI/GUI selection belongs to `cli.md`/`web-interface.md`.
 
 ## Purpose and boundaries
 
-Provide the shared backend contract and container preparation file runner. `ExecutionBackend` supplies paths/shell, executor homes/auth destinations, provision/tool checks, resource/image identity, bound commands and owned stop/interrupt/remove. `ContainerBackend` implements existing ContainerManager semantics. `BoundTarget` verifies pinned identity before each command. `run_preparation_step` transmits file scripts, validates receipts and preserves typed incomplete results; standalone `preparation_runner.py` drains bounded redacted streams and enforces process-group timeouts. The conductor owns order, budgets, recovery and publication.
+Provide the shared backend contract and container preparation file runner. `ExecutionBackend` supplies paths/shell, the executor environment (`executor_environment()`, no argument: `{}` for a container, the native account environment for local), provision/tool checks, resource/image identity, bound commands and owned stop/interrupt/remove. `ContainerBackend` implements existing ContainerManager semantics. `BoundTarget` verifies pinned identity before each command. `run_preparation_step` transmits file scripts, validates receipts and preserves typed incomplete results; standalone `preparation_runner.py` drains bounded redacted streams and enforces process-group timeouts. The conductor owns order, budgets, recovery and publication.
 
 ## Public interface
 
-`ExecutionBackend` supplies paths/shell, executor homes/auth destinations, provision/tool checks, resource/image identity, bound commands and owned stop/interrupt/remove. `ContainerBackend` implements existing ContainerManager semantics. `BoundTarget` verifies pinned identity before each command. `run_preparation_step` transmits file scripts, validates receipts and preserves typed incomplete results; standalone `preparation_runner.py` drains bounded redacted streams and enforces process-group timeouts. The conductor owns order, budgets, recovery and publication.
+`ExecutionBackend` supplies paths/shell, the executor environment (`executor_environment()`, no argument: `{}` for a container, the native account environment for local), provision/tool checks, resource/image identity, bound commands and owned stop/interrupt/remove. `ContainerBackend` implements existing ContainerManager semantics. `BoundTarget` verifies pinned identity before each command. `run_preparation_step` transmits file scripts, validates receipts and preserves typed incomplete results; standalone `preparation_runner.py` drains bounded redacted streams and enforces process-group timeouts. The conductor owns order, budgets, recovery and publication.
 
 ## Invariants
 
@@ -97,3 +97,5 @@ container-isolation, package, native and conductor regressions. Disposable real
 Docker acceptance verified writer removal, same-ID/image deferred restart,
 dependency marker retention and writable IO with network none/user adore. This
 marker check is separate from live agent package-installation acceptance.
+
+`BoundTarget.spawn` admits or resumes the verified container and addresses its immutable ID. `settle_timeout` quiesces RPC descendants and records same-resource restart eligibility; failed confirmation blocks further commands and spawns.

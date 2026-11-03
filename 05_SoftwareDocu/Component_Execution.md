@@ -117,3 +117,5 @@ container-isolation, package, native and conductor regressions. Disposable real
 Docker acceptance verified writer removal, same-ID/image deferred restart,
 dependency marker retention and writable IO with network none/user adore. This
 marker check is separate from live agent package-installation acceptance.
+
+`BoundTarget.spawn` admits or resumes the verified container and addresses its immutable ID. `settle_timeout` quiesces RPC descendants and records same-resource restart eligibility; failed confirmation blocks further commands and spawns.

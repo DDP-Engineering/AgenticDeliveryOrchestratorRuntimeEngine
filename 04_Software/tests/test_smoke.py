@@ -24,7 +24,7 @@ from pathlib import Path
 from adore import __version__, metrics
 from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.config import load_config
-from adore.executor.launcher import OpencodeExecutor, build_executor
+from adore.executor.launcher import PiExecutor, build_executor
 from adore.forge import ForgeError
 from adore.orchestrator import LockHeldError
 from adore.process_log import ProcessLogger, process_log_path
@@ -42,9 +42,9 @@ repo = "group/project"
 repo_path = "../runtime-project"
 root      = "__WORKTREE_ROOT__"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -106,14 +106,12 @@ def test_version_present() -> None:
     assert __version__
 
 
-def test_build_executor_opencode() -> None:
+def test_build_executor_pi() -> None:
     """
-    @brief   The factory returns an opencode executor and rejects unknown kinds.
+    @brief   The factory returns the Pi executor, ADORE's only coding agent.
     """
-    executor = build_executor("opencode", "opencode run {prompt}", "openai/gpt-5.4-fast")
-    assert isinstance(executor, OpencodeExecutor)
-    with pytest.raises(ValueError):
-        build_executor("nope", "", "")
+    executor = build_executor("pi -p {prompt}", "openai/gpt-5.4-fast")
+    assert isinstance(executor, PiExecutor)
 
 
 def test_cli_config_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -324,7 +322,7 @@ def test_cli_report_and_rebuild_reject_conflicting_usage(
     store.save(RunState(run_id="a-clean", ticket_iid=2, lifecycle="done"))
     store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
     usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
-             "executor": "codex", "model": "example", "review_round": 0,
+             "executor": "pi", "model": "example", "review_round": 0,
              "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
              "cost_reported": True}
     store.journal("run-1", "usage", **usage)
@@ -346,7 +344,7 @@ def test_cli_rebuild_replays_usage_idempotently_without_changing_run_state(
     state = StateStore(tmp_path / ".adore")
     state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
     usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
-             "executor": "codex", "model": "local/test", "review_round": 0,
+             "executor": "pi", "model": "local/test", "review_round": 0,
              "tokens_in": 7, "tokens_out": 3, "cost_usd": 0,
              "cost_reported": False}
     state.journal("run-1", "usage", **usage)

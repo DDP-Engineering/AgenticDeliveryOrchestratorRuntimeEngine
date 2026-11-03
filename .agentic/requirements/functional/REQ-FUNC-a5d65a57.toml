@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-a5d65a57"
+
+title = "Refuse ChatGPT for a local run or a stage limit beyond the token life"
+
+status = "active"
+
+requirement = """If a configuration with `[executor] provider = "chatgpt"` sets `[execution] backend = "local"`, `[budgets] per_gate_timeout_seconds` above 3000 or a `[workflow] stage_timeout_overrides` entry above 3000, then ADORE shall refuse it with a message naming that key, because a ChatGPT access token lasts about an hour and is refreshed only between stages."""
+
+verification = "Configuration tests: chatgpt with backend local, per_gate 3001 and an override of 3001 each report their key; chatgpt with 3000 and backend container is accepted; an API-key provider with 3601 is accepted."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/chatgpt.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_chatgpt_is_refused_for_a_local_run_and_stage_limits_beyond_the_token"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

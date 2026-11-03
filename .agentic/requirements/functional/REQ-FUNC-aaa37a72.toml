@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-aaa37a72"
+
+title = "Report internet-dependent readiness"
+
+status = "active"
+
+requirement = """
+When an administrator runs a project's readiness check, ADORE shall add the check egress_proxy (the egress proxy image is present) for a container project with internet off and the check web_search_key (the search key is set) for a project with internet on and search brave or tavily.
+"""
+
+verification = "Automated web tests run the readiness check for an internet-off container project with and without the proxy image, for an internet-on brave project with and without BRAVE_API_KEY, and for an internet-on exa project, observing exactly the expected checks and verdicts; the web client accepts and labels the new checks."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/readiness.ts", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/enrollmentCopy.ts"]
+
+linked_tests = ["04_Software/tests/test_web_chatgpt.py::test_readiness_reflects_the_internet_switch", "04_Software/web/tests/readiness.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

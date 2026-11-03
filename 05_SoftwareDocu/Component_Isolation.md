@@ -74,8 +74,9 @@ guardrails, not a sandbox.
 - `IsolationError` - typed fail-closed error carrying argv + stderr.
 
 `pull_never=True` adds `--pull=never` to executor and allowlist-proxy container
-creation. The web endpoint probe uses it after local image inspection so an
-explicit readiness check cannot fetch images at first use. The default keeps
+creation. The web readiness check and the explicit AI connection test use it
+after local image inspection so an explicit check cannot fetch images at
+first use. The default keeps
 the conductor's existing image policy.
 
 `interrupt(name)` uses a two-second runtime stop grace with a 20-second host
@@ -143,8 +144,9 @@ replacing resources to change a mount.
   `--env KEY` and the values travel via the runtime CLI's own process
   environment, so `docker run` command lines (process listings, journals)
   never contain a key.
-- **Safe runtime values go inline:** ADORE-managed author/Home/Codex variables
-  plus common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
+- **Safe runtime values go inline:** ADORE-managed Git/Home/Pi variables
+  (`PI_CODING_AGENT_DIR`, `PI_OFFLINE`, `PI_TELEMETRY`,
+  `PI_SKIP_VERSION_CHECK`), proxy variables and common uv runtime controls (`UV_LINK_MODE`, `UV_CACHE_DIR`,
   `UV_PROJECT_ENVIRONMENT`) are non-secret and are passed as
   `--env KEY=value`. This keeps wrapped Docker/Podman runtimes from dropping
   them between create-time and exec-time launches. Other configured env still
@@ -179,30 +181,42 @@ replacing resources to change a mount.
   and with it the single-threaded poll loop, forever. Callers needing more
   room pass their own budget (an executor gate launch passes
   `[budgets] per_gate_timeout_seconds` or its `[workflow]` stage override).
-- **Executor egress:** `[container.egress] mode = "open"` provides unrestricted
-  network access. `none` adds `--network none`. `allowlist-proxy` creates an
-  internal per-run network, starts a per-run proxy container from
-  `Dockerfile.egress-proxy`, connects it to that network as
-  `adore-egress-proxy`, starts the executor only on the internal network, and
-  injects uppercase/lowercase proxy environment variables at provision and
-  exec time. Squid writes inside its owned `/var/log/squid` directory so it
-  can start after dropping privileges to the `proxy` user.
+- **Executor egress:** the `egress` argument is the `EgressPolicy` that
+  `config.egress_policy` derives from `[executor] internet`; this component
+  does not read the switch. Mode `open` (internet on) provides unrestricted
+  network access. `allowlist-proxy` (internet off) creates an internal per-run
+  network, starts a per-run proxy container from `Dockerfile.egress-proxy`,
+  connects it to that network as `adore-egress-proxy`, starts the executor
+  only on the internal network, and injects uppercase/lowercase proxy
+  environment variables at provision and exec time. The generated
+  `squid.conf` admits host names (exact, or `*.` wildcards as `.domain`) with a
+  `dstdomain` ACL and IP-address entries (such as `192.168.1.20` or `::1`) with
+  a `dst` ACL, then `http_access deny all`. The proxy container also gets the
+  `--add-host` options of `run_args` (`_proxy_host_args`), so an alias such as
+  `host.docker.internal:host-gateway` resolves where the connection is opened.
+  `none` adds `--network none`; it is still supported here, but no
+  configuration selects it. Squid writes inside its owned `/var/log/squid`
+  directory so it can start after dropping privileges to the `proxy` user.
 - Windows host paths are normalized (`Path.as_posix()`) for mount syntax.
 - Commit authorship comes from `agent.name` / `agent.email` via
-  `GIT_AUTHOR_*` / `GIT_COMMITTER_*`; credential and host-auth boundaries are
+  `GIT_AUTHOR_*` / `GIT_COMMITTER_*`; credential boundaries are
   documented in `01_Documentation/Security_And_Credentials.md`.
 
 ## 4. Dependencies
 
 - Internal: `adore.util` (`CommandRunner`, `CommandResult`, `run_command`);
   values from `[worktree]` (`repo_path`, `root`) and `[container]`
-  (`runtime`, `image`, cache volumes, `egress`) config.
+  (`runtime`, `image`, cache volumes) config, and the `EgressPolicy` from
+  `config.egress_policy`.
 - External: `git` on the host; Docker or Podman - native or wrapped (Docker
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
   `adore-executor-base:1.0.0` image (built from
   `docker/Dockerfile.executor-base`: Ubuntu 22.04, Python 3.11 + uv, Node
-  24, git with `safe.directory *`, opencode/pi/codex/qwen CLIs as configured,
+  22.23.4, git with `safe.directory *`, Pi 1.4.0 and pi-web-access 0.46.0
+  under `/opt/pi` with ADORE's guard extension (Pi is the only coding agent),
   glab/gh, non-root user `adore`) or a runtime-project image derived from it.
+  `ContainerManager.spawn` starts a streaming `exec -i` command with `exec`'s
+  environment rules (Pi's RPC launch); the caller bounds and ends it.
 
 ## 5. Inputs And Outputs
 
@@ -248,7 +262,7 @@ replacing resources to change a mount.
   run inside the provisioned container. Failure raises `IsolationError`, so a
   profile with the wrong runtime-project image fails before any executor gate
   starts.
-- `[container.egress] allowlist-proxy` writes generated Squid config under the
+- The `allowlist-proxy` policy writes generated Squid config under the
   run IO directory, uses one proxy container named
   `<bounded executor name, at most 50>-egress-proxy` (at most 63 characters),
   and one network named `<network_prefix>-<bounded executor name, at most 48>`.
@@ -262,7 +276,7 @@ replacing resources to change a mount.
   from a retained executor. Containers and networks named by earlier builds are
   not recognised; an operator removes such leftovers by hand (see
   `01_Documentation/Recovery_And_Maintenance.md`). The network sweep checks the
-  canonical `adore-egress` prefix even after the current profile changes mode,
+  canonical `adore-egress` prefix even after the profile switches internet on,
   plus the current configured prefix; it never guesses arbitrary other
   prefixes.
 
@@ -292,9 +306,8 @@ env = build_container_env(worktrees.admin_dir_name("gitlab-x-14"),
 env["UV_LINK_MODE"] = "copy"              # non-secret runtime behavior
 env["ANTHROPIC_API_KEY"] = "..."          # executor's secret subset only
 containers.ensure_volumes()
-containers.provision("adore-run-gitlab-x-14", "../project", path,
-                     ".adore/runs/gitlab-x-14/io", env)
-result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
+containers.provision("adore-run-gitlab-x-14", "../project", path, env)
+result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
 ```
 
 ## 9. Validation And Tests
@@ -310,25 +323,40 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   `--env KEY`, secret value absent from argv but present in process env),
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed
   stop/remove, volume creation, and exec-returns-data; Windows drive-path
-  translation and wrapped-runtime mount construction on both host OSes.
+  translation and wrapped-runtime mount construction on both host OSes;
+  `test_proxy_config_admits_names_by_domain_and_addresses_by_dst` covers the
+  generated Squid ACLs.
 - `tests/test_orchestrator.py` covers the conductor's use of these seams:
   checkpoint commits after each stage and after its own verification, the
   candidate fingerprint that binds approval, and one push of the approved
   candidate at publication.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
-- `tests/test_container_git.py` covers native binding construction, metadata
-  filtering, selected-mode evidence, pointer corruption, exact acknowledgement,
-  Docker/Podman/WSL transport and preservation of warm resources with fake CLIs.
-- Controlled manual Docker acceptance creates disposable source and linked
-  worktree fixtures, commits in independent and nested repositories, checks
-  unchanged main HEAD/index/host pointer, and exercises same-ID running/stopped
-  reuse. Runtime-specific execution evidence belongs in the task journal.
+- `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime. Its
+  open-egress path covers 17 steps and its allowlist-proxy path covers 21,
+  mirroring every runtime CLI call this component makes: mount/env shape,
+  bare-key secrets, HOME inline, executor-base tool usability, proxy allow and
+  deny behavior, optional runtime-project tool checks, in-container git with
+  host-visible commits, park/resume, listing, reap, and absence. The ADORE
+  1.0.0 images passed Docker open mode (17/17), Docker allowlist-proxy mode
+  (21/21), and rootless Podman open mode (17/17) on 2026-07-16.
+- **Live verification done 2026-07-03** (Docker Engine in WSL2, scratch repo,
+  19/19 steps): image build and
+  tooling checks, WSLENV secret propagation, git status/commit **inside** the
+  container via the GIT_DIR/GIT_WORK_TREE model with the commit visible on
+  the host under bot authorship, park -> resume with state intact, full
+  teardown.
+- **Internet switch, live 2026-11-03** (Docker Engine in WSL2): internet off
+  reached the model provider through the per-run proxy, while
+  `curl https://example.com` got 403 from the proxy, `npm install` was refused
+  and `web_search` was not available; internet on searched through Exa, read a
+  Wikipedia page with `fetch_content`, and `npm install` and `pip install`
+  succeeded.
 
 ## 10. Limitations And Future Work
 
 - The repo clone is mounted read-write into the executor container (commits
   need the shared object store). The executor cannot push (no credentials in
-  the container; opencode denies push), but a misbehaving executor could
+  the container; ADORE's Pi guard blocks `git push`), but a misbehaving executor could
   damage the *local* clone - acceptable for v1 since the clone is
   disposable; re-clone recovers it.
 - Historical containers keep their creation-time environment during warm reuse.
@@ -337,7 +365,7 @@ result = containers.exec("adore-run-gitlab-x-14", ["opencode", "--version"])
   only through the established lifecycle and operator actions.
 - Container-runtime limits can be supplied through `[container] run_args`, for
   example `--memory=2g` or `--cpus=2`. Egress networking is separately owned
-  by `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
+  by `[executor] internet` and `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
   not implemented.
 - Docker UID/GID mapping: the executor base image is built with
   `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so the
@@ -371,3 +399,5 @@ Windows command runner. Focused proof: container exec/env and WSL tests in
 ## Agent-controlled system packages
 
 ContainerManager.authorize_system_packages uses fixed code and root-owned OS Python on the exact owned container ID, measures a non-root UID and requires exact success output. It grants direct package-manager sudo without installing packages or modifying egress. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+
+Interactive Pi RPC spawn shares exec environment filtering: inherited repository selectors are removed, automatic child pager settings apply, secrets travel only through the client environment and Windows clients suppress console allocation.

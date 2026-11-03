@@ -23,11 +23,10 @@ All command execution uses CommandRunner; tests fake external CLIs.
 
 ## Public interface
 
-`detect_all`, `detect_git`, `detect_platform_cli`, `detect_runtimes`,
-`detect_executor`, `detect_push_access`, `detect_gitignore` and `detect_aegis`
-return typed readiness results. `guidance_for` supplies OS-specific instructions.
-`auth_status(kind, runner, external_auth=True)` verifies forge authentication;
-Gitea shares portable tea discovery unless its caller already owns the scope.
+`detect_aegis()` returns an `AegisStatus`, `aegis_version_supported()` answers
+for one `aegis --version` text, and `guidance_for()` returns the per-platform
+remedy text, which names the supported range (`AEGIS_SUPPORTED_TEXT`) and
+schema 1. `detect_executor()` probes Pi (`doctor.PI`) with `pi --version`.
 
 ## Invariants
 

@@ -33,11 +33,13 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Sequence
 import hashlib
+import ipaddress
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import shlex
 import stat
+import subprocess
 import time
 
 from adore.branding import (
@@ -50,12 +52,13 @@ from adore.branding import (
     EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_ALIAS,
 )
-from adore.config import SELINUX_RELABEL_OPTIONS, ContainerEgressConfig
+from adore.config import SELINUX_RELABEL_OPTIONS, EgressPolicy
 from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
     CommandRunner,
     automatic_environment,
+    background_process_options,
     run_command,
     strict_json_loads,
 )
@@ -104,7 +107,10 @@ _INLINE_ENV_KEYS = frozenset({
     "GIT_AUTHOR_EMAIL",
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
-    "CODEX_HOME",
+    "PI_CODING_AGENT_DIR",
+    "PI_OFFLINE",
+    "PI_TELEMETRY",
+    "PI_SKIP_VERSION_CHECK",
     "UV_CACHE_DIR",
     "UV_LINK_MODE",
     "UV_PROJECT_ENVIRONMENT",
@@ -230,7 +236,7 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         # Force the container user's home explicitly: some daemons (Docker
         # Engine in WSL2) inject the host user's HOME into every container,
         # overriding the image and breaking every HOME-based cache - tflint's
-        # bundled plugin, uv, npm, opencode auth (live finding 2026-07-04).
+        # bundled plugin, uv, npm, agent auth (live finding 2026-07-04).
         "HOME": CONTAINER_HOME,
         "GIT_DIR": f"{CONTAINER_REPO_MOUNT}/.git/worktrees/{git_dir_name}",
         "GIT_COMMON_DIR": f"{CONTAINER_REPO_MOUNT}/.git",
@@ -940,7 +946,7 @@ class ContainerManager:
         runner: CommandRunner = run_command,
         *,
         run_args: Sequence[str] = (),
-        egress: ContainerEgressConfig | None = None,
+        egress: EgressPolicy | None = None,
         selinux_relabel: str = "off",
         pull_never: bool = False,
     ) -> None:
@@ -958,7 +964,8 @@ class ContainerManager:
         @param[in]  run_args Extra option tokens for `<runtime> run`
                              ([container] run_args; e.g. "--userns=keep-id"
                              for rootless podman, live finding 2026-07-04).
-        @param[in]  egress Optional egress policy for executor containers.
+        @param[in]  egress Optional egress policy for executor containers
+                    (`config.egress_policy`; default open).
         @param[in]  selinux_relabel [container] selinux_relabel mode; "shared"
                              appends `z` to every host bind mount so an
                              SELinux-enforcing host lets the container read
@@ -981,7 +988,7 @@ class ContainerManager:
         self.npm_cache_volume = npm_cache_volume
         self.runner = runner
         self.run_args = [str(arg) for arg in run_args]
-        self.egress = egress or ContainerEgressConfig()
+        self.egress = egress or EgressPolicy()
         self.selinux_relabel = selinux_relabel
         self.pull_never = pull_never
 
@@ -1250,7 +1257,7 @@ class ContainerManager:
                     never appear in argv: secret env keys are passed as bare
                     `--env KEY` and the values travel via the runtime CLI's
                     own process environment. Safe runtime variables (HOME,
-                    CODEX_HOME and bot identity) are passed
+                    Git mount paths, Pi agent settings, bot identity) are passed
                     inline so they survive wrapped runtimes consistently. In
                     WSL mode the mount sources are translated to /mnt/<drive>/
                     form and bare env keys are additionally listed in WSLENV
@@ -1322,8 +1329,8 @@ class ContainerManager:
             env = {**env, **self._proxy_env()}
         # Safe runtime values go inline: they are not secrets, and the
         # bare-key/WSLENV path is brittle across wrapped runtimes (HOME is
-        # reset by login shells; CODEX_HOME was dropped by the WSL/Podman
-        # path in the Codex pilot). Bare keys stay reserved for secrets.
+        # reset by login shells; an agent home variable was dropped by
+        # the WSL/Podman path in an earlier pilot). Bare keys stay reserved for secrets.
         secret_env = _without_git_selection(env)
         for key in _INLINE_ENV_KEYS:
             value = secret_env.pop(key, None)
@@ -1543,7 +1550,101 @@ class ContainerManager:
         """
         if timeout is None:
             timeout = DEFAULT_COMMAND_TIMEOUT
-        full = [*self.runtime_argv, "exec"]
+        full, process_env = self._exec_command(name, argv, env, interactive=False)
+        return self.runner(full, timeout=timeout, env=process_env)
+
+    def spawn(
+        self,
+        name: str,
+        argv: Sequence[str],
+        *,
+        env: dict[str, str] | None = None,
+        popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+    ) -> subprocess.Popen:
+        """
+        @brief      Start a long-lived command inside the container with live pipes.
+        @details    The streaming counterpart of `exec` for executors driven over
+                    stdin/stdout (Pi's RPC mode): `exec -i` keeps the command's
+                    stdin attached, and the environment follows exactly `exec`'s
+                    rules (safe values inline, secret values only in the client
+                    process environment). The caller owns the process: it bounds
+                    the run and ends it. Closing stdin, or ending the client,
+                    closes the command's stdin inside the container.
+        @param[in]  name Container name.
+        @param[in]  argv Command and arguments to run inside.
+        @param[in]  env Optional exec-time env, as for `exec`.
+        @param[in]  popen Process factory (tests inject a recorder).
+        @return     The started client process with binary stdin/stdout/stderr pipes.
+        @exception  OSError When the runtime client cannot be started.
+        """
+        full, process_env = self._exec_command(name, argv, env, interactive=True)
+        return popen(  # noqa: S603 - fixed argv, no shell
+            full,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=process_env,
+            **background_process_options(),
+        )
+
+    def helper_command(
+        self,
+        name: str,
+        argv: Sequence[str],
+        *,
+        mount: tuple[str | Path, str],
+        env: dict[str, str],
+        interactive: bool = False,
+    ) -> list[str]:
+        """
+        @brief      Command line of a one-off ADORE helper container from the image.
+        @details    `<runtime> run --rm` with exactly one host bind mount (the
+                    SELinux relabel applies as for run containers), working
+                    directory on that mount, the configured run_args, never an
+                    implicit pull, and the default network: a helper is ADORE's
+                    own tool, not the agent. Its environment holds no secret,
+                    so every value is passed inline. The first argv element is
+                    the entrypoint. The caller bounds the process and removes
+                    the container by `name` if it has to stop it.
+        @param[in]  name Container name for a forced removal.
+        @param[in]  argv Entrypoint and its arguments inside the image.
+        @param[in]  mount (host directory, container directory).
+        @param[in]  env Non-secret environment.
+        @param[in]  interactive Attach stdin (`-i`) for a helper that reads it.
+        @return     The full argv, runtime prefix included.
+        """
+        source, target = mount
+        full = [*self.runtime_argv, "run", "--rm", *(["-i"] if interactive else []),
+                "--name", name, *self.run_args, "--pull=never",
+                "--volume", self._bind_mount(source, target), "--workdir", target]
+        for key, value in env.items():
+            full += ["--env", f"{key}={value}"]
+        return [*full, "--entrypoint", str(argv[0]), self.image, *[str(part) for part in argv[1:]]]
+
+    def remove_helper(self, name: str) -> None:
+        """
+        @brief      Force-remove a helper container by name, best effort.
+        @param[in]  name Helper container name.
+        """
+        self.runner([*self.runtime_argv, "rm", "--force", name])
+
+    def _exec_command(
+        self,
+        name: str,
+        argv: Sequence[str],
+        env: dict[str, str] | None,
+        *,
+        interactive: bool,
+    ) -> tuple[list[str], dict[str, str] | None]:
+        """
+        @brief      Build one `exec` argv and the client process environment.
+        @param[in]  name Container name.
+        @param[in]  argv Command and arguments to run inside.
+        @param[in]  env Optional exec-time env; safe keys inline, secrets bare.
+        @param[in]  interactive Attach stdin (`-i`) for a streaming command.
+        @return     (full argv, process env or None when no env is passed).
+        """
+        full = [*self.runtime_argv, "exec", *(["-i"] if interactive else [])]
         exec_env = automatic_environment(_without_git_selection(env or {}))
         if self.egress.mode == "allowlist-proxy":
             exec_env.update(self._proxy_env())
@@ -1560,7 +1661,7 @@ class ContainerManager:
             existing = process_env.get("WSLENV", "")
             shared = ":".join(secret_env)
             process_env["WSLENV"] = f"{existing}:{shared}" if existing else shared
-        return self.runner(full, timeout=timeout, env=process_env if exec_env else None)
+        return full, process_env if exec_env else None
 
     # -- internals ------------------------------------------------------------------
 
@@ -1654,6 +1755,22 @@ class ContainerManager:
             "no_proxy": no_proxy,
         }
 
+    def _proxy_host_args(self) -> list[str]:
+        """
+        @brief      The `--add-host` options of run_args, for the proxy container.
+        @details    A host alias the executor uses (such as
+                    host.docker.internal on a Docker Engine) must resolve in
+                    the proxy too, because the proxy opens the connection.
+        @return     The options in their original spelling and order.
+        """
+        args: list[str] = []
+        for index, arg in enumerate(self.run_args):
+            if arg.startswith("--add-host="):
+                args.append(arg)
+            elif arg == "--add-host" and index + 1 < len(self.run_args):
+                args += [arg, self.run_args[index + 1]]
+        return args
+
     def _squid_domain(self, pattern: str) -> str:
         """
         @brief      Convert an ADORE hostname pattern to Squid dstdomain form.
@@ -1665,18 +1782,36 @@ class ContainerManager:
     def _write_proxy_config(self, io_path: str | Path) -> Path:
         """
         @brief      Write the per-run Squid allowlist configuration.
+        @details    Host names (exact or `*.` wildcards) are admitted by
+                    destination domain, IP addresses (an endpoint such as
+                    192.168.1.20) by destination address; everything else is
+                    denied.
         @param[in]  io_path Run IO directory.
         @return     Host path to the generated Squid config.
         """
         proxy_dir = Path(io_path) / "egress-proxy"
         proxy_dir.mkdir(parents=True, exist_ok=True)
-        domains = " ".join(self._squid_domain(host) for host in self.egress.allowlist)
+        addresses, names = [], []
+        for host in self.egress.allowlist:
+            try:
+                ipaddress.ip_address(host)
+            except ValueError:
+                names.append(self._squid_domain(host))
+            else:
+                addresses.append(host)
+        rules = []
+        if names:
+            rules += [f"acl allowed_domains dstdomain {' '.join(names)}",
+                      "http_access allow allowed_domains"]
+        if addresses:
+            rules += [f"acl allowed_addresses dst {' '.join(addresses)}",
+                      "http_access allow allowed_addresses"]
         config_path = proxy_dir / "squid.conf"
         config_path.write_text(
             "\n".join([
                 f"http_port {self.egress.proxy_port}",
-                f"acl allowed_domains dstdomain {domains}",
-                "http_access allow allowed_domains",
+                *[rule for rule in rules if rule.startswith("acl")],
+                *[rule for rule in rules if rule.startswith("http_access")],
                 "http_access deny all",
                 "access_log stdio:/var/log/squid/access.log",
                 "cache_log /var/log/squid/cache.log",
@@ -1709,6 +1844,7 @@ class ContainerManager:
             self._run([
                 *self.runtime_argv, "run", "--detach",
                 *(["--pull=never"] if self.pull_never else []),
+                *self._proxy_host_args(),
                 "--name", proxy_name,
                 "--volume", self._bind_mount(config_path, "/etc/squid/squid.conf", "ro"),
                 self.egress.proxy_image,

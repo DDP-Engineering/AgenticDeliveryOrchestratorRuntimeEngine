@@ -39,8 +39,7 @@ MAX_TEXT = 100
 MAX_TOPIC = 40
 MAX_PER_CATEGORY = 10
 # Product names written in CamelCase are plain language, not code identifiers; add new ones here.
-PRODUCT_NAMES = frozenset({"GitHub", "GitLab", "OpenCode", "PolyForm", "JavaScript", "PowerShell",
-                           "macOS"})
+PRODUCT_NAMES = frozenset({"GitHub", "GitLab", "PolyForm", "JavaScript", "PowerShell", "macOS"})
 _VERSION = re.compile(r"\d+\.\d+\.\d+")
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _TECHNICAL = (

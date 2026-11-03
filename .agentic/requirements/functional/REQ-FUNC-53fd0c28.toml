@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-53fd0c28"
+
+title = "Tell the agent when internet access is off"
+
+status = "active"
+
+requirement = """
+While `[executor] internet` is false, a container Pi launch shall not load pi-web-access and shall append a system-prompt notice that only the model provider is reachable and that web search, page reading and downloads are unavailable.
+"""
+
+verification = "An automated launcher test runs a gate with internet off and observes no pi-web-access `-e`, no web-search.json copy and an `--append-system-prompt` argument with the notice; with internet on the notice is absent."
+
+affected_paths = ["04_Software/adore/executor/launcher.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_tells_the_agent_when_internet_is_off", "04_Software/tests/test_pi_rpc.py::test_pi_executor_loads_web_tools_when_internet_is_on"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Without a notice the model keeps retrying unreachable tools."
+
+created = 2026-11-03
+updated = 2026-11-03

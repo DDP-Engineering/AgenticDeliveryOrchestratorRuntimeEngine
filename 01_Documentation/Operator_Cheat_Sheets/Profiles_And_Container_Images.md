@@ -49,13 +49,13 @@ for daily interactive work after you trust the selection.
 
 | Layer | What belongs there | Example |
 | --- | --- | --- |
-| ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and executor CLIs. | `adore-executor-base:1.0.0` |
+| ADORE executor base | Shared executor tooling such as Python, Node, git, uv, and the pinned Pi coding agent. | `adore-executor-base:1.0.0` |
 | Runtime-project image | AEGIS prerequisites plus project build, test, and verification tools and caches. | `adore-executor-<runtime-project>:<tag>` |
 | Per-run container | One isolated claim of one ticket. | Created by ADORE; a failed run retains it for explicit retry or cleanup. |
 
 Do not put secrets into images. Model provider keys and forge tokens belong in
-the host environment or `.env`, and only configured `env_keys` reach the
-executor container.
+the host environment or `.env`, and only the configured provider's key
+variable and `env_keys` reach the executor container.
 
 ## Select The Image In The Profile
 
@@ -92,10 +92,13 @@ read the mounted clone or worktree and every stage fails on permission denied:
 selinux_relabel = "shared"
 ```
 
-The `allowlist-proxy` egress mode additionally needs Podman 4.0 or newer with
-the netavark backend, because the executor reaches the proxy by DNS alias on an
-internal network. Ubuntu 22.04 packages Podman 3.4, which cannot serve that
-alias; check `podman --version` before choosing that mode there.
+A project with internet access for the agent Off (`[executor] internet =
+false`, the default) runs behind a per-run egress proxy and additionally needs
+Podman 4.0 or newer with the netavark backend, because the executor reaches the
+proxy by DNS alias on an internal network. Ubuntu 22.04 packages Podman 3.4,
+which cannot serve that alias; check `podman --version` there, and build the
+proxy image (`proxy_image`, from `docker/Dockerfile.egress-proxy`) before the
+first run.
 
 ## Image Readiness Check
 

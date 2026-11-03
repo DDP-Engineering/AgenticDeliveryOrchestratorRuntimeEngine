@@ -6,9 +6,9 @@
 schema = 1
 id = "REQ-SEC-eaad89c3"
 title = "Isolate local OpenCode commands from the account's personal OpenCode configuration home"
-status = "active"
+status = "retired"
 requirement = """
-When ADORE builds the environment for a native local command of a profile whose default executor is OpenCode, ADORE shall set XDG_CONFIG_HOME to the ADORE-managed directory executor-config under the profile's state root and set OPENCODE_DISABLE_CLAUDE_CODE to 1, so that OpenCode reads no configuration from the account's personal configuration home (agents, prompts, MCP servers, plugins, providers, model overrides, small model) and no Claude Code compatibility content, while XDG_DATA_HOME, and with it the existing OpenCode sign-in, stays unchanged.
+When ADORE builds the environment for a native local command of a profile whose default executor is OpenCode, ADORE shall set XDG_CONFIG_HOME to the ADORE-managed directory executor-config under the profile's state root and set OPENCODE_DISABLE_CLAUDE_CODE to 1, so that OpenCode reads no configuration from the account's personal configuration home (agents, prompts, MCP servers, plugins, providers, model overrides, small model) and no Claude Code compatibility content, while XDG_DATA_HOME, and with it the existing OpenCode sign-in, stays unchanged. Retired 2026-11-02: OpenCode support was removed; local OpenCode isolation no longer exists.
 """
 verification = "Offline: with an OpenCode local profile, the environment returned for gates and probes has XDG_CONFIG_HOME equal to <state root>/executor-config and OPENCODE_DISABLE_CLAUDE_CODE=1 and keeps the process XDG_DATA_HOME; with a Codex local profile neither managed entry is present. Native: on a host whose personal OpenCode configuration sets bash and edit to ask, `opencode debug agent build` under that environment resolves bash and edit to allow and lists no agent from the personal configuration home."
 affected_paths = ["04_Software/adore/local_execution.py"]
@@ -17,4 +17,4 @@ spec = ""
 priority = "high"
 rationale = "Non-interactive OpenCode runs auto-reject tool calls the personal configuration marks ask, and personal setup makes jobs non-reproducible."
 created = 2026-10-31
-updated = 2026-11-01
+updated = 2026-11-02

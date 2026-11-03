@@ -8,13 +8,13 @@ id = "REQ-FUNC-8f369d55"
 title = "Prove a shell tool call in the local Test AI connection"
 status = "active"
 requirement = """
-When an administrator runs Test AI connection for a native local profile whose default executor is OpenCode, Pi or Codex, ADORE shall report ready only when the configured executor, given one challenge to run echo <tool nonce> with its shell tool and then reply with <reply nonce>, produced a completed, successful shell tool call whose output contains the tool nonce and a completed final reply equal to the reply nonce, as specified per executor.
+When an administrator runs Test AI connection for a native local profile, ADORE shall report ready only when the installed Pi run with the configured command, given one challenge to run echo <tool nonce> with its shell tool and then reply with <reply nonce>, produced a completed, successful shell tool call whose output contains the tool nonce and a completed final reply equal to the reply nonce.
 """
-verification = "Offline: recorded OpenCode, Pi and Codex event streams with a completed shell call carrying the tool nonce and the exact final reply report ready; the same streams without the reply, with a different final reply, or with the nonce only in the reply report not ready; a Qwen local profile and a container profile still use the no-tool challenge. Native: on this Windows host each of the three executors passes against a live model."
+verification = "Offline: a recorded Pi event stream with a successful bash tool_execution_end carrying the tool nonce and a last assistant message_end with stopReason stop and the exact reply reports ready; the same stream without the reply, with a different final reply, with an earlier message carrying the nonce but a different last reply, or with the nonce only in the reply reports not ready; a container profile runs the same challenge over RPC (REQ-FUNC-9110e185). Native: on this Windows host an installed Pi passes against a live model."
 affected_paths = ["04_Software/adore/web/model_connection.py"]
-linked_tests = ["04_Software/tests/test_local_execution.py::test_local_model_challenge_requires_a_completed_shell_call", "04_Software/tests/test_local_execution.py::test_local_codex_shell_call_needs_exit_code_zero", "04_Software/tests/test_local_execution.py::test_local_pi_and_codex_judge_only_the_last_assistant_message", "04_Software/tests/test_model_connection.py::test_public_probe_challenge_protocol_and_cleanup", "04_Software/tests/test_local_execution.py::test_local_model_response_contract_all_executors", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_configured_native_cli_and_rejects_incomplete_response"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_model_challenge_requires_a_completed_shell_call", "04_Software/tests/test_local_execution.py::test_local_pi_judges_only_the_last_assistant_message", "04_Software/tests/test_model_connection.py::test_rpc_probe_reports_each_outcome_distinctly", "04_Software/tests/test_local_execution.py::test_local_model_response_contract", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_configured_native_cli_and_rejects_incomplete_response"]
 spec = "specs/REQ-FUNC-8f369d55.md"
 priority = "high"
 rationale = "A model reply alone does not show the agent can run the commands AEGIS stages need."
 created = 2026-11-01
-updated = 2026-11-01
+updated = 2026-11-02

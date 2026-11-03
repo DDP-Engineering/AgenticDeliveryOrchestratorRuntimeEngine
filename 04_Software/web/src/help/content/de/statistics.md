@@ -47,7 +47,7 @@ Zwei Kostenzahlen werden getrennt geführt, und keine ist eine Rechnung.
 - **Gemeldete Kosten** sind das, was der Executor gemeldet hat, übernommen als beobachteter Nachweis. Hat er keine gemeldet, lautet der Wert **Nicht verfügbar**.
 - **Geschätzte Kosten** sind die aufgezeichneten Token-Mengen multipliziert mit Preisen, die Administratoren festlegen. Es ist eine Schätzung, keine Rechnung und keine Ausgabengrenze.
 
-Administratoren erfassen Preise im Projekt unter **Einstellungen → Agent und Modell** bei **Schätzpreise**: Wählen Sie **Gültig ab**, geben Sie dann **Eingabe USD / 1 Mio. Token** und **Ausgabe USD / 1 Mio. Token** ein und wählen Sie **Speichern**. Ein Preis gilt für den gewählten Coding-Agenten und sein konfiguriertes Modell, legen Sie also zuerst das Modell fest. Jedes Nutzungsereignis wird nach Executor, Modell und dem Tag seines Verbrauchs bepreist. Ereignisse ohne passenden Preis werden in den Nutzungssummen als **Nutzung ohne Preis** gezählt.
+Administratoren erfassen Preise im Projekt unter **Einstellungen → Agent und Modell** bei **Schätzpreise**: Wählen Sie **Gültig ab**, geben Sie dann **Eingabe USD / 1 Mio. Token** und **Ausgabe USD / 1 Mio. Token** ein und wählen Sie **Speichern**. Ein Preis gilt für Pi und sein konfiguriertes Modell, legen Sie also zuerst das Modell fest. Jedes Nutzungsereignis wird nach Executor, Modell und dem Tag seines Verbrauchs bepreist. Ereignisse ohne passenden Preis werden in den Nutzungssummen als **Nutzung ohne Preis** gezählt.
 
 > Ein Preis mit früherem Gültigkeitsdatum kann vergangene Schätzungen ändern. Exportieren Sie eine CSV-Datei, wenn Sie eine Zahl zu einem bestimmten Zeitpunkt benötigen.
 

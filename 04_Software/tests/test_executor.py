@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file test_executor.py
-@brief Tests for the executor launcher (opencode, file-based gate protocol).
+@brief Tests for the Pi executor launcher (file-based gate protocol).
 @details No container runs; a fake exec target records the argv and simulates
          the executor by writing the output/questions files a real gate run
          would produce. Verifies the WSL-safe script protocol, session
@@ -28,10 +28,7 @@ from adore.executor.launcher import (
     GATE_SCRIPT,
     OUTPUT_FILE,
     STDERR_FILE,
-    CodexExecutor,
-    OpencodeExecutor,
     PiExecutor,
-    QwenExecutor,
     build_executor,
 )
 from adore.util import CommandResult
@@ -39,14 +36,7 @@ import pytest
 
 # CONSTANTS
 
-TEMPLATE = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 PI_TEMPLATE = "pi -p --mode json --model {model} {prompt}"
-CODEX_TEMPLATE = (
-    "codex exec --json --model {model} "
-    "--ignore-user-config --disable plugins "
-    "--dangerously-bypass-approvals-and-sandbox {prompt}"
-)
-QWEN_TEMPLATE = "qwen -p --model {model} --output-format json {prompt}"
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -105,12 +95,12 @@ def _dirs(tmp_path: Path) -> tuple[Path, Path]:
     return worktree, tmp_path / "io"
 
 
-def _executor() -> OpencodeExecutor:
+def _executor() -> PiExecutor:
     """
-    @brief   A launcher with the standard test template.
-    @return  The OpencodeExecutor.
+    @brief   A file-protocol launcher (no `spawn` seam) with the Pi template.
+    @return  The PiExecutor.
     """
-    return OpencodeExecutor(TEMPLATE, "openai/gpt-5.4-fast")
+    return PiExecutor(PI_TEMPLATE, "openai/gpt-5.4-fast")
 
 
 # PUBLIC API / TESTS
@@ -138,8 +128,7 @@ def test_gate_script_protocol_is_wsl_safe(tmp_path: Path) -> None:
     script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
     assert "\r" not in script  # LF only; CRLF breaks sh
     assert "cd /adore/work" in script
-    assert "--dir /adore/work" in script
-    assert "-m openai/gpt-5.4-fast" in script
+    assert "--model openai/gpt-5.4-fast" in script
     assert "'" in script and "Global Refresh" in script  # prompt quoted inside
     # the command is a `{ ...; }` group so redirection covers a whole compound
     # template, not just its last stage
@@ -211,7 +200,7 @@ def test_executor_failure_passes_through_as_data(tmp_path: Path) -> None:
 def test_a_silent_launch_does_not_inherit_the_previous_stream(tmp_path: Path) -> None:
     """
     @brief   A launch that produces nothing must read back as nothing.
-    @details opencode can exit 0 in a second without writing, and the live
+    @details An executor can exit 0 in a second without writing, and the live
              exchange files then still hold the PREVIOUS stage's transcript.
              Reading them attributed that stage's work to this one in the
              archive and re-counted its tokens against the cost budget (live
@@ -224,8 +213,7 @@ def test_a_silent_launch_does_not_inherit_the_previous_stream(tmp_path: Path) ->
 
     def write_previous_stage() -> None:
         (io_dir / OUTPUT_FILE).write_text(
-            '{"sessionID":"ses_design","part":{"tokens":{"input":900,"output":100},'
-            '"cost":0.5}}\n',
+            '{"type":"turn_end","message":{"usage":{"input":900,"output":100}}}\n',
             encoding="utf-8",
         )
         (io_dir / STDERR_FILE).write_text("design noise\n", encoding="utf-8")
@@ -274,7 +262,7 @@ def test_gate_launch_archive_preserves_output_and_meta(tmp_path: Path) -> None:
         archive / OUTPUT_FILE
     ).read_text(encoding="utf-8")
     assert "minor warning" in (archive / STDERR_FILE).read_text(encoding="utf-8")
-    assert "opencode run" in (archive / GATE_SCRIPT).read_text(encoding="utf-8")
+    assert "pi -p --mode json" in (archive / GATE_SCRIPT).read_text(encoding="utf-8")
     meta = json.loads((archive / "meta.json").read_text(encoding="utf-8"))
     assert meta["exit_code"] == 0
     assert meta["archive_stem"] == "001-intake"
@@ -368,180 +356,20 @@ def test_archive_write_failure_fails_gate_as_data(
     assert run.artifact_dirs == []
 
 
-def test_usage_extraction_from_event_stream(tmp_path: Path) -> None:
-    """
-    @brief   step_finish token/cost totals are summed into the GateRun;
-             malformed lines never break the gate (design 13).
-    """
-    worktree, io_dir = _dirs(tmp_path)
-
-    def write_stream() -> None:
-        (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"step_finish","part":{"tokens":{"input":100,"output":20},'
-            '"cost":0.01},"sessionID":"s"}\n'
-            "not json with tokens keyword\n"
-            '{"type":"step_finish","part":{"tokens":{"input":200,"output":30},'
-            '"cost":0.02}}\n',
-            encoding="utf-8",
-        )
-
-    run = _executor().run_gate(FakeExec(CommandResult(exit_code=0), write_stream),
-                               worktree, io_dir, "p")
-    assert run.tokens_in == 300
-    assert run.tokens_out == 50
-    assert abs(run.cost_usd - 0.03) < 1e-9
-    assert run.cost_reported is True
-
-
-def test_token_usage_without_cost_is_not_reported_as_free(tmp_path: Path) -> None:
-    """@brief Token-only output leaves monetary coverage unknown."""
-    worktree, io_dir = _dirs(tmp_path)
-
-    def write_stream() -> None:
-        (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"step_finish","part":{"tokens":{"input":10,"output":2}}}\n',
-            encoding="utf-8",
-        )
-
-    run = _executor().run_gate(
-        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p"
-    )
-    assert run.tokens_in == 10 and run.tokens_out == 2
-    assert run.cost_usd == 0.0 and run.cost_reported is False
-
-
-def test_explicit_zero_token_report_is_known_usage(tmp_path: Path) -> None:
-    """@brief A valid zero usage event is measured, unlike absent telemetry."""
-    worktree, io_dir = _dirs(tmp_path)
-
-    def write_stream() -> None:
-        (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"step_finish","part":{"tokens":{"input":0,"output":0}}}\n',
-            encoding="utf-8",
-        )
-
-    measured = _executor().run_gate(
-        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p"
-    )
-    assert measured.tokens_in == measured.tokens_out == 0
-    assert measured.tokens_reported is True
-    absent = _executor().run_gate(
-        FakeExec(CommandResult(exit_code=0)), worktree, io_dir, "p"
-    )
-    assert absent.tokens_reported is False
-
-
-def test_partial_token_report_does_not_claim_coverage(tmp_path: Path) -> None:
-    """@brief A missing category does not turn partial telemetry into fact."""
-    worktree, io_dir = _dirs(tmp_path)
-
-    def write_stream() -> None:
-        (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"step_finish","part":{"tokens":{"input":4}}}\n',
-            encoding="utf-8",
-        )
-
-    run = _executor().run_gate(
-        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p"
-    )
-    assert run.tokens_reported is False
-
-
-def test_auto_flag_is_rejected_at_construction() -> None:
-    """
-    @brief   --auto in the command template fails closed immediately: it
-             would auto-approve the executor's own push/merge.
-    """
-    with pytest.raises(ValueError, match="--auto"):
-        OpencodeExecutor(TEMPLATE + " --auto", "m")
-    with pytest.raises(ValueError, match="--auto"):
-        build_executor("opencode", "opencode run --auto {prompt}", "m")
-    # the `--flag=value` form is caught too, not just the bare flag
-    with pytest.raises(ValueError, match="--auto"):
-        OpencodeExecutor(TEMPLATE + " --auto=true", "m")
-
-
 def test_factory_wires_questions_file() -> None:
     """
-    @brief   The factory passes the configured questions filename through and
-             still rejects unknown kinds.
+    @brief   The factory builds the Pi launcher and passes the configured
+             questions filename through.
     """
-    executor = build_executor("opencode", TEMPLATE, "m", questions_file="ROBO_QUESTIONS.md")
-    assert isinstance(executor, OpencodeExecutor)
+    executor = build_executor(PI_TEMPLATE, "m", questions_file="ROBO_QUESTIONS.md")
+    assert isinstance(executor, PiExecutor)
     assert executor.questions_file == "ROBO_QUESTIONS.md"
-    with pytest.raises(ValueError):
-        build_executor("gemini", TEMPLATE, "m")   # a genuinely unknown kind
-
-
-# PUBLIC API / TESTS - Qwen executor (stateless per gate)
-
-
-def test_factory_selects_qwen_and_bans_yolo() -> None:
-    """
-    @brief   `default = "qwen"` selects QwenExecutor; --yolo (auto-approve all
-             tools) is rejected at construction.
-    """
-    executor = build_executor("qwen", QWEN_TEMPLATE, "qwen3-coder-plus")
-    assert isinstance(executor, QwenExecutor)
-    with pytest.raises(ValueError, match="--yolo"):
-        QwenExecutor(QWEN_TEMPLATE + " --yolo", "m")
-
-
-def test_qwen_is_stateless_no_session_or_resume(tmp_path: Path) -> None:
-    """
-    @brief   Qwen runs each gate fresh through the shared base build, and the
-             gate.sh carries neither --session nor a resume; the workflow's
-             file-based state carries context between stages.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-    executor = QwenExecutor(QWEN_TEMPLATE, "qwen3-coder-plus")
-
-    fresh = executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
-                              "gate one")
-    assert fresh.tokens_in == 0 and fresh.cost_usd == 0.0   # usage pinned in spike
-
-    executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir,
-                      "gate two")
-    script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-    assert "qwen -p --model qwen3-coder-plus --output-format json" in script
-    assert "--session" not in script and "resume" not in script
-
-
-def test_qwen_questions_and_failure_inherited(tmp_path: Path) -> None:
-    """
-    @brief   Clarification parking and fail-closed pass-through come from the
-             shared base unchanged.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-
-    def ask() -> None:
-        (worktree / "ADORE_QUESTIONS.md").write_text("1. Which target?\n", encoding="utf-8")
-
-    parked = QwenExecutor(QWEN_TEMPLATE, "m").run_gate(
-        FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
-    assert parked.has_questions and "Which target" in parked.questions
-
-    failed = QwenExecutor(QWEN_TEMPLATE, "m").run_gate(
-        FakeExec(CommandResult(exit_code=124, stderr="timeout")), worktree, io_dir, "p")
-    assert not failed.ok and failed.exit_code == 124
-
-
-# PUBLIC API / TESTS - Codex executor (subcommand-resume + approval model)
-
-
-def test_factory_selects_codex_and_allows_container_full_auto() -> None:
-    """
-    @brief   `default = "codex"` selects CodexExecutor; full-auto is allowed
-             because ADORE relies on the executor container as the sandbox.
-    """
-    executor = build_executor("codex", CODEX_TEMPLATE, "gpt-5.5-codex")
-    assert isinstance(executor, CodexExecutor)
 
 
 def test_pi_gate_uses_the_shared_fresh_session_protocol(tmp_path: Path) -> None:
     """
-    @brief   Pi runs through the same WSL-safe gate.sh protocol as opencode,
-             with no session flag appended.
+    @brief   Without a `spawn` seam Pi runs through the WSL-safe gate.sh
+             protocol, with no session flag appended.
     """
     worktree, io_dir = _dirs(tmp_path)
     run = PiExecutor(PI_TEMPLATE, "openai/gpt-5.5").run_gate(
@@ -626,57 +454,11 @@ def test_pi_ignores_malformed_or_unfinished_usage(tmp_path: Path) -> None:
     assert run.tokens_reported is False
 
 
-def test_codex_parses_usage_from_json(tmp_path: Path) -> None:
-    """
-    @brief   Codex --json usage (input/output tokens, cost) is summed into the
-             GateRun; a session/thread id is read best-effort. Schema is
-             provisional (pinned by the spike); malformed lines are ignored.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-
-    def write_stream() -> None:
-        (io_dir / OUTPUT_FILE).write_text(
-            '{"type":"thread.started","thread_id":"th_abc"}\n'
-            "not json with usage keyword\n"
-            '{"type":"turn.completed","usage":{"input_tokens":120,"output_tokens":30,'
-            '"cost_usd":0.02}}\n',
-            encoding="utf-8",
-        )
-
-    run = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
-        FakeExec(CommandResult(exit_code=0), write_stream), worktree, io_dir, "p")
-    assert run.tokens_in == 120 and run.tokens_out == 30
-    assert abs(run.cost_usd - 0.02) < 1e-9
-
-
-def test_codex_questions_and_failure_inherited(tmp_path: Path) -> None:
-    """
-    @brief   Clarification parking and fail-closed pass-through come from the
-             shared base unchanged.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-
-    def ask() -> None:
-        (worktree / "ADORE_QUESTIONS.md").write_text("1. Which env?\n", encoding="utf-8")
-
-    parked = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
-        FakeExec(CommandResult(exit_code=0), ask), worktree, io_dir, "p")
-    assert parked.has_questions and "Which env" in parked.questions
-
-    failed = CodexExecutor(CODEX_TEMPLATE, "m").run_gate(
-        FakeExec(CommandResult(exit_code=124, stderr="timeout")), worktree, io_dir, "p")
-    assert not failed.ok and failed.exit_code == 124
-
-
-# PUBLIC API / TESTS - Pi executor (config-selectable alternative)
-
-
 def test_factory_selects_pi() -> None:
     """
-    @brief   `[executor] default = "pi"` selects the PiExecutor; a Pi template
-             needs no --auto guard (Pi has no such flag) and is accepted.
+    @brief   Pi is the only executor: the factory always returns PiExecutor.
     """
-    executor = build_executor("pi", PI_TEMPLATE, "openai/gpt-5.5")
+    executor = build_executor(PI_TEMPLATE, "openai/gpt-5.5")
     assert isinstance(executor, PiExecutor)
     # the shared file protocol is inherited: same gate.sh, same argv shape
     assert executor.questions_file == "ADORE_QUESTIONS.md"

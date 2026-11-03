@@ -9,11 +9,13 @@
 # -----------------------------------------------------------------------------
 """
 @file launcher.py
-@brief Configurable executor launchers (opencode / pi / codex / qwen) and factory.
+@brief Pi executor launcher (ADORE's only coding agent) and its factory.
 @details Runs a fresh gate through a bound backend and shared file protocol.
          Containers execute a WSL-safe shell script; native targets receive
          argv with substitutions applied after tokenization. Both retain
          bounded output, questions, usage and immutable invocation archives.
+         On a container target Pi runs instead as one `pi --mode rpc`
+         process per gate driven by `pi_rpc` over live pipes.
          The durable AEGIS journal is the sole session-resume authority.
          Native worktrees rely on the selected account's host permissions;
          container profiles retain their existing isolation contract.
@@ -22,6 +24,7 @@
 from __future__ import annotations
 
 # IMPORTS
+from collections.abc import Callable
 import json
 import os
 from pathlib import Path
@@ -30,11 +33,19 @@ import shlex
 import shutil
 import stat
 
-from adore.branding import DEFAULT_QUESTIONS_FILE
+from adore.branding import (
+    CONTAINER_PI_AGENT_DIR,
+    CONTAINER_PI_CLI,
+    CONTAINER_PI_GUARD,
+    CONTAINER_PI_WEB_ACCESS,
+    DEFAULT_QUESTIONS_FILE,
+)
 from adore.execution import SHELL_HEADER, ExecutionPaths, redact_output
+from adore.executor import pi_rpc
 from adore.executor.base import ExecTarget, Executor, GateRun
 from adore.isolation import IsolationError
-from adore.util import utc_now_iso
+from adore.pi_providers import pi_provider
+from adore.util import CommandResult, utc_now_iso
 
 # CONSTANTS
 
@@ -42,8 +53,43 @@ GATE_SCRIPT = "gate.sh"
 OUTPUT_FILE = "output.jsonl"
 STDERR_FILE = "stderr.log"
 ARCHIVE_DIR = "archive"
+#: io-dir file holding the endpoint models.json before it is copied into Pi's
+#: agent directory (outside the worktree, so the executor never commits it).
+MODELS_FILE = "pi-models.json"
+#: io-dir file holding pi-web-access's web-search.json before it is copied into
+#: Pi's agent directory; it names the search provider and never a key.
+WEB_SEARCH_FILE = "pi-web-search.json"
+#: System-prompt notice of an internet-off run, so the agent does not keep
+#: retrying tools that cannot reach anything.
+INTERNET_OFF_NOTICE = (
+    "Internet access is off for this project: only the model provider and any extra "
+    "hosts the project allows are reachable. Web search and page reading are "
+    "unavailable, and downloads (curl, npm install, pip install and the like) fail "
+    "for every other host; do not retry a refused download. Work with the repository "
+    "and the tools already installed."
+)
 
 _ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+#: Pi RPC launch flags: RPC mode, no session file, no project trust, and none
+#: of the account's personal skills, extensions, templates, themes or MCP.
+PI_RPC_FLAGS = (
+    "--mode", "rpc", "--no-session", "--no-approve", "--no-skills", "--no-extensions",
+    "--no-prompt-templates", "--no-themes", "--no-mcp",
+)
+#: Pi environment for a container launch: the ADORE-owned agent directory
+#: replaces the personal ~/.pi/agent; no network calls of Pi's own.
+PI_RPC_ENV = {
+    "PI_CODING_AGENT_DIR": CONTAINER_PI_AGENT_DIR,
+    "PI_OFFLINE": "1",
+    "PI_TELEMETRY": "0",
+    "PI_SKIP_VERSION_CHECK": "1",
+}
+#: Seconds a cancelled Pi gate needs to abort and end before the conductor
+#: stops the container instead.
+PI_CANCEL_GRACE_SECONDS = (
+    pi_rpc.ABORT_GRACE_SECONDS + pi_rpc.EXIT_GRACE_SECONDS + pi_rpc.KILL_GRACE_SECONDS + 5.0
+)
 
 # PUBLIC API
 
@@ -58,13 +104,8 @@ class FileProtocolExecutor(Executor):
              When an archive stem is provided, the launch copies its
              gate.sh/output/stderr/meta into an immutable archive directory.
              Every launch is a fresh session; subclasses supply only the
-             optional `_extract_usage` JSON parser (default: no usage) and the
-             per-executor `forbidden_flags`.
+             optional `_extract_usage` JSON parser (default: no usage).
     """
-
-    #: Command-template tokens rejected at construction (a bypass of the
-    #: executor's own push/merge guardrails). Per-executor.
-    forbidden_flags: tuple[str, ...] = ()
 
     def __init__(
         self,
@@ -73,7 +114,7 @@ class FileProtocolExecutor(Executor):
         questions_file: str = DEFAULT_QUESTIONS_FILE,
     ) -> None:
         """
-        @brief      Configure the launcher from the [executor.<name>] entry.
+        @brief      Configure the launcher from the [executor] section.
         @param[in]  command_template Command template with {prompt}, {model},
                                      {worktree} placeholders ({worktree} is the
                                      container mount /adore/work; unused tokens
@@ -81,22 +122,7 @@ class FileProtocolExecutor(Executor):
         @param[in]  model Model in provider/model form.
         @param[in]  questions_file Worktree filename the executor writes
                                    blocking questions to.
-        @exception  ValueError When the template carries a forbidden flag.
         """
-        # Tokenize with shlex so quoting is respected, and reject both the bare
-        # flag and its `--flag=value` form. This stays a safety belt, not the
-        # boundary: container isolation (no remote credentials) is what actually
-        # keeps a misconfigured executor off the remote.
-        try:
-            tokens = shlex.split(command_template)
-        except ValueError:
-            tokens = command_template.split()
-        for flag in self.forbidden_flags:
-            if any(token == flag or token.startswith(f"{flag}=") for token in tokens):
-                raise ValueError(
-                    f"executor command must not use {flag}: it auto-approves the "
-                    "push/pr/merge permissions that keep the executor off the remote"
-                )
         self.command_template = command_template
         self.model = model
         self.questions_file = questions_file
@@ -111,6 +137,7 @@ class FileProtocolExecutor(Executor):
         timeout: float | None = None,
         archive_stem: str = "",
         package_secrets: dict[str, str] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> GateRun:
         """
         @brief      Run one gate headless; read every result from files.
@@ -135,7 +162,8 @@ class FileProtocolExecutor(Executor):
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
         @param[in]  package_secrets Enable bounded/redacted package-job retention;
-                                   None preserves legacy output handling.
+                                   None retains the full event archive.
+        @param[in]  cancel Unused: the conductor stops the target on cancel.
         @return     A GateRun describing the outcome.
         """
         worktree = Path(worktree)
@@ -147,7 +175,7 @@ class FileProtocolExecutor(Executor):
 
         # The same rule the questions file already follows, for the streams:
         # whatever is read back afterwards must have been written by THIS
-        # launch. A launch that produces nothing - opencode exiting 0 in a
+        # launch. A launch that produces nothing - an executor exiting 0 in a
         # second, a refused session - otherwise leaves the PREVIOUS stage's
         # transcript in place, and it is then archived as this stage's
         # evidence and re-counted by `_extract_usage` against the cost budget
@@ -311,6 +339,7 @@ class FileProtocolExecutor(Executor):
         timeout: float | None,
         output_present: bool,
         stderr_present: bool,
+        output_file: Path | None = None,
     ) -> Path:
         """
         @brief      Copy one completed launch's live exchange files to archive.
@@ -326,6 +355,7 @@ class FileProtocolExecutor(Executor):
         @param[in]  timeout Launch timeout.
         @param[in]  output_present Whether live output.jsonl existed.
         @param[in]  stderr_present Whether live stderr.log existed.
+        @param[in]  output_file Bounded output file copied instead of `output`.
         @return     Archive directory path.
         @exception  OSError When any archive write fails.
         """
@@ -342,7 +372,10 @@ class FileProtocolExecutor(Executor):
             suffix += 1
         archive_dir.mkdir()
         shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
-        (archive_dir / OUTPUT_FILE).write_bytes(output.encode("utf-8"))
+        if output_file is not None and output_file.is_file():
+            shutil.copy2(output_file, archive_dir / OUTPUT_FILE)
+        else:
+            (archive_dir / OUTPUT_FILE).write_bytes(output.encode("utf-8"))
         (archive_dir / STDERR_FILE).write_bytes(stderr.encode("utf-8"))
         meta = {
             "created_at": utc_now_iso(),
@@ -372,11 +405,13 @@ class FileProtocolExecutor(Executor):
 
     def _retain_package_output(
         self, path: Path, secrets: dict[str, str], *, collect_usage: bool = False,
+        redact: Callable[[str], str] | None = None,
     ) -> tuple[str, tuple[int, int, float, int | None, int | None], bool, bool]:
         """@brief Bound/redact retained package output without following linked files.
         @param[in] path Owned gate output file.
         @param[in] secrets Known model credential values, retained in memory only.
         @param[in] collect_usage Parse every original event before retention truncation.
+        @param[in] redact Optional binding redactor applied before the byte cap and write.
         @return Sanitized output, complete usage, token and cost coverage.
         @exception IsolationError Linked, changed or unreadable output.
         @note Live writes during a gate still use the existing gate transport.
@@ -411,7 +446,10 @@ class FileProtocolExecutor(Executor):
                 overlap = max((len(value.encode()) for value in secrets.values()), default=0)
                 raw = handle.read(limit + overlap + 1)
                 truncated = opened.st_size > limit
-                output = redact_output(raw.decode("utf-8", errors="replace"), secrets)
+                decoded = raw.decode("utf-8", errors="replace")
+                output = redact_output(decoded, secrets)
+                if redact is not None:
+                    output = redact_output(redact(output), secrets)
                 if truncated:
                     output = output.encode()[:limit - 32].decode("utf-8", errors="ignore")
                     output += "\n[ADORE output truncated]\n"
@@ -435,91 +473,233 @@ class FileProtocolExecutor(Executor):
             return ""
 
 
-class OpencodeExecutor(FileProtocolExecutor):
-    """
-    @brief   opencode implementation of the executor launcher.
-    @details Template is the [executor.opencode] command; every gate runs a
-             fresh opencode session, since the AEGIS journal carries the state
-             across stages. Rejects `--auto` (it would auto-approve the
-             push/pr/merge permissions). Usage comes from opencode's
-             step_finish events.
-    """
-
-    forbidden_flags = ("--auto",)
-
-    def _tokens_reported(self, output: str) -> bool:
-        """@brief Count a valid step token object even when both totals are zero."""
-        for raw in output.splitlines():
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            part = event.get("part") if isinstance(event, dict) else None
-            tokens = part.get("tokens") if isinstance(part, dict) else None
-            if (isinstance(tokens, dict)
-                    and all(type(tokens.get(key)) is int
-                            and 0 <= tokens[key] <= 1_000_000_000
-                            for key in ("input", "output"))):
-                return True
-        return False
-
-    def _cost_reported(self, output: str) -> bool:
-        """@brief Detect an explicit OpenCode step cost, including zero."""
-        for raw in output.splitlines():
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            part = event.get("part") if isinstance(event, dict) else None
-            if isinstance(part, dict) and isinstance(part.get("cost"), (int, float)):
-                return True
-        return False
-
-    def _extract_usage(self, output: str) -> tuple[int, int, float]:
-        """
-        @brief      Sum opencode step_finish token/cost totals for the launch.
-        @details    step_finish events carry part.tokens{input,output} and
-                    part.cost (schema pinned live 2026-07-03). Tolerant of
-                    malformed lines - usage capture must never break a gate.
-        @param[in]  output Raw --format json event stream.
-        @return     (tokens_in, tokens_out, cost_usd) totals.
-        """
-        tokens_in = tokens_out = 0
-        cost = 0.0
-        for raw in output.splitlines():
-            line = raw.strip()
-            if not line or '"tokens"' not in line:
-                continue
-            try:
-                part = json.loads(line).get("part", {})
-            except (json.JSONDecodeError, AttributeError):
-                continue
-            tokens = part.get("tokens") or {}
-            tokens_in += int(tokens.get("input", 0) or 0)
-            tokens_out += int(tokens.get("output", 0) or 0)
-            cost += float(part.get("cost", 0) or 0)
-        return tokens_in, tokens_out, cost
-
-
 class PiExecutor(FileProtocolExecutor):
     """
     @brief   Pi (@earendil-works/pi-coding-agent) executor launcher.
-    @details Runs headless via the [executor.pi] template, e.g.
-             `pi -p --mode json --model {model} {prompt}`; every gate runs a
-             fresh Pi session. Pi reads the repo's AGENTS.md gate contract
-             natively and enforces the push/merge guardrails through the repo's
-             .pi agentic-guard extension (a return-value block, active in every
-             mode including print/json) - plus container isolation (no remote
-             credentials in the container). Completed `turn_end` events carry
-             input, output, cache-read and cache-write token counts. Pi's
-             cost object is an executor estimate, not provider-billed cost;
-             administrator price rules may estimate from captured tokens.
+    @details On a container target (one with a `spawn` seam) every gate runs
+             one fresh `pi --mode rpc --no-session` process from the image's
+             pinned installation, driven by `pi_rpc`: fixed argv, prompt over
+             stdin, `abort` on the stage timeout or a cancel. The account's
+             personal Pi resources are off (`PI_RPC_FLAGS`, an ADORE-owned
+             agent directory) and ADORE's guard extension is loaded with `-e`,
+             so it blocks `git push` and forge CLIs without project trust; the
+             boundary stays that no forge credential is in the container. The
+             configured [executor] command is not used there.
+
+             `--provider` names the Pi provider (`openai` for a ChatGPT
+             subscription, `adore-endpoint` for an OpenAI-compatible
+             endpoint) and `--model` the model id. For an endpoint the
+             generated models.json is written to the io dir and copied into
+             the ADORE-owned agent directory through the exec seam before Pi
+             starts; a failed copy fails the gate without starting Pi.
+
+             With internet access on and a web search chosen, the pinned
+             pi-web-access extension is loaded with `-e` and its
+             web-search.json (provider, no curator, tools always active; keys
+             only from the environment) is placed the same way. With internet
+             access off nothing web-related is loaded and the system prompt
+             says that only the model provider is reachable.
+
+             A native target has no `spawn` seam and keeps the file protocol
+             with the configured template, where completed `turn_end` events
+             carry the usage; `{model}` is `<pi provider>/<model id>` there.
+
+             Usage is summed over the assistant turns, cached prompt tokens
+             included in input. Pi's cost is an executor estimate, not
+             provider-billed cost, so no cost is reported; administrator price
+             rules may estimate from the captured tokens.
     """
 
-    # Pi loads its project-local guard/skills only after the project is
-    # trusted; ADORE must pre-trust the worktree for headless runs (container
-    # isolation still prevents remote writes regardless). See the executor
-    # component doc / TODO for the trust-provisioning spike.
+    def __init__(
+        self,
+        command_template: str,
+        model: str,
+        questions_file: str = DEFAULT_QUESTIONS_FILE,
+        *,
+        provider: str = "",
+        models: dict | None = None,
+        internet: bool = False,
+        web_search: str = "exa",
+    ) -> None:
+        """
+        @brief      Configure Pi from the [executor] section.
+        @param[in]  command_template Native Pi argv template.
+        @param[in]  model Model id within the provider.
+        @param[in]  questions_file Clarification questions filename.
+        @param[in]  provider `[executor] provider` ("" keeps a bare `--model`).
+        @param[in]  models Endpoint models.json document, or None.
+        @param[in]  internet `[executor] internet`.
+        @param[in]  web_search `[executor.web] search` (used while internet is on).
+        """
+        self.provider = pi_provider(provider) if provider else ""
+        self.model_id = model
+        self.models = models
+        self.internet = internet
+        self.web_search = web_search
+        native_model = f"{self.provider}/{model}" if self.provider else model
+        super().__init__(command_template, native_model, questions_file)
+
+    def run_gate(
+        self,
+        execute: ExecTarget,
+        worktree: str | Path,
+        io_dir: str | Path,
+        prompt: str,
+        *,
+        timeout: float | None = None,
+        archive_stem: str = "",
+        cancel: Callable[[], bool] | None = None,
+        package_secrets: dict[str, str] | None = None,
+    ) -> GateRun:
+        """
+        @brief      Run one gate through Pi's RPC mode on a container target.
+        @details    Clears stale questions and streams, writes a descriptive
+                    gate.sh (no shell runs; the prompt never enters it), runs
+                    `pi_rpc`, archives the bounded evidence and reads the
+                    questions file. Targets without `spawn` use the file
+                    protocol unchanged.
+        @param[in]  execute Exec seam bound to the run's target.
+        @param[in]  worktree HOST path of the run's worktree.
+        @param[in]  io_dir HOST path of the run's io exchange dir.
+        @param[in]  prompt Gate instruction, sent over stdin.
+        @param[in]  timeout Stage wall-clock bound.
+        @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  cancel Cancellation check polled during the run.
+        @param[in]  package_secrets Known credentials for bounded package-job retention.
+        @return     A GateRun: exit 0 completed, 1 failed, 124 timed out,
+                    130 cancelled, otherwise a protocol failure.
+        """
+        spawn = getattr(execute, "spawn", None)
+        if spawn is None:
+            return super().run_gate(execute, worktree, io_dir, prompt,
+                                    timeout=timeout, archive_stem=archive_stem,
+                                    cancel=cancel, package_secrets=package_secrets)
+        worktree = Path(worktree)
+        io_dir = Path(io_dir)
+        io_dir.mkdir(parents=True, exist_ok=True)
+        questions_path = worktree / self.questions_file
+        questions_path.unlink(missing_ok=True)
+        output_path = io_dir / OUTPUT_FILE
+        stderr_path = io_dir / STDERR_FILE
+        output_path.unlink(missing_ok=True)
+        stderr_path.unlink(missing_ok=True)
+        web = self.internet and self.web_search != "none"
+        argv = pi_rpc_argv(self.model_id, self.provider, web=web,
+                           notice="" if self.internet else INTERNET_OFF_NOTICE)
+        placements = []
+        if self.models is not None:
+            placements.append((MODELS_FILE, "models.json", self.models,
+                               "Pi models.json could not be placed in the agent directory: "))
+        if web:
+            placements.append((WEB_SEARCH_FILE, "web-search.json", web_search_json(self.web_search),
+                               "The web search configuration could not be placed in Pi's "
+                               "agent directory: "))
+        for source, target, document, reason in placements:
+            placed = self._place_file(execute, io_dir, source, target, document, reason)
+            if placed is not None:
+                return placed
+        with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(
+                SHELL_HEADER
+                + "# Pi RPC launch through the container exec seam; no shell is executed.\n"
+                + "# The stage prompt is sent over stdin.\n"
+                + "# argv: " + json.dumps(argv, ensure_ascii=True) + "\n"
+                + "# env: " + json.dumps(PI_RPC_ENV, ensure_ascii=True) + "\n"
+            )
+        target_redact = getattr(execute, "redact", lambda text: text)
+        def redact(text: str) -> str:
+            """@brief Mask binding credentials and package-job secrets before persistence."""
+            return redact_output(target_redact(text), package_secrets or {})
+
+        result = pi_rpc.run_pi_rpc(
+            lambda command, env: spawn(command, env=env),
+            argv, dict(PI_RPC_ENV), prompt,
+            timeout=timeout, cancelled=cancel,
+            output_path=output_path, stderr_path=stderr_path,
+            redact=redact,
+        )
+        if result.timed_out:
+            settle = getattr(execute, "settle_timeout", None)
+            if settle is not None:
+                settle()
+        output = result.output
+        if package_secrets is not None:
+            output, *_unused = self._retain_package_output(output_path, package_secrets)
+            self._retain_package_output(stderr_path, package_secrets)
+        evidence = pi_rpc.bounded_text("\n".join(
+            redact(part) for part in (result.message, *result.notes, result.stderr) if part))
+        artifacts: list[str] = []
+        if archive_stem:
+            launch = CommandResult(argv=argv, exit_code=result.exit_code,
+                                   timed_out=result.timed_out)
+            try:
+                artifacts.append(str(self._archive_launch(
+                    io_dir, archive_stem, launch, output, evidence, timeout,
+                    output_path.is_file(), stderr_path.is_file(),
+                    output_file=output_path if package_secrets is None else None)))
+            except OSError as exc:
+                return GateRun(exit_code=result.exit_code or 1, output=output,
+                               stderr=(evidence + f"\narchive write failed: {exc}").strip(),
+                               timed_out=result.timed_out)
+        if package_secrets is not None:
+            questions, *_unused = self._retain_package_output(
+                questions_path, package_secrets, redact=target_redact)
+        else:
+            questions = target_redact(self._read(questions_path))
+        usage = result.usage
+        reported = usage.complete and usage.turns > 0
+        return GateRun(
+            exit_code=result.exit_code,
+            has_questions=questions_path.is_file(),
+            questions=questions,
+            output=output,
+            stderr=evidence,
+            timed_out=result.timed_out,
+            tokens_in=usage.tokens_in if reported else 0,
+            tokens_out=usage.tokens_out if reported else 0,
+            cache_read_tokens=usage.cache_read if reported else None,
+            cache_write_tokens=usage.cache_write if reported else None,
+            tokens_reported=reported,
+            cost_usd=0.0,
+            cost_reported=False,
+            artifact_dirs=artifacts,
+        )
+
+    def _place_file(self, execute: ExecTarget, io_dir: Path, source: str, target: str,
+                    document: dict, reason: str) -> GateRun | None:
+        """
+        @brief      Put a generated Pi configuration file into Pi's agent directory.
+        @details    The endpoint models.json and pi-web-access's web-search.json
+                    hold no key (only `$ADORE_ENDPOINT_API_KEY`, a placeholder or
+                    a provider name); each is written host-side into the io dir
+                    and copied inside the container, so a kept-warm container
+                    gets the current file for every gate.
+        @param[in]  execute Exec seam bound to the run's target.
+        @param[in]  io_dir HOST path of the run's io exchange dir.
+        @param[in]  source File name in the io dir.
+        @param[in]  target File name in the agent directory.
+        @param[in]  document JSON document to write.
+        @param[in]  reason Evidence prefix when the copy fails.
+        @return     None when placed; a failed GateRun otherwise.
+        """
+        paths = getattr(execute, "paths", ExecutionPaths())
+        (io_dir / source).write_bytes(
+            (json.dumps(document, ensure_ascii=True, indent=1) + "\n").encode("utf-8"))
+        result = execute(["cp", f"{paths.io}/{source}",
+                          f"{CONTAINER_PI_AGENT_DIR}/{target}"], timeout=60)
+        if result.ok:
+            return None
+        detail = (result.stderr or result.stdout or "").strip()[:500]
+        return GateRun(exit_code=result.exit_code or 1, timed_out=result.timed_out,
+                       stderr=(reason + detail).strip())
+
+    def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
+        """
+        @brief      A container Pi gate aborts itself on cancel.
+        @param[in]  execute Exec seam the gate will run on.
+        @return     The abort-and-exit grace on a container target, else None.
+        """
+        return PI_CANCEL_GRACE_SECONDS if hasattr(execute, "spawn") else None
 
     def _tokens_reported(self, output: str) -> bool:
         """@brief Recognize a complete final turn, including a zero-token turn."""
@@ -583,146 +763,62 @@ class PiExecutor(FileProtocolExecutor):
                 cache_write if observed else None)
 
 
-class CodexExecutor(FileProtocolExecutor):
+def web_search_json(search: str) -> dict:
     """
-    @brief   OpenAI Codex (`@openai/codex`, the Rust CLI) executor launcher.
-    @details Runs headless via `codex exec` from the [executor.codex] template,
-             e.g. `codex exec --json --model {model}
-             --ignore-user-config --disable plugins
-             --dangerously-bypass-approvals-and-sandbox {prompt}`. Codex reads
-             AGENTS.md natively and gets its guardrails from ADORE container
-             isolation (no remote credentials in the container).
-
-             Codex specifics vs opencode/pi:
-             1. **Approval model is inverted.** The command MUST run
-                non-interactively (`--sandbox workspace-write`,
-                `--full-auto`, or
-                `--dangerously-bypass-approvals-and-sandbox`, enforced by
-                config validation). In ADORE, the container/worktree boundary
-                is the external sandbox for full-auto Codex runs.
-             2. **User config/plugins are ignored.** The orchestrator stages
-                only auth.json into an isolated CODEX_HOME and the command
-                disables the Codex `plugins` feature so workstation-local or
-                bundled plugin marketplace state cannot alter a portable run.
-
-             Usage is parsed best-effort from `codex exec --json`; the exact
-             field schema is pinned by the live spike (until then, absent usage
-             reads as zeros, which metrics tolerate).
+    @brief      pi-web-access's web-search.json for an internet-on run.
+    @details    The provider is fixed (no automatic fallback chain), the
+                curator workflow is off for a headless run and the tools are
+                always active. Brave and Tavily read their key from
+                BRAVE_API_KEY / TAVILY_API_KEY in the environment.
+    @param[in]  search `[executor.web] search` (exa, brave or tavily).
+    @return     The document.
     """
-
-    forbidden_flags: tuple[str, ...] = ()
-
-    def _tokens_reported(self, output: str) -> bool:
-        """@brief Recognize complete Codex usage, including an explicit zero."""
-        for raw in output.splitlines():
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(event, dict):
-                continue
-            usage = event.get("usage") if isinstance(event.get("usage"), dict) else event
-            if all(type(usage.get(key)) is int and 0 <= usage[key] <= 1_000_000_000
-                   for key in ("input_tokens", "output_tokens")):
-                return True
-        return False
-
-    def _cost_reported(self, output: str) -> bool:
-        """@brief Detect explicit Codex cost without treating tokens as billing."""
-        for raw in output.splitlines():
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(event, dict):
-                continue
-            usage = event.get("usage") if isinstance(event.get("usage"), dict) else event
-            if isinstance(usage.get("cost_usd"), (int, float)):
-                return True
-        return False
-
-    def _extract_usage(self, output: str) -> tuple[int, int, float]:
-        """
-        @brief      Best-effort token usage from Codex `--json` events.
-        @details    Sums any event carrying a `usage`/token object with
-                    input_tokens/output_tokens (+ optional cost_usd). The exact
-                    schema is PROVISIONAL - pinned by the live spike; malformed
-                    lines are ignored so usage capture never breaks a gate.
-        @param[in]  output Raw json-lines event stream.
-        @return     (tokens_in, tokens_out, cost_usd).
-        """
-        tokens_in = tokens_out = 0
-        cost = 0.0
-        for raw in output.splitlines():
-            line = raw.strip()
-            if '"input_tokens"' not in line and '"usage"' not in line:
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(event, dict):
-                continue
-            usage = event.get("usage") if isinstance(event.get("usage"), dict) else event
-            tokens_in += int(usage.get("input_tokens", 0) or 0)
-            tokens_out += int(usage.get("output_tokens", 0) or 0)
-            cost += float(usage.get("cost_usd", 0) or 0)
-        return tokens_in, tokens_out, cost
+    return {"provider": search, "workflow": "none", "toolActivation": "eager"}
 
 
-class QwenExecutor(FileProtocolExecutor):
+def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False,
+                notice: str = "") -> list[str]:
     """
-    @brief   Qwen Code (`@qwen-code/qwen-code`, a Gemini-CLI fork) launcher.
-    @details Runs headless via `qwen -p` from the [executor.qwen] template, e.g.
-             `qwen -p --model {model} --output-format json {prompt}`. Qwen reads
-             AGENTS.md natively and gets its guardrails from the repo's `.qwen`
-             settings (native PreToolUse/PostToolUse hooks reusing the shared
-             `.agentic` guards + a push/pr/merge deny list) plus ADORE container
-             isolation.
-
-             Qwen has no session continuation of its own, which costs ADORE
-             nothing: every executor runs each gate fresh here. That is viable
-             because the workflow's state lives in files (`.agentic/`, git, and
-             the ticket thread ADORE re-sends on resume). Whether
-             stateless-per-gate holds in practice is the key spike assumption.
-
-             Safety: `forbidden_flags` rejects `--yolo` (auto-approve all
-             tools); config validation additionally bans `--approval-mode yolo`.
-             Usage is not parsed yet (Qwen's `--output-format json` `stats`
-             block is nested/model-keyed; pinned by the live spike), so it reads
-             as zeros (metrics tolerate it), like Pi.
+    @brief      Fixed command line of a container Pi RPC launch.
+    @param[in]  model Model id within the provider.
+    @param[in]  provider Pi provider id ("" passes only `--model`).
+    @param[in]  web Load the pinned pi-web-access extension (internet on only).
+    @param[in]  notice Text appended to Pi's system prompt ("" appends nothing);
+                a stage with internet off passes INTERNET_OFF_NOTICE.
+    @return     `node <cli.js> --mode rpc ... -e <guard> [-e <pi-web-access>]
+                [--append-system-prompt <notice>] [--provider <p>] --model <model>`.
     """
-
-    forbidden_flags = ("--yolo",)
+    return ["node", CONTAINER_PI_CLI, *PI_RPC_FLAGS, "-e", CONTAINER_PI_GUARD,
+            *(["-e", CONTAINER_PI_WEB_ACCESS] if web else []),
+            *(["--append-system-prompt", notice] if notice else []),
+            *(["--provider", provider] if provider else []), "--model", model]
 
 
 def build_executor(
-    kind: str,
     command_template: str,
     model: str,
     questions_file: str = DEFAULT_QUESTIONS_FILE,
+    *,
+    provider: str = "",
+    models: dict | None = None,
+    internet: bool = False,
+    web_search: str = "exa",
 ) -> Executor:
     """
-    @brief      Construct the configured executor (config selection point).
-    @param[in]  kind Executor kind ("opencode" | "pi" | "codex" | "qwen").
-    @param[in]  command_template Command template for the executor.
-    @param[in]  model Model in provider/model form.
+    @brief      Construct the Pi launcher (config selection point).
+    @details    Pi is the only implementation of the executor interface.
+    @param[in]  command_template Native Pi argv template ([executor] command).
+    @param[in]  model Model id within the provider.
     @param[in]  questions_file Clarification questions filename.
-    @return     An Executor instance.
-    @exception  ValueError When the kind is unknown or the template carries a
-                forbidden flag.
+    @param[in]  provider `[executor] provider`.
+    @param[in]  models Endpoint models.json for `provider = "custom"`, else None.
+    @param[in]  internet `[executor] internet`.
+    @param[in]  web_search `[executor.web] search`.
+    @return     A PiExecutor.
     """
-    if kind == "opencode":
-        return OpencodeExecutor(command_template, model, questions_file)
-    if kind == "pi":
-        return PiExecutor(command_template, model, questions_file)
-    if kind == "codex":
-        return CodexExecutor(command_template, model, questions_file)
-    if kind == "qwen":
-        return QwenExecutor(command_template, model, questions_file)
-    raise ValueError(
-        f"unsupported executor kind: {kind!r} (use opencode | pi | codex | qwen)"
-    )
+    return PiExecutor(command_template, model, questions_file,
+                      provider=provider, models=models, internet=internet,
+                      web_search=web_search)
 
 
 # END OF FILE

@@ -15,7 +15,7 @@ local project enrollment and reviewed Agent and model Settings.
 ## 2. Responsibilities
 
 `adore/executor_discovery.py` reads bounded absolute PATH and conventional user/npm
-locations. It locates OpenCode, Pi, Codex and Qwen native executables or installed
+locations. It locates Pi native executables or installed
 Node plus known JS entrypoints. The shared React `LocalExecutorPicker` displays
 host/account and installed choices, with optional refresh/manual executable/full
 command under the initially closed Advanced disclosure.

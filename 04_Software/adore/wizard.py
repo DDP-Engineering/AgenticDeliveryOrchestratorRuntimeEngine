@@ -38,10 +38,22 @@ from adore import doctor
 from adore.branding import (
     DEFAULT_STATE_ROOT,
     EXECUTOR_BASE_IMAGE,
+    PI_NATIVE_COMMAND,
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
 )
 from adore.config import load_config, validate_config
+from adore.pi_providers import (
+    CHATGPT,
+    CUSTOM,
+    DEFAULT_ENDPOINT_API,
+    ENDPOINT_APIS,
+    MODEL_ID_RE,
+    catalog,
+    credential_variable,
+    provider_ids,
+    valid_endpoint_url,
+)
 from adore.profiles import Profile, ProfileStore
 from adore.util import CommandRunner, run_command
 
@@ -54,16 +66,8 @@ _LICENSE_LINES = (
     "# See the LICENSE.txt file for full license details.",
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
-_OPENCODE_COMMAND = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-_PI_COMMAND = "pi -p --mode json --model {model} {prompt}"
-_CODEX_COMMAND = (
-    "codex exec --json --model {model} "
-    "--ignore-user-config --disable plugins "
-    "--dangerously-bypass-approvals-and-sandbox {prompt}"
-)
-_QWEN_COMMAND = "qwen -p --model {model} --output-format json {prompt}"
-_KNOWN_EXECUTORS = ("opencode", "pi", "codex", "qwen")
-_DEFAULT_MODEL = "openai/gpt-5.5"
+_DEFAULT_PROVIDER = "openai"
+_DEFAULT_MODEL = "gpt-5.5"
 _RECOMMENDED_BUDGETS = {
     "max_iterations": 12,
     "max_wall_clock_seconds": 5400,
@@ -546,36 +550,47 @@ def run_wizard(
         f"{EXECUTOR_BASE_IMAGE}  |  adore-executor-project:latest",
         default=EXECUTOR_BASE_IMAGE, validate=_require,
     ), asker, out)
-    executor_cli = ask(FieldSpec(
-        "executor_cli", "Executor CLI:",
-        "the agent that runs each gate (both read AGENTS.md and get their "
-        "push/merge guardrails from the repo adapter)", "opencode",
-        default="opencode", choices=_KNOWN_EXECUTORS,
-    ), asker, out)
-    executor_command = _command_for(executor_cli)
+    executor_command = PI_NATIVE_COMMAND
     if execution_backend == "local":
         executor_command = ask(FieldSpec(
-            "executor_command", "Installed native executor argv:",
+            "executor_command", "Installed native Pi argv:",
             "Quoted native executable paths; Windows npm CLIs use explicit node.exe and "
             "an absolute installed JavaScript entrypoint. No shell wrappers or compounds.",
             default=executor_command, validate=_require), asker, out)
-    model = ask(FieldSpec(
-        "model", "Model id (provider/model):",
-        "the executor's model", _DEFAULT_MODEL, default=_DEFAULT_MODEL,
-        validate=_require,
+    provider = ask(FieldSpec(
+        "provider", "Model provider:",
+        'a Pi API-key provider id, "chatgpt" (this server\'s ChatGPT Plus/Pro sign-in) '
+        'or "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM)',
+        "openai  |  anthropic  |  openrouter  |  custom", default=_DEFAULT_PROVIDER,
+        validate=_provider_ok,
     ), asker, out)
-    auth_mode = ask(FieldSpec(
+    endpoint: dict[str, str] = {}
+    if provider == CUSTOM:
+        endpoint["base_url"] = ask(FieldSpec(
+            "endpoint_base_url", "Endpoint base URL:",
+            "the address as seen from the container (host.docker.internal works only on "
+            "Docker Desktop; otherwise use the host's address)",
+            "http://192.168.1.20:1234/v1", validate=_endpoint_url_ok,
+        ), asker, out)
+        endpoint["api"] = ask(FieldSpec(
+            "endpoint_api", "Endpoint API type:", "the Pi API type the server speaks",
+            default=DEFAULT_ENDPOINT_API, choices=ENDPOINT_APIS,
+        ), asker, out)
+    chatgpt_models = catalog()["chatgpt_models"] if provider == CHATGPT else []
+    model = ask(FieldSpec(
+        "model", "Model id:",
+        ("a model a ChatGPT subscription serves: " + ", ".join(chatgpt_models))
+        if chatgpt_models else
+        "the model within the provider (Pi's list or any id the provider accepts)",
+        chatgpt_models[0] if chatgpt_models else _DEFAULT_MODEL,
+        default=(chatgpt_models[0] if chatgpt_models else
+                 _DEFAULT_MODEL if provider == _DEFAULT_PROVIDER else None),
+        validate=_model_ok,
+    ), asker, out)
+    auth_mode = "api-key" if execution_backend == "container" else ask(FieldSpec(
         "auth_mode", "Executor auth mode:",
-        "api-key sets a provider key in .env (production); host-auth bridges a "
-        "local OpenCode/Codex OAuth session (pilot only)",
-        "api-key", default="existing" if execution_backend == "local" else "api-key",
-        choices=("api-key", "existing") if execution_backend == "local"
-        else ("api-key", "host-auth"),
-        validate=lambda value: (
-            "host-auth is supported only for opencode or codex"
-            if value == "host-auth" and executor_cli not in ("opencode", "codex")
-            else None
-        ),
+        "api-key sets a provider key in .env; existing reuses the account's own Pi sign-in",
+        "existing", default="existing", choices=("api-key", "existing"),
     ), asker, out)
     local_settings = {}
     if execution_backend == "local":
@@ -691,7 +706,7 @@ def run_wizard(
         agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
         repo_path=repo_path, worktree_root=worktree_root, branch_template=branch_template,
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
-        executor_cli=executor_cli, command=executor_command, model=model,
+        command=executor_command, provider=provider, model=model, endpoint=endpoint,
         auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
         approval_label=approval_label,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
@@ -735,31 +750,11 @@ def run_wizard(
         store_root=store_root,
     )
     if execution_backend == "container":
-        _print_next_steps(out, name, kind, auth_mode, model, runtime, image)
+        _print_next_steps(out, name, kind, provider, runtime, image)
     return profile
 
 
 # LOCAL HELPERS
-
-
-def _command_for(executor_cli: str) -> str:
-    """
-    @brief      A safe command template for an executor CLI.
-    @details    opencode uses the proven template; any other CLI gets a generic
-                one that still carries {prompt} and never --auto (so config
-                validation passes). Advanced users edit config.toml by hand.
-    @param[in]  executor_cli Executor name.
-    @return     The command template.
-    """
-    if executor_cli == "opencode":
-        return _OPENCODE_COMMAND
-    if executor_cli == "pi":
-        return _PI_COMMAND
-    if executor_cli == "codex":
-        return _CODEX_COMMAND
-    if executor_cli == "qwen":
-        return _QWEN_COMMAND
-    return f"{executor_cli} run --dir {{worktree}} -m {{model}} {{prompt}}"
 
 
 def _suggest_runtime(os_key: str, runtimes: doctor.RuntimeDetection) -> str:
@@ -884,19 +879,14 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
         container["run_args"] = a["run_args"]
     sections.append(("container", container))
 
-    executor: dict[str, object] = {}
-    if a["executor_cli"] != "opencode":
-        executor["default"] = a["executor_cli"]
-    if a["auth_mode"] == "host-auth":
-        executor["stage_host_auth"] = True
-    elif a["auth_mode"] == "existing":
-        executor["env_keys"] = []
-    else:
-        executor["env_keys"] = _env_keys_for_model(str(a["model"]))
-    if executor:
-        sections.append(("executor", executor))
-    sections.append((f"executor.{a['executor_cli']}",
-                     {"command": a["command"], "model": a["model"]}))
+    executor: dict[str, object] = {"provider": a["provider"], "model": a["model"]}
+    if a["command"] != PI_NATIVE_COMMAND:
+        executor["command"] = a["command"]
+    # The provider's key variable always reaches Pi; these are additional names.
+    executor["env_keys"] = []
+    sections.append(("executor", executor))
+    if a["endpoint"]:
+        sections.append(("executor.endpoint", dict(a["endpoint"])))  # type: ignore[arg-type]
 
     delivery: dict[str, object] = {
         "reviewers": a["reviewers"],
@@ -937,18 +927,21 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     return sections
 
 
-def _env_keys_for_model(model: str) -> list[str]:
-    """
-    @brief      The provider secret key name(s) implied by a model id.
-    @param[in]  model e.g. "openai/gpt-5.5" or "anthropic/claude-...".
-    @return     The env-key NAMES to inject (never values).
-    """
-    lowered = model.lower()
-    if lowered.startswith("anthropic"):
-        return ["ANTHROPIC_API_KEY"]
-    if lowered.startswith("openai"):
-        return ["OPENAI_API_KEY"]
-    return ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+def _provider_ok(value: str) -> str | None:
+    """@brief Accept a Pi API-key provider id, chatgpt or custom."""
+    if value in provider_ids():
+        return None
+    return 'unknown provider: use a Pi API-key provider id, "chatgpt" or "custom"'
+
+
+def _model_ok(value: str) -> str | None:
+    """@brief Accept one model id without spaces, quotes or control characters."""
+    return None if MODEL_ID_RE.fullmatch(value) else "enter one model id without spaces"
+
+
+def _endpoint_url_ok(value: str) -> str | None:
+    """@brief Accept an endpoint address by the shared rule (pi_providers)."""
+    return None if valid_endpoint_url(value) else "enter an http(s) address such as http://192.168.1.20:1234/v1"
 
 
 def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
@@ -989,18 +982,20 @@ def _print_summary(
 
 
 def _print_next_steps(
-    out: Callable[[str], None], name: str, kind: str, auth_mode: str,
-    model: str, runtime: str, image: str,
+    out: Callable[[str], None], name: str, kind: str,
+    provider: str, runtime: str, image: str,
 ) -> None:
     """@brief Print OS-agnostic next steps after a successful write."""
     out(f"\nProfile '{name}' created and validated.")
     out("Next steps:")
-    if auth_mode == "api-key":
-        keys = " / ".join(_env_keys_for_model(model))
-        out(f"  1. Put your provider key ({keys}) in .env beside this profile's "
-            f"config.toml (`adore profile path {name}`).")
+    variable = credential_variable(provider)
+    if variable:
+        out(f"  1. Put your provider key ({variable}) in .env beside this profile's "
+            f"config.toml (`adore profile path {name}`), or save it in Settings -> "
+            "Agent and model.")
     else:
-        out("  1. host-auth mode: ensure your local opencode session is authorized.")
+        out("  1. Sign in with ChatGPT once for this server in the web interface: "
+            "Settings -> Agent and model -> Sign in with ChatGPT.")
     out(f"  2. Build the executor image ({image}) - see docker/README.md.")
     out(f"  3. Validate:  adore --profile {name} config validate")
     out(f"  4. Dry-run:   adore --profile {name} run --dry-run")

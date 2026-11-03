@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-f0076585"
+
+title = "Disconnect ChatGPT deletes the server credential"
+
+status = "active"
+
+requirement = """When an administrator disconnects ChatGPT, ADORE shall end a pending sign-in, delete the stored credential and the sign-in-again mark from the server's credential directory, keep the installation identifier, and report not-signed-in."""
+
+verification = "API test: DELETE after a sign-in removes auth.json and the mark, keeps device-id and returns not-signed-in; DELETE with nothing stored also returns not-signed-in."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_disconnect_deletes_the_credential_and_keeps_the_device_id", "04_Software/tests/test_web_chatgpt.py::test_admin_signs_the_server_in_and_out"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

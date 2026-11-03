@@ -14,14 +14,14 @@ title = "Explicit configured executor AI connection test"
 status = "active"
 
 requirement = """
-On explicit administrator request for an idle project, ADORE shall test the saved model through its selected OpenCode, Pi, Codex or Qwen CLI in a temporary empty container under the configured egress and credential policy, reporting connected only after a valid completed challenge response and returning bounded redacted failure evidence otherwise.
+On explicit administrator request for an idle project, ADORE shall test the saved provider and model through one Pi RPC process in a temporary empty container under the configured egress and credential policy, reporting connected only after a valid completed challenge response and returning a closed, redacted failure reason otherwise.
 """
 
-verification = "Offline API/runner and adapter protocol tests cover all executors, role/CSRF/active/stale project boundaries, malformed terminal response, timeout, cleanup and secret exclusion; browser verifies scoped busy/result/error and explicit cost guidance."
+verification = "Offline API/runner and adapter protocol tests cover the Pi RPC challenge (fake Pi replaying recorded runs), role/CSRF/active/stale project boundaries, malformed terminal response, timeout, cleanup and secret exclusion; browser verifies scoped busy/result/error and explicit cost guidance."
 
 affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/adore/web/app.py", "04_Software/web/src/ModelConnection.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/model-connection.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/**"]
 
-linked_tests = ["04_Software/tests/test_model_connection.py", "04_Software/web/e2e/model-connection.spec.ts"]
+linked_tests = ["04_Software/tests/test_model_connection.py", "04_Software/web/e2e/model-connection.spec.ts", "04_Software/tests/test_model_connection.py::test_rpc_probe_reports_each_outcome_distinctly", "04_Software/tests/test_model_connection.py::test_runtime_failures_fail_closed"]
 
 
 spec = ""
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-06
-updated = 2026-10-06
+updated = 2026-11-02

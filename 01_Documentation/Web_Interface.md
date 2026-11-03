@@ -64,23 +64,29 @@ Settings → Repository offers the same as **Create missing labels**. AEGIS is t
 workflow for framing, building, testing and reviewing changes; ADORE conducts that
 workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
 Reviewers are optional: an empty list opens the MR/PR without requesting a review.
-Choose the actual executor and provider/model, then **Runs in**: **Container** or
+Choose the **Provider** (Pi's API-key providers, **ChatGPT subscription** or
+**OpenAI-compatible endpoint**) and the **Model** (Pi's list for that provider
+from `GET /api/v1/pi-providers`, or any typed ID; Pi is the only coding agent,
+so there is no agent choice). An endpoint adds **Endpoint base URL** (the
+address as seen from the container) and **Endpoint API type**. The step's help
+names the API key variable to save in Settings after creation; enrollment
+takes no key. Then **Runs in**: **Container** or
 **Installed on the server** (`execution.backend` = `container` or `local`).
 For Container, choose the **Container runtime** (Docker or Podman) and the
 **Executor image**. The image is free text with suggestions read from the images
 present on the ADORE server (administrators only; read-only; `GET /api/v1/executor-images`);
 a notice appears when the typed image is not on the server and another when the list
-cannot be read. Choosing an executor proposes an image whose tag starts with
-`<executor>-` (preferring `adore-executor-base:`), replacing only the old default or
-an earlier proposal, never a typed value. For Installed on the server, the step shows
+cannot be read. For Installed on the server, the step shows
 the native executor command and the local account fields (account `current`, home,
 PATH, Linux cgroup root) with the local execution notice.
 Image/provider choices are explicit values; the image itself is still prepared on the
 server by the administrator.
-In API-key mode, enter uppercase credential environment names separated by commas,
-or leave them empty when the image or the installed executor signs in by itself;
-put their values in the protected server environment or profile .env. Host-auth is
-available for OpenCode/Codex only and uses an existing server session.
+**Model authentication** is `api-key` for a container project; a project installed
+on the server can also choose `existing`, which reuses the account's own Pi sign-in
+(`~/.pi/agent`). In `api-key` mode, enter uppercase credential environment names
+separated by commas and put their values in the protected server environment or
+profile .env; with `existing` the list stays empty. No host sign-in is copied into
+a container.
 
 Choose a human display name separately from the stable profile ID. Ready and
 approval labels, forge reviewer usernames and four run limits are reviewed before
@@ -90,8 +96,7 @@ rules remain applicable.
 
 Validate setup performs local structural validation without external probes.
 Check environment is a separate explicit action after its effects are explained:
-bounded host tool/auth checks, a disposable container using the existing local image,
-and a supported configured local-model probe under the project's egress policy.
+bounded host tool/auth checks and a disposable container using the existing local image.
 AEGIS files are inspected without execution. Failed, partial and unverified
 evidence stays explicit with correction and recheck controls. Stopped enrollment
 can be created with incomplete verification; check prerequisites before activation.
@@ -475,13 +480,58 @@ python 02_Tools/create_package.py
 python 02_Tools/verify_package.py
 ```
 
-Use `python3` on Linux if necessary. Build and verify on each matching native
-Windows or Ubuntu/Linux x64 host. Setup prepares the source environment;
-packaging builds/licenses the frontend automatically and includes a managed
-Python with locked dependencies. Verification uses automatically cleaned
-temporary data and prints results without retaining logs or reports.
-Only the final archives and optional adjacent hashes remain in `07_Delivery/`.
-The former separate wheelhouse installation flow is retired.
+Use `--forge gitea --executor pi --runtime docker` when preparing media for a
+host with that combination. The defaults accept any installed supported forge
+and skip the Pi check. The media records these tool requirements alongside Git and
+the container runtime.
+
+The resulting `adore-web-<version>-<os>-<arch>-py<version>` directory contains
+the application wheel, dependency wheels pinned by `uv.lock`, license,
+checksums, installer, and
+launcher. `--image <tag>` can include a previously built Docker or Podman image
+archive. Copy the directory to the target, where installation uses only local
+wheels and `pip --no-index`:
+
+```text
+python install.py --target <runtime-directory>
+python launch.py --target <runtime-directory> --home <ADORE_HOME>
+```
+
+Run `python install.py --check-only` before installation to verify media
+checksums and matching host/tool prerequisites without creating a runtime.
+When image archives are present, pass `--load-images` to install them before
+the Python runtime is created; otherwise their exact tags must already exist
+in the selected container runtime.
+When building media, `--image TAG` embeds a prepared image archive and
+`--require-image TAG` records a preinstalled image prerequisite without copying
+its bytes. Both forms make the installer verify the exact tag before it writes
+the Python runtime. The latter is suitable for large project images already
+supplied offline on the host. With one listed image and `--executor pi`,
+the installer also checks Pi inside the image without network access;
+use `--executor-image TAG` to select it when media lists several images.
+
+The combined launcher restarts the API and worker together after an unexpected
+exit, up to three times with short increasing delays. Use `--restart-limit 0`
+to disable restarts or a value through 10 for a different finite limit. It
+exits nonzero after the limit, so a host service manager can alert an operator.
+Stop the launcher with Ctrl-C for a graceful shutdown of both children.
+
+The target needs the matching Python with `venv` and `ensurepip` (on Ubuntu,
+install `python3-venv` from local installation media first, or supply a Python
+distribution that includes it), a suitable
+Docker/Podman/WSL runtime, a host forge CLI, repository-local AEGIS,
+credentials, and prepared project images. The generic web bundle does not
+contain arbitrary project toolchains or model weights. Supply those separately
+or preinstall them offline; missing prerequisites are operator setup errors.
+The executor CLI belongs inside the selected project image, not on the API
+host. Project readiness checks it there without pulling the image.
+The installer verifies every bundled file, rejects unlisted files in the media,
+and checks `ensurepip`, the recorded host tool groups and any required image
+tags before creating the target. When invoked through a
+symlinked Python executable, it restarts through that executable's real path
+before creating the virtual environment. It performs no Internet
+download.
+Cloud forges and AI services may still need network access at runtime.
 
 ## Manual backup and restore
 
@@ -542,15 +592,16 @@ default** - the value used when the project's file does not set it. Assigned
 developers see read-only purpose categories with financial settings and secrets
 omitted, plus field types and help. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
-inside ADORE home. For Pi authenticated through an existing ChatGPT
-subscription, mount the Pi agent credential directory into the container at
-`/home/adore/.pi/agent` using `[container] run_args`, and leave
-`[executor] stage_host_auth = false`. Protect the host directory as a secret.
-`run_args` is a list, so Project details shows it as **Not editable here**; set
-the mount in the project's `config.toml`. An administrator can edit the
-profile TOML while pickup is paused or import an existing profile with
-absolute paths, then validate and resume it.
-Pi's completed JSON turns supply token counts, including cached input tokens.
+inside ADORE home. Pi in a container runs with ADORE's own agent directory: a
+Pi agent directory mounted at `/home/adore/.pi/agent` through `[container]
+run_args` is not read. ADORE gives a container Pi its provider API key, or for
+a ChatGPT subscription a short-lived access token from the server's ChatGPT
+sign-in, and writes its own endpoint settings for an OpenAI-compatible
+endpoint. `run_args` is a list, so Project details shows it as
+**Not editable here**. An administrator can edit the profile TOML while pickup
+is paused or import an existing profile with absolute paths, then validate and
+resume it.
+Pi's assistant turns supply token counts, including cached input tokens.
 Its CLI cost number is an estimate and is not presented as billed cost;
 administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
@@ -571,8 +622,7 @@ Prepare it for this server before selecting the UTF-8 file (maximum 512 KiB).
    state and metrics path must be absolute, below a volume root; state roots are
    unowned, with no active/corrupt runs or conductor lock.
 4. Optionally select Check environment after reading its effects. The server runs
-   bounded Git/forge/authentication and disposable local-image container checks;
-   a configured model probe may contact its endpoint under the egress policy.
+   bounded Git/forge/authentication and disposable local-image container checks.
    Repository AEGIS files are inspected. Nothing is published or activated.
    Failed, partial and unverified evidence stays visible; Recheck is explicit.
 5. Review identity, config destination, repository/worktree/state/metrics paths,
@@ -629,13 +679,11 @@ Select a project's Details action to see its status and recent jobs, then open t
 project's Jobs or Statistics view. Administrators can also jump to Settings and
 membership management from the project details.
 Administrators can use **Check now** on project details to test the API host's
-Git, forge CLI/sign-in, executor CLI inside the project image, AEGIS file
-presence and direct
-Docker/Podman runtime. For a configured local OpenCode endpoint, the same
-action also launches a disposable container using the project image and egress
-policy, then checks a streamed tool call against the selected model. The
-result names the executor-container context and a redacted failure reason.
-The probe requires the image to be present locally and does not execute AEGIS.
+Git, forge CLI/sign-in, Pi inside the project image, AEGIS file
+presence and direct Docker/Podman runtime. The result names the
+executor-container context and a redacted failure reason. The check requires
+the image to be present locally and does not execute AEGIS; model access is
+proven only by **Test AI connection**.
 Administration > System status shows the control worker and storage as compact
 indicators. Storage measures free disk space for ADORE's account database and each
 project's run-state root, grouped by physical volume: one line when they share a disk,
@@ -646,14 +694,13 @@ must size storage and back it up.
 In Project details > Settings, administrators prepare **one setting at a time**.
 The categories are Repository, Tickets, Implementation, PR/MR and review, Statistics, and Agent and model, followed by closed informational Technical details. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
-its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Supported reviewer/provider-name lists and retry/stage-limit collections use typed reviewed editors; other unsupported sections remain externally configured. Agent and model offers complete reviewed agent selections and launch presets.
+its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Supported reviewer/provider-name lists and retry/stage-limit collections use typed reviewed editors; other unsupported sections remain externally configured. Agent and model edits the Pi model, launch command, internet access and web search as ordinary reviewed settings; a container project offers only the Pi launch preset.
 
 The **Durable job state folder** remains visible read-only. Runtime reporting
 always uses the status comment and lifecycle labels; there is no setting for it.
 
 Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
-only the pending candidate. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. A pending candidate with an image-build binding, or for an operator-owned environment key, could only be staged by an earlier build: viewing or applying it returns 503 `pending_config_corrupt`, and an administrator discards it with **Discard change** (`DELETE /api/v1/projects/{name}/config/pending`). Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. The supported OpenCode endpoint form
-prepares its URL/model/connection options together as the existing single edit.
+only the pending candidate. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. A pending candidate with an image-build binding, or for an operator-owned environment key, could only be staged by an earlier build: viewing or applying it returns 503 `pending_config_corrupt`, and an administrator discards it with **Discard change** (`DELETE /api/v1/projects/{name}/config/pending`). Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens.
 Copy contains all safe compared values and revision identifiers.
 Credential values, inline provider JSON and credential-bearing URLs are redacted.
 
@@ -662,57 +709,42 @@ checks the exact candidate and stored base, configuration/conductor locks,
 nonterminal or corrupt job state and unfinished web operations. Identity/runtime
 changes also require pickup stopped. Stop pickup, wait for active work to finish,
 then apply; stopping pickup does not interrupt an existing job. A blocked apply
-keeps the candidate and explains recovery. Invalid types/ranges or endpoint
-credentials/protocol fail closed; correct the edit and prepare again. If active
+keeps the candidate and explains recovery. Invalid types/ranges fail closed;
+correct the edit and prepare again. If active
 TOML changed, discard the candidate, refresh and prepare against the new revision.
 A failed candidate read disables edits and Apply; refresh or explicitly discard it.
 **Discard change** removes only the candidate and preserves the active configuration.
 The workflow supports one pending setting per project and keeps existing jobs on
 their original configuration. The existing direct API retains its safety checks.
 
-The existing Codex host-auth executor remains suitable for the owner's
-ChatGPT-subscription testing where that CLI supports it. A ChatGPT subscription
-is not an OpenAI API key or metered API billing source. For OpenCode and an
-OpenAI-compatible local server, save the exact `provider/model` ID and its URL
-together in Project details. ADORE validates and writes both settings atomically. It
-sets `OPENAI_BASE_URL` and OpenCode's `OPENCODE_CONFIG_CONTENT` provider override,
-using `@ai-sdk/openai-compatible` and the selected model ID.
-An optional `OPENAI_API_KEY` environment reference lets OpenCode resolve an
-API key already supplied to the executor; the UI accepts only the variable
-name and stores no key value. Existing credential references remain in place
-when this field is left at “Keep current.”
-The endpoint form fixes the protocol to OpenAI chat completions and sets a
-bounded request timeout in OpenCode. For HTTPS with a private CA, enter an
-absolute CA-file path **inside the executor image**; ADORE passes it to
-OpenCode through `NODE_EXTRA_CA_CERTS` and to the container probe through
-`SSL_CERT_FILE`. The file must already be present in that image. The staged
-form also accepts an empty CA field to clear a previously configured custom
-CA when the endpoint changes.
-The staged
-review shows the URL, model, protocol, timeout, credential reference and CA
-path before Apply. The explicit readiness check tests a streamed tool call
-from a disposable executor container; saving syntax alone is not a live test.
-The URL must be
-reachable **from the executor container**, and its image must already contain
-that provider package for offline operation. This follows the
-[OpenCode provider](https://opencode.ai/docs/providers/) and
-[inline configuration](https://dev.opencode.ai/docs/config/) contracts.
-The web editor validates an HTTP(S) URL and the full ADORE config; it does not
-test reachability or add cloud fallback. An acceptance probe using OpenCode
-1.18.31 in the executor base image completed a streamed request to a local
-OpenAI-compatible server on an internal Docker network with no Internet route.
-Your deployment still needs a URL reachable from its own executor container.
-Other executors and protocols require their own configuration and image preparation.
+A model served by an OpenAI-compatible server on your network (LM Studio,
+Ollama, vLLM) is configured with the **OpenAI-compatible endpoint** provider.
+
+**ChatGPT subscription.** For a project whose provider is **ChatGPT
+subscription**, **Authentication** shows **ChatGPT sign-in** instead of the
+API-key form (administrators only). It reports the server's status (**Signed
+in**, **Not signed in**, **Sign in again**). **Sign in with ChatGPT** shows
+OpenAI's sign-in link; the administrator opens it on their own computer, signs
+in, copies the address of the error page the browser then shows at
+`127.0.0.1:1455`, pastes it into **Redirect address** and chooses **Complete
+sign-in**. An address from an older link is refused and the sign-in keeps
+waiting (15 minutes at most); **Cancel** ends it; **Disconnect ChatGPT**
+deletes the stored sign-in. One sign-in serves every ChatGPT project on the
+server, and a project's Model list offers the models a ChatGPT subscription
+serves. The routes are `GET`/`PUT`/`DELETE /api/v1/chatgpt-sign-in`,
+`DELETE /api/v1/chatgpt-sign-in/pending` and
+`POST /api/v1/projects/{name}/chatgpt-sign-in` (it uses that project's
+container runtime and image). The readiness check of a ChatGPT project adds
+**ChatGPT sign-in**; Test AI connection reports a missing sign-in, a plan that
+cannot share its subscription and a reached usage limit separately. See
+[Security and credentials](Security_And_Credentials.md#chatgpt-subscription-sign-in).
 Every Statistics read reconciles retained journal usage and launch coverage into
 the local SQLite projection; administrators can also call
 `POST /api/v1/usage/rebuild` to reconcile every project at once.
 The per-run cursor records the ingested journal length and digest. Repeating
 the action does not add duplicate events or alter jobs; changed or missing journal
 evidence returns an error for operator review. Archived projects are included.
-When creating a project, ADORE-managed host-auth staging is available only for
-OpenCode and Codex. Select the non-staged option for Pi or Qwen. Pi can use the
-protected credential mount described above with `stage_host_auth = false`;
-ADORE does not copy Pi credentials from the host automatically.
+ADORE copies no host sign-in into a container.
 
 ## Navigation and project scope
 
@@ -1014,8 +1046,13 @@ Git supplies isolated working copies; the repository command tool reads issues a
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
 in the local image; workflow availability checks the two configured AEGIS files.
-A compatible configured OpenCode endpoint receives a temporary-container streamed
-model/tool-call check. Current saved explicit model-access evidence is shown for every executor. When no current result exists, model access remains untested. OpenCode endpoint/tool compatibility is identified separately when it was performed. Unknown container detection is incomplete;
+A container project with internet access Off adds **Network proxy image**
+(`egress_proxy`: the runtime's `image inspect` of `[container.egress]
+proxy_image` succeeds; it is never pulled), and a project with internet access
+On searching with Brave or Tavily adds **Web search key** (`web_search_key`:
+the key is set in the server environment or the project's credential store).
+A false one fails the verdict; enrollment's environment check shows both too.
+Readiness has no model endpoint check. Current saved explicit model-access evidence from **Test AI connection** is shown; when no current result exists, model access remains untested. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
@@ -1058,9 +1095,9 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured provider and model. Each explicit click starts Pi once, in a temporary container through its RPC mode (with the endpoint's `models.json` placed first for an OpenAI-compatible endpoint) or in a temporary folder for Pi installed on the server, and may incur provider charges. A provider that needs a key with none saved or set reports **credential-missing** without starting a container. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Both targets ask Pi to run one shell command that echoes a nonce and then reply with a second nonce; only a completed shell call and the exact reply report connected (a missing shell call reports **tool-call-failed** with permission guidance). Pi's failure class becomes a closed reason with its own guidance: **credential-invalid** (rejected key), **connection-failed** (provider or endpoint unreachable), **model-unavailable** (unknown model), **rate-limited**, **provider-error**, plus timeout, missing image or Pi. The action reuses executor credentials and the project's egress (behind the per-run proxy while internet access is Off), never loads web tools and starts no job; no provider text or key reaches the browser. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 
 ## Project setting scope and guidance
@@ -1087,15 +1124,15 @@ row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
 Its link opens Repository and focuses the single target-branch setting.
 
-Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings and the applicable OpenCode endpoint form belong to Settings → Agent and model. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project within Settings; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's operational settings, including inherited defaults. Executor/model/authentication settings belong to Settings → Agent and model. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project within Settings; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing, where the project runs (`execution.backend`), the container runtime and image (plus the local account, home, PATH and cgroup root for local projects) and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Edit keeps agent, command and model controls inside their existing description/value rows; the default-agent row owns Prepare/Cancel for the complete draft, beside its dropdown using the shared editor layout and normal responsive wrapping. Grouped-edit guidance stays in the description column. Validation occupies its own line after the controls, keeping selector/actions aligned when the selected agent needs a model; Prepare remains disabled until the complete draft is valid. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a direct PUT returns 409 `pending_config_required`. While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** owns AI connection testing, the provider (`executor.provider`), the model (`executor.model`), the endpoint base URL and API type for an OpenAI-compatible endpoint (`executor.endpoint.*`, shown only for that provider), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`: On or Off, default Off), **Web search** (`executor.web.search`: Exa (no key), Brave (key needed), Tavily (key needed) or None), the additional credential variables (`executor.env_keys`), **Provider API key**, estimated prices, where the project runs (`execution.backend`), the container runtime and image (plus the local account, home, PATH and cgroup root for local projects) and external container guidance. There is no agent choice: Pi is the only coding agent. **Edit** on the provider, model or endpoint rows opens one editor (provider dropdown with Pi's API-key providers, ChatGPT subscription and OpenAI-compatible endpoint; model field with Pi's list for the provider and free text; endpoint URL and API type for an endpoint; a note naming where the credential goes), and the selection is staged as one candidate `executor.connection` whose review lists provider, model, base URL and API type. The launch command is an ordinary reviewed setting, and so are internet access and web search (prepare candidate, review, apply). Off limits a container run to the model provider's hosts plus `[container.egress] allowlist`; On opens its network and loads Pi's web search and page reading. While internet access is On, or proposed On in the editor or the candidate review, a warning says that a malicious web page could try to make the agent send its API key or ChatGPT token out and recommends limited, short-lived keys; a server-installed (local) project shows instead "Not enforced: this project runs Pi installed on the server, which reaches whatever the server reaches." With internet access On and Brave or Tavily search, Authentication lists `BRAVE_API_KEY` or `TAVILY_API_KEY` after the provider key (alone for a ChatGPT subscription) and saves or removes it the same way. A container project offers only the Pi launch preset, because a container run starts the image's pinned Pi in RPC mode and ignores the command; a local project accepts native argv that contains `{prompt}` and does not use `--auto`. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a direct PUT returns 409 `pending_config_required`. While the image row is edited it offers the same server image suggestions. Runtime preparation remains external.
 
-The names-only credential selector offers known provider names and retained custom names, independently of coding agent. Empty lists support existing server sign-in, including in API-key mode when the image or the installed executor signs in by itself (`env_keys = []`). Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. Subscription login retains the installed CLI's external service-account workflow. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only additional credential selector offers Pi's provider variables and retained custom names; the provider's own key variable is always passed and needs no listing. Applying names does not delete saved `.env` values. **Provider API key** names the configured provider's variable (for example OPENAI_API_KEY, or ADORE_ENDPOINT_API_KEY, optional, for an endpoint; none for a ChatGPT subscription, which shows the server's ChatGPT sign-in instead), offers private Save/Disconnect for that variable only and shows its source; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges; its reasons distinguish a missing key, a rejected key, an unreachable provider or endpoint, an unknown model, a rate limit and other provider errors. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ### Transient application notifications
 
@@ -1103,11 +1140,11 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, selected-agent settings, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, internet access and web search, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## Container preparation
 
-Preparation recipes and the other environment settings (`execution.preparation`, `container.uv_cache_volume`, `container.run_args`, egress, SELinux, `worktree.*` roots) are configured externally through the server TOML/CLI; the web refuses them with 400 `environment_managed_externally`. Backend, container runtime, image and the local account keys are reviewed Settings edits. Settings → Agent and model displays the effective container image and external preparation instructions. Host/model checks never execute setup. Job details retain durable preparation outcomes and explicit replay guidance. See [Container preparation](Container_Preparation.md).
+Preparation recipes and the other environment settings (`execution.preparation`, `container.uv_cache_volume`, `container.run_args`, `container.egress.*`, SELinux, `worktree.*` roots) are configured externally through the server TOML/CLI; the web refuses them with 400 `environment_managed_externally`. Backend, container runtime, image and the local account keys are reviewed Settings edits. Settings → Agent and model displays the effective container image and external preparation instructions. Host/model checks never execute setup. Job details retain durable preparation outcomes and explicit replay guidance. See [Container preparation](Container_Preparation.md).
 
 ## Native local execution
 

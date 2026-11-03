@@ -8,12 +8,10 @@ import {test,expect,type Page} from "@playwright/test";
 import {discoveryCopy} from "../src/localExecutors";
 import {enrollmentCopy} from "../src/enrollmentCopy";
 
-const command = '"C:/Installed/OpenCode/opencode.exe" run --dir {worktree} -m {model} --format json {prompt}';
-const piCommand = '"C:/Node/node.exe" "C:/npm/pi/cli.js" -p --mode json --model {model} {prompt}';
+const command = '"C:/Node/node.exe" "C:/npm/pi/cli.js" -p --mode json --model {model} {prompt}';
+const piCommand = command;
 const discovery = {system:"Windows",machine:"test-host",account:"test-user",executors:[
- {agent:"opencode",installations:[{executable:"C:/Installed/OpenCode/opencode.exe",entrypoint:null,source:"npm",command}]},
- {agent:"pi",installations:[{executable:"C:/Node/node.exe",entrypoint:"C:/npm/pi/cli.js",source:"npm",command:piCommand}]},
- {agent:"codex",installations:[]},{agent:"qwen",installations:[]},
+ {agent:"pi",installations:[{executable:"C:/Node/node.exe",entrypoint:"C:/npm/pi/cli.js",source:"npm",command}]},
 ]};
 
 async function enter(page:Page) {
@@ -30,7 +28,7 @@ async function enter(page:Page) {
  await page.getByLabel("Runs in",{exact:false}).selectOption("local");
 }
 
-test("local enrollment prefills npm launches, switches agents and preserves manual commands",async({page})=>{
+test("local Pi enrollment prefills npm launches and preserves manual commands",async({page})=>{
  await page.route("**/api/v1/local-executors",route=>route.fulfill({json:discovery}));
  await enter(page);
  const argv=page.locator("#enroll-executor_command");
@@ -42,13 +40,8 @@ test("local enrollment prefills npm launches, switches agents and preserves manu
  await page.screenshot({path:"test-results/simple-local-setup-windows.png",fullPage:true});
  await page.locator(".local-executor-advanced > summary").click();
  await expect(argv).toHaveValue(command);
- await expect(page.getByLabel("Executable path on the ADORE host",{exact:true})).toHaveValue("C:/Installed/OpenCode/opencode.exe");
+ await expect(page.getByLabel("Executable path on the ADORE host",{exact:true})).toHaveValue("C:/Node/node.exe");
  await expect(page.locator(".local-executor-picker").getByText(/test-user.*test-host/)).toBeVisible();
- await page.getByLabel("Executor",{exact:false}).first().selectOption("qwen");
- await expect(argv).toHaveValue("");
- await expect(page.getByText(discoveryCopy.en.missing,{exact:true})).toBeVisible();
- await page.getByLabel("Executor",{exact:false}).first().selectOption("pi");
- await expect(argv).toHaveValue(piCommand);
  await page.getByRole("button",{name:"Use executable",exact:true}).click();
  await expect(argv).toHaveValue(piCommand);
  await argv.fill('"C:/Custom/pi.exe" -p {prompt}');
@@ -66,9 +59,9 @@ test("unavailable discovery keeps manual Linux execution possible",async({page})
  await enter(page);
  await page.locator(".local-executor-advanced > summary").click();
  await expect(page.getByText(discoveryCopy.en.unavailable,{exact:true})).toBeVisible();
- await page.getByLabel("Executable path on the ADORE host",{exact:true}).fill("/opt/tools/opencode");
+ await page.getByLabel("Executable path on the ADORE host",{exact:true}).fill("/opt/tools/pi");
  await page.getByRole("button",{name:"Use executable",exact:true}).click();
- await expect(page.locator("#enroll-executor_command")).toHaveValue('"/opt/tools/opencode" run --dir {worktree} -m {model} --format json {prompt}');
+ await expect(page.locator("#enroll-executor_command")).toHaveValue('"/opt/tools/pi" -p --mode json --model {model} {prompt}');
 });
 
 test("simple local enrollment sends the current account and automatic home and PATH",async({page})=>{
@@ -79,7 +72,7 @@ test("simple local enrollment sends the current account and automatic home and P
   return route.fulfill({json:{structural_valid:false,issues:[],revision:null,config_revision:null,review:null}});
  });
  await enter(page);
- await page.locator("#enroll-model").fill("openai/offline-model");
+ await page.locator("#enroll-model").fill("offline-model");
  await page.getByRole("button",{name:"Continue",exact:true}).click();
  await page.getByRole("button",{name:"Continue",exact:true}).click();
  await page.getByRole("button",{name:"Validate setup",exact:true}).click();
@@ -92,16 +85,16 @@ test("simple local enrollment sends the current account and automatic home and P
 test("late detection preserves edits and Linux offers its native launch",async({page})=>{
  let release!:()=>void;
  const wait=new Promise<void>(resolve=>{release=resolve;});
- await page.route("**/api/v1/local-executors",async route=>{await wait;await route.fulfill({json:{...discovery,system:"Linux",executors:discovery.executors.map(item=>item.agent!=="opencode"?item:{agent:"opencode",installations:[{executable:"/opt/tools/opencode",entrypoint:null,source:"PATH",command:'"/opt/tools/opencode" run --dir {worktree} -m {model} --format json {prompt}'}]})}});});
+ await page.route("**/api/v1/local-executors",async route=>{await wait;await route.fulfill({json:{...discovery,system:"Linux",executors:discovery.executors.map(item=>item.agent!=="pi"?item:{agent:"pi",installations:[{executable:"/opt/tools/pi",entrypoint:null,source:"PATH",command:'"/opt/tools/pi" -p --mode json --model {model} {prompt}'}]})}});});
  await enter(page);
  const argv=page.locator("#enroll-executor_command");
  await page.locator(".local-executor-advanced > summary").click();
- await argv.fill('"/custom/opencode" run {prompt}');
+ await argv.fill('"/custom/pi" run {prompt}');
  release();
  await expect(page.getByText(/test-host.*Linux/)).toBeVisible();
- await expect(argv).toHaveValue('"/custom/opencode" run {prompt}');
+ await expect(argv).toHaveValue('"/custom/pi" run {prompt}');
  await page.getByLabel("Detected installations",{exact:true}).selectOption({index:1});
- await expect(argv).toHaveValue('"/opt/tools/opencode" run --dir {worktree} -m {model} --format json {prompt}');
+ await expect(argv).toHaveValue('"/opt/tools/pi" -p --mode json --model {model} {prompt}');
  await expect(page.getByLabel("Delegated Linux cgroup root",{exact:false})).toBeVisible();
 });
 
@@ -113,9 +106,9 @@ test("local Settings preserves saved command until an installation is selected",
  const id=projects.find((p:{name:string})=>p.name==="alpha").id;
  const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
  config.config.execution={backend:"local",preparation:""};
- const saved='"C:/Custom/opencode.exe" run --dir {worktree} -m {model} --format json {prompt}';
- config.config.executor.commands.opencode.command=saved;
- config.settings.find((s:{key:string})=>s.key==="executor.commands.opencode.command").choices=[];
+ const saved='"C:/Custom/pi.exe" -p --mode json --model {model} {prompt}';
+ config.config.executor.command=saved;
+ config.settings.find((s:{key:string})=>s.key==="executor.command").choices=[];
  await page.route(`**/api/v1/projects/${id}/config`,route=>route.fulfill({json:config}));
  await page.route("**/api/v1/local-executors",route=>route.fulfill({json:discovery}));
  await page.goto(`/projects/${id}/configuration`);
@@ -126,9 +119,9 @@ test("local Settings preserves saved command until an installation is selected",
  await expect(page.locator('[id="setting-local.home"]')).not.toBeVisible();
  await technical.locator(":scope > summary").click();
  await expect(page.locator('[id="setting-local.home"]')).toBeVisible();
- await page.getByRole("button",{name:"Edit Executor launch command",exact:true}).click();
+ await page.locator('[id="setting-executor.command"]').getByRole("button").click();
  await page.locator(".local-executor-advanced > summary").click();
- const argv=page.getByLabel("Executor launch command",{exact:true});
+ const argv=page.getByLabel(discoveryCopy.en.command,{exact:true});
  await expect(page.locator(".local-executor-picker").getByText(/test-user.*test-host/)).toBeVisible();
  await expect(argv).toHaveValue(saved);
  await page.getByLabel("Detected installations",{exact:true}).selectOption({index:1});
@@ -153,7 +146,7 @@ for(const locale of ["en","ro","fr","de"] as const){
    await expect(page.locator("#enroll-executor_command")).toHaveValue(command);
    await expect(page.locator("#enroll-executor_command")).not.toBeVisible();
    await page.locator(".local-executor-advanced > summary").click();
-   await expect(page.getByLabel(discoveryCopy[locale].path,{exact:true})).toHaveValue("C:/Installed/OpenCode/opencode.exe");
+   await expect(page.getByLabel(discoveryCopy[locale].path,{exact:true})).toHaveValue("C:/Node/node.exe");
    await expect(page.getByRole("button",{name:discoveryCopy[locale].refresh,exact:true})).toBeVisible();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
    if(locale==="ro")await page.screenshot({path:"test-results/local-executors-ro-mobile.png",fullPage:true});
@@ -168,12 +161,12 @@ test("native mode detects automatically and keeps agent fields in independent co
  await expect(page.getByLabel(discoveryCopy.en.installed,{exact:true})).toHaveValue(command);
  expect(requests).toBe(1);
  const left=page.locator(".enrollment-agent-column").first();
- await expect(left.locator("#enroll-executor_cli")).toBeVisible();
- const run=await left.locator("#enroll-execution_backend").boundingBox();
- const auth=await left.locator("#enroll-auth_mode").boundingBox();
- expect(auth!.y-(run!.y+run!.height)).toBeLessThan(65);
+ await expect(left.locator("#enroll-provider")).toHaveValue("openai");
+ await expect(page.locator("#enroll-executor_cli")).toHaveCount(0);
+ const provider=await left.locator("#enroll-provider").boundingBox();
+ const model=await left.locator("#enroll-model").boundingBox();
+ expect(model!.y-(provider!.y+provider!.height)).toBeLessThan(65);
  await expect(page.getByRole("button",{name:discoveryCopy.en.refresh,exact:true})).not.toBeVisible();
- await page.locator("#enroll-executor_cli").selectOption("pi");
  await expect(page.getByLabel(discoveryCopy.en.installed,{exact:true})).toHaveValue(piCommand);
  expect(requests).toBe(1);
  await page.locator("#enroll-execution_backend").selectOption("container");

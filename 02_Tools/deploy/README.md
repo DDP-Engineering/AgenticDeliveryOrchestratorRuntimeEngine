@@ -73,10 +73,11 @@ the same flags. From `04_Software/` in a checkout, use
 - Logs: `journalctl -u adore -f`. ADORE also mirrors `run` output to
   `<store_root>/adore.log`. Control: `systemctl {status,stop,restart} adore`.
 - `--skip-image` skips the image check/build (e.g. remote daemon).
-- Service install refuses `[container.egress] mode = "open"` unless
-  `--allow-open-egress` is passed. Use `allowlist-proxy` or `none` for
-  unattended operation. In `allowlist-proxy` mode the installer verifies, and
-  if needed builds, the proxy image from `docker/Dockerfile.egress-proxy`.
+- The installer reads `executor.internet` from `adore config show`. Service
+  install of a container project refuses `[executor] internet = true` (Internet access for the agent
+  On, open egress) unless `--allow-open-egress` is passed; keep it `false` for
+  unattended operation. For a container project with `internet = false` the
+  installer verifies, and if needed builds, the proxy image from `docker/Dockerfile.egress-proxy`.
 
 ## Windows 11 (Task Scheduler)
 
@@ -110,8 +111,9 @@ the same flags. From `04_Software\` in a checkout, use
   runtime needs path translation); pass the profile's image tag, for example
   `-ImageTag adore-executor-<project>:<tag>`. Exact generic build commands are
   in `docker/README.md`.
-- Task registration refuses `[container.egress] mode = "open"` unless
-  `-AllowOpenEgress` is passed. In `allowlist-proxy` mode the proxy image is
+- Task registration of a container project refuses `[executor] internet = true` unless
+  `-AllowOpenEgress` is passed. For a container project with `internet = false`
+  the proxy image is
   verified through the configured runtime; if absent, the script prints the
   exact `docker build -f Dockerfile.egress-proxy ...` command and exits.
 
@@ -122,7 +124,7 @@ the same flags. From `04_Software\` in a checkout, use
 - **No secret handling beyond placement** - scripts never read, print, or
   pass secrets; they only point at `.env` / `EnvironmentFile`.
 - **No silent open egress for unattended installs** - service/task installers
-  fail when `[container.egress] mode = "open"` unless the operator passes the
+  fail when `[executor] internet = true` unless the operator passes the
   explicit supervised-pilot override.
 - **Uninstall keeps all state** - `.adore/`, worktrees, and containers
   survive; use `adore cleanup` / `adore delete <run-id> --force` for those.

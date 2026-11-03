@@ -24,9 +24,7 @@ tools and interactive account authentication.
 
 LocalBackend revalidate_for_retry/provision/bind/resource_identity/verify_required_tools/stop/interrupt/remove;
 LocalTarget run_files/call/read_output/redact/auth_available and `output_limit` (64 KiB default for non-AEGIS output; Test AI connection raises it to 1 MiB); local_policy,
-local_environment, managed_opencode_config, local_argv and local_probe;
-probe_local_executor and validate_local_probe own closed measured readiness evidence;
-OPENCODE_PERMISSION_POLICY. LocalProcessController launch/interrupt/
+local_environment, local_argv and local_probe. LocalProcessController launch/interrupt/
 recover delegates to NativeScopes; child.main enforces scope membership and release.
 
 ## Invariants
@@ -36,23 +34,26 @@ pinned runtime/lease/scope, immutable ownership and PID birth before control.
 Scope assignment and durable ownership precede project code. Confirm descendants
 drained before release; corruption/control failure preserves evidence/worktrees.
 No recovered PID-only kill, login, credential copies, forge env or tool installs.
+`[executor] provider = "custom"` (an OpenAI-compatible endpoint) is refused for
+a local run: it has no ADORE-owned agent directory for Pi's `models.json`.
 Worktrees are not host sandboxes; container egress/recipes cannot be selected.
 Gates and probes share one bound target and one `local_environment` result; the
 conductor remains the stage owner. The environment is an explicit allowlist:
 `SYSTEM_ENV_KEYS` everywhere plus `WINDOWS_SYSTEM_ENV_KEYS` (PATHEXT, PROCESSOR_*,
 NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData, ProgramFiles*, CommonProgramFiles*,
-ALLUSERSPROFILE, PUBLIC) on Windows, then for OpenCode profiles the managed
-`XDG_CONFIG_HOME` (`<state root>/executor-config`), `OPENCODE_DISABLE_CLAUDE_CODE=1`
-and `OPENCODE_PERMISSION`, then `[local].environment` (explicit values win), managed
-account/home/PATH and approved provider keys; on Windows an explicit managed
-OpenCode name replaces the managed entry regardless of case. The personal OpenCode configuration home (agents,
-providers, plugins, permissions) and Claude Code compatibility content do not
-apply unless the operator overrides the managed names; OpenCode still reads the
-account's `~/.opencode` and `~/.agents/skills`, a documented gap. `XDG_DATA_HOME`
-auth is untouched. LocalBackend creates the managed folder or raises
-before any launch; `local_policy` (also `config plan`) writes nothing. For OpenCode
-profiles the digest includes the state root; it is pinned, so changing the allowlist, the managed
-entries or the state root makes runs started earlier drift.
+ALLUSERSPROFILE, PUBLIC) on Windows, then `[local].environment` (explicit
+values replace inherited ones), then the managed account names, home and PATH,
+then `PI_CODING_AGENT_DIR` defaulting to `<home>/.pi/agent` when neither the
+process nor `[local].environment` sets it, then the approved provider keys
+(`pi_providers.secret_names`: `[executor] env_keys` plus the provider's
+credential variable).
+The installed Pi reuses its existing sign-in in place: `auth_available()` is
+true when `$PI_CODING_AGENT_DIR/auth.json` exists or an approved secret
+(provider credential variable or `[executor] env_keys`) is set; ADORE never logs in or copies credentials,
+and reads the auth file only to redact its values from retained output.
+`local_policy` (also `config plan`) writes nothing; its pinned environment
+digest covers the whole built environment, so changing the allowlist,
+`[local].environment` or the account context makes runs started earlier drift.
 
 ## Change map
 
@@ -85,14 +86,8 @@ cumulative budgets remain intact. Focused proof: test_retry_revalidation.py.
 - REQ-SEC-f7b9111e: allowlisted account environment (Windows system names included),
   bounded strict/redacted evidence and auth reused in place.
 - REQ-UX-b75e1df8: native probes and actual machine/account/tooling notice.
-
-Ownership is persisted and scope established before release. Shared gates/probes
-use the same bound target; the existing conductor remains the stage owner.
-- REQ-SEC-eaad89c3: OpenCode resolves the managed config home, not the personal one
-  (home-level `~/.opencode` and `~/.agents/skills` remain a documented gap).
-- REQ-SEC-617a95f5: OpenCode permission policy (bash/edit allow; push and forge CLIs deny).
-- REQ-FUNC-17d58879: explicit `[local].environment` values override managed entries.
-- REQ-REL-23ce3d34: unusable managed folder raises LocalExecutionError before launch.
+- REQ-FUNC-78b0ad95: `[local].environment` names starting `OPENCODE_`, `CODEX_`
+  or `QWEN_` are refused by configuration validation.
 
 ## Files
 

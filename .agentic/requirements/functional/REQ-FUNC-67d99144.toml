@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-67d99144"
+
+title = "Give the egress proxy the executor's host aliases"
+
+status = "active"
+
+requirement = """
+When ADORE starts a run's egress proxy, it shall pass the `--add-host` options of `[container] run_args` to the proxy container so that host aliases the executor uses resolve in the proxy.
+"""
+
+verification = "An automated isolation test provisions an allowlist-proxy run with run_args `--add-host=host.docker.internal:host-gateway --userns=keep-id` and observes the proxy run argv with the --add-host option only."
+
+affected_paths = ["04_Software/adore/isolation.py"]
+
+linked_tests = ["04_Software/tests/test_isolation.py::test_proxy_gets_the_executor_host_aliases"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

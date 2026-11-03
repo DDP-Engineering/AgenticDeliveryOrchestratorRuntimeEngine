@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-4ebeb792"
+
+title = "Carry each provider's hosts in the Pi catalog"
+
+status = "active"
+
+requirement = """
+ADORE shall accept its Pi provider catalog only when every provider entry lists one to eight valid host names taken from the pinned Pi's provider base URLs, and shall otherwise refuse the catalog as malformed.
+"""
+
+verification = "Automated catalog tests observe hosts on every shipped provider (api.openai.com for openai, api.anthropic.com for anthropic) and refuse a catalog whose entry lacks hosts, has an empty list or a host with a path or space."
+
+affected_paths = ["04_Software/adore/pi_providers.py", "04_Software/adore/pi_catalog.json", "02_Tools/generate_pi_catalog.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_catalog_providers_carry_their_hosts", "04_Software/tests/test_pi_providers.py::test_catalog_hosts_are_validated"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

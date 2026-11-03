@@ -6,9 +6,9 @@
 schema = 1
 id = "REQ-SEC-617a95f5"
 title = "Apply the ADORE permission policy to local OpenCode commands"
-status = "active"
+status = "retired"
 requirement = """
-When ADORE builds the environment for a native local command of a profile whose default executor is OpenCode, ADORE shall set OPENCODE_PERMISSION to the JSON policy {"edit": "allow", "bash": {"*": "allow", "git push*": "deny", "tea *": "deny", "gh *": "deny", "glab *": "deny"}}, leaving every other OpenCode permission at its OpenCode default.
+When ADORE builds the environment for a native local command of a profile whose default executor is OpenCode, ADORE shall set OPENCODE_PERMISSION to the JSON policy {"edit": "allow", "bash": {"*": "allow", "git push*": "deny", "tea *": "deny", "gh *": "deny", "glab *": "deny"}}, leaving every other OpenCode permission at its OpenCode default. Retired 2026-11-02: OpenCode support was removed; the OpenCode permission policy no longer exists.
 """
 verification = "Offline: the OpenCode local environment carries OPENCODE_PERMISSION whose parsed JSON equals the stated policy; a Codex local profile carries none. Inspection: container profiles assemble their environment from container.runtime_env and never call local_environment. Native: under that environment `opencode debug agent build` resolves `git push origin main` to deny and `python -V` to allow."
 affected_paths = ["04_Software/adore/local_execution.py"]
@@ -17,4 +17,4 @@ spec = ""
 priority = "high"
 rationale = "The local account may hold forge credentials; the deny rules are a safety belt, while a dedicated account without forge credentials remains the boundary."
 created = 2026-10-31
-updated = 2026-11-01
+updated = 2026-11-02

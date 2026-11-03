@@ -22,7 +22,7 @@ from __future__ import annotations
 
 # IMPORTS
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -100,7 +100,7 @@ class GateRun:
 
 class Executor(ABC):
     """
-    @brief   Abstract executor launcher (opencode/pi/codex).
+    @brief   Abstract executor launcher; Pi is its only implementation.
     """
 
     @abstractmethod
@@ -114,6 +114,7 @@ class Executor(ABC):
         timeout: float | None = None,
         archive_stem: str = "",
         package_secrets: dict[str, str] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
@@ -130,8 +131,23 @@ class Executor(ABC):
         @param[in]  archive_stem Optional immutable archive name stem.
         @param[in]  package_secrets Optional known credentials for bounded and
                                    redacted package-enabled gate retention.
+        @param[in]  cancel Cancellation check, passed only when
+                           `cancel_grace_seconds` returns a value.
         @return     A GateRun describing the outcome.
         """
+
+    def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
+        """
+        @brief      Whether this launch watches the run's cancellation itself.
+        @details    `None` (the default): the conductor stops the target when a
+                    cancel arrives. A number: `run_gate` takes a `cancel` check,
+                    stops the executor itself, and the conductor stops the
+                    target only when the gate is still running that many
+                    seconds after the cancel was seen.
+        @param[in]  execute Exec seam the gate will run on.
+        @return     Seconds the executor needs to end on cancel, or None.
+        """
+        return None
 
 
 # END OF FILE

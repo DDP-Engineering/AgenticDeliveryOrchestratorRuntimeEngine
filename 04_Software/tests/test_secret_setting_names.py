@@ -27,9 +27,9 @@ repo = "group/project"
 [worktree]
 repo_path = "../runtime-project"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["reviewer.one"]

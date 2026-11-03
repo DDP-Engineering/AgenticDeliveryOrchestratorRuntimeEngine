@@ -10,14 +10,14 @@ import { modelConnectionCopy, modelGuidance, validModelEvidence } from "../src/m
 
 const project = "1".repeat(32), revision = "a".repeat(64);
 const evidence = (reason) => ({ project_id: project, revision, checked_at: "2026-11-01T02:00:00+00:00",
-  executor: "opencode", model: "openai/model", ready: reason === "ready", reason });
+  executor: "pi", model: "openai/model", ready: reason === "ready", reason });
 const locales = ["en", "fr", "de", "ro"];
 
 test("a tool-call-failed result is valid evidence and unknown reasons stay rejected", () => {
-  assert.equal(validModelEvidence(evidence("tool-call-failed"), project, revision, "opencode", "openai/model"), true);
-  assert.equal(validModelEvidence(evidence("ready"), project, revision, "opencode", "openai/model"), true);
-  assert.equal(validModelEvidence(evidence("nonsense"), project, revision, "opencode", "openai/model"), false);
-  assert.equal(validModelEvidence({ ...evidence("tool-call-failed"), ready: true }, project, revision, "opencode", "openai/model"), false);
+  assert.equal(validModelEvidence(evidence("tool-call-failed"), project, revision, "pi", "openai/model"), true);
+  assert.equal(validModelEvidence(evidence("ready"), project, revision, "pi", "openai/model"), true);
+  assert.equal(validModelEvidence(evidence("nonsense"), project, revision, "pi", "openai/model"), false);
+  assert.equal(validModelEvidence({ ...evidence("tool-call-failed"), ready: true }, project, revision, "pi", "openai/model"), false);
 });
 
 test("tool-call-failed shows shell-permission guidance in every locale", () => {

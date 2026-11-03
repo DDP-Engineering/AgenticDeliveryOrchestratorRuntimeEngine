@@ -18,7 +18,6 @@ from dataclasses import replace
 import json
 from pathlib import Path
 
-from adore.config import ExecutorCommand
 from adore.executor.base import GateRun
 from adore.local_execution import LocalBackend
 from adore.preparation import resolve_plan
@@ -32,18 +31,17 @@ from tests.test_orchestrator import FakeAegis, FakeExecutor, make_engine, make_r
 # LOCAL HELPERS
 
 
-def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="opencode", iid=7):
+def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
     """@brief Persist a failed native job with real receipts and injected execution."""
     config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
     context["system"] = system
     config.local.cgroup_root = str(tmp_path / "cgroup") if system == "Linux" else ""
-    binary = Path(context["path"]) / "opencode.exe"
+    binary = Path(context["path"]) / "pi.exe"
     binary.chmod(0o755)
-    config.executor.default = agent
-    config.executor.commands[agent] = ExecutorCommand(
-        command=f'"{binary.as_posix()}" run --dir {{worktree}} -m {{model}} {{prompt}}',
-        model="provider/model",
-    )
+    config.executor.command = (
+        f'"{binary.as_posix()}" -p --mode json --model {{model}} {{prompt}}')
+    config.executor.provider = "openai"
+    config.executor.model = "model"
     config.delivery.publish_checkpoints = False
     engine, forge, trees, _, executor = make_engine(
         tmp_path,
@@ -103,7 +101,7 @@ def upgrade(engine, context, controller, binary):
 
 
 @pytest.mark.parametrize("system", ["Windows", "Linux"])
-@pytest.mark.parametrize("agent,iid", [("opencode", 7), ("pi", 91), ("codex", 12), ("qwen", 35)])
+@pytest.mark.parametrize("agent,iid", [("pi", 7), ("pi", 91)])
 def test_explicit_retry_refreshes_native_tools_without_losing_job(
     tmp_path, monkeypatch, system, agent, iid
 ):

@@ -35,8 +35,9 @@ control and remains an operator override.
 For engine commands (`run`, `retry`, `cancel`, `delete`, `reset`, and
 `cleanup`), ADORE loads `.env` beside the resolved `config.toml` when it
 exists; otherwise it falls back to `./.env`. Values already present in the
-process environment take precedence. Only names listed in `executor.env_keys`
-are passed into the executor container, and forge authentication remains the
+process environment take precedence. Only the configured provider's key
+variable and the names listed in `executor.env_keys` are passed into the
+executor container, and forge authentication remains the
 responsibility of the host `gh`, `glab`, or `tea` CLI.
 
 ## Setup and Profiles

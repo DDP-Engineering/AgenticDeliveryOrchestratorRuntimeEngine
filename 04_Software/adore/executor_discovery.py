@@ -22,11 +22,11 @@ from pathlib import Path
 import platform
 import shlex
 
+from adore.config import PI_NATIVE_COMMAND
 from adore.local_process import native_context
-from adore.wizard import _command_for
 
 # CONSTANTS
-AGENTS = ("opencode", "pi", "codex", "qwen")
+AGENTS = ("pi",)
 MAX_ROOTS = 64
 MAX_INSTALLATIONS = 12
 NPM_SCRIPTS = {
@@ -35,8 +35,6 @@ NPM_SCRIPTS = {
         "@earendil-works/pi-coding-agent/dist/cli.js",
         "@mariozechner/pi-coding-agent/dist/cli.js",
     ),
-    "codex": ("@openai/codex/bin/codex.js",),
-    "qwen": ("@qwen-code/qwen-code/dist/cli.js",),
 }
 
 
@@ -110,7 +108,7 @@ def discover_executors(
     separator = ";" if system == "Windows" else ":"
     roots: list[Path] = []
     raw_roots = env.get("PATH", "")[:32768].split(separator)[:MAX_ROOTS]
-    raw_roots += [str(home / ".local/bin"), str(home / ".opencode/bin")]
+    raw_roots += [str(home / ".local/bin")]
     if system == "Windows":
         raw_roots += [
             str(Path(env.get("APPDATA") or home / "AppData/Roaming") / "npm"),
@@ -158,7 +156,7 @@ def discover_executors(
                 return
             seen.add(key)
             prefix = _quote(executable) + (" " + _quote(entrypoint) if entrypoint else "")
-            command = prefix + " " + _command_for(agent).partition(" ")[2]
+            command = prefix + " " + PI_NATIVE_COMMAND.partition(" ")[2]
             # Keep the same closed launch grammar as actual local execution.
             if len(command) > 4096 or not shlex.split(command):
                 return
@@ -174,17 +172,6 @@ def discover_executors(
         for root in roots:
             add(root / native_name(agent), "PATH")
             for packages in (root / "node_modules", root.parent / "lib/node_modules"):
-                if agent == "opencode":
-                    for relative in (
-                        (
-                            "opencode-ai/bin/opencode.exe",
-                            "opencode-windows-x64/bin/opencode.exe",
-                            "opencode-windows-arm64/bin/opencode.exe",
-                        )
-                        if system == "Windows"
-                        else ()
-                    ):
-                        add(packages / relative, "npm")
                 if node:
                     for relative in NPM_SCRIPTS.get(agent, ()):
                         add(node, "npm", packages / relative)

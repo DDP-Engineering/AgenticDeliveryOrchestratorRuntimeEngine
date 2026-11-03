@@ -24,11 +24,10 @@ import pytest
 from tests.test_model_connection import project
 
 
-@pytest.mark.parametrize("kind", ["opencode", "pi", "codex", "qwen"])
-def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkeypatch, kind):
+def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkeypatch):
     """@brief Save only an approved variable used by real executor environment injection."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    profiles = project(tmp_path, kind=kind)
+    profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     env = profiles.profile_dir("alpha") / ".env"
     env.write_text("# retained\nANTHROPIC_API_KEY=other-private\n", encoding="utf-8")
@@ -145,15 +144,15 @@ def test_credential_boundary_preserves_original_bytes(tmp_path, monkeypatch, mod
 
 def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypatch):
     """@brief A local agent that cannot run its shell call yields saved, readable evidence."""
-    profiles = project(tmp_path, kind="pi")
+    profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
 
-    model = load_config(profiles.config_path("alpha")).executor.commands["pi"].model
+    model = load_config(profiles.config_path("alpha")).executor.model
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "pi", "model": model, "ready": False,
+        lambda *args, **_options: {"executor": "pi", "model": model, "ready": False,
                        "reason": "tool-call-failed"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
@@ -172,15 +171,16 @@ def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypa
 
 def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path, monkeypatch):
     """@brief A current explicit result survives host checks and credential drift hides it."""
-    profiles = project(tmp_path, kind="pi")
+    profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
 
-    model = load_config(profiles.config_path("alpha")).executor.commands["pi"].model
+    model = load_config(profiles.config_path("alpha")).executor.model
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "pi", "model": model, "ready": True, "reason": "ready"},
+        lambda *args, **_options: {"executor": "pi", "model": model, "ready": True,
+                                   "reason": "ready"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
@@ -204,13 +204,6 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
                     "container_runtime": True,
                     "executor_cli": True,
                     "aegis_files": True,
-                    "model_endpoint": "not-checked",
-                },
-                "model_probe": {
-                    "context": "executor-container",
-                    "ready": False,
-                    "model": model,
-                    "reason": "unsupported-executor",
                 },
             },
         )
@@ -239,11 +232,12 @@ def test_model_evidence_corruption_fails_closed(tmp_path, monkeypatch, mode):
     module = importlib.import_module("adore.web.app")
     from adore.config import load_config
 
-    model = load_config(profiles.config_path("alpha")).executor.commands["opencode"].model
+    model = load_config(profiles.config_path("alpha")).executor.model
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "opencode", "model": model, "ready": True, "reason": "ready"},
+        lambda *args, **_options: {"executor": "pi", "model": model, "ready": True,
+                                   "reason": "ready"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
@@ -312,12 +306,12 @@ def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monk
     profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
 
-    def probe(config, runner, env_file):
+    def probe(config, runner, env_file, **_options):
         """@brief Change an external credential after the initial snapshot."""
         env_file.write_text("OPENAI_API_KEY=concurrent-change\n", encoding="utf-8")
         return {
-            "executor": config.executor.default,
-            "model": config.executor.commands[config.executor.default].model,
+            "executor": "pi",
+            "model": config.executor.model,
             "ready": True,
             "reason": "ready",
         }
@@ -332,3 +326,133 @@ def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monk
         )
         assert response.status_code == 409
         assert not (profiles.profile_dir("alpha") / "model-connection.json").exists()
+
+
+def _login(client) -> dict:
+    """@brief Sign in as the seeded administrator and return the CSRF header."""
+    csrf = client.post(
+        "/api/v1/session", json={"username": "admin", "password": "admin"}
+    ).json()["csrf"]
+    return {"X-CSRF-Token": csrf}
+
+
+def test_credential_follows_the_configured_provider(tmp_path, monkeypatch):
+    """@brief Only the configured provider's variable is shown and saved; chatgpt has none."""
+    from tests.test_model_connection import set_executor
+
+    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ADORE_ENDPOINT_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    env = profiles.profile_dir("alpha") / ".env"
+    module = importlib.import_module("adore.web.app")
+    with TestClient(module.create_app(profiles.home)) as client:
+        headers = _login(client)
+
+        def view():
+            return client.get("/api/v1/projects/alpha/executor-credentials").json()
+
+        def save(variable):
+            return client.put("/api/v1/projects/alpha/executor-credentials", headers=headers,
+                              json={"variable": variable, "token": "private-key-value",
+                                    "revision": view()["revision"]})
+
+        assert view()["variables"] == [{"name": "OPENAI_API_KEY", "source": "missing"}]
+        assert save("ANTHROPIC_API_KEY").status_code == 400
+        assert not env.exists()
+        set_executor(profiles, "custom", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1")
+        assert view()["variables"] == [{"name": "ADORE_ENDPOINT_API_KEY", "source": "missing"}]
+        assert save("ADORE_ENDPOINT_API_KEY").status_code == 200
+        assert view()["variables"] == [{"name": "ADORE_ENDPOINT_API_KEY", "source": "project"}]
+        assert "ADORE_ENDPOINT_API_KEY=private-key-value" in env.read_text(encoding="utf-8")
+        path = profiles.config_path("alpha")
+        path.write_text(path.read_text(encoding="utf-8").split("\n[executor.endpoint]")[0]
+                        .replace('provider = "custom"', 'provider = "chatgpt"'),
+                        encoding="utf-8")
+        assert view()["variables"] == []
+        assert save("OPENAI_API_KEY").status_code == 400
+
+
+def test_search_key_is_a_credential_only_with_internet_on(tmp_path, monkeypatch):
+    """@brief BRAVE_API_KEY / TAVILY_API_KEY join the provider key only for an On project."""
+    from tests.test_model_connection import set_internet
+
+    for name in ("OPENAI_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    profiles = project(tmp_path)
+    path = profiles.config_path("alpha")
+    base = path.read_text(encoding="utf-8")
+    module = importlib.import_module("adore.web.app")
+    with TestClient(module.create_app(profiles.home)) as client:
+        _login(client)
+
+        def names() -> list[str]:
+            return [item["name"] for item in client.get(
+                "/api/v1/projects/alpha/executor-credentials").json()["variables"]]
+
+        set_internet(profiles, False, "brave")
+        assert names() == ["OPENAI_API_KEY"]
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True, "brave")
+        assert names() == ["OPENAI_API_KEY", "BRAVE_API_KEY"]
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True, "tavily")
+        assert names() == ["OPENAI_API_KEY", "TAVILY_API_KEY"]
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True)
+        assert names() == ["OPENAI_API_KEY"]
+
+
+def test_provider_key_never_leaves_the_credential_store(tmp_path, monkeypatch):
+    """@brief After save, review/apply and a test run the key is only in the profile .env."""
+    from adore.config import load_config
+    from adore.web import model_connection
+
+    from tests.test_model_connection import SECRET, Runtime
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    module = importlib.import_module("adore.web.app")
+    runtime = Runtime(tmp_path, "failed_invalid_api_key", "--key-hint", "sk-test****6789")
+    monkeypatch.setattr(module, "probe_model_connection", lambda config, runner, env_file, **_:
+                        model_connection.probe_model_connection(
+                            config, runtime.runner, env_file, popen=runtime.popen))
+    responses = []
+    with TestClient(module.create_app(profiles.home)) as client:
+        headers = _login(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        responses.append(client.put("/api/v1/projects/alpha/executor-credentials",
+                                    headers=headers, json={"variable": "OPENAI_API_KEY",
+                                                           "token": SECRET,
+                                                           "revision": revision}))
+        tested = client.post("/api/v1/projects/alpha/model-connection-test", headers=headers)
+        assert tested.json()["reason"] == "credential-invalid"
+        responses.append(tested)
+        view = client.get("/api/v1/projects/alpha/config").json()
+        staged = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
+            "key": "executor.connection", "revision": view["revision"],
+            "value": json.dumps({"provider": "openai", "model": "gpt-5.4",
+                                 "base_url": "", "api": ""})})
+        responses.append(staged)
+        responses.append(client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                                     json={"candidate_revision": staged.json()[
+                                         "candidate_revision"],
+                                         "base_revision": staged.json()["base_revision"]}))
+        for path in ("/api/v1/projects/alpha/config", "/api/v1/projects/alpha/config/pending",
+                     "/api/v1/projects/alpha/config/raw",
+                     "/api/v1/projects/alpha/executor-credentials",
+                     "/api/v1/projects/alpha", "/api/v1/projects", "/api/v1/audit",
+                     "/api/v1/audit-page"):
+            responses.append(client.get(path))
+    assert all(response.status_code == 200 for response in responses[:4]), \
+        [response.text for response in responses[:4]]
+    assert all(SECRET not in response.text and "sk-test" not in response.text
+               for response in responses)
+    assert load_config(profiles.config_path("alpha")).executor.model == "gpt-5.4"
+    holders = [path for path in profiles.home.rglob("*")
+               if path.is_file() and SECRET.encode() in path.read_bytes()]
+    assert holders == [profiles.profile_dir("alpha") / ".env"]
+    assert all(SECRET.encode() not in path.read_bytes()
+               for path in (tmp_path / "state").rglob("*") if path.is_file())

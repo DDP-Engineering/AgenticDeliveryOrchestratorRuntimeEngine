@@ -32,11 +32,19 @@ container through a Docker, Podman, or WSL-wrapped runtime. Runtime commands
 are injected for offline testing, and predictable branding names bind resources
 to their run. `WorktreeManager` accepts the configured agent name/email for
 host-side checkpoint commits, so a new clone needs no local Git identity.
+`ContainerManager.spawn(name, argv, env=...)` starts a streaming `exec -i`
+command with live binary pipes and exactly `exec`'s environment rules (safe
+keys, including Pi's `PI_*` isolation variables, inline; secrets as bare keys
+with values only in the client environment); the caller bounds and ends it.
 
 ## Invariants
 
 - Supports Docker, rootless Podman, and WSL-wrapped runtimes.
-- Manages optional open, none, or allowlist-proxy egress resources.
+- Applies the `EgressPolicy` it is given (`config.egress_policy`, default
+  open): open, none or allowlist-proxy. The per-run squid.conf admits host
+  names (exact or `*.`) with a `dstdomain` ACL and IP addresses with a `dst`
+  ACL, then `http_access deny all`; the proxy container gets the `--add-host`
+  options of `run_args`.
 - Mounts the repository, worktree and bounded IO exchange. Explicit configured
   mounts may also provide executor credentials; forge credentials remain on
   the host.
@@ -50,6 +58,8 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
   (`01_Documentation/Recovery_And_Maintenance.md`).
 - Git identity is applied only to ADORE checkpoint commits; it does not
   reconfigure the operator's clone.
+- The worktree and container are per run; the conductor alone decides when to
+  provision, interrupt or release them.
 
 ## Change map
 
@@ -71,13 +81,14 @@ host-side checkpoint commits, so a new clone needs no local Git identity.
 - `REQ-REL-d8fd134e`: `resource_identity`/`image_identity` validate authoritative bounded runtime output, actual IDs/name/status and duplicate fields. ContainerBackend verifies owned identity before bound commands and lifecycle controls.
 
 - `REQ-FUNC-fcb2448b` - isolated container/worktree provisioning and egress modes.
+- `REQ-SEC-19b768d6` - proxy admits names by domain and addresses by `dst`.
+- `REQ-FUNC-67d99144` - the proxy gets the executor's `--add-host` options.
 - `REQ-FUNC-42b1c98a` - idempotent, fail-closed Git worktree lifecycle.
 - `REQ-FUNC-0ad8ba4f` - WSL runtime mount translation and command prefixing.
 - `REQ-FUNC-f9946b6b` - an active executor gate can be interrupted for a
   worker-authorized cancellation.
 - `REQ-REL-94e653aa` - guarded ticket-branch pushes verify exact remote
   identity and ancestry; worktree progress is measured between gates.
-
 
 ## Files
 
@@ -97,3 +108,5 @@ both inline as non-secret environment. Docker/Podman/WSL commands share the poli
 executor/preparation/model descendants inherit it. Secret bare-key transport,
 timeouts and isolation remain unchanged. Focused proof: exec/env and WSL cases
 in test_isolation.py. Host runtime commands use the shared background runner.
+
+Interactive Pi RPC spawn shares exec environment filtering: inherited repository selectors are removed, automatic child pager settings apply, secrets travel only through the client environment and Windows clients suppress console allocation.

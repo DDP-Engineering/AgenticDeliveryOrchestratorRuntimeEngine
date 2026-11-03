@@ -23,7 +23,7 @@ text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Executoren", ro = "Executori" }
-text = { en = "Local OpenCode isolates settings; model tests run tools; Windows output stays bounded.", fr = "OpenCode local isole ses réglages ; les tests exécutent un outil ; sorties Windows limitées.", de = "OpenCode isoliert Einstellungen; Modelltests nutzen Werkzeuge; Windows-Ausgaben bleiben begrenzt.", ro = "OpenCode local izolează setările; testele AI execută unelte; ieșirile Windows rămân limitate." }
+text = { en = "Pi model tests run a command; Windows output stays captured and package logs stay bounded.", fr = "Les tests Pi exécutent une commande ; les sorties Windows et les journaux restent bornés.", de = "Pi-Modelltests führen Befehle aus; Windows-Ausgabe und Paketprotokolle bleiben begrenzt.", ro = "Testele Pi rulează o comandă; ieșirea Windows și jurnalele instalării rămân limitate." }
 
 [[release.entry]]
 category = "fixed"
@@ -72,18 +72,18 @@ text = { en = "Prepare project images and let agents install system packages ins
 
 [[release.entry]]
 category = "new"
-topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Run coding agents directly on the host, reusing their existing sign-in.", fr = "Exécutez les agents de code directement sur l'hôte, avec leur connexion existante.", de = "Coding-Agenten direkt auf dem Host ausführen, mit ihrer bestehenden Anmeldung.", ro = "Rulați agenții de cod direct pe gazdă, folosind autentificarea lor existentă." }
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "Choose the AI provider and model: an API key, your own server like LM Studio, or ChatGPT sign-in.", fr = "Choisissez fournisseur IA et modèle : clé API, votre serveur comme LM Studio, ou connexion ChatGPT.", de = "KI-Anbieter und Modell wählen: API-Schlüssel, eigener Server wie LM Studio oder ChatGPT-Anmeldung.", ro = "Alegeți furnizorul AI și modelul: cheie API, propriul server ca LM Studio sau autentificare ChatGPT." }
 
 [[release.entry]]
 category = "new"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "ADORE watches the pipeline of a published draft and can repair its failures.", fr = "ADORE surveille le pipeline d'un brouillon publié et peut réparer ses échecs.", de = "ADORE beobachtet die Pipeline eines veröffentlichten Entwurfs und kann Fehler beheben.", ro = "ADORE urmărește pipeline-ul unei schițe publicate și îi poate repara eșecurile." }
+text = { en = "Merge requests open as drafts or ready for review; ADORE watches and repairs failed pipelines.", fr = "Les demandes de fusion s'ouvrent en brouillon ou prêtes ; ADORE surveille et répare le pipeline.", de = "Merge-Requests öffnen als Entwurf oder prüfbereit; ADORE überwacht und repariert Pipelines.", ro = "Cererile de îmbinare se deschid ca schiță sau gata de revizie; ADORE repară pipeline-urile." }
 
 [[release.entry]]
 category = "new"
-topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "Merge requests can open ready for review after human approval, not only as drafts.", fr = "Les demandes de fusion peuvent s'ouvrir prêtes à relire après approbation humaine.", de = "Merge-Requests können nach menschlicher Freigabe direkt prüfbereit geöffnet werden.", ro = "Cererile de îmbinare se pot deschide gata de revizie după aprobarea umană." }
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "The agent reaches only its AI provider; turn on internet access for web search and downloads.", fr = "L'agent n'atteint que son fournisseur IA ; l'accès Internet ouvre recherche web et téléchargements.", de = "Der Agent erreicht nur seinen KI-Anbieter; Internetzugang erlaubt Websuche und Downloads.", ro = "Agentul ajunge doar la furnizorul AI; accesul la internet permite căutare web și descărcări." }
 
 [[release.entry]]
 category = "new"
@@ -98,7 +98,7 @@ text = { en = "Choose clone folders and remote branches easily, with the reposit
 [[release.entry]]
 category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
-text = { en = "Local agents are detected automatically; advanced options stay grouped.", fr = "Les agents locaux sont détectés automatiquement ; les options avancées restent regroupées.", de = "Lokale Agenten werden automatisch erkannt; erweiterte Optionen bleiben eingeklappt.", ro = "Executorii locali sunt detectați automat; opțiunile avansate rămân grupate." }
+text = { en = "Pi is the only coding agent: choose where it runs, with image suggestions; it stops at once.", fr = "Pi est le seul agent : choisissez où il tourne, avec suggestions d'images ; il s'arrête net.", de = "Pi ist der einzige Agent: wählen Sie, wo er läuft, mit Image-Vorschlägen; er stoppt sofort.", ro = "Pi este singurul agent: alegeți unde rulează, cu sugestii de imagini; se oprește imediat." }
 
 [[release.entry]]
 category = "improved"

@@ -29,14 +29,13 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 from threading import Event, Thread
 import time
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
 
-from adore import metrics
+from adore import chatgpt, metrics
 from adore.aegis import (
     FULL_STAGES,
     AegisCheck,
@@ -51,12 +50,11 @@ from adore.aegis import (
     logged_stages,
 )
 from adore.branding import (
-    CONTAINER_CODEX_HOME,
-    CONTAINER_OPENCODE_AUTH_DIR,
     DEFAULT_QUESTIONS_FILE,
     EXECUTOR_BASE_IMAGE,
+    EXECUTOR_NAME,
 )
-from adore.config import Config
+from adore.config import Config, egress_policy
 from adore.execution import (
     ContainerBackend,
     ExecutionBackend,
@@ -77,7 +75,7 @@ from adore.isolation import (
     build_container_env,
 )
 from adore.local_process import LocalExecutionError, atomic_record, read_record
-from adore.opencode_catalogue import catalogue_path, stage_or_refresh
+from adore.pi_providers import CHATGPT, ENDPOINT_KEY_VARIABLE, models_json, secret_names
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan, validate_plan
 from adore.repository_auth import project_runner
@@ -108,10 +106,6 @@ WORKING_STAGES = tuple(stage for stage in FULL_STAGES if stage != "done")
 RESETTABLE_STAGES = (*WORKING_STAGES, "publishing")
 ACTIVE_LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing", "in-review",
-}
-_HOST_AUTH_PATHS = {
-    "opencode": (".local/share/opencode/auth.json", CONTAINER_OPENCODE_AUTH_DIR),
-    "codex": (".codex/auth.json", CONTAINER_CODEX_HOME),
 }
 _REDACTIONS = (
     re.compile(r"(?i)(authorization\s*[:=]\s*)(\S+)"),
@@ -216,8 +210,14 @@ class Orchestrator:
         sleep: Callable[[float], None] = time.sleep,
         log: Callable[[str], None] = print,
         backend: ExecutionBackend | None = None,
+        chatgpt_token: Callable[[int], str] | None = None,
     ) -> None:
-        """@brief Wire the conductor from production or fake collaborators."""
+        """
+        @brief Wire the conductor from production or fake collaborators.
+        @param[in] chatgpt_token Source of a ChatGPT access token valid for the
+                   given seconds; by default Pi in a helper container of this
+                   project's image refreshes the server's sign-in.
+        """
         self.config = config
         self.forge = forge
         self.store = store
@@ -230,17 +230,14 @@ class Orchestrator:
         self.backend = backend or ContainerBackend(containers)
         self.executor = executor
         self.secrets = secrets or {}
-        self._package_auth_values: dict[str, dict[str, str]] = {}
         self.sleep = sleep
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
-        host_src, container_dir = _HOST_AUTH_PATHS.get(
-            config.executor.default, _HOST_AUTH_PATHS["opencode"]
-        )
-        self.host_auth_path = Path.home() / host_src
-        self.host_auth_container_dir = container_dir
         self._in_flight_run_id = ""
+        self.chatgpt_token = chatgpt_token or (
+            lambda seconds: chatgpt.bearer_token(
+                self.containers, chatgpt.credential_dir(), seconds))
 
     @classmethod
     def from_config(
@@ -254,9 +251,9 @@ class Orchestrator:
         @param[in]  env_file Secret file; direct callers default to cwd `.env`.
         @return     Production-wired orchestrator.
         """
-        entry = config.executor.commands[config.executor.default]
         env = {**load_env_file(env_file), **os.environ}
-        secrets = {key: env[key] for key in config.executor.env_keys if env.get(key)}
+        secrets = {key: env[key] for key in secret_names(config.executor, config.execution.backend)
+                   if env.get(key)}
         return cls(
             config=config,
             forge=build_forge(
@@ -274,14 +271,17 @@ class Orchestrator:
                 config.container.uv_cache_volume,
                 config.container.npm_cache_volume,
                 run_args=config.container.run_args,
-                egress=config.container.egress,
+                egress=egress_policy(config),
                 selinux_relabel=config.container.selinux_relabel,
             ),
             executor=build_executor(
-                config.executor.default,
-                entry.command,
-                entry.model,
+                config.executor.command,
+                config.executor.model,
                 config.executor.questions_file,
+                provider=config.executor.provider,
+                models=models_json(config.executor, ENDPOINT_KEY_VARIABLE in secrets),
+                internet=config.executor.internet,
+                web_search=config.executor.web.search,
             ),
             secrets=secrets,
         )
@@ -526,7 +526,7 @@ class Orchestrator:
         self.store.save(run)
         self.store.journal(run.run_id, "native-environment-revalidated",
                            previous=previous["fingerprint"], current=current["fingerprint"],
-                           executor=self.config.executor.default)
+                           executor=EXECUTOR_NAME)
 
     def reset(self, run_id: str, stage: str) -> bool:
         """@brief Reset ADORE state only; the executor still owns the journal."""
@@ -1288,6 +1288,22 @@ class Orchestrator:
         timeout = self.config.workflow.stage_timeout_overrides.get(
             run.stage, self.config.budgets.per_gate_timeout_seconds
         )
+        execute = self._execute(run)
+        if self.config.executor.provider == CHATGPT:
+            # The server's ChatGPT sign-in never enters the container: this gate
+            # alone receives an access token that outlives the stage limit.
+            try:
+                token = self.chatgpt_token(timeout + chatgpt.TOKEN_MARGIN_SECONDS)
+            except chatgpt.ChatGptError as exc:
+                self.log(f"{run.run_id}: ChatGPT token unavailable ({exc.code})")
+                return GateRun(exit_code=1, stderr=f"ChatGPT sign-in: {exc.sentence()}")
+            execute = self.backend.bind(
+                run.container, {**self._container_env(run), chatgpt.TOKEN_VARIABLE: token},
+                run.execution.get("resource") or None, secrets=(token,))
+        # An executor that watches the cancel marker itself (Pi over RPC sends
+        # `abort`) gets that grace before the container is stopped underneath it.
+        grace_of = getattr(self.executor, "cancel_grace_seconds", None)
+        cancel_grace = grace_of(execute) if grace_of is not None else None
         watch_done = Event()
         watcher: Thread | None = None
         if run.lifecycle == "working":
@@ -1297,6 +1313,8 @@ class Orchestrator:
                     try:
                         if not self.store.cancel_requested(run.run_id):
                             continue
+                        if cancel_grace is not None and watch_done.wait(cancel_grace):
+                            return
                         self.backend.interrupt(
                             run.container, expected=run.execution.get("resource") or None
                         )
@@ -1306,17 +1324,20 @@ class Orchestrator:
 
             watcher = Thread(target=interrupt_on_cancel, daemon=True)
             watcher.start()
+        options = {} if cancel_grace is None else {"cancel": self._cancel_check(run)}
         try:
             result = self.executor.run_gate(
-                self._execute(run),
+                execute,
                 run.worktree,
                 self._io_dir(run.run_id),
                 self._stage_prompt(run, ticket, task, failure_context, thread),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
                 **({"package_secrets": {**self.secrets,
-                                        **self._package_auth_values.get(run.run_id, {})}}
+                                        **({chatgpt.TOKEN_VARIABLE: token}
+                                           if self.config.executor.provider == CHATGPT else {})}}
                    if self.config.container.system_packages else {}),
+                **options,
             )
         finally:
             watch_done.set()
@@ -1328,6 +1349,29 @@ class Orchestrator:
             # The executor has exited, so no container writer can race human ownership.
             raise _CheckpointHalted("human handoff requested")
         return result
+
+    def _cancel_check(self, run: RunState) -> Callable[[], bool]:
+        """
+        @brief      Build the cancel check an executor polls during its gate.
+        @details    Same rule as the interrupt watcher: an unreadable marker is
+                    logged once and then no longer consulted; the conductor's
+                    own check after the gate decides how to proceed.
+        @param[in]  run The running run.
+        @return     A callable returning True once a cancel was requested.
+        """
+        broken = Event()
+
+        def requested() -> bool:
+            if broken.is_set():
+                return False
+            try:
+                return self.store.cancel_requested(run.run_id)
+            except StateError as exc:
+                broken.set()
+                self.log(f"cancel check failed: {_sanitize(exc)}")
+                return False
+
+        return requested
 
     def _stage_prompt(
         self,
@@ -1405,7 +1449,7 @@ class Orchestrator:
             )
             parts.append(
                 permission + " Network policy is independently configured as "
-                + self.config.container.egress.mode + ". Installation permission never "
+                + egress_policy(self.config).mode + ". Installation permission never "
                 "opens the network; with none use only available local sources, and with "
                 "allowlist-proxy respect the allowed HTTP/HTTPS proxy."
             )
@@ -2999,10 +3043,6 @@ class Orchestrator:
         self.backend.verify_required_tools(
             run.container, self.config.container.required_tool_checks, env=env
         )
-        if self.config.executor.stage_host_auth:
-            self._stage_host_auth(run)
-        if self.config.executor.default == "opencode" and self.config.execution.backend != "local":
-            self._stage_opencode_catalogue(run)
         if recipe and record["status"] != "success":
             self._prepare_execution(run)
         self.store.save(run)
@@ -3073,11 +3113,6 @@ class Orchestrator:
                         step,
                         timeout=remaining,
                         secrets=self.secrets,
-                        auth_file=(
-                            self.backend.auth_directory(self.config.executor.default) + "/auth.json"
-                            if self.config.executor.stage_host_auth
-                            else None
-                        ),
                     )
                 except PreparationResultError as exc:
                     outcome, protocol_error = exc.outcome, exc
@@ -3134,9 +3169,10 @@ class Orchestrator:
     def _container_env(self, run: RunState) -> dict[str, str]:
         """@brief Compose the constrained executor environment."""
         if self.config.execution.backend == "local":
-            env = self.backend.executor_environment(self.config.executor.default)
+            env = self.backend.executor_environment()
             env.update({key: value for key, value in self.secrets.items()
-                        if key in self.config.executor.env_keys})
+                        if key in secret_names(self.config.executor,
+                                               self.config.execution.backend)})
             return env
         env = build_container_env(
             self.worktrees.admin_dir_name(run.run_id),
@@ -3145,59 +3181,8 @@ class Orchestrator:
         )
         env.update(self.config.container.runtime_env)
         env.update(self.secrets)
-        env.update(self.backend.executor_environment(self.config.executor.default))
+        env.update(self.backend.executor_environment())
         return env
-
-    def _stage_host_auth(self, run: RunState) -> None:
-        """@brief Stage only executor authentication; forge credentials stay absent."""
-        if not self.host_auth_path.is_file():
-            if self.config.container.system_packages:
-                raise IsolationError("package-enabled staged executor auth is unavailable")
-            self.log(f"{run.run_id}: configured executor auth file is missing")
-            return
-        io_dir = self._io_dir(run.run_id)
-        io_dir.mkdir(parents=True, exist_ok=True)
-        staged = io_dir / "host-auth.json"
-        if self.config.container.system_packages and staged.is_symlink():
-            raise IsolationError("staged executor auth snapshot is linked")
-        shutil.copy2(self.host_auth_path, staged)
-        with contextlib.suppress(OSError):
-            staged.chmod(0o644)
-        try:
-            if self.config.container.system_packages:
-                from adore.package_permissions import staged_auth_redactions
-
-                self._package_auth_values[run.run_id] = staged_auth_redactions(staged)
-            execute = self._execute(run)
-            auth_directory = self.backend.auth_directory(self.config.executor.default)
-            created = execute(["mkdir", "-p", auth_directory])
-            if not created.ok:
-                raise IsolationError("executor auth directory creation failed")
-            copied = execute([
-                "cp",
-                f"{self.backend.paths.io}/host-auth.json",
-                f"{auth_directory}/auth.json",
-            ])
-            if not copied.ok:
-                raise IsolationError("executor auth staging failed", copied.argv, copied.stderr)
-        finally:
-            staged.unlink(missing_ok=True)
-
-    def _stage_opencode_catalogue(self, run: RunState) -> None:
-        """@brief Give the container an OpenCode catalogue that knows the project's model."""
-        io_dir = self._io_dir(run.run_id)
-        io_dir.mkdir(parents=True, exist_ok=True)
-        execute = self._execute(run)
-        try:
-            outcome = stage_or_refresh(
-                lambda argv, timeout=None: execute(argv, timeout=timeout),
-                catalogue_path(self.store.root), io_dir, self.backend.paths.io,
-                self.config.executor.commands["opencode"].model)
-        except (OSError, IsolationError, KeyError):
-            outcome = "built-in"
-        if outcome == "built-in":
-            self.log(f"{run.run_id}: OpenCode model catalogue could not be refreshed; "
-                     "using the one built into OpenCode")
 
     def _cost_spent(self, run: RunState) -> float:
         """@brief Sum durable per-launch executor cost records."""
@@ -3320,7 +3305,6 @@ class Orchestrator:
 
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
-        self._package_auth_values.pop(run.run_id, None)
         if (self.config.execution.backend == "local"
                 or run.execution.get("plan", {}).get("backend") == "local"):
             self.backend.remove(run.container, expected=run.execution.get("resource") or None)
@@ -3340,9 +3324,7 @@ class Orchestrator:
                            if result.tokens_reported is not None
                            else bool(result.tokens_in or result.tokens_out))
         observed_cost = result.cost_reported or result.cost_usd > 0
-        configured_executor = self.config.executor.commands.get(
-            self.config.executor.default)
-        model = configured_executor.model if configured_executor else None
+        model = self.config.executor.model or None
         self.store.journal(
             run.run_id,
             "usage-observation",
@@ -3351,7 +3333,7 @@ class Orchestrator:
             attempt=run.iterations,
             stage=context,
             review_round=run.review_rounds,
-            executor=self.config.executor.default,
+            executor=EXECUTOR_NAME,
             model=model,
             token_status=("disabled" if not captured else
                           "reported" if observed_tokens else "unavailable"),
@@ -3382,7 +3364,7 @@ class Orchestrator:
                   input_includes_cache=True,
                 cost_usd=result.cost_usd,
                 cost_reported=result.cost_reported or result.cost_usd > 0,
-                executor=self.config.executor.default,
+                executor=EXECUTOR_NAME,
                 model=model,
                 review_round=run.review_rounds,
             )

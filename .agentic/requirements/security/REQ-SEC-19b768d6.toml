@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-SEC-19b768d6"
+
+title = "Admit allowlist hosts by name or address in the egress proxy"
+
+status = "active"
+
+requirement = """
+When ADORE writes a run's egress proxy configuration, it shall admit host-name entries by destination domain and IP-address entries by destination address, and deny every other destination.
+"""
+
+verification = "An automated isolation test writes the proxy configuration for api.openai.com, *.pythonhosted.org, 192.168.1.20 and ::1 and observes a dstdomain rule for the names, a dst rule for the addresses and a final deny all; a list with no address has no dst rule."
+
+affected_paths = ["04_Software/adore/isolation.py"]
+
+linked_tests = ["04_Software/tests/test_isolation.py::test_proxy_config_admits_names_by_domain_and_addresses_by_dst"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

@@ -25,7 +25,6 @@ from pathlib import Path
 import re
 from typing import Protocol
 
-from adore.branding import CONTAINER_CODEX_HOME, CONTAINER_OPENCODE_AUTH_DIR
 from adore.isolation import (
     CONTAINER_IO_MOUNT,
     CONTAINER_WORKTREE_MOUNT,
@@ -85,12 +84,8 @@ class ExecutionBackend(Protocol):
 
     paths: ExecutionPaths
 
-    def executor_environment(self, executor: str) -> dict[str, str]:
+    def executor_environment(self) -> dict[str, str]:
         """@brief Supply backend-specific executor homes without new credentials."""
-        ...
-
-    def auth_directory(self, executor: str) -> str:
-        """@brief Return the backend-native directory for existing auth staging."""
         ...
 
     def provision(
@@ -141,10 +136,22 @@ class BoundTarget:
     """@brief Callable gate target carrying backend-native paths and identity."""
 
     def __init__(
-        self, backend: ContainerBackend, name: str, env: dict[str, str], expected: dict | None
+        self, backend: ContainerBackend, name: str, env: dict[str, str], expected: dict | None,
+        secrets: Sequence[str] = (),
     ) -> None:
         self.backend, self.name, self.env, self.expected = backend, name, env, expected
         self.paths = backend.paths
+        self.secrets = sorted((value for value in secrets if value), key=len, reverse=True)
+
+    def redact(self, text: str) -> str:
+        """
+        @brief      Mask this target's per-launch secret values in evidence.
+        @param[in]  text Evidence text before retention.
+        @return     The text with each value replaced by [REDACTED].
+        """
+        for value in self.secrets:
+            text = text.replace(value, "[REDACTED]")
+        return text
 
     def __call__(self, argv: Sequence[str], *, timeout: float | None = None) -> CommandResult:
         """@brief Execute the admitted immutable ID and settle expired commands.
@@ -160,6 +167,29 @@ class BoundTarget:
         if result.timed_out:
             self.backend._settle_timeout(self.name, observed)
         return result
+
+    def spawn(self, argv: Sequence[str], *, env: dict[str, str] | None = None):
+        """
+        @brief      Start a streaming command after verifying the pinned identity.
+        @details    The bound executor environment is extended by `env` (for
+                    example Pi's isolation variables); the caller bounds and
+                    ends the returned process.
+        @param[in]  argv Command and arguments to run inside the container.
+        @param[in]  env Extra exec-time variables for this command only.
+        @return     The started `subprocess.Popen` with binary pipes.
+        @exception  ExecutionRecoveryError When the resource identity changed.
+        """
+        observed = self.backend._admit_command(self.name, self.expected)
+        self._stream_identity = observed
+        return self.backend.manager.spawn(
+            observed["container_id"], argv, env={**self.env, **(env or {})})
+
+    def settle_timeout(self) -> None:
+        """@brief Quiesce all timed-out RPC descendants before the container is reused."""
+        observed = getattr(self, "_stream_identity", None)
+        if observed is None:
+            raise ExecutionRecoveryError("no admitted RPC invocation to settle")
+        self.backend._settle_timeout(self.name, observed)
 
 
 # PUBLIC API
@@ -258,15 +288,9 @@ class ContainerBackend:
             self._pending_resume[name] = expected
         self._blocked.discard(name)
 
-    def executor_environment(self, executor: str) -> dict[str, str]:
-        """@brief Retain the container Codex home environment contract."""
-        return {"CODEX_HOME": CONTAINER_CODEX_HOME} if executor == "codex" else {}
-
-    def auth_directory(self, executor: str) -> str:
-        """@brief Preserve container-native staged authentication destinations."""
-        return {"opencode": CONTAINER_OPENCODE_AUTH_DIR, "codex": CONTAINER_CODEX_HOME}.get(
-            executor, ""
-        )
+    def executor_environment(self) -> dict[str, str]:
+        """@brief A container gets no backend-specific executor home."""
+        return {}
 
     def provision(
         self,
@@ -291,9 +315,18 @@ class ContainerBackend:
         self._operator_parked.discard(name)
         return "started" if resumed and result == "running" else result
 
-    def bind(self, name: str, env: dict[str, str], expected: dict | None = None) -> ExecutionTarget:
-        """@brief Bind this adapter's command and target-path contract."""
-        return BoundTarget(self, name, env, expected)
+    def bind(self, name: str, env: dict[str, str], expected: dict | None = None,
+             *, secrets: Sequence[str] = ()) -> ExecutionTarget:
+        """
+        @brief      Bind this adapter's command and target-path contract.
+        @param[in]  name Container name.
+        @param[in]  env Exec-time environment of every command on the target.
+        @param[in]  expected Pinned resource identity.
+        @param[in]  secrets Values that exist only for this binding (a ChatGPT
+                    stage token) and are masked in the launch evidence.
+        @return     The bound target.
+        """
+        return BoundTarget(self, name, env, expected, secrets)
 
     def verify_required_tools(
         self, name: str, checks: Sequence[str], *, env: dict[str, str]
@@ -388,7 +421,6 @@ def run_preparation_step(
     *,
     timeout: float,
     secrets: dict[str, str],
-    auth_file: str | None = None,
 ) -> dict:
     """
     @brief Execute one pinned script through bounded files and return its evidence.
@@ -399,7 +431,6 @@ def run_preparation_step(
     @param[in] step Normalized name/run mapping.
     @param[in] timeout Remaining bounded wall time.
     @param[in] secrets In-memory values used for output redaction.
-    @param[in] auth_file Existing staged executor auth path, solely for redaction.
     @return Closed timestamped outcome with authoritative exit/timeout evidence.
     @exception IsolationError For missing or malformed file-protocol evidence.
     """
@@ -429,8 +460,6 @@ def run_preparation_step(
         f"{target.paths.io}/{relative}",
         target.paths.worktree,
     ]
-    if auth_file is not None:
-        argv.append(auth_file)
     result = target(argv, timeout=timeout + 10)
     outcome = {
         "index": index,

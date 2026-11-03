@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
-import { setupCopy } from "../src/setupCopy";
+import { connectionCopy } from "../src/agentConnection";
 import { type Locale } from "../src/i18n";
 
 test.beforeEach(async ({ context }) => {
@@ -39,141 +39,37 @@ test("guided enrollment begins at repository and identity with visible step navi
   await expect(page.getByRole("button", { name: "Use an existing clone on this server", exact: true })).toHaveCount(0);
 });
 
-for (const host of ["github.com", "gitlab.com", "forge.e2e.invalid", "github.enterprise.invalid", "gitlab.enterprise.invalid"]) {
-  test(`remote target branch choices use the forge default and preserve selection: ${host}`, async ({ page }) => {
-    await enter(page);
-    await fixture(page);
-    let branches = ["develop", "main", "task/interface"];
-    await page.route("**/api/v1/projects/repository-source", async route => {
-      const response = await route.fetch();
-      const data = await response.json();
-      await route.fulfill({ response, json: { ...data, default_branch: "develop",
-        branches } });
-    });
-    const url = page.getByLabel("Repository URL", { exact: false });
-    await url.fill(`ssh://git@${host}/team/branch-choice.git`);
-    const read = page.getByRole("button", { name: "Read repository", exact: true });
-    await read.click();
-    const branch = page.getByRole("combobox", { name: "Target branch", exact: false });
-    await expect(branch).toHaveValue("develop");
-    await expect(branch.getByRole("option")).toHaveText(["develop (default)", "main", "task/interface"]);
-    await branch.selectOption("task/interface");
-    await read.click();
-    await expect(branch).toHaveValue("task/interface");
-    // Editing another answer preserves the selected remote branch.
-    await page.getByLabel("Display name", { exact: false }).fill("Other display name");
-    await expect(branch).toHaveValue("task/interface");
-    // A removed branch cannot remain selected after refresh.
-    branches = ["develop", "main"];
-    await read.click();
-    await expect(branch).toHaveValue("develop");
-    await expect(branch.getByRole("option")).toHaveCount(2);
-    // A different repository gets its own default, with no stale selection.
-    await url.fill(`ssh://git@${host}/team/other-branch-choice.git`);
-    await expect(branch).toHaveCount(0);
-    await read.click();
-    await expect(branch).toHaveValue("develop");
-  });
-}
-
-for (const locale of ["en", "ro", "fr", "de"] as Locale[]) {
-  test(`remote default branch marker is localized: ${locale}`, async ({ page }) => {
-    await enter(page);
-    const session = await (await page.request.get("/api/v1/me")).json();
-    try {
-      await page.request.patch("/api/v1/me/preferences", {
-        headers: { "X-CSRF-Token": session.csrf }, data: { language: locale },
-      });
-      await page.goto("/projects/new");
-      await fixture(page);
-      await page.locator("#enroll-clone_url").fill("https://github.com/team/localized-branch.git");
-      await page.getByRole("button", { name: enrollmentCopy[locale].read, exact: true }).click();
-      const branch = page.locator("#enroll-target_branch");
-      await expect(branch).toHaveValue("main");
-      await expect(branch.getByRole("option", { name: `main (${setupCopy[locale].defaultBranch})`, exact: true })).toHaveCount(1);
-    } finally {
-      // Browser contexts share this server-side account preference.
-      const restored = await page.request.patch("/api/v1/me/preferences", {
-        headers: { "X-CSRF-Token": session.csrf }, data: { language: "en" },
-      });
-      expect(restored.ok()).toBeTruthy();
-    }
-  });
-}
-
-test("a stale read or failed refresh cannot reuse another repository's branches", async ({ page }) => {
+test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the credential", async ({ page }) => {
   await enter(page);
-  await fixture(page);
-  let release!: () => void;
-  let started!: () => void;
-  const gate = new Promise<void>(resolve => { release = resolve; });
-  const reading = new Promise<void>(resolve => { started = resolve; });
-  await page.route("**/api/v1/projects/repository-source", async route => {
-    const response = await route.fetch();
-    started();
-    await gate;
-    await route.fulfill({ response });
-  });
-  const url = page.locator("#enroll-clone_url");
-  await url.fill("https://github.com/team/old-branches.git");
-  const read = page.getByRole("button", { name: "Read repository", exact: true });
-  await read.click();
-  await reading;
-  await url.fill("https://gitlab.com/team/new-branches.git");
-  release();
-  await expect(read).toBeEnabled();
-  await expect(page.locator("#enroll-target_branch")).toHaveCount(0);
-  await page.unroute("**/api/v1/projects/repository-source");
-  await read.click();
-  await expect(page.locator("#enroll-target_branch")).toHaveValue("main");
-  await page.route("**/api/v1/projects/repository-source", route => route.fulfill({
-    status: 502, json: { detail: { code: "repository_unreachable" } },
-  }));
-  await read.click();
-  await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.locator("#enroll-target_branch")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+  await repository(page, "e2e-endpoint");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const provider = page.getByLabel(/^Provider \*/);
+  const help = page.locator("#enrollment-help-agent");
+  await expect(provider).toHaveValue("openai");
+  await expect(help).toContainText("OPENAI_API_KEY");
+  await expect(help).toContainText(enrollmentCopy.en.keyAfterCreate);
+  await expect(page.locator('#enroll-model-options option[value="gpt-5.5"]')).toHaveCount(1);
+  await expect(page.getByLabel(/^Endpoint base URL/)).toHaveCount(0);
+  await provider.selectOption("chatgpt");
+  await expect(help).toContainText(connectionCopy.en.chatgptNote);
+  await provider.selectOption("custom");
+  await expect(help).toContainText("ADORE_ENDPOINT_API_KEY");
+  await expect(help).toContainText("host.docker.internal");
+  await page.getByLabel(/^Model \*/).fill("qwen/qwen3.5-9b");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.locator(".enrollment-errors")).toContainText("Endpoint base URL");
+  await page.getByLabel(/^Endpoint base URL/).fill("http://172.27.80.1:1234/v1");
+  await expect(page.getByLabel(/^Endpoint API type/)).toHaveValue("openai-completions");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByLabel("Reviewers", { exact: false }).fill("fixture-reviewer");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await validate(page);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const agent = page.locator(".enrollment-review").nth(1);
+  for (const text of ["OpenAI-compatible endpoint", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1",
+    "openai-completions", enrollmentCopy.en.credentialVariable, "ADORE_ENDPOINT_API_KEY"]) await expect(agent).toContainText(text);
+  await expect(page.locator(".enrollment")).not.toContainText("sk-");
 });
-
-test("remote branch discovery handles missing defaults and empty repositories explicitly", async ({ page }) => {
-  await enter(page);
-  await fixture(page);
-  let branches: string[] = ["develop", "release/2.0"];
-  await page.route("**/api/v1/projects/repository-source", async route => {
-    const response = await route.fetch();
-    await route.fulfill({ response, json: { ...await response.json(), default_branch: null, branches } });
-  });
-  await page.getByLabel("Repository URL", { exact: false }).fill("https://github.com/team/no-default.git");
-  const read = page.getByRole("button", { name: "Read repository", exact: true });
-  await read.click();
-  const branch = page.getByRole("combobox", { name: "Target branch", exact: false });
-  await expect(branch).toHaveValue("");
-  await branch.selectOption("release/2.0");
-  await expect(branch).toHaveValue("release/2.0");
-  branches = [];
-  await read.click();
-  await expect(branch).toBeDisabled();
-  await expect(branch).toHaveValue("");
-  await expect(page.getByText("No remote branches found. Add a branch to the repository, then read it again.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
-});
-
-for (const bad of [{ branches: ["main", "main"] }, { branches: ["bad..branch"] },
-  { branches: ["main"], default_branch: "missing" }, { branches: "main" }]) {
-  test(`malformed remote branch choices are rejected: ${JSON.stringify(bad)}`, async ({ page }) => {
-    await enter(page);
-    await fixture(page);
-    await page.route("**/api/v1/projects/repository-source", async route => {
-      const response = await route.fetch();
-      await route.fulfill({ response, json: { ...await response.json(), ...bad } });
-    });
-    await page.getByLabel("Repository URL", { exact: false }).fill("https://github.com/team/bad-branches.git");
-    await page.getByRole("button", { name: "Read repository", exact: true }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Target branch", exact: false })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
-  });
-}
 
 test("enrollment reads a repository URL, derives the ID and clones at creation", async ({ page }) => {
   await enter(page);
@@ -262,9 +158,10 @@ test("agent and model chooses where the executor runs", async ({ page }) => {
   const image = page.getByLabel(/^Executor image/);
   await expect(runsIn).toHaveValue("container");
   await expect(page.getByLabel(/^Container runtime/)).toHaveValue("docker");
-  // Images come from the server; choosing Pi proposes its image instead of the old default.
+  // Images come from the server; Pi is the only agent, so its image is proposed
+  // instead of the old default and there is no agent to choose.
   await expect(page.locator("#enroll-image-options option")).toHaveCount(3);
-  await page.getByLabel(/^Executor \*/).selectOption("pi");
+  await expect(page.getByLabel(/^Executor \*/)).toHaveCount(0);
   await expect(image).toHaveValue("adore-executor-base:pi-0.87.1");
   await image.fill("missing-image:1");
   await expect(page.getByText(/not on the ADORE server/)).toBeVisible();
@@ -277,12 +174,12 @@ test("agent and model chooses where the executor runs", async ({ page }) => {
   // Installed on the server swaps the container fields for the native ones.
   await runsIn.selectOption("local");
   await expect(image).toHaveCount(0);
-  await expect(page.getByLabel("Executor launch command", { exact: true })).not.toBeVisible();
+  await expect(page.locator("#enroll-executor_command")).not.toBeVisible();
   await page.locator(".local-executor-advanced > summary").click();
-  await expect(page.getByLabel("Executor launch command", { exact: true })).toBeVisible();
+  await expect(page.locator("#enroll-executor_command")).toBeVisible();
   await expect(page.getByText(/runs on the ADORE server under its current OS account/)).toBeVisible();
   await runsIn.selectOption("container");
-  // Credential names are optional: an image that signs in by itself needs none.
+  // Credential names are optional in the form.
   await page.getByLabel(/^Model \*/).fill("openai-codex/gpt-6-sol");
   await expect(page.getByLabel("Credential environment references", { exact: false })).toHaveValue("");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -306,7 +203,7 @@ async function repository(page: Page, name = "e2e-valid") {
 }
 async function environment(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByLabel(/^Model \*/).fill("openai/fixture-model");
+  await page.getByLabel(/^Model \*/).fill("fixture-model");
   await page.getByLabel("Credential environment references", { exact: false }).fill("LOCAL_API_KEY");
 }
 async function verification(page: Page, name = "e2e-valid") {

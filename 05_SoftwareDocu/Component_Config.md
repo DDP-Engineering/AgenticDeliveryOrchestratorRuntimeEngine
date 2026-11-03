@@ -53,8 +53,9 @@ for subscription or local execution while iteration, time and file caps remain.
 
 ## 3. Security Validation
 
-Executor `env_keys` may contain model-provider keys but known forge credential
-names are rejected. Container-managed Git/proxy/home values cannot be
+Executor `env_keys` may contain additional model-provider keys but known
+forge credential names are rejected. A provider's key is never a
+configuration value: it reaches Pi only through its credential variable. Container-managed Git/proxy/home values cannot be
 overridden. Commands remain noninteractive and shell control input is rejected
 where appropriate. `container.selinux_relabel` accepts only the values in
 `SELINUX_RELABEL_OPTIONS`, which maps each accepted mode to the per-mount
@@ -63,9 +64,9 @@ can never be accepted without an option to apply. The modes are `off` and
 `shared`; the private SELinux `Z`
 label is refused because it would bind the shared repository clone to a single
 container.
-`stage_host_auth` is valid only with the OpenCode or Codex executor, whose
-host OAuth files ADORE knows how to stage. Pi and Qwen must use provider-key
-configuration; validation rejects their host-auth setting before a run starts.
+`[container] runtime_env` and `[local] environment` names starting with a
+removed coding agent's prefix (`OPENCODE_`, `CODEX_`, `QWEN_`) are refused
+with a message to remove them from `config.toml`.
 
 ## 4. Inputs and Outputs
 
@@ -73,21 +74,120 @@ Input is a TOML file plus derived profile paths. Output is a `Config` dataclass
 and a stable list of validation problems. Missing keys take the documented
 defaults. There is no compatibility with earlier builds: an unknown top-level
 section is an error, and `validate_config` refuses any key the build does not
-read, in every section and subtable (`labels.*`, `executor.<name>`,
-`container.egress`), with `[section] unknown key 'x': remove it from
-config.toml`; `[local]` and `[execution]` have their own strict validators. The
-removed `[state] channel` key is refused like any other unknown key.
+read, in every section and subtable (`labels.*`, `container.egress`), with
+`[section] unknown key 'x': remove it from config.toml`; `[local]` and
+`[execution]` have their own strict validators. The removed `[state] channel`
+key is refused like any other unknown key.
 
-Executor command templates support only the `{prompt}`, `{model}` and
-`{worktree}` placeholders; any other placeholder, including the removed Codex
-`{resume}`, is refused as unsupported. The default Codex command is
-`codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}`.
+`ExecutorConfig` (`[executor]`) configures Pi, ADORE's only coding agent:
+`provider` (required), `model` (required, the model ID within the provider),
+`internet` (strict boolean, default false: "Internet access for the agent"),
+`endpoint` (`ExecutorEndpointConfig`), `web` (`ExecutorWebConfig`,
+`[executor.web]`: `search` is `exa` (default, no key), `brave`, `tavily` or
+`none`, the `WEB_SEARCH_CHOICES` of `pi_providers.py`), `command`, `mode`
+(`thick` or `headless`), `questions_file` and `env_keys` (default empty:
+additional secret names; the provider's key variable is always passed, and
+with internet on and `brave` or `tavily` search the `SEARCH_KEY_VARIABLES`
+entry `BRAVE_API_KEY` or `TAVILY_API_KEY`). The removed
+`default` and `stage_host_auth` keys and every other `[executor.<name>]` table
+are refused as unknown `[executor]` keys, and the removed `[labels] executor`
+table as an unknown `[labels]` key. Unknown keys inside `[executor]` and
+`[executor.endpoint]`, such as an inline `api_key`, are refused by name. There
+is no migration.
+
+`_provider_issues` checks the provider rules against the shipped Pi catalog
+(`adore/pi_providers.py`, `pi_catalog.json`): `provider` is a Pi API-key
+provider id from the catalog, `chatgpt` or `custom`; `model` matches
+`MODEL_ID_RE` (`[A-Za-z0-9~][A-Za-z0-9._:/@+~-]{0,199}`: no whitespace,
+quotes or control characters, at most 200 characters). `[executor.endpoint]`
+(`base_url`, `api`, default `openai-completions`; also `openai-responses`,
+`anthropic-messages`, `google-generative-ai`) is required for `custom` and,
+when the table is present in the file, refused for any other provider.
+`base_url` is an http(s) address with a host and no user name, password,
+query or fragment, as seen from the container. `custom` with
+`[execution] backend = "local"` is refused: a local run has no ADORE-owned
+agent directory for Pi's `models.json`. An unreadable catalog is reported as
+an `[executor] provider` issue. `_provider_issues` also refuses a non-boolean
+`internet`, a non-table `[executor.web]` and a `search` outside
+`WEB_SEARCH_CHOICES`.
+
+`ContainerEgressConfig` (`[container.egress]`) holds the per-run proxy of an
+internet-off run: `allowlist` (extra hosts besides the model provider, exact
+or `*.` wildcard names; default empty), `no_proxy`, `proxy_image`,
+`proxy_port` and `network_prefix`. It has no mode: `_unknown_key_issues`
+refuses `mode` with `[container.egress] unknown key 'mode': remove it from
+config.toml; [executor] internet decides the agent's network access`.
+`egress_policy(config)` derives the run's `EgressPolicy`, never read from a
+file: internet on gives mode `open`; internet off gives mode `allowlist-proxy`
+whose allowlist is `pi_providers.provider_hosts(executor)` plus
+`[container.egress] allowlist`, deduplicated and sorted. `provider_hosts` is
+the catalog's `hosts` for an API-key provider (generated from every `baseUrl`
+of Pi's pi-ai provider data by `02_Tools/generate_pi_catalog.py`), the
+`openai` hosts for `chatgpt`, and the `base_url` host (a name or an IP
+address) for `custom`. `EgressPolicy` still supports mode `none`, but no
+configuration selects it. The orchestrator, Test AI connection and the
+readiness probe use `egress_policy`; a local run is not restricted by it.
+
+`_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
+cannot run, because ADORE mints a short-lived ChatGPT access token before every
+stage through the image's pinned Pi and does not refresh it during a stage:
+
+- `[execution] backend = "local"` is refused (a local run has no ADORE-managed
+  Pi to refresh the ChatGPT sign-in);
+- `[budgets] per_gate_timeout_seconds` above 3000 is refused;
+- each `[workflow] stage_timeout_overrides.<stage>` above 3000 is refused.
+
+3000 is `chatgpt.MAX_STAGE_SECONDS`: an access token lasts about an hour, Pi
+keeps a 3-minute margin and ADORE asks for 5 minutes more. The model is not
+checked against the catalog's `chatgpt_models`.
+
+```toml
+[executor]
+provider = "openai"
+model = "gpt-5.5"
+```
+
+A ChatGPT subscription (container run only; the server signs in once in the
+web interface):
+
+```toml
+[executor]
+provider = "chatgpt"
+model = "<a model from chatgpt_models>"
+```
+
+An OpenAI-compatible endpoint (container run only):
+
+```toml
+[executor]
+provider = "custom"
+model = "qwen3-coder"
+
+[executor.endpoint]
+base_url = "http://192.168.1.20:1234/v1"
+api = "openai-completions"
+```
+
+`command` is the argv template of a native (local) Pi run only; the default
+is `branding.PI_NATIVE_COMMAND`
+(`pi -p --mode json --model {model} {prompt}`). It must contain `{prompt}`
+and must not use `--auto`; a container run ignores it and drives the image's
+pinned Pi over RPC. Templates support only the `{prompt}`, `{model}` and
+`{worktree}` placeholders; any other placeholder is refused as unsupported.
 
 ## 5. Validation and Tests
 
 `tests/test_config.py` covers defaults, recovery bounds, AEGIS stage names,
 approval-label collisions, forge credential denial, container trust boundaries
-and existing cross-platform configuration rules.
+and existing cross-platform configuration rules. `tests/test_pi_providers.py`
+covers the shipped catalog (including `chatgpt_models`), provider/model/endpoint
+validation, the local-run refusal of `custom`, the local-run and stage-limit
+refusals of `chatgpt`, `secret_names` and `models_json`. The internet switch
+is covered by `test_internet_defaults_off_with_exa_search`,
+`test_internet_and_search_values_are_validated`,
+`test_container_egress_mode_is_refused_naming_the_switch`,
+`test_egress_policy_off_admits_only_the_provider_hosts` and
+`test_search_key_reaches_only_an_internet_on_run`.
 
 ## Reviewed preparation settings
 
@@ -95,7 +195,7 @@ and existing cross-platform configuration rules.
 
 ## Native execution contract
 
-LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, a non-empty `[container.egress] allowlist` ("[local] container egress allowlist is unsupported: a local run is not network-restricted"), staging and container-only options; `[executor] internet` is not enforced there. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

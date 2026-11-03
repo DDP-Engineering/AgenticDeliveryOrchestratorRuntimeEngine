@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When an executor gate is launched in a container, the runtime shall use the file-based gate protocol and preserve a typed timeout outcome.
+When a Pi gate is launched on a target without a live process seam (a native local run), the runtime shall use the file-based gate protocol and preserve a typed timeout outcome.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ When an executor gate is launched in a container, the runtime shall use the file
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated executor tests verify the WSL-safe script transport, archived outcome data, and the typed-timeout no-self-heal rule."
+verification = "Automated executor tests verify the WSL-safe script transport and archived outcome data, including a typed timeout, for a Pi launch without a spawn seam."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/executor/"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_executor.py::test_gate_script_protocol_is_wsl_safe", "04_Software/tests/test_executor.py::test_archive_records_nonzero_exit_and_timeout", "04_Software/tests/test_executor.py::test_timeout_does_not_trigger_dead_session_self_heal"]
+linked_tests = ["04_Software/tests/test_executor.py::test_gate_script_protocol_is_wsl_safe", "04_Software/tests/test_executor.py::test_archive_records_nonzero_exit_and_timeout"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Executor prompts and output must survive Windows/WSL/container boundaries without weakening recovery semantics."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-02

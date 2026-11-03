@@ -166,49 +166,41 @@ def test_standalone_preparation_runner_bounds_output_and_process_lifetime(
     assert calls
 
 
+def test_bound_target_spawn_verifies_identity_and_merges_env():
+    """@brief Streaming spawn checks the pinned container first and adds the extra env."""
+    from adore.execution import BoundTarget, ContainerBackend, ExecutionRecoveryError
+
+    calls = []
+
+    class Manager:
+        def spawn(self, name, argv, *, env=None):
+            calls.append(("spawn", name, list(argv), dict(env)))
+            return "process"
+
+    backend = ContainerBackend(Manager())
+    backend._admit_command = lambda name, expected: (
+        calls.append(("verify", name, expected, True)) or {"container_id": "id"})
+    target = BoundTarget(backend, "c", {"OPENAI_API_KEY": "k", "HOME": "/h"}, {"pinned": 1})
+    assert target.spawn(["node", "cli.js"], env={"PI_OFFLINE": "1"}) == "process"
+    assert calls == [
+        ("verify", "c", {"pinned": 1}, True),
+        ("spawn", "id", ["node", "cli.js"],
+         {"OPENAI_API_KEY": "k", "HOME": "/h", "PI_OFFLINE": "1"}),
+    ]
+
+    def refuse(name, expected, running=False):
+        raise ExecutionRecoveryError("execution resource identity changed")
+
+    backend._admit_command = refuse
+    calls.clear()
+    with pytest.raises(ExecutionRecoveryError):
+        target.spawn(["node"])
+    assert calls == []
+
+
 def test_redacted_unicode_output_respects_byte_limit():
     """@brief Multibyte truncation never exceeds the retained UTF-8 byte limit."""
     assert len(redact_output("\U0001f600" * 20000, {}).encode()) <= 65536
 
 
 # END OF FILE
-
-
-def test_preparation_runner_redacts_existing_staged_auth_values(tmp_path, monkeypatch):
-    """@brief Existing staged executor credentials are redacted without new key sources."""
-    (tmp_path / "secret-keys.json").write_text("[]")
-    auth = tmp_path / "auth.json"
-    auth.write_text('{"provider":{"access_token":"existing-staged-secret"}}')
-
-    class Process:
-        """@brief Fake emits existing auth material like a project diagnostic."""
-
-        pid = 123
-        stdout = io.BytesIO(b"existing-staged-secret")
-        stderr = io.BytesIO()
-
-        def wait(self, timeout=None):
-            return 0
-
-    monkeypatch.setattr(preparation_runner.subprocess, "Popen", lambda *args, **kwargs: Process())
-    monkeypatch.setattr(preparation_runner.os, "killpg", lambda *args: None, raising=False)
-    monkeypatch.setattr(preparation_runner.signal, "SIGKILL", 9, raising=False)
-    assert preparation_runner.main(["1", str(tmp_path), "work", str(auth)]) == 0
-    assert b"existing-staged-secret" not in (tmp_path / "stdout.txt").read_bytes()
-
-
-@pytest.mark.parametrize(
-    "body", ['{"token":1,"token":2}', "[]", "x" * 131073], ids=["duplicates", "array", "oversized"]
-)
-def test_corrupt_staged_auth_fails_before_preparation_process(tmp_path, monkeypatch, body):
-    """@brief Ambiguous or excessive staged auth cannot weaken output redaction."""
-    (tmp_path / "secret-keys.json").write_text("[]")
-    auth = tmp_path / "auth.json"
-    auth.write_text(body)
-    calls = []
-    monkeypatch.setattr(
-        preparation_runner.subprocess, "Popen", lambda *args, **kwargs: calls.append(args)
-    )
-    with pytest.raises(ValueError):
-        preparation_runner.main(["1", str(tmp_path), "work", str(auth)])
-    assert calls == []

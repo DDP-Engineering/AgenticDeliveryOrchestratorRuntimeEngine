@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-09ac930a"
+
+title = "Start Sign in with ChatGPT from a container project"
+
+status = "active"
+
+requirement = """When an administrator starts Sign in with ChatGPT from a project whose `[execution] backend` is `container`, ADORE shall start Pi's OpenAI sign-in ("Sign in with ChatGPT") in a temporary helper container from that project's image, with only the server's ChatGPT credential directory mounted, keep it waiting for the redirect address for at most 15 minutes, and return the authorization link; a second start replaces a pending sign-in, and a project with `backend = "local"` is refused with chatgpt_sign_in_container_required."""
+
+verification = "API test with a fake Pi helper: POST start returns the authorization link and the helper argv mounts only the credential directory; a second start ends the first helper; a local-backend project gets 409 chatgpt_sign_in_container_required; a helper that cannot run gives 503 chatgpt_helper_failed and one that shows no link in time gives unavailable."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py", "04_Software/adore/isolation.py", "04_Software/docker/pi/adore-chatgpt.mjs"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_an_abandoned_sign_in_ends_itself", "04_Software/tests/test_web_chatgpt.py::test_a_second_start_replaces_the_pending_sign_in", "04_Software/tests/test_chatgpt.py::test_sign_in_returns_the_link_and_stores_the_credential", "04_Software/tests/test_chatgpt.py::test_a_helper_that_never_shows_a_link_is_unavailable", "04_Software/tests/test_web_chatgpt.py::test_admin_signs_the_server_in_and_out", "04_Software/tests/test_web_chatgpt.py::test_cancel_nothing_pending_and_a_local_project", "04_Software/tests/test_web_chatgpt.py::test_a_helper_that_cannot_start_is_unavailable"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

@@ -16,10 +16,7 @@
 """
 
 # IMPORTS
-from pathlib import Path
 
-from adore.isolation import IsolationError
-from adore.util import strict_json_loads
 
 # CONSTANTS
 PACKAGE_AUTHORIZATION_ACK = "adore-system-packages-ready"
@@ -81,39 +78,5 @@ subprocess.run([sudo, '-u', '#' + str(uid), '--', sudo, '-n', '--', managers[0],
                 '--version'], check=True, capture_output=True, timeout=5)
 print('adore-system-packages-ready')
 '''
-
-# PUBLIC API
-def staged_auth_redactions(path: Path) -> dict[str, str]:
-    """@brief Collect bounded values from the exact approved staged auth snapshot.
-    @param[in] path Temporary executor-auth snapshot owned by the conductor.
-    @return Redaction-only string values, kept in memory and never in evidence.
-    @exception IsolationError Unreadable, oversized, ambiguous or malformed auth.
-    """
-    try:
-        if path.is_symlink():
-            raise ValueError("linked auth snapshot")
-        with path.open("rb") as handle:
-            raw = handle.read(131073)
-        if len(raw) > 131072:
-            raise ValueError("auth exceeds bound")
-        auth = strict_json_loads(raw.decode("utf-8"))
-        if not isinstance(auth, dict):
-            raise ValueError("auth must be an object")
-        pending = [(auth, 0)]
-        values = set()
-        while pending:
-            value, depth = pending.pop()
-            if depth > 16:
-                raise ValueError("auth nesting exceeds bound")
-            if isinstance(value, str) and value:
-                value.encode("utf-8")
-                values.add(value)
-            elif isinstance(value, dict | list):
-                pending.extend((item, depth + 1) for item in (
-                    value.values() if isinstance(value, dict) else value))
-        return {f"staged-auth-{index}": value for index, value in enumerate(sorted(values))}
-    except (OSError, ValueError, TypeError, UnicodeError) as exc:
-        raise IsolationError("staged executor auth cannot be safely redacted") from exc
-
 
 # END OF FILE

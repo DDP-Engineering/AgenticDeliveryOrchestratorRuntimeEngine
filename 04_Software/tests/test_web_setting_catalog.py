@@ -15,11 +15,10 @@
          help texts) before the suite passes.
 """
 
-from dataclasses import fields
 import json
 from pathlib import Path
 
-from adore.config import ExecutorCommand, default_config, load_config
+from adore.config import default_config, load_config
 
 # CONSTANTS
 
@@ -43,9 +42,6 @@ def _leaves(value, prefix=""):
 
 def _catalog_key(key):
     """@brief Replace a project-chosen name in a dotted key with `*`."""
-    parts = key.split(".")
-    if parts[:2] == ["executor", "commands"] and len(parts) == 4:
-        return f"executor.commands.*.{parts[3]}"
     for name in _NAMED_MAPS:
         if key.startswith(name + "."):
             return name + ".*"
@@ -58,14 +54,12 @@ def _catalog_key(key):
 def test_setting_catalog_lists_every_configuration_key():
     """
     @brief   The catalog equals the configuration's keys: every leaf of the
-             annotated example and of the default configuration, the named
-             maps (bare and `*`), and every executor command field.
+             annotated example and of the default configuration and the named
+             maps (bare and `*`).
     """
     example = load_config(_ROOT / "config.example.toml").to_dict()
     expected = {_catalog_key(key) for key in _leaves(example) + _leaves(default_config().to_dict())}
     expected |= set(_NAMED_MAPS) | {name + ".*" for name in _NAMED_MAPS}
-    expected |= {"executor.commands"} | {
-        f"executor.commands.*.{field.name}" for field in fields(ExecutorCommand)}
 
     catalog = json.loads(_CATALOG.read_text(encoding="utf-8"))
 

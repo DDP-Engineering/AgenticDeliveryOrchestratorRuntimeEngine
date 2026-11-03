@@ -55,7 +55,7 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
   - `124` - wall-clock timeout (subprocess killed),
   - otherwise the command's own exit code.
 - Output is always **captured**, never streamed: the prerequisites check
-  showed opencode buffers stdout, so naive streaming looks "hung"
+  showed a headless CLI may buffer stdout, so naive streaming looks "hung"
   Output is decoded as UTF-8 with
   replacement to survive Windows console encodings.
 - Default command timeout: 600 s (`DEFAULT_COMMAND_TIMEOUT`).

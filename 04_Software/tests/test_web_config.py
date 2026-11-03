@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file test_web_config.py
-@brief Web project config edit and local endpoint boundary tests.
+@brief Web project config edit boundary tests.
 @details A complete local example config is edited through authenticated HTTP.
 """
 
@@ -128,198 +128,6 @@ def test_reviewer_pending_list_rejects_forged_value(tmp_path, claimed):
         assert path.read_bytes() == original
 
 
-def test_local_endpoint_edit_is_validated_and_revision_checked(tmp_path):
-    """@brief Admin can set a local URL; stale or hostile edits fail closed."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha")
-    path = profiles.config_path("alpha")
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
-    path.write_bytes(example.read_bytes())
-    StateStore(profiles.default_store_root("alpha")).pause()
-    app = create_app(profiles.home)
-    with TestClient(app) as client:
-        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
-        csrf = login.json()["csrf"]
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        target = "/api/v1/projects/alpha/config"
-        body = {"key": "container.runtime_env.OPENAI_BASE_URL",
-                "value": "http://model.local:1234/v1", "revision": revision}
-        assert client.put(target, json=body).status_code == 403
-        bad = {**body, "value": "javascript:alert(1)"}
-        assert client.put(target, json=bad, headers={"X-CSRF-Token": csrf}).status_code == 400
-        response = client.put(target, json=body, headers={"X-CSRF-Token": csrf})
-        assert response.status_code == 200, response.text
-        runtime_env = load_config(path).container.runtime_env
-        assert runtime_env["OPENAI_BASE_URL"] == body["value"]
-        provider = json.loads(runtime_env["OPENCODE_CONFIG_CONTENT"])["provider"]["openai"]
-        assert provider["npm"] == "@ai-sdk/openai-compatible"
-        assert provider["options"]["baseURL"] == body["value"]
-        assert "gpt-5.4-fast" in provider["models"]
-        assert client.put(target, json=body, headers={"X-CSRF-Token": csrf}).status_code == 409
-
-
-def test_local_model_and_endpoint_are_saved_atomically(tmp_path):
-    """@brief One administrator edit sets a local model and URL together."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha")
-    path = profiles.config_path("alpha")
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
-    path.write_bytes(example.read_bytes())
-    StateStore(profiles.default_store_root("alpha")).pause()
-    app = create_app(profiles.home)
-    with TestClient(app) as client:
-        csrf = client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"}).json()["csrf"]
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        target = "/api/v1/projects/alpha/config"
-        body = {"key": "container.runtime_env.OPENAI_BASE_URL",
-                "value": "http://model.local:1234/v1", "model": "local/test",
-                "revision": revision}
-        original = path.read_bytes()
-        for bad_model in ("bad model", "local/bad model", "local/"):
-            invalid = {**body, "model": bad_model}
-            assert client.put(target, json=invalid,
-                              headers={"X-CSRF-Token": csrf}).status_code == 400
-            assert path.read_bytes() == original
-        stray = {"key": "budgets.max_iterations", "value": "12",
-                 "model": "local/test", "revision": revision}
-        assert client.put(target, json=stray,
-                          headers={"X-CSRF-Token": csrf}).status_code == 400
-        assert path.read_bytes() == original
-        assert client.put(target, json=body,
-                          headers={"X-CSRF-Token": csrf}).status_code == 200
-    config = load_config(path)
-    assert config.executor.commands["opencode"].model == "local/test"
-    provider = json.loads(config.container.runtime_env["OPENCODE_CONFIG_CONTENT"])
-    assert provider["provider"]["local"]["models"] == {"test": {"name": "test"}}
-
-
-def test_local_endpoint_uses_only_allowlisted_auth_reference(tmp_path):
-    """@brief Endpoint auth references an executor environment key, never a value."""
-    profiles = ProfileStore(tmp_path / "home")
-    state_root = tmp_path / "state"
-    profiles.create("alpha", store_root=str(state_root))
-    path = profiles.config_path("alpha")
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
-    path.write_bytes(example.read_bytes().replace(
-        b'store_root = ".adore"',
-        f'store_root = "{state_root.as_posix()}"'.encode(),
-    ))
-    StateStore(state_root).pause()
-    app = create_app(profiles.home)
-    with TestClient(app) as client:
-        csrf = client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"}).json()["csrf"]
-        target = "/api/v1/projects/alpha/config/pending"
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        body = {"key": "container.runtime_env.OPENAI_BASE_URL",
-                "value": "https://model.local/v1", "model": "local/test",
-                "auth_env": "OPENAI_API_KEY", "revision": revision}
-        original = path.read_bytes()
-        for invalid in ("raw-secret", "MISSING_KEY", "{env:OPENAI_API_KEY}"):
-            response = client.post(target, json={**body, "auth_env": invalid},
-                                   headers={"X-CSRF-Token": csrf})
-            assert response.status_code == 400
-            assert path.read_bytes() == original
-        staged = client.post(target, json=body, headers={"X-CSRF-Token": csrf})
-        assert staged.status_code == 200, staged.text
-        applied = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"],
-            "base_revision": staged.json()["base_revision"]},
-            headers={"X-CSRF-Token": csrf})
-        assert applied.status_code == 200, applied.text
-        viewed = client.get("/api/v1/projects/alpha/config").json()
-        assert "OPENCODE_CONFIG_CONTENT" not in str(viewed)
-    provider = json.loads(load_config(path).container.runtime_env[
-        "OPENCODE_CONFIG_CONTENT"])["provider"]["local"]
-    assert provider["options"]["apiKey"] == "{env:OPENAI_API_KEY}"
-
-
-def test_local_endpoint_profile_persists_timeout_and_custom_ca(tmp_path):
-    """@brief One staged edit passes the bounded HTTP policy to OpenCode."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha", store_root=str(tmp_path / "state"))
-    path = profiles.config_path("alpha")
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
-    path.write_bytes(example.read_bytes().replace(
-        b'store_root = ".adore"',
-        f'store_root = "{(tmp_path / "state").as_posix()}"'.encode(),
-    ))
-    StateStore(tmp_path / "state").pause()
-    with TestClient(create_app(profiles.home)) as client:
-        csrf = client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"}).json()["csrf"]
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        target = "/api/v1/projects/alpha/config/pending"
-        body = {"key": "container.runtime_env.OPENAI_BASE_URL",
-                "value": "https://model.local/v1", "model": "local/test",
-                "protocol": "openai-chat-completions", "timeout_seconds": 45,
-                "ca_file": "/etc/ssl/adore-model-ca.pem", "revision": revision}
-        original = path.read_bytes()
-        for bad in (
-            {"protocol": "anthropic"}, {"timeout_seconds": 0},
-            {"timeout_seconds": 601}, {"ca_file": "../ca.pem"},
-            {"ca_file": "/etc/../secret"},
-            {"value": "http://model.local/v1"},
-        ):
-            response = client.post(target, json={**body, **bad},
-                                   headers={"X-CSRF-Token": csrf})
-            assert response.status_code in (400, 422), response.text
-            assert path.read_bytes() == original
-        staged = client.post(target, json=body, headers={"X-CSRF-Token": csrf})
-        assert staged.status_code == 200, staged.text
-        assert staged.json()["endpoint"] == {
-            "protocol": "openai-chat-completions", "model": "local/test",
-            "auth_env": None, "timeout_seconds": 45,
-            "ca_file": "/etc/ssl/adore-model-ca.pem",
-        }
-        applied = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"],
-            "base_revision": staged.json()["base_revision"]},
-            headers={"X-CSRF-Token": csrf})
-        assert applied.status_code == 200, applied.text
-        assert load_config(path).container.runtime_env[
-            "NODE_EXTRA_CA_CERTS"] == body["ca_file"]
-        next_revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        cleared = client.post(target, json={
-            **body, "value": "http://model.local/v1", "ca_file": "",
-            "revision": next_revision}, headers={"X-CSRF-Token": csrf})
-        assert cleared.status_code == 200, cleared.text
-        assert cleared.json()["endpoint"]["ca_file"] is None
-        assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": cleared.json()["candidate_revision"],
-            "base_revision": cleared.json()["base_revision"]},
-            headers={"X-CSRF-Token": csrf}).status_code == 200
-    config = load_config(path)
-    assert config.container.runtime_env["NODE_EXTRA_CA_CERTS"] == ""
-    provider = json.loads(config.container.runtime_env[
-        "OPENCODE_CONFIG_CONTENT"])["provider"]["local"]
-    assert provider["options"]["timeout"] == 45000
-    assert provider["options"]["baseURL"] == "http://model.local/v1"
-
-
-def test_local_endpoint_rejects_non_opencode_profile(tmp_path):
-    """@brief A URL edit cannot pretend Codex understands OpenCode settings."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha")
-    path = profiles.config_path("alpha")
-    example = Path(__file__).resolve().parents[1] / "config.example.toml"
-    path.write_text(example.read_text(encoding="utf-8").replace(
-        'default = "opencode"', 'default = "codex"'), encoding="utf-8")
-    StateStore(profiles.default_store_root("alpha")).pause()
-    app = create_app(profiles.home)
-    with TestClient(app) as client:
-        csrf = client.post("/api/v1/session", json={
-            "username": "admin", "password": "admin"}).json()["csrf"]
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        response = client.put("/api/v1/projects/alpha/config", json={
-            "key": "container.runtime_env.OPENAI_BASE_URL",
-            "value": "http://model.local:1234/v1", "revision": revision,
-        }, headers={"X-CSRF-Token": csrf})
-        assert response.status_code == 400
-        assert "OPENCODE_CONFIG_CONTENT" not in path.read_text(encoding="utf-8")
-
-
 def test_cli_and_web_config_edits_share_process_lock(tmp_path, capsys):
     """@brief Concurrent ADORE editors reject a held project config lock."""
     profiles = ProfileStore(tmp_path / "home")
@@ -406,6 +214,38 @@ def test_config_view_redacts_accidental_secret_values(tmp_path):
         assert "private-value" not in response.text
 
 
+@pytest.mark.parametrize("table", ["container.runtime_env", "local.environment"])
+def test_config_view_hides_a_removed_agents_environment_value(tmp_path, table):
+    """@brief A stale removed-agent variable is refused and its value never reaches the UI."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    example = Path(__file__).resolve().parents[1] / "config.example.toml"
+    inline = json.dumps({"provider": {"x": {"options": {"apiKey": "stale-private-value"}}}})
+    text = example.read_text(encoding="utf-8")
+    if table == "container.runtime_env":
+        line = 'runtime_env = { UV_LINK_MODE = "copy" }'
+        assert line in text
+        # A dotted name is still one variable and stays hidden.
+        text = text.replace(line, "runtime_env = { OPENCODE_CONFIG_CONTENT = "
+                            + json.dumps(inline) + ', "OPENCODE_X.Y" = "stale-private-value" }')
+    else:
+        text += f"\n[{table}]\nOPENCODE_CONFIG_CONTENT = {json.dumps(inline)}\n"
+    path.write_text(text, encoding="utf-8")
+    app = create_app(profiles.home)
+    web = app.state.web_store
+    developer = web.create_user("dev", "longer-password", "developer")
+    web.set_memberships(developer["id"], ["alpha"])
+    with TestClient(app) as client:
+        for user, password in (("admin", "admin"), ("dev", "longer-password")):
+            client.post("/api/v1/session", json={"username": user, "password": password})
+            response = client.get("/api/v1/projects/alpha/config")
+            assert response.status_code == 200
+            assert "stale-private-value" not in response.text
+            assert any("configures a removed coding agent" in issue
+                       for issue in response.json()["issues"])
+
+
 _PARTIAL_CONFIG = """
 [platform]
 kind = "gitlab"
@@ -414,9 +254,9 @@ repo = "group/project"
 [worktree]
 repo_path = "../runtime-project"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -562,9 +402,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         settings = {item["key"]: item for item in body["settings"]}
 
         assert [item["key"] for item in body["settings"]] == sorted(settings)
-        assert set(settings) == set(_leaves(body["config"])) | {
-            f"executor.commands.{agent}.{field}"
-            for agent in ("opencode", "pi", "codex", "qwen") for field in ("command", "model")}
+        assert set(settings) == set(_leaves(body["config"]))
         assert settings["platform.repo"] == {
             "key": "platform.repo", "edit_key": "platform.repo",
             "source": "project", "editable": True, "restart": True, "default": "",
@@ -586,12 +424,13 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["delivery.publish_checkpoints"]["source"] == "default"
         assert settings["metrics.db_path"]["default"] == ".adore/metrics.db"  # derived
         assert settings["agent.slug"]["default"] == "adore"
-        model = settings["executor.commands.opencode.model"]
-        assert model["edit_key"] == "executor.opencode.model"
+        model = settings["executor.model"]
+        assert model["edit_key"] == "executor.connection"
         assert model["source"] == "project" and model["editable"] and model["restart"]
-        assert model["default"] is None  # no command table in the default configuration
-        assert settings["executor.commands.opencode.command"]["source"] == "project"
-        assert settings["executor.commands.opencode.command"]["editable"] is True
+        assert model["default"] == ""  # no universal model default
+        command = settings["executor.command"]
+        assert command["source"] == "default" and command["editable"] is True
+        assert command["choices"] == [command["default"]]
         assert settings["delivery.reviewers"]["editable"] is True
         assert settings["delivery.reviewers"]["type"] == "list"
         not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
@@ -608,13 +447,14 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         revision = body["revision"]
         target = "/api/v1/projects/alpha/config/pending"
         for key, value in (("budgets.max_wall_clock_seconds", "7200"),
-                           ("executor.opencode.model", "openai/gpt-5.4"),
+                           ("executor.connection", '{"provider":"openai","model":"gpt-5.4",'
+                                                   '"base_url":"","api":""}'),
                            ("polling.poll_interval_seconds", "60")):
             staged = client.post(target, json={"key": key, "value": value,
                                                "revision": revision}, headers=csrf)
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
-        for key in ("executor.unknown.command", "state.store_root",
+        for key in ("executor.unknown.command", "state.store_root", "executor.model",
                     "clarification.reminder_after", "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)

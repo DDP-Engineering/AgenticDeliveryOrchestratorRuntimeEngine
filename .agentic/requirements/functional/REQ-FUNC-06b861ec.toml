@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-06b861ec"
+
+title = "Configure internet access and web search per project"
+
+status = "active"
+
+requirement = """
+The configuration shall accept `[executor] internet` as a boolean that defaults to false and `[executor.web] search` as one of exa, brave, tavily or none that defaults to exa.
+"""
+
+verification = "Automated configuration tests load a file without the keys and observe internet false and search exa, and load internet = true with each search value and observe them unchanged."
+
+affected_paths = ["04_Software/adore/config.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_internet_defaults_off_with_exa_search", "04_Software/tests/test_config.py::test_defaults_without_file_sections"]
+
+
+spec = ""
+
+priority = "high"
+rationale = "Internet access is Off by default; Exa needs no key."
+
+created = 2026-11-03
+updated = 2026-11-03

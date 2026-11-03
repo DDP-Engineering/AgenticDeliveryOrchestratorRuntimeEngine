@@ -33,9 +33,9 @@ repo = "grp/proj"
 [worktree]
 repo_path = "x"
 
-[executor.opencode]
-command = "opencode run --dir {{worktree}} -m {{model}} {{prompt}}"
-model = "openai/gpt-5.5"
+[executor]
+provider = "openai"
+model = "gpt-5.5"
 
 [delivery]
 reviewers = ["dan.pasare"]

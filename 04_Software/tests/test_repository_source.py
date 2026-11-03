@@ -116,7 +116,7 @@ def _setup(detected: dict, **changes) -> dict:
         "reviewers": "reviewer",
         "auth_mode": "api-key",
         "image": "adore-test:latest",
-        "model": "openai/gpt-5.5",
+        "provider": "openai", "model": "gpt-5.5",
         **changes,
     }
 

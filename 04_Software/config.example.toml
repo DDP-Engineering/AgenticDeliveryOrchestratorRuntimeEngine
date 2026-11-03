@@ -15,7 +15,7 @@
 #     environment or a gitignored `.env` (template: `.env.example`).
 #   - Every key shown here has a sensible default; you can delete any line or
 #     whole section you do not want to override. The only values you MUST set
-#     are [platform] repo and [executor.<name>] command/model.
+#     are [platform] repo and [executor] model.
 #   - Full reference with all defaults and rationale:
 #     ../01_Documentation/Configuration_Reference.md
 # =============================================================================
@@ -119,16 +119,40 @@ type_bug        = "bug"
 hold    = "agent-hold"        # never pick while present, even if agent-ready
 exclude = "no-agent"          # permanently human-only, ignore always
 
-# Executor pin - optional per-ticket executor override, e.g. a ticket labelled
-# "agent-exec:opencode" forces that executor for its run.
-[labels.executor]
-prefix = "agent-exec:"
-
 # ----- Executor ----------------------------------------------------------------
 [executor]
-# Which executor to launch: "opencode" | "pi" | "codex".
-# Must have a matching [executor.<name>] table below.
-default = "opencode"
+# ADORE's coding agent is Pi (@earendil-works/pi-coding-agent); there is no
+# agent choice. A container run uses the Pi pinned in the executor image,
+# driven over its RPC mode, and reads AGENTS.md natively. Keys of removed
+# agents (`default`, `stage_host_auth`, `[executor.<name>]` tables) are refused.
+# Provider: one of Pi's API-key providers (for example "openai", "anthropic",
+# "google", "openrouter", "mistral"; Settings -> Agent and model lists them all),
+# "chatgpt" (this server's ChatGPT Plus/Pro sign-in, made in the web interface;
+# container runs only, stage time limits at most 3000 seconds) or
+# "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM,
+# described in [executor.endpoint] below).
+provider = "openai"
+# Model id within the provider (Pi's list, or any id the provider accepts).
+model = "gpt-5.5"
+# Internet access for the agent (Settings -> Agent and model). false (default):
+# a container run reaches only the model provider's hosts (ADORE derives them,
+# plus [container.egress] allowlist) through a per-run proxy; web search, page
+# reading and downloads are unavailable. true: open network, with Pi's web
+# search and page reading ([executor.web]); downloads use bash (curl, npm, pip).
+# With true, a malicious page could try to make the agent send its API key or
+# ChatGPT token out: prefer limited, short-lived keys. A local (server-installed)
+# run is not restricted by this switch.
+# internet = false
+# The provider's API key is a credential, never a value in this file: save it in
+# Settings -> Agent and model, or put it in .env beside this config.toml under
+# the variable Pi reads for the provider (OPENAI_API_KEY for "openai",
+# ANTHROPIC_API_KEY for "anthropic", ADORE_ENDPOINT_API_KEY for "custom").
+# Argv template of a native (local) Pi run only; a container run ignores it.
+# ADORE substitutes {prompt}, {model} (as provider/model) and {worktree}.
+# SAFETY: never add --auto;
+# the executor never touches the remote - the orchestrator owns push and MR
+# creation.
+# command = "pi -p --mode json --model {model} {prompt}"
 # "thick"    = the orchestrator drives gate-by-gate and verifies in between
 #              (recommended; matches the workflow's stop-after-each-gate design).
 # "headless" = single-shot: launch once and read the final result only.
@@ -139,57 +163,27 @@ mode = "thick"
 # after a gate is the deterministic "needs clarification" signal.
 # Leave out to derive "<SLUG>_QUESTIONS.md".
 questions_file = "ADORE_QUESTIONS.md"
-# The ONLY environment variables passed into the executor container (values
-# come from the host environment or .env; design: scope secrets minimally).
-env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
-# PILOT-ONLY: copy the selected OpenCode or Codex host OAuth auth.json
-# into the run container at provision. Pi and Qwen are not supported. Use when no provider API key
-# exists yet (01_Documentation/Security_And_Credentials.md). Fragile for
-# long-running use
-# (refresh tokens rotate); production needs a real key in .env instead.
-stage_host_auth = false
+# Additional secret variables passed to Pi besides the provider's key variable
+# (values come from the host environment or .env; scope secrets minimally).
+env_keys = []
 
-# One table per executor. `command` is a template; ADORE substitutes {prompt},
-# {model}, and {worktree}. SAFETY: never add --auto (it would auto-approve the
-# push/merge permissions that must stay blocked; the executor never touches
-# the remote - the orchestrator owns push and MR creation).
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-# Model in provider/model form; the provider API key comes from .env.
-model = "openai/gpt-5.4-fast"
+# Only with provider = "custom": the OpenAI-compatible endpoint. base_url is the
+# address AS SEEN FROM THE CONTAINER: "localhost" is the container itself, and
+# host.docker.internal reaches the host only on Docker Desktop. On Docker Engine
+# (Linux, or inside WSL) use the host's LAN address or the Docker network
+# gateway; for a server on Windows reached from WSL Docker, the WSL default
+# gateway. api is the Pi API type the server speaks: "openai-completions"
+# (LM Studio, Ollama, vLLM), "openai-responses", "anthropic-messages" or
+# "google-generative-ai". An endpoint key, if any, is ADORE_ENDPOINT_API_KEY.
+# [executor.endpoint]
+# base_url = "http://192.168.1.20:1234/v1"
+# api = "openai-completions"
 
-# Alternative executor: Pi (@earendil-works/pi-coding-agent). To use it, set
-# `default = "pi"` above and uncomment this table. Pi reads AGENTS.md natively
-# and gets its push/merge guardrails from the repo's `.pi` agentic-guard
-# extension (enforced in headless/json mode). It must be installed in the
-# executor image, and the project must be trusted for headless runs.
-# [executor.pi]
-# command = "pi -p --mode json --model {model} {prompt}"
-# model = "openai/gpt-5.5"
-
-# Alternative executor: OpenAI Codex (@openai/codex). To use it, set
-# `default = "codex"` above and uncomment this table. Codex reads AGENTS.md
-# natively; each ADORE gate is a fresh session. SAFETY: full-auto Codex mode is
-# acceptable only because ADORE runs executors inside an external container/
-# worktree sandbox and keeps push/MR ownership outside the executor.
-# `--ignore-user-config` plus `--disable plugins` prevents workstation-local
-# and bundled Codex plugin/marketplace state from bleeding into the container;
-# ADORE stages only auth.json into an isolated CODEX_HOME when
-# `stage_host_auth = true`.
-# [executor.codex]
-# command = "codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
-# model = "gpt-5.5"
-
-# Alternative executor: Qwen Code (@qwen-code/qwen-code, a Gemini-CLI fork). To
-# use it, set `default = "qwen"` above and uncomment this table. Qwen reads
-# AGENTS.md natively and is guarded by the repo's `.qwen` hooks + deny list.
-# It runs STATELESS per gate (no session continuation). SAFETY: the command
-# must not use --yolo / --approval-mode yolo (validation enforces this). Auth is
-# OpenAI-compatible: OPENAI_API_KEY (+ OPENAI_BASE_URL for the Qwen/Dashscope
-# endpoint) in .env, or the Qwen OAuth free tier.
-# [executor.qwen]
-# command = "qwen -p --model {model} --output-format json {prompt}"
-# model = "qwen3-coder-plus"
+# Web search while internet = true: "exa" (default, no key), "brave" or "tavily"
+# (key saved in Settings -> Agent and model as BRAVE_API_KEY or TAVILY_API_KEY,
+# or in .env), or "none" (no web search or page reading).
+# [executor.web]
+# search = "exa"
 
 # ----- Clarification -----------------------------------------------------------
 # Bounds for parked runs (executor asked a question, waiting on a human).
@@ -245,7 +239,7 @@ parked_ttl_polls = 30
 uv_cache_volume  = "adore-uv-cache"
 npm_cache_volume = "adore-npm-cache"
 # Non-secret runtime environment injected at container creation and every
-# `exec`. ADORE reserves HOME/GIT_*/CODEX_HOME for isolation; use this for
+# `exec`. ADORE reserves HOME, GIT_* and the proxy variables; use this for
 # portable tool behavior. Default keeps uv package links copy-based, which is
 # safer on Windows/WSL bind mounts.
 runtime_env = { UV_LINK_MODE = "copy" }
@@ -280,20 +274,16 @@ required_tool_checks = [
 ]
 
 [container.egress]
-# "open" = unrestricted egress, intended for supervised operation.
-# "none" = start executor containers with --network none for fully offline,
-#          pre-provisioned runs.
-# "allowlist-proxy" = executor has no direct internet; HTTP/HTTPS egress goes
-#                     through an ADORE-managed per-run proxy container.
-mode = "open"
-# Exact or wildcard hostnames only. Runtime projects fill this with the
-# minimum hosts their executor and package manager require, e.g.
-# ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"].
+# The per-run proxy behind which a run with [executor] internet = false sits.
+# ADORE admits the model provider's hosts itself; allowlist adds hosts such a
+# run may also reach, exact or wildcard host names only, e.g. a package mirror
+# ["pypi.org", "*.pythonhosted.org"]. Unused while internet = true.
 allowlist = []
 # Bypassed by proxy-aware tools. Keep loopback defaults unless your executor
 # also needs an internal hostname.
 no_proxy = ["localhost", "127.0.0.1", "::1"]
-# Build from docker/Dockerfile.egress-proxy.
+# Build from docker/Dockerfile.egress-proxy; the readiness check reports it
+# missing for an internet-off project.
 proxy_image = "adore-egress-proxy:1.0.0"
 proxy_port = 3128
 network_prefix = "adore-egress"
@@ -457,9 +447,9 @@ html_out = ".adore/metrics/stats.html"
 
 # Native local alternative: switch the existing [execution] backend to "local".
 # Keep preparation empty; remove container required_tool_checks/run_args/custom
-# runtime_env, set egress open and stage_host_auth=false. No tools are installed.
-# Select installed native argv; Windows npm shims need explicit node.exe + installed JS.
-# Each gate starts a fresh session, including Codex.
+# runtime_env and leave [container.egress] allowlist empty. No tools are installed.
+# Set [executor] command to the installed native Pi argv; Windows npm shims need
+# explicit node.exe + installed JS. Each gate starts a fresh Pi session.
 # [local]
 # account = "current"  # Actual ADORE account; named value asserts it.
 # home = ""           # Already prepared home; blank uses the account default.

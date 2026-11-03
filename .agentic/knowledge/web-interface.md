@@ -276,7 +276,7 @@ SQLite bytes, authorization, scope and financial redaction.
   while its value is a boolean (`REQ-SEC-63767e17`).
 - Web config edits use a SHA-256 revision and the same per-directory process
   lock as CLI `config set`; direct host file changes do not use that lock.
-  Staged, applied, direct and OpenCode endpoint edits write bytes and keep the
+  Staged, applied and direct edits write bytes and keep the
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
 - The administrator UI prepares one validated config candidate per project,
   reviews changed safe values above categories with adjacent Apply/Discard; complete comparison, effect, observed time and full base/candidate revisions are disclosed in Technical details and applies it only with no active run, conductor or
@@ -284,19 +284,75 @@ SQLite bytes, authorization, scope and financial redaction.
   interrupted apply reconciles exact candidate bytes and profile labels.
 - Explicit administrator readiness checks use bounded doctor probes from the
   API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
-  executing repository code. A configured local OpenCode model is tested from
-  a disposable executor container with the project egress policy and a
-  redacted reason. WSL runtime detection remains unverified; CLI output and
-  credentials are never returned.
-- The OpenCode local-endpoint form saves `provider/model`, URL, and an optional
-  allowlisted credential environment reference atomically;
-  its compatible provider override, bounded timeout and optional HTTPS CA path
-  are generated in the same config revision. Pending review exposes only these
-  non-secret endpoint fields.
-- Project creation and shared config validation permit ADORE-managed host-auth
-  staging only for OpenCode and Codex. Pi and Qwen use the non-staged choice;
-  Pi can authenticate through an operator-provided, protected credential mount
-  while `stage_host_auth` remains false.
+  executing repository code. The stored checks are exactly `git`, `forge_cli`,
+  `forge_auth`, `container_runtime`, `executor_cli` and `aegis_files`, plus the
+  boolean `executor_sign_in` for a project with provider `chatgpt` only (true
+  when `chatgpt.status` of the server's credential directory is `signed-in`;
+  read from the files without starting Pi; false makes the evidence `failed`).
+  The stored-record reader accepts that one extra key. Model
+  access is proved only by the explicit Test AI connection. WSL runtime
+  detection remains unverified; CLI output and credentials are never returned.
+- Provider/model/endpoint, launch command and credential-name edits use the
+  reviewed candidate flow in Settings → Agent and model
+  (executor-configuration.md). Provider, model and the OpenAI-compatible
+  endpoint are one virtual candidate key, `executor.connection` (strict JSON
+  `{provider, model, base_url, api}`), edited by `AgentConnectionEditor.tsx`;
+  the rows `executor.provider`, `executor.model`, `executor.endpoint.base_url`
+  and `executor.endpoint.api` report that `edit_key` and cannot be staged
+  individually (400 `setting_not_editable`). `PendingReview` shows the
+  candidate as four rows (Provider, Model, Endpoint base URL, Endpoint API
+  type); `settings.ts` input kind `connection`, `connectionRowVisible` hides
+  the endpoint rows unless the provider is `custom`.
+- `GET /api/v1/pi-providers` (any signed-in user; 503
+  `provider_catalog_unavailable` when the shipped catalog is unreadable)
+  returns `{pi_version, providers[{id, name, variable, models}], chatgpt:{id,
+  models}, custom:{id, variable, apis}}`; `chatgpt.models` is the catalog's
+  `chatgpt_models`. `agentConnection.ts` reads it (`readProviderCatalog`) for
+  the provider select and the model datalist (`providerModels`: Pi's models of
+  an API-key provider, `chatgpt.models` for `chatgpt`). The enrollment wizard's
+  model datalist offers only API-key provider models.
+- The server's one ChatGPT sign-in (`adore/chatgpt.py`, credential directory
+  `<ADORE home>/chatgpt`) has Admin-only routes; changes need CSRF. At most one
+  pending sign-in lives in the web server's memory under one lock.
+  `GET /api/v1/chatgpt-sign-in` returns `{status, pending}` (`signed-in`,
+  `not-signed-in` or `sign-in-again`); a pending sign-in older than 900 s is
+  cancelled and reported as not pending.
+  `POST /api/v1/projects/{name}/chatgpt-sign-in` cancels any previous pending
+  sign-in, starts Pi's `login` in a helper container from that project's
+  runtime and image, and returns `{authorize_url, expires_in: 900}`; it returns
+  409 `project_archived`, 503 `config_corrupt`, 409
+  `chatgpt_sign_in_container_required` for a non-container project and 409
+  `invalid_config`, and needs neither paused pickup nor an idle project.
+  `PUT /api/v1/chatgpt-sign-in` takes exactly `{redirect_url}` (at most 8192
+  characters) and returns `{status, pending}`; 400 `chatgpt_redirect_invalid`
+  and 400 `chatgpt_state_mismatch` keep the sign-in pending, 409
+  `chatgpt_sign_in_not_pending` means none waits, and every other failure ends
+  it. `DELETE /api/v1/chatgpt-sign-in/pending` cancels and keeps the stored
+  credential. `DELETE /api/v1/chatgpt-sign-in` cancels, deletes `auth.json` and
+  the `sign-in-again` mark, keeps `device-id`, and returns 503
+  `chatgpt_credential_unreadable` when a file cannot be removed. Failure codes:
+  409 `chatgpt_credential_unreadable`, 502 `chatgpt_not_eligible`, 502
+  `chatgpt_access_denied`, 502 `chatgpt_code_rejected`, 502
+  `chatgpt_sign_in_refused`, 503 `chatgpt_sign_in_unavailable`, 503
+  `chatgpt_helper_failed`. Audit actions are `chatgpt-sign-in-started`,
+  `chatgpt-sign-in-completed`, `chatgpt-sign-in-failed`,
+  `chatgpt-sign-in-cancelled` and `chatgpt-disconnected`; `WebStore._safe_detail`
+  keeps a `chatgpt-sign-in-failed` detail only when it matches
+  `chatgpt_<code>`, else `[redacted]`. Redirect-invalid, state-mismatch and
+  not-pending failures are not audited. `create_app(chatgpt_popen=...)` injects
+  the helper's process factory.
+- Config GET returns `model_connection: null` for a `chatgpt` project while the
+  server's ChatGPT status is not `signed-in`.
+- Project creation offers no coding-agent choice: Pi is the only agent, and
+  `ProjectInput` has no `executor_cli` field (422 when sent). `auth_mode` is
+  `api-key` or `existing` (the local account's own Pi sign-in, with empty
+  `env_keys`); any other value, such as `host-auth`, is 422. A container project
+  uses api-key. `ProjectInput` takes `provider`, `model`, `endpoint_base_url`
+  and `endpoint_api` (endpoint only for `custom`) and no secret; the setup
+  preview review returns `provider`, `model`, `endpoint_base_url`,
+  `endpoint_api` and `credential_variable` (the variable to save after
+  creation). The project view reports `executor` = `pi`, and import review
+  shows `executor` = {provider, model, endpoint_base_url (empty unless custom), env_keys}.
 - Web-created profiles use an absolute, project-specific worktree root under
   ADORE home. ADORE uses the configured agent identity for host-side checkpoint
   commits, even when the fresh clone has no local Git identity.
@@ -346,7 +402,10 @@ SQLite bytes, authorization, scope and financial redaction.
   as separate pages (/projects/new, /projects/import, /projects/clone).
   Administrators open Enroll new project as a five-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
-  executor/model values describe the selected agent; environment setup is external. Back retains
+  step 2 asks Provider, Model (with Pi's models as a datalist) and, for an
+  OpenAI-compatible endpoint, Endpoint base URL and Endpoint API type, and names
+  the credential variable to save after creation; review lists them plus
+  "Credential to save after creation"; environment setup is external. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup
   before the explicit Open project action.
   Exact configuration enrollment mounts ImportWizard with four-locale visible file
@@ -447,10 +506,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   and performs normal teardown; a revoked grant creates no marker.
 - Selected-ticket starts retain the conductor's readiness and approval gates.
   The web layer never merges.
-- Stopped pickup refuses a ticket Start with 409 `ticket_not_startable`
-  (`pickup_paused`) right after the idempotency replay and before any forge
-  call; the ticket view reports `blocked_by: pickup_paused` with nothing to add
-  and unchanged eligibility (REQ-FUNC-4e5e56ed, REQ-FUNC-ef5a60d0).
+- Manual Start remains available with monitoring paused; it leaves automatic pickup paused and preserves eligibility, capacity, locks and approval gates.
 - The worker runs the CLI with stderr joined to stdout (`CommandOutcome`; a
   runner may still return a bare exit code). A non-zero exit or timeout keeps a
   `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
@@ -467,6 +523,82 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 - Below 760px, primary navigation opens from a labeled collapsible menu and
   closes after page selection. Narrow panels wrap text while data tables keep
   their own horizontal scrolling.
+
+One web worker owns command ordering for one home. During any blocking engine
+command or project poll, the worker watches queued cancellations across projects and
+signals the active conductor after rechecking grants. Other queued operations
+wait for the current engine command. Administrator metrics attribute usage and
+reported/estimated cost to the most recent revision-started event in each run;
+initial work remains in run totals and developers receive no financial rows.
+API liveness at `/api/v1/health` is separate from readiness at `/api/v1/ready`.
+The worker refreshes a schema-5 SQLite heartbeat even while an engine command
+blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
+Administration expands into System status, Users and Change history sidebar pages;
+both roles reach a top-level My account page. Every view has a path URL
+(`web/src/routes.ts`) kept in sync with view state; project details uses
+Summary/Settings/Access/Jobs/Statistics/History tabs (`/projects/<id>/jobs?run=`, `/projects/<id>/statistics?tab=&from=`). Project details shows effective
+configuration in six purpose categories plus closed Technical details with frequent settings first within each,
+with a Default badge for inherited values, field type, domain and permanent purpose guidance; administrators edit settings on their rows and stage
+changes there. The Agent and model group also holds the Admin-only estimated-price form, which asks for the
+effective date and input/output rates and records them for Pi and the applied model in `executor.model`
+(guidance replaces the form while no model is set), and the project's price table. The
+settings response is scoped to the current project identity so switching
+projects cannot briefly show another project's values. Audit policy defaults to unlimited
+and its System status form displays saved day/MiB limits, representing unlimited as zero.
+Zero or blank maps to API null; bounded values convert to integer days/bytes
+through `04_Software/web/src/auditPolicy.ts`, covered by offline Node tests.
+Administrators can set day and stored-text byte limits. The store validates
+closed evidence and prunes oldest visible events with structured JSON included
+in bytes. SQLite mutations and evidence
+share transactions. Filesystem mutations start uncertain and confirm after
+completion; pending config replay preserves original before and finalizes once.
+Separate receipts keep deduplication after audit retention removes visible rows;
+completed receipts clear value payloads. Interrupted commands remain uncertain,
+malformed exit codes cannot claim success and terminal replay creates no event.
+`audit.py` excludes nested credentials/environment/raw errors/arbitrary metadata.
+Browser-local correction/abandonment is not a persisted server mutation.
+Audit and other long tables provide 10/25/50/All paging; Jobs uses
+the complete revision-bound global API for the same choices. API fetches bypass browser cache
+so a newly deployed endpoint cannot be masked by stale HTML.
+The Administration System status page polls readiness every five seconds and labels worker
+status separately from forge, executor and model reachability.
+It also polls administrator-only storage status every 30 seconds. The API reads
+free space for home and each project state root with a `volume_id` (the UI groups
+one line per physical volume), warns below 1 GiB and returns
+an explicit service error if measurement fails, without exposing host paths.
+The React About dialog makes the surrounding shell inert, keeps keyboard focus
+on its Close button, and restores focus to About when closed. Narrow layouts
+expose Sign out in the top bar while the sidebar account row is hidden.
+The top bar supplies the sole page title and common actions on every page.
+Project details keeps the identity opened through authorized Projects rows.
+Its metadata rows use 4px gaps and 18px separation before actions. Platform
+administration/account pages use their own controls. Responsive rows
+keep these controls visible while content begins with page data. Metric hints,
+usage actions and account rows wrap on narrow screens.
+Statistics keeps its authorized project selector with the common reporting range,
+grouping, All time and CSV menu in one row above keyboard-operable Summary, Usage, Quality,
+Trends tabs (old ?tab=projects links land on Summary). Administrators use All projects
+scope for pooled totals and one per-project table per family in Summary, Usage and Quality.
+Every category and CSV menu follows that scope; single-project mode limits
+comparison rows and developer mode exposes assigned-project operational data.
+Summary includes a paginated project breakdown in All projects scope.
+`04_Software/web/src/metrics.ts` pools counters, nullable evidence, quality cohorts and
+terminal duration samples; `04_Software/web/tests/metrics.test.mjs` verifies it offline.
+Developer export choices remain project-scoped and omit money. The Usage tab
+has no executor/model filters (the API parameters remain); its table sorts by
+column and its totals row includes job elapsed time. Compact layouts put
+the shared reporting controls in two rows.
+Session clearing also returns the shell to Overview, preventing a blank
+administrator-only page after a developer signs in. Successful asynchronous
+config staging resets its form without a false error; UserCreation clears its
+transient credentials after confirmed creation.
+A signed-in account with a pending required password change is held outside
+the shell session, so only the change-password card renders and no dashboard
+polling starts. The error banner stores the raw failure; `web/src/errors.ts`
+renders it in the active locale, and each user action or view change clears
+it. `web/src/projectName.ts` supplies the `v`-flag-safe project-name pattern
+for Add and Import project. Primary buttons take their text colour from the
+`--on-accent` theme token.
 
 ## Change map
 
@@ -488,6 +620,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
 | Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
+| ChatGPT sign-in routes, panel and readiness | `adore/chatgpt.py`, sign-in routes and `_probe_setup` in `adore/web/app.py`, `web/src/ChatGptSignIn.tsx`, `chatgptCopy.ts`, `readiness.ts` | `test_chatgpt.py`, `test_web_chatgpt.py`, `npm test` (`chatgpt.test.mjs`, `readiness.test.mjs`), `web/e2e/executor-config.spec.ts` |
 | Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
 | Project settings list and row editing | `_setting_metadata` in `adore/web/app.py`, `web/src/settings.ts`, `SettingsList` in `App.tsx` | `test_web_config.py`, `npm test` (`settings.test.mjs`), browser check |
 | Setting help texts and catalog | `web/src/settingHelp.ts`, `web/src/settingKeys.json`, `default_config()` in `adore/config.py` | `test_web_setting_catalog.py`, `npm test` (`settingHelp.test.mjs`), browser check |
@@ -517,6 +650,11 @@ Native control/auth route to local-execution.md. Focused proof:
 
 
 - `REQ-UX-94a97e70`: CLI validates external execution selections and previews complete image/source/commands. Web reads expose effective image and retained preparation evidence; environment mutations are refused. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
+- ChatGPT sign-in: `REQ-FUNC-4efa960e` status, `REQ-FUNC-09ac930a` start from a container
+  project, `REQ-FUNC-055f8047` complete with the pasted address, `REQ-FUNC-74d90036` refuse
+  another callback, `REQ-FUNC-0e27781c` localized refusal, `REQ-FUNC-f0076585` Disconnect,
+  `REQ-FUNC-11308471` readiness row, `REQ-FUNC-4388b030` ChatGPT Test AI connection,
+  `REQ-SEC-2689e1f5` Admin/CSRF/value-free audit, `REQ-UX-0d58a662` four-locale panel.
 
 - `REQ-DATA-5a620f4e` / `REQ-REL-6564a3b2` / `REQ-FUNC-83da8d95` - composite measured job consumption, strict sources and server-selected analytical samples.
 
@@ -650,6 +788,10 @@ Native control/auth route to local-execution.md. Focused proof:
 - `02_Tools/create_package.py`, `verify_package.py` and
   `internal/stamp_web_assets.py` - portable media and static asset preparation.
 - `04_Software/tests/test_web_*.py` - focused API, pricing, worker and packaging tests.
+- `04_Software/web/src/ChatGptSignIn.tsx`, `chatgptCopy.ts` - the server's ChatGPT
+  sign-in panel, its four-locale copy and the strict `{status, pending}` and
+  `{authorize_url, expires_in}` parsers; `web/tests/chatgpt.test.mjs` and
+  `tests/test_web_chatgpt.py` (with `tests/fake_chatgpt_helper.py`) prove them.
 
 ### Settings edit and review seam
 
@@ -693,14 +835,20 @@ or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
-in the local image; workflow availability checks the two configured AEGIS files.
-A compatible configured OpenCode endpoint receives a temporary-container streamed
-model/tool-call check. Other executors and unconfigured endpoints show Not checked
-with explicit model-access uncertainty. Unknown container detection is incomplete;
+in the local image (or, for a local project, that the installed Pi has a
+sign-in or approved key); workflow availability checks the two configured AEGIS files.
+An AI model connection row follows the six checks and shows the saved Test AI
+connection evidence (passed or failed, with executor and model), or Not checked
+with guidance to run Test AI connection when none is saved. A project whose
+runtime is `local` hides the container runtime row and shows local-agent copy
+for the agent row. A `chatgpt` project shows a **ChatGPT sign-in** row between the
+six checks and the AI model connection row; when it fails, its fix points to
+Sign in with ChatGPT in Settings → Agent and model. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
-check time, exact check keys/types and consistent model-probe results before display;
+check time and the exact six check keys/types, plus at most a boolean
+`executor_sign_in` (`readiness.ts` `readinessChecksShape`), before display;
 invalid results produce a localized error and withhold the new check rows.
 
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,
@@ -740,16 +888,34 @@ Gitea readiness verifies configured-login tea API user evidence, requiring 2xx
 HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
 
+## Internet access for the agent
+
+Settings -> Agent and model shows `executor.internet` (generic boolean row
+shown On/Off through `executorSettings.agentValue`) and `executor.web.search`
+(choice row from the server's `WEB_SEARCH_CHOICES`), both reviewed edits with a
+restart note. While the active value is On or the editor or a pending
+candidate proposes On, `internetCopy.internetWarning` says a malicious page
+could make the agent send its API key or ChatGPT token out; a local-backend
+project shows `internetCopy.internetLocal` (not enforced) instead. The
+credential panel lists `credential_variables` (provider key, then
+BRAVE_API_KEY/TAVILY_API_KEY for an internet-on Brave/Tavily project) and is
+also shown beside the ChatGPT sign-in when `searchKeyNeeded`. `_probe_setup`
+adds `_internet_checks`: `egress_proxy` (container + internet off: `image
+inspect` of the proxy image) and `web_search_key`; `readinessChecksShape`
+accepts them as optional booleans and `ReadinessEvidence` labels them in four
+locales. Requirements: `REQ-UX-e340fc1e`, `REQ-FUNC-aaa37a72`,
+`REQ-SEC-b6a4a434`.
+
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for a Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. OpenCode endpoint tool compatibility remains separately reported. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
+Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). Failures provide redacted guidance (`modelEvidence.ts`) for a missing key (**credential-missing**, no container starts), an invalid key, model availability, rate limits, provider errors, image, CLI version or network. A `chatgpt` project first gets an access token from the server's sign-in for 90 s plus 300 s and reports **sign-in-required** (not signed in, or sign in again), **subscription-refused** (OpenAI refuses the plan), **connection-failed** (OpenAI not reachable) or **usage-limit** (Pi's rate limit on a subscription); the token reaches Pi only in the launch environment and is redacted from the evidence. The action reuses executor credentials and egress and starts no job. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
 
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's effective configuration controls and inherited defaults. Executor/model and AI endpoint fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's effective configuration controls and inherited defaults. Provider, model, endpoint, launch command and credential fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -765,11 +931,11 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, selected-agent settings, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi provider, model, endpoint and launch command, closed Authentication (additional credential variables and Provider API key, or for a `chatgpt` project the ChatGPT sign-in panel `ChatGptSignIn.tsx` shown to Admins of a non-archived project) and external environment guidance. The panel shows the status, Sign in with ChatGPT (Sign in again unless not signed in), Disconnect ChatGPT (disabled while not signed in) and, while a sign-in waits, the OpenAI link (new tab, `noopener noreferrer`), a 15-minute validity note, the redirect address field, Complete sign-in and Cancel. The link and the address live only in component memory; the field is cleared on every attempt, and the panel rereads the status after every action. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## External executor environment seam
 
-ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; credential names are optional in API-key mode. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI endpoint is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
+ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 
 External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.
 
@@ -788,64 +954,6 @@ no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
 
-Default-agent editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow its dropdown on wide screens, with shared responsive wrapping. Grouped-draft guidance stays in the description column.
+Connection and launch-command editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow the control on wide screens, with shared responsive wrapping.
 
-Inline editor validation follows the controls/actions on its own flex line. Incomplete agent/model selections retain the same selector/action placement and disabled Prepare, while responsive wrapping remains shared.
-
-## Simple guided local setup
-
-REQ-UX-ec09a60a: local enrollment displays detected account and installed choices;
-current-account home/PATH are automatic, with technical overrides in closed
-Advanced. Settings retains saved assertions and reviewed overrides in Advanced.
-REQ-FUNC-f47164f2: CloneLocation offers automatic/custom destinations and an admin
-HostFolderDialog for host directory navigation. See host-folders.md for API,
-filesystem bounds, modal races and no-write selection contracts.
-
-Reviewed configuration apply retries only Windows replace errors 5/32/33, at most six attempts with 50ms between attempts (250ms maximum scheduled delay). Persistent or other OS write failures return `config_write_failed` (HTTP 503), keep the active configuration and pending review, and clean the temporary candidate. Existing state/config locks and revision checks remain in force.
-
-
-Enrollment and Clone project config read remote branch choices and symbolic HEAD
-through the shared Git boundary for all supported forges, including self-hosted
-remotes. Target branch is a default-marked dropdown; same-URL refresh preserves
-only still-existing explicit selections. Empty, malformed, failed and stale
-reads cannot fabricate a default or reuse another repository’s branch choices.
-See Component_Repository_Source.md and REQ-FUNC-b3251e39.
-
-Manual ticket Start preserves paused monitoring. The CLI/worker terminal result
-binds IID/exit/reason; localized operationResultText renders closed failures in
-Tickets, Jobs and general status. See Component_Web_Worker.md and
-Component_Web_Frontend.md.
-
-## Background worker engine processes
-
-CommandWorker's production runner uses shared child pager defaults and Windows
-CREATE_NO_WINDOW with closed stdin, preserving ADORE_HOME, captured UTF-8 output,
-the existing six-hour timeout and authoritative manual admission records.
-Focused proof: test_default_worker_runner_carries_manual_outcome.
-
-## Portable repository sign-in recovery
-
-New/transfer Gitea probes use portable_tea_runner; saved-project probes use
-project_runner so protected credentials stay authoritative. Missing discovery is
-a failed forge_auth check. Ticket APIs expose closed auth codes with localized
-connection guidance; ReadinessEvidence and the connection dialog explain the
-same current-account and current-machine boundary. Enrollment suggestions share
-metadata discovery. See repository-auth.md and projects help #gitea-sign-in.
-
-## Native check diagnostics
-
-REQ-FUNC-ab8c90b6 / REQ-UX-4d08dee5: schema-1 readiness accepts optional
-executor_probe {ready, reason, exit_code} only in executor-local context; strict
-duplicate-free persistence and the frontend reject inconsistent/unknown values.
-Legacy records remain readable and request a fresh check for missing causes.
-localDiagnostics.ts provides four-locale local/model causes shared by Summary
-and ModelConnection. The broad local notice appears once; explicit model results
-show their saved reason. Model test help follows the saved native/container backend.
-Focused proof: test_web_readiness.py, selected native tests and
-web/tests/localDiagnostics.test.mjs source-render/readiness/help tests.
-
-The canonical settingKeys/settingHelp catalog includes the package permission with four-locale guidance; existing host folder/account lookup errors use localized recovery messages.
-
-Localized enrollment browser checks restore the shared account language even after an assertion failure.
-
-Environment browser checks use the semantic executor disclosure; Jobs coverage retains queue/failure assertions with the current single-ticket hint.
+Inline editor validation follows the controls/actions on its own flex line. Incomplete model or command edits keep the same control/action placement and disabled Prepare, while responsive wrapping remains shared.

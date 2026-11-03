@@ -373,18 +373,7 @@ def execution_policy(config: Config) -> dict:
                 "parked_ttl_polls",
             }
         },
-        "executor": {
-            "default": config.executor.default,
-            "mode": config.executor.mode,
-            "questions_file": config.executor.questions_file,
-            "command": (
-                asdict(config.executor.commands[config.executor.default])
-                if config.executor.default in config.executor.commands
-                else {}
-            ),
-            "env_keys": config.executor.env_keys,
-            "stage_host_auth": config.executor.stage_host_auth,
-        },
+        "executor": asdict(config.executor),
     }
     if config.container.system_packages is not True:
         policy["container"].pop("system_packages", None)
@@ -436,7 +425,7 @@ def validate_plan(plan: object) -> dict:
         for key in ("selection", "source", "source_sha256", "image_source")
     ):
         raise PreparationError("plan: text fields must be strings")
-    from adore.config import Config, ExecutorCommand
+    from adore.config import Config
 
     template = execution_policy(Config())
     if (isinstance(plan.get("policy"), dict)
@@ -445,7 +434,6 @@ def validate_plan(plan: object) -> dict:
         if plan["policy"]["container"]["system_packages"] is not True:
             raise PreparationError("plan.policy.container.system_packages: expected true")
         template["container"]["system_packages"] = True
-    template["executor"]["command"] = asdict(ExecutorCommand())
     if plan["backend"] == "local":
         template.pop("container")
         template["local"] = {
@@ -461,8 +449,6 @@ def validate_plan(plan: object) -> dict:
             if field in {"container.runtime_env", "local.settings.environment"}:
                 if any(not isinstance(k, str) or not isinstance(v, str) for k, v in value.items()):
                     raise PreparationError("plan.policy: invalid environment")
-            elif field == "executor.command" and value == {}:
-                return
             else:
                 if set(value) != set(example):
                     raise PreparationError("plan.policy: unsupported fields")

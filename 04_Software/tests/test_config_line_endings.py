@@ -14,14 +14,12 @@
          Linux and on Windows when an edit translates line endings.
 """
 
-import json
-import tomllib
 
 from adore.cli import EXIT_OK, _set_toml_scalar, main
 from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.state import StateStore
-from adore.web.app import _set_endpoint, create_app
+from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
 
@@ -32,9 +30,9 @@ repo = "group/project"
 [worktree]
 repo_path = "../runtime-project"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["reviewer.one"]
@@ -94,63 +92,6 @@ def test_scalar_edit_in_a_mixed_file_keeps_each_line_ending():
 
 
 @pytest.mark.parametrize("newline", ["\r\n", "\n"])
-@pytest.mark.parametrize("container", [
-    '[container]\nruntime_env = { UV_LINK_MODE = "copy" }\n',
-    '[container.runtime_env]\nUV_LINK_MODE = "copy"\n',
-])
-def test_endpoint_edit_keeps_the_text_line_endings(newline, container):
-    """
-    @brief   The OpenCode endpoint edit, which may rewrite the inline runtime
-             environment as a section and sets several keys in a row, keeps
-             the text's line endings and every line before the container table.
-    """
-    head = "[platform]\nkind = \"gitlab\"\n\n".replace("\n", newline)
-    text = head + container.replace("\n", newline)
-    changed = _set_endpoint(text, "https://model.local/v1", "openai/gpt-x",
-                            timeout_seconds=30, ca_file="/etc/ssl/model-ca.pem")
-    _assert_endings(changed.encode("utf-8"), newline)
-    assert changed.startswith(head)
-    runtime_env = tomllib.loads(changed)["container"]["runtime_env"]
-    assert runtime_env["OPENAI_BASE_URL"] == "https://model.local/v1"
-    assert runtime_env["NODE_EXTRA_CA_CERTS"] == "/etc/ssl/model-ca.pem"
-    assert runtime_env["UV_LINK_MODE"] == "copy"
-
-
-def test_endpoint_edit_in_a_mixed_file_keeps_the_previous_line_ending():
-    """
-    @brief   Removing an unterminated last inline table gives the line before it
-             back its own LF, even in a file that also uses CR LF.
-    """
-    text = '[container]\r\nimage = "x"\nruntime_env = { UV_LINK_MODE = "copy" }'
-    changed = _set_endpoint(text, "https://model.local/v1", "openai/gpt-x")
-    assert changed.startswith('[container]\r\nimage = "x"\n\r\n[container.runtime_env]\r\n')
-    assert tomllib.loads(changed)["container"]["runtime_env"]["UV_LINK_MODE"] == "copy"
-
-
-@pytest.mark.parametrize("newline", ["\r\n", "\n"])
-def test_endpoint_edit_keeps_trailing_lines_when_moving_the_inline_table(newline):
-    """
-    @brief   Moving an inline runtime environment into its own section removes
-             only that line; trailing spaces and blank lines stay as they were.
-    """
-    def native(text):
-        return text.replace("\n", newline)
-
-    text = native('[container]\nruntime_env = { UV_LINK_MODE = "copy" }\nimage = "x"  \n\n')
-    changed = _set_endpoint(text, "https://model.local/v1", "openai/gpt-x")
-    assert changed.startswith(native('[container]\nimage = "x"  \n\n'))
-    _assert_endings(changed.encode("utf-8"), newline)
-    assert tomllib.loads(changed)["container"]["runtime_env"]["UV_LINK_MODE"] == "copy"
-
-    # The inline table as the unterminated last line.
-    last = native('[container]\nimage = "x"\nruntime_env = { UV_LINK_MODE = "copy" }')
-    changed = _set_endpoint(last, "https://model.local/v1", "openai/gpt-x")
-    assert changed.startswith(native('[container]\nimage = "x"\n'))
-    _assert_endings(changed.encode("utf-8"), newline)
-    assert tomllib.loads(changed)["container"]["runtime_env"]["UV_LINK_MODE"] == "copy"
-
-
-@pytest.mark.parametrize("newline", ["\r\n", "\n"])
 def test_cli_config_set_keeps_the_file_line_endings(tmp_path, newline):
     """
     @brief   `adore config set` changes only the edited value, on every OS,
@@ -173,9 +114,8 @@ def test_cli_config_set_keeps_the_file_line_endings(tmp_path, newline):
 @pytest.mark.parametrize("newline", ["\r\n", "\n"])
 def test_web_edits_keep_the_file_line_endings(tmp_path, newline):
     """
-    @brief   Staging and applying a key whose table is absent, a direct edit
-             and the OpenCode endpoint edit all succeed and keep the file's
-             line endings.
+    @brief   Staging and applying a key whose table is absent and a direct
+             edit both succeed and keep the file's line endings.
     """
     profiles = ProfileStore(tmp_path / "home")
     root = tmp_path / "state"
@@ -185,7 +125,6 @@ def test_web_edits_keep_the_file_line_endings(tmp_path, newline):
     original = text.replace("\n", newline).encode("utf-8")
     path.write_bytes(original)
     StateStore(root).pause()
-    head = _HEAD.replace("\n", newline).encode("utf-8")
     with TestClient(create_app(profiles.home)) as client:
         csrf = client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"}).json()["csrf"]
@@ -212,16 +151,3 @@ def test_web_edits_keep_the_file_line_endings(tmp_path, newline):
             headers=headers)
         assert direct.status_code == 200, direct.text
         assert path.read_bytes() == before.replace(b"max_iterations = 20", b"max_iterations = 15")
-
-        endpoint = client.put("/api/v1/projects/alpha/config", json={
-            "key": "container.runtime_env.OPENAI_BASE_URL",
-            "value": "http://model.local:1234/v1", "revision": revision()},
-            headers=headers)
-        assert endpoint.status_code == 200, endpoint.text
-        data = path.read_bytes()
-        _assert_endings(data, newline)
-        assert data.startswith(head)
-        runtime_env = load_config(path).container.runtime_env
-        assert runtime_env["OPENAI_BASE_URL"] == "http://model.local:1234/v1"
-        assert runtime_env["UV_LINK_MODE"] == "copy"
-        assert "openai" in json.loads(runtime_env["OPENCODE_CONFIG_CONTENT"])["provider"]

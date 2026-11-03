@@ -153,7 +153,8 @@ lock remains present and is reported as `lock_held_by`; never remove it until
 ownership is verified. Cleanup reports corrupt runs and keeps their state,
 worktree and containers.
 
-In `allowlist-proxy` egress mode every run has its own proxy container,
+With internet access for the agent Off (`[executor] internet = false`, the
+default) every container run has its own proxy container,
 `<executor container>-egress-proxy`, and egress network,
 `<egress network prefix>-<executor container>`. A name that would exceed the
 runtime length limit keeps its start and ends in a short digest of the full

@@ -190,12 +190,12 @@ def test_detect_runtimes_linux_skips_wsl() -> None:
     assert ["wsl", "-l", "-q"] not in runner.calls   # never called on Linux
 
 
-def test_detect_executor_default_opencode() -> None:
+def test_detect_executor_default_pi() -> None:
     """
-    @brief   The executor probe defaults to opencode.
+    @brief   The executor probe defaults to Pi, ADORE's only coding agent.
     """
-    status = doctor.detect_executor(runner=FakeRunner({"opencode --version": _ok("opencode 1.0")}))
-    assert status.name == "opencode" and status.present
+    status = doctor.detect_executor(runner=FakeRunner({"pi --version": _ok("1.4.0")}))
+    assert status.name == "pi" and status.present
 
 
 def test_detect_all_aggregate() -> None:
@@ -206,7 +206,7 @@ def test_detect_all_aggregate() -> None:
         "git --version": _ok("git version 2.43.0"),
         "glab --version": _ok("glab 1.105.0"),
         "glab auth status": _ok("Logged in"),
-        "opencode --version": _ok("opencode 1.0"),
+        "pi --version": _ok("1.4.0"),
     })
     report = doctor.detect_all("gitlab", runner)
     assert report.git.present and report.platform_cli.present

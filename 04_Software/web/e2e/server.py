@@ -21,6 +21,8 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from threading import Event, Thread
 from time import sleep
@@ -235,7 +237,40 @@ def main() -> None:
             return CommandResult(argv=argv, exit_code=(
                 127 if probe_mode["mode"] == "failed" else 0), stdout="fixture-1.0")
 
-        app = web_app.create_app(home, probe_runner=fixture_probe)
+        def fixture_chatgpt(argv, **_kwargs):
+            """@brief Start the offline ChatGPT helper on the mounted credential directory."""
+            argv = [str(part) for part in argv]
+            mount = argv[argv.index("--volume") + 1]
+            directory = mount[: -len(":/adore/chatgpt")]
+            script = argv.index("/opt/adore/pi/adore-chatgpt.mjs")
+            return subprocess.Popen(  # noqa: S603 - fixed offline test helper
+                [sys.executable, "-I", str(SOFTWARE / "tests" / "fake_chatgpt_helper.py"),
+                 "--dir", directory, *argv[script + 1:]],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+        app = web_app.create_app(home, probe_runner=fixture_probe, chatgpt_popen=fixture_chatgpt)
+
+        @app.post("/__e2e__/provider")
+        def provider_fixture(request: Request, value: str) -> dict:
+            """
+            @brief Switch fixture project alpha between an API key and the ChatGPT subscription.
+            @param[in] request Test-control header, never present in the shipped API.
+            @param[in] value `chatgpt` or `openai`.
+            @return The provider now configured.
+            @exception HTTPException For a missing header or an unsupported value.
+            """
+            if request.headers.get("X-ADORE-E2E") != "local-test" or value not in {
+                    "chatgpt", "openai"}:
+                raise HTTPException(403, "test runner header and supported provider required")
+            path = profiles.config_path("alpha")
+            text = path.read_text(encoding="utf-8")
+            model = "gpt-5.6-luna" if value == "chatgpt" else "gpt-5.5"
+            text = re.sub(r'(?m)^provider = "(?:openai|chatgpt)"$', f'provider = "{value}"',
+                          text, count=1)
+            text = re.sub(r'(?m)^model = "(?:gpt-5[.]5|gpt-5[.]6-luna)"$', f'model = "{model}"',
+                          text, count=1)
+            path.write_bytes(text.encode("utf-8"))
+            return {"provider": value}
 
         @app.post("/__e2e__/jobs")
         def jobs_fixture(request: Request, mode: str = "seed") -> dict:

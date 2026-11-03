@@ -79,36 +79,6 @@ def main(argv: list[str]) -> int:
     directory = Path(argv[1])
     keys = json.loads((directory / "secret-keys.json").read_text(encoding="utf-8"))
     values = {os.environ[k] for k in keys if os.environ.get(k)}
-    if len(argv) > 3:
-        auth_path = Path(argv[3])
-        if auth_path.stat().st_size > 131072:
-            raise ValueError("staged auth exceeds redaction bound")
-
-        def unique(pairs):
-            """@brief Reject ambiguous fields in the existing staged auth source."""
-            record = {}
-            for key, value in pairs:
-                if key in record:
-                    raise ValueError("duplicate staged auth field")
-                record[key] = value
-            return record
-
-        auth = json.loads(auth_path.read_text(encoding="utf-8"), object_pairs_hook=unique)
-        if not isinstance(auth, dict):
-            raise ValueError("staged auth must be an object")
-        pending = [(auth, 0)]
-        while pending:
-            value, depth = pending.pop()
-            if depth > 16:
-                raise ValueError("staged auth nesting exceeds redaction bound")
-            if isinstance(value, str) and value:
-                value.encode("utf-8")
-                values.add(value)
-            elif isinstance(value, (dict, list)):
-                pending.extend(
-                    (item, depth + 1)
-                    for item in (value.values() if isinstance(value, dict) else value)
-                )
     secrets = sorted(values, key=len, reverse=True)
     process = subprocess.Popen(  # noqa: S603 - fixed shell argv and reviewed script file
         ["sh", "-eu", str(directory / "run.sh")],

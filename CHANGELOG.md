@@ -18,7 +18,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Simpler native setup: detected account and installed agent choice, with command, manual executable, home/PATH and Linux delegation under closed Advanced controls. Clone destinations offer automatic/custom locations and an administrator-only read-only host folder picker with Windows drives, Linux navigation and optional new subfolder names; selection never creates folders.
 
-- Discover installed local OpenCode, Pi, Codex and Qwen executors on Windows and
+- Discover the installed local Pi executor on Windows and
   Linux, prefill native commands during enrollment, and offer installed choices
   or manual executable paths in enrollment and reviewed project Settings.
 
@@ -29,6 +29,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   the extracted application and verifies package checksums. Build and acceptance
   tooling live in `02_Tools/`; packages and receipts are generated in `07_Delivery/`.
 
+- **Internet access for the agent.** Settings → Agent and model has **Internet access for the agent** (`[executor] internet`, default Off) and **Web search** (`[executor.web] search`: `exa`, the keyless default, `brave`, `tavily` or `none`). Off: a container run sits behind its per-run egress proxy, which admits only the model provider's hosts (from the pinned Pi's own provider data, now `hosts` in `adore/pi_catalog.json`; `api.openai.com` for a ChatGPT subscription; the endpoint's host or IP address for an OpenAI-compatible endpoint) plus `[container.egress] allowlist`; Pi loads no web tools and its system prompt says that only the model provider is reachable, so `curl`, `npm install` and `pip install` fail. On: open network, Pi loads the pinned pi-web-access extension with an ADORE-written `web-search.json`, and downloads go through bash. A Brave or Tavily key (`BRAVE_API_KEY`, `TAVILY_API_KEY`) is saved under Authentication, also for a ChatGPT subscription, and reaches only internet-on runs. Settings warns while On that a malicious page could try to make the agent send its API key or ChatGPT token out, and shows the switch as not enforced for a project installed on the server. **Check host prerequisites** adds the egress proxy image (Off) and the search key (Brave or Tavily). The egress proxy admits IP addresses as well as host names and gets the `--add-host` options of `[container] run_args`; the unattended install scripts refuse `[executor] internet = true` unless `--allow-open-egress` / `-AllowOpenEgress` is passed.
+- **Sign in with ChatGPT from the web interface.** An administrator signs the ADORE server into one ChatGPT Plus or Pro account under Settings → Agent and model → **ChatGPT sign-in** of a project whose provider is ChatGPT subscription: ADORE runs Pi's own OpenAI sign-in in a one-off helper container from the project's image, shows the OpenAI link, and the administrator pastes the browser's `127.0.0.1:1455` redirect address back (no browser on the server; the state is checked first; 15 minutes at most; Cancel and **Disconnect ChatGPT**). The sign-in lives in `<ADORE home>/chatgpt/` (Pi's `auth.json` 0600 and lock, a stable installation id) and is shared by every ChatGPT project. Before each stage ADORE gets an access token valid for the stage limit plus five minutes, refreshed under Pi's lock in the helper container (the only container that mounts the directory), and gives Pi only `OPENAI_API_KEY=<access token>` in that stage's exec environment, masked in evidence; the refresh token never enters a run container, and a stage without a token fails naming the cause. Status is **Signed in**, **Not signed in** or **Sign in again** (unreadable sign-in or a refused refresh such as `invalid_grant`). Refusals (`subscription_sharing_user_not_eligible`, declined, rejected code, OpenAI unreachable) have their own messages in four languages; Test AI connection adds `sign-in-required`, `subscription-refused` and `usage-limit`; the readiness check of a ChatGPT project adds `executor_sign_in`; the model list offers the models of Pi's ChatGPT catalog (`chatgpt_models` in `pi_catalog.json`, for example `gpt-5.6-luna`). ChatGPT projects need container execution and stage time limits of at most 3000 seconds. The routes are admin-only with CSRF and audited by cause code without any token, code or address: `GET`/`PUT`/`DELETE /api/v1/chatgpt-sign-in`, `DELETE /api/v1/chatgpt-sign-in/pending`, `POST /api/v1/projects/{name}/chatgpt-sign-in`. ADORE is free today; offering it hosted or paid with ChatGPT sign-in would first need OpenAI's interest form. Rebuild the executor image (it now ships `/opt/adore/pi/adore-chatgpt.mjs`, checked by `docker/verify-runtime.sh`).
+- **Choose Pi's provider, model and credential, or an OpenAI-compatible endpoint.** Settings → Agent and model and enrollment step 2 offer **Provider** (Pi's API-key providers, read offline from the pinned Pi 1.4.0 into `adore/pi_catalog.json` by `02_Tools/generate_pi_catalog.py`; **ChatGPT subscription**; and **OpenAI-compatible endpoint** for LM Studio, Ollama or vLLM), **Model** (Pi's list for the provider, or any typed ID) and, for an endpoint, **Endpoint base URL** (the address as seen from the container) and **Endpoint API type**. Provider, model and endpoint are reviewed and applied as one change (`executor.connection`). The API key is saved in the project's credential store under the variable Pi reads for the provider (OPENAI_API_KEY, ANTHROPIC_API_KEY and so on; ADORE_ENDPOINT_API_KEY, optional, for an endpoint) and reaches Pi only as that variable; for an endpoint ADORE writes Pi's `models.json` into the ADORE-owned agent directory before every stage. Enrollment takes no key and names the variable to save after creation. New `GET /api/v1/pi-providers`.
 - Enroll a project from its repository URL: **Read repository** detects the forge (github.com, gitlab.com or a matching server tea login), repository, Gitea login and default branch, derives the project ID from the repository name (no Stable project ID field; route names new, clone and repository-source are now reserved IDs) and proposes an editable clone path `<ADORE home>/repos/<ID>`; Continue stays disabled until the repository has been read; creation clones the repository there with the server account's git credentials (or reuses a clone with the same origin), requires AEGIS and the target branch, and removes a fresh clone on failure. There is no separate existing-clone mode (a matching clone at the chosen path is reused), every field shows an example, and Clone project config uses the same step. New `POST /api/v1/projects/repository-source` and optional `clone_url` on setup/transfer requests.
 - Review and create (Enroll new project and Clone project config) lists the settings left at ADORE's defaults, closed and read-only, grouped and named as in Settings, with a note that they can be changed in Settings after creation; for a clone the copied rules are not listed as defaults. The setup and transfer previews return `defaults`.
 - Create the project's ADORE labels in the repository: Review and create offers **Create the ADORE labels in the repository (missing ones only)**, ticked by default, and Settings → Repository offers **Create missing labels**. ADORE reads the repository's labels once and creates only the missing ones named by the project's settings (lifecycle, hold/exclude, priorities, bug type, approval, revise, quick-path and task-type labels) with a colour and description, never changing existing labels, and reports created, existing and failed labels. New `POST /api/v1/projects/{name}/labels/ensure` and label list/create in the GitHub, GitLab and Gitea adapters.
@@ -85,8 +88,13 @@ This project follows Keep a Changelog and Semantic Versioning.
   Windows and Linux installers resolve `04_Software/` in a checkout and the
   runtime root in a delivery bundle; both packagers copy deployment resources
   from the tools directory and keep bundled `deploy/` commands working.
+- **BREAKING: `[container.egress] mode` is removed; `[executor] internet` decides the agent's network access and is off by default.** Delete `mode` from `[container.egress]` in `config.toml`; a configuration that still sets it is refused. A container project now needs the egress proxy image (`docker/Dockerfile.egress-proxy`) unless internet access is on. `[container.egress] allowlist` now lists extra hosts an internet-off run may reach and may be empty; a local profile refuses a non-empty one.
+- **BREAKING: `[executor]` takes `provider` (required: a Pi API-key provider id, `chatgpt` or `custom`) and `model` is the model ID within that provider (`gpt-5.5`, not `openai/gpt-5.5`).** `[executor.endpoint]` with `base_url` and `api` is required for `custom` and refused otherwise; `custom` needs a container run. `env_keys` now lists only additional secrets, the provider's key variable is always passed, and it defaults to empty. Unknown keys, such as an inline `api_key`, are refused by name. Add `provider` to each `config.toml`, remove the provider prefix from `model`, and delete each profile's `model-connection.json` and `pending_config.json` before starting this build.
+- **Test AI connection in a container runs over Pi's RPC mode** with the same challenge as Pi installed on the server (one shell command that prints a nonce, then an exact reply) and reports `credential-missing` (no key saved or set; no container starts), `credential-invalid`, `connection-failed` (provider or endpoint unreachable), `model-unavailable`, `rate-limited` and `provider-error` separately, with guidance in four languages.
+- **BREAKING: Pi is ADORE's only coding agent; OpenCode, Codex and Qwen Code support is removed.** `[executor]` takes `model` (required, provider/model) and, for a local (installed) run only, `command` (default `pi -p --mode json --model {model} {prompt}`; a container run uses the image's pinned Pi). `default`, `stage_host_auth`, every `[executor.<name>]` table (`[executor.pi]` included) and `[labels.executor]` are refused as unknown keys, and `[container] runtime_env` or `[local] environment` names starting `OPENCODE_`, `CODEX_` or `QWEN_` are refused; move the model to `[executor] model` and delete the rest. Removed with them: the agent choice in Settings → Agent and model, enrollment and `adore init`; host sign-in staging (`stage_host_auth`, auth mode `host-auth`; container projects use provider API keys); the OpenCode-compatible endpoint form, model catalogue, endpoint probe and the host check's model-endpoint row (the Test AI connection result still shows there); local OpenCode configuration isolation and `CODEX_HOME`; and OpenCode, Codex and Qwen Code in the executor image, which now installs only Pi and pi-web-access as the coding agent. Before starting this build, finish or cancel active jobs and delete each profile's `readiness.json`, `model-connection.json` and `pending_config.json`; Statistics keeps the executor names stored with earlier usage.
+- **Pi in containers runs through its RPC mode.** The executor image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0 (checked by `docker/verify-runtime.sh`) and ships ADORE's Pi guard extension. Each stage starts one `pi --mode rpc --no-session` process with an ADORE-owned agent directory (`/home/adore/.adore-pi-agent`) and none of the personal skills, extensions, templates, themes or MCP servers; the guard, loaded with `-e` without project trust, blocks `git push` and `gh`/`glab`/`tea`. ADORE sends `abort` at the stage timeout or on cancel and ends the process after a grace period; failures name their class (credential, sign-in, rate-limit, model, network, provider); token usage is summed over the turns and Pi's estimated cost is not reported. The configured `[executor] command` applies only to Pi installed on the server. A Pi agent directory mounted at `/home/adore/.pi/agent` is no longer read, so a ChatGPT subscription uses the server's ChatGPT sign-in instead (see Added). Rebuild `adore-executor-base:1.0.0` before starting this build.
 - ADORE no longer reads data written by earlier builds: there are no migrations or compatibility while it is in development. Run state at the removed `deliver` stage or missing a current key, `profile.json` with unknown or missing keys, `config.toml` keys this build does not read (such as `[state] channel` or the Codex `{resume}` placeholder), a `metrics.db` with other columns, journal events without a timestamp or with one lacking its UTC offset, usage events without an event ID, pending configuration candidates staged by an earlier build, and audit rows without evidence are refused with a message that names what to delete or fix. The retired image-build subsystem and its `/image-build` routes are removed, and `adore cleanup` no longer recognises container and network names cut by earlier builds; remove such leftovers with the runtime CLI (Recovery_And_Maintenance.md). Statistics Trends no longer shows **Usage without a consumption date**, which every current usage event has. `POST /config/apply` requires `base_revision`, which the browser already sends. Before starting this build, delete the run directories, `metrics.db` and `pending_config.json` that the refusals name, and remove stale keys from `config.toml`.
-- **Test AI connection** for OpenCode, Pi or Codex installed on the server now asks the agent to run `echo <nonce>` with its shell tool and then reply with a second nonce. It reports connected only when the shell call completed and printed the nonce and the reply is exact; a missing, rejected or failed shell call reports the new reason `tool-call-failed`, with guidance in four languages to check the agent's permissions. The local test is bounded at 90 seconds instead of 45 and keeps up to 1 MiB of agent output instead of 64 KiB, so a local Pi test, whose events repeat the whole conversation, can pass at all. Qwen and container profiles keep the no-tool challenge. The help text, the host-check row and the docs no longer say tools are never checked.
+- **Test AI connection** for Pi installed on the server now asks the agent to run `echo <nonce>` with its shell tool and then reply with a second nonce. It reports connected only when the shell call completed and printed the nonce and the reply is exact; a missing, rejected or failed shell call reports the new reason `tool-call-failed`, with guidance in four languages to check the agent's permissions. The local test is bounded at 90 seconds instead of 45 and keeps up to 1 MiB of agent output instead of 64 KiB, so a local Pi test, whose events repeat the whole conversation, can pass at all. Container profiles run the same challenge over RPC. The help text, the host-check row and the docs no longer say tools are never checked.
 - **BREAKING: ADORE conducts AEGIS 0.15.0, where validate closes the task, and
   requires AEGIS 0.15.0 or newer.** The conducted paths are frame, specify,
   design, build, validate and done, and the quick path frame, build, validate
@@ -153,11 +161,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Show a project's Jobs and Statistics as tabs inside its project hub, with job detail opening in the Jobs tab and no repeated project selector or scope panel; Overview, Jobs and Statistics pages identify their scope only through their own Project selector.
 
-- Move Admin estimated prices from their own project tab into Settings → Agent and model; prices are recorded for the selected coding agent and its configured model, so the form asks only for effective date and input/output rates; older `/prices` links open Settings.
+- Move Admin estimated prices from their own project tab into Settings → Agent and model; prices are recorded for Pi and its configured model, so the form asks only for effective date and input/output rates; older `/prices` links open Settings.
 
 - Show pending settings above category groups with changed values and adjacent Apply/Discard; fold complete review/technical evidence and clearly block unchanged simple candidates.
 
-- Consolidate executor configuration in Settings → Agent and model, with atomic reviewed selection of OpenCode/Pi/Codex/Qwen, selected-agent launch/model labels and names-only provider authentication controls.
+- Consolidate executor configuration in Settings → Agent and model, with reviewed launch-command and model settings and names-only provider authentication controls.
 
 - Clarify externally configured installation values in Technical details and align Workflow Python command API authority with its read-only GUI.
 
@@ -194,6 +202,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Pi execution plans pin provider, endpoint, internet and search settings; package-enabled RPC stages retain redacted, bounded evidence and settle timed-out processes before reuse.
+- Delete affected job run directories in the configured state store before starting this build; saved execution plans require the current Pi policy.
+
 - Integrate the current AEGIS workflow with native retry, backward stage routing,
   independent container package permission, Git context and timeout recovery.
 
@@ -227,8 +238,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   native version and model checks no longer appear to return empty responses.
 
 - Local readiness shows one concise explanation and retains safe failure causes/exit codes;
-  native version checks accept stderr, and OpenCode connection checks recognize completed
-  text plus typed provider/model failures instead of generic invalid-response errors.
+  native version checks accept stderr, and Pi connection checks identify provider/model failures.
 
 - Recover missing external Gitea logins through bounded current-account discovery
   in standard Windows/Linux configuration roots, preserving scoped credentials
@@ -248,15 +258,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 - **Check details** for a project that runs on the server no longer repeats the local-execution notice in the *Local execution* row. The notice appears once at the top; the row says what it checks (the selected agent's tools for the server account and its existing sign-in or a provider API key) and, when the check fails, how to fix it: sign the agent in on the ADORE server under that account, or save a provider API key in Settings → Agent and model, and check the installed tool PATH.
 - Manual Start remains available while automatic monitoring is paused. When the worker cannot start a queued ticket, `adore run --once --ticket N` prints `error: ticket #N not started: <code>` (`pickup_paused`, `at_capacity`, `aegis_probe_failed`, `not_eligible`, `conductor_busy`) and the operation keeps that `reason` plus a `detail` with the engine's last 20 lines (at most 2000 characters, ANSI removed, credentials redacted), shown as a sentence in the user's language and a bounded block in Tickets, Jobs and the project status and returned by `GET /api/v1/operations/{id}`; every failed engine operation keeps its `detail`. Labels a refused Start added stay on the ticket, and the notice names them. Start and Stop confirmations open under their ticket, and the Start message names the chosen priority label instead of the word Priority. The web database schema changed (operations gain `reason` and `detail`) and is not migrated: delete `web.db` and `web.db.initialized` in the ADORE home before starting this build. ADORE now refuses a web database from any other schema with a message naming both files, and no longer upgrades older ones.
 - A `NO_STAGE_PROGRESS` stage failure (the executor exited 0 but AEGIS stayed at the same stage) now carries the executor's last stderr lines in its evidence: up to 20 lines and 2000 characters, ANSI colour codes removed and credentials redacted on the whole stderr before it is cut, so a cut never separates a key from its secret. The incident and terminal comments on the ticket, the run journal and Job details show it, so a cause such as auto-rejected tool permissions is visible without reading `io/stderr.log` on the server. When a failed job's evidence exceeds 2000 characters, for any error code, Job details now keeps its first line, such as `stage build failed on attempt 3/3: …`, then `...` and the end, instead of only the end.
-- Native local OpenCode runs no longer use the service account's personal OpenCode configuration home, whose `ask` permissions made every tool call auto-reject and fail the stage with `NO_STAGE_PROGRESS`. Every local command of an OpenCode profile gets `XDG_CONFIG_HOME` = `<state root>/executor-config` (created by ADORE; an unusable path stops the job), `OPENCODE_DISABLE_CLAUDE_CODE=1` and `OPENCODE_PERMISSION` allowing edits and shell commands while denying `git push`, `tea`, `gh` and `glab`. Agents, prompts, MCP servers, plugins, providers, model overrides and the small model from `~/.config/opencode` no longer apply, nor does Claude Code compatibility (`~/.claude` skills and instructions, and the repository's `.claude/skills` and `CLAUDE.md` fallback); the repository's own OpenCode configuration, AGENTS.md and the existing sign-in still do. A model from a personal provider needs `OPENCODE_CONFIG_CONTENT` in `[local].environment`. OpenCode still reads `~/.opencode` and `~/.agents/skills` in the account's home. Explicit `[local].environment` values for the three managed names win (case-insensitive on Windows). The pinned local environment changes: finish or cancel local runs before upgrading.
 - Native local execution on Windows passes the standard Windows machine/system variables (`PATHEXT`, `PROCESSOR_ARCHITECTURE` and the other `PROCESSOR_*` names, `NUMBER_OF_PROCESSORS`, `OS`, `SystemDrive`, `ProgramData`, `ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, the `CommonProgramFiles*` names, `ALLUSERSPROFILE`, `PUBLIC`) to executor gates, readiness probes and strict verification. Project tooling detects the platform again (`platform.machine()` was empty) and `%SystemDrive%` no longer turns into a literal folder inside the worktree. Account names (`HOMEDRIVE`, `HOMEPATH`, `USERDOMAIN`) and forge credentials stay excluded. The pinned local environment changes with this fix: finish or cancel local runs before upgrading, because a local run started on the earlier build is treated as drifted.
 - Disabled buttons now look unavailable everywhere (dimmed, not-allowed cursor); on Enroll new project, **Read repository** is the primary action and **Continue** stays visibly disabled until the repository has been read.
 - Restore the accented letters in the German, French and Romanian handoff status labels (Übergabe läuft / Übergeben, Transféré, Predare în curs), which showed "?" instead.
-- Preserve inline setting action placement when validation appears after changing the coding agent.
 
-- Align coding-agent Prepare/Cancel actions beside the selector using the ordinary responsive setting-editor layout.
 
-- Keep complete agent editing within the existing setting rows and select allowed credential variables through a compact dropdown with removable names.
+- Keep model and launch-command editing within the existing setting rows and select allowed credential variables through a compact dropdown with removable names.
 
 - Web statistics and exports respect the configured summary database; statistics storage paths are managed externally with only an informational database file in Settings.
 
@@ -287,7 +294,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Show one dismissible application notification, updating operation status and hiding final/ordinary feedback after five seconds while preserving worker polling.
 
-- Host-check AI access presentation uses a current successful explicit executor test instead of reporting it as untested; OpenCode tool compatibility remains separately identified.
+- Host-check AI access presentation uses a current successful explicit executor test instead of reporting it as untested.
 
 - Hide host-check time/configuration version and its explanation from project Summary.
 
@@ -305,10 +312,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Shared container execution backend and immutable reviewed recipe plans with a closed version-1 Actions-style preparation grammar, same-container dependency setup before AI gates, bounded redacted evidence, identity-bound recovery and explicit capped `retry --reprepare`.
 - CLI plan review and revision-bound GUI preparation selection/apply, effective-image readiness and persisted preparation outcomes.
 
-- Project Executor configuration tab with single-owned model/agent settings, applicable endpoint controls and protected scoped provider API key save/remove.
+- Project Executor configuration tab with single-owned model settings and protected scoped provider API key save/remove.
 - Durable explicit model connectivity evidence bound to immutable project, configuration and credential inputs, reused by Summary and host-check access display.
 
-- Explicit GUI model connection tests for OpenCode, Pi, Codex and Qwen, with bounded disposable containers and redacted project/configuration-bound results.
+- Explicit GUI model connection tests through Pi, with bounded disposable containers and redacted project/configuration-bound results.
 
 - Project-scoped repository connection from the GUI for Gitea, GitHub and GitLab,
   with bounded account/repository verification, protected token storage, isolated
@@ -505,7 +512,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Offline media can name large, preinstalled executor images as checked
   prerequisites without embedding an additional image archive and verifies
-  the selected executor binary inside the image without network access.
+  the Pi binary inside the image without network access.
 - Append-only SQLite usage projection with immutable project/source identities,
   conflict-checked replay, and an administrator history rebuild action.
 - SQLite schema 11 projects launch coverage and retains per-run journal cursors;
@@ -513,21 +520,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Offline installer prerequisites now match actual execution ownership:
   host Git/forge/runtime, with executor CLI readiness checked inside the
   prepared project image without an image pull.
-- OpenCode endpoint staging now records the supported protocol, bounded
-  request timeout and optional HTTPS custom-CA path, and shows the resulting
-  non-secret settings in the pending review.
-- Clearing the endpoint CA field removes an earlier custom-CA reference when
-  switching back to an HTTP or default-trust endpoint.
 - Immutable web project IDs for browser selection, developer grants, queued
   commands and administrator prices, preserving ownership across profile
   renames and preventing replacement-name inheritance.
 - Evidence-denominated reported and estimated USD per completed and
   human-merged job, with stage failures and operator retries shown separately.
-- OpenCode local endpoints can use an allowlisted executor environment-key
-  reference; inline provider configuration is omitted from API config reads.
-- Administrator local-model readiness checks from a disposable executor
-  container with project egress policy, bounded tool-stream probe and no image
-  pull or host-connectivity fallback.
 - Offline media records forge, executor and runtime host prerequisites; its
   installer offers a read-only preflight and checks image availability before
   creating the target runtime.
@@ -593,10 +590,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 - UTC-normalized daily metrics for journal events with timezone offsets.
 - Project and administrator-global attributed usage views and CSV exports with
   UTC date, executor and model filters; financial values remain administrator-only.
-- OpenCode local endpoint configuration now writes an OpenAI-compatible provider
-  override for the selected model, rather than relying on a base URL variable.
-- The OpenCode web form now saves the model ID and local endpoint URL together
-  in one validated configuration revision.
 - A queued web cancellation rechecks run lifecycle and cannot rewrite a run
   that finished before the worker reached the command.
 - A worker-side cancellation watcher now rechecks grants across projects
@@ -661,9 +654,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
-- Assisted and web project setup now reject host-auth for Pi and Qwen before
-  creating a profile; configuration validation enforces the same executor
-  boundary instead of failing during job provisioning.
 - Web-created projects now use an absolute per-project worktree directory,
   preventing retries from targeting a different path when the worker starts
   from another working directory.

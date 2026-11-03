@@ -50,7 +50,7 @@ def test_detected_account_uses_process_identity_not_environment(tmp_path, monkey
 
 def test_admin_discovers_host_executors_without_running_commands(tmp_path, monkeypatch):
     """@brief A native PATH installation becomes an absolute launch suggestion."""
-    executable = installed(tmp_path / "bin" / ("opencode.exe" if os.name == "nt" else "opencode"))
+    executable = installed(tmp_path / "bin" / ("pi.exe" if os.name == "nt" else "pi"))
     monkeypatch.setenv("PATH", str(executable.parent))
     monkeypatch.setenv("HOME", str(tmp_path / "account"))
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "account"))
@@ -68,7 +68,7 @@ def test_admin_discovers_host_executors_without_running_commands(tmp_path, monke
         assert result["system"] in {"Windows", "Linux"}
         assert result["machine"] and result["account"]
         choices = next(
-            item["installations"] for item in result["executors"] if item["agent"] == "opencode"
+            item["installations"] for item in result["executors"] if item["agent"] == "pi"
         )
         assert any(item["executable"] == str(executable.resolve()) for item in choices)
         assert all("{prompt}" in item["command"] for item in choices)
@@ -110,7 +110,7 @@ def test_native_and_npm_installations_are_detected_and_deduplicated(tmp_path, sy
     binary = tmp_path / "installed tools"
     suffix = ".exe" if system == "Windows" else ""
     installed(binary / ("node" + suffix))
-    native = installed(binary / ("opencode" + suffix))
+    native = installed(binary / ("pi" + suffix))
     script = installed(binary / "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js")
     separator = ";" if system == "Windows" else ":"
     result = discover_executors(
@@ -120,34 +120,27 @@ def test_native_and_npm_installations_are_detected_and_deduplicated(tmp_path, sy
         excluded=(),
     )
     records = {item["agent"]: item["installations"] for item in result["executors"]}
-    assert len([item for item in records["opencode"] if item["executable"] == str(native)]) == 1
+    assert len([item for item in records["pi"] if item["executable"] == str(native)]) == 1
     assert any(
         item["entrypoint"] == str(script) and '"' in item["command"] for item in records["pi"]
     )
 
 
-def test_windows_npm_opencode_uses_real_binary_and_not_shell_shims(tmp_path):
-    """@brief npm executable wrappers never become launch authority."""
+def test_windows_npm_pi_uses_node_and_not_shell_shims(tmp_path):
+    """@brief Only native Node plus a known Pi script becomes launch authority."""
     from adore.executor_discovery import discover_executors
 
     root = tmp_path / "npm"
-    installed(root / "opencode.cmd")
+    installed(root / "pi.cmd")
     installed(root / "pi.ps1")
-    native = installed(root / "node_modules/opencode-ai/bin/opencode.exe")
+    node = installed(root / "node.exe")
+    script = installed(root / "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js")
     result = discover_executors(
-        system="Windows", environment={"PATH": str(root)}, home=tmp_path / "account", excluded=()
-    )
-    choices = result["executors"][0]["installations"]
-    assert choices == [
-        {
-            "executable": str(native),
-            "entrypoint": None,
-            "source": "npm",
-            "command": (f'"{native.as_posix()}" run --dir {{worktree}} '
-                        '-m {model} --format json {prompt}'),
-        }
-    ]
-    assert result["executors"][1]["installations"] == []
+        system="Windows", environment={"PATH": str(root)}, home=tmp_path / "account", excluded=())
+    assert result["executors"] == [{"agent": "pi", "installations": [{
+        "executable": str(node), "entrypoint": str(script), "source": "npm",
+        "command": f'"{node.as_posix()}" "{script.as_posix()}" '
+                   '-p --mode json --model {model} {prompt}'}]}]
 
 
 @pytest.mark.parametrize("case", ["relative", "excluded", "checkout", "missing", "unsafe_name"])
@@ -159,7 +152,7 @@ def test_unsafe_or_unavailable_installations_are_omitted(tmp_path, monkeypatch, 
     if case == "unsafe_name" and os.name == "nt":
         directory = tmp_path / "bad{prompt}name"
     if case != "missing":
-        installed(directory / "opencode.exe")
+        installed(directory / "pi.exe")
     if case == "checkout":
         (directory / ".git").mkdir()
     if case == "relative":
@@ -178,7 +171,7 @@ def test_non_executable_linux_files_and_missing_node_are_omitted(tmp_path):
     from adore.executor_discovery import discover_executors
 
     root = tmp_path / "bin"
-    binary = installed(root / "opencode")
+    binary = installed(root / "pi")
     binary.chmod(0o644)
     installed(root / "node_modules/@openai/codex/bin/codex.js")
     result = discover_executors(
@@ -188,14 +181,14 @@ def test_non_executable_linux_files_and_missing_node_are_omitted(tmp_path):
         assert not any(
             item["executable"] == str(binary) for item in result["executors"][0]["installations"]
         )
-    assert not any(item["entrypoint"] for item in result["executors"][2]["installations"])
+    assert not any(item["entrypoint"] for item in result["executors"][0]["installations"])
 
 
 def test_discovery_is_bounded_and_does_not_export_environment_values(tmp_path):
     """@brief Oversized PATH and provider variables never escape the bounded listing."""
     from adore.executor_discovery import discover_executors
 
-    roots = [installed(tmp_path / str(index) / "opencode.exe").parent for index in range(75)]
+    roots = [installed(tmp_path / str(index) / "pi.exe").parent for index in range(75)]
     result = discover_executors(
         system="Windows",
         environment={"PATH": ";".join(map(str, roots)), "OPENAI_API_KEY": "secret-fixture"},
@@ -211,15 +204,15 @@ def test_project_symlink_and_shell_alias_are_not_discovered(tmp_path):
     """@brief Resolving a link cannot turn a project PATH entry into installed authority."""
     from adore.executor_discovery import discover_executors
 
-    actual = installed(tmp_path / "installed/opencode")
+    actual = installed(tmp_path / "installed/pi")
     project = tmp_path / "project"
     (project / ".git").mkdir(parents=True)
-    (project / "opencode").symlink_to(actual)
+    (project / "pi").symlink_to(actual)
     result = discover_executors(system="Linux", environment={"PATH": str(project)},
                                 home=tmp_path / "home", excluded=())
     assert all(not record["installations"] for record in result["executors"])
     shell = installed(tmp_path / "native/sh")
-    alias = tmp_path / "bin/opencode"
+    alias = tmp_path / "bin/pi"
     alias.parent.mkdir()
     alias.symlink_to(shell)
     result = discover_executors(system="Linux", environment={"PATH": str(alias.parent)},

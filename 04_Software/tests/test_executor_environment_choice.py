@@ -185,7 +185,6 @@ def test_enrollment_accepts_api_key_mode_without_credential_names(tmp_path):
     """@brief An executor whose image signs in by itself needs no forwarded variables."""
     body = _body(
         tmp_path,
-        executor_cli="pi",
         model="openai-codex/gpt-6-sol",
         env_keys=[],
         image="adore-executor-base:pi-0.87.1",

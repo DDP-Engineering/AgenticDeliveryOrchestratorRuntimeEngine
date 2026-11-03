@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-9110e185"
+
+title = "Report a ready AI connection after an RPC model reply and shell nonce"
+
+status = "active"
+
+requirement = """When an administrator runs Test AI connection for a container project, ADORE shall run one Pi RPC process in a temporary container and report ready only when a bash tool call printed the tool nonce and the last assistant reply is exactly the reply nonce."""
+
+verification = "A fake Pi replaying a recorded endpoint run with both nonces reports ready; the same run with a different reply or without the tool call reports invalid-response or tool-call-failed; the temporary container is removed."
+
+affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/tests/fake_pi_rpc.py", "04_Software/tests/fixtures/pi_rpc/run_connection_test_endpoint.jsonl"]
+
+linked_tests = ["04_Software/tests/test_model_connection.py::test_rpc_probe_reports_each_outcome_distinctly", "04_Software/tests/test_model_connection.py::test_rpc_probe_wrong_reply_is_an_invalid_response", "04_Software/tests/test_model_connection.py::test_rpc_probe_timeout_aborts_and_releases_the_container", "04_Software/tests/test_model_connection.py::test_runtime_failures_fail_closed"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

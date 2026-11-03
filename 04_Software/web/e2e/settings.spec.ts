@@ -4,8 +4,8 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { agentSettingsCopy } from "../src/executorSettings";
-import { settingVisible } from "../src/settings";
+import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
+import { connectionRowVisible, settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
@@ -30,6 +30,7 @@ test.afterEach(async ({ page }) => {
   const me = await page.request.get("/api/v1/me");
   if (me.ok()) {
     const session = await me.json();
+    await page.request.patch("/api/v1/me/preferences", {headers:{"X-CSRF-Token":session.csrf},data:{language:"en"}});
     if (session.user.role === "admin") await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": session.csrf } });
   }
 });
@@ -127,7 +128,8 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   const panel = page.locator("#project-settings");
   await expect(panel.getByText("Ready for pickup label", { exact: true })).toBeVisible();
   await expect(panel.getByText("Clarification answered label", { exact: true })).not.toBeVisible();
-  for (const key of ["labels.executor.prefix", "readiness.max_scope_hint"]) {
+  expect(before.settings.some((item: { key: string }) => item.key === "labels.executor.prefix")).toBe(false);
+  for (const key of ["readiness.max_scope_hint"]) {
     expect(before.settings.some((item: { key: string }) => item.key === key)).toBe(true);
     await expect(panel.locator(`[id="help-${key}"]`)).toHaveCount(0);
   }
@@ -149,7 +151,6 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   await expect(review).toContainText("human publication approval");
   const unchanged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(unchanged.revision).toBe(before.revision);
-  expect(unchanged.config.labels.executor.prefix).toBe(before.config.labels.executor.prefix);
   expect(unchanged.config.readiness.max_scope_hint).toBe(before.config.readiness.max_scope_hint);
   await review.getByRole("button", { name: "Discard change", exact: true }).click();
 });
@@ -290,7 +291,6 @@ test("purpose guidance, correction, exact safe review/copy and candidate-only di
   await review.getByRole("button", { name: "Copy safe review" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain("offline/reviewed-repository");
-  expect(copied).not.toContain("OPENCODE_CONFIG_CONTENT");
   await review.getByRole("button", { name: "Discard change", exact: true }).click();
   await expect(review).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
@@ -349,31 +349,11 @@ test("late prepare cannot populate another project and repeated clicks prepare o
   await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": csrf } });
 });
 
-test("endpoint review compares complete supported connection without credential values", async ({ page }, info) => {
-  await openSettings(page);
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  const form = page.locator(".config-form");
-  const model = await form.locator('[name="model"]').inputValue();
-  await form.locator('[name="endpoint"]').fill("https://model.local/v1");
-  await form.locator('[name="auth_env"]').selectOption("OPENAI_API_KEY");
-  await form.locator('[name="timeout_seconds"]').fill("45");
-  await form.locator('[name="ca_file"]').fill("/etc/ssl/model-ca.pem");
-  await form.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
-  for (const value of ["https://model.local/v1", model, "openai-chat-completions", "OPENAI_API_KEY", "45", "/etc/ssl/model-ca.pem", "Not recorded"]) await expect(review).toContainText(value);
-  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await review.screenshot({ path: info.outputPath("settings-endpoint-review-390.png") });
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
-});
-
 test("Dev redacted purpose view remains read-only at 390px in both themes", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openSettings(page, "alpha", "developer");
   await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
   expect(await page.locator("#project-settings").innerText()).not.toContain("Job cost cap");
-  expect(await page.locator("#project-settings").innerText()).not.toContain("OPENCODE_CONFIG_CONTENT");
   await page.locator("#project-settings > .setting-groups > details > summary").first().focus();
   await page.keyboard.press("Space");
   await page.keyboard.press("Space");
@@ -410,67 +390,68 @@ test(`purpose guidance and single-setting flow preserve locale ${locale}`, async
     de: ["Label für aufnahmebereite Tickets", "Label für beantwortete Rückfragen", "Statuslabels"],
     ro: ["Eticheta pentru preluare", "Eticheta de răspuns la clarificări", "Etichete de stare"],
   };
-  await page.goto("/account");
-  const saved = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() !== "GET");
-  await page.locator(".form-stack select").first().selectOption(locale);
-  await saved;
-  await page.goto(`/projects/${id}/configuration`);
-  await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
-  await page.locator("#project-settings > .setting-groups > details > summary").first().click();
-  await expect(page.locator(".setting-essential").first()).toBeVisible();
-  await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
-  await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
-  const agent = page.locator('[data-setting-purpose="executor"]');
-  await agent.locator(":scope > summary").click();
-  await expect(agent.locator('[id="setting-executor.default"] strong')).toHaveText(agentSettingsCopy[locale].agent);
-  await expect(agent.locator('[id="setting-executor.commands.opencode.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
-  await expect(agent.locator('[id="setting-executor.commands.opencode.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
-  await agent.locator('[data-setting-topic="authentication"] > summary').click();
-  await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
-  const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
-  await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
-  await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
-  const database = page.locator('[id="setting-metrics.db_path"]');
-  await expect(database.locator("strong")).toHaveText(statisticsDatabaseCopy[locale].label);
-  await expect(database.getByRole("button")).toHaveCount(0);
-  await expect(page.locator('[id="setting-metrics.export_jsonl"], [id="setting-metrics.html_out"]')).toHaveCount(0);
-  await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
-  const statuses = page.locator(".status-label-settings");
-  const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
-  await rules.locator("summary").first().click();
-  await expect(page.getByText(labelNames[locale][0], { exact: true })).toBeVisible();
-  await expect(page.getByText(labelNames[locale][1], { exact: true })).not.toBeVisible();
-  await expect(statuses.locator("summary")).toContainText(labelNames[locale][2]);
-  await expect(statuses).not.toHaveAttribute("open");
-  await statuses.locator("summary").click();
-  await expect(statuses.locator(".setting-row")).toHaveCount(6);
-  await expect(statuses.locator(".setting-row").first()).toBeVisible();
-  await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
-  await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
-  await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
-  const implementation = page.locator('[data-setting-purpose="implementation"]');
-  await implementation.locator("summary").first().click();
-  for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.max_stage_failures", "recovery.max_transient_retries", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
-    await expect(implementation.locator(`[id="setting-${key}"] strong`)).toHaveText(implementationLabels[locale][key]);
-  }
-  for (const [index, key] of ["polling.max_concurrent_runs", "budgets.max_iterations", "budgets.max_wall_clock_seconds"].entries()) {
-    const row = implementation.locator(`[id="setting-${key}"]`);
-    await expect(row.locator("strong")).toHaveText(implementationNames[locale][index]);
-    await expect(row.getByRole("button")).toHaveAccessibleName(new RegExp(implementationNames[locale][index].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
-  const launchRow = implementation.locator('[id="setting-budgets.max_iterations"]');
-  await launchRow.getByRole("button").click();
-  const editor = launchRow.locator(".setting-editor");
-  await expect(editor.getByRole("spinbutton")).toHaveAccessibleName(implementationNames[locale][1]);
-  const active = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
-  await editor.getByRole("spinbutton").fill(String(active.config.budgets.max_iterations + 1));
-  await editor.locator("button.primary").click();
-  await expect(page.locator(".candidate-review")).toContainText(implementationNames[locale][1]);
-  expect((await (await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(active.revision);
-  const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
-  await page.request.delete(`/api/v1/projects/${id}/config/pending`, { headers: { "X-CSRF-Token": csrf } });
+    await page.goto("/account");
+    const saved = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() !== "GET");
+    await page.locator(".form-stack select").first().selectOption(locale);
+    await saved;
+    await page.goto(`/projects/${id}/configuration`);
+    await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
+    await page.locator("#project-settings > .setting-groups > details > summary").first().click();
+    await expect(page.locator(".setting-essential").first()).toBeVisible();
+    await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
+    await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
+    const agent = page.locator('[data-setting-purpose="executor"]');
+    await agent.locator(":scope > summary").click();
+    await expect(agent.locator('[id="setting-executor.default"]')).toHaveCount(0);
+    await expect(agent.locator('[id="setting-executor.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
+    await expect(agent.locator('[id="setting-executor.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
+    await agent.locator('[data-setting-topic="authentication"] > summary').click();
+    await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
+    const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
+    await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
+    await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
+    const database = page.locator('[id="setting-metrics.db_path"]');
+    await expect(database.locator("strong")).toHaveText(statisticsDatabaseCopy[locale].label);
+    await expect(database.getByRole("button")).toHaveCount(0);
+    await expect(page.locator('[id="setting-metrics.export_jsonl"], [id="setting-metrics.html_out"]')).toHaveCount(0);
+    await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
+    const statuses = page.locator(".status-label-settings");
+    const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
+    await rules.locator("summary").first().click();
+    await expect(page.getByText(labelNames[locale][0], { exact: true })).toBeVisible();
+    await expect(page.getByText(labelNames[locale][1], { exact: true })).not.toBeVisible();
+    await expect(statuses.locator("summary")).toContainText(labelNames[locale][2]);
+    await expect(statuses).not.toHaveAttribute("open");
+    await statuses.locator("summary").click();
+    await expect(statuses.locator(".setting-row")).toHaveCount(6);
+    await expect(statuses.locator(".setting-row").first()).toBeVisible();
+    await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
+    await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
+    await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
+    const implementation = page.locator('[data-setting-purpose="implementation"]');
+    await implementation.locator("summary").first().click();
+    for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.max_stage_failures", "recovery.max_transient_retries", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
+      await expect(implementation.locator(`[id="setting-${key}"] strong`)).toHaveText(implementationLabels[locale][key]);
+    }
+    for (const [index, key] of ["polling.max_concurrent_runs", "budgets.max_iterations", "budgets.max_wall_clock_seconds"].entries()) {
+      const row = implementation.locator(`[id="setting-${key}"]`);
+      await expect(row.locator("strong")).toHaveText(implementationNames[locale][index]);
+      await expect(row.getByRole("button")).toHaveAccessibleName(new RegExp(implementationNames[locale][index].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    }
+    const launchRow = implementation.locator('[id="setting-budgets.max_iterations"]');
+    await launchRow.getByRole("button").click();
+    const editor = launchRow.locator(".setting-editor");
+    await expect(editor.getByRole("spinbutton")).toHaveAccessibleName(implementationNames[locale][1]);
+    const active = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
+    await editor.getByRole("spinbutton").fill(String(active.config.budgets.max_iterations + 1));
+    await editor.locator("button.primary").click();
+    await expect(page.locator(".candidate-review")).toContainText(implementationNames[locale][1]);
+    expect((await (await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(active.revision);
+    const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
+    await page.request.delete(`/api/v1/projects/${id}/config/pending`, { headers: { "X-CSRF-Token": csrf } });
 });
 }
+
 
 test("unpaused identity candidate is blocked in the browser without an apply request", async ({ page }) => {
   await page.route("**/api/v1/projects", async route => {
@@ -531,7 +512,8 @@ for (const user of ["admin", "developer"]) {
   await expect(stateFolder).toBeVisible();
   await expect(stateFolder).toContainText(configuration.config.state.store_root);
   await expect(stateFolder.getByRole("button")).toHaveCount(0);
-  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false, configuration.config.executor.default));
+  const shown = configuration.settings.filter((s:{key:string}) => settingVisible(s.key, false)
+    && connectionRowVisible(s.key, configuration.config.executor.provider));
   await expect(panel.locator(".setting-row[id]")).toHaveCount(shown.length);
   await expect(panel.locator(".setting-actions details")).toHaveCount(0);
   await expect(panel.getByRole("checkbox")).toHaveCount(0);
@@ -594,6 +576,41 @@ test("administrators choose the executor image in Agent and model through review
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
+test("internet access for the agent is off by default and warns before it is switched on", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(before.config.executor.internet).toBe(false);
+  const agent = page.locator("#project-settings > .setting-groups > details").filter({ has: page.locator("summary").filter({ hasText: /^Agent and model / }) });
+  const row = agent.locator('[id="setting-executor.internet"]');
+  await expect(row.locator("strong").first()).toHaveText(internetCopy.en.internet);
+  await expect(row.locator("code")).toHaveText("Off");
+  await expect(row.getByText(internetCopy.en.internetWarning)).toHaveCount(0);
+  await expect(agent.locator('[id="setting-executor.web.search"] code')).toHaveText("Exa (no key)");
+  await row.getByRole("button", { name: `Edit ${internetCopy.en.internet}`, exact: true }).click();
+  await row.getByRole("combobox").selectOption({ label: "On" });
+  await expect(row.getByText(internetCopy.en.internetWarning)).toBeVisible();
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review.getByText(internetCopy.en.internetWarning)).toBeVisible();
+  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+});
+
+test("a server-installed project shows the internet switch as not enforced", async ({ page }) => {
+  await page.route(/\/api\/v1\/projects\/[^/]+\/config(\?.*)?$/, async route => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    body.config.execution.backend = "local";
+    await route.fulfill({ response, json: body });
+  });
+  await openSettings(page);
+  const row = page.locator('[id="setting-executor.internet"]');
+  await expect(row.getByText(internetCopy.en.internetLocal)).toBeVisible();
+  await expect(row.getByText(internetCopy.en.internetWarning)).toHaveCount(0);
+});
+
 test("administrators create the missing ADORE labels from Repository settings", async ({ page }) => {
   await openSettings(page);
   const labels = page.locator(".forge-labels");
@@ -628,7 +645,7 @@ for (const user of ["admin", "developer"]) {
    Implementation: ["budgets.max_cost_usd", "polling.max_concurrent_runs", "delivery.publish_checkpoints", "clarification.max_rounds", "recovery.max_stage_failures"],
    "PR/MR and review": ["review.max_review_rounds", "review.revise_label", "delivery.reviewers"],
    Statistics: ["metrics.enabled", "metrics.capture_tokens", "metrics.db_path"],
-   "Agent and model": ["executor.default", "executor.commands.opencode.command", "executor.commands.opencode.model", "executor.env_keys", "executor.stage_host_auth", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
+   "Agent and model": ["executor.command", "executor.model", "executor.env_keys", "executor.questions_file", "execution.backend", "container.runtime", "container.image"],
    "Technical details": ["state.store_root", "agent.slug", "worktree.repo_path", "worktree.root", "workflow.aegis_python"],
   };
   for (const [name, keys] of Object.entries(placements)) for (const key of keys) {
@@ -712,7 +729,8 @@ test("failed CI action uses human names in values, options and candidate review"
 });
 
 
-test("typed Implementation controls review and apply human duration, rounds, retry schedule and stage map", async ({page}) => {
+for (const setting of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"] as const) {
+test(`typed Implementation control reviews and applies ${setting}`, async ({page}) => {
  await openSettings(page);
  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
  const review = page.locator(".candidate-review");
@@ -729,6 +747,7 @@ test("typed Implementation controls review and apply human duration, rounds, ret
   await review.getByRole("button", {name:"Apply change",exact:true}).click();
   await expect(review).toHaveCount(0);
  };
+ if (setting === "clarification.answer_timeout") {
  await show("clarification");
  const answer = row("clarification.answer_timeout");
  await answer.getByRole("button").click();
@@ -739,10 +758,14 @@ test("typed Implementation controls review and apply human duration, rounds, ret
  await answer.getByRole("spinbutton").fill("12");
  await answer.getByRole("combobox", {name:"Time unit",exact:true}).selectOption("h");
  await apply("clarification.answer_timeout");
+ }
+ else if (setting === "clarification.max_rounds") {
  await show("clarification");
  await row("clarification.max_rounds").getByRole("button").click();
  await row("clarification.max_rounds").getByRole("spinbutton").fill("5");
  await apply("clarification.max_rounds");
+ }
+ else if (setting === "recovery.retry_backoff_seconds") {
  await show("recovery");
  const retry = row("recovery.retry_backoff_seconds");
  await retry.getByRole("button").click();
@@ -751,6 +774,8 @@ test("typed Implementation controls review and apply human duration, rounds, ret
  await expect(retry.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
  await retry.getByRole("textbox").fill("0\n10\n45");
  await apply("recovery.retry_backoff_seconds");
+ }
+ else if (setting === "workflow.stage_timeout_overrides") {
  await page.setViewportSize({width:390,height:844});
  await show("stageLimits");
  const stages = row("workflow.stage_timeout_overrides");
@@ -777,16 +802,18 @@ test("typed Implementation controls review and apply human duration, rounds, ret
  await stages.getByRole("combobox", {name:"Implementation",exact:true}).selectOption("general");
  await expect(stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true})).toHaveCount(0);
  await apply("workflow.stage_timeout_overrides");
+ }
  const after = await (await page.request.get("/api/v1/projects/alpha/config")).json();
- expect(after.config.clarification.answer_timeout).toBe("12h");
- expect(after.config.clarification.max_rounds).toBe(5);
- expect(after.config.recovery.retry_backoff_seconds).toEqual([0,10,45]);
- expect(after.config.workflow.stage_timeout_overrides).toEqual({validate:3600});
+ const [section, name] = setting.split(".");
+ const expected:Record<string,unknown> = {"clarification.answer_timeout":"12h",
+  "clarification.max_rounds":5,"recovery.retry_backoff_seconds":[0,10,45],
+  "workflow.stage_timeout_overrides":{validate:3600}};
+ expect(after.config[section][name]).toEqual(expected[setting]);
  expect(after.config.recovery.max_stage_failures).toBe(before.config.recovery.max_stage_failures);
  expect(after.config.recovery.max_transient_retries).toBe(before.config.recovery.max_transient_retries);
  // Restore the disposable fixture through the same exact candidate workflow.
  const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
- for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
+ for (const key of [setting]) {
   const [section,name] = key.split(".");
   const value = before.config[section][name];
   const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
@@ -797,6 +824,7 @@ test("typed Implementation controls review and apply human duration, rounds, ret
   expect(result.ok()).toBe(true);
  }
 });
+}
 
 test("typed Implementation controls remain read-only for developers on narrow screens", async ({page}) => {
  await page.setViewportSize({width:390,height:844});

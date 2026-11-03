@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-SEC-b6a4a434"
+
+title = "Give the search key only to an internet-on run"
+
+status = "active"
+
+requirement = """
+Where `[executor.web] search` is brave or tavily, `[executor] internet` is true and the project runs in a container, ADORE shall include BRAVE_API_KEY or TAVILY_API_KEY respectively in the stage launch secrets and in the project's credential variables, and shall include neither otherwise, nor in the Test AI connection.
+"""
+
+verification = "Automated tests list the secret names and the credential variables for search brave and tavily with internet on (key present) and off (absent), for exa on (absent), for a local backend (absent) and for the Test AI connection container (absent)."
+
+affected_paths = ["04_Software/adore/pi_providers.py", "04_Software/adore/web/executor_settings.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_search_key_reaches_only_an_internet_on_run", "04_Software/tests/test_executor_settings.py::test_search_key_is_a_credential_only_with_internet_on", "04_Software/tests/test_model_connection.py::test_probe_runs_under_the_internet_switch"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

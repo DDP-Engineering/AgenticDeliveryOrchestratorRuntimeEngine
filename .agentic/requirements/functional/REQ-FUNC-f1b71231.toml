@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-f1b71231"
+
+title = "Load web tools when internet access is on"
+
+status = "active"
+
+requirement = """
+While `[executor] internet` is true and `[executor.web] search` is not none, a container Pi launch shall load the pinned pi-web-access extension and place an ADORE-generated web-search.json naming the search provider, workflow none and eager tool activation in Pi's agent directory before Pi starts.
+"""
+
+verification = "An automated launcher test runs a gate with internet on and search brave and observes `-e <pi-web-access>` in the argv, a copy of the generated web-search.json into the agent directory before the Pi spawn and a document with provider brave, workflow none and toolActivation eager and no key value; search none loads no extension."
+
+affected_paths = ["04_Software/adore/executor/launcher.py", "04_Software/adore/branding.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_loads_web_tools_when_internet_is_on"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

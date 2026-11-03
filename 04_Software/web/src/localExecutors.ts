@@ -7,10 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 export type Installation = {executable:string;entrypoint:string|null;command:string;source:string};
 export type LocalExecutors = {system:string;machine:string;account:string;executors:{agent:string;installations:Installation[]}[]};
 export const nativePresets:Record<string,string> = {
- opencode:"opencode run --dir {worktree} -m {model} --format json {prompt}",
  pi:"pi -p --mode json --model {model} {prompt}",
- codex:"codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}",
- qwen:"qwen -p --model {model} --output-format json {prompt}",
 };
 
 /** A server path is a launch reference, never an uploaded browser file. */
@@ -37,8 +34,8 @@ export function validLocalExecutors(value:unknown):value is LocalExecutors {
  const item=value as LocalExecutors|null;
  const text=(s:unknown,max=4096):s is string=>typeof s==="string" && s.length<=max && !/[\u0000-\u001f]/.test(s);
  return !!item && ["Windows","Linux"].includes(item.system) && text(item.machine,255) && text(item.account,255)
-  && Array.isArray(item.executors) && item.executors.length===4
-  && new Set(item.executors.map(v=>v?.agent)).size===4
+  && Array.isArray(item.executors) && item.executors.length===1
+  && new Set(item.executors.map(v=>v?.agent)).size===1
   && item.executors.every(v=>v && Object.hasOwn(nativePresets,v.agent) && Array.isArray(v.installations) && v.installations.length<=12
    && v.installations.every(i=>i && text(i.executable,2048) && validExecutablePath(i.executable)
     && (i.entrypoint===null || text(i.entrypoint,2048) && validExecutablePath(i.entrypoint))

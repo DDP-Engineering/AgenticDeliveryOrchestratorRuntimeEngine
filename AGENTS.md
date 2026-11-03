@@ -63,7 +63,8 @@ wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
     Use automatically cleaned OS temporary directories for build/verification
     work and print verification results to the console without saving reports.
 - Keep the orchestrator forge-agnostic (GitLab, GitHub and Gitea behind one
-  adapter) and executor-agnostic (opencode, pi.dev, codex behind one launcher).
+  adapter) and executor-agnostic (one executor interface; Pi is its only
+  implementation).
 - Keep the delivery boundary strict: the orchestrator may open a draft MR/PR but
   must never merge. Merge is a human decision.
 - Prefer portable Python; do not add OS-specific glue to the core loop.

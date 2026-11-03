@@ -38,8 +38,27 @@ CONTAINER_WORKTREE_MOUNT = "/adore/work"
 CONTAINER_IO_MOUNT = "/adore/io"
 CONTAINER_UV_CACHE_MOUNT = f"{CONTAINER_HOME}/.cache/uv"
 CONTAINER_NPM_CACHE_MOUNT = f"{CONTAINER_HOME}/.npm"
-CONTAINER_OPENCODE_AUTH_DIR = f"{CONTAINER_HOME}/.local/share/opencode"
-CONTAINER_CODEX_HOME = f"{CONTAINER_HOME}/.adore-codex"
+# Pi is ADORE's only coding agent; usage events and project views name it so.
+EXECUTOR_NAME = "pi"
+# Native (installed) Pi launch template until PI-07 drives it over RPC.
+PI_NATIVE_COMMAND = "pi -p --mode json --model {model} {prompt}"
+# Pi in the executor image: the pinned prefix, ADORE's guard extension, and the
+# ADORE-owned agent directory that replaces the personal ~/.pi/agent.
+CONTAINER_PI_PREFIX = "/opt/pi"
+CONTAINER_PI_CLI = (
+    f"{CONTAINER_PI_PREFIX}/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+)
+CONTAINER_PI_GUARD = "/opt/adore/pi/adore-guard.ts"
+#: The pinned pi-web-access extension next to Pi, loaded with `-e` only while
+#: internet access is on.
+CONTAINER_PI_WEB_ACCESS = f"{CONTAINER_PI_PREFIX}/lib/node_modules/pi-web-access"
+CONTAINER_PI_AGENT_DIR = f"{CONTAINER_HOME}/.adore-pi-agent"
+# The server's ChatGPT sign-in: ADORE's helper script in the image and the
+# mount point of the credential directory in its helper container (never in a
+# run container), and that directory's name under the ADORE home.
+CONTAINER_PI_CHATGPT_SCRIPT = "/opt/adore/pi/adore-chatgpt.mjs"
+CONTAINER_CHATGPT_MOUNT = "/adore/chatgpt"
+CHATGPT_CREDENTIAL_DIR = "chatgpt"
 EGRESS_PROXY_ALIAS = "adore-egress-proxy"
 
 EXECUTOR_BASE_IMAGE = "adore-executor-base:1.0.0"

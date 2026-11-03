@@ -13,15 +13,14 @@ Also governs REQ-UX-9a625fc5 (row badges and editing) and REQ-UX-a62e69a9
 
 ## Behavior
 
-`GET /api/v1/projects/{name}/config` keeps `config`, `revision`, `issues` and
-`local_endpoint_timeout_seconds` and adds `settings`: one entry per leaf of the
+`GET /api/v1/projects/{name}/config` keeps `config`, `revision` and `issues`
+and adds `settings`: one entry per leaf of the
 redacted effective configuration (`config`), sorted by `key`.
 
 1. **Leaves.** Nested mappings are walked; a non-empty mapping is never a leaf,
    an empty mapping, a list or a scalar is. `key` is the dotted path.
 2. **Edit key.** The key in the project's TOML file that holds the value: the
-   leaf key itself, except `executor.commands.<name>.<field>`, which is
-   `executor.<name>.<field>`.
+   leaf key itself.
 3. **Source.** `project` when the project's TOML file contains the edit key as
    a leaf (whatever its value), otherwise `default`.
 4. **Editable.** True only when the edit key passes the same key rule that
@@ -43,8 +42,8 @@ redacted effective configuration (`config`), sorted by `key`.
   {"key": "polling.poll_interval_seconds",
    "edit_key": "polling.poll_interval_seconds",
    "source": "default", "editable": true, "restart": false},
-  {"key": "executor.commands.opencode.model",
-   "edit_key": "executor.opencode.model",
+  {"key": "executor.model",
+   "edit_key": "executor.model",
    "source": "project", "editable": true, "restart": true},
   {"key": "container.egress.allowlist",
    "edit_key": "container.egress.allowlist",
@@ -63,7 +62,7 @@ unchanged.
 - A web-created project: `platform.repo` and `budgets.max_iterations` (the
   setup wizard writes both) source `project`; `polling.poll_interval_seconds`
   source `default`, editable, no restart.
-- `executor.commands.opencode.command`: editable through the documented launch-preset choices; arbitrary command text is refused.
+- `executor.command`: editable through the documented launch-preset choice for a container project; arbitrary command text is refused there.
 - A secret-like key such as `container.runtime_env.GITLAB_TOKEN` is removed by
   redaction, so it is never listed; an uppercase environment key such as
   `container.runtime_env.UV_LINK_MODE` is listed but not editable.

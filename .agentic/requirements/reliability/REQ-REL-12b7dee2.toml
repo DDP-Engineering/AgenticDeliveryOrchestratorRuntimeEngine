@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-12b7dee2"
+
+title = "Fail closed on a broken Pi protocol stream"
+
+status = "active"
+
+requirement = """If the Pi process exits before `agent_settled`, cannot be started, or writes a stdout record that is not a JSON object, or its last assistant message cannot be read within the record limit, then ADORE shall end the process and report a failed launch whose evidence names the protocol failure."""
+
+verification = "A fake Pi that exits mid-run, a missing executable, a fake that writes a non-JSON or too deeply nested stdout line, and a fake whose last assistant record exceeds the record limit each yield a non-zero, non-timeout launch with protocol evidence, and no fake process is left running."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_crash_before_settling_fails_closed", "04_Software/tests/test_pi_rpc.py::test_malformed_stdout_line_fails_closed", "04_Software/tests/test_pi_rpc.py::test_start_failure_is_a_protocol_failure", "04_Software/tests/test_pi_rpc.py::test_unreadable_final_assistant_record_fails_closed", "04_Software/tests/test_pi_rpc.py::test_deeply_nested_record_is_malformed"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

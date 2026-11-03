@@ -34,6 +34,9 @@ guides belong in `01_Documentation/`.
   parsing, UTC timestamps (`adore/util.py`).
 - `Component_Config.md` - typed `config.toml` loading, slug-derived defaults,
   and validation (`adore/config.py`).
+- `Component_ChatGPT_Sign_In.md` - the server's one ChatGPT sign-in, its
+  status, helper container and the short-lived token each stage receives
+  (`adore/chatgpt.py`, `docker/pi/adore-chatgpt.mjs`).
 - `Component_Identity.md` - marker-based comment identity and slug-derived
   naming (`adore/identity.py`).
 - `Component_State_Store.md` - the authoritative local run state, run-id,
@@ -91,7 +94,6 @@ guides belong in `01_Documentation/`.
 
 - `Component_Web_Identity.md` - SQLite accounts, sessions, grants and queue.
 - `Component_Web_API.md` - same-origin HTTP API and role enforcement.
-- `Component_Web_Endpoint_Probe.md` - disposable executor-context local-model readiness.
 - `Component_Web_Worker.md` - authorized queued CLI operations and scheduling.
 - `Component_Web_Frontend.md` - React views, locale catalogs and themes.
 - `Component_Repository_Source.md` - enrollment from a repository URL: address

@@ -22,8 +22,9 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+import subprocess
 
-from adore.config import ContainerEgressConfig
+from adore.config import EgressPolicy
 from adore.isolation import (
     CONTAINER_IO_MOUNT,
     CONTAINER_REPO_MOUNT,
@@ -147,7 +148,7 @@ def _provisioned_egress(tmp_path: Path, name: str) -> tuple[str, str]:
     )
     manager = ContainerManager(
         "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     manager.provision(name, tmp_path / "repo", tmp_path / "wt", tmp_path / "io",
                       {"HOME": "/home/adore"})
@@ -393,7 +394,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
         tmp_path / "worktrees" / "x",
         io_dir,
         {"HOME": "/home/adore", "GIT_DIR": "/adore/repo/.git/worktrees/x",
-         "CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
+         "PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
          "ANTHROPIC_API_KEY": "sk-secret"},
     )
     run_argv = runner.calls[1]
@@ -405,7 +406,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     assert "HOME=/home/adore" in env_values
     assert "GIT_DIR" in env_values  # unset image defaults, not a global selector
     assert not any(value.startswith("GIT_DIR=") for value in env_values)
-    assert "CODEX_HOME=/home/adore/.adore-codex" in env_values
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in env_values
     assert "UV_LINK_MODE=copy" in env_values
     assert "HOME" not in env_values  # bare key would take the WSL user's HOME
     assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}" in run_argv
@@ -488,7 +489,7 @@ def test_container_proxy_config_mount_combines_ro_and_relabel(
     )
     manager = ContainerManager(
         "podman", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
-        egress=ContainerEgressConfig(
+        egress=EgressPolicy(
             mode="allowlist-proxy", allowlist=["api.openai.com"],
         ),
         selinux_relabel="shared",
@@ -525,7 +526,7 @@ def test_container_provision_none_uses_no_network(tmp_path: Path) -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="none"),
+        egress=EgressPolicy(mode="none"),
     )
     manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
                       tmp_path / "io", {"HOME": "/home/adore"})
@@ -555,7 +556,7 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(
+        egress=EgressPolicy(
             mode="allowlist-proxy",
             allowlist=["api.openai.com", "*.pythonhosted.org"],
         ),
@@ -593,6 +594,60 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
     assert "NO_PROXY=localhost,127.0.0.1,::1" in env_values
 
 
+def test_proxy_config_admits_names_by_domain_and_addresses_by_dst(tmp_path: Path) -> None:
+    """
+    @brief   Host names become a dstdomain rule, IP literals a dst rule, and
+             every other destination is denied; no address means no dst rule.
+    """
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", FakeRunner(),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=[
+            "api.openai.com", "*.pythonhosted.org", "192.168.1.20", "::1"]),
+    )
+    lines = manager._write_proxy_config(tmp_path / "mixed").read_text(
+        encoding="utf-8").splitlines()
+    assert "acl allowed_domains dstdomain api.openai.com .pythonhosted.org" in lines
+    assert "acl allowed_addresses dst 192.168.1.20 ::1" in lines
+    allow = [line for line in lines if line.startswith("http_access")]
+    assert allow == ["http_access allow allowed_domains",
+                     "http_access allow allowed_addresses", "http_access deny all"]
+
+    manager.egress = EgressPolicy(mode="allowlist-proxy", allowlist=["api.anthropic.com"])
+    text = manager._write_proxy_config(tmp_path / "names").read_text(encoding="utf-8")
+    assert "dst " not in text and "allowed_addresses" not in text
+    manager.egress = EgressPolicy(mode="allowlist-proxy", allowlist=["10.0.0.5"])
+    text = manager._write_proxy_config(tmp_path / "addresses").read_text(encoding="utf-8")
+    assert "dstdomain" not in text and "acl allowed_addresses dst 10.0.0.5" in text
+
+
+def test_proxy_gets_the_executor_host_aliases(tmp_path: Path) -> None:
+    """
+    @brief   The proxy container receives the --add-host options of run_args
+             (both spellings) and none of the other run options.
+    """
+    runner = FakeRunner(
+        _fail("No such container: adore-run-x"),
+        _ok("network"),
+        _fail("No such container: adore-run-x-egress-proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        run_args=["--add-host=host.docker.internal:host-gateway", "--userns=keep-id",
+                  "--add-host", "llm.lan:192.168.1.20"],
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["host.docker.internal"]),
+    )
+    manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
+                      tmp_path / "io", {"HOME": "/home/adore"})
+    proxy_run = runner.calls[3]
+    assert "--add-host=host.docker.internal:host-gateway" in proxy_run
+    assert proxy_run[proxy_run.index("--add-host") + 1] == "llm.lan:192.168.1.20"
+    assert "--userns=keep-id" not in proxy_run
+    assert "--userns=keep-id" in runner.calls[5]
+
+
 def test_disposable_probe_never_pulls_executor_or_egress_proxy(tmp_path: Path) -> None:
     """@brief A local-only probe applies the no-pull policy to both images."""
     runner = FakeRunner(
@@ -602,7 +657,7 @@ def test_disposable_probe_never_pulls_executor_or_egress_proxy(tmp_path: Path) -
     )
     manager = ContainerManager(
         "docker", "executor:local", "uv-cache", "npm-cache", runner,
-        egress=ContainerEgressConfig(
+        egress=EgressPolicy(
             mode="allowlist-proxy", allowlist=["model.internal"]),
         pull_never=True,
     )
@@ -623,7 +678,7 @@ def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> N
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     with pytest.raises(IsolationError):
         manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
@@ -642,7 +697,7 @@ def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     manager.remove("adore-run-x")
     assert runner.calls == [
@@ -708,7 +763,7 @@ def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="open", network_prefix="team-egress"),
+        egress=EgressPolicy(mode="open", network_prefix="team-egress"),
     )
 
     removed = manager.cleanup_egress_networks(
@@ -798,7 +853,7 @@ def test_remove_egress_removes_only_the_runs_own_proxy_and_network(tmp_path: Pat
     runner = FakeRunner(_ok(), _ok())
     manager = ContainerManager(
         "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
 
     manager.remove_egress(stem + "26")
@@ -908,27 +963,27 @@ def test_container_exec_returns_result_as_data() -> None:
              command is a conductor signal, not an isolation error.
     """
     runner = FakeRunner(_fail("gate failed", exit_code=3))
-    result = _manager(runner).exec("c", ["opencode", "run", "prompt"])
+    result = _manager(runner).exec("c", ["pi", "-p", "prompt"])
     assert result.exit_code == 3
     assert runner.calls[0][:2] == ["docker", "exec"]
-    assert runner.calls[0][-4:] == ["c", "opencode", "run", "prompt"]
+    assert runner.calls[0][-4:] == ["c", "pi", "-p", "prompt"]
 
 
 def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     """
-    @brief   Exec-time env mirrors provision: CODEX_HOME is inline so Podman
+    @brief   Exec-time env mirrors provision: PI_CODING_AGENT_DIR is inline so Podman
              exec sees it; secret values stay out of argv.
     """
     runner = FakeRunner(_ok())
     _manager(runner).exec(
         "c",
         ["env"],
-        env={"CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
+        env={"PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
              "OPENAI_API_KEY": "sk-secret", "GIT_PAGER": "less", "pager": "more"},
     )
     argv = runner.calls[0]
     assert argv[:2] == ["docker", "exec"]
-    assert "CODEX_HOME=/home/adore/.adore-codex" in argv
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in argv
     assert "UV_LINK_MODE=copy" in argv
     assert "GIT_PAGER=cat" in argv and "PAGER=cat" in argv
     assert "GIT_PAGER=less" not in argv and "pager" not in argv
@@ -937,6 +992,34 @@ def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     assert argv[-2:] == ["c", "env"]
     assert runner.envs[0] is not None
     assert runner.envs[0]["OPENAI_API_KEY"] == "sk-secret"
+
+
+def test_container_spawn_attaches_stdin_with_the_exec_env_contract() -> None:
+    """
+    @brief   spawn starts `exec -i` with live pipes and exec's env handling:
+             Pi isolation values inline, secret values only in the process env.
+    """
+    started = {}
+
+    def popen(argv, **kwargs):
+        started.update(argv=list(argv), **kwargs)
+        return "process"
+
+    process = _manager(FakeRunner()).spawn(
+        "c", ["node", "cli.js", "--mode", "rpc"],
+        env={"PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "PI_OFFLINE": "1",
+             "OPENAI_API_KEY": "sk-secret"},
+        popen=popen,
+    )
+    assert process == "process"
+    argv = started["argv"]
+    assert argv[:3] == ["docker", "exec", "-i"]
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in argv
+    assert "PI_OFFLINE=1" in argv and "OPENAI_API_KEY" in argv
+    assert not any("sk-secret" in part for part in argv)
+    assert argv[-5:] == ["c", "node", "cli.js", "--mode", "rpc"]
+    assert started["env"]["OPENAI_API_KEY"] == "sk-secret"
+    assert {started[key] for key in ("stdin", "stdout", "stderr")} == {subprocess.PIPE}
 
 
 def test_container_verify_required_tools_execs_checks() -> None:
@@ -1157,7 +1240,7 @@ def test_wsl_allowlist_proxy_prefixes_network_commands(tmp_path: Path) -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     manager.provision("adore-run-x", r"D:\repo", r"D:\wt", tmp_path / "io", {})
     for call in runner.calls:

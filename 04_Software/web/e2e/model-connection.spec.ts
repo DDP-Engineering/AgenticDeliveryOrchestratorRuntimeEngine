@@ -21,7 +21,7 @@ for (const invalid of [false, true]) {
   let calls = 0;
   await page.route("**/model-connection-test", async route => {
    calls++;
-   await route.fulfill({json:{project_id:project.id, revision:invalid ? "0".repeat(64) : configuration.revision, checked_at:new Date().toISOString(), executor:"opencode", model:configuration.config.executor.commands.opencode.model, ready:true, reason:"ready"}});
+   await route.fulfill({json:{project_id:project.id, revision:invalid ? "0".repeat(64) : configuration.revision, checked_at:new Date().toISOString(), executor:"pi", model:configuration.config.executor.model, ready:true, reason:"ready"}});
   });
   await page.getByRole("tab",{name:"Settings",exact:true}).click();
   await page.getByText(/^Agent and model \(\d+\)$/).click();

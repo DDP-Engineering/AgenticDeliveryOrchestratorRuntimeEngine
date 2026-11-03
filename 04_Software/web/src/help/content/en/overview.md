@@ -42,7 +42,7 @@ A Dev never sees monetary values and cannot open the Administration pages. A Dev
 ## Getting started {#getting-started}
 
 1. Administrators enroll the repository: [Adding a repository](/help/projects).
-2. Choose the coding agent and model: [Executors and models](/help/executors).
+2. Choose the model the Pi coding agent uses: [Executors and models](/help/executors).
 3. Prepare tickets so ADORE can pick them up: [Tickets for automatic pickup](/help/tickets).
 4. Follow each job to its draft MR/PR: [Job lifecycle](/help/jobs).
 
@@ -54,7 +54,7 @@ Developers start at step 3 once an administrator has given them access to a proj
 - [Interface tour](/help/interface): sidebar, header, project hub and status labels.
 - [Adding a repository](/help/projects): enroll a project.
 - [Project settings](/help/settings): what each setting group controls.
-- [Executors and models](/help/executors): coding agents, models and authentication.
+- [Executors and models](/help/executors): the Pi coding agent, models and authentication.
 - [Tickets for automatic pickup](/help/tickets): labels and starting tickets.
 - [Job lifecycle](/help/jobs): statuses, waiting states, retry and cancel.
 - [Statistics and costs](/help/statistics): usage, quality, trends and estimated costs.

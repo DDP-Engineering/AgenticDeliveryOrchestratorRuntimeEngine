@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-95778891"
+
+title = "Fail the gate when the web search configuration cannot be placed"
+
+status = "active"
+
+requirement = """
+If ADORE cannot place web-search.json in Pi's agent directory, then the gate shall fail without starting Pi and its evidence shall say that the web search configuration could not be placed.
+"""
+
+verification = "An automated launcher test makes the copy command fail and observes a failed gate with that message and no Pi spawn."
+
+affected_paths = ["04_Software/adore/executor/launcher.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

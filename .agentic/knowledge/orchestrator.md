@@ -116,7 +116,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 Container profiles without recipes or enabled package permission retain the existing recovery/profile-update contract and empty execution record; immutable execution policy applies to recipe and package-enabled runs.
 
-- `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check/stage auth, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
+- `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
 - `REQ-FUNC-ff7dad34` - candidate-bound approval and human-approved draft or ready publication.
 - `REQ-FUNC-9246f8cc` - the validate -> done advance triggers the strict check before presentation.

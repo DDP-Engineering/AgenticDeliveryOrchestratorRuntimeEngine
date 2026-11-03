@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-UX-e340fc1e"
+
+title = "Show the internet switch with its warning and enforcement"
+
+status = "active"
+
+requirement = """
+Settings, Agent and model shall show the setting Internet access for the agent as On or Off and the web search choice in English, French, German and Romanian, with a warning while On or proposed On that a malicious page could try to make the agent send its API key or ChatGPT token out, and on a server-installed project a note that the switch is not enforced.
+"""
+
+verification = "Unit tests of the web copy cover the four locales; an end-to-end Settings test shows Off by default, the warning after choosing On in the editor and the not-enforced note for a local-backend project."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/executorSettings.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/settingKeys.json", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/help/content/en/executors.md"]
+
+linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

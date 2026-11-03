@@ -19,7 +19,7 @@ Every group is closed when you open Settings, and the number beside its name cou
 | Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
 | PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |
 | Statistics | **Record completed job measurements** and **Record agent-reported tokens**. **Statistics database file** is shown for information only. |
-| Agent and model | The coding agent, launch command, model, authentication and **Test AI connection**. See [Executors and models](/help/executors). |
+| Agent and model | The model, launch command, authentication and **Test AI connection**. See [Executors and models](/help/executors). |
 | Technical details | Read-only installation values such as the job state folder, the local repository path and the job working folders. They are changed in the project's `config.toml` on the server, and changing a path does not move existing data. |
 
 ## Values and help {#values}

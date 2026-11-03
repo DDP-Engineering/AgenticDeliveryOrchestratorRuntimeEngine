@@ -22,7 +22,7 @@ authentication and model probes stay with the operator and existing components.
 ## Public interface
 
 Admin GET `/api/v1/local-executors`, Cache-Control no-store, returns system/machine/
-account and four executor records with bounded installation arrays. Each candidate
+account and one Pi executor record with bounded installation arrays. Each candidate
 has executable, nullable entrypoint, standard command and PATH/npm source.
 `discover_executors` accepts injected OS/environment/home/excluded paths for tests.
 
@@ -39,24 +39,12 @@ Manual edits and saved commands retain authority; stale results are ignored.
 |---|---|---|
 | Host/native/npm layouts | executor_discovery.py | tests/test_executor_discovery.py |
 | Suggestions and manual paths | LocalExecutorPicker.tsx, localExecutors.ts | localExecutors.test.mjs, local-executors.spec.ts |
-| Existing Settings | App.tsx, ExecutorSelectionEditor.tsx | local-executors.spec.ts |
+| Existing Settings | App.tsx, AgentConnectionEditor.tsx | local-executors.spec.ts |
 
 ## Key behaviors
 
 - REQ-FUNC-cd5bffc3: admin-only bounded installed host launch discovery.
 - REQ-UX-3ce12a1a: automatic enrollment proposals and explicit installed/manual choices.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  UI[Enrollment and Settings] --> Picker[LocalExecutorPicker]
-  Picker --> API[Admin local-executors GET]
-  API --> Discovery[discover_executors]
-  Discovery --> Files[Bounded installed host paths]
-  Picker --> Review[Existing configuration review]
-  Review --> Policy[Existing local_policy and native scopes]
-```
 
 ## Files
 
@@ -69,7 +57,7 @@ schemas and integration; `01_Documentation/Local_Execution.md` describes usage.
 Enrollment uses current-account defaults and displays read-only Runs as identity.
 Detected installations remain visible; a closed Advanced disclosure holds full
 optional re-detection, command/manual executable and home/PATH/Linux delegation.
-Discovery starts on native-picker mount; agent changes use the validated complete
+Discovery starts on native-picker mount; Pi uses the validated installed
 listing. Agent and model groups controls into independent vertical columns. Settings retains saved
 account assertions and overrides in Advanced. Manual/saved command authority,
 existing authentication and native launch validation remain unchanged.

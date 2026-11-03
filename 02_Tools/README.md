@@ -41,3 +41,5 @@ Do not add or run automated tests for environment setup or deployment scripts.
 
 Older source-runtime packagers and the separate wheelhouse installer/launcher
 have been retired. There is one standard portable delivery flow.
+
+`generate_pi_catalog.py` refreshes the pinned Pi provider/model catalog offline; use it when changing the pinned Pi version.

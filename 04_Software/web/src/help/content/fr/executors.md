@@ -1,32 +1,76 @@
 # Exécuteurs et modèles
 
-Un exécuteur est le couple qu’ADORE lance pour chaque tâche : un agent de programmation et le modèle d’IA qu’il utilise. Les administrateurs choisissent les deux dans les Paramètres d’un projet.
+Un exécuteur est ce qu’ADORE lance pour chaque tâche : l’agent de programmation Pi et le modèle d’IA qu’il utilise. Les administrateurs choisissent le modèle dans les Paramètres d’un projet.
 
 ## Ce qu’est un exécuteur {#what}
 
-Pour chaque tâche, ADORE démarre l’agent de programmation du projet dans une copie de travail isolée, et l’agent parcourt les étapes AEGIS du dépôt avec le modèle configuré. Les agents sont OpenCode, Pi, Codex et Qwen Code. L’agent ne commit jamais, ne pousse jamais et ne voit jamais les identifiants de la forge ; c’est ADORE qui s’en charge. ADORE n’installe aucun agent et ne récupère aucune liste de modèles : l’agent doit donc déjà exister dans l’image du projet ou sur le serveur. Les changements ne s’appliquent qu’aux nouvelles tâches.
+Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. Pi ne commite pas, ne pousse pas et ne voit aucun identifiant de forge ; ADORE s’en charge. En conteneur, ADORE utilise le Pi intégré à l’image de l’exécuteur ; pour un projet installé sur le serveur, Pi doit déjà être installé pour le compte du serveur. Les changements s’appliquent aux nouvelles tâches uniquement.
 
-## Choisir l’agent et le modèle {#agent-and-model}
+## Choisir le fournisseur et le modèle {#agent-and-model}
 
-Ouvrez **Paramètres → Agent et modèle**. Les lignes sont **Agent de programmation par défaut**, **Commande de lancement de l’exécuteur** et **Identifiant du modèle de l’exécuteur**.
+Ouvrez **Paramètres → Agent et modèle**. Les lignes sont **Fournisseur**, **Modèle**, **Commande de lancement de l’exécuteur** et, pour un point de terminaison, **URL de base du point de terminaison** et **Type d’API du point de terminaison**. **Modifier** sur l’une des lignes fournisseur, modèle ou point de terminaison ouvre un seul éditeur pour toutes, revues et appliquées en une seule modification.
 
-Les administrateurs choisissent **Modifier** sur la ligne de l’agent de programmation par défaut et sélectionnent OpenCode, Pi, Codex ou Qwen Code. La sélection d’un agent charge sa commande et son modèle enregistrés, ou le préréglage de commande documenté. Saisissez vous-même l’ID du modèle pour un nouvel agent : l’ID que votre agent et votre fournisseur acceptent, généralement `provider/model`. Il n’existe aucun défaut universel. La commande de lancement doit contenir `{prompt}`. **Préparer le candidat** examine ensemble l’agent, la commande et le modèle, et **Appliquer** les écrit en un seul changement. Prévoyez de suspendre d’abord la surveillance ; voir [Paramètres du projet](/help/settings#editing).
+- **Fournisseur** : un fournisseur Pi à clé API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral et d’autres), **Abonnement ChatGPT** ou **Point de terminaison compatible OpenAI**.
+- **Modèle** : choisissez dans la liste de Pi pour ce fournisseur ou saisissez tout ID de modèle accepté par le fournisseur, par exemple `gpt-5.4`. La liste accompagne la version de Pi fournie par ADORE et se lit sans accès à internet. Il n’y a pas de modèle universel par défaut.
+- **Abonnement ChatGPT** : Pi utilise le compte ChatGPT Plus ou Pro auquel ce serveur ADORE est connecté, voir [Se connecter avec ChatGPT](#chatgpt). La liste propose les modèles servis par un abonnement ChatGPT, par exemple `gpt-5.6-luna`.
+
+**Préparer le candidat** montre la valeur active et proposée de chaque champ et **Appliquer** les écrit ; prévoyez de suspendre la surveillance, voir [Paramètres du projet](/help/settings#editing). En conteneur, ADORE démarre lui-même le Pi intégré à l’image, via son mode RPC avec des réglages fixes, et l’arrête à la limite de temps de l’étape ou à l’annulation ; la commande de lancement n’y sert pas, seul le préréglage Pi est proposé. Pour un projet installé sur le serveur, la commande de lancement démarre le Pi installé, vaut par défaut `pi -p --mode json --model {model} {prompt}` (`{model}` devient fournisseur/modèle), doit contenir `{prompt}` et ne doit pas utiliser `--auto`.
+
+## Point de terminaison compatible OpenAI {#endpoint}
+
+Pour un modèle servi sur votre propre réseau, comme LM Studio, Ollama ou vLLM, choisissez **Point de terminaison compatible OpenAI** et renseignez :
+
+- **URL de base du point de terminaison** : l’adresse vue depuis le conteneur, par exemple `http://192.168.1.20:1234/v1`. `localhost` est le conteneur lui-même. `host.docker.internal` n’atteint l’hôte qu’avec Docker Desktop ; avec Docker Engine sous Linux ou dans WSL, utilisez l’adresse réseau de l’hôte, et pour un serveur sous Windows atteint depuis Docker dans WSL, la passerelle par défaut de WSL.
+- **Type d’API du point de terminaison** : `openai-completions` pour LM Studio, Ollama et vLLM ; `openai-responses`, `anthropic-messages` et `google-generative-ai` sont aussi acceptés.
+- **Modèle** : l’ID du modèle servi par le point de terminaison.
+
+Une clé de point de terminaison est facultative : enregistrez-la sous Authentification sous ADORE_ENDPOINT_API_KEY. ADORE décrit le point de terminaison à Pi pour chaque tâche ; l’adresse ne contient jamais de nom d’utilisateur, de mot de passe ni de requête. Avec l’[accès Internet](#internet) désactivé, ADORE autorise lui-même l’adresse du point de terminaison. Un point de terminaison n’est disponible que pour les projets en conteneur.
 
 ## Authentification {#credentials}
 
-Ouvrez **Authentification** dans le même groupe. Un projet peut s’authentifier de trois façons.
+Ouvrez **Authentification** dans le même groupe.
 
-- **Clés API du fournisseur.** Choisissez une **Variable d’identification** (par exemple OPENAI_API_KEY ou ANTHROPIC_API_KEY), saisissez la **Clé API** et choisissez **Enregistrer la clé API**. ADORE la conserve de façon privée sur le serveur et ne l’affiche plus jamais ; **Déconnecter la clé API du projet** la supprime. La variable doit d’abord figurer sous **Variables d’identification autorisées**, qui ne contient que des noms (**Ajouter une variable d’identification**). Changer une clé exige une surveillance en pause, un projet inactif et aucun changement en attente, et ne teste pas la clé.
-- **Abonnement ou connexion de l’hôte.** L’agent utilise sa propre connexion sur le serveur ADORE sous le compte de service, configurée en dehors de l’interface web (le volet **Connexion par abonnement ou navigateur** indique la commande). **Utiliser la connexion de l’agent de l’hôte** est une passerelle pilote qui copie cette connexion dans le conteneur, pour OpenCode et Codex uniquement. Un abonnement ChatGPT n’est pas une clé API OpenAI.
+- **Clé API du fournisseur.** Le panneau indique la variable requise par le fournisseur configuré, par exemple OPENAI_API_KEY pour OpenAI ou ANTHROPIC_API_KEY pour Anthropic. Saisissez la **Clé API** et choisissez **Enregistrer la clé API**. ADORE la conserve en privé dans le magasin d’identifiants du projet sur le serveur, jamais dans le fichier de configuration, ne la transmet à Pi que par cette variable et ne l’affiche plus jamais ; **Déconnecter la clé API du projet** la supprime. Changer une clé exige la surveillance suspendue, un projet inactif et aucune proposition en attente, et ne teste pas la clé.
+- **Connexion existante du compte.** Uniquement pour un projet installé sur le serveur : Pi utilise sa propre connexion pour le compte du serveur, configurée hors de l’interface web. Un projet en conteneur utilise la clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la [connexion ChatGPT](#chatgpt) du serveur ; aucune connexion n’est copiée dans le conteneur.
 - **Valeurs gérées par l’environnement.** Une variable déjà définie dans l’environnement du serveur ADORE porte la mention **Définie sur le serveur ADORE ; gestion externe**. L’interface web ne peut pas l’écraser.
+- **Clé de recherche web.** Avec l’accès Internet activé et la recherche web Brave ou Tavily, le panneau liste aussi BRAVE_API_KEY ou TAVILY_API_KEY, enregistrée de la même manière, aussi pour un abonnement ChatGPT.
+- **Variables d’identification supplémentaires.** Noms uniquement (**Ajouter une variable d’identification**) de secrets supplémentaires reçus par Pi en plus de la clé du fournisseur ; la plupart des projets n’en ont pas besoin.
 
-Les valeurs d’identifiants n’apparaissent jamais dans les revues, les enregistrements d’audit ou les exports. Une liste de variables vide est valide avec une connexion existante sur le serveur, et aussi en mode api-key quand l’image ou l’exécuteur installé se connecte seul.
+Les valeurs d’identifiants n’apparaissent jamais dans le fichier de configuration, les revues, les journaux d’audit, les journaux ou les exports.
+
+## Se connecter avec ChatGPT {#chatgpt}
+
+Un seul compte ChatGPT Plus ou Pro sert tous les projets de ce serveur ADORE dont le fournisseur est **Abonnement ChatGPT**. Les administrateurs se connectent dans **Authentification** d’un tel projet ; ADORE exécute la connexion OpenAI de Pi, le serveur n’a donc besoin d’aucun navigateur.
+
+1. Choisissez **Se connecter avec ChatGPT**.
+2. Ouvrez **Ouvrir la page de connexion ChatGPT** sur votre ordinateur et connectez-vous avec le compte ChatGPT. Le lien est valable 15 minutes.
+3. Le navigateur affiche ensuite une page d’erreur sur `127.0.0.1:1455`. C’est normal : copiez l’adresse complète de sa barre d’adresse.
+4. Collez-la dans **Adresse de redirection** et choisissez **Terminer la connexion**.
+
+L’état est **Connecté**, **Non connecté** ou **Reconnectez-vous**. **Reconnectez-vous** signifie qu’OpenAI n’accepte plus la connexion enregistrée ; les tâches échouent jusqu’à ce qu’un administrateur se reconnecte. Une adresse issue d’un lien plus ancien est refusée et la connexion reste en attente ; **Annuler** y met fin. Quand OpenAI refuse le compte, par exemple parce que son abonnement ne peut pas être partagé, la connexion se termine avec ce motif. **Déconnecter ChatGPT** supprime la connexion enregistrée.
+
+La connexion reste dans un dossier privé du serveur ADORE. Avant chaque étape, ADORE en tire un jeton d’accès récent, valable environ une heure, et ne transmet que ce jeton à Pi ; la connexion elle-même n’entre jamais dans le conteneur de la tâche. Un projet ChatGPT s’exécute donc en conteneur, ses limites de durée par étape sont d’au plus 3000 secondes, et son image doit être construite à partir de l’image d’exécuteur ADORE actuelle. Seuls les administrateurs voient ou modifient la connexion ; le journal d’audit nomme l’action, jamais un jeton ni une adresse.
+
+> ADORE est gratuit aujourd’hui. Le proposer comme service hébergé ou payant avec la connexion ChatGPT exigerait d’abord le formulaire d’intérêt d’OpenAI.
 
 ## Tester la connexion IA {#test-connection}
 
-Les administrateurs choisissent **Tester la connexion IA** sous **Connexion IA**. Cela envoie une courte requête via l’agent configuré dans un conteneur temporaire, ou dans un dossier temporaire pour un agent installé sur le serveur, ce qui peut entraîner des frais du fournisseur. Le projet doit être inactif, avec des paramètres enregistrés valides et aucun changement en attente ; pour un projet en conteneur, l’image doit contenir Python et l’agent.
+Les administrateurs choisissent **Tester la connexion IA** sous **Connexion IA**. Le test démarre Pi une fois dans un conteneur temporaire, ou dans un dossier temporaire pour Pi installé sur le serveur, lui demande d’exécuter une commande shell puis de répondre par un texte fixe, et peut entraîner des frais du fournisseur. Le projet doit être inactif, avec des paramètres enregistrés valides et aucune proposition en attente ; pour un projet en conteneur, l’image configurée doit exister sur le serveur.
 
-Le résultat est **Modèle IA connecté** ou **Connexion IA non vérifiée**, avec des indications en cas de délai dépassé, d’image ou d’agent absent, d’identifiants incorrects, de modèle indisponible ou d’une commande shell que l’agent n’a pas pu exécuter. Pour OpenCode, Pi ou Codex installés sur le serveur, la requête demande aussi à l’agent d’exécuter une commande shell, et le résultat n’est connecté que si cette commande s’est exécutée ; sinon le test prouve uniquement l’accès au modèle. Il ne démarre aucune tâche. Le résultat enregistré est lié au modèle, aux paramètres et aux identifiants actuels et apparaît dans les contrôles de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
+Le résultat est **Modèle IA connecté** seulement si la commande shell a été exécutée et que la réponse est arrivée. Sinon **Connexion IA non vérifiée** s’accompagne de conseils propres pour : aucun identifiant enregistré, aucune connexion ChatGPT, un abonnement ChatGPT qui ne peut pas être partagé, une limite d’utilisation ChatGPT atteinte, une clé refusée par le fournisseur, un fournisseur ou point de terminaison que Pi n’a pas pu joindre, un modèle inconnu du fournisseur ou du point de terminaison, une limite de débit, une autre erreur du fournisseur, un délai dépassé, une image ou un Pi manquant, ou une commande shell que Pi n’a pas pu exécuter. Aucune tâche n’est lancée. Le résultat enregistré est lié au fournisseur, au modèle, aux paramètres et aux identifiants actuels et apparaît dans les vérifications de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
+
+## Accès Internet de l’agent {#internet}
+
+**Accès Internet de l’agent** dans Paramètres → Agent et modèle décide de ce que le conteneur d’une tâche peut atteindre. Il est **Désactivé** par défaut.
+
+- **Désactivé** : le conteneur n’atteint que le fournisseur du modèle. ADORE autorise lui-même les adresses du fournisseur, pour un point de terminaison compatible OpenAI son adresse, par un proxy réseau propre à chaque tâche. La recherche web, la lecture de pages et les téléchargements comme `curl`, `npm install` ou `pip install` échouent, et Pi en est informé.
+- **Activé** : le conteneur dispose d’un réseau ouvert. Pi peut chercher sur le web, lire des pages et télécharger des bibliothèques avec `curl`, `npm` ou `pip`.
+
+**Recherche web** choisit le service de recherche quand l’accès est activé : **Exa (sans clé)**, par défaut, **Brave (clé requise)**, **Tavily (clé requise)** ou **Aucune** (ni recherche web ni lecture de pages). Pour Brave ou Tavily, enregistrez BRAVE_API_KEY ou TAVILY_API_KEY sous **Authentification**.
+
+> Avec l’accès Internet activé, une page web malveillante pourrait tenter de faire envoyer par l’agent sa clé API ou son jeton ChatGPT. Préférez des clés limitées et de courte durée.
+
+Les deux paramètres changent par **Préparer le candidat** et **Appliquer** comme les autres. Avec l’accès Internet désactivé, l’image du proxy doit exister sur le serveur ADORE ; **Vérifier les prérequis de l’hôte** la signale, ainsi que la clé de recherche si elle est nécessaire. Pour un projet installé sur le serveur, le commutateur est affiché **Non appliqué** : Pi atteint tout ce que le serveur atteint.
 
 ## Où s’exécutent les tâches {#where-jobs-run}
 
@@ -34,14 +78,14 @@ Le résultat est **Modèle IA connecté** ou **Connexion IA non vérifiée**, av
 |---|---|---|
 | S’exécute dans | Un conteneur Docker ou Podman temporaire sur le serveur ADORE | Le serveur ADORE lui-même, sous le compte du système d’exploitation du service, dans un worktree dédié |
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
-| Connexion | Clés API listées ou connexion de l’hôte | La connexion existante de l’agent sur ce compte, réutilisée telle quelle |
-| Réglages de l’agent | Les réglages de l’image, plus le [point d’accès local pour OpenCode](#local-endpoint) s’il est défini | Pour OpenCode, un dossier de réglages géré par ADORE : agents, fournisseurs, extensions et autorisations de votre dossier de réglages OpenCode personnel ne sont pas utilisés, `git push` et les outils de la forge sont bloqués, et les dossiers `.opencode` et `.agents/skills` du dossier personnel du compte s’appliquent toujours |
-| Isolation | Conteneur avec une politique réseau | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
+| Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé API du fournisseur ou la connexion existante de Pi sur ce compte, réutilisée telle quelle |
+| Réglages de l’agent | Le Pi intégré à l’image, avec des réglages fixés par ADORE ; les réglages et compétences Pi personnels ne sont pas lus | Le Pi installé pour ce compte, lancé avec la commande de lancement et les réglages Pi de ce compte |
+| Isolation | Conteneur ; avec l’accès Internet désactivé, il n’atteint que le fournisseur du modèle | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |
 
 Les modifications dans Paramètres passent par **Préparer le candidat**, la revue et **Appliquer**. **Installé sur le serveur** affiche la commande native de l’exécuteur et les champs du compte local (compte `current`, dossier personnel, PATH et, sous Linux, la racine cgroup) avec l’avis d’exécution locale.
 
-Les contrôles de l’hôte pour un projet local ignorent le moteur de conteneur et vérifient l’agent natif et sa connexion.
+Les contrôles de l’hôte pour un projet local ignorent le moteur de conteneur et vérifient le Pi installé et sa connexion ou sa clé API.
 
 ## Détecter les exécuteurs installés {#installed-executors}
 
@@ -57,8 +101,8 @@ Ouvrez **Avancé** pour la commande complète, un chemin d’exécutable manuel,
 
 Pour un projet en conteneur, Paramètres → Agent et modèle affiche **L’exécuteur fonctionne dans un conteneur**, l’**Image utilisée** et un volet **Instructions de préparation de l’environnement**. L’interface web ne définit ni ne construit l’image, et l’ajout d’un Dockerfile au dépôt ne lance aucune construction. L’administrateur la prépare sur le serveur :
 
-1. Créer `executor/Dockerfile` dans le dépôt, à partir de l’image de base d’ADORE, sans identifiants. L’image a besoin de Python, de sh et de l’agent choisi.
-2. La construire avec Docker ou Podman du serveur et vérifier les versions de l’agent et des outils.
+1. Créer `executor/Dockerfile` dans le dépôt, à partir de l’image de base d’ADORE, sans identifiants. L’image de base contient déjà Python, sh et le Pi épinglé.
+2. La construire avec Docker ou Podman du serveur et vérifier les versions des outils.
 3. Sélectionner l’image dans l’interface web comme décrit ci-dessous ou, avec la surveillance en pause et aucune tâche active, définir `execution.backend`, `container.image` et `container.required_tool_checks` dans le `config.toml` du projet (les administrateurs en voient le chemin dans le volet), puis valider le profil.
 
 ```
@@ -68,28 +112,12 @@ USER root
 USER adore
 ```
 
-Pour utiliser l’image, choisissez le **Moteur de conteneur** (Docker ou Podman) et l’**Image de l'exécuteur** à l’étape 2 de l’inscription, ou modifiez ces mêmes lignes dans Paramètres. L’image est un champ libre avec des suggestions tirées des images du serveur ADORE pour ce moteur (administrateurs uniquement) ; un avis s’affiche quand l’image saisie n’est pas sur le serveur, un autre quand la liste ne peut pas être lue. Le choix d’un exécuteur propose une image dont l’étiquette commence par le nom de l’exécuteur suivi d’un tiret (par exemple `pi-`), de préférence `adore-executor-base:` ; elle ne remplace que l’ancienne valeur par défaut ou une proposition précédente, jamais une valeur saisie.
+Pour utiliser l’image, choisissez le **Moteur de conteneur** (Docker ou Podman) et l’**Image de l'exécuteur** à l’étape 2 de l’inscription, ou modifiez ces mêmes lignes dans Paramètres. L’image est un champ libre avec des suggestions tirées des images du serveur ADORE pour ce moteur (administrateurs uniquement) ; un avis s’affiche quand l’image saisie n’est pas sur le serveur, un autre quand la liste ne peut pas être lue.
 
 Pour une commande WSL personnalisée, placez `--` ou `--exec` avant la commande du conteneur. Les entrées Docker et Podman standard sont traitées automatiquement.
 
 Confirmez ensuite avec **Vérifier les prérequis de l’hôte** et **Tester la connexion IA**.
 
-## Point d’accès local pour OpenCode {#local-endpoint}
+## Paquets système {#system-packages}
 
-Pour un projet en conteneur qui utilise OpenCode, les administrateurs voient aussi **URL du serveur compatible OpenAI** dans Agent et modèle, pour un modèle servi sur votre propre réseau. Saisissez l’URL, une **Référence de variable d'identification** facultative, le **Délai maximal de la requête (secondes)** et, pour HTTPS avec une autorité de certification privée, le **Fichier CA dans l'image d'exécution**. Le protocole est fixé à OpenAI chat completions. **Préparer le candidat** examine ensemble l’URL et le modèle.
-
-L’URL doit être joignable depuis l’intérieur du conteneur de l’exécuteur, où localhost désigne le conteneur lui-même, et l’image doit déjà contenir le paquet du fournisseur. L’enregistrement ne teste pas la joignabilité et n’ajoute aucun repli vers le cloud ; **Vérifier les prérequis de l’hôte** teste un appel d’outil en flux depuis un conteneur temporaire.
-
-## Résultats des contrôles locaux {#local-check-results}
-
-Dans Résumé, **Vérifier les prérequis de l’hôte** vérifie la version de l’exécuteur installé et sa connexion existante. L’exécution locale affiche un objectif concis et la cause mesurée : exécutable, version/code de sortie, délai, compte, identifiants, droits, préparation ou arrêt des processus. Les anciens résultats sans cause enregistrée demandent un nouveau contrôle.
-
-Utilisez séparément **Tester la connexion IA** dans Paramètres → Agent et modèle. En local, il utilise la commande native enregistrée et la connexion du compte ADORE dans un dossier temporaire vide. Des frais peuvent s’appliquer. Le résultat distingue identifiants refusés, modèle indisponible, connexion/délai et sortie invalide ou incomplète. Corrigez cette cause avant de répéter le contrôle concerné ; une connexion réussie ne prouve pas une tâche complète ni ses outils.
-
-## Paquets système de l’agent {#system-packages}
-
-**Autoriser l’installation de paquets système par l’agent**
-
-Dans Paramètres → Agent et modèle, les administrateurs activent cette permission distincte avec Préparer le candidat et Appliquer le changement. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
-
-L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.
+Un administrateur peut préparer **Autoriser l’installation de paquets système par l’agent** dans **Paramètres → Agent et modèle**. Désactivé par défaut, ce droit concerne seulement les conteneurs. Pi peut installer directement avec `sudo -n`, lire les résultats et s’adapter dans les limites de la tâche. **Accès Internet de l’agent** reste distinct ; désactivé, les sources externes exigent un hôte autorisé. Utilisez une image avec sudo, suspendez la surveillance et attendez la fin du travail actif avant d’appliquer, puis lancez une nouvelle tâche. Les paquets restent dans ce conteneur et ne modifient pas l’image.

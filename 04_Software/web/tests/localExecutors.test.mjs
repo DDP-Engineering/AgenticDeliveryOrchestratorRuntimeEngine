@@ -10,7 +10,7 @@ import {commandForExecutable,discoveryCopy,executableFromCommand,validExecutable
 
 test("manual native paths preserve spaces and launch placeholders on both operating systems",()=>{
  assert.equal(commandForExecutable("pi","C:\\Program Files\\Pi\\pi.exe"),'"C:/Program Files/Pi/pi.exe" -p --mode json --model {model} {prompt}');
- assert.equal(commandForExecutable("opencode","/opt/installed agents/opencode"),'"/opt/installed agents/opencode" run --dir {worktree} -m {model} --format json {prompt}');
+ assert.equal(commandForExecutable("pi","/opt/installed agents/pi"),'"/opt/installed agents/pi" -p --mode json --model {model} {prompt}');
  for(const path of ["opencode","C:relative.exe",'/tmp/bad"path',"/tmp/{prompt}","/tmp/x\nfoo","//network/path"]){
   assert.equal(validExecutablePath(path),false,path);
   assert.equal(commandForExecutable("opencode",path),"");
@@ -23,9 +23,9 @@ test("manual native paths preserve spaces and launch placeholders on both operat
 });
 
 test("discovery response is bounded and rejects duplicate agents and malformed launch references",()=>{
- const valid={system:"Linux",machine:"host",account:"account",executors:["opencode","pi","codex","qwen"].map(agent=>({agent,installations:[]}))};
+ const valid={system:"Linux",machine:"host",account:"account",executors:["pi"].map(agent=>({agent,installations:[]}))};
  assert.equal(validLocalExecutors(valid),true);
- for(const mutate of [v=>{v.executors[1].agent="opencode";},v=>{v.executors[0].installations=[{executable:"relative",entrypoint:null,source:"PATH",command:"tool {prompt}"}];},v=>{v.system="unknown";},v=>{v.executors[0].installations=Array(13).fill({});}]){
+ for(const mutate of [v=>{v.executors.push(structuredClone(v.executors[0]));},v=>{v.executors[0].installations=[{executable:"relative",entrypoint:null,source:"PATH",command:"tool {prompt}"}];},v=>{v.system="unknown";},v=>{v.executors[0].installations=Array(13).fill({});}]){
   const invalid=structuredClone(valid);mutate(invalid);assert.equal(validLocalExecutors(invalid),false);
  }
 });
