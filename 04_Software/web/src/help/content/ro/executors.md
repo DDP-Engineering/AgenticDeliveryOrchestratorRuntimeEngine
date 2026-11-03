@@ -4,34 +4,34 @@ Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de prog
 
 ## Ce este un executor {#what}
 
-Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. Pi nu face commit, nu face push și nu vede credențiale de forge; ADORE se ocupă de acestea. În container, ADORE folosește Pi inclus în imaginea executorului; pentru un proiect instalat pe server, Pi trebuie să fie deja instalat pentru contul serverului. Modificările se aplică doar lucrărilor noi.
+Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. ADORE folosește Pi din imagine pentru lucrările în container și instalarea Pi administrată de ADORE pentru lucrările pe server.
 
 ## Alegerea furnizorului și a modelului {#agent-and-model}
 
-Deschideți **Setări → Agent și model**. Rândurile sunt **Furnizor**, **Model**, **Comanda de lansare a executorului** și, pentru un endpoint, **Adresa de bază a endpointului** și **Tipul API al endpointului**. **Modifică** pe oricare dintre rândurile de furnizor, model sau endpoint deschide un singur editor pentru toate, revizuite și aplicate ca o singură modificare.
+Deschideți **Setări → Agent și model**. Editați împreună **Furnizor**, **Model** și, pentru un endpoint, **URL de bază al endpointului** și **Tip API al endpointului** ca o singură modificare revizuită.
 
 - **Furnizor**: unul dintre furnizorii Pi cu cheie API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral și alții), **Abonament ChatGPT** sau **Endpoint compatibil OpenAI**.
 - **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu `gpt-5.4`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.
 - **Abonament ChatGPT**: Pi folosește contul ChatGPT Plus sau Pro cu care este autentificat acest server ADORE, vezi [Autentificare cu ChatGPT](#chatgpt). Lista conține modelele servite de un abonament ChatGPT, de exemplu `gpt-5.6-luna`.
 
-**Pregătește candidatul** arată valoarea activă și propusă a fiecărui câmp, iar **Aplică** le scrie; așteptați-vă să opriți mai întâi monitorizarea, vedeți [Setările proiectului](/help/settings#editing). În container, ADORE pornește singur Pi inclus în imagine, prin modul său RPC cu setări fixe, și îl oprește la limita de timp a etapei sau la anulare; comanda de lansare nu este folosită acolo, deci este oferită doar presetarea Pi. Pentru un proiect instalat pe server, comanda de lansare pornește Pi instalat, are implicit valoarea `pi -p --mode json --model {model} {prompt}` (`{model}` devine furnizor/model), trebuie să conțină `{prompt}` și nu trebuie să folosească `--auto`.
+**Pregătește candidatul** arată valorile active și propuse. **Aplică modificarea** le salvează; vedeți [Setările proiectului](/help/settings#editing) pentru a pune monitorizarea în pauză. ADORE pornește un proces Pi nou la fiecare etapă și îl oprește la expirarea timpului sau la anulare.
 
 ## Endpoint compatibil OpenAI {#endpoint}
 
 Pentru un model servit în propria rețea, de exemplu LM Studio, Ollama sau vLLM, alegeți **Endpoint compatibil OpenAI** și completați:
 
-- **Adresa de bază a endpointului**: adresa văzută din container, de exemplu `http://192.168.1.20:1234/v1`. `localhost` este containerul însuși. `host.docker.internal` ajunge la gazdă doar cu Docker Desktop; cu Docker Engine pe Linux sau în WSL folosiți adresa de rețea a gazdei, iar pentru un server pe Windows accesat din Docker în WSL, gateway-ul implicit al WSL.
+- **Adresa de bază a endpointului**: adresa așa cum o vede Pi. Pentru **Container**, adresa este cea văzută din container; pentru o lucrare locală, este cea văzută de server.
 - **Tipul API al endpointului**: `openai-completions` pentru LM Studio, Ollama și vLLM; sunt acceptate și `openai-responses`, `anthropic-messages` și `google-generative-ai`.
 - **Model**: ID-ul modelului servit de endpoint.
 
-Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu [accesul la internet](#internet) dezactivat, ADORE permite singur adresa endpointului. Un endpoint este disponibil doar pentru proiectele în container.
+Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu [accesul la internet](#internet) dezactivat, ADORE permite singur adresa endpointului. Un endpoint este disponibil atât în container, cât și pe server.
 
 ## Autentificare {#credentials}
 
 Deschideți **Autentificare** în același grup.
 
 - **Cheia API a furnizorului.** Panoul numește variabila de care are nevoie furnizorul configurat, de exemplu OPENAI_API_KEY pentru OpenAI sau ANTHROPIC_API_KEY pentru Anthropic. Introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o păstrează privat în depozitul de credențiale al proiectului pe server, niciodată în fișierul de configurare, o transmite lui Pi doar ca acea variabilă și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Schimbarea unei chei cere monitorizarea oprită, un proiect inactiv și nicio propunere în așteptare și nu testează cheia.
-- **Autentificarea existentă a contului.** Doar pentru un proiect instalat pe server: Pi folosește propria autentificare pentru contul serverului, configurată în afara interfeței web. Un proiect în container folosește cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din [autentificarea ChatGPT](#chatgpt) a serverului; nicio autentificare nu este copiată în container.
+- **Proiecte pe server.** Salvați **Cheia API a furnizorului** dacă este necesară. ADORE ignoră autentificarea Pi personală. [Autentificarea ChatGPT](#chatgpt) comună este pentru proiectele în container.
 - **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE poartă eticheta **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
 - **Cheia de căutare web.** Cu accesul la internet activat și căutarea web Brave sau Tavily, panoul listează și BRAVE_API_KEY sau TAVILY_API_KEY, salvată la fel, și pentru un abonament ChatGPT.
 - **Variabile de autentificare suplimentare.** Doar nume (**Adaugă o variabilă de autentificare**) ale unor secrete suplimentare primite de Pi pe lângă cheia furnizorului; majoritatea proiectelor nu au nevoie de ele.
@@ -78,24 +78,22 @@ Ambele setări se schimbă prin **Pregătește candidatul** și **Aplică**, ca 
 |---|---|---|
 | Rulează în | Un container Docker sau Podman temporar pe serverul ADORE | Chiar serverul ADORE, sub contul de sistem de operare al serviciului, într-un worktree dedicat |
 | Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
-| Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia API a furnizorului sau autentificarea Pi existentă pe acel cont, reutilizată pe loc |
-| Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi instalat pentru acel cont, pornit cu comanda de lansare și cu setările Pi ale acelui cont |
+| Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia API a furnizorului proiectului, dacă este necesară |
+| Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi administrat de ADORE cu setări și extensii proprii |
 | Izolare | Container; cu accesul la internet dezactivat ajunge doar la furnizorul modelului | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
 | Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |
 
-Modificările din Setări trec prin **Pregătește candidatul**, revizuire și **Aplică**. **Instalat pe server** afișează comanda nativă a executorului și câmpurile contului local (contul `current`, directorul home, PATH și, pe Linux, rădăcina cgroup), împreună cu avizul despre execuția locală.
+**Instalat pe server** folosește contul curent al sistemului și oferă opțional **PATH pentru uneltele proiectului**. Comanda de lansare este fixă.
 
-Verificările gazdei pentru un proiect local omit motorul de containere și verifică Pi instalat și autentificarea sau cheia API a acestuia.
+**Verifică cerințele gazdei** omite motorul de containere și verifică Node, instalarea Pi administrată și credențialele furnizorului ales.
 
-## Detectarea executorilor instalați {#installed-executors}
+## Instalarea Pi pe server {#installed-executors}
 
-Când alegi **Instalat pe server**, ADORE detectează OpenCode, Pi, Codex și Qwen Code pe gazda execuției. **Rulează ca** identifică mașina și contul; într-o instalare portabilă pe desktop, este calculatorul care rulează ADORE. Prima instalare detectată completează o comandă goală sau standard la înrolare. **Instalări detectate** permite alegerea altei instalări. Comenzile deja salvate și editările manuale rămân păstrate.
+Rulați `adore pi install` și `adore pi verify` pe serverul ADORE sub contul serviciului. Folosiți Node 22.23.4 sau ulterior din seria 22.x, cu npm. Dacă Node nu este în PATH-ul serviciului, setați `ADORE_NODE` la calea sa absolută.
 
-ADORE folosește automat contul procesului său, directorul acestuia, PATH-ul uneltelor și autentificarea salvată a executorului. Pornește un proces nou al executorului, fără să se conecteze la un terminal deschis. Un serviciu folosește contul serviciului.
+Rulați din nou `adore pi install` când o versiune ADORE cere altă versiune Pi. Nu este nevoie de Pi global; setările și extensiile personale sunt ignorate.
 
-Detectarea pornește automat când alegi execuția locală; schimbarea executorului folosește lista detectată. Deschide **Avansate** pentru **Detectează executorii instalați** dacă vrei să o reîmprospătezi. Deschide **Avansate**, introdu **Calea executabilului pe gazda ADORE** și alege **Folosește executabilul** sau editează **Comanda de lansare a executorului**. Windows folosește un `.exe` real; agenții Node necesită comanda Node/JavaScript instalată. Detectarea citește locațiile instalărilor, fără să instaleze unelte, să autentifice sau să testeze modelul.
-
-Deschide **Avansate** pentru comanda completă, calea manuală a executabilului, suprascrierile directorului/PATH și delegarea cgroup Linux. Lasă directorul și PATH goale pentru valorile automate. PATH înseamnă directoare cu unelte, nu fișierul executabil. Numele contului din Setări doar verifică identitatea curentă, fără să schimbe utilizatorul.
+Windows folosește unealta PowerShell; în Linux administratorul serverului configurează o rădăcină cgroup v2 delegată. Pi nu cere permisiuni. Folosiți un cont de sistem dedicat.
 
 ## Imaginea proiectului {#project-image}
 

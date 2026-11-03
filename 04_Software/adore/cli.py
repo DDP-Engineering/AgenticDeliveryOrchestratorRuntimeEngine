@@ -30,6 +30,7 @@ from dataclasses import asdict
 import json
 from pathlib import Path
 import re
+import sys
 import tomllib
 
 from adore import __version__, metrics
@@ -38,7 +39,7 @@ from adore.clone_cleanup import clone_decision, project_clone_decision
 from adore.config import Config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.forge import ForgeError
-from adore.local_execution import local_probe_failure
+from adore.local_execution import LocalPrerequisiteError, local_probe_failure
 from adore.local_process import LocalExecutionError
 from adore.orchestrator import LockHeldError, Orchestrator
 from adore.preparation import PreparationError, preview_plan, public_plan
@@ -97,6 +98,8 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="Run one eligible ticket (with --once); readiness still applies")
 
     sub.add_parser("status", help="Show overall state")
+    pi = sub.add_parser("pi", help="Manage the pinned native Pi installation")
+    pi.add_argument("action", choices=("install", "verify"))
     sub.add_parser("runs", help="List schema-1 working/parked/approval/review runs")
     sub.add_parser("pause", help="Stop picking new tickets")
     sub.add_parser("resume", help="Allow picking new tickets")
@@ -648,6 +651,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return finish(EXIT_ERROR, "configuration_invalid")
     try:
         built = _engine(args)
+    except LocalPrerequisiteError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return finish(EXIT_ERROR, "engine_setup_failed")
     except Exception:  # noqa: BLE001 - manual result must not expose setup secrets
         if args.ticket is None:
             raise
@@ -709,7 +715,9 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     except (LocalExecutionError, PermissionError) as exc:
         if args.command != "retry":
             raise
-        reason = local_probe_failure(exc, "engine-setup-failed").replace("-", "_")
+        cause = local_probe_failure(exc, "engine-setup-failed")
+        reason = ("executable_missing" if cause in {"node-missing", "pi-missing"}
+                  else cause.replace("-", "_"))
         return finish(EXIT_ERROR, reason)
     except Exception:  # noqa: BLE001 - Retry must return a closed setup outcome
         if args.command != "retry":
@@ -1186,6 +1194,19 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.command == "pi":
+        from adore.pi_installation import PiInstallationError, install_pi, verify_pi
+
+        try:
+            if args.action == "install":
+                install_pi(progress=lambda message: print(message, flush=True))
+            else:
+                pi = verify_pi()
+                print(f"Managed Pi {pi.prefix.name} verified at {pi.prefix}.")
+        except (PiInstallationError, OSError) as exc:
+            print(f"Managed Pi: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        return 0
     if args.command == "config":
         return _cmd_config(args)
     if args.command == "status":

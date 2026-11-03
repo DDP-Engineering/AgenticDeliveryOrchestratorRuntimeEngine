@@ -7,244 +7,94 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Local execution
 
-Select `[execution] backend = "local"` to run an installed Pi, ADORE's only coding
-agent, under ADORE's current machine/service account in a dedicated ticket worktree.
-Omitted backend keeps container execution. Choose **Runs in → Installed on the server** on enrollment
-step 2 or in Settings → Agent and model (reviewed configuration flow), or use assisted
-CLI setup or external server TOML enrollment; the web shows the native executor command
-and the read-only detected account. Technical controls (`home`, `path`, Linux
-`cgroup_root`) are inside closed **Advanced**; enrollment uses `account = "current"`.
-Readiness evidence identifies the actual server machine/account. Tools installed on the browser
-laptop do not prepare the execution server.
+Choose **Runs in → Installed on the server** during enrollment or in
+**Settings → Agent and model** to run ADORE-managed Pi in a dedicated worktree
+under the current ADORE service account. Container execution remains the default.
+Pi has no permission prompts. Use a dedicated, least-privilege OS account:
+a worktree and a process scope do not prevent access to files, credentials or
+network destinations the account can reach.
 
-## Account and user-owned tools
+## Install and verify
 
-You decide and independently install/prep project tools, versions, SDKs and libraries
-on that machine under the effective account, Pi included (`pi --version` must
-work for that account). ADORE checks basic Pi availability and auth state. It
-supplies no catalogue, discovery, installer, bootstrap or required project-tool
-manifest. Sign Pi in interactively under the service account, or approve a
-provider API key, before unattended operation. ADORE never
-switches account or starts login. A named `local.account` asserts the actual account
-(qualified name on Windows); `current` uses it directly. Empty home/PATH settings
-use native defaults; explicit values select an already prepared environment.
-The executor is a new child process under the same account, not an attachment to
-an open terminal. Settings keeps existing account assertions/home/PATH/delegation
-under **Advanced**. PATH is the tool directory list, not the executor file path. Windows native
-children also inherit `PATHEXT`, which lets their shells resolve installed
-commands such as `git` and `python` without an explicit `.exe` suffix.
+Install Node.js 22.23.4 or later in the 22.x line with its npm distribution.
+Run these commands on the ADORE server under the same account and with the
+same ADORE home as the service:
 
-A worktree is not a host sandbox. Project commands can access files, credentials
-and helpers permitted to the OS account. Use a dedicated least-privilege account
-and keep forge publication credentials outside it when possible. Environment
-filtering does not remove filesystem access. A local run is not
-network-restricted: a non-empty `[container.egress] allowlist` is refused, and
-`[executor] internet` (Internet access for the agent) is not enforced; Pi
-reaches whatever the server reaches.
+```text
+adore pi install
+adore pi verify
+```
 
-## Installed executor selection
+On Windows, use the packaged ADORE CLI wrapper if `adore` is not on PATH. The
+service may set `ADORE_NODE` to the absolute path of `node.exe` or, on Linux,
+`node`. ADORE otherwise finds Node on the service PATH. Project PATH overrides
+never choose Node. ADORE invokes npm and Pi with that executable directly,
+including paths with spaces; it does not run an npm shim or require a global Pi.
 
-Enrollment **Agent and model → Runs in → Installed on the server** detects native
-Pi from the current ADORE account PATH and conventional
-user/npm directories. The actual host/account is shown. An empty or standard
-command receives the first detected launch; typed commands remain unchanged.
-**Detected installations** selects another executable or installed Node/JS pair.
-**Detect installed executors** refreshes suggestions. Discovery reads files only,
-without executing a CLI, reading credentials or contacting providers.
+Installation requires registry access and write permission under
+`<ADORE home>/tools/pi`. npm installs the build's Pi and web extension pins
+there without lifecycle scripts or personal npm settings. ADORE checks Node,
+the package versions and Pi's version before publishing the version directory.
+On a build with a new Pi pin, run `adore pi install` again; the build selects its
+own prefix and leaves other prefixes alone. `adore pi verify` checks the install
+without making an AI request. A corrupt prefix is refused; move it aside and
+install again.
 
-To choose a server executable manually, open **Advanced**, enter its absolute path in **Executable
-path on the ADORE host**, then select **Use executable**. This generates the standard
-agent arguments; edit **Executor launch command** to keep custom arguments or
-supply an installed Node/JS pair. Windows uses real `.exe` files, including native
-binaries behind npm wrappers. Missing or unusual installations remain manually
-configurable. Settings exposes the same picker while editing a local launch
-command; saved commands are preserved until explicitly changed and use the normal
-Prepare candidate / review / Apply workflow. Detection is a suggestion; execution
-still validates and pins installed file identities. Linux still requires delegated
-cgroup v2. Existing authentication and model checks remain separate.
-
-## Platform controls
-
-Native Windows uses a unique non-breakaway Job Object with kill-on-close. The CLI
-must be an executable `.exe`. npm `.cmd`, `.bat`, PowerShell and shell wrappers
-are refused. For npm CLIs configure absolute installed `node.exe` plus the absolute
-installed `.js`, `.mjs` or `.cjs` entrypoint outside the project clone. Quote paths
-with spaces. Both installed identities are pinned.
-
-Native Linux requires an absolute writable operator-delegated cgroup-v2 root with
-`cgroup.controllers`, new child cgroups and `cgroup.kill`. Set `local.cgroup_root`
-to that root. Configure delegation through your service manager; ADORE creates
-and removes only its random child scopes. The trusted child joins before project
-code, and `cgroup.kill` controls descendants. ADORE inside WSL2 works only with
-the same Linux controls. Windows-to-WSL local wrapping, macOS, cgroup v1 and
-PID/process-group fallbacks fail before project commands. Delegation is process
-control setup; project dependency provisioning remains user-owned.
-
-## Configuration and authentication
-
-Keep your forge, worktree, reviewers and executor/model declarations. Example:
+## Project settings
 
 ```toml
 [execution]
 backend = "local"
-preparation = ""
 
 [local]
 account = "current"
-home = ""
-path = ""
-cgroup_root = "" # Linux: absolute delegated root; Windows: unused
-environment = { LANG = "en_US.UTF-8" } # Non-secret settings only
+path = "" # Empty uses the service PATH; otherwise supply tool directories.
 
 [executor]
 provider = "openai"
 model = "your-model"
-command = "pi -p --mode json --model {model} {prompt}" # the default
-env_keys = [] # Additional secrets only; the provider's key variable is always passed
 ```
 
-The native command must contain `{prompt}` and must not use `--auto`. For a
-Windows npm install of Pi use its actual installed entrypoint, preserving normal flags:
+The launcher is fixed. Remove `[executor] command` and unsupported
+`[local]` fields from server TOML. Use the selected provider's project
+credential; ADORE never reads personal Pi sign-in. For an OpenAI-compatible
+endpoint, use the address as seen from the server and configure a key only
+when the endpoint needs one. ChatGPT subscription sign-in remains a
+container-only option.
 
-```toml
-command = '"C:\Tools\node.exe" "C:\Tools\agent\cli.js" -p --mode json --model {model} {prompt}'
-```
+The operator supplies the project's tools, SDKs and libraries. Windows uses
+Pi's PowerShell tool and an owned Job Object. On Linux, set the service's
+`ADORE_LOCAL_CGROUP_ROOT` to an absolute, writable, delegated cgroup v2 root.
+The service must be able to create child cgroups and use `cgroup.kill`. There
+is no fallback to unowned PID control. Set `workflow.aegis_python` to the native
+Python executable if the default command is unavailable.
 
-Templates are tokenized before replacement: prompt/model/path spaces stay in their
-argument. Each gate starts a fresh session; the only placeholders are `{prompt}`,
-`{model}` and `{worktree}`. Shell compounds,
-redirection and shell executables are unsupported. Set `workflow.aegis_python`
-to installed native Python when `python3` is unavailable; its path may contain spaces.
+Container recipes, runtime options and system package installation permissions
+do not apply locally. **Internet access for the agent** cannot restrict host
+network access. When it is On and a search service is selected, Pi loads ADORE's
+pinned web extension; Off disables that extension only.
 
-Local mode rejects preparation recipes, container run arguments,
-tool-check manifests, SELinux relabel and custom `container.runtime_env`. Remove
-these when changing backend. Use `local.environment` for non-secret
-config-location settings. Unknown local fields, managed HOME/PATH/account overrides
-and forge credential variables reject. Approved provider secrets belong in the
-protected profile `.env` or process environment under the provider's variable
-(for example `OPENAI_API_KEY`); the local Pi may instead use the account's own
-sign-in. `{model}` in the command becomes `<provider>/<model>`. An
-OpenAI-compatible endpoint (`provider = "custom"`) needs a container run and
-is refused for a local one: ADORE writes its `models.json` only into its own
-agent directory.
+## Isolation and recovery
 
-A native Pi runs with the account's own Pi agent directory
-(`PI_CODING_AGENT_DIR`, default `~/.pi/agent`): its sign-in, settings, extensions
-and skills apply, as does the repository's `AGENTS.md`. ADORE loads no guard
-extension and sets no permission policy on a native run; the account keeps
-whatever credentials it holds, so use a dedicated account without forge
-credentials.
+Each stage uses Pi RPC over pipes inside the owned Job or cgroup. ADORE creates
+a fresh agent directory outside the worktree, places any generated model and
+web settings there, and loads only the ADORE guard and the selected managed web
+extension. Personal and untrusted project extensions, skills, themes, templates
+and MCP do not load; the repository's AEGIS instructions still apply. The guard
+supplements credential filtering. It does not sandbox the account.
 
-Existing auth is reused in place: Pi at `PI_CODING_AGENT_DIR/auth.json` (default
-`~/.pi/agent/auth.json`). Bounded valid JSON is read only for auth/redaction;
-credential stores are never copied to worktrees, IO or archives. Known account/
-provider values are redacted from retained output, questions and launch descriptions.
-Commands receive the small system/config-location allowlist, explicit local
-settings, managed account/home/PATH and approved provider variables. On Windows
-the allowlist also passes the machine/system names that platform detection and
-system-folder lookups need: `PATHEXT`, `PROCESSOR_ARCHITECTURE`,
-`PROCESSOR_ARCHITEW6432`, `PROCESSOR_IDENTIFIER`, `PROCESSOR_LEVEL`,
-`PROCESSOR_REVISION`, `NUMBER_OF_PROCESSORS`, `OS`, `SystemDrive`, `ProgramData`,
-`ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, `CommonProgramFiles`,
-`CommonProgramFiles(x86)`, `CommonProgramW6432`, `ALLUSERSPROFILE` and `PUBLIC`.
-Account names such as `HOMEDRIVE`, `HOMEPATH` and `USERDOMAIN` are not passed.
-A run pins the resulting environment, so finish or cancel local runs before
-upgrading to a build that changes this allowlist; a run started earlier is
-otherwise treated as drifted.
-
-## Review, readiness and limits
-
-Use `adore --profile NAME config validate`, then `config plan` to review the pinned
-non-secret local fingerprint without project commands. Web settings stage one
-candidate and recheck fingerprint/revision under idle/pause/lock rules. Local
-settings hide container-only controls. Portable working rules exclude backend,
-machine/account, local paths/environment/cgroup and runtime identity.
-
-Explicit host readiness checks Git/forge/AEGIS files and the installed Pi and its
-auth without Docker/Podman, images or recipes. Container rows are hidden locally.
-Readiness does not prove project dependencies or an entire job. **Test AI connection**
-sends a bounded nonce challenge through the same configured Pi command/account/environment
-and may incur cost. The challenge asks Pi to run `echo <nonce>` with its shell tool
-and then reply with a second nonce; only a completed shell call that printed the
-nonce plus the exact reply reports ready, and a missing, rejected or failed shell
-call reports `tool-call-failed`. It initiates no login. Executor version checks
-are bounded at 10 seconds; the model challenge at 90 seconds. Gates retain
-configured budgets.
-
-## Durable recovery and cleanup
-
-Schema-1 execution state pins backend, machine/account, non-secret environment,
-installed executable/Node entrypoint metadata and worktree/IO identity. Authoritative
-runtime and immutable launch ownership live outside worktree/IO. ADORE assigns
-the native scope, persists the active lease and then releases the trusted child.
-The lease binds run UUID, host, supervisor PID birth and exact random Job/cgroup.
-Control never kills a recovered PID alone. Reused PIDs, replaced scopes, corrupt
-records or unconfirmed drain fail closed and preserve resources/evidence.
-
-Timeout/cancellation terminate the verified scope including descendants; normal
-exit also drains descendants. Parking retains worktree/archives without a live gate.
-Retry/restart reconciles the same pinned resource. Explicit cancel/delete release
-only verified run controls/worktrees; shared tools/home/auth and archives remain.
-Routine cleanup protects active, failed, human-owned and corrupt runs. Container
-profiles protect persisted native worktrees. Explicit Retry revalidates an updated
-installed executor or inherited environment on the same machine/account, retaining
-the job/task/worktree and cumulative budgets. It runs the bounded version check
-before AEGIS and reports the saved failure cause if rearming fails. Automatic
-resume keeps pinned identity checks. Changed backend/account or execution settings
-still need correction; never edit identity records to force recovery. Windows parent death closes its Job; Linux recovery uses durable cgroup
-identity. Old binaries reject local records.
-
-The existing conductor retains AEGIS journals, questions, immutable gate archives,
-usage coverage, authoritative exit/timeout and candidate-bound approval. Publication
-opens draft MR/PRs only. ADORE never merges.
-
-## Verification coverage
-
-Offline proof injects native processes, Win32 accounting, Linux cgroup filesystem
-and external CLIs. Focused contract/regression, TypeScript, helper, build and browser
-checks cover the implemented boundaries. Full Python/frontend suites, aggregate
-AEGIS `--run`, integrated epic #23 and live OS/executor/provider/forge acceptance
-are explicitly deferred for this change.
-
-Native AEGIS stdout preserves the established 4 MiB JSON exchange bound; gate
-stdout, stderr and questions remain bounded at 64 KiB; Test AI connection keeps up to 1 MiB
-of executor stdout, as the container test does, because Pi repeats the whole
-conversation in its events. Native stream decoding
-rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
-The shared drain retains container defaults. Saved local readiness checks reuse
-approved profile .env values in memory through the same native environment.
-
-## Background command output
-
-ADORE supplies `GIT_PAGER=cat` and `PAGER=cat` to automatic commands and native
-executors. Their ordinary child commands inherit these values, so Git output
-is captured directly instead of opening an interactive pager. These launch
-values override pager settings in the account or profile for that invocation.
-Windows console processes started by ADORE use `CREATE_NO_WINDOW`; the native
-supervisor and executor remain in their owned Job with captured output.
-The same pager defaults apply to commands executed inside containers.
-
-These defaults apply to new launches. Existing processes and manually started
-terminals retain their environment. A tool explicitly opening a GUI, requesting
-a new console or replacing its pager environment can override inherited defaults.
+The supervisor releases the process only after recording its durable ownership.
+Cancellation and timeout abort RPC and confirm that the native scope drains
+before reusing it. Automatic resume requires the pinned native identity.
+Explicit Retry can recheck tools and refresh verified environment evidence on
+the same machine and account. Cleanup refuses corrupt or foreign ownership
+and preserves the worktree when it cannot confirm scope drainage.
 
 ## Readiness and model checks
 
-In project Summary, **Check host prerequisites** verifies the installed executor
-version and existing account sign-in. Local execution failures now distinguish
-missing executable, version command exit/timeout, invalid version, absent/corrupt
-authentication, account/home mismatch, permission, process scope and cleanup.
-The numeric exit code is shown when available; credentials and raw command output
-are not displayed. Older results without a cause ask for a fresh check.
-
-**Test AI connection** in **Settings → Agent and model** sends one short request
-through the saved native command in an empty temporary folder under the ADORE
-account. Existing sign-in is reused; a provider charge may apply. The result
-separates authentication rejection, unavailable model, connection/timeout and
-invalid/incomplete executor response. It does not prove a complete job or tool
-support. Correct the reported cause and repeat only the relevant check.
-
-On Windows, background executor commands keep their standard output and errors
-available to ADORE while opening no console window. Host version checks and model
-responses use that same captured native transport. A successful process exit
-alone does not prove a successful check; the captured evidence is still required.
+**Check host prerequisites** reports missing or incompatible Node, missing or
+invalid Pi, the process scope and whether the selected provider credential is
+configured. It does not contact the model. **Test AI connection** explicitly
+runs a bounded RPC challenge in a temporary worktree and may incur charges.
+The test requires a successful shell command and the exact final reply. Neither
+check proves the project's toolchain or a complete job.

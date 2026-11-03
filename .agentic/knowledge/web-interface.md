@@ -643,7 +643,7 @@ terminal causes in all four locales. No raw CLI/forge/executor output is forward
 Focused proof: tests/test_retry_revalidation.py and web/tests/manualStart.test.mjs.
 
 
-- REQ-UX-b75e1df8: ProjectInput accepts execution_backend and local account/home/path/cgroup/native argv. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
+- REQ-UX-b75e1df8: ProjectInput accepts execution_backend and the current account and optional local PATH. Review/config show actual machine/account/system; metadata reports runtime=local. Reviewed candidates recheck pinned native plans. Host checks avoid container detection.
 
 Native control/auth route to local-execution.md. Focused proof:
 `04_Software/tests/test_local_execution.py`.
@@ -957,3 +957,7 @@ service schedules repeated `run --once` rounds independently of that value.
 Connection and launch-command editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow the control on wide screens, with shared responsive wrapping.
 
 Inline editor validation follows the controls/actions on its own flex line. Incomplete model or command edits keep the same control/action placement and disabled Prepare, while responsive wrapping remains shared.
+
+Explicit native readiness returns closed Node/Pi diagnostic evidence; persisted
+readiness keeps the boolean check contract. The local Settings UI exposes only
+the current account and project tools PATH for native setup.

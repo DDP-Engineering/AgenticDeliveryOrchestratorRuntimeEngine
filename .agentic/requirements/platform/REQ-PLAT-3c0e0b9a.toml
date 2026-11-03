@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-PLAT-3c0e0b9a"
+title = "Diagnose native Pi prerequisites"
+status = "active"
+requirement = "If the managed Node or Pi is unavailable or incompatible, ADORE shall report the failed prerequisite in native readiness."
+verification = "Exercise absent Node, old Node and missing Pi without launching an external provider."
+affected_paths = ["04_Software/adore/local_execution.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_readiness_reports_managed_pi_prerequisite"]
+created = 2026-11-03
+updated = 2026-11-03

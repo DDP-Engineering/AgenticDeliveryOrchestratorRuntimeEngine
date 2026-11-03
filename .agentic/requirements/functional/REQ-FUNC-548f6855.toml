@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-548f6855"
+title = "Install pinned Pi for the current account"
+status = "active"
+requirement = "When the operator installs managed Pi, ADORE shall verify and publish the exact build pins in its versioned tools directory."
+verification = "Install using fake npm; verify the exact packages and switch between build pins without modifying the older prefix."
+affected_paths = ["04_Software/adore/pi_installation.py"]
+linked_tests = ["04_Software/tests/test_pi_installation.py::test_install_verify_and_change_build_pin"]
+created = 2026-11-03
+updated = 2026-11-03

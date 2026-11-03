@@ -38,7 +38,6 @@ from adore import doctor
 from adore.branding import (
     DEFAULT_STATE_ROOT,
     EXECUTOR_BASE_IMAGE,
-    PI_NATIVE_COMMAND,
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
 )
@@ -550,13 +549,6 @@ def run_wizard(
         f"{EXECUTOR_BASE_IMAGE}  |  adore-executor-project:latest",
         default=EXECUTOR_BASE_IMAGE, validate=_require,
     ), asker, out)
-    executor_command = PI_NATIVE_COMMAND
-    if execution_backend == "local":
-        executor_command = ask(FieldSpec(
-            "executor_command", "Installed native Pi argv:",
-            "Quoted native executable paths; Windows npm CLIs use explicit node.exe and "
-            "an absolute installed JavaScript entrypoint. No shell wrappers or compounds.",
-            default=executor_command, validate=_require), asker, out)
     provider = ask(FieldSpec(
         "provider", "Model provider:",
         'a Pi API-key provider id, "chatgpt" (this server\'s ChatGPT Plus/Pro sign-in) '
@@ -568,7 +560,7 @@ def run_wizard(
     if provider == CUSTOM:
         endpoint["base_url"] = ask(FieldSpec(
             "endpoint_base_url", "Endpoint base URL:",
-            "the address as seen from the container (host.docker.internal works only on "
+            "the address as seen by Pi (host.docker.internal works only on "
             "Docker Desktop; otherwise use the host's address)",
             "http://192.168.1.20:1234/v1", validate=_endpoint_url_ok,
         ), asker, out)
@@ -587,11 +579,14 @@ def run_wizard(
                  _DEFAULT_MODEL if provider == _DEFAULT_PROVIDER else None),
         validate=_model_ok,
     ), asker, out)
-    auth_mode = "api-key" if execution_backend == "container" else ask(FieldSpec(
-        "auth_mode", "Executor auth mode:",
-        "api-key sets a provider key in .env; existing reuses the account's own Pi sign-in",
-        "existing", default="existing", choices=("api-key", "existing"),
-    ), asker, out)
+    if isinstance(asker, ScriptedAsker):
+        retired = {"executor_command", "local_home", "local_cgroup_root"} & asker.answers.keys()
+        if retired:
+            raise WizardError(f"remove unsupported setup answers: {', '.join(sorted(retired))}")
+        if asker.answers.get("auth_mode", ["api-key"]) != ["api-key"]:
+            raise WizardError("auth_mode: only api-key is supported; remove personal sign-in")
+        if asker.answers.get("local_account", ["current"]) != ["current"]:
+            raise WizardError("local_account must be current")
     local_settings = {}
     if execution_backend == "local":
         from adore.local_process import native_context
@@ -601,11 +596,11 @@ def run_wizard(
             "You independently choose/install/prep project tools, versions, SDKs "
             "and libraries there. "
             "A worktree is not a host sandbox; use a dedicated account without forge credentials.")
-        for field in ("account", "home", "path", "cgroup_root"):
-            local_settings[field] = ask(FieldSpec(
-                "local_" + field, "Local " + field + ":",
-                "Current account only; existing home/PATH. Linux requires delegated cgroup v2.",
-                default="current" if field == "account" else ""), asker, out)
+        out("Install and verify managed Pi as this account with 'adore pi install' "
+            "and 'adore pi verify'.")
+        local_settings = {"account": "current", "path": ask(FieldSpec(
+            "local_path", "Project tools PATH:", "Leave empty to use the server PATH.",
+            default=""), asker, out)}
 
     # -- Phase F2 (workflow labels) -----------------------------------------------
     ready_label = ask(FieldSpec(
@@ -706,8 +701,8 @@ def run_wizard(
         agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
         repo_path=repo_path, worktree_root=worktree_root, branch_template=branch_template,
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
-        command=executor_command, provider=provider, model=model, endpoint=endpoint,
-        auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
+        provider=provider, model=model, endpoint=endpoint,
+        target_branch=target_branch, reviewers=reviewers,
         approval_label=approval_label,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
         max_stage_failures=max_stage_failures,
@@ -880,8 +875,6 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     sections.append(("container", container))
 
     executor: dict[str, object] = {"provider": a["provider"], "model": a["model"]}
-    if a["command"] != PI_NATIVE_COMMAND:
-        executor["command"] = a["command"]
     # The provider's key variable always reaches Pi; these are additional names.
     executor["env_keys"] = []
     sections.append(("executor", executor))

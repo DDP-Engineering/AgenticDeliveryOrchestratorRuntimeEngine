@@ -190,23 +190,32 @@ def test_detect_runtimes_linux_skips_wsl() -> None:
     assert ["wsl", "-l", "-q"] not in runner.calls   # never called on Linux
 
 
-def test_detect_executor_default_pi() -> None:
-    """
-    @brief   The executor probe defaults to Pi, ADORE's only coding agent.
-    """
-    status = doctor.detect_executor(runner=FakeRunner({"pi --version": _ok("1.4.0")}))
-    assert status.name == "pi" and status.present
+def test_detect_executor_reports_missing_node_without_global_pi(tmp_path, monkeypatch) -> None:
+    """@brief Doctor gives an actionable result before running any command."""
+    monkeypatch.setenv("ADORE_NODE", str(tmp_path / "missing"))
+    runner = FakeRunner({})
+    status = doctor.detect_executor(runner=runner)
+    assert status.name == "pi" and not status.present
+    assert "Node" in status.detail and not runner.calls
 
 
-def test_detect_all_aggregate() -> None:
+def test_detect_all_aggregate(tmp_path, monkeypatch) -> None:
     """
     @brief   detect_all runs one probe of each and returns a full report.
     """
+    from adore import pi_installation as managed
+
+    from tests.test_pi_installation import fake_node, write_fake_packages
+
+    node = fake_node(tmp_path, monkeypatch)
+    pi = managed.ManagedPi(node, managed.adore_home() / "tools/pi" / managed.PI_VERSION)
+    write_fake_packages(pi)
     runner = FakeRunner({
         "git --version": _ok("git version 2.43.0"),
         "glab --version": _ok("glab 1.105.0"),
         "glab auth status": _ok("Logged in"),
-        "pi --version": _ok("1.4.0"),
+        f"{node} --version": _ok("v22.23.4"),
+        f"{node} {pi.cli} --version": _ok(managed.PI_VERSION),
     })
     report = doctor.detect_all("gitlab", runner)
     assert report.git.present and report.platform_cli.present

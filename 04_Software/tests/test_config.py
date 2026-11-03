@@ -136,7 +136,6 @@ def test_removed_agent_keys_are_refused_with_the_fix(tmp_path, line) -> None:
 @pytest.mark.parametrize(("table", "name"), [
     ("[container.runtime_env]", "OPENCODE_CONFIG_CONTENT"),
     ("[container.runtime_env]", "CODEX_HOME"),
-    ("[local.environment]", "QWEN_CODE_UNATTENDED_RETRY"),
 ])
 def test_removed_agent_environment_is_refused_with_the_fix(tmp_path, table, name) -> None:
     """@brief An environment variable of a removed coding agent is refused, naming it."""
@@ -656,7 +655,7 @@ def test_search_key_reaches_only_an_internet_on_run(tmp_path: Path) -> None:
     brave = load_config(_write_config(tmp_path, _with_executor(
         'internet = true\n\n[executor.web]\nsearch = "brave"\n'))).executor
     # Pi installed on the server loads no web tools, so it never gets the key.
-    assert "BRAVE_API_KEY" not in secret_names(brave, "local")
+    assert "BRAVE_API_KEY" in secret_names(brave, "local")
     assert "BRAVE_API_KEY" in secret_names(brave, "container")
 
 

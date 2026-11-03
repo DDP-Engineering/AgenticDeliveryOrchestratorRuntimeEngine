@@ -19,7 +19,7 @@ Chaque groupe est fermé à l’ouverture des Paramètres, et le nombre à côt�
 | Implémentation | Limites par tâche : **Limite de tâches actives**, **Nombre maximal de lancements de l’exécuteur par tâche**, **Limite de temps de travail actif (secondes)**, **Plafond de coût de la tâche (USD)**, **Nombre maximal de fichiers modifiés par tâche** et **Limite de temps par tentative d’étape (secondes)**. Il contient aussi **Clarifications**, **Reprise après erreur**, **Limites de temps avancées par étape**, **Publier les commits de progression** et l’étiquette du chemin rapide. |
 | PR/MR et revue | **Demander une revue à**, **État de la PR/MR à la publication** (Brouillon ou Prête pour revue), l’étiquette d’approbation, **Supprimer la branche après la fusion humaine**, les tours de révision et **Action en cas d’échec des vérifications CI de la PR/MR** (Réparation automatique, Notifier uniquement ou Ignorer). |
 | Statistiques | **Enregistrer les mesures des tâches terminées** et **Enregistrer les jetons déclarés par l’agent**. **Fichier de la base de statistiques** est affiché à titre d’information seulement. |
-| Agent et modèle | Le modèle, la commande de lancement, l’authentification et **Tester la connexion IA**. Voir [Exécuteurs et modèles](/help/executors). |
+| Agent et modèle | Fournisseur, modèle, authentification et **Tester la connexion IA** [Exécuteurs et modèles](/help/executors). |
 | Détails techniques | Valeurs d’installation en lecture seule, comme le dossier d’état des tâches, le chemin du dépôt local et les dossiers de travail des tâches. Elles se modifient dans le `config.toml` du projet sur le serveur, et changer un chemin ne déplace pas les données existantes. |
 
 ## Valeurs et aide {#values}
@@ -28,7 +28,7 @@ Chaque ligne a un libellé, une description toujours visible, une **Valeur activ
 
 Un badge **Par défaut** signifie que le `config.toml` du projet ne définit pas la valeur : le défaut d’ADORE s’applique. La modifier écrit une valeur pour ce projet seulement. Une ligne marquée **Non modifiable ici** se change dans le `config.toml` sur le serveur. Une ligne marquée **À appliquer seulement avec la sélection suspendue et sans tâche active** exige la condition supplémentaire décrite ci-dessous.
 
-La détection démarre automatiquement lorsque l’exécution locale est choisie ; changer d’agent utilise la liste détectée. Ouvrez **Avancé** puis **Détecter les exécuteurs installés** pour l’actualiser. Pour l’exécution locale, choisissez une installation détectée ou saisissez un chemin ; voir [Détecter les exécuteurs installés](/help/executors#installed-executors). Ouvrez **Avancé** pour la commande complète, un chemin d’exécutable manuel, les valeurs de dossier/PATH et la délégation cgroup Linux. Laissez dossier et PATH vides pour les valeurs automatiques. PATH désigne les dossiers des outils, pas un exécutable. Les noms de compte dans Paramètres vérifient l’identité actuelle sans changer d’utilisateur.
+Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).
 
 ## Modification {#editing}
 

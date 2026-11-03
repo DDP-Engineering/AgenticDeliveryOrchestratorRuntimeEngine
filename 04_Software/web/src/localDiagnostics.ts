@@ -5,9 +5,10 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type { Locale } from "./i18n";
+import { localCopy } from "./localExecution.ts";
 import { modelConnectionCopy, modelGuidance } from "./modelEvidence.ts";
 
-export const localProbeReasons = ["ready", "executable-missing", "credential-missing", "credential-invalid", "executor-exit", "version-invalid", "timeout", "account-mismatch", "permission-denied", "scope-error", "cleanup-failed", "runtime-error"] as const;
+export const localProbeReasons = ["ready", "executable-missing", "credential-missing", "credential-invalid", "executor-exit", "version-invalid", "timeout", "account-mismatch", "permission-denied", "scope-error", "cleanup-failed", "runtime-error", "node-missing", "node-incompatible", "node-invalid", "pi-missing"] as const;
 export type LocalProbe = {ready: boolean; reason: typeof localProbeReasons[number]; exit_code: number | null};
 
 /** Strict optional readiness extension; legacy records have no local cause. */
@@ -39,8 +40,12 @@ export const localDiagnosticCopy = {
 /** Localized measured cause only; old records explicitly request a fresh check. */
 export function localFailureText(locale: Locale, value?: LocalProbe): string {
   const c = localDiagnosticCopy[locale];
-  if (!value) return c.legacy;
-  const text = c.causes[value.reason];
+  if (!value) return localCopy[locale].agentFix;
+  const managed = localCopy[locale];
+  const reasons = {...c.causes, "node-missing": managed.nodeMissing, "node-incompatible": managed.nodeIncompatible,
+    "node-invalid": managed.nodeInvalid, "pi-missing": managed.agentFix, "executable-missing": managed.agentFix,
+    "executor-exit": managed.agentFix, "version-invalid": managed.agentFix, "credential-missing": managed.credentials};
+  const text = reasons[value.reason];
   return value.exit_code !== null ? `${text} ${c.exit}: ${value.exit_code}.` : text;
 }
 

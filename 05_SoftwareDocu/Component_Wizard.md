@@ -116,7 +116,7 @@ commands + `--profile` resolution.
   values: `profile_name, description, agent_name, kind, login, repo,
   repo_path, worktree_root, target_branch,
   has_push_rule, branch_rule, branch_template, execution_backend, runtime,
-  image, executor_command, provider, endpoint_base_url, endpoint_api, model, auth_mode,
+  image, provider, endpoint_base_url, endpoint_api, model, local_path,
   reviewers, budgets_choice, max_*, polling_mode,
   state_location, confirm`. `kind` accepts gitlab/github/gitea. GitLab/GitHub
   deliberately ask no hosting, host URL, or visibility questions because
@@ -211,8 +211,4 @@ behavior. Without this option the wizard still probes and saves a `Profile`.
 
 ## Native execution contract
 
-Setup asks container/local first. Local profiles skip runtime/image detection, accept installed native argv/existing account login and state execution-account/tooling responsibility. Prepared profiles include execution/local sections; web enrollment keeps pickup stopped.
-
-See [Local execution](../01_Documentation/Local_Execution.md) and
-[Local execution component](Component_Local_Execution.md). Focused native proof:
-`04_Software/tests/test_local_execution.py`.
+Choosing local execution omits container selection and offers a project tools PATH under the current service account. The wizard gives the managed Pi install/verify commands. It never runs npm or signs in to a personal Pi account.

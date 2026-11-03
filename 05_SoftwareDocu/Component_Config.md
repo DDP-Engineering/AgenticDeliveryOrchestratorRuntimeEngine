@@ -195,11 +195,7 @@ is covered by `test_internet_defaults_off_with_exa_search`,
 
 ## Native execution contract
 
-LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, a non-empty `[container.egress] allowlist` ("[local] container egress allowlist is unsupported: a local run is not network-restricted"), staging and container-only options; `[executor] internet` is not enforced there. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
-
-See [Local execution](../01_Documentation/Local_Execution.md) and
-[Local execution component](Component_Local_Execution.md). Focused native proof:
-`04_Software/tests/test_local_execution.py`.
+The local backend uses the pinned ADORE-managed Pi and accepts only the current account and optional tools PATH. Config refuses a local executor command, unknown local fields, reserved launch environment overrides and container-only options. OpenAI-compatible endpoints are supported by a fresh managed agent directory.
 
 ## Background branch rule evaluation
 

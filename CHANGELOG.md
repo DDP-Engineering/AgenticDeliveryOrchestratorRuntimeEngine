@@ -16,11 +16,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Opt-in agent-controlled system-package installation in job containers, independent of network access, with reviewed settings and pinned recovery.
 
-- Simpler native setup: detected account and installed agent choice, with command, manual executable, home/PATH and Linux delegation under closed Advanced controls. Clone destinations offer automatic/custom locations and an administrator-only read-only host folder picker with Windows drives, Linux navigation and optional new subfolder names; selection never creates folders.
-
-- Discover the installed local Pi executor on Windows and
-  Linux, prefill native commands during enrollment, and offer installed choices
-  or manual executable paths in enrollment and reviewed project Settings.
+- ADORE installs and verifies the pinned Pi for native Windows and Linux jobs. Native stages use isolated RPC with the current service account and optional project tools PATH.
+- Clone destinations offer automatic/custom locations and an administrator-only read-only host folder picker with Windows drives, Linux navigation and optional new subfolder names; selection never creates folders.
 
 - Complete portable user distributions: native Windows x64 ZIP and Linux x64
   TAR.GZ include managed CPython, locked web dependencies, compiled UI and
@@ -35,7 +32,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Enroll a project from its repository URL: **Read repository** detects the forge (github.com, gitlab.com or a matching server tea login), repository, Gitea login and default branch, derives the project ID from the repository name (no Stable project ID field; route names new, clone and repository-source are now reserved IDs) and proposes an editable clone path `<ADORE home>/repos/<ID>`; Continue stays disabled until the repository has been read; creation clones the repository there with the server account's git credentials (or reuses a clone with the same origin), requires AEGIS and the target branch, and removes a fresh clone on failure. There is no separate existing-clone mode (a matching clone at the chosen path is reused), every field shows an example, and Clone project config uses the same step. New `POST /api/v1/projects/repository-source` and optional `clone_url` on setup/transfer requests.
 - Review and create (Enroll new project and Clone project config) lists the settings left at ADORE's defaults, closed and read-only, grouped and named as in Settings, with a note that they can be changed in Settings after creation; for a clone the copied rules are not listed as defaults. The setup and transfer previews return `defaults`.
 - Create the project's ADORE labels in the repository: Review and create offers **Create the ADORE labels in the repository (missing ones only)**, ticked by default, and Settings → Repository offers **Create missing labels**. ADORE reads the repository's labels once and creates only the missing ones named by the project's settings (lifecycle, hold/exclude, priorities, bug type, approval, revise, quick-path and task-type labels) with a colour and description, never changing existing labels, and reports created, existing and failed labels. New `POST /api/v1/projects/{name}/labels/ensure` and label list/create in the GitHub, GitLab and Gitea adapters.
-- Choose where the executor runs again from the web: Enroll new project and Clone project config offer **Runs in** (Container or Installed on the server), the container runtime and an image with suggestions from the server's own images (new `GET /api/v1/executor-images`), the native command and local account fields for local projects, and optional credential variable names; Settings → Agent and model shows and reviews `execution.backend`, `container.runtime`, `container.image` and the local account fields. Other environment keys and image builds stay outside the web.
+- Choose where the executor runs again from the web: Enroll new project and Clone project config offer **Runs in** (Container or Installed on the server), the container runtime and an image with suggestions from the server's own images (new `GET /api/v1/executor-images`), the current account and optional project tool PATH for local projects, and optional credential variable names; Settings → Agent and model shows and reviews `execution.backend`, `container.runtime`, `container.image` and the local account fields. Other environment keys and image builds stay outside the web.
 - The Tickets table is paged: more than 10 tickets show 10 per page by default, with **Rows per page** (10, 25, 50, All), the visible range, the page number of the page count and **Previous**/**Next**; a new read returns to the first page.
 - Delete project can also remove the local clone ADORE made: an unticked **Also remove the local clone** option appears only when the clone lies under `<ADORE home>/repos`, is a clean clone of the project's repository, is not used by another project and has no linked worktree that deletion keeps (ADORE's own job worktrees are removed first); otherwise the dialog says why it stays. New `GET /api/v1/projects/{name}/delete-preview`, `remove_clone` on the delete request and `adore profile delete --remove-clone`.
 - Reviewers are optional: `[delivery] reviewers = []` is valid and opens the MR/PR without a review request; the enrollment wizard, `adore init` and the Settings reviewer editor accept an empty list.
@@ -47,9 +44,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Browse a project's open forge tickets from its Jobs tab: a Tickets sub-tab reads them on request with ADORE pickup eligibility and job state, starts a ticket (adding its missing ready and chosen priority labels after confirmation), retries a failed job, stops a ticket (cancels its unfinished job and removes the ready label) and shows its description and comments as plain text; the job table moves to a Jobs sub-tab.
 
 
-- Native local executor profiles reuse installed account authentication with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
+- Native projects use managed Pi with project credentials with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
 
 ### Changed
+
+- Before starting this build, delete obsolete native run directories under `[state].store_root/runs/` that contain the old local execution plan; remove `[executor] command` and `[local]` home, environment and cgroup_root from local project TOML.
 
 - Update the repository's managed AEGIS payload to the rebuilt 0.14.0 delivery,
   preserving project configuration and journal/history files. Enable structure,

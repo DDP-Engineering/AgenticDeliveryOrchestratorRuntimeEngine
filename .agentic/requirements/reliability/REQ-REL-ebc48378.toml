@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-ebc48378"
+title = "Refuse an unverified Pi installation"
+status = "active"
+requirement = "If npm fails or a candidate cannot prove the pinned Pi version, ADORE shall refuse to publish the candidate."
+verification = "Make fake npm fail or supply the wrong version; assert no published candidate and safe error output."
+affected_paths = ["04_Software/adore/pi_installation.py"]
+linked_tests = ["04_Software/tests/test_pi_installation.py::test_install_rejects_bad_node_or_unverified_npm_candidate"]
+created = 2026-11-03
+updated = 2026-11-03

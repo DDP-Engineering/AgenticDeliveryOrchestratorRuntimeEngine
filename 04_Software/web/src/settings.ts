@@ -150,11 +150,11 @@ export function settingPurpose(key: string): string {
 /** Environment settings administrators choose in Agent and model; the rest stays external. */
 export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.runtime", "container.image",
   "container.system_packages",
-  "local.account", "local.home", "local.path", "local.cgroup_root"]);
+  "local.path"]);
 
 /** Only known informational worktree fields accompany the external environment. */
 export function settingVisible(key: string, executorOnly = false, backend = "container"): boolean {
-  if (HIDDEN_SETTING_KEYS.has(key)) return false;
+  if (HIDDEN_SETTING_KEYS.has(key) || backend === "local" && key === "executor.command") return false;
   // Container rows for container projects, local-account rows for local ones.
   if (CHOSEN_ENVIRONMENT_KEYS.has(key)) return key === "execution.backend" || key.startsWith("local.") === (backend === "local");
   if (["container.", "execution.", "local."].some(prefix => key.startsWith(prefix))) return false;
@@ -168,8 +168,7 @@ export function connectionRowVisible(key: string, provider: unknown): boolean {
 }
 
 /** Optional topic disclosures inside a workflow category; ordinary rows stay direct. */
-export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | "authentication" | "localTechnical" | null {
-  if (["local.account", "local.home", "local.path", "local.cgroup_root"].includes(key)) return "localTechnical";
+export function settingSubgroup(key: string): "clarification" | "recovery" | "stageLimits" | "statisticsFiles" | "authentication" | null {
   if (key === "executor.env_keys") return "authentication";
   if (key.startsWith("clarification.")) return "clarification";
   if (key.startsWith("recovery.")) return "recovery";

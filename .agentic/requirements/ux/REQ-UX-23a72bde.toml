@@ -14,7 +14,7 @@ title = "Choose where the executor runs when enrolling a project"
 status = "active"
 
 requirement = """
-When an administrator reaches Agent and model in guided enrollment, the web interface shall offer Runs in (Container or Installed on the server); for Container it shall offer the runtime and an image with suggestions from the server's local images and a notice when the image is not on the server, for Installed on the server the native command and local account fields with the local execution notice, and it shall accept API-key mode without credential variable names.
+When an administrator reaches Agent and model in guided enrollment, the web interface shall offer Runs in (Container or Installed on the server); for Container it shall offer the runtime and an image with suggestions from the server's local images and a notice when the image is not on the server, for Installed on the server the current account and optional project tools PATH with the local execution notice, and it shall accept API-key mode without credential variable names.
 """
 
 verification = "Automated: e2e enrollment chooses a listed image, sees the not-on-server and cannot-list notices, switches to Installed on the server and continues past Agent and model without credential names; pytest covers the empty credential list in a preview and a local preview."

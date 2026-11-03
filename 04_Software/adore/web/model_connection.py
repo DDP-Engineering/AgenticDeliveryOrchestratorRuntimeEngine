@@ -17,7 +17,7 @@
          (invalid key, unreachable provider or endpoint, unknown model, rate
          limit). A provider that needs a credential and has none is reported
          before any container starts. A native (installed) Pi runs the same
-         challenge through its file protocol. Neither proves complete-job
+         challenge over RPC inside its owned process scope. Neither proves complete-job
          readiness.
 """
 
@@ -49,7 +49,7 @@ from adore.util import load_env_file
 
 # CONSTANTS
 LOCAL_TIMEOUT_SECONDS = 90
-LOCAL_OUTPUT_BYTES = 1048576
+LOCAL_OUTPUT_BYTES = 1024 * 1024
 #: Wall-clock bound of the Pi run inside the temporary container.
 CONTAINER_TIMEOUT_SECONDS = 60
 #: Wall-clock bound of one whole container probe (setup, run and cleanup).
@@ -103,7 +103,8 @@ def _shell_call_succeeded(event: dict, tool_nonce: str) -> bool:
     """
     result = event.get("result")
     content = result.get("content", []) if isinstance(result, dict) else []
-    return (event.get("type") == "tool_execution_end" and event.get("toolName") == "bash"
+    return (event.get("type") == "tool_execution_end"
+            and event.get("toolName") in {"bash", "powershell"}
             and event.get("isError") is False
             and any(tool_nonce in str(p.get("text", "")) for p in content
                     if isinstance(p, dict)))
@@ -191,28 +192,41 @@ def probe_model_connection(config, runner, env_file: Path, *,
     if not isinstance(model, str) or not MODEL_ID_RE.fullmatch(model):
         return result
     if config.execution.backend == "local":
-        from adore.executor.launcher import build_executor
+        from contextlib import ExitStack
+
+        from adore.executor import pi_rpc
         from adore.local_execution import local_probe, local_probe_failure
 
         prompt, tool_nonce, nonce = _challenge()
         try:
-            with local_probe(config, env_file) as (_, target, work, exchange):
-                # Pi repeats the conversation in its events; keep what the container keeps.
-                target.output_limit = LOCAL_OUTPUT_BYTES
-                launcher = build_executor(executor.command, model, provider=executor.provider)
-                gate = launcher.run_gate(target, work, exchange, prompt,
-                                         timeout=LOCAL_TIMEOUT_SECONDS)
-                reason = ("timeout" if gate.timed_out else
-                          "connection-failed" if gate.exit_code else
-                          _native_tool_response(gate.output, tool_nonce, nonce))
+            with local_probe(config, env_file) as (backend, target, _, _), ExitStack() as stack:
+                if not target.auth_available():
+                    return {**result, "reason": "credential-missing"}
+                backend.verify_required_tools("probe", [], env=target.env)
+                argv = target.pi_argv(model, pi_provider(executor.provider))
+                models = models_json(executor, bool(target.env.get(ENDPOINT_KEY_VARIABLE)))
+                placements = [("", "models.json", models, "")] if models else []
+
+                def spawn_native(command, _env):
+                    """@brief Keep the owned native scope open for the RPC exchange."""
+                    return stack.enter_context(target.pi_session(command, placements))
+
+                launched = pi_rpc.run_pi_rpc(
+                    spawn_native, argv, {}, prompt,
+                    timeout=LOCAL_TIMEOUT_SECONDS, redact=target.redact,
+                    stdout_tail_bytes=LOCAL_OUTPUT_BYTES,
+                )
+                reason = _rpc_reason(launched, tool_nonce, nonce)
                 result.update(ready=reason == "ready", reason=reason)
         except TimeoutError:
             result["reason"] = "timeout"
         except (OSError, ValueError, TypeError, IsolationError) as exc:
             cause = local_probe_failure(exc)
-            result["reason"] = {"executable-missing": "cli-missing",
-                                "credential-invalid": "credential-invalid"}.get(
-                                    cause, "runtime-error")
+            result["reason"] = {
+                "node-missing": "cli-missing", "node-incompatible": "cli-missing",
+                "node-invalid": "cli-missing", "pi-missing": "cli-missing",
+                "version-invalid": "cli-missing", "timeout": "timeout",
+            }.get(cause, "runtime-error")
         return result
     saved = {**load_env_file(env_file), **os.environ}
     variable = credential_variable(executor.provider)

@@ -21,7 +21,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 Launch Pi (`@earendil-works/pi-coding-agent`), ADORE's only coding agent,
 headless for one gate per launch - over RPC inside the run's container, or
-with the configured `[executor] command` for a local (native) run - and read
+from the managed installation for a local (native) run - and read
 every result back deterministically. All code reasoning lives in the
 executor; the launcher only composes commands and collects outcomes.
 
@@ -70,7 +70,7 @@ to the Git platform (forge; the executor never touches the remote).
 
 ## 3. Implementation Overview
 
-**The file-based gate protocol** (native Pi runs) - every byte crosses
+**The file-based gate protocol** (injected file-only targets) - every byte crosses
 process boundaries in files, never argv or live stdout, because of two
 verified findings: `wsl.exe` splits argv elements containing spaces, and a
 headless CLI may buffer stdout so live streaming looks hung.
@@ -342,7 +342,7 @@ elif run.ok:
   orchestrator journals this coverage along with executor, model and
   review-round identifiers.
 
-- Pi RPC runs only in containers; a native (local) Pi keeps the file
+- Pi RPC runs in both production backends; injected file-only targets keep the file
   protocol and the configured command. Killing the `docker exec` client closes
   Pi's stdin but sends no signal inside the container; on cancel the
   conductor's container stop remains the backstop.
@@ -357,11 +357,7 @@ Bound targets supply worktree, IO and shell paths through `ExecutionPaths`. The 
 
 ## Native execution contract
 
-Native run_files receives argv tokenized before prompt replacement, preserving fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
-
-See [Local execution](../01_Documentation/Local_Execution.md) and
-[Local execution component](Component_Local_Execution.md). Focused native proof:
-`04_Software/tests/test_local_execution.py`.
+LocalTarget lends owned binary pipes from the exact native Node and Pi installation. PiExecutor shares its RPC client, stage timeout, questions, archives, redaction and token accounting across native and container targets. Windows selects the PowerShell tool. AEGIS commands retain their independent strict file exchange.
 
 ## Agent-controlled system packages
 

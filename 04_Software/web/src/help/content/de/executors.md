@@ -4,34 +4,34 @@ Ein Executor ist das, was ADORE für jeden Auftrag startet: der Coding-Agent Pi 
 
 ## Was ein Executor ist {#what}
 
-Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer isolierten Arbeitskopie, und Pi arbeitet die AEGIS-Phasen des Repositorys mit dem konfigurierten Anbieter und Modell ab. Pi committet nicht, pusht nicht und sieht keine Forge-Zugangsdaten; das übernimmt ADORE. Im Container nutzt ADORE das im Executor-Image enthaltene Pi; für ein auf dem Server installiertes Projekt muss Pi bereits für das Serverkonto installiert sein. Änderungen gelten nur für neue Aufträge.
+Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer isolierten Arbeitskopie, und Pi arbeitet die AEGIS-Phasen des Repositorys mit dem konfigurierten Anbieter und Modell ab. ADORE verwendet das Pi im Image für Containeraufträge und seine verwaltete Pi-Installation für Serveraufträge.
 
 ## Anbieter und Modell wählen {#agent-and-model}
 
-Öffnen Sie **Einstellungen → Agent und Modell**. Die Zeilen sind **Anbieter**, **Modell**, **Executor-Startbefehl** und, für einen Endpunkt, **Endpunkt-Basis-URL** und **Endpunkt-API-Typ**. **Bearbeiten** an einer der Zeilen für Anbieter, Modell oder Endpunkt öffnet einen gemeinsamen Editor; sie werden als eine Änderung geprüft und angewendet.
+Öffnen Sie **Einstellungen → Agent und Modell**. Bearbeiten Sie **Anbieter**, **Modell** und bei einem Endpunkt **Endpunkt-Basis-URL** und **Endpunkt-API-Typ** gemeinsam in einer geprüften Änderung.
 
 - **Anbieter**: ein Pi-Anbieter mit API-Schlüssel (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral und weitere), **ChatGPT-Abonnement** oder **OpenAI-kompatibler Endpunkt**.
 - **Modell**: aus der Pi-Liste für diesen Anbieter wählen oder eine vom Anbieter akzeptierte Modell-ID eingeben, z. B. `gpt-5.4`. Die Liste gehört zur von ADORE ausgelieferten Pi-Version und wird ohne Internetzugang gelesen. Es gibt kein universelles Standardmodell.
 - **ChatGPT-Abonnement**: Pi nutzt das ChatGPT-Plus- oder -Pro-Konto, bei dem dieser ADORE-Server angemeldet ist, siehe [Mit ChatGPT anmelden](#chatgpt). Die Liste enthält die Modelle, die ein ChatGPT-Abonnement bedient, zum Beispiel `gpt-5.6-luna`.
 
-**Kandidat vorbereiten** zeigt den aktiven und vorgeschlagenen Wert jedes Felds, **Anwenden** schreibt sie; rechnen Sie damit, die Überwachung vorher zu pausieren, siehe [Projekteinstellungen](/help/settings#editing). Im Container startet ADORE das im Image enthaltene Pi selbst, über seinen RPC-Modus mit festen Einstellungen, und stoppt es am Zeitlimit der Phase oder beim Abbrechen; der Startbefehl wird dort nicht verwendet, daher wird nur die Pi-Vorgabe angeboten. Für ein auf dem Server installiertes Projekt startet der Startbefehl das installierte Pi, ist standardmäßig `pi -p --mode json --model {model} {prompt}` (`{model}` wird zu Anbieter/Modell), muss `{prompt}` enthalten und darf `--auto` nicht verwenden.
+**Kandidaten vorbereiten** zeigt aktive und vorgeschlagene Werte. **Änderung anwenden** speichert sie; siehe [Projekteinstellungen](/help/settings#editing) zum Pausieren der Überwachung. ADORE startet je Phase einen neuen Pi-Prozess und beendet ihn bei Zeitüberschreitung oder Abbruch.
 
 ## OpenAI-kompatibler Endpunkt {#endpoint}
 
 Für ein Modell aus dem eigenen Netzwerk, etwa LM Studio, Ollama oder vLLM, wählen Sie **OpenAI-kompatibler Endpunkt** und füllen aus:
 
-- **Endpunkt-Basis-URL**: die Adresse aus Sicht des Containers, z. B. `http://192.168.1.20:1234/v1`. `localhost` ist der Container selbst. `host.docker.internal` erreicht den Host nur mit Docker Desktop; mit Docker Engine unter Linux oder in WSL nutzen Sie die Netzwerkadresse des Hosts, und für einen Server unter Windows, der von Docker in WSL aus erreicht wird, das Standard-Gateway von WSL.
+- **Endpunkt-Basis-URL**: die Adresse aus Sicht von Pi. Bei **Container** gilt die Adresse aus Sicht des Containers; bei Serveraufträgen aus Sicht des Servers.
 - **Endpunkt-API-Typ**: `openai-completions` für LM Studio, Ollama und vLLM; `openai-responses`, `anthropic-messages` und `google-generative-ai` werden ebenfalls akzeptiert.
 - **Modell**: die Modell-ID, die der Endpunkt bereitstellt.
 
-Ein Endpunkt-Schlüssel ist optional: Speichern Sie ihn unter Authentifizierung als ADORE_ENDPOINT_API_KEY. ADORE beschreibt Pi den Endpunkt für jeden Auftrag; die Adresse enthält nie Benutzername, Passwort oder Abfrage. Bei ausgeschaltetem [Internetzugang](#internet) erlaubt ADORE die Adresse des Endpunkts selbst. Ein Endpunkt ist nur für Container-Projekte verfügbar.
+Ein Endpunkt-Schlüssel ist optional: Speichern Sie ihn unter Authentifizierung als ADORE_ENDPOINT_API_KEY. ADORE beschreibt Pi den Endpunkt für jeden Auftrag; die Adresse enthält nie Benutzername, Passwort oder Abfrage. Bei ausgeschaltetem [Internetzugang](#internet) erlaubt ADORE die Adresse des Endpunkts selbst. Ein Endpunkt ist für Container- und Serverprojekte verfügbar.
 
 ## Authentifizierung {#credentials}
 
 Öffnen Sie **Authentifizierung** in derselben Gruppe.
 
 - **API-Schlüssel des Anbieters.** Das Feld nennt die Variable, die der konfigurierte Anbieter braucht, z. B. OPENAI_API_KEY für OpenAI oder ANTHROPIC_API_KEY für Anthropic. Geben Sie den **API-Schlüssel** ein und wählen Sie **API-Schlüssel speichern**. ADORE speichert ihn privat im Zugangsdatenspeicher des Projekts auf dem Server, nie in der Konfigurationsdatei, gibt ihn Pi nur als diese Variable weiter und zeigt ihn nie wieder an; **Projekt-API-Schlüssel entfernen** löscht ihn. Eine Schlüsseländerung erfordert pausierte Überwachung, ein inaktives Projekt und keinen offenen Vorschlag und prüft den Schlüssel nicht.
-- **Vorhandene Kontoanmeldung.** Nur für ein auf dem Server installiertes Projekt: Pi nutzt seine eigene Anmeldung für das Serverkonto, außerhalb der Weboberfläche eingerichtet. Ein Container-Projekt nutzt den API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der [ChatGPT-Anmeldung](#chatgpt) des Servers; keine Anmeldung wird in den Container kopiert.
+- **Serverprojekte.** Speichern Sie bei Bedarf den **Anbieter-API-Schlüssel**. ADORE ignoriert die persönliche Pi-Anmeldung. Die gemeinsame [ChatGPT-Anmeldung](#chatgpt) ist für Containerprojekte vorgesehen.
 - **Von der Umgebung verwaltete Werte.** Eine bereits in der Umgebung des ADORE-Servers gesetzte Variable trägt den Hinweis **Auf dem ADORE-Server gesetzt; extern verwalten**. Die Weboberfläche kann sie nicht überschreiben.
 - **Websuche-Schlüssel.** Bei eingeschaltetem Internetzugang und Websuche Brave oder Tavily listet das Feld auch BRAVE_API_KEY oder TAVILY_API_KEY, gespeichert auf dieselbe Weise, auch für ein ChatGPT-Abonnement.
 - **Zusätzliche Zugangsdaten-Variablen.** Nur Namen (**Zugangsdaten-Variable hinzufügen**) weiterer Geheimnisse, die Pi neben dem Schlüssel des Anbieters erhält; die meisten Projekte brauchen keine.
@@ -78,24 +78,22 @@ Beide Einstellungen ändern sich wie andere über **Kandidat vorbereiten** und *
 |---|---|---|
 | Läuft in | Einem temporären Docker- oder Podman-Container auf dem ADORE-Server | Dem ADORE-Server selbst, unter dem Betriebssystemkonto des Dienstes, in einem eigenen Worktree |
 | Umgebung | Einem vom Administrator vorbereiteten Projekt-Image | Werkzeugen, Versionen und Bibliotheken, die Sie selbst auf diesem Server installieren |
-| Anmeldung | Der API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der ChatGPT-Anmeldung des Servers | Der API-Schlüssel des Anbieters oder die vorhandene Pi-Anmeldung auf diesem Konto, an Ort und Stelle weiterverwendet |
-| Agent-Einstellungen | Das im Image enthaltene Pi mit von ADORE festgelegten Einstellungen; persönliche Pi-Einstellungen und Skills werden nicht gelesen | Das für dieses Konto installierte Pi, gestartet mit dem Startbefehl und den Pi-Einstellungen dieses Kontos |
+| Anmeldung | Der API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der ChatGPT-Anmeldung des Servers | Der API-Schlüssel des Projektanbieters, falls erforderlich |
+| Agent-Einstellungen | Das im Image enthaltene Pi mit von ADORE festgelegten Einstellungen; persönliche Pi-Einstellungen und Skills werden nicht gelesen | Von ADORE verwaltetes Pi mit eigenen Einstellungen und Erweiterungen |
 | Isolation | Container; bei ausgeschaltetem Internetzugang erreicht er nur den Modellanbieter | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
 | Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |
 
-Änderungen in den Einstellungen laufen über **Kandidat vorbereiten**, Prüfung und **Anwenden**. **Auf dem Server installiert** zeigt den nativen Executor-Befehl und die Felder des lokalen Kontos (Konto `current`, Home-Verzeichnis, PATH und unter Linux die cgroup-Wurzel) zusammen mit dem Hinweis zur lokalen Ausführung.
+**Auf dem Server installiert** nutzt das aktuelle Systemkonto und bietet einen optionalen **PATH für Projektwerkzeuge**. Der Startbefehl ist fest.
 
-Host-Prüfungen für ein lokales Projekt überspringen die Container-Engine und prüfen das installierte Pi und seine Anmeldung oder seinen API-Schlüssel.
+**Host-Voraussetzungen prüfen** überspringt die Container-Engine und prüft Node, das verwaltete Pi und die Zugangsdaten des gewählten Anbieters.
 
-## Installierte Executoren erkennen {#installed-executors}
+## Pi auf dem Server installieren {#installed-executors}
 
-Bei **Auf dem Server installiert** erkennt ADORE OpenCode, Pi, Codex und Qwen Code auf dem Ausführungsrechner. **Ausführung als** zeigt Rechner und Konto; bei einer portablen Desktop-Installation ist dies der Computer, auf dem ADORE läuft. Die erste erkannte Installation ergänzt bei der Anmeldung einen leeren oder standardmäßigen Befehl. **Erkannte Installationen** erlaubt die Auswahl einer anderen Installation. Gespeicherte Befehle und manuelle Änderungen bleiben erhalten.
+Führen Sie `adore pi install` und `adore pi verify` als ADORE-Dienstkonto auf dem Server aus. Verwenden Sie Node ab 22.23.4 aus der Reihe 22.x mit npm. Liegt Node außerhalb des Dienst-PATH, setzen Sie `ADORE_NODE` auf den absoluten Pfad.
 
-ADORE verwendet automatisch sein Prozesskonto, dessen Kontoordner, den Werkzeug-PATH und die gespeicherte Executor-Anmeldung. Es startet einen neuen Prozess und verbindet sich nicht mit einem offenen Terminal. Ein Dienst verwendet sein Dienstkonto.
+Führen Sie `adore pi install` erneut aus, sobald eine neue ADORE-Version eine andere Pi-Version festlegt. Globales Pi wird nicht benötigt; persönliche Einstellungen und Erweiterungen werden ignoriert.
 
-Die Erkennung startet automatisch bei lokaler Ausführung; ein Agentenwechsel nutzt die erkannte Liste. Zum Aktualisieren öffnen Sie **Erweitert** und **Installierte Executoren erkennen**. Unter **Erweitert** geben Sie den **Programmpfad auf dem ADORE-Rechner** ein und wählen **Programm verwenden** oder bearbeiten den **Executor-Startbefehl**. Windows verwendet eine echte `.exe`; Node-Agenten benötigen den installierten Node/JavaScript-Befehl. Die Erkennung liest Installationsorte, ohne Werkzeuge zu installieren, Konten anzumelden oder Modelle zu testen.
-
-Öffnen Sie **Erweitert** für den vollständigen Befehl, einen manuellen Programmpfad, Ordner/PATH-Werte und die Linux-cgroup-Delegierung. Ordner und PATH für automatische Werte leer lassen. PATH bezeichnet Werkzeugordner, keine Programmdatei. Kontonamen in Einstellungen prüfen die aktuelle Identität, ohne Benutzer zu wechseln.
+Windows nutzt das PowerShell-Werkzeug; unter Linux richtet die Serveradministration einen delegierten cgroup-v2-Pfad ein. Pi fragt nicht nach Berechtigungen. Verwenden Sie ein eigenes Systemkonto.
 
 ## Projekt-Image {#project-image}
 

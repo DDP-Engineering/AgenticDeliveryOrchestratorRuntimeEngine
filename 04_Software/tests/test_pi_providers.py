@@ -199,13 +199,13 @@ def test_invalid_provider_schema_is_refused_naming_the_key(
     assert any(named in issue for issue in issues), issues
 
 
-def test_custom_endpoint_is_refused_for_a_local_run(tmp_path: Path) -> None:
-    """@brief A local run uses the account's own agent directory: no generated models.json."""
+def test_custom_endpoint_can_use_the_managed_local_backend(tmp_path: Path) -> None:
+    """@brief A managed native agent directory can host the generated endpoint model."""
     endpoint = ('provider = "custom"\nmodel = "m"\n[executor.endpoint]\n'
                 'base_url = "http://127.0.0.1:1234/v1"\n')
     local = "\n[execution]\nbackend = \"local\"\n"
     issues = _issues(tmp_path, endpoint, local)
-    assert any("[executor] provider" in issue and "local" in issue for issue in issues), issues
+    assert issues == []
     assert not any("[executor] provider" in issue for issue in _issues(tmp_path, endpoint))
 
 

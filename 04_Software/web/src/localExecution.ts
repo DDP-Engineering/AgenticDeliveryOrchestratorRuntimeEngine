@@ -5,17 +5,61 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 export const localCopy = {
-  en: { argv: "Installed native executor argv (optional)", title: "Local execution", backend: "Execution backend", account: "Current OS account", home: "Existing account home (optional)", path: "Installed tool PATH (optional)", cgroup: "Delegated Linux cgroup root", notice: "Execution runs on the ADORE server under its current OS account. You choose and independently install and prepare project tools, versions, SDKs and libraries on that machine. Installing them on your browser computer is insufficient. Existing executor sign-in is reused. A worktree is not a host sandbox; use a dedicated account without forge credentials.", existing: "Existing account sign-in", machine: "Execution machine", agentPurpose: "Checks that Pi is installed for the server account and that its existing sign-in or a provider API key is available.", agentFix: "Sign Pi in on the ADORE server under this account, or save a provider API key in Settings → Agent and model; check the installed tool PATH." },
-  fr: { argv: "Commande native installée (facultatif)", title: "Exécution locale", backend: "Mode d’exécution", account: "Compte système actuel", home: "Dossier du compte existant (facultatif)", path: "PATH des outils installés (facultatif)", cgroup: "Racine cgroup Linux déléguée", notice: "L’exécution utilise le serveur ADORE et son compte système actuel. Vous choisissez et installez indépendamment les outils, versions, SDK et bibliothèques du projet sur cette machine. Les installer sur votre ordinateur de navigation ne suffit pas. La connexion existante de l’agent est réutilisée. Le dossier de travail n’isole pas l’hôte ; utilisez un compte dédié sans identifiants de forge.", existing: "Connexion existante du compte", machine: "Machine d’exécution", agentPurpose: "Vérifie que Pi est installé pour le compte du serveur et que sa connexion existante ou une clé API du fournisseur est disponible.", agentFix: "Connectez Pi sur le serveur ADORE avec ce compte, ou enregistrez une clé API du fournisseur dans Paramètres → Agent et modèle ; vérifiez le PATH des outils installés." },
-  de: { argv: "Installierter nativer Aufruf (optional)", title: "Lokale Ausführung", backend: "Ausführungsmodus", account: "Aktuelles Systemkonto", home: "Vorhandener Kontoordner (optional)", path: "PATH der installierten Werkzeuge (optional)", cgroup: "Delegierter Linux-cgroup-Pfad", notice: "Die Ausführung nutzt den ADORE-Server und dessen aktuelles Systemkonto. Sie wählen und installieren Projektwerkzeuge, Versionen, SDKs und Bibliotheken eigenständig auf diesem Rechner. Eine Installation auf dem Browserrechner reicht nicht aus. Die bestehende Agentenanmeldung wird verwendet. Ein Arbeitsverzeichnis isoliert den Rechner nicht; verwenden Sie ein eigenes Konto ohne Forge-Zugangsdaten.", existing: "Bestehende Kontoanmeldung", machine: "Ausführungsrechner", agentPurpose: "Prüft, ob Pi für das Serverkonto installiert ist und seine vorhandene Anmeldung oder ein Anbieter-API-Schlüssel verfügbar ist.", agentFix: "Melden Sie Pi auf dem ADORE-Server unter diesem Konto an oder speichern Sie einen Anbieter-API-Schlüssel unter Einstellungen → Agent und Modell; prüfen Sie den PATH der installierten Werkzeuge." },
-  ro: { argv: "Comandă nativă instalată (opțional)", title: "Execuție locală", backend: "Mod de execuție", account: "Contul curent al sistemului", home: "Directorul contului existent (opțional)", path: "PATH pentru uneltele instalate (opțional)", cgroup: "Rădăcină cgroup Linux delegată", notice: "Execuția folosește serverul ADORE și contul său curent de sistem. Alegeți și instalați independent uneltele, versiunile, SDK-urile și bibliotecile proiectului pe acea mașină. Instalarea pe calculatorul cu browserul nu este suficientă. Autentificarea existentă a executorului este reutilizată. Arborele de lucru nu izolează gazda; folosiți un cont dedicat fără credențiale de forge.", existing: "Autentificarea existentă a contului", machine: "Mașina de execuție", agentPurpose: "Verifică dacă Pi este instalat pentru contul serverului și dacă autentificarea sa existentă sau o cheie API a furnizorului este disponibilă.", agentFix: "Autentifică Pi pe serverul ADORE cu acest cont sau salvează o cheie API a furnizorului în Setări → Agent și model; verifică PATH-ul uneltelor instalate." },
+  "en": {
+    "title": "Local execution",
+    "account": "Current OS account",
+    "path": "Project tools PATH (optional)",
+    "machine": "Execution machine",
+    "notice": "Pi uses the ADORE service account on the server. It has no permission prompts. Use a dedicated OS account and install project tools there. ADORE does not enforce internet restrictions on the server.",
+    "agentPurpose": "Checks managed Pi and Node, the native process scope and the selected provider credential.",
+    "agentFix": "Run adore pi install and adore pi verify as the ADORE service account.",
+    "nodeMissing": "Node is missing. Add Node to the ADORE service PATH or set ADORE_NODE.",
+    "nodeIncompatible": "Managed Pi requires Node 22.23.4 or later in the 22.x line.",
+    "nodeInvalid": "ADORE could not run the Node version check.",
+    "credentials": "Save the provider API key in Settings → Agent and model."
+  },
+  "fr": {
+    "title": "Exécution locale",
+    "account": "Compte système actuel",
+    "path": "PATH des outils du projet (facultatif)",
+    "machine": "Machine d’exécution",
+    "notice": "Pi utilise le compte du service ADORE sur le serveur. Il ne demande pas d’autorisation. Utilisez un compte système dédié et installez-y les outils du projet. ADORE ne limite pas l’accès Internet sur le serveur.",
+    "agentPurpose": "Vérifie Pi et Node, le contrôle des processus locaux et les identifiants du fournisseur choisi.",
+    "agentFix": "Exécutez adore pi install et adore pi verify sous le compte du service ADORE.",
+    "nodeMissing": "Node est absent. Ajoutez-le au PATH du service ADORE ou renseignez ADORE_NODE.",
+    "nodeIncompatible": "Pi géré par ADORE exige Node 22.23.4 ou une version ultérieure de la série 22.x.",
+    "nodeInvalid": "ADORE n’a pas pu vérifier la version de Node.",
+    "credentials": "Enregistrez la clé API du fournisseur dans Paramètres → Agent et modèle."
+  },
+  "de": {
+    "title": "Lokale Ausführung",
+    "account": "Aktuelles Systemkonto",
+    "path": "PATH für Projektwerkzeuge (optional)",
+    "machine": "Ausführungsrechner",
+    "notice": "Pi läuft auf dem Server unter dem ADORE-Dienstkonto. Pi fragt nicht nach Berechtigungen. Verwenden Sie ein eigenes Systemkonto und installieren Sie dort die Projektwerkzeuge. ADORE beschränkt den Internetzugang auf dem Server nicht.",
+    "agentPurpose": "Prüft Pi und Node, die lokale Prozesskontrolle und die Zugangsdaten des gewählten Anbieters.",
+    "agentFix": "Führen Sie adore pi install und adore pi verify als ADORE-Dienstkonto aus.",
+    "nodeMissing": "Node fehlt. Ergänzen Sie den PATH des ADORE-Dienstes oder setzen Sie ADORE_NODE.",
+    "nodeIncompatible": "Das verwaltete Pi benötigt Node ab Version 22.23.4 aus der Reihe 22.x.",
+    "nodeInvalid": "ADORE konnte die Node-Version nicht prüfen.",
+    "credentials": "Speichern Sie den API-Schlüssel unter Einstellungen → Agent und Modell."
+  },
+  "ro": {
+    "title": "Execuție locală",
+    "account": "Contul curent al sistemului",
+    "path": "PATH pentru uneltele proiectului (opțional)",
+    "machine": "Mașina de execuție",
+    "notice": "Pi rulează pe server sub contul serviciului ADORE. Pi nu cere permisiuni. Folosiți un cont dedicat și instalați acolo uneltele proiectului. ADORE nu impune restricții de internet pe server.",
+    "agentPurpose": "Verifică Pi și Node, controlul proceselor locale și credențialele furnizorului ales.",
+    "agentFix": "Rulați adore pi install și adore pi verify sub contul serviciului ADORE.",
+    "nodeMissing": "Node lipsește. Adăugați-l în PATH-ul serviciului ADORE sau setați ADORE_NODE.",
+    "nodeIncompatible": "Pi administrat necesită Node 22.23.4 sau o versiune ulterioară din seria 22.x.",
+    "nodeInvalid": "ADORE nu a putut verifica versiunea Node.",
+    "credentials": "Salvați cheia API a furnizorului în Setări → Agent și model."
+  }
 };
 
 export const localSettingHelp = Object.fromEntries(Object.entries(localCopy).map(([locale, copy]) => [locale, {
-  "local.account": copy.account + ": current. " + copy.notice,
-  "local.home": copy.home + ". " + copy.notice,
+  "local.account": copy.account + ". " + copy.notice,
   "local.path": copy.path + ". " + copy.notice,
-  "local.cgroup_root": copy.cgroup + ": cgroup v2 + cgroup.kill. " + copy.notice,
-  "local.environment": copy.title + ": non-secret environment. " + copy.notice,
-  "local.environment.*": copy.title + ": non-secret environment. " + copy.notice,
 }])) as unknown as Record<keyof typeof localCopy, Record<string, string>>;

@@ -68,7 +68,7 @@ Choose the **Provider** (Pi's API-key providers, **ChatGPT subscription** or
 **OpenAI-compatible endpoint**) and the **Model** (Pi's list for that provider
 from `GET /api/v1/pi-providers`, or any typed ID; Pi is the only coding agent,
 so there is no agent choice). An endpoint adds **Endpoint base URL** (the
-address as seen from the container) and **Endpoint API type**. The step's help
+address as seen by Pi) and **Endpoint API type**. The step's help
 names the API key variable to save in Settings after creation; enrollment
 takes no key. Then **Runs in**: **Container** or
 **Installed on the server** (`execution.backend` = `container` or `local`).
@@ -77,16 +77,13 @@ For Container, choose the **Container runtime** (Docker or Podman) and the
 present on the ADORE server (administrators only; read-only; `GET /api/v1/executor-images`);
 a notice appears when the typed image is not on the server and another when the list
 cannot be read. For Installed on the server, the step shows
-the native executor command and the local account fields (account `current`, home,
-PATH, Linux cgroup root) with the local execution notice.
+the current OS account and optional project tools PATH with the local execution notice.
 Image/provider choices are explicit values; the image itself is still prepared on the
 server by the administrator.
 **Model authentication** is `api-key` for a container project; a project installed
-on the server can also choose `existing`, which reuses the account's own Pi sign-in
-(`~/.pi/agent`). In `api-key` mode, enter uppercase credential environment names
-separated by commas and put their values in the protected server environment or
-profile .env; with `existing` the list stays empty. No host sign-in is copied into
-a container.
+on the server uses the configured provider credential when required. Additional
+credential environment names are optional; store values in the protected server
+environment or profile .env.
 
 Choose a human display name separately from the stable profile ID. Ready and
 approval labels, forge reviewer usernames and four run limits are reviewed before
@@ -1130,7 +1127,7 @@ Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidan
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** owns AI connection testing, the provider (`executor.provider`), the model (`executor.model`), the endpoint base URL and API type for an OpenAI-compatible endpoint (`executor.endpoint.*`, shown only for that provider), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`: On or Off, default Off), **Web search** (`executor.web.search`: Exa (no key), Brave (key needed), Tavily (key needed) or None), the additional credential variables (`executor.env_keys`), **Provider API key**, estimated prices, where the project runs (`execution.backend`), the container runtime and image (plus the local account, home, PATH and cgroup root for local projects) and external container guidance. There is no agent choice: Pi is the only coding agent. **Edit** on the provider, model or endpoint rows opens one editor (provider dropdown with Pi's API-key providers, ChatGPT subscription and OpenAI-compatible endpoint; model field with Pi's list for the provider and free text; endpoint URL and API type for an endpoint; a note naming where the credential goes), and the selection is staged as one candidate `executor.connection` whose review lists provider, model, base URL and API type. The launch command is an ordinary reviewed setting, and so are internet access and web search (prepare candidate, review, apply). Off limits a container run to the model provider's hosts plus `[container.egress] allowlist`; On opens its network and loads Pi's web search and page reading. While internet access is On, or proposed On in the editor or the candidate review, a warning says that a malicious web page could try to make the agent send its API key or ChatGPT token out and recommends limited, short-lived keys; a server-installed (local) project shows instead "Not enforced: this project runs Pi installed on the server, which reaches whatever the server reaches." With internet access On and Brave or Tavily search, Authentication lists `BRAVE_API_KEY` or `TAVILY_API_KEY` after the provider key (alone for a ChatGPT subscription) and saves or removes it the same way. A container project offers only the Pi launch preset, because a container run starts the image's pinned Pi in RPC mode and ignores the command; a local project accepts native argv that contains `{prompt}` and does not use `--auto`. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a direct PUT returns 409 `pending_config_required`. While the image row is edited it offers the same server image suggestions. Runtime preparation remains external.
+**Project → Settings → Agent and model** owns AI connection testing, the provider (`executor.provider`), the model (`executor.model`), the endpoint base URL and API type for an OpenAI-compatible endpoint (`executor.endpoint.*`, shown only for that provider), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`: On or Off, default Off), **Web search** (`executor.web.search`: Exa (no key), Brave (key needed), Tavily (key needed) or None), the additional credential variables (`executor.env_keys`), **Provider API key**, estimated prices, where the project runs (`execution.backend`), the container runtime and image (plus the current account and optional project tools PATH for local projects) and external container guidance. There is no agent choice: Pi is the only coding agent. **Edit** on the provider, model or endpoint rows opens one editor (provider dropdown with Pi's API-key providers, ChatGPT subscription and OpenAI-compatible endpoint; model field with Pi's list for the provider and free text; endpoint URL and API type for an endpoint; a note naming where the credential goes), and the selection is staged as one candidate `executor.connection` whose review lists provider, model, base URL and API type. The launch command is an ordinary reviewed setting, and so are internet access and web search (prepare candidate, review, apply). Off limits a container run to the model provider's hosts plus `[container.egress] allowlist`; On opens its network and loads Pi's web search and page reading. While internet access is On, or proposed On in the editor or the candidate review, a warning says that a malicious web page could try to make the agent send its API key or ChatGPT token out and recommends limited, short-lived keys; a server-installed (local) project shows instead "Not enforced: this project runs Pi installed on the server, which reaches whatever the server reaches." With internet access On and Brave or Tavily search, Authentication lists `BRAVE_API_KEY` or `TAVILY_API_KEY` after the provider key (alone for a ChatGPT subscription) and saves or removes it the same way. A container project offers only the Pi launch preset, because a container run starts the image's pinned Pi in RPC mode and ignores the command; a local project uses ADORE-managed Pi and has no command editor. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a direct PUT returns 409 `pending_config_required`. While the image row is edited it offers the same server image suggestions. Runtime preparation remains external.
 
 The names-only additional credential selector offers Pi's provider variables and retained custom names; the provider's own key variable is always passed and needs no listing. Applying names does not delete saved `.env` values. **Provider API key** names the configured provider's variable (for example OPENAI_API_KEY, or ADORE_ENDPOINT_API_KEY, optional, for an endpoint; none for a ChatGPT subscription, which shows the server's ChatGPT sign-in instead), offers private Save/Disconnect for that variable only and shows its source; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges; its reasons distinguish a missing key, a rejected key, an unreachable provider or endpoint, an unknown model, a rate limit and other provider errors. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
@@ -1148,7 +1145,12 @@ Preparation recipes and the other environment settings (`execution.preparation`,
 
 ## Native local execution
 
-Native execution is selected with **Runs in → Installed on the server** at enrollment or in the reviewed Settings flow, in the server profile, or through server TOML enrollment. Existing native executor/model and explicit host checks use that prepared environment. The container notice is omitted for local projects. See [Local execution](Local_Execution.md) for machine/account, authentication and process ownership.
+**Installed on the server** runs ADORE-managed Pi as the service account.
+Set an optional project tools PATH in **Agent and model**. There is no Pi
+executable picker or personal sign-in. **Check host prerequisites** identifies
+missing/incompatible Node, missing/invalid managed Pi, process-scope failures
+and missing credentials. **Test AI connection** uses the same native RPC path
+in an empty working directory. See [Local execution](Local_Execution.md).
 
 ## Project executor images
 
@@ -1171,14 +1173,6 @@ service schedules repeated `run --once` rounds independently of that value.
 Project Settings exposes interval, jitter and error backoff controls. Standalone
 CLI startup mode is configured in the server TOML; its saved value remains
 available in raw configuration and the effective API catalog.
-
-## Installed local executor discovery
-
-Local enrollment and launch-command editing in Agent and model Settings offer
-automatic native executor suggestions, manual executable paths and an editable
-command. See [Local execution](Local_Execution.md#installed-executor-selection).
-The administrator-only `GET /api/v1/local-executors` reads bounded host paths
-without launching tools and returns no-store host/account and launch references.
 
 ## Simple local setup and clone folders
 

@@ -16,7 +16,6 @@
 # IMPORTS
 from dataclasses import replace
 import json
-from pathlib import Path
 
 from adore.executor.base import GateRun
 from adore.local_execution import LocalBackend
@@ -35,11 +34,9 @@ def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
     """@brief Persist a failed native job with real receipts and injected execution."""
     config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
     context["system"] = system
-    config.local.cgroup_root = str(tmp_path / "cgroup") if system == "Linux" else ""
-    binary = Path(context["path"]) / "pi.exe"
-    binary.chmod(0o755)
-    config.executor.command = (
-        f'"{binary.as_posix()}" -p --mode json --model {{model}} {{prompt}}')
+    from adore.pi_installation import managed_pi
+
+    binary = managed_pi().node
     config.executor.provider = "openai"
     config.executor.model = "model"
     config.delivery.publish_checkpoints = False
@@ -157,16 +154,16 @@ def test_retry_revalidation_refuses_real_failures_without_losing_work(
         binary.unlink()
     elif change in {"version", "exit", "timeout"}:
 
-        def invalid_version(argv, **kwargs):
-            """@brief Return invalid version, failed exit or timeout without running a tool."""
-            kwargs["stdout"].write_text("PRIVATE invalid output")
-            kwargs["stderr"].write_text("")
+        def invalid_version(argv, **_kwargs):
+            """@brief Refuse invalid Pi output without launching a tool."""
             return CommandResult(
-                exit_code=2 if change == "exit" else 124 if change == "timeout" else 0,
-                timed_out=change == "timeout",
+                stdout="v22.23.4" if len(argv) == 2 else "PRIVATE invalid output",
+                exit_code=0 if len(argv) == 2 else 2 if change == "exit" else
+                124 if change == "timeout" else 0,
+                timed_out=len(argv) != 2 and change == "timeout",
             )
 
-        controller.run_files = invalid_version
+        monkeypatch.setattr("adore.pi_installation.run_command", invalid_version)
 
     assert engine.retry(run.run_id)
 
@@ -179,11 +176,11 @@ def test_retry_revalidation_refuses_real_failures_without_losing_work(
         else "INFRASTRUCTURE_EXHAUSTED:"
     )
     if change in {"version", "exit", "timeout"}:
-        assert {"version": "version-invalid", "exit": "executor-exit", "timeout": "timeout"}[
+        assert {"version": "wrong version", "exit": "exit 2", "timeout": "timed out"}[
             change
         ] in saved.outcome
     if change == "missing":
-        assert "executable is unavailable" in saved.outcome
+        assert "Node 22.23.4" in saved.outcome
     assert not executor.prompts
     assert saved.active_task_id == run.active_task_id
     assert (work / "progress.txt").is_file()

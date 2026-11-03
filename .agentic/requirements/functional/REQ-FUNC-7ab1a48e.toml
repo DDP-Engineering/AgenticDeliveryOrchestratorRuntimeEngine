@@ -9,9 +9,9 @@ id = "REQ-FUNC-7ab1a48e"
 
 title = "Refuse an OpenAI-compatible endpoint for a local run"
 
-status = "active"
+status = "retired"
 
-requirement = """If a project with `[execution] backend = "local"` configures `provider = "custom"`, then ADORE shall refuse the configuration with a message naming `[executor] provider`, because a local run uses the account's own Pi agent directory."""
+requirement = """If a project with `[execution] backend = "local"` configures `provider = "custom"`, then ADORE shall refuse the configuration with a message naming `[executor] provider`, because a local run uses the account's own Pi agent directory. Retired 2026-11-03: the managed native agent directory can host the generated endpoint model."""
 
 verification = "A configuration test with backend local and provider custom reports the issue; backend container accepts it."
 

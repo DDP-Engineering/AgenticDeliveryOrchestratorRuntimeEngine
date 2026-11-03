@@ -19,7 +19,7 @@ Jede Gruppe ist beim Öffnen der Einstellungen eingeklappt, und die Zahl neben i
 | Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
 | PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |
 | Statistik | **Messwerte abgeschlossener Aufträge erfassen** und **Vom Agenten gemeldete Token erfassen**. **Statistik-Datenbankdatei** wird nur zur Information angezeigt. |
-| Agent und Modell | Das Modell, der Startbefehl, die Authentifizierung und **KI-Verbindung testen**. Siehe [Executor und Modelle](/help/executors). |
+| Agent und Modell | Anbieter, Modell, Authentifizierung und **KI-Verbindung testen** [Executor und Modelle](/help/executors). |
 | Technische Details | Schreibgeschützte Installationswerte wie der Auftragsstatus-Ordner, der lokale Repository-Pfad und die Arbeitsordner der Aufträge. Sie werden in der `config.toml` des Projekts auf dem Server geändert, und das Ändern eines Pfads verschiebt keine vorhandenen Daten. |
 
 ## Werte und Hilfe {#values}
@@ -28,7 +28,7 @@ Jede Zeile hat ein Label, eine stets sichtbare Beschreibung sowie die Angaben **
 
 Ein Badge **Standard** bedeutet, dass die `config.toml` des Projekts den Wert nicht setzt, sodass der ADORE-Standard gilt. Beim Bearbeiten wird ein Wert nur für dieses Projekt geschrieben. Eine Zeile mit **Hier nicht änderbar** wird in der `config.toml` auf dem Server geändert. Eine Zeile mit **Nur bei pausierter Aufnahme ohne aktive Aufträge anwendbar** braucht die unten beschriebene zusätzliche Bedingung.
 
-Die Erkennung startet automatisch bei lokaler Ausführung; ein Agentenwechsel nutzt die erkannte Liste. Zum Aktualisieren öffnen Sie **Erweitert** und **Installierte Executoren erkennen**. Für lokale Ausführung wählen Sie eine erkannte Installation oder geben einen Programmpfad ein; siehe [Installierte Executoren erkennen](/help/executors#installed-executors). Öffnen Sie **Erweitert** für den vollständigen Befehl, einen manuellen Programmpfad, Ordner/PATH-Werte und die Linux-cgroup-Delegierung. Ordner und PATH für automatische Werte leer lassen. PATH bezeichnet Werkzeugordner, keine Programmdatei. Kontonamen in Einstellungen prüfen die aktuelle Identität, ohne Benutzer zu wechseln.
+Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).
 
 ## Bearbeiten {#editing}
 

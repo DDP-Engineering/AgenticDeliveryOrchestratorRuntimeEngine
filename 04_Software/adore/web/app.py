@@ -333,11 +333,8 @@ class ProjectInput(BaseModel):
     repo_path: str
     reviewers: str = ""
     execution_backend: Literal["container", "local"] = "container"
-    executor_command: str = ""
-    local_account: str = "current"
-    local_home: str = ""
+    local_account: Literal["current"] = "current"
     local_path: str = ""
-    local_cgroup_root: str = ""
     provider: str = ""
     model: str = ""
     endpoint_base_url: str = Field(default="", max_length=512)
@@ -345,7 +342,7 @@ class ProjectInput(BaseModel):
     runtime: str = "docker"
     image: str = ""
     target_branch: str = "main"
-    auth_mode: Literal["api-key", "existing"] = "api-key"
+    auth_mode: Literal["api-key"] = "api-key"
     description: str = ""
     login: str = ""
     env_keys: list[str] | None = None
@@ -772,7 +769,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         executor_probe = probe_local_executor(config, env_file)
         executor = executor_probe["ready"]
         aegis_root = Path(config.worktree.repo_path) / ".agentic"
-        return {"checks": {"git": git.present and not git.detail,
+        return {"local_probe": executor_probe, "checks": {"git": git.present and not git.detail,
                             "forge_cli": forge.present and not forge.detail,
                             "forge_auth": auth.authenticated,
                             "container_runtime": True, "executor_cli": executor,
@@ -828,11 +825,6 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         _finding("project_exists", "name", "Choose another available ID.")]
     answers = body.model_dump(exclude={"name", "display_name", "env_keys", "revision", "clone_url"})
     answers["budgets_choice"] = "custom"
-    if not answers["executor_command"]:
-        answers.pop("executor_command")
-    elif body.execution_backend != "local":
-        issues.append(_finding("setup_field_invalid", "executor_command",
-                               "Custom native argv is available only for local execution."))
     # Reviewers are optional: an empty list requests no review on the MR/PR.
     for field in ("ready_label", "approval_label", "kind", "repo", "repo_path",
                   "runtime", "target_branch", "auth_mode"):
@@ -896,14 +888,11 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             not clone.is_absolute() or not (clone / ".git").exists()):
         issues.append(_finding("setup_field_invalid", "repo_path",
                                "Use an absolute existing repository clone on the ADORE server."))
-    # A local Pi that uses the account's existing sign-in needs no forwarded names.
     if body.env_keys is not None and (
             len(body.env_keys) > 32 or len(set(body.env_keys)) != len(body.env_keys)
-            or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) for key in body.env_keys)
-            or body.auth_mode == "existing" and body.env_keys):
+            or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", key) for key in body.env_keys)):
         issues.append(_finding("setup_field_invalid", "env_keys",
-                               "Use unique uppercase environment names; the existing sign-in "
-                               "mode forwards none."))
+                               "Use unique uppercase environment names."))
     for key in ("provider", "model", "image", "endpoint_base_url", "endpoint_api"):
         if not answers[key]:
             del answers[key]
@@ -959,7 +948,6 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "endpoint_api": (config.executor.endpoint.api
                              if config.executor.provider == "custom" else ""),
             "credential_variable": credential_variable(config.executor.provider),
-            "executor_command": config.executor.command,
             "image": config.container.image, "env_keys": config.executor.env_keys,
             "hold_label": config.labels.control.hold,
             "exclude_label": config.labels.control.exclude,
@@ -1486,8 +1474,7 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     if key in {"container.image", "container.runtime"}:
         return _valid_environment_value(key, proposed)
     if key.endswith(".command"):
-        return isinstance(proposed, str) and (backend == "local" and bool(proposed.strip())
-                                              or proposed in _LAUNCH_PRESETS.get(key, ()))
+        return backend != "local" and proposed in _LAUNCH_PRESETS.get(key, ())
     expected = _value_at(default_config().to_dict(), key)
     if key == "executor.model":
         return isinstance(proposed, str) and MODEL_ID_RE.fullmatch(proposed) is not None
@@ -1499,8 +1486,6 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
         return isinstance(proposed, str) and proposed in RUN_KINDS
     if key.startswith("workflow.stage_timeout_overrides."):
         return type(proposed) is int and proposed > 0
-    if key.startswith("local.environment."):
-        return isinstance(proposed, str)
     return False
 
 
@@ -1690,7 +1675,7 @@ def _restart_required(key: str) -> bool:
 # Environment settings an administrator chooses in the web (reviewed edits only).
 _CHOSEN_ENVIRONMENT_KEYS = frozenset({
     "execution.backend", "container.runtime", "container.image", "container.system_packages",
-    "local.account", "local.home", "local.path", "local.cgroup_root",
+    "local.path",
 })
 _IMAGE_LIST_TIMEOUT = 15
 _IMAGE_LIST_LIMIT = 1000
@@ -1877,6 +1862,8 @@ def _setting_metadata(config: dict, raw: bytes) -> list[dict]:
             else "default",
             "editable": (not _external_environment_key(edit_key)
                          and _editable_setting_key(edit_key)
+                         and not (edit_key == "executor.command"
+                                  and config.get("execution", {}).get("backend") == "local")
                          and (isinstance(value, str | int | float)
                               or edit_key == "delivery.reviewers" and valid_reviewers(value)
                               or edit_key in COLLECTION_KEYS
@@ -3459,7 +3446,10 @@ def create_app(home: str | Path | None = None,
                         raise _error(409, "stale_config_revision")
                     _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
                     web.audit(user["id"], "readiness-checked", item.name)
-                    return _verification_view(profiles, current, revision)
+                    view = _verification_view(profiles, current, revision)
+                    if "local_probe" in evidence:
+                        view["local_probe"] = evidence["local_probe"]
+                    return view
             except OSError as exc:
                 raise _contract_rejection("readiness_store_failed", "readiness",
                                           "Check local evidence storage before retrying.") from exc

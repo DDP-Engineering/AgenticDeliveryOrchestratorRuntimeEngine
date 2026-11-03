@@ -150,7 +150,9 @@ Use `adore --profile <name> config plan` to review the effective image and exact
 
 ## Native local execution
 
-config validate checks local profiles; config plan reviews pinned native policy without project commands. Existing run/retry/cancel/handoff/cleanup commands keep verified conductor ownership.
+Run `adore pi install` and `adore pi verify` as the ADORE service account to manage the pinned Pi. See [Local execution](Local_Execution.md) for Node and Linux delegation.
+
+`config validate` checks local profiles; config plan reviews pinned native policy without project commands. Existing run/retry/cancel/handoff/cleanup commands keep verified conductor ownership.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.

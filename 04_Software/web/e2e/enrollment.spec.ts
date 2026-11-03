@@ -174,10 +174,9 @@ test("agent and model chooses where the executor runs", async ({ page }) => {
   // Installed on the server swaps the container fields for the native ones.
   await runsIn.selectOption("local");
   await expect(image).toHaveCount(0);
-  await expect(page.locator("#enroll-executor_command")).not.toBeVisible();
-  await page.locator(".local-executor-advanced > summary").click();
-  await expect(page.locator("#enroll-executor_command")).toBeVisible();
-  await expect(page.getByText(/runs on the ADORE server under its current OS account/)).toBeVisible();
+  await expect(page.locator("#enroll-executor_command")).toHaveCount(0);
+  await expect(page.getByLabel("Project tools PATH (optional)")).toBeVisible();
+  await expect(page.getByText(/adore pi install and adore pi verify/)).toBeVisible();
   await runsIn.selectOption("container");
   // Credential names are optional in the form.
   await page.getByLabel(/^Model \*/).fill("openai-codex/gpt-6-sol");

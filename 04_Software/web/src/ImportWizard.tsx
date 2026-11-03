@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { localFailureText, validLocalProbe, type LocalProbe } from "./localDiagnostics";
 import { useEffect, useRef, useState } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { ApiError, describeError } from "./errors";
@@ -20,7 +21,7 @@ type Review = { name: string; display_name: string; description: string; config_
   container: Record<string, string> };
 type Preview = { revision: string; config_revision: string; review: Review | null;
   validation: { structural_valid: boolean; issues: Finding[] }; issues: string[] };
-type Evidence = { status: "failed" | "partial" | "verified"; revision: string; config_revision: string;
+type Evidence = { local_probe?: LocalProbe; status: "failed" | "partial" | "verified"; revision: string; config_revision: string;
   checked_at: string; context: string; checks: Record<string, boolean | null | "not-checked"> };
 type Created = { id: string; name: string; display_name: string; paused: boolean; pickup_state: string };
 const paths = ["worktree.repo_path", "worktree.root", "state.store_root", "metrics.db_path", "metrics.export_jsonl", "metrics.html_out"];
@@ -170,6 +171,7 @@ export function ImportWizard({ locale, csrf, t, onCancel, onOpen, onCreated, reg
       const keys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"];
       if (!value || value.revision !== preview.revision || value.config_revision !== preview.config_revision || value.context !== "api-host" ||
         typeof value.checked_at !== "string" || !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
+        (value.local_probe !== undefined && !validLocalProbe(value.local_probe, value.checks.executor_cli === true)) ||
         !readinessChecksShape(value.checks, keys) || keys.some(key => !(key in value.checks) ||
           typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null))) throw new ApiError("unexpected_response");
       const status = Object.values(value.checks).some(v => v === false) ? "failed" :
@@ -231,7 +233,7 @@ export function ImportWizard({ locale, csrf, t, onCancel, onOpen, onCreated, reg
           {evidence && <><p>{e.checked}: {evidence.checked_at}</p><ul>{Object.entries(evidence.checks).map(([key, value]) =>
             <li key={key}><strong>{key}</strong>: {value === true ? e.checkPassed : value === false ? e.checkFailed : e.notChecked}
               {value !== true && <><p>{e.checkHelp[key as keyof typeof e.checkHelp]}</p>
-                <button className="text-button" onClick={() => move(0, "import-file")}>{c.correction}</button></>}</li>)}</ul></>}
+                <button className="text-button" onClick={() => move(0, "import-file")}>{c.correction}</button></>}</li>)}</ul>{evidence.local_probe?.ready === false && <p>{localFailureText(locale, evidence.local_probe)}</p>}</>}
           <button className="primary" disabled={!preview?.validation.structural_valid} onClick={() => {
             if (!preview?.validation.structural_valid) return;
             setReviewed({ draft: structuredClone(draft), preview: structuredClone(preview) }); move(4);

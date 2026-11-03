@@ -99,7 +99,9 @@ test("flow visibility omits inactive and external fields and keeps technical row
  // The chosen environment keys follow the backend: container rows or local-account rows.
  for (const key of ["execution.backend", "container.runtime", "container.image"]) assert.equal(settingVisible(key, true), true, key);
  assert.equal(settingVisible("local.account", true), false);
- assert.equal(settingVisible("local.account", true, "local"), true);
+ assert.equal(settingVisible("local.account", true, "local"), false);
+ assert.equal(settingVisible("local.path", true, "local"), true);
+ assert.equal(settingVisible("executor.command", true, "local"), false);
  assert.equal(settingVisible("container.image", true, "local"), false);
  for (const key of ["worktree.repo_path", "worktree.root", "worktree.branch_template", "worktree.branch_rule", "state.store_root", "agent.slug"]) assert.equal(settingVisible(key), true, key);
  assert.equal(settingVisible("executor.command"), true);
@@ -110,7 +112,7 @@ test("flow visibility omits inactive and external fields and keeps technical row
  assert.equal(STATUS_LABEL_KEYS.size, 6);
  assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.answered"), true);
  assert.equal(STATUS_LABEL_KEYS.has("labels.lifecycle.ready"), false);
- for (const [key, expected] of [["clarification.max_rounds","clarification"], ["recovery.max_transient_retries","recovery"], ["workflow.stage_timeout_overrides.build","stageLimits"], ["metrics.db_path","statisticsFiles"], ["metrics.capture_tokens",null], ["local.account","localTechnical"], ["local.home","localTechnical"], ["local.path","localTechnical"], ["local.cgroup_root","localTechnical"]]) assert.equal(settingSubgroup(key), expected);
+ for (const [key, expected] of [["clarification.max_rounds","clarification"], ["recovery.max_transient_retries","recovery"], ["workflow.stage_timeout_overrides.build","stageLimits"], ["metrics.db_path","statisticsFiles"], ["metrics.capture_tokens",null], ["local.path",null]]) assert.equal(settingSubgroup(key), expected);
 });
 
 test("only branch naming worktree fields get text editors under server authority", () => {

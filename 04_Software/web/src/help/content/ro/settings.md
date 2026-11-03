@@ -19,7 +19,7 @@ Fiecare grup este închis când deschideți Setări, iar numărul de lângă num
 | Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
 | PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |
 | Statistici | **Înregistrează măsurătorile lucrărilor finalizate** și **Înregistrează tokenurile raportate de agent**. **Fișierul bazei de date pentru statistici** este afișat doar cu titlu informativ. |
-| Agent și model | Modelul, comanda de lansare, autentificarea și **Testează conexiunea AI**. Vezi [Executori și modele](/help/executors). |
+| Agent și model | Furnizorul, modelul, autentificarea și **Testează conexiunea AI** [Executori și modele](/help/executors). |
 | Detalii tehnice | Valori de instalare doar pentru citire, precum dosarul de stare al lucrărilor, calea repository-ului local și folderele de lucru ale lucrărilor. Se modifică în `config.toml` al proiectului, pe server, iar schimbarea unei căi nu mută datele existente. |
 
 ## Valori și ajutor {#values}
@@ -28,7 +28,7 @@ Fiecare rând are o etichetă, o descriere mereu vizibilă, o **Valoare activă*
 
 O insignă **Implicit** înseamnă că `config.toml` al proiectului nu setează valoarea, deci se aplică valoarea implicită ADORE. Modificarea ei scrie o valoare doar pentru acest proiect. Un rând marcat **Nu se poate modifica aici** se modifică în `config.toml` pe server. Un rând marcat **Se aplică doar cu preluarea în pauză și fără lucrări active** are nevoie de condiția suplimentară descrisă mai jos.
 
-Detectarea pornește automat când alegi execuția locală; schimbarea executorului folosește lista detectată. Deschide **Avansate** pentru **Detectează executorii instalați** dacă vrei să o reîmprospătezi. Pentru execuție locală, alege o instalare detectată sau introdu calea unui executabil; vezi [Detectarea executorilor instalați](/help/executors#installed-executors). Deschide **Avansate** pentru comanda completă, calea manuală a executabilului, suprascrierile directorului/PATH și delegarea cgroup Linux. Lasă directorul și PATH goale pentru valorile automate. PATH înseamnă directoare cu unelte, nu fișierul executabil. Numele contului din Setări doar verifică identitatea curentă, fără să schimbe utilizatorul.
+Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).
 
 ## Modificarea {#editing}
 

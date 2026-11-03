@@ -215,14 +215,13 @@ def valid_endpoint_url(value: object) -> bool:
 def search_key_variable(executor, backend: str = "container") -> str | None:
     """
     @brief      The web search key a run needs.
-    @details    Only a container run loads Pi's web tools; Pi installed on the
-                server does not, so it never receives the key.
+    @details    Both managed backends can load the web tools when selected.
     @param[in]  executor `ExecutorConfig`.
     @param[in]  backend `[execution] backend`.
-    @return     BRAVE_API_KEY or TAVILY_API_KEY for an internet-on container run
+    @return     BRAVE_API_KEY or TAVILY_API_KEY for an internet-on run
                 searching with Brave or Tavily; None otherwise (Exa needs no key).
     """
-    if executor.internet is not True or backend != "container":
+    if executor.internet is not True or backend not in {"container", "local"}:
         return None
     return SEARCH_KEY_VARIABLES.get(getattr(executor.web, "search", None))
 

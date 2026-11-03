@@ -74,22 +74,16 @@ unrelated processes/scopes are never cleanup targets.
 
 ## Gates and credentials
 
-Local gates use argv templates tokenized before placeholder substitution; quoted
-paths/spaces and prompt text remain one argument. Shell compounds and wrappers are
-unsupported locally. AEGIS commands use the configured native Python argv through
-the same target. No shell transport, stale sessions or second conductor. Retain
-questions/result semantics, timestamped immutable launch archives, usage coverage,
-limits, candidate-bound approval and draft-only delivery. ADORE never merges.
+Local gates run the fixed Node/Pi RPC command in the dedicated worktree. ADORE
+sends the stage prompt over the owned stdin pipe, retains bounded redacted
+evidence, and records questions, usage and the authoritative exit/timeout result.
+AEGIS commands keep the native Python file transport through the same target.
 
-Only an explicit system/user-environment allowlist plus `[local].environment` and
-approved `[executor].env_keys` is passed, including the selected home/PATH and
-executor credential/config locations. Forge token names are refused. Existing
-Pi account store (`$PI_CODING_AGENT_DIR/auth.json`, default `~/.pi/agent/auth.json`)
-is reused in place; no login flow, auth-file copy or credential archive. Known approved environment/auth-store string values
-are redacted before bounded retained output. Corrupt supported auth JSON fails
-closed before a command. Missing auth is a readiness finding; actual provider/model
-access is proved only by an explicit bounded nonce challenge using the same
-configured CLI/account/environment as gates. Model checks never start login.
+Only an explicit system/account allowlist and approved provider credentials are
+passed. The optional project tool PATH does not select Node or Pi. A fresh
+ADORE-owned agent directory excludes personal Pi credentials/settings and
+untrusted project resources. The model test uses the same bounded RPC shell
+challenge; neither readiness nor a native model test initiates login.
 
 A worktree is not a host sandbox. The executor can access files and credential
 helpers available to its OS account. Recommend a dedicated least-privilege account
@@ -102,7 +96,8 @@ locally and rejected.
 CLI config validation/plan, assisted setup, executor/project settings and host/
 model checks select the backend. Local checks never invoke Docker/Podman, image
 checks or preparation. Basic executor availability/auth-state is allowed; no
-project tool discovery, automatic install, dependency bootstrap or catalogue.
+project tool discovery, dependency bootstrap or catalogue. The explicit Pi install
+command manages Pi only.
 GUI/setup state the execution machine/account and that the user must decide and
 independently install/prep project tools, versions, SDKs and libraries there.
 Installing them on a remote browser laptop is insufficient.

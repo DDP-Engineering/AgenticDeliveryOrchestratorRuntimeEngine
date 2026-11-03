@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 # IMPORTS
 import ctypes
 from ctypes import wintypes
@@ -528,6 +530,15 @@ class NativeScopes:
             raise LocalExecutionError("native scope cleanup not confirmed") from exc
 
 
+class NativePipeProcess:
+    """@brief Lend process pipes and route forced stops to the owned process scope."""
+
+    def __init__(self, process, stop):
+        self.stdin, self.stdout, self.stderr = process.stdin, process.stdout, process.stderr
+        self.wait, self.poll = process.wait, process.poll
+        self.terminate = self.kill = stop
+
+
 class LocalProcessController:
     """@brief Bounded native process launch and durable run-owned control boundary."""
 
@@ -594,6 +605,91 @@ class LocalProcessController:
             self.scopes.remove(lease["scope"])
             path.unlink()
 
+    def _launch(self, argv, cwd, env, control, run_id, host, *, streaming=False):
+        """@brief Persist the owned process lease before releasing native argv."""
+        token = uuid4().hex
+        with self.lock:
+            if (control / "active-process.json").exists():
+                raise LocalExecutionError("native command lease needs explicit recovery")
+            scope = self.scopes.create(token)
+            launch = control / "launches" / token
+            envelope = launch / "command.json"
+            release = launch / "release"
+            process = None
+            try:
+                launch.mkdir(parents=True, exist_ok=False)
+                atomic_record(
+                    envelope,
+                    {"argv": argv, "cwd": str(cwd), "scope": scope, "release": str(release)},
+                )
+                process = self.spawn(
+                    [
+                        sys.executable,
+                        "-I",
+                        str(Path(__file__).with_name("local_child.py")),
+                        str(envelope),
+                        *(["rpc"] if streaming else []),
+                    ],
+                    cwd=cwd,
+                    env=automatic_environment(env),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.PIPE if streaming else subprocess.DEVNULL,
+                    **background_process_options(),
+                )
+                self.scopes.attach(scope, process.pid)
+                birth = self.scopes.birth(process.pid)
+                if birth is None:
+                    raise LocalExecutionError("owned native supervisor exited before release")
+                lease = {
+                    "schema": 1,
+                    "run_id": run_id,
+                    "host": host,
+                    "pid": process.pid,
+                    "birth": birth,
+                    "scope": scope,
+                }
+                atomic_record(launch / "ownership.json", lease)
+                atomic_record(control / "active-process.json", lease)
+                release.write_text("released", encoding="ascii")
+            except (OSError, ValueError, LocalExecutionError) as exc:
+                if launch.is_dir():
+                    (launch / "cancel").write_text("cancelled", encoding="ascii")
+                self.scopes.kill(scope)
+                if process is not None:
+                    # Only the handle just returned by spawn; no recovered PID control.
+                    if self.scopes.system == "Windows":
+                        process.kill()  # Fresh native HANDLE, never recovered PID.
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired as drain_error:
+                        raise LocalExecutionError(
+                            "native launch drain unconfirmed"
+                        ) from drain_error
+                self.scopes.remove(scope)
+                raise LocalExecutionError("native launch ownership failed") from exc
+        return process, scope
+
+    @contextmanager
+    def stream(self, argv, *, cwd, env, control, run_id, host):
+        """@brief Lend owned binary pipes, then confirm the entire scope drained."""
+        process, scope = self._launch(argv, cwd, env, control, run_id, host, streaming=True)
+        def stop():
+            """@brief Stop the job and all descendants after RPC grace expires."""
+            self.interrupt(control, run_id, host)
+
+        try:
+            yield NativePipeProcess(process, stop)
+        finally:
+            stop()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired as exc:
+                raise LocalExecutionError("native RPC scope drain unconfirmed") from exc
+            self.scopes.remove(scope)
+            with self.lock:
+                (control / "active-process.json").unlink()
+
     def run_files(
         self,
         argv: list[str],
@@ -628,66 +724,7 @@ class LocalProcessController:
             raise LocalExecutionError("native command requires a positive timeout")
         if type(stdout_limit) is not int or not 1 <= stdout_limit <= 4 * 1024 * 1024:
             raise LocalExecutionError("native stdout limit is invalid")
-        token = uuid4().hex
-        with self.lock:
-            if (control / "active-process.json").exists():
-                raise LocalExecutionError("native command lease needs explicit recovery")
-            scope = self.scopes.create(token)
-            launch = control / "launches" / token
-            envelope = launch / "command.json"
-            release = launch / "release"
-            process = None
-            try:
-                launch.mkdir(parents=True, exist_ok=False)
-                atomic_record(
-                    envelope,
-                    {"argv": argv, "cwd": str(cwd), "scope": scope, "release": str(release)},
-                )
-                process = self.spawn(
-                    [
-                        sys.executable,
-                        "-I",
-                        str(Path(__file__).with_name("local_child.py")),
-                        str(envelope),
-                    ],
-                    cwd=cwd,
-                    env=automatic_environment(env),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    stdin=subprocess.DEVNULL,
-                    **background_process_options(),
-                )
-                self.scopes.attach(scope, process.pid)
-                birth = self.scopes.birth(process.pid)
-                if birth is None:
-                    raise LocalExecutionError("owned native supervisor exited before release")
-                lease = {
-                    "schema": 1,
-                    "run_id": run_id,
-                    "host": host,
-                    "pid": process.pid,
-                    "birth": birth,
-                    "scope": scope,
-                }
-                atomic_record(launch / "ownership.json", lease)
-                atomic_record(control / "active-process.json", lease)
-                release.write_text("released", encoding="ascii")
-            except (OSError, ValueError, LocalExecutionError) as exc:
-                if launch.is_dir():
-                    (launch / "cancel").write_text("cancelled", encoding="ascii")
-                self.scopes.kill(scope)
-                if process is not None:
-                    # Only the handle just returned by spawn; no recovered PID control.
-                    if self.scopes.system == "Windows":
-                        process.kill()  # Fresh native HANDLE, never recovered PID.
-                    try:
-                        process.wait(timeout=5)
-                    except subprocess.TimeoutExpired as drain_error:
-                        raise LocalExecutionError(
-                            "native launch drain unconfirmed"
-                        ) from drain_error
-                self.scopes.remove(scope)
-                raise LocalExecutionError("native launch ownership failed") from exc
+        process, scope = self._launch(argv, cwd, env, control, run_id, host)
         errors = []
 
         def drain(stream, path):

@@ -60,3 +60,5 @@ version floor; malformed version/schema/status and nonzero commands fail readine
 - 04_Software/tests/test_doctor.py — offline readiness contracts.
 - 04_Software/tests/test_gitea_auth.py — portable discovery integration.
 - 05_SoftwareDocu/Component_Doctor.md — component documentation.
+
+Native executor detection calls the managed verifier and reports Node/Pi prerequisites.

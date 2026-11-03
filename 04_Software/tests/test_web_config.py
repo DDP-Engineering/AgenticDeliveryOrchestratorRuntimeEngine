@@ -242,8 +242,9 @@ def test_config_view_hides_a_removed_agents_environment_value(tmp_path, table):
             response = client.get("/api/v1/projects/alpha/config")
             assert response.status_code == 200
             assert "stale-private-value" not in response.text
-            assert any("configures a removed coding agent" in issue
-                       for issue in response.json()["issues"])
+            reason = ("configures a removed coding agent" if table == "container.runtime_env"
+                      else "[local] unknown field: environment; remove it from config.toml")
+            assert any(reason in issue for issue in response.json()["issues"])
 
 
 _PARTIAL_CONFIG = """

@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-51d9f79b"
+title = "Ignore personal and project Pi resources"
+status = "active"
+requirement = "When Pi executes natively, ADORE shall launch it with a fresh ADORE-owned agent directory and personal and untrusted project resource loading disabled."
+verification = "Set hostile personal settings and Pi/Node overrides; inspect the actual fake RPC process launch and its clean configuration."
+affected_paths = ["04_Software/adore/local_execution.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi"]
+created = 2026-11-03
+updated = 2026-11-03

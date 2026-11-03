@@ -446,7 +446,7 @@ def validate_plan(plan: object) -> dict:
         if type(value) is not type(example):
             raise PreparationError(f"plan.policy.{field}: invalid type")
         if isinstance(example, dict):
-            if field in {"container.runtime_env", "local.settings.environment"}:
+            if field == "container.runtime_env":
                 if any(not isinstance(k, str) or not isinstance(v, str) for k, v in value.items()):
                     raise PreparationError("plan.policy: invalid environment")
             else:

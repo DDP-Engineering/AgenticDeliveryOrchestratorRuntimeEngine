@@ -71,17 +71,4 @@ API against an inert fixture without running an agent or contacting a provider.
 
 ## Automatic and advanced presentation
 
-LocalExecutorPicker discovers automatically when mounted for native execution.
-Its validated listing contains all agents; agent changes select from that listing
-without a new scan. Detected installations and read-only Runs as identity stay
-visible. Its closed Advanced disclosure owns optional re-detection, full command,
-manual path inputs and optional enrollment environment fields. Agent and model
-uses independent vertical columns so authentication stays beside related fields
-without gaps caused by the taller installation panel. Enrollment retains the
-current account sentinel and automatic empty home/PATH; Settings preserves saved
-assertions and explicit overrides in a separate Advanced subgroup. Native launch
-policy still independently validates the actual account and installed identities.
-
-Displayed account and machine come from the same native_context used by execution
-(Windows token account or Linux effective UID). Unavailable identity produces
-HTTP 503 local_host_identity_unavailable rather than a guessed shell username.
+The administrator discovery endpoint inventories files only. Guided enrollment and Settings use the managed Pi installation and do not call this endpoint or offer detected executables for launch.

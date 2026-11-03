@@ -10,8 +10,7 @@ import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
 import { agentSettingsCopy, agentValue, executorSettingHelp, executorSettingLabel, internetCopy, searchKeyNeeded, validCredentialNames } from "./executorSettings";
-import { LocalExecutorPicker, LocalExecutionIdentity } from "./LocalExecutorPicker";
-import { setupCopy } from "./setupCopy";
+import { localCopy } from "./localExecution";
 import { CredentialNamesEditor } from "./CredentialNamesEditor";
 import { ExecutorCredentials, executorCopy } from "./ExecutorCredentials";
 import { ChatGptSignIn } from "./ChatGptSignIn";
@@ -1166,7 +1165,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
                   <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <>{String(settingValue(projectConfig.config, "executor.provider") ?? "") === CHATGPT && <ChatGptSignIn key={`${session.user.id}:chatgpt`} locale={locale} read={() => request("/chatgpt-sign-in")} start={() => request(`/projects/${encodeURIComponent(selected)}/chatgpt-sign-in`, "POST", undefined, session.csrf)} complete={(redirect_url: string) => request("/chatgpt-sign-in", "PUT", {redirect_url}, session.csrf)} cancel={() => request("/chatgpt-sign-in/pending", "DELETE", undefined, session.csrf)} disconnect={() => request("/chatgpt-sign-in", "DELETE", undefined, session.csrf)} />}{(String(settingValue(projectConfig.config, "executor.provider") ?? "") !== CHATGPT || searchKeyNeeded(projectConfig.config)) && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} provider={String(settingValue(projectConfig.config, "executor.provider") ?? "")} project={selectedProject.id} revision={projectConfig.revision} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
@@ -1365,7 +1364,7 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
   </div>;
 }
 
-function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, settings, t, locale, canEdit, disabled, onStage, actions, children, header, executorBefore, executorAfter, executorAuthentication }: { executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode; project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
+function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, localIdentity, settings, t, locale, canEdit, disabled, onStage, actions, children, header, executorBefore, executorAfter, executorAuthentication }: { executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode; project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; localIdentity?: Config["local_execution"]; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState("");
   // Image suggestions from the server while the image row is being edited.
   const [serverImages, setServerImages] = useState<ServerImages | null>(null);
@@ -1424,7 +1423,6 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   };
   const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
           {row.input === "connection" ? <AgentConnectionEditor value={draft} locale={locale} disabled={disabled} onChange={setDraft}/>
-          : row.key === "executor.command" && settingValue(config,"execution.backend")==="local" ? <LocalExecutorPicker agent="pi" value={draft} onChange={setDraft} locale={locale} disabled={disabled} autoFill={false}/>
           : row.input === "credential-names" ? <CredentialNamesEditor value={draft} choices={row.choices} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "duration" ? <div className="duration-inputs">
             <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>
@@ -1471,7 +1469,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
       <summary>{copy[group.name as keyof typeof copy]} <span className="muted">({group.rows.length})</span></summary>
       {group.name === "executor" && <div className="executor-settings-content executor-connection-area">{executorBefore}</div>}
-      {group.name === "executor" && canEdit && settingValue(config,"execution.backend")==="local" && <LocalExecutionIdentity locale={locale}/>}
+      {group.name === "executor" && backend === "local" && <p className="field-hint">{localCopy[locale].account}{localIdentity && <>: <strong>{localIdentity.account}</strong> · {localIdentity.machine} · {localIdentity.system}</>}. {localCopy[locale].notice}</p>}
       {group.name === "technical" && <p className="muted">{technicalSettingsHelp[locale]}</p>}
       {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
         <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
@@ -1498,11 +1496,10 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           </div>
           <p className="muted">{branchNamingCopy[locale].example}</p>
         </section>}
-        {(["clarification", "recovery", "stageLimits", "statisticsFiles", "authentication", "localTechnical"] as const).map(topic => {
+        {(["clarification", "recovery", "stageLimits", "statisticsFiles", "authentication"] as const).map(topic => {
           const rows = group.rows.filter(row => settingSubgroup(row.key) === topic);
           return rows.length > 0 && <details className="setting-topic" data-setting-topic={topic} key={topic}>
-            <summary>{topic === "localTechnical" ? setupCopy[locale].advanced : copy[topic]} <span className="muted">({rows.length})</span></summary>
-            {topic === "localTechnical" && <p className="field-hint">{setupCopy[locale].overrideHelp}</p>}
+            <summary>{copy[topic]} <span className="muted">({rows.length})</span></summary>
             <div className="setting-list">{rows.map(renderRow)}</div>
             {topic === "authentication" && executorAuthentication}
           </details>;

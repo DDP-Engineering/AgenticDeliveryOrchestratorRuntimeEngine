@@ -147,11 +147,7 @@ model = "gpt-5.5"
 # Settings -> Agent and model, or put it in .env beside this config.toml under
 # the variable Pi reads for the provider (OPENAI_API_KEY for "openai",
 # ANTHROPIC_API_KEY for "anthropic", ADORE_ENDPOINT_API_KEY for "custom").
-# Argv template of a native (local) Pi run only; a container run ignores it.
-# ADORE substitutes {prompt}, {model} (as provider/model) and {worktree}.
-# SAFETY: never add --auto;
-# the executor never touches the remote - the orchestrator owns push and MR
-# creation.
+# Container launch is fixed by ADORE. A local profile must omit command.
 # command = "pi -p --mode json --model {model} {prompt}"
 # "thick"    = the orchestrator drives gate-by-gate and verifies in between
 #              (recommended; matches the workflow's stop-after-each-gate design).
@@ -168,7 +164,7 @@ questions_file = "ADORE_QUESTIONS.md"
 env_keys = []
 
 # Only with provider = "custom": the OpenAI-compatible endpoint. base_url is the
-# address AS SEEN FROM THE CONTAINER: "localhost" is the container itself, and
+# address as seen by Pi. In a container, "localhost" is the container itself, and
 # host.docker.internal reaches the host only on Docker Desktop. On Docker Engine
 # (Linux, or inside WSL) use the host's LAN address or the Docker network
 # gateway; for a server on Windows reached from WSL Docker, the WSL default
@@ -446,14 +442,10 @@ capture_resource = true
 html_out = ".adore/metrics/stats.html"
 
 # Native local alternative: switch the existing [execution] backend to "local".
-# Keep preparation empty; remove container required_tool_checks/run_args/custom
-# runtime_env and leave [container.egress] allowlist empty. No tools are installed.
-# Set [executor] command to the installed native Pi argv; Windows npm shims need
-# explicit node.exe + installed JS. Each gate starts a fresh Pi session.
+# Run adore pi install and adore pi verify as the ADORE service account.
+# Linux: set ADORE_LOCAL_CGROUP_ROOT in the service environment.
+# Keep preparation empty and remove container-only runtime/tool-check overrides.
 # [local]
-# account = "current"  # Actual ADORE account; named value asserts it.
-# home = ""           # Already prepared home; blank uses the account default.
-# path = ""           # Already prepared PATH; blank uses native PATH.
-# environment = {}    # Non-secret only; approved keys belong in protected .env.
-# cgroup_root = ""    # Linux: delegated absolute cgroup-v2 root with cgroup.kill.
+# account = "current"
+# path = "" # Optional project-tool PATH; blank uses the service PATH.
 # See ../01_Documentation/Local_Execution.md; worktrees are not host sandboxes.

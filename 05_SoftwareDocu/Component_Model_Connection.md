@@ -37,7 +37,7 @@ Settings → Agent and model offers Test AI connection at the panel heading righ
 
 ## 8. Usage
 
-Save executor/model credentials as for normal execution, ensure its local image is available, then click Test AI connection. The container challenge starts the image's Pi with `pi_rpc_argv(model, pi_provider(provider))` (`--mode rpc --no-session`, the guard extension, `--provider <pi provider> --model <model id>`) and sends the prompt "run `echo ADORE_TOOL_<hex>` once, then reply exactly `ADORE_OK_<hex>`". Local diagnostics use the configured native `executor.command`, with `{model}` as `<pi provider>/<model id>`, and the account environment.
+Save executor/model credentials as for normal execution, ensure its local image is available, then click Test AI connection. The container challenge starts the image's Pi with `pi_rpc_argv(model, pi_provider(provider))` (`--mode rpc --no-session`, the guard extension, `--provider <pi provider> --model <model id>`) and sends the prompt "run `echo ADORE_TOOL_<hex>` once, then reply exactly `ADORE_OK_<hex>`". Local diagnostics use managed Pi and the same native RPC scope as stages.
 
 ## 9. Validation And Tests
 
@@ -53,7 +53,7 @@ Explicit model connection resolves the selected Git recipe through its bounded r
 
 ## Native execution contract
 
-Native challenges use local_probe and the same configured argv/account/environment as gates, with a 90-second gate bound and verified scope cleanup. The prompt asks for `echo <ADORE_TOOL nonce>` and then the exact reply; `_native_tool_response` requires Pi's successful shell event carrying that nonce (otherwise `tool-call-failed`) and then the completed reply (otherwise `invalid-response`), per `.agentic/specs/REQ-FUNC-8f369d55.md`. No login or complete-job claim; container diagnostics keep the fixed RPC command line.
+Native challenges use local_probe and the same fixed Pi argv and account environment as gates, with a 90-second gate bound and verified scope cleanup. The prompt asks for `echo <ADORE_TOOL nonce>` and then the exact reply; `_native_tool_response` requires Pi's successful shell event carrying that nonce (otherwise `tool-call-failed`) and then the completed reply (otherwise `invalid-response`), per `.agentic/specs/REQ-FUNC-8f369d55.md`. No login or complete-job claim; container diagnostics keep the fixed RPC command line.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
@@ -61,7 +61,7 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 
 ## Native completion and failure classification
 
-The configured native command/account/environment remains authoritative. A
+The managed native Pi and service account environment remains authoritative. A
 completed exact OpenCode nonce text part with finite positive `time.end` and
 optional finite nonnegative `time.start <= end`, followed by clean process exit,
 proves the short access challenge even if `step_finish` was omitted. Plain text

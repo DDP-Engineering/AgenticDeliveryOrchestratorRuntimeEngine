@@ -593,14 +593,20 @@ def detect_push_access(
     )
 
 
-def detect_executor(name: str = PI, runner: CommandRunner = run_command) -> ToolStatus:
+def detect_executor(runner: CommandRunner = run_command) -> ToolStatus:
+    """@brief Verify ADORE's pinned native Pi without consulting a global Pi.
+    @param[in] runner Injectable command runner.
+    @return Installed Pi version or a safe remediation message.
     """
-    @brief      Whether an executor CLI is present on the host.
-    @param[in]  name Executor CLI name (default pi).
-    @param[in]  runner Injectable command runner.
-    @return     The ToolStatus.
-    """
-    return _probe(runner, name, [name, "--version"])
+    from adore.pi_installation import PiInstallationError, verify_pi
+
+    try:
+        installation = verify_pi(runner=runner)
+    except PiInstallationError as exc:
+        return ToolStatus(name=PI, present=False, detail=str(exc))
+    except OSError:
+        return ToolStatus(name=PI, present=False, detail="Cannot read the managed Pi installation")
+    return ToolStatus(name=PI, present=True, version=installation.prefix.name)
 
 
 def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentReport:

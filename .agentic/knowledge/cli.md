@@ -129,3 +129,5 @@ The web worker calls the same CLI command boundary with fixed argument vectors.
 Manual `run --once --ticket IID` retains paused monitoring and appends a bounded,
 versioned secret-free terminal result through adore/start_result.py. The worker
 validates selected IID, exit code and allowlisted reason; see Component_CLI.md.
+
+Native Pi lifecycle: `adore pi install` and `adore pi verify` work without a project.

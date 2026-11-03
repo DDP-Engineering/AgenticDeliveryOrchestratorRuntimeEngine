@@ -125,7 +125,7 @@ or mismatched scoped records fail closed.
 
 Explicit administrator model connectivity uses Pi through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
 
-Project Settings → Agent and model owns the Pi model setting, reviewed backend-specific launch command and approved provider key save/remove within one panel, with a credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Subscription login of an installed Pi remains the local service account's own flow.
+Project Settings → Agent and model owns the Pi model setting, reviewed backend-specific launch command and approved provider key save/remove within one panel, with a credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Native Pi uses a managed installation and injected provider credentials. Subscription sign-in is for containers.
 
 ## Reviewed container preparation
 
@@ -185,7 +185,7 @@ Focused tests: test_gitea_auth.py and repository connection/source cases.
 
 ## Native check diagnostics
 
-Check host prerequisites uses the same installed command/account/auth and accepts
+Check host prerequisites uses the same managed Pi, account and provider credential and accepts
 version output on stdout or stderr. Closed diagnostic causes include native
 permission/scope/cleanup boundaries. Test AI connection reuses saved native argv
 in an empty temporary folder and reports model/provider errors without raw output.
@@ -218,3 +218,7 @@ restart at the next command/provision. Dependencies/files/user/egress are retain
 Unconfirmed recovery blocks active admission and becomes terminal infrastructure
 failure; cancellation and explicit owned release keep authority. No new runtime
 package or state schema is required. See knowledge/execution.md and Operations_Guide.
+
+Native server prerequisite setup uses `adore pi install` and `adore pi verify` under
+the ADORE account, with Node 22.23.4+ in the 22.x line. The service sets
+`ADORE_NODE` for an explicit executable and `ADORE_LOCAL_CGROUP_ROOT` for Linux.

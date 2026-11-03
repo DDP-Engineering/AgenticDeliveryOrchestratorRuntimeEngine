@@ -396,16 +396,13 @@ class ExecutionConfig:
 @dataclass
 class LocalConfig:
     """
-    @brief   [local] - preinstalled native service-account environment.
-    @details Selects existing home/PATH without impersonation or installation.
-             Linux requires an operator-delegated cgroup-v2 root for ownership.
+    @brief   [local] - managed Pi under the current server account.
+    @details Optionally overrides PATH for project tools. Scope delegation is
+             configured by the server operator.
     """
 
     account: str = "current"
-    home: str = ""
     path: str = ""
-    environment: dict[str, str] = field(default_factory=dict)
-    cgroup_root: str = ""
 
 
 @dataclass
@@ -1056,9 +1053,6 @@ def _provider_issues(config: Config) -> list[str]:
             issues.append('[executor.endpoint] is used only with provider = "custom": '
                           "remove it from config.toml")
         return issues
-    if config.execution.backend == "local":
-        issues.append('[executor] provider "custom" needs a container run: a local run uses '
-                      "the account's own Pi agent directory")
     if not isinstance(raw_endpoint, dict):
         issues.append('[executor.endpoint] base_url is required for provider = "custom"')
         return issues
@@ -1066,7 +1060,7 @@ def _provider_issues(config: Config) -> list[str]:
     if not valid_endpoint_url(base_url):
         issues.append("[executor.endpoint] base_url must be an http(s) address with a host and "
                       "no user name, password, query, fragment, spaces or quotes (the address "
-                      f"as seen from the container): {base_url!r}")
+                      f"as seen from Pi): {base_url!r}")
     if executor.endpoint.api not in ENDPOINT_APIS:
         issues.append(f"[executor.endpoint] api must be one of {', '.join(ENDPOINT_APIS)}: "
                       f"{executor.endpoint.api!r}")
@@ -1299,28 +1293,10 @@ def validate_config(config: Config) -> list[str]:
         check(isinstance(declaration, dict), "[local] must be a table")
         if isinstance(declaration, dict):
             for key in set(declaration) - {item.name for item in fields(LocalConfig)}:
-                issues.append(f"[local] unknown field: {key}")
-    for key in ("account", "home", "path", "cgroup_root"):
-        value = getattr(local, key)
-        check(isinstance(value, str) and not any(ord(c) < 32 for c in value),
-              f"[local] {key} must be plain text")
-    check(bool(local.account), "[local] account is required")
-    check(isinstance(local.environment, dict), "[local] environment must be a table")
-    if isinstance(local.environment, dict):
-        for key, value in local.environment.items():
-            check(isinstance(key, str) and not re.search(
-                r"(?:^|_)(?:TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE_KEY)$", key.upper()),
-                "[local] secret values belong in approved executor env_keys, not environment")
-            check(isinstance(key, str) and bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key))
-                  and isinstance(value, str) and "\x00" not in value,
-                  "[local] environment requires plain string names/values")
-            check(isinstance(key, str) and key.upper() not in _FORGE_CREDENTIAL_ENV | {
-                "HOME", "USERPROFILE", "PATH", "SYSTEMROOT", "COMSPEC", "USERNAME",
-                "USER", "LOGNAME", "GIT_DIR", "GIT_WORK_TREE", "PYTHONPATH",
-            }, "[local] environment cannot override managed account or forge variables")
-            check(not str(key).upper().startswith(REMOVED_AGENT_ENV_PREFIXES),
-                  f"[local] environment.{key} configures a removed coding agent: "
-                  "remove it from config.toml")
+                issues.append(f"[local] unknown field: {key}; remove it from config.toml")
+    check(local.account == "current", '[local] account must be "current"')
+    check(isinstance(local.path, str) and not any(ord(c) < 32 for c in local.path),
+          "[local] path must be plain text")
     if config.execution.backend == "local":
         check(not config.execution.preparation, "[local] container preparation is unsupported")
         check(not config.container.egress.allowlist,
@@ -1330,13 +1306,19 @@ def validate_config(config: Config) -> list[str]:
               and config.container.selinux_relabel == "off",
               "[local] container runtime options/tool checks are unsupported")
         check(config.container.runtime_env == ContainerConfig().runtime_env,
-              "[local] configure environment in [local], not [container] runtime_env")
-        try:
-            tokens = shlex.split(config.executor.command)
-            check(not any(token in {"&&", "||", ";", "|", ">", "<", "&"} for token in tokens),
-                  "[local] executor command must be argv without shell compounds")
-        except ValueError:
-            issues.append("[local] executor command is invalid")
+              "[local] [container] runtime_env is unsupported")
+        raw_executor = config.raw.get("executor", {})
+        check(config.executor.command == PI_NATIVE_COMMAND
+              and not (isinstance(raw_executor, dict) and "command" in raw_executor),
+              "[local] remove [executor] command from config.toml: local Pi is managed by ADORE")
+        check(all(not str(name).upper().startswith(("PI_", "NODE_", "NPM_", "PYTHON", "GIT_",
+                                                   "LD_", "DYLD_"))
+                  and str(name).upper() not in _FORGE_CREDENTIAL_ENV | {
+                      "PATH", "HOME", "USERPROFILE", "COMSPEC", "SYSTEMROOT",
+                      "BASH_ENV", "ENV", "SSH_AUTH_SOCK", "SSH_AGENT_PID",
+                  }
+                  for name in config.executor.env_keys),
+              "[local] executor env_keys cannot override the managed launch environment")
     if "execution" in config.raw:
         declaration = config.raw["execution"]
         check(isinstance(declaration, dict), "[execution] must be a table")

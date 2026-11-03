@@ -15,7 +15,7 @@ Applies to native local profiles, which run the installed Pi.
 Every container profile keeps the no-tool challenge.
 
 1. ADORE creates two independent nonces: `ADORE_TOOL_<32 hex>` and `ADORE_OK_<32 hex>`.
-2. It runs one Pi gate through `local_probe` with the configured `[executor] command` and the
+2. It runs one managed Pi RPC challenge through `local_probe` with the
    prompt: `Connection test. Run this shell command exactly once: echo <tool nonce>.
    Then reply with exactly: <reply nonce>`. The gate timeout is 90 seconds.
 3. The result reason is decided in this order:

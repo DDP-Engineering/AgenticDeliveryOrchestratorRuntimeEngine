@@ -38,7 +38,7 @@ ADORE's only coding agent.
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
   fingerprints and the Docker/Podman lifecycle; `adore/executor/` launches
   Pi in a container as one `pi --mode rpc` process per stage (`pi_rpc.py`)
-  and an installed native Pi through a file-based gate protocol.
+  and ADORE-managed native Pi through the same RPC protocol.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
   profile homes and the `adore` command; `metrics.py`, `process_log.py`,
@@ -57,7 +57,7 @@ ADORE's only coding agent.
   Jobs supplies scoped full-history navigation.
   Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
   Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one reviewed `executor.connection` edit; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
-  (no agent choice); a ChatGPT-subscription project shows the server's one ChatGPT sign-in instead of the key (admin-only Pi OAuth through a helper container, a short-lived access token per stage; container runs and stage limits up to 3000 s only), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
+  (no agent choice; the native command is fixed); a ChatGPT-subscription project shows the server's one ChatGPT sign-in instead of the key (admin-only Pi OAuth through a helper container, a short-lived access token per stage; container runs and stage limits up to 3000 s only), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
   Settings uses six purpose
   categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev

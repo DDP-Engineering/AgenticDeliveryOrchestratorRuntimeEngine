@@ -62,7 +62,7 @@ before a run. The launcher starts a fresh session for each gate and never
 guesses a retry from timeout text.
 Complete Pi token records mark token coverage even when their counts are zero;
 missing or partial records do not claim coverage.
-A native Pi run counts only completed `turn_end` JSON events, including cache-read and
+The file-only test adapter counts completed `turn_end` JSON events, including cache-read and
 cache-write input tokens; streaming and message-end copies are ignored. Invalid
 usage values are skipped. Pi's embedded monetary value is an executor estimate,
 so the launcher leaves billed cost unavailable for administrator price rules.
@@ -130,7 +130,7 @@ config validation limits a `chatgpt` stage to 3000 s.
 
 - REQ-FUNC-c405688e: optional package_secrets enables post-gate known-credential redaction and 64 KiB retained stdout/stderr, live and archived. Complete original usage is streamed before retention truncation; linked output fails closed. Native and disabled profiles retain existing behavior.
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native run_files receives argv tokenized before prompt replacement, preserving fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native Pi lends owned pipes to the shared RPC client and retains fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.

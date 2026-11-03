@@ -8,7 +8,7 @@ import type { ModelEvidence } from "./ModelConnection";
 import { type Locale } from "./i18n";
 import { readinessKeys, type ProjectReadiness } from "./readiness";
 import { localCopy } from "./localExecution";
-import { modelFailureText } from "./localDiagnostics";
+import { localFailureText, modelFailureText } from "./localDiagnostics";
 import { repositoryConnectionHelp } from "./errors";
 
 const copy = {
@@ -114,7 +114,8 @@ export function ReadinessEvidence({ evidence, locale, local, modelEvidence }: { 
         : c.rows[index];
       return <div className={`readiness-check ${status}`} key={key}>
         <div><strong>{label}</strong><p>{purpose}</p>
-          {value === false && <p className="readiness-remediation">{fix}</p>}
+          {value === false && <p className="readiness-remediation">{local && key === "executor_cli"
+            ? localFailureText(locale, evidence.local_probe) : fix}</p>}
           {key === "forge_auth" && value === false && <p>{c.externalSignIn}</p>}
           {value === null && <p className="readiness-remediation">{fix}</p>}
         </div>

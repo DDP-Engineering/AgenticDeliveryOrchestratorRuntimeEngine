@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { validLocalProbe, type LocalProbe } from "./localDiagnostics.ts";
 import { ApiError } from "./errors.ts";
 
 export const readinessKeys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"] as const;
@@ -15,6 +16,7 @@ export const internetKeys = ["egress_proxy", "web_search_key"] as const;
 export const optionalReadinessKeys: readonly string[] = [signInKey, ...internetKeys];
 export type ProjectReadiness = {
   status: "failed" | "partial" | "verified" | "stale"; project_id: string; revision: string; context: "api-host"; checked_at: string;
+  local_probe?: LocalProbe;
   checks: Record<ReadinessKey, boolean | null> & { executor_sign_in?: boolean; egress_proxy?: boolean; web_search_key?: boolean };
 };
 
@@ -38,6 +40,7 @@ export function readReadiness(value: unknown, project: string): ProjectReadiness
     const result = value.checks[key];
     if (typeof result !== "boolean" && !(key === "container_runtime" && result === null)) return reject();
   }
+  if ("local_probe" in value && !validLocalProbe(value.local_probe, value.checks.executor_cli === true)) return reject();
   const evidence = value as ProjectReadiness;
   if (evidence.status !== "stale" && evidence.status !== readinessVerdict(evidence)) return reject();
   return evidence;

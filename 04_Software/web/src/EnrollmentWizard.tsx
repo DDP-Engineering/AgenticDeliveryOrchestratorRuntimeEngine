@@ -13,7 +13,7 @@ import { portableFields } from "./portable";
 import { localCopy } from "./localExecution";
 import { setupCopy } from "./setupCopy";
 import { CloneLocation } from "./HostFolderPicker";
-import { LocalExecutorPicker } from "./LocalExecutorPicker";
+import { localFailureText, validLocalProbe, type LocalProbe } from "./localDiagnostics";
 import { proposeImage, readServerImages, type ServerImages } from "./serverImages";
 import { forgeLabelsCopy, LabelReportView, validLabelReport, type LabelReport } from "./ForgeLabels";
 import { settingDisplayLabel } from "./settingLabels";
@@ -29,8 +29,7 @@ type Draft = {
   repo_path: string; target_branch: string; login: string; provider: string; model: string;
   endpoint_base_url: string; endpoint_api: string;
   runtime: string; image: string; auth_mode: string; env_keys: string; reviewers: string;
-  execution_backend: string; local_account: string; local_home: string; local_path: string; local_cgroup_root: string;
-  executor_command: string;
+  execution_backend: string; local_account: string; local_path: string;
   ready_label: string; approval_label: string; max_iterations: string;
   max_wall_clock_seconds: string; max_cost_usd: string; max_files_touched: string;
 };
@@ -40,7 +39,7 @@ type Preview = { structural_valid: boolean; issues: Finding[]; revision: string 
   config_revision: string | null; review: Record<string, unknown> | null; source_revision?: string;
   mapping?: { key: string; source_value: unknown; server_value: unknown; effect: string }[];
   defaults?: { key: string; value: unknown }[] };
-type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string;
+type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string; local_probe?: LocalProbe;
   checked_at: string; checks: Record<string, boolean | null | "not-checked"> };
 type Created = { id: string; name: string; display_name: string; pickup_state: string; paused: boolean };
 /** What Read repository found for a repository URL; nothing is written on the server yet. */
@@ -98,15 +97,13 @@ class SetupError extends ApiError {
   constructor(code: string, readonly findings: Finding[]) { super(code); }
 }
 const initial: Draft = { clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
-  execution_backend: "container", local_account: "current", local_home: "", local_path: "", local_cgroup_root: "",
-  executor_command: "",
+  execution_backend: "container", local_account: "current", local_path: "",
   target_branch: "main", login: "", provider: "openai", model: "", endpoint_base_url: "", endpoint_api: "",
   runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "12", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
 const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
-  ["provider", "model", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "executor_command", "local_account",
-    "local_home", "local_path", "local_cgroup_root", "auth_mode", "env_keys"],
+  ["provider", "model", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "local_account", "local_path", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"]];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
@@ -148,7 +145,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   const [detecting, setDetecting] = useState(false);
   // Tagged images on the server for the chosen runtime (suggestions, never a limit).
   const [images, setImages] = useState<ServerImages | null>(null);
-  const [localSystem, setLocalSystem] = useState("");
   const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
   const proposedImage = useRef("");
   const selectedBranch = useRef<{ url: string; branch: string } | null>(null);
@@ -236,18 +232,18 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       ...(prefilled !== null && current.display_name === prefilled ? { display_name: "" } : {}),
       // A new URL needs a new read and a new derived ID.
       ...(field === "clone_url" ? { name: "", repo: "", repo_path: "", target_branch: "" } : {}),
-      ...(field === "execution_backend" ? {auth_mode: value === "local" ? "existing" : "api-key"} : {}),
       ...(field === "provider" ? (value === CUSTOM ? { endpoint_api: current.endpoint_api || ENDPOINT_APIS[0] }
         : { endpoint_base_url: "", endpoint_api: "" }) : {}) }));
   };
   const validateLocal = (groups: number[]) => {
     const errors: Finding[] = [];
     for (const key of groups.flatMap(index => fields[index])) {
-      if (["description", "login", "executor_command", "local_home", "local_path", "local_cgroup_root", "name"].includes(key)
+      if (["description", "login", "local_path", "name"].includes(key)
           || key === "reviewers" && !draft.reviewers.trim()
           || key === "env_keys" && !draft.env_keys.trim()
           || key === "repo"
-          || key.startsWith("local_") && draft.execution_backend !== "local"
+          || key === "auth_mode" && draft.execution_backend === "local"
+        || key.startsWith("local_") && draft.execution_backend !== "local"
           || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
           || key === "env_keys" && draft.auth_mode === "existing"
           || key.startsWith("endpoint_") && draft.provider !== CUSTOM) continue;
@@ -383,6 +379,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       if (!value || !["failed", "partial", "verified"].includes(value.status) || value.draft_revision !== preview.revision ||
         value.revision !== preview.config_revision || typeof value.checked_at !== "string" ||
         !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
+        (draft.execution_backend === "local" && !validLocalProbe(value.local_probe, value.checks.executor_cli === true)) ||
         !readinessChecksShape(value.checks, expected) || expected.some(key => !(key in value.checks) ||
           typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null) &&
           // AEGIS files are checked at creation when the repository is cloned then.
@@ -417,8 +414,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   };
   const labels: Record<FieldName, string> = {
     execution_backend: c.runsIn, local_account: localCopy[locale].account,
-    executor_command: localCopy[locale].argv,
-    local_home: localCopy[locale].home, local_path: localCopy[locale].path, local_cgroup_root: localCopy[locale].cgroup,
+    local_path: localCopy[locale].path,
     clone_url: c.url, name: c.id, display_name: c.display, description: t("description"), kind: t("forge"), repo: t("repository"),
     login: "Gitea tea login", repo_path: t("clonePath"), target_branch: t("targetBranch"),
     provider: connectionCopy[locale].provider, model: connectionCopy[locale].model,
@@ -434,29 +430,19 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     numeric.includes(key as typeof numeric[number]) ? "limits" : "rules";
   const modelOptions = providerModels(draft.provider, catalog);
   const control = (key: FieldName) => {
-    if (key === "local_account" || key === "login" && draft.kind !== "gitea" || key === "env_keys" && ["host-auth", "existing"].includes(draft.auth_mode)
-        || key === "local_cgroup_root" && localSystem === "Windows"
+    if (key === "local_account" || key === "login" && draft.kind !== "gitea"
         || key.startsWith("local_") && draft.execution_backend !== "local"
-        || key === "executor_command" && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
         || key.startsWith("endpoint_") && draft.provider !== CUSTOM) return null;
     if (key === "repo_path" && detected) return <CloneLocation key={key} value={draft.repo_path} automatic={detected.repo_path}
       label={labels.repo_path} locale={locale} onChange={path=>change("repo_path",path)}
       invalid={findings.some(item=>fieldFor(item.field)==="repo_path")}/>;
-    if (key === "executor_command") return <div className="enrollment-field" key={key}>
-      <LocalExecutorPicker agent="pi" value={draft.executor_command} locale={locale}
-        id="enroll-executor_command" label={labels.executor_command} onSystem={setLocalSystem}
-        onChange={command => change("executor_command", command)}>
-        <p className="field-hint">{setupCopy[locale].overrideHelp}</p>
-        <div className="enrollment-grid">{(["local_home", "local_path", "local_cgroup_root"] as FieldName[]).map(control)}</div>
-      </LocalExecutorPicker>
-    </div>;
     const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea"],
       target_branch: detected ? [...(detected.default_branch ? [detected.default_branch] : []),
         ...detected.branches.filter(branch => branch !== detected.default_branch)] : undefined,
       // A cloned WSL-wrapped runtime stays selectable instead of silently showing docker.
       execution_backend: ["container", "local"], runtime: ["docker", "podman", ...(draft.runtime && !["docker", "podman"].includes(draft.runtime) ? [draft.runtime] : [])],
-      auth_mode: draft.execution_backend === "local" ? ["existing", "api-key"] : ["api-key"],
+      auth_mode: ["api-key"],
       provider: [...new Set([draft.provider, CUSTOM, CHATGPT, ...(catalog?.providers.map(item => item.id) ?? [])])].filter(Boolean),
       endpoint_api: ENDPOINT_APIS };
     const error = findings.some(item => fieldFor(item.field) === key);
@@ -465,12 +451,12 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         + (key === "target_branch" && detected ? " enrollment-branch-help" : ""),
       "aria-invalid": error || undefined, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => change(key, event.target.value) };
     return <div className="enrollment-field" key={key}>
-      <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_home", "local_path", "local_cgroup_root", "executor_command", "reviewers", "env_keys"].includes(key) && <span aria-hidden="true"> *</span>}</label>
+      <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_path", "reviewers", "env_keys"].includes(key) && <span aria-hidden="true"> *</span>}</label>
       {options[key] ? <select {...common} required={key === "target_branch"}
         disabled={key === "target_branch" && !detected?.branches.length}>
         {key === "target_branch" && !draft.target_branch && <option value="" disabled>{setupCopy[locale].chooseBranch}</option>}
         {options[key]?.map(value => <option value={value} key={value}>{key === "target_branch" && value === detected?.default_branch ? `${value} (${setupCopy[locale].defaultBranch})`
-        : value === "existing" ? localCopy[locale].existing : value === "" ? c.chooseForge
+        : value === "" ? c.chooseForge
         : key === "execution_backend" ? (value === "local" ? c.installed : c.container) : key === "provider" ? providerName(value, catalog, locale) : value}</option>)}</select> :
         <input {...common} readOnly={!!transfer && numeric.includes(key as typeof numeric[number])} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
           step={key === "max_cost_usd" ? "any" : "1"} autoComplete="off"
@@ -561,7 +547,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
               <p className="field-hint" id="enrollment-clone-note">{draft.repo_path === detected.repo_path && detected.clone === "existing" ? c.cloneExisting : c.cloneEdited}</p></>}
           </> : step === 2 ? <div className="enrollment-agent-columns">
             <div className="enrollment-agent-column">{(["provider", "model", "endpoint_base_url", "endpoint_api", "auth_mode", "env_keys"] satisfies FieldName[]).map(control)}</div>
-            <div className="enrollment-agent-column">{(["execution_backend", "runtime", "image", "executor_command"] satisfies FieldName[]).map(control)}</div>
+            <div className="enrollment-agent-column">{(["execution_backend", "runtime", "image", "local_path"] satisfies FieldName[]).map(control)}
+              {draft.execution_backend === "local" && <p className="field-hint">{localCopy[locale].account}. {localCopy[locale].agentFix}</p>}
+            </div>
           </div> : <div className="enrollment-grid">{fields[step].filter(key=>!key.startsWith("local_")).map(control)}</div>}
 
           {transfer && step === 2 && <><p id="transfer-reference-help">{tc.references}</p><label><input id="transfer-references" aria-describedby="transfer-reference-help" type="checkbox" checked={referencesConfirmed}
@@ -586,7 +574,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             <li key={key}><strong>{key}</strong>: {result === true ? "✓" : result === false ? "✕" : "?"} {result === true ? c.checkPassed : result === false ? c.checkFailed : c.notChecked}
               {result !== true && <p>{key === "aegis_files" && result === "not-checked" ? c.aegisAtCreate : c.checkHelp[key as keyof typeof c.checkHelp]}</p>}
               {result !== true && result !== "not-checked" && <button type="button" className="text-button" onClick={() => move(["git", "aegis_files", "forge_cli", "forge_auth"].includes(key) ? 1 : 2)}>{c.correction}</button>}
-            </li>)}</ul></>}
+            </li>)}</ul>{verification.local_probe?.ready === false && <p>{localFailureText(locale, verification.local_probe)}</p>}</>}
         </>}
         {step === 5 && reviewed && <>
           <p>{c.reviewHelp}</p><p>{c.status}: {status}</p>
@@ -594,7 +582,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           {reviewed.draft.execution_backend === "local" && <section className="enrollment-review"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].notice}</p><p>{localCopy[locale].machine}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.machine ?? "—")} · {localCopy[locale].account}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.account ?? "—")}</p></section>}
           {fields.slice(1).map((group, index) => <section className="enrollment-review" key={index}>
             <h3>{c.steps[index]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index]}</button>
-            <dl>{group.filter(key => (key !== "clone_url" || !!reviewed.draft.clone_url) && (!key.startsWith("endpoint_") || reviewed.draft.provider === CUSTOM) && (reviewed.draft.execution_backend === "local" ? !["runtime", "image"].includes(key) : !key.startsWith("local_") && key !== "executor_command")).map(key => <div key={key}><dt>{labels[key]}</dt><dd>{key === "provider" ? providerName(String(reviewed.preview.review?.provider ?? ""), catalog, locale) : (Array.isArray(reviewed.preview.review?.[key]) ?
+            <dl>{group.filter(key => (key !== "clone_url" || !!reviewed.draft.clone_url) && (!key.startsWith("endpoint_") || reviewed.draft.provider === CUSTOM) && (reviewed.draft.execution_backend === "local" ? !["runtime", "image"].includes(key) : !key.startsWith("local_"))).map(key => <div key={key}><dt>{labels[key]}</dt><dd>{key === "provider" ? providerName(String(reviewed.preview.review?.provider ?? ""), catalog, locale) : (Array.isArray(reviewed.preview.review?.[key]) ?
               (reviewed.preview.review?.[key] as string[]).join(", ") : String(reviewed.preview.review?.[key] ?? "")) || "—"}</dd></div>)}
               {(index === 0 ? [["branch_template", c.branches]] : index === 1 ? (reviewed.preview.review?.credential_variable ? [["credential_variable", c.credentialVariable]] : []) :
                 [["hold_label", c.hold], ["exclude_label", c.exclude]]).map(([key, label]) =>

@@ -57,4 +57,4 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `05_SoftwareDocu/Component_Preparation.md`: detailed component documentation.
 - `01_Documentation/Container_Preparation.md`: operator contract.
 
-The execution policy pins the complete non-secret Pi configuration: provider, model, endpoint, internet switch, web search, native command and additional secret names. Changing network/provider authority changes the fingerprint and requires a fresh job; stored plans must match the current closed structure. No earlier-plan reader or migration is supplied.
+The execution policy pins the complete non-secret Pi configuration: provider, model, endpoint, internet switch, web search, container command preset and additional secret names. Changing network/provider authority changes the fingerprint and requires a fresh job; stored plans must match the current closed structure. No earlier-plan reader or migration is supplied.

@@ -23,8 +23,10 @@
 
 from __future__ import annotations
 
-# IMPORTS
 from collections.abc import Callable
+
+# IMPORTS
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
@@ -44,6 +46,7 @@ from adore.execution import SHELL_HEADER, ExecutionPaths, redact_output
 from adore.executor import pi_rpc
 from adore.executor.base import ExecTarget, Executor, GateRun
 from adore.isolation import IsolationError
+from adore.pi_installation import GUARD, ManagedPi
 from adore.pi_providers import pi_provider
 from adore.util import CommandResult, utc_now_iso
 
@@ -500,9 +503,9 @@ class PiExecutor(FileProtocolExecutor):
              access off nothing web-related is loaded and the system prompt
              says that only the model provider is reachable.
 
-             A native target has no `spawn` seam and keeps the file protocol
-             with the configured template, where completed `turn_end` events
-             carry the usage; `{model}` is `<pi provider>/<model id>` there.
+             A native target lends owned process pipes from its managed Node
+             and Pi installation and writes generated configuration to its
+             fresh agent directory.
 
              Usage is summed over the assistant turns, cached prompt tokens
              included in input. Pi's cost is an executor estimate, not
@@ -552,7 +555,7 @@ class PiExecutor(FileProtocolExecutor):
         package_secrets: dict[str, str] | None = None,
     ) -> GateRun:
         """
-        @brief      Run one gate through Pi's RPC mode on a container target.
+        @brief      Run one gate through Pi's RPC mode in a container or on the server.
         @details    Clears stale questions and streams, writes a descriptive
                     gate.sh (no shell runs; the prompt never enters it), runs
                     `pi_rpc`, archives the bounded evidence and reads the
@@ -570,7 +573,8 @@ class PiExecutor(FileProtocolExecutor):
                     130 cancelled, otherwise a protocol failure.
         """
         spawn = getattr(execute, "spawn", None)
-        if spawn is None:
+        native = getattr(execute, "pi_session", None)
+        if spawn is None and native is None:
             return super().run_gate(execute, worktree, io_dir, prompt,
                                     timeout=timeout, archive_stem=archive_stem,
                                     cancel=cancel, package_secrets=package_secrets)
@@ -584,8 +588,10 @@ class PiExecutor(FileProtocolExecutor):
         output_path.unlink(missing_ok=True)
         stderr_path.unlink(missing_ok=True)
         web = self.internet and self.web_search != "none"
-        argv = pi_rpc_argv(self.model_id, self.provider, web=web,
-                           notice="" if self.internet else INTERNET_OFF_NOTICE)
+        argv_builder = execute.pi_argv if native is not None else pi_rpc_argv
+        notice = ("ADORE does not enforce internet restrictions on this server."
+                  if native is not None else "" if self.internet else INTERNET_OFF_NOTICE)
+        argv = argv_builder(self.model_id, self.provider, web=web, notice=notice)
         placements = []
         if self.models is not None:
             placements.append((MODELS_FILE, "models.json", self.models,
@@ -594,30 +600,36 @@ class PiExecutor(FileProtocolExecutor):
             placements.append((WEB_SEARCH_FILE, "web-search.json", web_search_json(self.web_search),
                                "The web search configuration could not be placed in Pi's "
                                "agent directory: "))
-        for source, target, document, reason in placements:
+        for source, target, document, reason in placements if native is None else ():
             placed = self._place_file(execute, io_dir, source, target, document, reason)
             if placed is not None:
                 return placed
         with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
             handle.write(
                 SHELL_HEADER
-                + "# Pi RPC launch through the container exec seam; no shell is executed.\n"
+                + "# Pi RPC launch; no shell is executed.\n"
                 + "# The stage prompt is sent over stdin.\n"
                 + "# argv: " + json.dumps(argv, ensure_ascii=True) + "\n"
-                + "# env: " + json.dumps(PI_RPC_ENV, ensure_ascii=True) + "\n"
+                + ("# env: " + json.dumps(PI_RPC_ENV) + "\n" if native is None else "")
             )
         target_redact = getattr(execute, "redact", lambda text: text)
         def redact(text: str) -> str:
             """@brief Mask binding credentials and package-job secrets before persistence."""
             return redact_output(target_redact(text), package_secrets or {})
 
-        result = pi_rpc.run_pi_rpc(
-            lambda command, env: spawn(command, env=env),
-            argv, dict(PI_RPC_ENV), prompt,
-            timeout=timeout, cancelled=cancel,
-            output_path=output_path, stderr_path=stderr_path,
-            redact=redact,
-        )
+        with ExitStack() as stack:
+            def spawn_rpc(command, env):
+                """@brief Use the native scope or container exec for the same RPC client."""
+                if native is not None:
+                    return stack.enter_context(native(command, placements))
+                return spawn(command, env=env)
+
+            result = pi_rpc.run_pi_rpc(
+                spawn_rpc, argv, dict(PI_RPC_ENV), prompt,
+                timeout=timeout, cancelled=cancel,
+                output_path=output_path, stderr_path=stderr_path,
+                redact=redact,
+            )
         if result.timed_out:
             settle = getattr(execute, "settle_timeout", None)
             if settle is not None:
@@ -641,7 +653,9 @@ class PiExecutor(FileProtocolExecutor):
                 return GateRun(exit_code=result.exit_code or 1, output=output,
                                stderr=(evidence + f"\narchive write failed: {exc}").strip(),
                                timed_out=result.timed_out)
-        if package_secrets is not None:
+        if native is not None:
+            questions = execute.read_output(questions_path, optional=True)
+        elif package_secrets is not None:
             questions, *_unused = self._retain_package_output(
                 questions_path, package_secrets, redact=target_redact)
         else:
@@ -699,7 +713,9 @@ class PiExecutor(FileProtocolExecutor):
         @param[in]  execute Exec seam the gate will run on.
         @return     The abort-and-exit grace on a container target, else None.
         """
-        return PI_CANCEL_GRACE_SECONDS if hasattr(execute, "spawn") else None
+        return PI_CANCEL_GRACE_SECONDS if (
+            hasattr(execute, "spawn") or hasattr(execute, "pi_session")
+        ) else None
 
     def _tokens_reported(self, output: str) -> bool:
         """@brief Recognize a complete final turn, including a zero-token turn."""
@@ -777,9 +793,10 @@ def web_search_json(search: str) -> dict:
 
 
 def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False,
-                notice: str = "") -> list[str]:
+                notice: str = "", installation: ManagedPi | None = None,
+                windows: bool = False) -> list[str]:
     """
-    @brief      Fixed command line of a container Pi RPC launch.
+    @brief      Fixed command line of a managed Pi RPC launch.
     @param[in]  model Model id within the provider.
     @param[in]  provider Pi provider id ("" passes only `--model`).
     @param[in]  web Load the pinned pi-web-access extension (internet on only).
@@ -788,8 +805,17 @@ def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False,
     @return     `node <cli.js> --mode rpc ... -e <guard> [-e <pi-web-access>]
                 [--append-system-prompt <notice>] [--provider <p>] --model <model>`.
     """
-    return ["node", CONTAINER_PI_CLI, *PI_RPC_FLAGS, "-e", CONTAINER_PI_GUARD,
-            *(["-e", CONTAINER_PI_WEB_ACCESS] if web else []),
+    if installation is None:
+        node, cli, guard, extension = (
+            "node", CONTAINER_PI_CLI, CONTAINER_PI_GUARD, CONTAINER_PI_WEB_ACCESS
+        )
+    else:
+        node, cli, guard, extension = map(
+            str, (installation.node, installation.cli, GUARD, installation.web)
+        )
+    return [node, cli, *PI_RPC_FLAGS, "-e", guard,
+            *(["--tools", "read,powershell,edit,write"] if windows else []),
+            *(["-e", extension] if web else []),
             *(["--append-system-prompt", notice] if notice else []),
             *(["--provider", provider] if provider else []), "--model", model]
 

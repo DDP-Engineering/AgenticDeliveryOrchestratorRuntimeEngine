@@ -65,7 +65,7 @@ unprovided runtime default. CLI mode retains probes and persistence.
 
 ## Key behaviors
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Setup asks container/local first. Local profiles skip runtime/image detection, accept installed native argv/existing account login and state execution-account/tooling responsibility. Prepared profiles include execution/local sections; web enrollment keeps pickup stopped.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Setup asks container/local first. Local profiles skip runtime/image detection, select managed Pi and an optional tools PATH and state execution-account/tooling responsibility. Prepared profiles include execution/local sections; web enrollment keeps pickup stopped.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
@@ -103,3 +103,5 @@ It composes doctor probes, profiles, typed config validation, and an injected
 command runner. `04_Software/tests/test_wizard.py` covers a golden valid
 profile, answer failures, overwrite/confirmation safeguards, deterministic
 non-interactive output, branch checks, and the no-invalid-save guarantee.
+
+The wizard gives install and verify instructions for managed Pi; it never runs npm.

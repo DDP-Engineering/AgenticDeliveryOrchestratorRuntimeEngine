@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { executorSettingLabel } from "./executorSettings";
+import { localCopy } from "./localExecution";
 import { messages, type Locale } from "./i18n";
 import { COMMON_SETTINGS } from "./settings";
 import { settingHelp } from "./settingHelp";
@@ -15,6 +16,7 @@ import {
 
 /** The name a setting has in Settings, in the chosen language (shared by Settings and enrollment). */
 export function settingDisplayLabel(key: string, locale: Locale): string {
+  if (key === "local.path") return localCopy[locale].path;
   const common = COMMON_SETTINGS.find(entry => entry.key === key)?.label;
   return executorSettingLabel(key, locale) || branchSettingLabel(key, locale) || implementationSettingLabel(key, locale)
     || localizedSettingLabel(key, locale) || lifecycleCopy[locale].labels[key]

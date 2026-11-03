@@ -42,8 +42,9 @@ from adore.local_process import (
     native_context,
     read_record,
 )
-from adore.pi_providers import secret_names
-from adore.util import CommandResult, automatic_environment, strict_json_loads
+from adore.pi_installation import PI_ENV, PiInstallationError, managed_pi, verify_pi
+from adore.pi_providers import credential_required, credential_variable, secret_names
+from adore.util import CommandResult, automatic_environment
 
 # CONSTANTS
 SYSTEM_ENV_KEYS = frozenset(
@@ -65,7 +66,6 @@ SYSTEM_ENV_KEYS = frozenset(
         "XDG_CONFIG_HOME",
         "XDG_DATA_HOME",
         "XDG_CACHE_HOME",
-        "PI_CODING_AGENT_DIR",
     }
 )
 # Windows machine/system names that platform detection, executable lookup and
@@ -111,15 +111,16 @@ LOCAL_PROBE_REASONS = frozenset({
     "ready", "executable-missing", "credential-missing", "credential-invalid",
     "executor-exit", "version-invalid", "timeout", "account-mismatch",
     "permission-denied", "scope-error", "cleanup-failed", "runtime-error",
+    "node-missing", "node-incompatible", "node-invalid", "pi-missing",
 })
 
 
 class LocalPrerequisiteError(LocalExecutionError):
     """@brief Preserve a closed prerequisite cause and the measured process status."""
 
-    def __init__(self, reason: str, exit_code: int | None = None):
+    def __init__(self, reason: str, exit_code: int | None = None, message: str = ""):
         """@brief Carry safe diagnostic data without retaining command output."""
-        super().__init__(reason)
+        super().__init__(message or reason)
         self.reason, self.exit_code = reason, exit_code
 
 # LOCAL HELPERS
@@ -167,12 +168,9 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     """
     if context["system"] not in {"Windows", "Linux"}:
         raise LocalExecutionError("unsupported local execution platform")
-    if (
-        config.local.account != "current"
-        and config.local.account.casefold() != context["account"].casefold()
-    ):
+    if config.local.account != "current":
         raise LocalExecutionError("local account differs from the ADORE process account")
-    home = str(Path(config.local.home or context["home"]).expanduser().resolve())
+    home = str(Path(context["home"]).expanduser().resolve())
     if not Path(home).is_dir():
         raise LocalExecutionError("selected local account home is unavailable")
     # Windows environment lookup is case-insensitive; filtering names is explicit.
@@ -180,7 +178,6 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     if context["system"] == "Windows":
         allowed = allowed | WINDOWS_SYSTEM_ENV_KEYS
     env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
-    env.update(config.local.environment)
     env.update(
         HOME=home,
         USERPROFILE=home,
@@ -189,9 +186,11 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
         LOGNAME=context["account"],
         USERNAME=context["account"],
     )
-    env.setdefault("PI_CODING_AGENT_DIR", str(Path(home) / ".pi" / "agent"))
     approved = set(secret_names(config.executor, "local"))
-    env.update({key: value for key, value in (secrets or {}).items() if key in approved})
+    env.update({key: value for key, value in (secrets or {}).items() if key in approved
+                and key.upper() not in {name.upper() for name in env}
+                and not key.upper().startswith(("PI_", "NODE_", "NPM_", "PYTHON", "GIT_",
+                                                "LD_", "DYLD_"))})
     return automatic_environment(env)
 
 
@@ -229,53 +228,38 @@ def resolve_executable(command: str, env: dict[str, str], system: str) -> str:
     return str(path)
 
 
-def local_policy(config, *, context: dict | None = None, resolver=resolve_executable) -> dict:
+def local_policy(config, *, context: dict | None = None) -> dict:
     """@brief Pin native account/environment and installed executable without commands.
     @param[in] config Validated profile.
     @param[in] context Injectable actual native context.
-    @param[in] resolver Injectable executable filesystem boundary.
     @return Closed non-secret native plan policy.
     """
     context = context or native_context()
     env = local_environment(config, context)
-    argv = local_argv(
-        config.executor.command, prompt="", model=config.executor.model,
-        worktree=config.worktree.repo_path,
-    )
-    executable = resolver(argv[0], env, context["system"])
-    details = Path(executable).stat()
-    identity = {
-        "size": details.st_size,
-        "mtime_ns": details.st_mtime_ns,
-        "inode": details.st_ino,
-        "device": details.st_dev,
-    }
-    if Path(executable).stem.casefold() == "node":
-        if len(argv) < 2:
-            raise LocalExecutionError("explicit node launch needs an installed entrypoint")
-        script = Path(argv[1])
-        if (
-            not script.is_absolute()
-            or script.suffix.lower() not in {".js", ".mjs", ".cjs"}
-            or not script.is_file()
-            or script.resolve().is_relative_to(Path(config.worktree.repo_path).resolve())
-        ):
-            raise LocalExecutionError("node entrypoint must be installed outside the project")
-        script_stat = script.stat()
-        identity["entrypoint"] = {
-            "path": str(script.resolve()),
-            "size": script_stat.st_size,
-            "mtime_ns": script_stat.st_mtime_ns,
-            "inode": script_stat.st_ino,
-            "device": script_stat.st_dev,
-        }
+    try:
+        pi = managed_pi()
+    except PiInstallationError as exc:
+        raise LocalPrerequisiteError(exc.reason, exc.exit_code, str(exc)) from exc
+    if any(path.is_relative_to(Path(config.worktree.repo_path).resolve())
+           for path in (pi.node, pi.prefix)):
+        raise LocalExecutionError("managed Pi and Node must be installed outside the project")
+
+    def describe(path: Path) -> dict:
+        """@brief Pin the exact native file identity."""
+        details = path.stat()
+        return {"path": str(path), "size": details.st_size, "mtime_ns": details.st_mtime_ns,
+                "inode": details.st_ino, "device": details.st_dev}
+
+    identity = {"node": describe(pi.node), "cli": describe(pi.cli)}
+    scope_root = (os.environ.get("ADORE_LOCAL_CGROUP_ROOT", "")
+                  if context["system"] == "Linux" else "")
     return {
         "settings": asdict(config.local),
         "host": context["host"],
         "account": context["account"],
         "system": context["system"],
-        "environment_sha256": fingerprint(env),
-        "executable": executable,
+        "environment_sha256": fingerprint({"env": env, "scope_root": scope_root}),
+        "executable": str(pi.node),
         "executable_sha256": fingerprint(identity),
     }
 
@@ -310,7 +294,7 @@ def validate_local_resource(resource: object) -> dict:
 
 
 class LocalBackend:
-    """@brief Native preinstalled-executor adapter on the shared lifecycle boundary."""
+    """@brief Managed native Pi adapter on the shared lifecycle boundary."""
 
     paths = ExecutionPaths(shell="")
 
@@ -330,10 +314,10 @@ class LocalBackend:
         self.config = config
         self.context = context or native_context()
         self.resolver = resolver
-        self.policy = local_policy(config, context=self.context, resolver=resolver)
+        self.policy = local_policy(config, context=self.context)
         self.environment = local_environment(config, self.context)
         self.controller = controller or LocalProcessController(
-            NativeScopes(self.context["system"], config.local.cgroup_root)
+            NativeScopes(self.context["system"], os.environ.get("ADORE_LOCAL_CGROUP_ROOT", ""))
         )
         self.targets: dict[str, dict] = {}
 
@@ -401,7 +385,7 @@ class LocalBackend:
         """
         control = self._control(expected)
         receipt = read_record(control / "runtime.json")
-        current = local_policy(self.config, context=self.context, resolver=self.resolver)
+        current = local_policy(self.config, context=self.context)
         if (
             set(receipt) != {"schema", "resource", "policy_sha256"}
             or type(receipt["schema"]) is not int
@@ -493,25 +477,22 @@ class LocalBackend:
             raise LocalExecutionError(
                 "local project tool discovery/check manifests are unsupported"
             )
+        try:
+            verify_pi()
+        except PiInstallationError as exc:
+            raise LocalPrerequisiteError(exc.reason, exc.exit_code, str(exc)) from exc
+        self.verify_scope(name, env)
+
+    def verify_scope(self, name: str, env: dict) -> None:
+        """@brief Verify a simple command can enter and drain the native scope."""
         target = self.bind(name, env)
-        argv = local_argv(
-            self.config.executor.command, prompt="", model=self.config.executor.model,
-            worktree=target.paths.worktree,
-        )
-        prefix = argv[:2] if Path(argv[0]).stem.casefold() == "node" else argv[:1]
-        checked = target([*prefix, "--version"], timeout=10)
+        # A bounded native command proves the service account can create and
+        # release its process scope before any project code starts.
+        checked = target([self.policy["executable"], "--version"], timeout=10)
         if checked.timed_out:
             raise LocalPrerequisiteError("timeout", checked.exit_code)
         if not checked.ok:
-            raise LocalPrerequisiteError("executor-exit", checked.exit_code)
-        # Native CLIs may report their version on stderr. Require an actual
-        # version line, rather than accepting digits in an unrelated warning.
-        version = (r"(?:(?:pi(?:-coding-agent)?)"
-                   r"(?: version)?:?\s*)?v?\d+\.\d+(?:\.\d+)?(?:[-+][\w.-]+)?")
-        if not any(re.fullmatch(version, line.strip(), re.I)
-                   for line in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "",
-                                      checked.stdout + "\n" + checked.stderr).splitlines()):
-            raise LocalPrerequisiteError("version-invalid", checked.exit_code)
+            raise LocalPrerequisiteError("node-invalid", checked.exit_code)
 
     def interrupt(self, name: str, *, expected: dict | None = None) -> None:
         """@brief Terminate only verified native command scope, never a bare PID.
@@ -556,53 +537,50 @@ class LocalTarget:
     """@brief Native argv/file target carrying the existing backend path contract."""
 
     def __init__(self, backend: LocalBackend, name: str, env: dict, resource: dict) -> None:
-        self.backend, self.name, self.env, self.resource = backend, name, dict(env), resource
+        self.backend, self.name, self.resource = backend, name, resource
+        self.env = local_environment(backend.config, backend.context, env)
         self.paths = ExecutionPaths(worktree=resource["worktree"], io=resource["io"], shell="")
         # Bound for non-AEGIS native output; Test AI connection raises it on its probe target.
         self.output_limit = 65536
 
-    def _auth_path(self) -> Path:
-        """@brief Locate the installed Pi's existing account credential store."""
-        return Path(self.env["PI_CODING_AGENT_DIR"]) / "auth.json"
-
     def auth_available(self) -> bool:
-        """@brief Check bounded existing auth or approved provider values without login."""
-        self._secrets()
-        return self._auth_path().is_file() or any(
-            self.env.get(key) for key in secret_names(self.backend.config.executor, "local")
-        )
+        """@brief Check only the selected provider's injected project credential."""
+        provider = self.backend.config.executor.provider
+        return (not credential_required(provider)
+                or bool(self.env.get(credential_variable(provider) or "")))
 
     def _secrets(self) -> list[str]:
-        """@brief Read approved existing auth values only for in-memory redaction."""
-        config = self.backend.config
-        values = {self.env[key] for key in secret_names(config.executor, "local")
-                  if self.env.get(key)}
-        path = self._auth_path()
-        if path.exists():
-            try:
-                if path.stat().st_size > 131072 or path.resolve().is_relative_to(
-                    Path(self.paths.worktree)
-                ):
-                    raise ValueError
-                data = strict_json_loads(path.read_text(encoding="utf-8"))
-                if not isinstance(data, dict):
-                    raise ValueError
-                pending = [(data, 0)]
-                while pending:
-                    item, depth = pending.pop()
-                    if depth > 16:
-                        raise ValueError
-                    if isinstance(item, str) and item:
-                        item.encode("utf-8")
-                        values.add(item)
-                    elif isinstance(item, (dict, list)):
-                        pending.extend(
-                            (v, depth + 1)
-                            for v in (item.values() if isinstance(item, dict) else item)
-                        )
-            except (OSError, ValueError, TypeError) as exc:
-                raise LocalExecutionError("local executor auth store is corrupt or unsafe") from exc
-        return sorted(values, key=len, reverse=True)
+        """@brief Collect the approved injected credentials for redaction."""
+        return sorted({
+            self.env[key] for key in secret_names(self.backend.config.executor, "local")
+            if self.env.get(key)
+        }, key=len, reverse=True)
+
+    def pi_argv(self, model, provider, *, web=False, notice=""):
+        """@brief Build fixed RPC argv for the exact native Node and Pi installation."""
+        from adore.executor.launcher import pi_rpc_argv
+
+        self.backend.verify_identity(self.name, self.resource)
+        return pi_rpc_argv(model, provider, web=web, notice=notice,
+                           installation=managed_pi(),
+                           windows=self.backend.context["system"] == "Windows")
+
+    @contextmanager
+    def pi_session(self, argv, placements):
+        """@brief Prepare isolated Pi settings and lend owned binary process pipes."""
+        backend = self.backend
+        backend.verify_identity(self.name, self.resource)
+        control = backend._control(self.resource)
+        with tempfile.TemporaryDirectory(prefix="pi-agent-", dir=control) as directory:
+            agent = Path(directory)
+            for _, filename, document, _ in placements:
+                (agent / filename).write_text(json.dumps(document), encoding="utf-8", newline="\n")
+            env = {**self.env, **PI_ENV, "PI_CODING_AGENT_DIR": directory}
+            with backend.controller.stream(
+                argv, cwd=Path(self.paths.worktree), env=env, control=control,
+                run_id=self.resource["id"], host=self.resource["host"],
+            ) as process:
+                yield process
 
     def redact(self, text: str) -> str:
         """@brief Remove known account/provider values before retained file evidence.
@@ -630,6 +608,7 @@ class LocalTarget:
                 path.is_symlink()
                 or not path.is_file()
                 or path.stat().st_size > limit
+                or path.stat().st_nlink != 1
                 or not any(
                     path.resolve().is_relative_to(Path(root))
                     for root in (self.paths.io, self.paths.worktree)
@@ -749,7 +728,7 @@ def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> st
     """
     if isinstance(error, PermissionError):
         return "permission-denied"
-    if isinstance(error, LocalPrerequisiteError):
+    if isinstance(error, (LocalPrerequisiteError, PiInstallationError)):
         return error.reason
     text = str(error)
     causes = {
@@ -772,7 +751,7 @@ def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> st
         if isinstance(cause, PermissionError):
             return "permission-denied"
         cause = cause.__cause__
-    if text == "native launch ownership failed":
+    if text == "native launch ownership failed" or "delegated cgroup" in text:
         return "scope-error"
     return fallback
 
@@ -786,17 +765,20 @@ def probe_local_executor(config, env_file: Path | None = None) -> dict:
     value = {"ready": False, "reason": "scope-error", "exit_code": None}
     phase = "scope-error"
     try:
+        phase = "runtime-error"
+        verify_pi()
+        phase = "scope-error"
         with local_probe(config, env_file) as (backend, target, _, _):
             phase = "runtime-error"
-            backend.verify_required_tools("probe", [], env=target.env)
+            backend.verify_scope("probe", target.env)
             value["exit_code"] = 0
             phase = "credential-invalid"
             ready = target.auth_available()
             value.update(ready=ready, reason="ready" if ready else "credential-missing")
             phase = "cleanup-failed"
-    except (IsolationError, OSError, ValueError) as exc:
+    except (IsolationError, PiInstallationError, OSError, ValueError) as exc:
         value.update(ready=False, reason=local_probe_failure(exc, phase))
-        if isinstance(exc, LocalPrerequisiteError):
+        if isinstance(exc, (LocalPrerequisiteError, PiInstallationError)):
             value["exit_code"] = exc.exit_code
     return validate_local_probe(value, value["ready"])
 

@@ -42,7 +42,7 @@ The complete portable allowlist contains fifteen fields. Its readiness portion c
 
 ## Key behaviors
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Portable working rules retain their allowlist and exclude backend, local account/home/PATH/environment/cgroup and runtime identity. local.environment is a recognized named string map for metadata, not a transferable working rule.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Portable working rules retain their allowlist and exclude backend, local account/PATH and runtime identity.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.

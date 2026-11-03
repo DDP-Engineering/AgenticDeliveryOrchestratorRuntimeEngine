@@ -4,34 +4,34 @@ Un exécuteur est ce qu’ADORE lance pour chaque tâche : l’agent de programm
 
 ## Ce qu’est un exécuteur {#what}
 
-Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. Pi ne commite pas, ne pousse pas et ne voit aucun identifiant de forge ; ADORE s’en charge. En conteneur, ADORE utilise le Pi intégré à l’image de l’exécuteur ; pour un projet installé sur le serveur, Pi doit déjà être installé pour le compte du serveur. Les changements s’appliquent aux nouvelles tâches uniquement.
+Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. ADORE utilise le Pi intégré à l’image dans un conteneur et son installation gérée de Pi pour les tâches sur le serveur.
 
 ## Choisir le fournisseur et le modèle {#agent-and-model}
 
-Ouvrez **Paramètres → Agent et modèle**. Les lignes sont **Fournisseur**, **Modèle**, **Commande de lancement de l’exécuteur** et, pour un point de terminaison, **URL de base du point de terminaison** et **Type d’API du point de terminaison**. **Modifier** sur l’une des lignes fournisseur, modèle ou point de terminaison ouvre un seul éditeur pour toutes, revues et appliquées en une seule modification.
+Ouvrez **Paramètres → Agent et modèle**. Modifiez ensemble **Fournisseur**, **Modèle** et, pour un point de terminaison, **URL de base du point de terminaison** et **Type d’API du point de terminaison** en une seule modification à relire.
 
 - **Fournisseur** : un fournisseur Pi à clé API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral et d’autres), **Abonnement ChatGPT** ou **Point de terminaison compatible OpenAI**.
 - **Modèle** : choisissez dans la liste de Pi pour ce fournisseur ou saisissez tout ID de modèle accepté par le fournisseur, par exemple `gpt-5.4`. La liste accompagne la version de Pi fournie par ADORE et se lit sans accès à internet. Il n’y a pas de modèle universel par défaut.
 - **Abonnement ChatGPT** : Pi utilise le compte ChatGPT Plus ou Pro auquel ce serveur ADORE est connecté, voir [Se connecter avec ChatGPT](#chatgpt). La liste propose les modèles servis par un abonnement ChatGPT, par exemple `gpt-5.6-luna`.
 
-**Préparer le candidat** montre la valeur active et proposée de chaque champ et **Appliquer** les écrit ; prévoyez de suspendre la surveillance, voir [Paramètres du projet](/help/settings#editing). En conteneur, ADORE démarre lui-même le Pi intégré à l’image, via son mode RPC avec des réglages fixes, et l’arrête à la limite de temps de l’étape ou à l’annulation ; la commande de lancement n’y sert pas, seul le préréglage Pi est proposé. Pour un projet installé sur le serveur, la commande de lancement démarre le Pi installé, vaut par défaut `pi -p --mode json --model {model} {prompt}` (`{model}` devient fournisseur/modèle), doit contenir `{prompt}` et ne doit pas utiliser `--auto`.
+**Préparer le candidat** présente les valeurs actuelles et proposées. **Appliquer** les enregistre ; voir [Paramètres du projet](/help/settings#editing) pour la mise en pause. ADORE lance un nouveau processus Pi par étape et l’arrête en cas de délai dépassé ou d’annulation.
 
 ## Point de terminaison compatible OpenAI {#endpoint}
 
 Pour un modèle servi sur votre propre réseau, comme LM Studio, Ollama ou vLLM, choisissez **Point de terminaison compatible OpenAI** et renseignez :
 
-- **URL de base du point de terminaison** : l’adresse vue depuis le conteneur, par exemple `http://192.168.1.20:1234/v1`. `localhost` est le conteneur lui-même. `host.docker.internal` n’atteint l’hôte qu’avec Docker Desktop ; avec Docker Engine sous Linux ou dans WSL, utilisez l’adresse réseau de l’hôte, et pour un serveur sous Windows atteint depuis Docker dans WSL, la passerelle par défaut de WSL.
+- **URL de base du point de terminaison** : l’adresse telle que Pi la voit. Pour **Conteneur**, l’adresse est vue depuis le conteneur ; pour une tâche locale, depuis le serveur.
 - **Type d’API du point de terminaison** : `openai-completions` pour LM Studio, Ollama et vLLM ; `openai-responses`, `anthropic-messages` et `google-generative-ai` sont aussi acceptés.
 - **Modèle** : l’ID du modèle servi par le point de terminaison.
 
-Une clé de point de terminaison est facultative : enregistrez-la sous Authentification sous ADORE_ENDPOINT_API_KEY. ADORE décrit le point de terminaison à Pi pour chaque tâche ; l’adresse ne contient jamais de nom d’utilisateur, de mot de passe ni de requête. Avec l’[accès Internet](#internet) désactivé, ADORE autorise lui-même l’adresse du point de terminaison. Un point de terminaison n’est disponible que pour les projets en conteneur.
+Une clé de point de terminaison est facultative : enregistrez-la sous Authentification sous ADORE_ENDPOINT_API_KEY. ADORE décrit le point de terminaison à Pi pour chaque tâche ; l’adresse ne contient jamais de nom d’utilisateur, de mot de passe ni de requête. Avec l’[accès Internet](#internet) désactivé, ADORE autorise lui-même l’adresse du point de terminaison. Le point de terminaison est disponible en conteneur et sur le serveur.
 
 ## Authentification {#credentials}
 
 Ouvrez **Authentification** dans le même groupe.
 
 - **Clé API du fournisseur.** Le panneau indique la variable requise par le fournisseur configuré, par exemple OPENAI_API_KEY pour OpenAI ou ANTHROPIC_API_KEY pour Anthropic. Saisissez la **Clé API** et choisissez **Enregistrer la clé API**. ADORE la conserve en privé dans le magasin d’identifiants du projet sur le serveur, jamais dans le fichier de configuration, ne la transmet à Pi que par cette variable et ne l’affiche plus jamais ; **Déconnecter la clé API du projet** la supprime. Changer une clé exige la surveillance suspendue, un projet inactif et aucune proposition en attente, et ne teste pas la clé.
-- **Connexion existante du compte.** Uniquement pour un projet installé sur le serveur : Pi utilise sa propre connexion pour le compte du serveur, configurée hors de l’interface web. Un projet en conteneur utilise la clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la [connexion ChatGPT](#chatgpt) du serveur ; aucune connexion n’est copiée dans le conteneur.
+- **Projets sur le serveur.** Enregistrez la clé du fournisseur sous **Clé API du fournisseur** si nécessaire. ADORE ignore la connexion personnelle à Pi. La [connexion ChatGPT](#chatgpt) partagée est réservée aux conteneurs.
 - **Valeurs gérées par l’environnement.** Une variable déjà définie dans l’environnement du serveur ADORE porte la mention **Définie sur le serveur ADORE ; gestion externe**. L’interface web ne peut pas l’écraser.
 - **Clé de recherche web.** Avec l’accès Internet activé et la recherche web Brave ou Tavily, le panneau liste aussi BRAVE_API_KEY ou TAVILY_API_KEY, enregistrée de la même manière, aussi pour un abonnement ChatGPT.
 - **Variables d’identification supplémentaires.** Noms uniquement (**Ajouter une variable d’identification**) de secrets supplémentaires reçus par Pi en plus de la clé du fournisseur ; la plupart des projets n’en ont pas besoin.
@@ -78,24 +78,22 @@ Les deux paramètres changent par **Préparer le candidat** et **Appliquer** com
 |---|---|---|
 | S’exécute dans | Un conteneur Docker ou Podman temporaire sur le serveur ADORE | Le serveur ADORE lui-même, sous le compte du système d’exploitation du service, dans un worktree dédié |
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
-| Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé API du fournisseur ou la connexion existante de Pi sur ce compte, réutilisée telle quelle |
-| Réglages de l’agent | Le Pi intégré à l’image, avec des réglages fixés par ADORE ; les réglages et compétences Pi personnels ne sont pas lus | Le Pi installé pour ce compte, lancé avec la commande de lancement et les réglages Pi de ce compte |
+| Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé API du fournisseur du projet, si nécessaire |
+| Réglages de l’agent | Le Pi intégré à l’image, avec des réglages fixés par ADORE ; les réglages et compétences Pi personnels ne sont pas lus | Pi géré par ADORE, avec ses propres réglages et extensions |
 | Isolation | Conteneur ; avec l’accès Internet désactivé, il n’atteint que le fournisseur du modèle | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |
 
-Les modifications dans Paramètres passent par **Préparer le candidat**, la revue et **Appliquer**. **Installé sur le serveur** affiche la commande native de l’exécuteur et les champs du compte local (compte `current`, dossier personnel, PATH et, sous Linux, la racine cgroup) avec l’avis d’exécution locale.
+**Installé sur le serveur** utilise le compte système actuel et propose un **PATH des outils du projet** facultatif. La commande de lancement est fixe.
 
-Les contrôles de l’hôte pour un projet local ignorent le moteur de conteneur et vérifient le Pi installé et sa connexion ou sa clé API.
+**Vérifier les prérequis de l’hôte** ignore le moteur de conteneur et vérifie Node, l’installation gérée de Pi et les identifiants du fournisseur choisi.
 
-## Détecter les exécuteurs installés {#installed-executors}
+## Installer Pi sur le serveur {#installed-executors}
 
-Quand vous choisissez **Installé sur le serveur**, ADORE détecte OpenCode, Pi, Codex et Qwen Code sur l’hôte d’exécution. **Exécution sous** identifie la machine et le compte ; pour une installation portable sur ordinateur, il s’agit de l’ordinateur exécutant ADORE. La première installation détectée complète une commande vide ou standard pendant l’inscription. **Installations détectées** permet de choisir une autre installation. Les commandes enregistrées et les modifications manuelles sont conservées.
+Exécutez `adore pi install` et `adore pi verify` sur le serveur ADORE sous son compte de service. Utilisez Node 22.23.4 ou une version ultérieure de la série 22.x avec npm. Si Node est hors du PATH du service, indiquez son chemin absolu dans `ADORE_NODE` sur le serveur.
 
-ADORE utilise automatiquement le compte de son processus, son dossier personnel, le PATH des outils et la connexion enregistrée de l’exécuteur. Il lance un nouveau processus, sans se connecter à un terminal ouvert. Un service utilise son compte de service.
+Relancez `adore pi install` lorsqu’une nouvelle version d’ADORE fixe une autre version de Pi. Aucun Pi global n’est nécessaire ; les réglages et extensions personnels sont ignorés.
 
-La détection démarre automatiquement lorsque l’exécution locale est choisie ; changer d’agent utilise la liste détectée. Ouvrez **Avancé** puis **Détecter les exécuteurs installés** pour l’actualiser. Ouvrez **Avancé**, saisissez **Chemin de l’exécutable sur l’hôte ADORE** puis **Utiliser l’exécutable**, ou modifiez **Commande de lancement de l’exécuteur**. Windows utilise un vrai `.exe` ; les agents Node nécessitent la commande Node/JavaScript installée. La détection lit les emplacements, sans installation, connexion ni test du modèle.
-
-Ouvrez **Avancé** pour la commande complète, un chemin d’exécutable manuel, les valeurs de dossier/PATH et la délégation cgroup Linux. Laissez dossier et PATH vides pour les valeurs automatiques. PATH désigne les dossiers des outils, pas un exécutable. Les noms de compte dans Paramètres vérifient l’identité actuelle sans changer d’utilisateur.
+Windows utilise l’outil PowerShell ; sous Linux, l’administrateur du serveur configure une racine cgroup v2 déléguée. Pi ne demande pas d’autorisation. Utilisez un compte système dédié.
 
 ## Image du projet {#project-image}
 

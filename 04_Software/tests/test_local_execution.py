@@ -14,10 +14,12 @@
 """
 
 # IMPORTS
+from contextlib import contextmanager
 import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 from adore import execution
 from adore.config import default_config, validate_config
@@ -40,15 +42,27 @@ def local_fixture(tmp_path, monkeypatch):
     home, work, tools = [tmp_path / name for name in ("home", "work", "tools")]
     for directory in (home, work, tools):
         directory.mkdir()
-    executable = tools / "pi.exe"
-    executable.write_bytes(b"injected native executable")
+    from adore import pi_installation as managed
+
+    from tests.test_pi_installation import fake_node, write_fake_packages
+
+    executable = fake_node(tmp_path, monkeypatch)
+    pi = managed.ManagedPi(executable, managed.adore_home() / "tools/pi" / managed.PI_VERSION)
+    write_fake_packages(pi)
+    monkeypatch.setattr(managed, "run_command", lambda argv, **_: CommandResult(
+        stdout="v22.23.4" if len(argv) == 2 else managed.PI_VERSION))
+    for command in ("git", "python", "pi"):
+        (tools / (command + ".exe")).touch()
+        (tools / command).touch()
+        (tools / command).chmod(0o755)
     config = default_config()
     config.execution.backend = "local"
     config.platform.repo = "owner/repo"
     config.worktree.repo_path = str(work)
     config.state.store_root = str(tmp_path / "state")
     config.delivery.reviewers = ["reviewer"]
-    config.executor.model = "openai/model"
+    config.executor.provider = "openai"
+    config.executor.model = "model"
     config.executor.env_keys = ["OPENAI_API_KEY"]
     context = {
         "system": "Windows",
@@ -66,6 +80,20 @@ def local_fixture(tmp_path, monkeypatch):
 
         calls = []
         controlled = []
+        streams = []
+        rpc_options = ()
+
+        @contextmanager
+        def stream(self, argv, *, cwd, env, **kwargs):
+            self.streams.append((argv, cwd, env))
+            fixture = Path(__file__).parent / "fixtures/pi_rpc/run_connection_test_endpoint.jsonl"
+            command = [sys.executable, "-I", str(Path(__file__).with_name("fake_pi_rpc.py")),
+                       str(fixture), *self.rpc_options]
+            with subprocess.Popen(  # noqa: S603 - repository-owned offline fake
+                command, cwd=cwd, stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            ) as process:
+                yield process
 
         def run_files(self, argv, **kwargs):
             self.calls.append((argv, kwargs))
@@ -115,8 +143,8 @@ def test_local_backend_is_available_through_the_shared_contract():
     assert hasattr(execution, "LocalBackend"), "local backend adapter is absent"
 
 
-def test_local_environment_preserves_auth_without_forge_credentials(tmp_path, monkeypatch):
-    """@brief Native account auth is reused in place and approved secrets stay in memory."""
+def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path, monkeypatch):
+    """@brief Only approved project credentials enter the native environment."""
     config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "forge-secret")
     monkeypatch.setenv("UNAPPROVED_SECRET", "unapproved")
@@ -132,7 +160,7 @@ def test_local_environment_preserves_auth_without_forge_credentials(tmp_path, mo
     target = backend.bind("run-1", env, resource)
     assert target(["pi", "--version"], timeout=1).ok
     assert controller.calls[0][1]["env"]["GIT_PAGER"] == "cat"
-    assert controller.calls[0][1]["secrets"] == ["existing-subscription-secret", "provider-secret"]
+    assert controller.calls[0][1]["secrets"] == ["provider-secret"]
     assert auth.read_text() == '{"provider":{"refresh":"existing-subscription-secret"}}'
     assert not any(
         "existing-subscription-secret" in p.read_text() for p in io_dir.parent.rglob("*.json")
@@ -167,23 +195,19 @@ def test_local_environment_keeps_windows_system_names(tmp_path, monkeypatch):
     assert not any(key.upper() in linux for key in system)
 
 
-@pytest.mark.parametrize("change", ["policy", "resource", "auth", "executable"])
+@pytest.mark.parametrize("change", ["policy", "resource", "executable"])
 def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, monkeypatch, change):
-    """@brief Drift and corrupt auth/runtime input cannot authorize native commands."""
+    """@brief Drift and corrupt runtime input cannot authorize native commands."""
     config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
     io_dir = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, io_dir, {})
     target = backend.bind("run-1", backend.environment)
     if change == "policy":
-        config.local.environment["LANG"] = "changed"
+        config.local.path = str(work)
     elif change == "resource":
         (io_dir.parent / "local-control/runtime.json").write_text("{}")
     elif change == "executable":
-        (Path(context["path"]) / "pi.exe").write_bytes(b"replaced")
-    else:
-        auth = Path(context["home"]) / ".pi/agent/auth.json"
-        auth.parent.mkdir(parents=True)
-        auth.write_text('{"token":"first","token":"second"}')
+        Path(backend.policy["executable"]).write_bytes(b"replaced")
     with pytest.raises(LocalExecutionError):
         target(["pi", "--version"], timeout=1)
     assert controller.calls == []
@@ -333,45 +357,106 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
     assert all("approved-secret" not in p.read_text() for p in control.rglob("*.json"))
 
 
-def test_local_gate_preserves_native_argv_files_and_archives(tmp_path):
-    """@brief Native gates bypass shells and retain fresh questions/usage/archive proof."""
-    from adore.execution import ExecutionPaths
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_native_rpc_stream_is_owned_before_release_and_drained(tmp_path, interrupted):
+    """@brief The real streaming controller uses binary pipes and a verified job lease."""
+    jobs = Jobs()
+    scopes = NativeScopes("Windows", windows=jobs)
+    control = tmp_path / "control"
+
+    class Process:
+        pid = 42
+        stdin = io.BytesIO()
+        stdout = io.BytesIO(b'{"type":"agent_settled"}')
+        stderr = io.BytesIO()
+
+        def poll(self):
+            return None if not jobs.killed else 0
+
+        def wait(self, *, timeout):
+            assert timeout <= 5 and jobs.killed
+            return 0
+
+    process = Process()
+
+    def spawn(argv, **kwargs):
+        assert argv[-1] == "rpc"
+        assert kwargs["stdin"] == kwargs["stdout"] == kwargs["stderr"] == subprocess.PIPE
+        assert not (control / "active-process.json").exists()
+        assert not list(control.glob("launches/*/release"))
+        return process
+
+    controller = LocalProcessController(scopes, spawn=spawn)
+    with controller.stream(["node.exe", "cli.js"], cwd=tmp_path, env={}, control=control,
+                           run_id="a" * 32, host="b" * 64) as stream:
+        lease = json.loads((control / "active-process.json").read_text())
+        assert lease["pid"] == process.pid and lease["scope"]["name"] == jobs.name
+        assert list(control.glob("launches/*/release"))
+        assert stream.stdin is process.stdin and stream.stdout is process.stdout
+        if interrupted:
+            stream.terminate()
+            assert jobs.killed and stream.poll() == 0
+        assert (control / "active-process.json").exists()
+    assert jobs.killed and jobs.removed == [jobs.name]
+    assert not (control / "active-process.json").exists()
+
+
+@pytest.mark.parametrize("system", ["Windows", "Linux"])
+def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
+    tmp_path, monkeypatch, system,
+):
+    """@brief The isolated Windows RPC launch uses only the managed Node and agent resources."""
     from adore.executor.launcher import PiExecutor
+    from adore.pi_installation import GUARD, managed_pi
 
-    work, exchange = tmp_path / "work with spaces", tmp_path / "io with spaces"
-    work.mkdir()
-    exchange.mkdir()
+    config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
+    context["system"] = system
+    backend = LocalBackend(config, context=context, controller=controller)
+    personal = Path(context["home"]) / ".pi/agent"
+    (personal / "extensions").mkdir(parents=True)
+    (personal / "extensions/evil.ts").write_text("throw new Error('must not load')")
+    (personal / "settings.json").write_text('{"extensions":["extensions/evil.ts"]}')
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(personal))
+    monkeypatch.setenv("NODE_OPTIONS", "--require=hostile.js")
+    monkeypatch.setenv("GITEA_TOKEN", "forge-secret")
+    exchange = Path(config.state.store_root) / "runs/run-1/io"
+    backend.provision("run-1", work, work, exchange, {})
+    target = backend.bind("run-1", {"OPENAI_API_KEY": "provider-secret"})
     (work / "questions.md").write_text("stale")
-    calls = []
+    agent_dirs = []
+    original_stream = controller.stream
 
-    class Target:
-        """@brief Native file target with no shell command surface."""
+    @contextmanager
+    def stream(argv, **kwargs):
+        assert not (work / "questions.md").exists()
+        env = kwargs["env"]
+        agent = Path(env["PI_CODING_AGENT_DIR"])
+        assert agent != personal and not list(agent.iterdir())
+        assert env["PI_OFFLINE"] == "1" and env["PI_TELEMETRY"] == "0"
+        assert not {"GITEA_TOKEN", "NODE_OPTIONS"}.intersection(env)
+        agent_dirs.append(agent)
+        (work / "questions.md").write_text("operator question: provider-secret")
+        with original_stream(argv, **kwargs) as process:
+            yield process
 
-        paths = ExecutionPaths(str(work), str(exchange), "")
-
-        def __call__(self, argv, **kwargs):
-            raise AssertionError("local gate invoked shell transport")
-
-        def run_files(self, argv, stdout, stderr, **kwargs):
-            assert not (work / "questions.md").exists()
-            calls.append(argv)
-            stdout.write_text('{"type":"turn_end","message":{"usage":{"input":12,"output":4}}}')
-            stderr.write_text("")
-            (work / "questions.md").write_text("operator question")
-            return CommandResult(argv=[argv[0], "[native-file-launch]"])
-
-    executor = PiExecutor(
-        "pi -p --mode json --model {model} {prompt}", "provider/model", "questions.md"
-    )
+    controller.stream = stream
+    pi = managed_pi()
+    executor = PiExecutor("ignored", "model", "questions.md", provider="openai")
+    assert executor.cancel_grace_seconds(target) is not None
     result = executor.run_gate(
-        Target(), work, exchange, "space path & literal", timeout=2, archive_stem="native-build"
+        target, work, exchange,
+        "Connection test. Run echo ADORE_TOOL_" + "a" * 32
+        + ". Then reply with exactly: ADORE_OK_" + "b" * 32,
+        timeout=5, archive_stem="native-build",
     )
-    assert calls == [
-        ["pi", "-p", "--mode", "json", "--model", "provider/model", "space path & literal"]
-    ]
-    assert result.has_questions and result.questions == "operator question"
-    assert result.tokens_in == 12 and result.tokens_out == 4
-    assert len(result.artifact_dirs) == 1
+    argv, _, _ = controller.streams[0]
+    assert argv[:2] == [str(pi.node), str(pi.cli)]
+    assert {"--no-approve", "--no-extensions", "--no-skills", "--no-prompt-templates",
+            "--no-themes", "--no-mcp", str(GUARD)}.issubset(argv)
+    assert ("read,powershell,edit,write" in argv) == (system == "Windows")
+    assert not agent_dirs[0].exists()
+    assert result.exit_code == 0 and result.tokens_in and result.tokens_out
+    assert result.questions == "operator question: [REDACTED]"
     assert (Path(result.artifact_dirs[0]) / "meta.json").is_file()
 
 
@@ -497,40 +582,79 @@ def test_local_readiness_never_invokes_container_tools(tmp_path, monkeypatch):
 
     result = _probe_setup(config, runner, env_file)
     assert result["checks"]["executor_cli"] is True
-    assert set(result) == {"checks"} and "model_endpoint" not in result["checks"]
+    assert result["local_probe"] == {"ready": True, "reason": "ready", "exit_code": 0}
+    assert "model_endpoint" not in result["checks"]
     assert controller.calls and any("--version" in argv for argv, _ in controller.calls)
     assert controller.calls[0][1]["env"]["OPENAI_API_KEY"] == "readiness-provider-key"
 
 
-@pytest.mark.parametrize("bad", [False, True])
-def test_local_model_challenge_uses_configured_native_cli_and_rejects_incomplete_response(
-    tmp_path, monkeypatch, bad
+@pytest.mark.parametrize("reason", ["node-missing", "node-incompatible", "pi-missing"])
+def test_readiness_reports_managed_pi_prerequisite(tmp_path, monkeypatch, reason):
+    """@brief Report the first closed prerequisite cause before running project tools."""
+    from adore import pi_installation as managed
+    from adore.local_execution import probe_local_executor
+
+    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    pi = managed.managed_pi()
+    if reason == "node-missing":
+        monkeypatch.setenv("ADORE_NODE", str(tmp_path / "no-node"))
+    elif reason == "node-incompatible":
+        monkeypatch.setattr(managed, "run_command", lambda argv, **_: CommandResult(
+            stdout="v22.10.0"))
+    else:
+        pi.cli.unlink()
+
+    result = probe_local_executor(config)
+    assert not result["ready"] and result["reason"] == reason
+    assert not controller.calls and not controller.streams
+
+
+@pytest.mark.parametrize("scenario", ["provider", "large", "keyless-endpoint"])
+def test_local_model_challenge_uses_the_managed_rpc_installation(
+    tmp_path, monkeypatch, scenario,
 ):
-    """@brief Nonce proof uses the gate environment and rejects incomplete provider JSON."""
+    """@brief The model connection probe sends the challenge through native RPC."""
     from adore.web.model_connection import probe_model_connection
 
-    config, context, _, controller, _ = local_fixture(tmp_path, monkeypatch)
+    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
     monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
+    if scenario == "large":
+        controller.rpc_options = ("--pad-message-end", "300000", "--pad-last")
+    elif scenario == "keyless-endpoint":
+        config.executor.provider = "custom"
+        config.executor.endpoint.base_url = "http://127.0.0.1:1234/v1"
+        config.raw["executor"] = {"endpoint": {"base_url": config.executor.endpoint.base_url}}
+        original = controller.stream
 
-    def command(argv, **kwargs):
-        assert kwargs["env"]["HOME"] == context["home"]
-        tool, nonce = _challenge_nonces(argv)
-        events = _tool_challenge_stream(tool, nonce)
-        kept = events[:-1] if bad else events  # bad drops the final assistant reply
-        kwargs["stdout"].write_text("\n".join(json.dumps(v) for v in kept))
-        kwargs["stderr"].write_text("")
-        return CommandResult()
+        @contextmanager
+        def stream(argv, **kwargs):
+            env = kwargs["env"]
+            agent = Path(env["PI_CODING_AGENT_DIR"])
+            model = json.loads((agent / "models.json").read_text())
+            provider = model["providers"]["adore-endpoint"]
+            assert provider["baseUrl"] == config.executor.endpoint.base_url
+            assert provider["apiKey"] == "adore-no-key"
+            with original(argv, **kwargs) as process:
+                yield process
 
-    controller.run_files = command
+        controller.stream = stream
+    env_file = tmp_path / ".env"
+    if scenario == "keyless-endpoint":
+        monkeypatch.delenv("ADORE_ENDPOINT_API_KEY", raising=False)
+    else:
+        env_file.write_text("OPENAI_API_KEY=fake-key\n")
     result = probe_model_connection(
-        config, lambda *args, **kwargs: pytest.fail("container call"), tmp_path / "absent.env"
+        config, lambda *args, **kwargs: pytest.fail("container call"), env_file
     )
-    assert result["ready"] is (not bad)
-    assert result["reason"] == ("invalid-response" if bad else "ready")
+    assert result["ready"], result
+    argv, _, env = controller.streams[0]
+    assert argv[0].endswith("node.exe") and "--no-extensions" in argv
+    if scenario != "keyless-endpoint":
+        assert env["OPENAI_API_KEY"] == "fake-key"
 
 
 def test_local_assisted_setup_and_portable_rules_keep_machine_identity_local(tmp_path, monkeypatch):
-    """@brief Setup selects native existing auth without container/tool installation."""
+    """@brief Setup selects managed Pi without launching an installer."""
     import tomllib
 
     from adore.profiles import ProfileStore
@@ -541,7 +665,7 @@ def test_local_assisted_setup_and_portable_rules_keep_machine_identity_local(tmp
 
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "profiles")
-    answers = _answers(clone, execution_backend="local", auth_mode="existing")
+    answers = _answers(clone, execution_backend="local")
     out = []
     setup = run_wizard(
         store,
@@ -563,7 +687,6 @@ def test_local_assisted_setup_and_portable_rules_keep_machine_identity_local(tmp
         repo_path=str(clone),
         reviewers="reviewer",
         execution_backend="local",
-        auth_mode="existing",
         image="",
     )
     preview, _ = _prepare_project(store, body)
@@ -581,7 +704,7 @@ def test_local_backend_refuses_unsafe_direct_profiles(tmp_path, monkeypatch, fie
     elif field == "egress":
         config.container.egress.allowlist = ["pypi.org"]
     else:
-        config.local.environment["OPENAI_API_KEY"] = "unsafe-persisted-secret"
+        config.executor.env_keys = ["NODE_OPTIONS"]
     with pytest.raises(LocalExecutionError):
         LocalBackend(config, context=context, controller=controller)
     assert controller.calls == []
@@ -649,8 +772,8 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
         NativeScopes("Linux", str(tmp_path), linux_base=root)
 
 
-def test_local_native_settings_accept_installed_entrypoint_and_refuse_shell(tmp_path, monkeypatch):
-    """@brief Admin native argv settings use existing paths and reject shell operators."""
+def test_local_native_settings_accept_tools_path_and_refuse_launch_overrides(tmp_path, monkeypatch):
+    """@brief Reviewed project PATH does not permit a different Pi launcher."""
     from hashlib import sha256
 
     from adore.web.app import ConfigEdit, HTTPException, _candidate_config_edit
@@ -665,13 +788,13 @@ def test_local_native_settings_accept_installed_entrypoint_and_refuse_shell(tmp_
     path.write_text(text)
     command = json.dumps(str(Path(context["path"]) / "pi.exe")) + " -p {prompt}"
     body = ConfigEdit(
-        key="executor.command",
-        value=command,
+        key="local.path",
+        value=context["path"],
         revision=sha256(path.read_bytes()).hexdigest(),
     )
     _, candidate = _candidate_config_edit(path, body)
-    assert command in __import__("tomllib").loads(candidate)["executor"]["command"]
-    body.value += " && unwanted"
+    assert __import__("tomllib").loads(candidate)["local"]["path"] == context["path"]
+    body.key, body.value = "executor.command", command
     with pytest.raises(HTTPException):
         _candidate_config_edit(path, body)
 
@@ -686,8 +809,7 @@ def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatc
     # The annotated example leaves backend at its default; append an explicit declaration.
     if b'backend = "local"' not in raw:
         raw += b'\n[execution]\nbackend="local"\n'
-    raw += b'\n[local]\naccount="native-account"\nhome="/native-home"\npath="/native-tools"\n'
-    raw += b'environment={LANG="native-language"}\n'
+    raw += b'\n[local]\naccount="current"\npath="/native-tools"\n'
     raw = __import__("re").sub(
         rb"required_tool_checks = \[.*?\]",
         b"required_tool_checks = []",
@@ -696,10 +818,7 @@ def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatc
     )
     encoded = export_settings(raw)
     for value in (
-        b"native-account",
-        b"native-home",
         b"native-tools",
-        b"native-language",
         b'"local"',
     ):
         assert value not in encoded
@@ -707,13 +826,11 @@ def test_local_portable_export_excludes_all_native_settings(tmp_path, monkeypatc
 
 def test_local_node_entrypoint_drift_refuses_execution(tmp_path, monkeypatch):
     """@brief Explicit Windows npm entrypoints are pinned with the native executable."""
-    config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
-    node, script = Path(context["path"]) / "node.exe", Path(context["path"]) / "agent.js"
-    node.write_bytes(b"installed node")
-    script.write_text("installed executor")
-    config.executor.command = (
-        json.dumps(str(node)) + " " + json.dumps(str(script)) + " -p {prompt}")
-    backend = LocalBackend(config, context=context, controller=controller)
+    from adore.pi_installation import managed_pi
+
+    config, _, backend, _, work = local_fixture(tmp_path, monkeypatch)
+    pi = managed_pi()
+    node, script = pi.node, pi.cli
     exchange = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, exchange, {})
     target = backend.bind("run-1", backend.environment)
@@ -789,8 +906,11 @@ def test_container_cleanup_retains_persisted_native_worktree(tmp_path, monkeypat
         engine.cancel(run.run_id)
 
 
+@pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("cancel", [False, True])
-def test_local_child_release_barrier_and_cancel_are_native(tmp_path, monkeypatch, cancel):
+def test_local_child_release_barrier_and_cancel_are_native(
+    tmp_path, monkeypatch, cancel, streaming,
+):
     """@brief Trusted child starts argv only after release and honors pre-release cancellation."""
     from types import SimpleNamespace
 
@@ -815,10 +935,12 @@ def test_local_child_release_barrier_and_cancel_are_native(tmp_path, monkeypatch
         return SimpleNamespace(returncode=7)
 
     monkeypatch.setattr(local_child.subprocess, "run", launch)
-    assert local_child.main(str(envelope)) == (125 if cancel else 7)
+    assert local_child.main(str(envelope), streaming=streaming) == (125 if cancel else 7)
     assert bool(calls) is not cancel
     if calls:
         assert calls[0][0] == ["native", "prompt with spaces"]
+        assert calls[0][1]["stdin"] == (sys.stdin if streaming else subprocess.DEVNULL)
+        assert calls[0][1]["stdout"] is sys.stdout and calls[0][1]["stderr"] is sys.stderr
     envelope.write_text('{"unexpected":true}')
     with pytest.raises(ValueError):
         local_child.main(str(envelope))
@@ -870,83 +992,6 @@ def test_linux_scope_removal_requires_closed_liveness(tmp_path, monkeypatch, eve
     else:
         scopes.remove(scope)
         assert removed == [leaf]
-
-
-@pytest.mark.parametrize("violation", ["none", "incomplete", "tool", "bad-json"])
-def test_local_model_response_contract(tmp_path, monkeypatch, violation):
-    """@brief Native Pi needs completed nonce evidence and rejects failed tools/corrupt output."""
-    from adore.web.model_connection import probe_model_connection
-
-    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
-    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
-
-    def execute(argv, **kwargs):
-        tool, nonce = _challenge_nonces(argv)
-        events = _tool_challenge_stream(tool, nonce)
-        if violation == "incomplete":
-            events = [{"type": "text", "part": {"text": nonce}}]
-        if violation == "tool":
-            events = _tool_challenge_stream(tool, nonce, "failed")
-        text = "\n".join(map(json.dumps, events))
-        kwargs["stdout"].write_text("{bad" if violation == "bad-json" else text)
-        kwargs["stderr"].write_text("")
-        return CommandResult()
-
-    controller.run_files = execute
-    result = probe_model_connection(
-        config, lambda *a, **kw: pytest.fail("container call"), tmp_path / "absent.env"
-    )
-    assert result["ready"] is (violation == "none")
-
-
-def test_local_pi_judges_only_the_last_assistant_message():
-    """@brief An early message with the nonce does not count when the final reply differs."""
-    from adore.web.model_connection import _native_tool_response
-
-    tool, nonce = "ADORE_TOOL_" + "a" * 32, "ADORE_OK_" + "b" * 32
-    stream = "\n".join(map(json.dumps, _tool_challenge_stream(tool, nonce, "early-reply")))
-    assert _native_tool_response(stream, tool, nonce) == "invalid-response"
-
-
-def test_local_model_test_keeps_large_pi_streams_while_gates_keep_64_kib(tmp_path, monkeypatch):
-    """@brief Pi repeats the conversation in its events; the test keeps 1 MiB, jobs 64 KiB."""
-    from adore.web.model_connection import probe_model_connection
-
-    config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
-    limits = []
-    io_dir = Path(config.state.store_root) / "runs/run-1/io"
-    backend.provision("run-1", work, work, io_dir, {})
-    controller.run_files = lambda argv, **kwargs: (
-        limits.append(kwargs["stdout_limit"]), kwargs["stdout"].write_text("ok"),
-        kwargs["stderr"].write_text(""), CommandResult())[-1]
-    gate = backend.bind("run-1", backend.environment)
-    assert gate.run_files(["pi", "--version"], io_dir / "out.txt", io_dir / "err.txt").ok
-    assert limits == [65536]
-    config.executor.command = "pi --model {model} {prompt}"
-    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
-
-    def execute(argv, **kwargs):
-        tool, nonce = _challenge_nonces(argv)
-        limits.append(kwargs["stdout_limit"])
-        history = {"type": "message_end", "message": {"role": "system", "content": "x" * 95000}}
-        stream = [history, history, history, *_tool_challenge_stream(tool, nonce)]
-        kwargs["stdout"].write_text("\n".join(map(json.dumps, stream)))
-        kwargs["stderr"].write_text("")
-        return CommandResult()
-
-    controller.run_files = execute
-    result = probe_model_connection(
-        config, lambda *a, **kw: pytest.fail("container call"), tmp_path / "absent.env"
-    )
-    assert (result["ready"], result["reason"], limits) == (True, "ready", [65536, 1048576])
-
-
-def _challenge_nonces(argv):
-    """@brief Read the tool nonce (when asked) and the trailing reply nonce from the prompt."""
-    import re
-
-    found = re.search(r"ADORE_TOOL_[0-9a-f]{32}", argv[-1])
-    return (found.group(0) if found else None), argv[-1].split()[-1]
 
 
 def _tool_challenge_stream(tool, nonce, variant="ok"):
@@ -1001,37 +1046,17 @@ def _tool_challenge_stream(tool, nonce, variant="ok"):
         ("extra-tool-after", "ready"),
         ("bad-json", "invalid-response"),
         ("non-object", "invalid-response"),
-        ("timeout", "timeout"),
-        ("exit", "connection-failed"),
+        ("early-reply", "invalid-response"),
     ],
 )
-def test_local_model_challenge_requires_a_completed_shell_call(
-    tmp_path, monkeypatch, variant, reason
-):
-    """@brief Installed Pi must run the shell nonce before its reply counts as ready."""
-    from adore.web.model_connection import probe_model_connection
+def test_local_model_challenge_requires_a_completed_shell_call(variant, reason):
+    """@brief Completed RPC evidence needs the shell nonce and final assistant reply."""
+    from adore.web.model_connection import _native_tool_response
 
-    config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
-    monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
-    seen = {}
-
-    def execute(argv, **kwargs):
-        tool, nonce = _challenge_nonces(argv)
-        seen["timeout"], seen["tool"] = kwargs["timeout"], tool
-        stream = _tool_challenge_stream(tool, nonce, variant)
-        text = "\n".join(map(json.dumps, stream))
-        tail = {"bad-json": "\n{bad", "non-object": "\n[1]"}.get(variant, "")
-        kwargs["stdout"].write_text(text + tail)
-        kwargs["stderr"].write_text("")
-        return CommandResult(exit_code=1 if variant == "exit" else 0,
-                             timed_out=variant == "timeout")
-
-    controller.run_files = execute
-    result = probe_model_connection(
-        config, lambda *a, **kw: pytest.fail("container call"), tmp_path / "absent.env"
-    )
-    assert seen["tool"] is not None and seen["timeout"] == 90
-    assert (result["ready"], result["reason"]) == (reason == "ready", reason)
+    tool, nonce = "ADORE_TOOL_" + "a" * 32, "ADORE_OK_" + "b" * 32
+    stream = _tool_challenge_stream(tool, nonce, variant)
+    tail = {"bad-json": "\n{bad", "non-object": "\n[1]"}.get(variant, "")
+    assert _native_tool_response("\n".join(map(json.dumps, stream)) + tail, tool, nonce) == reason
 
 
 def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkeypatch):
@@ -1078,7 +1103,7 @@ def test_local_review_apply_rechecks_native_identity_and_permissions(tmp_path, m
         assert environment == {
             "backend": "local", "image": None, "config_path": str(path.resolve())}
         original = path.read_bytes()
-        body = {"key": "local.account", "value": context["account"],
+        body = {"key": "local.path", "value": context["path"],
                 "revision": current.json()["revision"]}
         assert client.post("/api/v1/projects/alpha/config/pending", json=body).status_code == 403
         direct = client.put("/api/v1/projects/alpha/config", json=body, headers=headers)

@@ -19,7 +19,7 @@ Every group is closed when you open Settings, and the number beside its name cou
 | Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
 | PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |
 | Statistics | **Record completed job measurements** and **Record agent-reported tokens**. **Statistics database file** is shown for information only. |
-| Agent and model | The model, launch command, authentication and **Test AI connection**. See [Executors and models](/help/executors). |
+| Agent and model | Provider, model, authentication and **Test AI connection** [Executors and models](/help/executors). |
 | Technical details | Read-only installation values such as the job state folder, the local repository path and the job working folders. They are changed in the project's `config.toml` on the server, and changing a path does not move existing data. |
 
 ## Values and help {#values}
@@ -28,7 +28,7 @@ Each row has a label, a description that is always visible, an **Active value** 
 
 A **Default** badge means the project's `config.toml` does not set the value, so ADORE's default applies. Editing it writes a value for this project only. A row marked **Not editable here** is changed in `config.toml` on the server. A row marked **Apply only with pickup paused and no active jobs** needs the extra condition described below.
 
-Detection starts automatically when local execution is selected; switching agents uses the detected list. Open **Advanced** for **Detect installed executors** if you need to refresh it. For local execution, choose a detected installation or enter an executable path; see [Detect installed executors](/help/executors#installed-executors). Open **Advanced** for the full command, a manual executable path, home/PATH overrides and Linux cgroup delegation. Leave home and PATH empty for automatic values. PATH means tool directories, not the executable file. Account names in Settings verify the current identity; they do not switch users.
+Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).
 
 ## Editing {#editing}
 

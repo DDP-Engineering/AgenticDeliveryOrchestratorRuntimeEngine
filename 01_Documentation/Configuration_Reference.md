@@ -93,7 +93,7 @@ Pi is ADORE's only coding agent. The `[executor]` table holds:
 | `executor.endpoint.api` | Only with `custom`: `openai-completions`, `openai-responses`, `anthropic-messages` or `google-generative-ai`. | `openai-completions` |
 | `executor.internet` | **Internet access for the agent**: `false` limits a container run to the model provider's hosts; `true` opens its network and loads Pi's web tools. | `false` |
 | `executor.web.search` | Web search while `internet = true`: `exa` (no key), `brave`, `tavily` or `none`. | `exa` |
-| `executor.command` | Argv template of a native (installed on the server) Pi run. A container run ignores it and starts the image's pinned Pi in RPC mode. | `pi -p --mode json --model {model} {prompt}` |
+| `executor.command` | Container preset only; the container uses its image's pinned Pi. Omit this key in local profiles. | `pi -p --mode json --model {model} {prompt}` |
 | `executor.mode` | `thick` or `headless`; see below. | `thick` |
 | `executor.questions_file` | Clarification questions file the agent writes in the worktree. | `<SLUG>_QUESTIONS.md` |
 | `executor.env_keys` | Additional secret variables passed to Pi besides the provider's key variable. | `[]` |
@@ -123,8 +123,7 @@ pins (Pi 1.4.0), generated offline into `adore/pi_catalog.json` by
 ID (no spaces, quotes or control characters, at most 200 characters).
 `[executor.endpoint]` is required for `custom` and refused for any other
 provider; its `base_url` must be `http` or `https` with a host and no user
-name, password, query or fragment, and `custom` needs a container run (a
-local run has no ADORE-owned Pi agent directory). An inline key such as
+name, password, query or fragment. Use the address as seen by Pi. An inline key such as
 `[executor] api_key` or `[executor.endpoint] key` is refused as an unknown key.
 
 The provider's API key is a credential, never a value in `config.toml`: save it
@@ -385,9 +384,9 @@ SQLite bytes, authorization, scope and financial redaction.
 
 ## Web executor configuration
 
-**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`), **Web search** (`executor.web.search`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. Prepare reviews the change, then Apply writes one complete paused/idle candidate. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project accepts any native argv that contains `{prompt}` and does not use `--auto`. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription) and, with internet on and Brave or Tavily search, `BRAVE_API_KEY` or `TAVILY_API_KEY`. Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), **Internet access for the agent** (`executor.internet`), **Web search** (`executor.web.search`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. Prepare reviews the change, then Apply writes one complete paused/idle candidate. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project uses ADORE-managed Pi with a fixed command. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription) and, with internet on and Brave or Tavily search, `BRAVE_API_KEY` or `TAVILY_API_KEY`. Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that uses the account's existing Pi sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container project uses its provider API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in; no host sign-in is copied into the container. A ChatGPT project's model evidence counts only while the server stays signed in. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
+The names-only credential selector offers known provider names and retained custom names. Most projects leave this list empty and use the selected provider's credential. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container project uses its provider API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in; no host sign-in is copied into the container. A ChatGPT project's model evidence counts only while the server stays signed in. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
 
 ## Container preparation
 
@@ -395,7 +394,7 @@ The optional closed `[execution]` table selects a reviewed `path.yml#job@full-co
 
 ## Native local execution
 
-execution.backend accepts container (default) or local. Closed local fields: account="current", home="", path="", environment={}, cgroup_root="". Local selection rejects recipes, a non-empty `[container.egress] allowlist`, staging/container-only options; `executor.internet` does not restrict a local run; policy pins machine/account/environment/executable. Unknown execution/local fields reject.
+execution.backend accepts container (default) or local. Closed local fields: `account = "current"` and optional `path` for project tools. Configure Linux cgroup delegation on the service with `ADORE_LOCAL_CGROUP_ROOT`. Local selection rejects recipes, a non-empty `[container.egress] allowlist`, staging/container-only options; `executor.internet` does not restrict a local run; policy pins machine/account/environment/executable. Unknown execution/local fields reject.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.

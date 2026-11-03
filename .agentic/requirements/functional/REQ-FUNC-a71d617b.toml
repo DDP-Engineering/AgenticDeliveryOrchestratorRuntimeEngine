@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-a71d617b"
+title = "Drive native Pi stages through RPC"
+status = "active"
+requirement = "When a local stage is launched, ADORE shall send its prompt to the pinned Pi through RPC inside the owned native process scope."
+verification = "Drive a fake local RPC stream and assert stdin prompt, settled result and bounded redacted evidence; reject corrupt output."
+affected_paths = ["04_Software/adore/executor/launcher.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi"]
+created = 2026-11-03
+updated = 2026-11-03

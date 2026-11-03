@@ -25,10 +25,11 @@ import time
 # PUBLIC API
 
 
-def main(path: str) -> int:
+def main(path: str, *, streaming: bool = False) -> int:
     """
     @brief Start one native argv command only after the parent's ownership receipt.
     @param[in] path Parent-owned immutable launch envelope.
+    @param[in] streaming Forward the parent's stdin pipe for RPC.
     @return Authoritative command exit status.
     @exception ValueError Invalid trusted transport.
     """
@@ -66,12 +67,12 @@ def main(path: str) -> int:
     # These are the supervisor's parent-owned pipes, drained by its controller.
     result = subprocess.run(  # noqa: S603 - native argv resolved by the parent
         envelope["argv"], cwd=envelope["cwd"], check=False, creationflags=0x08000000,
-        stdin=subprocess.DEVNULL, stdout=sys.stdout, stderr=sys.stderr,
+        stdin=sys.stdin if streaming else subprocess.DEVNULL, stdout=sys.stdout, stderr=sys.stderr,
     )
     return result.returncode
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1]))
+    raise SystemExit(main(sys.argv[1], streaming=sys.argv[2:] == ["rpc"]))
 
 # END OF FILE

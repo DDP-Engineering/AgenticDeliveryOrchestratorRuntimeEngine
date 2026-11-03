@@ -285,9 +285,11 @@ class _Evidence:
     @brief   Bounded persistence and tail of the records a launch produced.
     """
 
-    def __init__(self, path: Path | None, limit: int, clean: Callable[[str], str]) -> None:
+    def __init__(self, path: Path | None, limit: int, clean: Callable[[str], str], *,
+                 tail_limit: int = TAIL_BYTES, record_limit: int = PERSIST_RECORD_BYTES) -> None:
         self.handle = path.open("wb") if path is not None else None
         self.limit, self.written, self.clean = limit, 0, clean
+        self.tail_limit, self.record_limit = tail_limit, record_limit
         self.truncated = False
         self.tail: deque[str] = deque()
         self.tail_bytes = 0
@@ -317,7 +319,7 @@ class _Evidence:
                 self.written += len(data)
         self.tail.append(line)
         self.tail_bytes += len(data)
-        while self.tail_bytes > TAIL_BYTES and self.tail:
+        while self.tail_bytes > self.tail_limit and self.tail:
             self.tail_bytes -= len(self.tail.popleft().encode("utf-8")) + 1
 
     def close(self) -> None:
@@ -376,7 +378,7 @@ def _read_stdout(stream: IO[bytes], sink: queue.Queue, evidence: _Evidence, limi
                 continue
             kind = record.get("type")
             if kind != "message_update":
-                evidence.add(_stub(str(kind), size) if size > PERSIST_RECORD_BYTES
+                evidence.add(_stub(str(kind), size) if size > evidence.record_limit
                              else evidence.clean(line.decode("utf-8")))
             facts = _facts(record)
             if facts is not None:
@@ -533,6 +535,7 @@ def run_pi_rpc(
     exit_grace: float = EXIT_GRACE_SECONDS,
     stats_grace: float = STATS_GRACE_SECONDS,
     max_record_bytes: int = MAX_RECORD_BYTES,
+    stdout_tail_bytes: int = TAIL_BYTES,
 ) -> PiRpcResult:
     """
     @brief      Run one stage prompt through one Pi RPC process.
@@ -549,10 +552,13 @@ def run_pi_rpc(
     @param[in]  exit_grace Seconds allowed for an exit after stdin closes.
     @param[in]  stats_grace Seconds allowed for the usage cross-check answer.
     @param[in]  max_record_bytes Largest stdout record held in memory.
+    @param[in]  stdout_tail_bytes Bound for in-memory evidence, up to one MiB.
     @return     The launch outcome; never raises for Pi's own failures.
     @exception  Exception Whatever `spawn` raises other than OSError, or a failing
                 `cancelled` check; the process is ended before it propagates.
     """
+    if not TAIL_BYTES <= stdout_tail_bytes <= STDERR_FILE_BYTES:
+        raise ValueError("Pi RPC stdout evidence limit outside supported range")
     clean = _redactor(redact)
     try:
         process = spawn(list(argv), dict(env))
@@ -562,7 +568,9 @@ def run_pi_rpc(
                            message=clean(f"Pi protocol failure: Pi could not start: {exc}"))
     stdout = stderr = None
     try:
-        stdout = _Evidence(output_path, PERSIST_TOTAL_BYTES, clean)
+        stdout = _Evidence(output_path, PERSIST_TOTAL_BYTES, clean,
+                           tail_limit=stdout_tail_bytes,
+                           record_limit=stdout_tail_bytes)
         stderr = _Evidence(stderr_path, STDERR_FILE_BYTES, clean)
         launch = _Launch(process, stdout, stderr, max_record_bytes)
     except BaseException:

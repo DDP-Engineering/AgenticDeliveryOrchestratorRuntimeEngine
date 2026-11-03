@@ -84,7 +84,7 @@ source version; no migration, enrollment write or import UI is provided here.
 
 ## Native execution contract
 
-Portable working rules retain their allowlist and exclude backend, local account/home/PATH/environment/cgroup and runtime identity. local.environment is a recognized named string map for metadata, not a transferable working rule.
+Portable working rules retain their allowlist and exclude backend, local account/PATH and runtime identity.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

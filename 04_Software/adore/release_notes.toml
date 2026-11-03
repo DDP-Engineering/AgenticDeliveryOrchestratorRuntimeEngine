@@ -22,8 +22,8 @@ text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired 
 
 [[release.entry]]
 category = "fixed"
-topic = { en = "Executors", fr = "Exécuteurs", de = "Executoren", ro = "Executori" }
-text = { en = "Pi model tests run a command; Windows output stays captured and package logs stay bounded.", fr = "Les tests Pi exécutent une commande ; les sorties Windows et les journaux restent bornés.", de = "Pi-Modelltests führen Befehle aus; Windows-Ausgabe und Paketprotokolle bleiben begrenzt.", ro = "Testele Pi rulează o comandă; ieșirea Windows și jurnalele instalării rămân limitate." }
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "ADORE manages Pi on Windows and Linux without using your personal Pi settings.", fr = "ADORE gère Pi sous Windows et Linux sans utiliser vos réglages Pi personnels.", de = "ADORE verwaltet Pi unter Windows und Linux ohne Ihre persönlichen Pi-Einstellungen.", ro = "ADORE administrează Pi pe Windows și Linux fără a folosi setările Pi personale." }
 
 [[release.entry]]
 category = "fixed"

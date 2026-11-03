@@ -229,7 +229,7 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
 
 ## Native execution contract
 
-config validate accepts local profiles; config plan resolves pinned native policy without project commands. Local config set resolves the same plan before writing. Existing run/retry/cancel/handoff/cleanup commands retain conductor ownership.
+`adore pi install` and `adore pi verify` manage the pinned native install and surface typed prerequisite failures without a project selection. config validate accepts local profiles; config plan resolves pinned native policy without project commands. Local config set resolves the same plan before writing. Existing run/retry/cancel/handoff/cleanup commands retain conductor ownership.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

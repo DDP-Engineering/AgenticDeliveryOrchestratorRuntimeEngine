@@ -712,7 +712,8 @@ for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as co
 
 test("local host prerequisites state the local notice once and give the agent row its own fix", async ({ page }) => {
   await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,
-    json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false }) }));
+    json: {...readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false }),
+      local_probe: {ready: false, reason: "node-incompatible", exit_code: 0}} }));
   // The project directory reports the local backend as the project's runtime.
   await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
     const response = await route.fetch();
@@ -726,10 +727,10 @@ test("local host prerequisites state the local notice once and give the agent ro
   const panel = page.locator(".readiness-evidence");
   await expect(panel.locator(".readiness-check")).toHaveCount(6);
   const agent = panel.locator(".readiness-check").filter({ hasText: "Local execution" });
-  await expect(agent).toContainText("its existing sign-in or a provider API key is available");
-  await expect(agent).toContainText("save a provider API key in Settings → Agent and model");
-  await expect(agent).not.toContainText("A worktree is not a host sandbox");
-  await expect(panel.locator("p").filter({ hasText: "A worktree is not a host sandbox" })).toHaveCount(1);
+  await expect(agent).toContainText("Checks managed Pi and Node");
+  await expect(agent).toContainText("Managed Pi requires Node 22.23.4");
+  await expect(agent).not.toContainText("Use a dedicated OS account");
+  await expect(panel.locator("p").filter({ hasText: "Use a dedicated OS account" })).toHaveCount(1);
 });
 
 test("host prerequisite explanations support four locales and dark theme", async ({ page }, info) => {

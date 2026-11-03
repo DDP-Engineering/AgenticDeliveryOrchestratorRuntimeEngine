@@ -11,7 +11,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 Installed agent detection, prefilled commands and manual executable paths start at
 `adore/executor_discovery.py`, `web/src/LocalExecutorPicker.tsx` and
-`web/src/localExecutors.ts`. Native launch enforcement belongs to local-execution.md;
+the authenticated inventory endpoint. Native launch enforcement belongs to local-execution.md;
 reviewed saved configuration belongs to executor-configuration.md.
 
 ## Purpose and boundaries
@@ -38,8 +38,6 @@ Manual edits and saved commands retain authority; stale results are ignored.
 | Request | Start | Focused proof |
 |---|---|---|
 | Host/native/npm layouts | executor_discovery.py | tests/test_executor_discovery.py |
-| Suggestions and manual paths | LocalExecutorPicker.tsx, localExecutors.ts | localExecutors.test.mjs, local-executors.spec.ts |
-| Existing Settings | App.tsx, AgentConnectionEditor.tsx | local-executors.spec.ts |
 
 ## Key behaviors
 
@@ -52,16 +50,4 @@ Source and tests above; `05_SoftwareDocu/Component_Executor_Discovery.md` docume
 schemas and integration; `01_Documentation/Local_Execution.md` describes usage.
 `02_Tools/verify_package.py` proves the actual packaged API on both native hosts.
 
-## Simple native setup
-
-Enrollment uses current-account defaults and displays read-only Runs as identity.
-Detected installations remain visible; a closed Advanced disclosure holds full
-optional re-detection, command/manual executable and home/PATH/Linux delegation.
-Discovery starts on native-picker mount; Pi uses the validated installed
-listing. Agent and model groups controls into independent vertical columns. Settings retains saved
-account assertions and overrides in Advanced. Manual/saved command authority,
-existing authentication and native launch validation remain unchanged.
-
-Displayed account and machine come from the same native_context used by execution
-(Windows token account or Linux effective UID). Unavailable identity produces
-HTTP 503 local_host_identity_unavailable rather than a guessed shell username.
+The inventory does not choose or launch an executor. Enrollment and Settings use the managed Pi runtime.

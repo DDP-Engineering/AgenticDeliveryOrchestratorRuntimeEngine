@@ -46,3 +46,9 @@ repository guidance. `external_auth=False` lets a caller-owned scoped runner
 retain authority; web readiness uses this mode after binding project credentials.
 Other forge probes retain their existing routing. Focused proof: doctor and
 Gitea-auth tests, including missing/ambiguous metadata and protected scopes.
+
+## Managed Pi readiness
+
+The native executor probe verifies the server's Node and the pinned Pi CLI
+through the managed installation verifier. A missing or invalid prerequisite
+produces safe operator guidance. It never invokes a global Pi or calls a model.
