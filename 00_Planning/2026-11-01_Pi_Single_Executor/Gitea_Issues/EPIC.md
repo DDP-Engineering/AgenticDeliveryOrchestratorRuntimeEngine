@@ -56,7 +56,7 @@ this table.
 - [x] PI-03 #53 OpenCode, Codex and Qwen Code removed: b6379b3
 - [x] PI-04 #54 provider, model, API key and endpoint: e80b37a
 - [x] PI-05 #55 ChatGPT sign-in: 2b5a0fc (owner decision: each stage gets a short-lived access token; the credential stays on the server)
-- [ ] PI-06 #56 internet switch and web tools (in validation)
+- [x] PI-06 #56 internet switch and web tools: 60be068
 - [ ] PI-07 #57 ADORE-managed server installation
 - [ ] PI-08 #58 live acceptance
 
