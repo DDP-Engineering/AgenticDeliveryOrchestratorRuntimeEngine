@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-f5e692dc"
+
+title = "Refuse the removed container egress mode"
+
+status = "active"
+
+requirement = """
+If a configuration sets `[container.egress] mode`, then configuration validation shall refuse it with a message saying that `[executor] internet` decides the agent's network access.
+"""
+
+verification = "An automated configuration test validates a file with `[container.egress] mode = \"open\"` and observes the issue naming `[executor] internet`; the same file without the key validates."
+
+affected_paths = ["04_Software/adore/config.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_container_egress_mode_is_refused_naming_the_switch"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

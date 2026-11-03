@@ -28,10 +28,21 @@ import sys
 import time
 
 from adore import metrics
-from adore.branding import CONTAINER_PI_AGENT_DIR, CONTAINER_PI_CLI, CONTAINER_PI_GUARD
+from adore.branding import (
+    CONTAINER_PI_AGENT_DIR,
+    CONTAINER_PI_CLI,
+    CONTAINER_PI_GUARD,
+    CONTAINER_PI_WEB_ACCESS,
+)
 from adore.execution import ExecutionPaths
 from adore.executor.base import GateRun
-from adore.executor.launcher import ARCHIVE_DIR, GATE_SCRIPT, OUTPUT_FILE, PiExecutor
+from adore.executor.launcher import (
+    ARCHIVE_DIR,
+    GATE_SCRIPT,
+    INTERNET_OFF_NOTICE,
+    OUTPUT_FILE,
+    PiExecutor,
+)
 from adore.executor.pi_rpc import PiRpcResult, run_pi_rpc
 import pytest
 
@@ -468,6 +479,56 @@ def test_pi_executor_fails_the_stage_when_models_json_cannot_be_placed(tmp_path:
     assert not run.ok and run.exit_code == 1 and not run.timed_out
     assert "models.json" in run.stderr
     assert fake.processes == []
+
+
+def test_pi_executor_loads_web_tools_when_internet_is_on(tmp_path: Path) -> None:
+    """@brief Internet on: pi-web-access with -e and web-search.json in the agent dir first."""
+    worktree, io_dir = _dirs(tmp_path)
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    target = CopyTarget(fake)
+    run = PiExecutor("pi", "gpt-5.4", provider="openai", internet=True,
+                     web_search="brave").run_gate(target, worktree, io_dir, PROMPT, timeout=30)
+    assert run.ok
+    extensions = [fake.argv[index + 1] for index, part in enumerate(fake.argv) if part == "-e"]
+    assert extensions == [CONTAINER_PI_GUARD, CONTAINER_PI_WEB_ACCESS]
+    assert "--append-system-prompt" not in fake.argv
+    assert target.commands == [["cp", "/adore/io/pi-web-search.json",
+                                CONTAINER_PI_AGENT_DIR + "/web-search.json"]]
+    document = json.loads((io_dir / "pi-web-search.json").read_text("utf-8"))
+    assert document == {"provider": "brave", "workflow": "none", "toolActivation": "eager"}
+    none = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    quiet = CopyTarget(none)
+    assert PiExecutor("pi", "gpt-5.4", provider="openai", internet=True,
+                      web_search="none").run_gate(quiet, worktree, io_dir, PROMPT, timeout=30).ok
+    assert CONTAINER_PI_WEB_ACCESS not in none.argv and quiet.commands == []
+    assert "--append-system-prompt" not in none.argv
+
+
+def test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed(
+        tmp_path: Path) -> None:
+    """@brief A failed web-search.json copy fails the gate with a reason; Pi never starts."""
+    worktree, io_dir = _dirs(tmp_path)
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    run = PiExecutor("pi", "gpt-5.4", provider="openai", internet=True).run_gate(
+        CopyTarget(fake, copy_ok=False), worktree, io_dir, PROMPT, timeout=30)
+    assert not run.ok and run.exit_code == 1
+    assert "web search configuration could not be placed" in run.stderr
+    assert fake.processes == []
+
+
+def test_pi_executor_tells_the_agent_when_internet_is_off(tmp_path: Path) -> None:
+    """@brief Internet off: no web extension, no web-search.json, a system-prompt notice."""
+    worktree, io_dir = _dirs(tmp_path)
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    target = CopyTarget(fake)
+    assert PiExecutor("pi", "gpt-5.4", provider="openai").run_gate(
+        target, worktree, io_dir, PROMPT, timeout=30).ok
+    assert CONTAINER_PI_WEB_ACCESS not in fake.argv and target.commands == []
+    notice = fake.argv[fake.argv.index("--append-system-prompt") + 1]
+    assert notice == INTERNET_OFF_NOTICE
+    assert "only the model provider" in notice.lower()
+    for word in ("web search", "page", "download"):
+        assert word in notice.lower()
 
 
 def test_native_pi_template_receives_provider_and_model(tmp_path: Path) -> None:

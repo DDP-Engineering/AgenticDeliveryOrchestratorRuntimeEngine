@@ -28,7 +28,7 @@ means.
 ## Public interface
 
 - `build_executor(command_template, model, questions_file, *, provider,
-  models)` returns a `PiExecutor`; Pi is the only executor implementation.
+  models, internet, web_search)` returns a `PiExecutor`; Pi is the only executor implementation.
   `model` is the model ID within the provider, `provider` the
   `[executor] provider` (mapped by `pi_providers.pi_provider`: `chatgpt` ->
   `openai`, `custom` -> `adore-endpoint`), `models` the endpoint
@@ -79,7 +79,16 @@ key-free `models.json` to the io dir as `pi-models.json` (`MODELS_FILE`) and
 runs `cp /adore/io/pi-models.json /home/adore/.adore-pi-agent/models.json`
 through the exec seam; a failed copy fails the gate (non-zero exit, stderr
 `Pi models.json could not be placed in the agent directory: ...`) without
-starting Pi. A launch is complete only on
+starting Pi. With `internet` on and `web_search` not `none`, the argv adds
+`-e /opt/pi/lib/node_modules/pi-web-access` (`CONTAINER_PI_WEB_ACCESS`) and
+`_place_file` copies `web_search_json(search)` (`{provider, workflow: "none",
+toolActivation: "eager"}`, no key; Brave/Tavily read their key from the
+environment) from `pi-web-search.json` to the agent directory's
+`web-search.json` first; a failed copy fails the gate with `The web search
+configuration could not be placed in Pi's agent directory: ...`. With
+`internet` off nothing web-related is loaded and the argv adds
+`--append-system-prompt INTERNET_OFF_NOTICE`. `pi_rpc_argv(model, provider, *,
+web, notice)` builds the argv; the Test AI connection passes neither. A launch is complete only on
 `agent_settled` that is not aborted with a last assistant stopReason other
 than `error`; the exit code is not the result. Timeout or cancel sends `abort`,
 waits 10 s for settling, closes stdin, terminates after 5 s and kills after 5
@@ -114,6 +123,8 @@ When no token can be had (`ChatGptError`), the attempt returns
 the conductor logs `<run id>: ChatGPT token unavailable (<code>)`, and the
 ordinary retry policy applies. The token is not refreshed during a stage, so
 config validation limits a `chatgpt` stage to 3000 s.
+- The file protocol decouples prompts and results from host/container argument
+  quoting; the caller owns stage policy.
 
 ## Key behaviors
 
@@ -141,22 +152,9 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-SEC-0fb2bba3` - each ChatGPT stage receives only a short-lived access token.
 - `REQ-FUNC-87f05705` - a ChatGPT stage without an access token fails clearly without starting Pi.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    conductor([Orchestrator]) --> factory[build_executor]
-    factory --> gate[FileProtocolExecutor.run_gate]
-    gate --> io[(Run IO files)]
-    gate --> container([ExecTarget])
-    container --> output[(output.jsonl and stderr)]
-    output --> gate
-    gate --> result[GateRun]
-    result --> conductor
-```
-
-The file protocol decouples prompts and results from host/container argument
-quoting; the caller owns stage policy.
+- `REQ-FUNC-f1b71231` - internet on: pi-web-access and web-search.json.
+- `REQ-FUNC-95778891` - a failed web-search.json copy fails the gate.
+- `REQ-FUNC-53fd0c28` - internet off: no web tools and a system-prompt notice.
 
 ## Files
 

@@ -49,6 +49,8 @@ const en = {
     container_runtime: "Make the selected runtime available on the server. WSL may require operator verification.",
     executor_cli: "Use a local image containing Pi and Python; missing images are never pulled automatically.",
     aegis_files: "Use a server clone with repository-installed .agentic/aegis.py and aegis.toml.",
+    egress_proxy: "Build the egress proxy image on the ADORE server (docker/Dockerfile.egress-proxy): internet access for the agent is off.",
+    web_search_key: "Save the Brave or Tavily key in Settings → Agent and model after creation.",
   },
 };
 type Copy = { [K in keyof typeof en]: typeof en[K] extends string[] ? string[] :
@@ -90,6 +92,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
       container_runtime: "Rendez le runtime choisi disponible sur le serveur. WSL peut nécessiter une vérification opérateur.",
       executor_cli: "Utilisez une image locale contenant Pi et Python ; aucune image n'est téléchargée automatiquement.",
       aegis_files: "Utilisez un clone serveur avec .agentic/aegis.py et aegis.toml installés dans le dépôt.",
+      egress_proxy: "Construisez l’image du proxy de sortie sur le serveur ADORE (docker/Dockerfile.egress-proxy) : l’accès Internet de l’agent est désactivé.",
+      web_search_key: "Enregistrez la clé Brave ou Tavily dans Paramètres → Agent et modèle après la création.",
     },
   },
   de: {
@@ -124,6 +128,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
       container_runtime: "Gewählte Runtime auf dem Server bereitstellen. WSL kann eine Betreiberprüfung erfordern.",
       executor_cli: "Ein lokales Image mit Pi und Python verwenden; fehlende Images werden nie automatisch geladen.",
       aegis_files: "Serverklon mit installiertem .agentic/aegis.py und aegis.toml verwenden.",
+      egress_proxy: "Bauen Sie das Egress-Proxy-Image auf dem ADORE-Server (docker/Dockerfile.egress-proxy): Der Internetzugang des Agenten ist aus.",
+      web_search_key: "Speichern Sie den Brave- oder Tavily-Schlüssel nach dem Anlegen unter Einstellungen → Agent und Modell.",
     },
   },
   ro: {
@@ -158,6 +164,8 @@ export const enrollmentCopy: Record<Locale, Copy> = {
       container_runtime: "Asigură runtime-ul selectat pe server. WSL poate necesita verificarea operatorului.",
       executor_cli: "Folosește o imagine locală cu Pi și Python; imaginile lipsă nu sunt descărcate automat.",
       aegis_files: "Folosește o clonă pe server cu .agentic/aegis.py și aegis.toml instalate în repository.",
+      egress_proxy: "Construiește imaginea proxyului de ieșire pe serverul ADORE (docker/Dockerfile.egress-proxy): accesul la internet al agentului este dezactivat.",
+      web_search_key: "Salvează cheia Brave sau Tavily în Setări → Agent și model după creare.",
     },
   },
 };

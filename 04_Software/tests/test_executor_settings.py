@@ -373,6 +373,36 @@ def test_credential_follows_the_configured_provider(tmp_path, monkeypatch):
         assert save("OPENAI_API_KEY").status_code == 400
 
 
+def test_search_key_is_a_credential_only_with_internet_on(tmp_path, monkeypatch):
+    """@brief BRAVE_API_KEY / TAVILY_API_KEY join the provider key only for an On project."""
+    from tests.test_model_connection import set_internet
+
+    for name in ("OPENAI_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    profiles = project(tmp_path)
+    path = profiles.config_path("alpha")
+    base = path.read_text(encoding="utf-8")
+    module = importlib.import_module("adore.web.app")
+    with TestClient(module.create_app(profiles.home)) as client:
+        _login(client)
+
+        def names() -> list[str]:
+            return [item["name"] for item in client.get(
+                "/api/v1/projects/alpha/executor-credentials").json()["variables"]]
+
+        set_internet(profiles, False, "brave")
+        assert names() == ["OPENAI_API_KEY"]
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True, "brave")
+        assert names() == ["OPENAI_API_KEY", "BRAVE_API_KEY"]
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True, "tavily")
+        assert names() == ["OPENAI_API_KEY", "TAVILY_API_KEY"]
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True)
+        assert names() == ["OPENAI_API_KEY"]
+
+
 def test_provider_key_never_leaves_the_credential_store(tmp_path, monkeypatch):
     """@brief After save, review/apply and a test run the key is only in the profile .env."""
     from adore.config import load_config

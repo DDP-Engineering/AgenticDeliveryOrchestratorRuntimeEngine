@@ -298,3 +298,27 @@ test("executor labels, help and credential names retain exact authority in four 
  for (const names of [[],["OPENAI_API_KEY"],["CUSTOM_PROVIDER_KEY","OPENROUTER_API_KEY"]]) assert.equal(validCredentialNames(names),true);
  for (const names of [null,{},[true],["OPENAI_API_KEY=value"],["OPENAI_API_KEY","OPENAI_API_KEY"],["invalid"],Array(33).fill("OPENAI_API_KEY")]) assert.equal(validCredentialNames(names),false);
 });
+
+test("the internet switch and web search have labels, help, values and a warning in four locales", async () => {
+ const {agentValue,executorSettingHelp,executorSettingLabel,internetCopy,searchKeyNeeded}=await import("../src/executorSettings.ts");
+ const texts=new Set();
+ for (const locale of ["en","ro","fr","de"]) {
+  const c=internetCopy[locale];
+  assert.equal(executorSettingLabel("executor.internet",locale),c.internet);
+  assert.equal(executorSettingLabel("executor.web.search",locale),c.search);
+  assert.equal(executorSettingHelp("executor.internet",locale),c.internetHelp);
+  assert.equal(executorSettingHelp("executor.web.search",locale),c.searchHelp);
+  assert.equal(agentValue("executor.internet",true,locale),c.on);
+  assert.equal(agentValue("executor.internet","false",locale),c.off);
+  assert.equal(agentValue("executor.web.search","brave",locale),c.brave);
+  assert.equal(agentValue("executor.web.search","google",locale),null);
+  assert.equal(agentValue("executor.model","x",locale),null);
+  for (const value of Object.values(c)) { assert.ok(value.length>1); texts.add(locale+value); }
+  assert.ok(c.internetWarning.includes("ChatGPT") && c.internetWarning.includes("API"));
+ }
+ assert.equal(internetCopy.fr.internetWarning===internetCopy.en.internetWarning,false);
+ assert.equal(searchKeyNeeded({executor:{internet:true,web:{search:"brave"}}}),true);
+ assert.equal(searchKeyNeeded({executor:{internet:true,web:{search:"exa"}}}),false);
+ assert.equal(searchKeyNeeded({executor:{internet:false,web:{search:"tavily"}}}),false);
+ assert.equal(searchKeyNeeded({}),false);
+});

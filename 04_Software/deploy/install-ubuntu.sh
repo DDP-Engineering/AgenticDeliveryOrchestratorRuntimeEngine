@@ -52,8 +52,8 @@ usage: ./deploy/install-ubuntu.sh [--service] [--skip-image] [--allow-open-egres
   --service             also install/enable/start the systemd unit (uses sudo;
                         service user from ADORE_USER, default: the invoking user)
   --skip-image          do not check/build the executor image
-  --allow-open-egress   allow unattended service install while [container.egress]
-                        mode is "open" (supervised pilots only)
+  --allow-open-egress   allow unattended service install while [executor]
+                        internet is true (supervised pilots only)
   --uninstall           stop/disable/remove the systemd unit (all state is kept)
 EOF
 }
@@ -116,11 +116,14 @@ for part in sys.argv[1].split("."):
     cur = cur[part]
 print(cur)' "$1"
 }
-EGRESS_MODE="$(json_field container.egress.mode)"
+# [executor] internet decides the agent's network: true is open egress,
+# false the per-run allowlist proxy that admits only the model provider.
+INTERNET="$(json_field executor.internet)"
+BACKEND="$(json_field execution.backend)"
 PROXY_IMAGE="$(json_field container.egress.proxy_image)"
-if [ "${WITH_SERVICE}" -eq 1 ] && [ "${EGRESS_MODE}" = "open" ] \
-    && [ "${ALLOW_OPEN_EGRESS}" -eq 0 ]; then
-    fail "refusing unattended service install with [container.egress] mode='open'; set allowlist-proxy/none or pass --allow-open-egress for a supervised pilot"
+if [ "${WITH_SERVICE}" -eq 1 ] && [ "${INTERNET}" = "True" ] \
+    && [ "${BACKEND}" = "container" ] && [ "${ALLOW_OPEN_EGRESS}" -eq 0 ]; then
+    fail "refusing unattended service install with [executor] internet = true; switch it off or pass --allow-open-egress for a supervised pilot"
 fi
 
 if [ ! -f "${SOFTWARE_DIR}/.env" ]; then
@@ -143,7 +146,8 @@ else
     note "skipping executor image check (--skip-image)"
 fi
 
-if [ "${EGRESS_MODE}" = "allowlist-proxy" ]; then
+# Only an internet-off container project runs behind the proxy.
+if [ "${INTERNET}" != "True" ] && [ "${BACKEND}" = "container" ]; then
     need_cmd docker "Install Docker Engine, or build/verify ${PROXY_IMAGE} before service install"
     if docker image inspect "${PROXY_IMAGE}" >/dev/null 2>&1; then
         note "egress proxy image ${PROXY_IMAGE} already present"

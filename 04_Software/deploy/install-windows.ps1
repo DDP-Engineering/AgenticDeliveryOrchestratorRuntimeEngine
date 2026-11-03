@@ -105,10 +105,13 @@ try {
 } finally {
     Pop-Location
 }
-$EgressMode = [string]$ConfigData.container.egress.mode
+# [executor] internet decides the agent's network: true is open egress,
+# false the per-run allowlist proxy that admits only the model provider.
+$Internet = [bool]$ConfigData.executor.internet
+$Backend = [string]$ConfigData.execution.backend
 $ProxyImage = [string]$ConfigData.container.egress.proxy_image
-if (-not $NoTask -and $EgressMode -eq "open" -and -not $AllowOpenEgress) {
-    Fail "refusing unattended Task Scheduler install with [container.egress] mode='open'; set allowlist-proxy/none or pass -AllowOpenEgress for a supervised pilot"
+if (-not $NoTask -and $Internet -and $Backend -eq "container" -and -not $AllowOpenEgress) {
+    Fail "refusing unattended Task Scheduler install with [executor] internet = true; switch it off or pass -AllowOpenEgress for a supervised pilot"
 }
 if (-not (Test-Path (Join-Path $SoftwareDir ".env"))) {
     Note "note: no .env file (fine when glab/gh/tea host auth covers everything;"
@@ -137,10 +140,11 @@ if (-not $SkipImageCheck) {
     Note "skipping executor image check (-SkipImageCheck)"
 }
 
-if ($EgressMode -eq "allowlist-proxy") {
+# Only an internet-off container project runs behind the proxy.
+if (-not $Internet -and $Backend -eq "container") {
     $runtimeArgv = $Runtime -split "\s+"
     $runtimeExe = $runtimeArgv[0]
-    Need-Command $runtimeExe "Configure [container] runtime before using allowlist-proxy"
+    Need-Command $runtimeExe "Configure [container] runtime before running with internet access off"
     $inspectArgs = @()
     if ($runtimeArgv.Count -gt 1) { $inspectArgs += $runtimeArgv[1..($runtimeArgv.Count - 1)] }
     $inspectArgs += @("image", "inspect", $ProxyImage)

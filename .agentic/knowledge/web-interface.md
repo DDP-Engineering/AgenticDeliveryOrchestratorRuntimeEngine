@@ -871,6 +871,24 @@ Gitea readiness verifies configured-login tea API user evidence, requiring 2xx
 HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
 
+## Internet access for the agent
+
+Settings -> Agent and model shows `executor.internet` (generic boolean row
+shown On/Off through `executorSettings.agentValue`) and `executor.web.search`
+(choice row from the server's `WEB_SEARCH_CHOICES`), both reviewed edits with a
+restart note. While the active value is On or the editor or a pending
+candidate proposes On, `internetCopy.internetWarning` says a malicious page
+could make the agent send its API key or ChatGPT token out; a local-backend
+project shows `internetCopy.internetLocal` (not enforced) instead. The
+credential panel lists `credential_variables` (provider key, then
+BRAVE_API_KEY/TAVILY_API_KEY for an internet-on Brave/Tavily project) and is
+also shown beside the ChatGPT sign-in when `searchKeyNeeded`. `_probe_setup`
+adds `_internet_checks`: `egress_proxy` (container + internet off: `image
+inspect` of the proxy image) and `web_search_key`; `readinessChecksShape`
+accepts them as optional booleans and `ReadinessEvidence` labels them in four
+locales. Requirements: `REQ-UX-e340fc1e`, `REQ-FUNC-aaa37a72`,
+`REQ-SEC-b6a4a434`.
+
 ## Explicit AI connection test
 
 Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for a Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.

@@ -50,7 +50,9 @@ from adore.pi_providers import (
     DEFAULT_ENDPOINT_API,
     ENDPOINT_APIS,
     MODEL_ID_RE,
+    WEB_SEARCH_CHOICES,
     CatalogError,
+    provider_hosts,
     provider_ids,
     valid_endpoint_url,
 )
@@ -272,12 +274,27 @@ class ExecutorEndpointConfig:
 
 
 @dataclass
+class ExecutorWebConfig:
+    """
+    @brief   [executor.web] - the web search Pi uses while internet access is on.
+    @details `search` is exa (no key), brave or tavily (key in the project's
+             credential store as BRAVE_API_KEY or TAVILY_API_KEY) or none (no
+             web tools; downloads through bash still work).
+    """
+
+    search: str = "exa"
+
+
+@dataclass
 class ExecutorConfig:
     """
     @brief   [executor] - how ADORE launches Pi, its only coding agent.
     @details `provider` is a Pi API-key provider id, `chatgpt` or `custom`
              (an OpenAI-compatible endpoint described by [executor.endpoint]);
-             `model` is the model id within that provider. `command` is the
+             `model` is the model id within that provider. `internet` is the
+             project's "Internet access for the agent": false limits a
+             container run to the model provider's hosts, true opens the
+             network and loads Pi's web tools ([executor.web]). `command` is the
              argv template of a native (installed) Pi run; a container run
              uses the image's pinned Pi and ignores it. The provider's key
              variable always reaches Pi; env_keys names additional secrets
@@ -287,7 +304,9 @@ class ExecutorConfig:
 
     provider: str = ""
     model: str = ""
+    internet: bool = False
     endpoint: ExecutorEndpointConfig = field(default_factory=ExecutorEndpointConfig)
+    web: ExecutorWebConfig = field(default_factory=ExecutorWebConfig)
     command: str = PI_NATIVE_COMMAND
     mode: str = "thick"
     questions_file: str = ""
@@ -297,10 +316,28 @@ class ExecutorConfig:
 @dataclass
 class ContainerEgressConfig:
     """
-    @brief   [container.egress] - outbound network policy for executor runs.
-    @details open provides unrestricted egress; none disables container
-             networking; allowlist-proxy routes HTTP/HTTPS through a per-run
-             ADORE proxy with exact/wildcard hostname allowlists.
+    @brief   [container.egress] - the proxy behind which an internet-off run sits.
+    @details `[executor] internet` decides the run's network access
+             (`egress_policy`); this section holds the per-run proxy's image,
+             port and network prefix, the hosts reached without the proxy and
+             `allowlist`, extra hosts an internet-off run may reach besides
+             the model provider (exact names or `*.` wildcards).
+    """
+
+    allowlist: list[str] = field(default_factory=list)
+    no_proxy: list[str] = field(default_factory=lambda: ["localhost", "127.0.0.1", "::1"])
+    proxy_image: str = EGRESS_PROXY_IMAGE
+    proxy_port: int = 3128
+    network_prefix: str = EGRESS_NETWORK_PREFIX
+
+
+@dataclass
+class EgressPolicy:
+    """
+    @brief   The network access of one run's executor container.
+    @details Derived from the configuration by `egress_policy`, never read
+             from a file. open: unrestricted; allowlist-proxy: HTTP/HTTPS only
+             through a per-run proxy that admits `allowlist`; none: no network.
     """
 
     mode: str = "open"
@@ -632,17 +669,18 @@ def _build_labels(data: Any) -> LabelsConfig:
 
 def _build_executor(data: Any) -> ExecutorConfig:
     """
-    @brief      Build [executor] including the nested [executor.endpoint].
-    @details    A non-table endpoint value is left at its defaults and refused
-                by validate_config.
+    @brief      Build [executor] including [executor.endpoint] and [executor.web].
+    @details    A non-table endpoint or web value is left at its defaults and
+                refused by validate_config.
     @param[in]  data Raw [executor] mapping.
     @return     A populated ExecutorConfig.
     """
     if not isinstance(data, dict):
         return ExecutorConfig()
     section = _build_section(ExecutorConfig, {key: value for key, value in data.items()
-                                              if key != "endpoint"})
+                                              if key not in ("endpoint", "web")})
     section.endpoint = _build_section(ExecutorEndpointConfig, data.get("endpoint"))
+    section.web = _build_section(ExecutorWebConfig, data.get("web"))
     return section
 
 
@@ -923,11 +961,17 @@ def _unknown_key_issues(raw: dict) -> list[str]:
     check("executor", raw.get("executor"), ExecutorConfig)
     if isinstance(raw.get("executor"), dict):
         check("executor.endpoint", raw["executor"].get("endpoint"), ExecutorEndpointConfig)
+        check("executor.web", raw["executor"].get("web"), ExecutorWebConfig)
     container = raw.get("container")
     if isinstance(container, dict):
         check("container", {key: value for key, value in container.items()
                             if key != "egress"}, ContainerConfig)
-        check("container.egress", container.get("egress"), ContainerEgressConfig)
+        egress = container.get("egress")
+        if isinstance(egress, dict) and "mode" in egress:
+            issues.append("[container.egress] unknown key 'mode': remove it from config.toml; "
+                          "[executor] internet decides the agent's network access")
+            egress = {key: value for key, value in egress.items() if key != "mode"}
+        check("container.egress", egress, ContainerEgressConfig)
     return issues
 
 
@@ -991,7 +1035,15 @@ def _provider_issues(config: Config) -> list[str]:
                       "spaces, quotes or control characters (at most 200 characters)")
     if executor.provider == CHATGPT:
         issues.extend(_chatgpt_issues(config))
+    if type(executor.internet) is not bool:
+        issues.append(f"[executor] internet must be true or false: {executor.internet!r}")
     raw_executor = config.raw.get("executor")
+    raw_web = raw_executor.get("web") if isinstance(raw_executor, dict) else None
+    if raw_web is not None and not isinstance(raw_web, dict):
+        issues.append("[executor.web] must be a table")
+    if executor.web.search not in WEB_SEARCH_CHOICES:
+        issues.append(f"[executor.web] search must be one of {', '.join(WEB_SEARCH_CHOICES)}: "
+                      f"{executor.web.search!r}")
     raw_endpoint = raw_executor.get("endpoint") if isinstance(raw_executor, dict) else None
     if executor.provider != CUSTOM:
         if raw_endpoint is not None:
@@ -1013,6 +1065,28 @@ def _provider_issues(config: Config) -> list[str]:
         issues.append(f"[executor.endpoint] api must be one of {', '.join(ENDPOINT_APIS)}: "
                       f"{executor.endpoint.api!r}")
     return issues
+
+
+def egress_policy(config: Config) -> EgressPolicy:
+    """
+    @brief      The network access of the project's executor containers.
+    @details    Internet off: the per-run allowlist proxy admitting the
+                provider's hosts (`provider_hosts`) and `[container.egress]
+                allowlist`, deduplicated and sorted. Internet on: open egress.
+                Used for every stage container and the Test AI connection; a
+                local run is not restricted by it.
+    @param[in]  config Validated configuration.
+    @return     The derived EgressPolicy.
+    """
+    egress = config.container.egress
+    if config.executor.internet is True:
+        return EgressPolicy(mode="open", no_proxy=list(egress.no_proxy),
+                            proxy_image=egress.proxy_image, proxy_port=egress.proxy_port,
+                            network_prefix=egress.network_prefix)
+    hosts = sorted({*provider_hosts(config.executor), *egress.allowlist})
+    return EgressPolicy(mode="allowlist-proxy", allowlist=hosts,
+                        no_proxy=list(egress.no_proxy), proxy_image=egress.proxy_image,
+                        proxy_port=egress.proxy_port, network_prefix=egress.network_prefix)
 
 
 def validate_config(config: Config) -> list[str]:
@@ -1230,7 +1304,9 @@ def validate_config(config: Config) -> list[str]:
                   "remove it from config.toml")
     if config.execution.backend == "local":
         check(not config.execution.preparation, "[local] container preparation is unsupported")
-        check(config.container.egress.mode == "open", "[local] container egress must be open")
+        check(not config.container.egress.allowlist,
+              "[local] container egress allowlist is unsupported: a local run is not "
+              "network-restricted")
         check(not config.container.run_args and not config.container.required_tool_checks
               and config.container.selinux_relabel == "off",
               "[local] container runtime options/tool checks are unsupported")
@@ -1268,20 +1344,10 @@ def validate_config(config: Config) -> list[str]:
           "[container] image is required without preparation")
     egress = config.container.egress
     check(
-        egress.mode in ("open", "allowlist-proxy", "none"),
-        f'[container.egress] mode must be "open", "allowlist-proxy", or "none": '
-        f"{egress.mode!r}",
-    )
-    check(
         isinstance(egress.allowlist, list),
         "[container.egress] allowlist must be a list of hostnames",
     )
     if isinstance(egress.allowlist, list):
-        if egress.mode == "allowlist-proxy":
-            check(
-                bool(egress.allowlist),
-                "[container.egress] allowlist-proxy requires a non-empty allowlist",
-            )
         for item in egress.allowlist:
             if not isinstance(item, str):
                 issues.append(

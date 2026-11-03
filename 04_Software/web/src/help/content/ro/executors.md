@@ -24,7 +24,7 @@ Pentru un model servit în propria rețea, de exemplu LM Studio, Ollama sau vLLM
 - **Tipul API al endpointului**: `openai-completions` pentru LM Studio, Ollama și vLLM; sunt acceptate și `openai-responses`, `anthropic-messages` și `google-generative-ai`.
 - **Model**: ID-ul modelului servit de endpoint.
 
-Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu o politică de rețea restrictivă, adresa endpointului trebuie permisă. Un endpoint este disponibil doar pentru proiectele în container.
+Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu [accesul la internet](#internet) dezactivat, ADORE permite singur adresa endpointului. Un endpoint este disponibil doar pentru proiectele în container.
 
 ## Autentificare {#credentials}
 
@@ -33,6 +33,7 @@ Deschideți **Autentificare** în același grup.
 - **Cheia API a furnizorului.** Panoul numește variabila de care are nevoie furnizorul configurat, de exemplu OPENAI_API_KEY pentru OpenAI sau ANTHROPIC_API_KEY pentru Anthropic. Introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o păstrează privat în depozitul de credențiale al proiectului pe server, niciodată în fișierul de configurare, o transmite lui Pi doar ca acea variabilă și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Schimbarea unei chei cere monitorizarea oprită, un proiect inactiv și nicio propunere în așteptare și nu testează cheia.
 - **Autentificarea existentă a contului.** Doar pentru un proiect instalat pe server: Pi folosește propria autentificare pentru contul serverului, configurată în afara interfeței web. Un proiect în container folosește cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din [autentificarea ChatGPT](#chatgpt) a serverului; nicio autentificare nu este copiată în container.
 - **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE poartă eticheta **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
+- **Cheia de căutare web.** Cu accesul la internet activat și căutarea web Brave sau Tavily, panoul listează și BRAVE_API_KEY sau TAVILY_API_KEY, salvată la fel, și pentru un abonament ChatGPT.
 - **Variabile de autentificare suplimentare.** Doar nume (**Adaugă o variabilă de autentificare**) ale unor secrete suplimentare primite de Pi pe lângă cheia furnizorului; majoritatea proiectelor nu au nevoie de ele.
 
 Valorile credențialelor nu apar niciodată în fișierul de configurare, în revizuiri, în înregistrările de audit, în jurnale sau în exporturi.
@@ -58,6 +59,19 @@ Administratorii aleg **Testează conexiunea AI** la **Conexiune AI**. Testul por
 
 Rezultatul este **Model AI conectat** doar dacă comanda shell a rulat și răspunsul a sosit. Altfel, **Conexiunea AI nu a putut fi verificată** vine cu îndrumări proprii pentru: nicio credențială salvată, nicio autentificare ChatGPT, un abonament ChatGPT care nu poate fi partajat, o limită de utilizare ChatGPT atinsă, o cheie respinsă de furnizor, un furnizor sau endpoint la care Pi nu a putut ajunge, un model necunoscut furnizorului sau endpointului, o limită de rată, altă eroare a furnizorului, depășirea timpului, o imagine sau un Pi lipsă, ori o comandă shell pe care Pi nu a putut-o rula. Nu pornește nicio lucrare. Rezultatul salvat este legat de furnizorul, modelul, setările și credențialele actuale și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.
 
+## Acces la internet pentru agent {#internet}
+
+**Acces la internet pentru agent** din Setări → Agent și model decide ce poate accesa containerul unei lucrări. Implicit este **Dezactivat**.
+
+- **Dezactivat**: containerul ajunge doar la furnizorul modelului. ADORE permite singur adresele furnizorului, pentru un endpoint compatibil OpenAI adresa acestuia, printr-un proxy de rețea separat pentru fiecare lucrare. Căutarea web, citirea paginilor și descărcările precum `curl`, `npm install` sau `pip install` eșuează, iar Pi este anunțat.
+- **Activat**: containerul are rețea deschisă. Pi poate căuta pe web, citi pagini și descărca biblioteci cu `curl`, `npm` sau `pip`.
+
+**Căutare web** alege serviciul de căutare cât timp accesul este activat: **Exa (fără cheie)**, implicit, **Brave (necesită cheie)**, **Tavily (necesită cheie)** sau **Niciuna** (fără căutare web sau citirea paginilor). Pentru Brave sau Tavily, salvați BRAVE_API_KEY sau TAVILY_API_KEY la **Autentificare**.
+
+> Cu accesul la internet activat, o pagină web rău intenționată ar putea încerca să facă agentul să trimită cheia API sau tokenul ChatGPT. Preferă chei limitate și de scurtă durată.
+
+Ambele setări se schimbă prin **Pregătește candidatul** și **Aplică**, ca celelalte. Cu accesul la internet dezactivat, imaginea proxyului trebuie să existe pe serverul ADORE; **Verifică cerințele gazdei** o raportează, la fel și cheia de căutare când este necesară. Pentru un proiect instalat pe server, comutatorul apare ca **Neaplicat**: Pi ajunge oriunde ajunge serverul.
+
 ## Unde rulează lucrările {#where-jobs-run}
 
 | | Container | Execuție locală nativă |
@@ -66,7 +80,7 @@ Rezultatul este **Model AI conectat** doar dacă comanda shell a rulat și răsp
 | Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
 | Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia API a furnizorului sau autentificarea Pi existentă pe acel cont, reutilizată pe loc |
 | Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi instalat pentru acel cont, pornit cu comanda de lansare și cu setările Pi ale acelui cont |
-| Izolare | Container cu politică de rețea | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
+| Izolare | Container; cu accesul la internet dezactivat ajunge doar la furnizorul modelului | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
 | Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |
 
 Modificările din Setări trec prin **Pregătește candidatul**, revizuire și **Aplică**. **Instalat pe server** afișează comanda nativă a executorului și câmpurile contului local (contul `current`, directorul home, PATH și, pe Linux, rădăcina cgroup), împreună cu avizul despre execuția locală.

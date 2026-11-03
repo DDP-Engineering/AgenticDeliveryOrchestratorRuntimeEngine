@@ -24,7 +24,7 @@ Für ein Modell aus dem eigenen Netzwerk, etwa LM Studio, Ollama oder vLLM, wäh
 - **Endpunkt-API-Typ**: `openai-completions` für LM Studio, Ollama und vLLM; `openai-responses`, `anthropic-messages` und `google-generative-ai` werden ebenfalls akzeptiert.
 - **Modell**: die Modell-ID, die der Endpunkt bereitstellt.
 
-Ein Endpunkt-Schlüssel ist optional: Speichern Sie ihn unter Authentifizierung als ADORE_ENDPOINT_API_KEY. ADORE beschreibt Pi den Endpunkt für jeden Auftrag; die Adresse enthält nie Benutzername, Passwort oder Abfrage. Bei einer eingeschränkten Netzwerkrichtlinie muss die Adresse des Endpunkts erlaubt sein. Ein Endpunkt ist nur für Container-Projekte verfügbar.
+Ein Endpunkt-Schlüssel ist optional: Speichern Sie ihn unter Authentifizierung als ADORE_ENDPOINT_API_KEY. ADORE beschreibt Pi den Endpunkt für jeden Auftrag; die Adresse enthält nie Benutzername, Passwort oder Abfrage. Bei ausgeschaltetem [Internetzugang](#internet) erlaubt ADORE die Adresse des Endpunkts selbst. Ein Endpunkt ist nur für Container-Projekte verfügbar.
 
 ## Authentifizierung {#credentials}
 
@@ -33,6 +33,7 @@ Ein Endpunkt-Schlüssel ist optional: Speichern Sie ihn unter Authentifizierung 
 - **API-Schlüssel des Anbieters.** Das Feld nennt die Variable, die der konfigurierte Anbieter braucht, z. B. OPENAI_API_KEY für OpenAI oder ANTHROPIC_API_KEY für Anthropic. Geben Sie den **API-Schlüssel** ein und wählen Sie **API-Schlüssel speichern**. ADORE speichert ihn privat im Zugangsdatenspeicher des Projekts auf dem Server, nie in der Konfigurationsdatei, gibt ihn Pi nur als diese Variable weiter und zeigt ihn nie wieder an; **Projekt-API-Schlüssel entfernen** löscht ihn. Eine Schlüsseländerung erfordert pausierte Überwachung, ein inaktives Projekt und keinen offenen Vorschlag und prüft den Schlüssel nicht.
 - **Vorhandene Kontoanmeldung.** Nur für ein auf dem Server installiertes Projekt: Pi nutzt seine eigene Anmeldung für das Serverkonto, außerhalb der Weboberfläche eingerichtet. Ein Container-Projekt nutzt den API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der [ChatGPT-Anmeldung](#chatgpt) des Servers; keine Anmeldung wird in den Container kopiert.
 - **Von der Umgebung verwaltete Werte.** Eine bereits in der Umgebung des ADORE-Servers gesetzte Variable trägt den Hinweis **Auf dem ADORE-Server gesetzt; extern verwalten**. Die Weboberfläche kann sie nicht überschreiben.
+- **Websuche-Schlüssel.** Bei eingeschaltetem Internetzugang und Websuche Brave oder Tavily listet das Feld auch BRAVE_API_KEY oder TAVILY_API_KEY, gespeichert auf dieselbe Weise, auch für ein ChatGPT-Abonnement.
 - **Zusätzliche Zugangsdaten-Variablen.** Nur Namen (**Zugangsdaten-Variable hinzufügen**) weiterer Geheimnisse, die Pi neben dem Schlüssel des Anbieters erhält; die meisten Projekte brauchen keine.
 
 Zugangsdatenwerte erscheinen nie in der Konfigurationsdatei, in Prüfungen, Audit-Einträgen, Protokollen oder Exporten.
@@ -58,6 +59,19 @@ Administratoren wählen **KI-Verbindung testen** unter **KI-Verbindung**. Der Te
 
 Das Ergebnis ist **KI-Modell verbunden** nur, wenn der Shell-Befehl lief und die Antwort ankam. Sonst kommt **KI-Verbindung nicht bestätigt** mit eigenem Hinweis für: keine gespeicherten Zugangsdaten, keine ChatGPT-Anmeldung, ein ChatGPT-Abo, das nicht geteilt werden kann, ein erreichtes ChatGPT-Nutzungslimit, einen vom Anbieter abgelehnten Schlüssel, einen Anbieter oder Endpunkt, den Pi nicht erreichen konnte, ein Modell, das Anbieter oder Endpunkt nicht kennen, ein Ratenlimit, einen anderen Anbieterfehler, eine Zeitüberschreitung, ein fehlendes Image oder Pi, oder einen Shell-Befehl, den Pi nicht ausführen konnte. Es wird kein Auftrag gestartet. Das gespeicherte Ergebnis ist an aktuellen Anbieter, Modell, Einstellungen und Zugangsdaten gebunden und erscheint in den Host-Prüfungen der Übersicht. Entwickler sehen es, können den Test aber nicht ausführen.
 
+## Internetzugang für den Agenten {#internet}
+
+**Internetzugang für den Agenten** unter Einstellungen → Agent und Modell bestimmt, was der Container eines Auftrags erreichen kann. Standardmäßig ist er **Aus**.
+
+- **Aus**: Der Container erreicht nur den Modellanbieter. ADORE erlaubt die Adressen des Anbieters selbst, bei einem OpenAI-kompatiblen Endpunkt dessen Adresse, über einen eigenen Netzwerk-Proxy je Auftrag. Websuche, Seitenlesen und Downloads wie `curl`, `npm install` oder `pip install` schlagen fehl, und Pi wird darauf hingewiesen.
+- **An**: Der Container hat ein offenes Netzwerk. Pi kann im Web suchen, Seiten lesen und Bibliotheken mit `curl`, `npm` oder `pip` herunterladen.
+
+**Websuche** wählt den Suchdienst, solange der Zugang an ist: **Exa (ohne Schlüssel)**, der Standard, **Brave (Schlüssel nötig)**, **Tavily (Schlüssel nötig)** oder **Keine** (keine Websuche und kein Seitenlesen). Für Brave oder Tavily speichern Sie BRAVE_API_KEY oder TAVILY_API_KEY unter **Authentifizierung**.
+
+> Bei eingeschaltetem Internetzugang könnte eine bösartige Webseite versuchen, den Agenten seinen API-Schlüssel oder sein ChatGPT-Token versenden zu lassen. Verwenden Sie möglichst eingeschränkte, kurzlebige Schlüssel.
+
+Beide Einstellungen ändern sich wie andere über **Kandidat vorbereiten** und **Anwenden**. Bei ausgeschaltetem Internetzugang muss das Proxy-Image auf dem ADORE-Server vorhanden sein; **Host-Voraussetzungen prüfen** meldet es, ebenso den Suchschlüssel, wenn er nötig ist. Für ein auf dem Server installiertes Projekt wird der Schalter als **Nicht durchgesetzt** angezeigt: Pi erreicht alles, was der Server erreicht.
+
 ## Wo Aufträge laufen {#where-jobs-run}
 
 | | Container | Native lokale Ausführung |
@@ -66,7 +80,7 @@ Das Ergebnis ist **KI-Modell verbunden** nur, wenn der Shell-Befehl lief und die
 | Umgebung | Einem vom Administrator vorbereiteten Projekt-Image | Werkzeugen, Versionen und Bibliotheken, die Sie selbst auf diesem Server installieren |
 | Anmeldung | Der API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der ChatGPT-Anmeldung des Servers | Der API-Schlüssel des Anbieters oder die vorhandene Pi-Anmeldung auf diesem Konto, an Ort und Stelle weiterverwendet |
 | Agent-Einstellungen | Das im Image enthaltene Pi mit von ADORE festgelegten Einstellungen; persönliche Pi-Einstellungen und Skills werden nicht gelesen | Das für dieses Konto installierte Pi, gestartet mit dem Startbefehl und den Pi-Einstellungen dieses Kontos |
-| Isolation | Container mit Netzwerkrichtlinie | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
+| Isolation | Container; bei ausgeschaltetem Internetzugang erreicht er nur den Modellanbieter | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
 | Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |
 
 Änderungen in den Einstellungen laufen über **Kandidat vorbereiten**, Prüfung und **Anwenden**. **Auf dem Server installiert** zeigt den nativen Executor-Befehl und die Felder des lokalen Kontos (Konto `current`, Home-Verzeichnis, PATH und unter Linux die cgroup-Wurzel) zusammen mit dem Hinweis zur lokalen Ausführung.

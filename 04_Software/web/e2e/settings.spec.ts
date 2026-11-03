@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { agentSettingsCopy } from "../src/executorSettings";
+import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
 import { connectionRowVisible, settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
@@ -573,6 +573,41 @@ test("administrators choose the executor image in Agent and model through review
   await review.getByRole("button", { name: "Discard change", exact: true }).click();
   await expect(review).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+});
+
+test("internet access for the agent is off by default and warns before it is switched on", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(before.config.executor.internet).toBe(false);
+  const agent = page.locator("#project-settings > .setting-groups > details").filter({ has: page.locator("summary").filter({ hasText: /^Agent and model / }) });
+  const row = agent.locator('[id="setting-executor.internet"]');
+  await expect(row.locator("strong").first()).toHaveText(internetCopy.en.internet);
+  await expect(row.locator("code")).toHaveText("Off");
+  await expect(row.getByText(internetCopy.en.internetWarning)).toHaveCount(0);
+  await expect(agent.locator('[id="setting-executor.web.search"] code')).toHaveText("Exa (no key)");
+  await row.getByRole("button", { name: `Edit ${internetCopy.en.internet}`, exact: true }).click();
+  await row.getByRole("combobox").selectOption({ label: "On" });
+  await expect(row.getByText(internetCopy.en.internetWarning)).toBeVisible();
+  await row.getByRole("button", { name: "Prepare candidate" }).click();
+  const review = page.locator(".candidate-review");
+  await expect(review.getByText(internetCopy.en.internetWarning)).toBeVisible();
+  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await expect(review).toHaveCount(0);
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+});
+
+test("a server-installed project shows the internet switch as not enforced", async ({ page }) => {
+  await page.route(/\/api\/v1\/projects\/[^/]+\/config(\?.*)?$/, async route => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    body.config.execution.backend = "local";
+    await route.fulfill({ response, json: body });
+  });
+  await openSettings(page);
+  const row = page.locator('[id="setting-executor.internet"]');
+  await expect(row.getByText(internetCopy.en.internetLocal)).toBeVisible();
+  await expect(row.getByText(internetCopy.en.internetWarning)).toHaveCount(0);
 });
 
 test("administrators create the missing ADORE labels from Repository settings", async ({ page }) => {

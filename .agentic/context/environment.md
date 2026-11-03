@@ -65,7 +65,8 @@ The package has no build step: run `adore` from the synced `.venv`
 (`.venv\Scripts\adore.exe` on Windows, `.venv/bin/adore` on Linux) with
 `run --dry-run`, `run --once` or `run --loop`. Executor images are built from
 `04_Software/docker/` as its README documents: the generic
-`adore-executor-base:1.0.0`, the optional `adore-egress-proxy:1.0.0`, and one
+`adore-executor-base:1.0.0`, `adore-egress-proxy:1.0.0` (needed by every container project with
+`[executor] internet = false`, the default), and one
 project image per runtime project. Runtime bundles are produced by
 `02_Tools/package_runtime.ps1` or `package_runtime.sh` into `07_Delivery/`.
 The optional host-specific offline web media comes from
@@ -126,7 +127,8 @@ Selected preparation profiles use `execution.preparation = "path.yml#job@full-co
 Local profiles require independently installed CLI/native Python under the ADORE
 service account. Windows needs executable entrypoints (or installed Node/JS argv)
 and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
-preparation, reuses auth and rejects container egress restrictions. Tools remain
+preparation, reuses auth, rejects a container egress allowlist and is not restricted by
+`[executor] internet`. Tools remain
 independently prepared. See 01_Documentation/Local_Execution.md.
 
 ## Project image build clients

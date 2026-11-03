@@ -46,9 +46,20 @@ credentials in executor environment allowlists, rejects unsafe executor modes,
 requires boolean review-state delivery, and validates paths, labels, retries, duration,
 and resource limits instead of letting a later component guess.
 `validate_config()` refuses every key this build does not read, in every
-section and subtable (`labels.*`, `[executor]`, `container.egress`), with
-`[section] unknown key 'x': remove it from config.toml`; missing keys take the
-documented defaults. `[state] channel`, `[executor] default`,
+section and subtable (`labels.*`, `[executor]`, `[executor.web]`,
+`container.egress`), with `[section] unknown key 'x': remove it from
+config.toml`; missing keys take the documented defaults. `[container.egress]
+mode` is refused with the added hint that `[executor] internet` decides the
+agent's network access.
+`ExecutorConfig.internet` (bool, default false) and `ExecutorConfig.web`
+(`ExecutorWebConfig.search`: `exa` default, `brave`, `tavily`, `none`) are
+validated in `_provider_issues` ("[executor] internet must be true or false",
+"[executor.web] search must be one of ..."). `ContainerEgressConfig` holds
+`allowlist` (extra hosts while internet is off; may be empty), `no_proxy`,
+`proxy_image`, `proxy_port`, `network_prefix`. `egress_policy(config)` derives
+the runtime `EgressPolicy`: internet off -> `allowlist-proxy` with the sorted
+union of `pi_providers.provider_hosts(executor)` and the allowlist; internet
+on -> `open`. A local profile refuses a non-empty allowlist. `[state] channel`, `[executor] default`,
 `[executor] stage_host_auth`, an inline `[executor] api_key`, unknown
 `[executor.endpoint]` keys, any other `[executor.<name>]` table and
 `[labels.executor]` are refused this way.
@@ -92,7 +103,7 @@ Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, a non-empty container egress allowlist, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
@@ -102,6 +113,11 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `REQ-FUNC-ca17a8e8` - boolean review-state delivery and credential isolation.
 - `REQ-FUNC-97e17737` - executor and egress policy validation.
+- `REQ-FUNC-06b861ec` / `REQ-FUNC-77b798cf` - `[executor] internet` and
+  `[executor.web] search` defaults and validation.
+- `REQ-FUNC-f5e692dc` - `[container.egress] mode` is refused naming the switch.
+- `REQ-SEC-e2ca6d05` / `REQ-FUNC-f801e9f3` - `egress_policy`: provider hosts
+  only while off, open while on.
 - `REQ-FUNC-2df31adf` - Pi is the only executor; `[executor]` needs a provider and a model.
 - `REQ-FUNC-78b0ad95` - configuration of another coding agent is refused with the fix.
 - `REQ-FUNC-7ce5b17a` - web-created and imported profiles share the typed

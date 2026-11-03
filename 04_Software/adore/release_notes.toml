@@ -53,12 +53,12 @@ text = { en = "Choose the AI provider and model: an API key, your own server lik
 [[release.entry]]
 category = "new"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "ADORE watches the pipeline of a published draft and can repair its failures.", fr = "ADORE surveille le pipeline d'un brouillon publié et peut réparer ses échecs.", de = "ADORE beobachtet die Pipeline eines veröffentlichten Entwurfs und kann Fehler beheben.", ro = "ADORE urmărește pipeline-ul unei schițe publicate și îi poate repara eșecurile." }
+text = { en = "Merge requests open as drafts or ready for review; ADORE watches and repairs failed pipelines.", fr = "Les demandes de fusion s'ouvrent en brouillon ou prêtes ; ADORE surveille et répare le pipeline.", de = "Merge-Requests öffnen als Entwurf oder prüfbereit; ADORE überwacht und repariert Pipelines.", ro = "Cererile de îmbinare se deschid ca schiță sau gata de revizie; ADORE repară pipeline-urile." }
 
 [[release.entry]]
 category = "new"
-topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "Merge requests can open ready for review after human approval, not only as drafts.", fr = "Les demandes de fusion peuvent s'ouvrir prêtes à relire après approbation humaine.", de = "Merge-Requests können nach menschlicher Freigabe direkt prüfbereit geöffnet werden.", ro = "Cererile de îmbinare se pot deschide gata de revizie după aprobarea umană." }
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "The agent reaches only its AI provider; turn on internet access for web search and downloads.", fr = "L'agent n'atteint que son fournisseur IA ; l'accès Internet ouvre recherche web et téléchargements.", de = "Der Agent erreicht nur seinen KI-Anbieter; Internetzugang erlaubt Websuche und Downloads.", ro = "Agentul ajunge doar la furnizorul AI; accesul la internet permite căutare web și descărcări." }
 
 [[release.entry]]
 category = "new"

@@ -32,6 +32,7 @@ from uuid import uuid4
 
 from adore import chatgpt
 from adore.branding import CONTAINER_PI_AGENT_DIR, EXECUTOR_NAME
+from adore.config import egress_policy
 from adore.isolation import ContainerManager, IsolationError
 from adore.pi_providers import (
     CHATGPT,
@@ -239,7 +240,7 @@ def probe_model_connection(config, runner, env_file: Path, *,
         bounded,
         run_args=config.container.run_args,
         pull_never=True,
-        egress=config.container.egress,
+        egress=egress_policy(config),
         selinux_relabel=config.container.selinux_relabel,
     )
     launch_env: dict[str, str] = {}
@@ -262,14 +263,15 @@ def probe_model_connection(config, runner, env_file: Path, *,
         for child in ("repo", "work", "io"):
             (root / child).mkdir()
         env = dict(config.container.runtime_env)
-        secrets = {key: saved[key] for key in secret_names(executor) if saved.get(key)}
+        # The connection test loads no web tools, so it never gets the search key.
+        secrets = {key: saved[key] for key in secret_names(executor, "") if saved.get(key)}
         env.update(secrets)
         models = models_json(executor, ENDPOINT_KEY_VARIABLE in secrets)
         provisioned = False
         try:
             images = [config.container.image]
-            if config.container.egress.mode == "allowlist-proxy":
-                images.append(config.container.egress.proxy_image)
+            if runtime.egress.mode == "allowlist-proxy":
+                images.append(runtime.egress.proxy_image)
             for image in images:
                 if not bounded([*runtime.runtime_argv, "image", "inspect", image]).ok:
                     result["reason"] = "image-missing"

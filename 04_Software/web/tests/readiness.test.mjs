@@ -39,3 +39,16 @@ test("a ChatGPT project's sign-in check is an optional boolean that decides the 
     assert.throws(() => readReadiness(bad, project), error => error.code === "readiness_corrupt");
   }
 });
+test("the internet checks are optional booleans that decide the verdict", () => {
+  for (const key of ["egress_proxy", "web_search_key"]) {
+    const value = evidence();
+    value.checks[key] = true;
+    assert.equal(readinessVerdict(readReadiness(value, project)), "verified");
+    value.checks[key] = false; value.status = "failed";
+    assert.equal(readinessVerdict(readReadiness(value, project)), "failed");
+    for (const wrong of [null, "yes", 1]) {
+      const bad = evidence(); bad.checks[key] = wrong;
+      assert.throws(() => readReadiness(bad, project), error => error.code === "readiness_corrupt");
+    }
+  }
+});

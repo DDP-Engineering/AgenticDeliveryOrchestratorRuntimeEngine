@@ -24,7 +24,7 @@ Pour un modèle servi sur votre propre réseau, comme LM Studio, Ollama ou vLLM,
 - **Type d’API du point de terminaison** : `openai-completions` pour LM Studio, Ollama et vLLM ; `openai-responses`, `anthropic-messages` et `google-generative-ai` sont aussi acceptés.
 - **Modèle** : l’ID du modèle servi par le point de terminaison.
 
-Une clé de point de terminaison est facultative : enregistrez-la sous Authentification sous ADORE_ENDPOINT_API_KEY. ADORE décrit le point de terminaison à Pi pour chaque tâche ; l’adresse ne contient jamais de nom d’utilisateur, de mot de passe ni de requête. Avec une politique réseau restreinte, l’adresse du point de terminaison doit être autorisée. Un point de terminaison n’est disponible que pour les projets en conteneur.
+Une clé de point de terminaison est facultative : enregistrez-la sous Authentification sous ADORE_ENDPOINT_API_KEY. ADORE décrit le point de terminaison à Pi pour chaque tâche ; l’adresse ne contient jamais de nom d’utilisateur, de mot de passe ni de requête. Avec l’[accès Internet](#internet) désactivé, ADORE autorise lui-même l’adresse du point de terminaison. Un point de terminaison n’est disponible que pour les projets en conteneur.
 
 ## Authentification {#credentials}
 
@@ -33,6 +33,7 @@ Ouvrez **Authentification** dans le même groupe.
 - **Clé API du fournisseur.** Le panneau indique la variable requise par le fournisseur configuré, par exemple OPENAI_API_KEY pour OpenAI ou ANTHROPIC_API_KEY pour Anthropic. Saisissez la **Clé API** et choisissez **Enregistrer la clé API**. ADORE la conserve en privé dans le magasin d’identifiants du projet sur le serveur, jamais dans le fichier de configuration, ne la transmet à Pi que par cette variable et ne l’affiche plus jamais ; **Déconnecter la clé API du projet** la supprime. Changer une clé exige la surveillance suspendue, un projet inactif et aucune proposition en attente, et ne teste pas la clé.
 - **Connexion existante du compte.** Uniquement pour un projet installé sur le serveur : Pi utilise sa propre connexion pour le compte du serveur, configurée hors de l’interface web. Un projet en conteneur utilise la clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la [connexion ChatGPT](#chatgpt) du serveur ; aucune connexion n’est copiée dans le conteneur.
 - **Valeurs gérées par l’environnement.** Une variable déjà définie dans l’environnement du serveur ADORE porte la mention **Définie sur le serveur ADORE ; gestion externe**. L’interface web ne peut pas l’écraser.
+- **Clé de recherche web.** Avec l’accès Internet activé et la recherche web Brave ou Tavily, le panneau liste aussi BRAVE_API_KEY ou TAVILY_API_KEY, enregistrée de la même manière, aussi pour un abonnement ChatGPT.
 - **Variables d’identification supplémentaires.** Noms uniquement (**Ajouter une variable d’identification**) de secrets supplémentaires reçus par Pi en plus de la clé du fournisseur ; la plupart des projets n’en ont pas besoin.
 
 Les valeurs d’identifiants n’apparaissent jamais dans le fichier de configuration, les revues, les journaux d’audit, les journaux ou les exports.
@@ -58,6 +59,19 @@ Les administrateurs choisissent **Tester la connexion IA** sous **Connexion IA**
 
 Le résultat est **Modèle IA connecté** seulement si la commande shell a été exécutée et que la réponse est arrivée. Sinon **Connexion IA non vérifiée** s’accompagne de conseils propres pour : aucun identifiant enregistré, aucune connexion ChatGPT, un abonnement ChatGPT qui ne peut pas être partagé, une limite d’utilisation ChatGPT atteinte, une clé refusée par le fournisseur, un fournisseur ou point de terminaison que Pi n’a pas pu joindre, un modèle inconnu du fournisseur ou du point de terminaison, une limite de débit, une autre erreur du fournisseur, un délai dépassé, une image ou un Pi manquant, ou une commande shell que Pi n’a pas pu exécuter. Aucune tâche n’est lancée. Le résultat enregistré est lié au fournisseur, au modèle, aux paramètres et aux identifiants actuels et apparaît dans les vérifications de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
 
+## Accès Internet de l’agent {#internet}
+
+**Accès Internet de l’agent** dans Paramètres → Agent et modèle décide de ce que le conteneur d’une tâche peut atteindre. Il est **Désactivé** par défaut.
+
+- **Désactivé** : le conteneur n’atteint que le fournisseur du modèle. ADORE autorise lui-même les adresses du fournisseur, pour un point de terminaison compatible OpenAI son adresse, par un proxy réseau propre à chaque tâche. La recherche web, la lecture de pages et les téléchargements comme `curl`, `npm install` ou `pip install` échouent, et Pi en est informé.
+- **Activé** : le conteneur dispose d’un réseau ouvert. Pi peut chercher sur le web, lire des pages et télécharger des bibliothèques avec `curl`, `npm` ou `pip`.
+
+**Recherche web** choisit le service de recherche quand l’accès est activé : **Exa (sans clé)**, par défaut, **Brave (clé requise)**, **Tavily (clé requise)** ou **Aucune** (ni recherche web ni lecture de pages). Pour Brave ou Tavily, enregistrez BRAVE_API_KEY ou TAVILY_API_KEY sous **Authentification**.
+
+> Avec l’accès Internet activé, une page web malveillante pourrait tenter de faire envoyer par l’agent sa clé API ou son jeton ChatGPT. Préférez des clés limitées et de courte durée.
+
+Les deux paramètres changent par **Préparer le candidat** et **Appliquer** comme les autres. Avec l’accès Internet désactivé, l’image du proxy doit exister sur le serveur ADORE ; **Vérifier les prérequis de l’hôte** la signale, ainsi que la clé de recherche si elle est nécessaire. Pour un projet installé sur le serveur, le commutateur est affiché **Non appliqué** : Pi atteint tout ce que le serveur atteint.
+
 ## Où s’exécutent les tâches {#where-jobs-run}
 
 | | Conteneur | Exécution locale native |
@@ -66,7 +80,7 @@ Le résultat est **Modèle IA connecté** seulement si la commande shell a été
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
 | Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé API du fournisseur ou la connexion existante de Pi sur ce compte, réutilisée telle quelle |
 | Réglages de l’agent | Le Pi intégré à l’image, avec des réglages fixés par ADORE ; les réglages et compétences Pi personnels ne sont pas lus | Le Pi installé pour ce compte, lancé avec la commande de lancement et les réglages Pi de ce compte |
-| Isolation | Conteneur avec une politique réseau | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
+| Isolation | Conteneur ; avec l’accès Internet désactivé, il n’atteint que le fournisseur du modèle | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |
 
 Les modifications dans Paramètres passent par **Préparer le candidat**, la revue et **Appliquer**. **Installé sur le serveur** affiche la commande native de l’exécuteur et les champs du compte local (compte `current`, dossier personnel, PATH et, sous Linux, la racine cgroup) avec l’avis d’exécution locale.

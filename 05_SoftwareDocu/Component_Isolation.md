@@ -164,14 +164,22 @@ side keeps working normally with its absolute paths. The admin dir name is
   and with it the single-threaded poll loop, forever. Callers needing more
   room pass their own budget (an executor gate launch passes
   `[budgets] per_gate_timeout_seconds` or its `[workflow]` stage override).
-- **Executor egress:** `[container.egress] mode = "open"` provides unrestricted
-  network access. `none` adds `--network none`. `allowlist-proxy` creates an
-  internal per-run network, starts a per-run proxy container from
-  `Dockerfile.egress-proxy`, connects it to that network as
-  `adore-egress-proxy`, starts the executor only on the internal network, and
-  injects uppercase/lowercase proxy environment variables at provision and
-  exec time. Squid writes inside its owned `/var/log/squid` directory so it
-  can start after dropping privileges to the `proxy` user.
+- **Executor egress:** the `egress` argument is the `EgressPolicy` that
+  `config.egress_policy` derives from `[executor] internet`; this component
+  does not read the switch. Mode `open` (internet on) provides unrestricted
+  network access. `allowlist-proxy` (internet off) creates an internal per-run
+  network, starts a per-run proxy container from `Dockerfile.egress-proxy`,
+  connects it to that network as `adore-egress-proxy`, starts the executor
+  only on the internal network, and injects uppercase/lowercase proxy
+  environment variables at provision and exec time. The generated
+  `squid.conf` admits host names (exact, or `*.` wildcards as `.domain`) with a
+  `dstdomain` ACL and IP-address entries (such as `192.168.1.20` or `::1`) with
+  a `dst` ACL, then `http_access deny all`. The proxy container also gets the
+  `--add-host` options of `run_args` (`_proxy_host_args`), so an alias such as
+  `host.docker.internal:host-gateway` resolves where the connection is opened.
+  `none` adds `--network none`; it is still supported here, but no
+  configuration selects it. Squid writes inside its owned `/var/log/squid`
+  directory so it can start after dropping privileges to the `proxy` user.
 - Windows host paths are normalized (`Path.as_posix()`) for mount syntax.
 - Commit authorship comes from `agent.name` / `agent.email` via
   `GIT_AUTHOR_*` / `GIT_COMMITTER_*`; credential boundaries are
@@ -181,7 +189,8 @@ side keeps working normally with its absolute paths. The admin dir name is
 
 - Internal: `adore.util` (`CommandRunner`, `CommandResult`, `run_command`);
   values from `[worktree]` (`repo_path`, `root`) and `[container]`
-  (`runtime`, `image`, cache volumes, `egress`) config.
+  (`runtime`, `image`, cache volumes) config, and the `EgressPolicy` from
+  `config.egress_policy`.
 - External: `git` on the host; Docker or Podman - native or wrapped (Docker
   Engine inside WSL2 via `wsl -d <distro> -- docker`); the
   `adore-executor-base:1.0.0` image (built from
@@ -234,7 +243,7 @@ side keeps working normally with its absolute paths. The admin dir name is
   run inside the provisioned container. Failure raises `IsolationError`, so a
   profile with the wrong runtime-project image fails before any executor gate
   starts.
-- `[container.egress] allowlist-proxy` writes generated Squid config under the
+- The `allowlist-proxy` policy writes generated Squid config under the
   run IO directory, uses one proxy container named
   `<bounded executor name, at most 50>-egress-proxy` (at most 63 characters),
   and one network named `<network_prefix>-<bounded executor name, at most 48>`.
@@ -248,7 +257,7 @@ side keeps working normally with its absolute paths. The admin dir name is
   from a retained executor. Containers and networks named by earlier builds are
   not recognised; an operator removes such leftovers by hand (see
   `01_Documentation/Recovery_And_Maintenance.md`). The network sweep checks the
-  canonical `adore-egress` prefix even after the current profile changes mode,
+  canonical `adore-egress` prefix even after the profile switches internet on,
   plus the current configured prefix; it never guesses arbitrary other
   prefixes.
 
@@ -295,7 +304,9 @@ result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
   `--env KEY`, secret value absent from argv but present in process env),
   provision idempotency, absent-vs-error status, idempotent-but-fail-closed
   stop/remove, volume creation, and exec-returns-data; Windows drive-path
-  translation and wrapped-runtime mount construction on both host OSes.
+  translation and wrapped-runtime mount construction on both host OSes;
+  `test_proxy_config_admits_names_by_domain_and_addresses_by_dst` covers the
+  generated Squid ACLs.
 - `tests/test_orchestrator.py` covers the conductor's use of these seams:
   checkpoint commits after each stage and after its own verification, the
   candidate fingerprint that binds approval, and one push of the approved
@@ -315,6 +326,12 @@ result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
   container via the GIT_DIR/GIT_WORK_TREE model with the commit visible on
   the host under bot authorship, park -> resume with state intact, full
   teardown.
+- **Internet switch, live 2026-11-03** (Docker Engine in WSL2): internet off
+  reached the model provider through the per-run proxy, while
+  `curl https://example.com` got 403 from the proxy, `npm install` was refused
+  and `web_search` was not available; internet on searched through Exa, read a
+  Wikipedia page with `fetch_content`, and `npm install` and `pip install`
+  succeeded.
 
 ## 10. Limitations And Future Work
 
@@ -328,7 +345,7 @@ result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
   executor, but surprising if a run ever needed a second repo.
 - Container-runtime limits can be supplied through `[container] run_args`, for
   example `--memory=2g` or `--cpus=2`. Egress networking is separately owned
-  by `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
+  by `[executor] internet` and `[container.egress]`; dedicated first-class CPU/RAM configuration keys are
   not implemented.
 - Docker UID/GID mapping: the executor base image is built with
   `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so the

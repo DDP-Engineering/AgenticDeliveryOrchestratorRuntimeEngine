@@ -92,10 +92,13 @@ read the mounted clone or worktree and every stage fails on permission denied:
 selinux_relabel = "shared"
 ```
 
-The `allowlist-proxy` egress mode additionally needs Podman 4.0 or newer with
-the netavark backend, because the executor reaches the proxy by DNS alias on an
-internal network. Ubuntu 22.04 packages Podman 3.4, which cannot serve that
-alias; check `podman --version` before choosing that mode there.
+A project with internet access for the agent Off (`[executor] internet =
+false`, the default) runs behind a per-run egress proxy and additionally needs
+Podman 4.0 or newer with the netavark backend, because the executor reaches the
+proxy by DNS alias on an internal network. Ubuntu 22.04 packages Podman 3.4,
+which cannot serve that alias; check `podman --version` there, and build the
+proxy image (`proxy_image`, from `docker/Dockerfile.egress-proxy`) before the
+first run.
 
 ## Image Readiness Check
 

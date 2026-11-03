@@ -21,7 +21,7 @@ Bound execution, require one successful shell call and the exact final reply, re
 
 ## 4. Dependencies
 
-ContainerManager uses the project's local image, runtime, cache volumes, operator run arguments and egress. The image must contain the pinned Pi and ADORE's Pi guard extension (`pi_rpc_argv`). `adore/executor/pi_rpc.run_pi_rpc` drives the RPC session through `ContainerManager.spawn`; `adore/pi_providers.py` supplies the credential variable, the Pi provider id and the endpoint `models.json`. Images are inspected locally and never pulled.
+ContainerManager uses the project's local image, runtime, cache volumes, operator run arguments and the run's derived egress (`config.egress_policy`): with `[executor] internet` off the probe sits behind the per-run proxy that admits only the provider's hosts plus `[container.egress] allowlist`, and the proxy image is inspected beside the executor image (missing -> `image-missing`); with it on the network is open. The probe never loads pi-web-access and gets no internet-off system-prompt notice. The image must contain the pinned Pi and ADORE's Pi guard extension (`pi_rpc_argv`). `adore/executor/pi_rpc.run_pi_rpc` drives the RPC session through `ContainerManager.spawn`; `adore/pi_providers.py` supplies the credential variable, the Pi provider id and the endpoint `models.json`. Images are inspected locally and never pulled.
 
 ## 5. Inputs And Outputs
 
@@ -41,7 +41,7 @@ Save executor/model credentials as for normal execution, ensure its local image 
 
 ## 9. Validation And Tests
 
-`tests/test_model_connection.py` fakes the external runtime boundary and injects a fake Pi RPC process through `popen` (`tests/fake_pi_rpc.py`). It covers the happy challenge, missing credential, each failure class, malformed output, nonce/tool violations, models.json placement, timeout/cleanup, CSRF/role/lock/corrupt/stale configuration. Browser proof: `web/e2e/model-connection.spec.ts` explicit invocation, cost notice and stale evidence rejection. Existing host-readiness tests prove separation.
+`tests/test_model_connection.py` fakes the external runtime boundary and injects a fake Pi RPC process through `popen` (`tests/fake_pi_rpc.py`). It covers the happy challenge, missing credential, each failure class, malformed output, nonce/tool violations, models.json placement, the derived egress (`test_probe_runs_under_the_internet_switch`), timeout/cleanup, CSRF/role/lock/corrupt/stale configuration. Browser proof: `web/e2e/model-connection.spec.ts` explicit invocation, cost notice and stale evidence rejection. Existing host-readiness tests prove separation.
 
 ## 10. Limitations
 

@@ -81,9 +81,14 @@ key is refused like any other unknown key.
 
 `ExecutorConfig` (`[executor]`) configures Pi, ADORE's only coding agent:
 `provider` (required), `model` (required, the model ID within the provider),
-`endpoint` (`ExecutorEndpointConfig`), `command`, `mode` (`thick` or
-`headless`), `questions_file` and `env_keys` (default empty: additional
-secret names; the provider's key variable is always passed). The removed
+`internet` (strict boolean, default false: "Internet access for the agent"),
+`endpoint` (`ExecutorEndpointConfig`), `web` (`ExecutorWebConfig`,
+`[executor.web]`: `search` is `exa` (default, no key), `brave`, `tavily` or
+`none`, the `WEB_SEARCH_CHOICES` of `pi_providers.py`), `command`, `mode`
+(`thick` or `headless`), `questions_file` and `env_keys` (default empty:
+additional secret names; the provider's key variable is always passed, and
+with internet on and `brave` or `tavily` search the `SEARCH_KEY_VARIABLES`
+entry `BRAVE_API_KEY` or `TAVILY_API_KEY`). The removed
 `default` and `stage_host_auth` keys and every other `[executor.<name>]` table
 are refused as unknown `[executor]` keys, and the removed `[labels] executor`
 table as an unknown `[labels]` key. Unknown keys inside `[executor]` and
@@ -102,7 +107,26 @@ when the table is present in the file, refused for any other provider.
 query or fragment, as seen from the container. `custom` with
 `[execution] backend = "local"` is refused: a local run has no ADORE-owned
 agent directory for Pi's `models.json`. An unreadable catalog is reported as
-an `[executor] provider` issue.
+an `[executor] provider` issue. `_provider_issues` also refuses a non-boolean
+`internet`, a non-table `[executor.web]` and a `search` outside
+`WEB_SEARCH_CHOICES`.
+
+`ContainerEgressConfig` (`[container.egress]`) holds the per-run proxy of an
+internet-off run: `allowlist` (extra hosts besides the model provider, exact
+or `*.` wildcard names; default empty), `no_proxy`, `proxy_image`,
+`proxy_port` and `network_prefix`. It has no mode: `_unknown_key_issues`
+refuses `mode` with `[container.egress] unknown key 'mode': remove it from
+config.toml; [executor] internet decides the agent's network access`.
+`egress_policy(config)` derives the run's `EgressPolicy`, never read from a
+file: internet on gives mode `open`; internet off gives mode `allowlist-proxy`
+whose allowlist is `pi_providers.provider_hosts(executor)` plus
+`[container.egress] allowlist`, deduplicated and sorted. `provider_hosts` is
+the catalog's `hosts` for an API-key provider (generated from every `baseUrl`
+of Pi's pi-ai provider data by `02_Tools/generate_pi_catalog.py`), the
+`openai` hosts for `chatgpt`, and the `base_url` host (a name or an IP
+address) for `custom`. `EgressPolicy` still supports mode `none`, but no
+configuration selects it. The orchestrator, Test AI connection and the
+readiness probe use `egress_policy`; a local run is not restricted by it.
 
 `_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
 cannot run, because ADORE mints a short-lived ChatGPT access token before every
@@ -158,7 +182,12 @@ approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules. `tests/test_pi_providers.py`
 covers the shipped catalog (including `chatgpt_models`), provider/model/endpoint
 validation, the local-run refusal of `custom`, the local-run and stage-limit
-refusals of `chatgpt`, `secret_names` and `models_json`.
+refusals of `chatgpt`, `secret_names` and `models_json`. The internet switch
+is covered by `test_internet_defaults_off_with_exa_search`,
+`test_internet_and_search_values_are_validated`,
+`test_container_egress_mode_is_refused_naming_the_switch`,
+`test_egress_policy_off_admits_only_the_provider_hosts` and
+`test_search_key_reaches_only_an_internet_on_run`.
 
 ## Reviewed preparation settings
 
@@ -166,7 +195,7 @@ refusals of `chatgpt`, `secret_names` and `models_json`.
 
 ## Native execution contract
 
-LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, restricted egress, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, a non-empty `[container.egress] allowlist` ("[local] container egress allowlist is unsupported: a local run is not network-restricted"), staging and container-only options; `[executor] internet` is not enforced there. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
 
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:

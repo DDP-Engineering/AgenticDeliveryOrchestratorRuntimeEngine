@@ -17,6 +17,8 @@ const copy = {
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
     testHint: "Use Test AI connection in Settings → Agent and model to explicitly check the configured model through Pi.",
     signIn: ["ChatGPT sign-in", "The ADORE server is signed in with ChatGPT, so each stage can get a short-lived access token.", "Use Sign in with ChatGPT in Settings → Agent and model."],
+    egressProxy: ["Network proxy image", "Internet access for the agent is off: each run reaches the model provider through a per-run proxy built from this image.", "Build the proxy image on the ADORE server (docker/Dockerfile.egress-proxy), then check again."],
+    webSearchKey: ["Web search key", "Internet access for the agent is on and web search uses Brave or Tavily, which needs its key.", "Save the search key in Settings → Agent and model."],
     rows: [
       ["Git", "Creates isolated working copies and records code changes.", "Install Git on the ADORE server and check that the service can run it."],
       ["Repository command tool", "Lets ADORE read issues and publish draft reviews on Gitea, GitHub or GitLab.", "Install the command tool for the configured repository service on the ADORE server."],
@@ -34,6 +36,8 @@ const copy = {
     ok: "✓ Reușit", error: "! Necesită intervenție", unknown: "? Nu s-a putut verifica", skipped: "○ Neverificat",
     testHint: "Folosește Testează conexiunea AI din Setări → Agent și model pentru a verifica explicit modelul configurat.",
     signIn: ["Autentificare ChatGPT", "Serverul ADORE este autentificat cu ChatGPT, deci fiecare etapă poate primi un token de acces de scurtă durată.", "Folosește Autentificare cu ChatGPT din Setări → Agent și model."],
+    egressProxy: ["Imaginea proxyului de rețea", "Accesul la internet al agentului este dezactivat: fiecare rulare ajunge la furnizorul modelului printr-un proxy per rulare construit din această imagine.", "Construiește imaginea proxyului pe serverul ADORE (docker/Dockerfile.egress-proxy), apoi verifică din nou."],
+    webSearchKey: ["Cheia de căutare web", "Accesul la internet al agentului este activat, iar căutarea web folosește Brave sau Tavily, care are nevoie de cheia sa.", "Salvează cheia de căutare în Setări → Agent și model."],
     rows: [
       ["Git", "Creează copii de lucru izolate și înregistrează modificările de cod.", "Instalează Git pe serverul ADORE și verifică dacă serviciul îl poate executa."],
       ["Instrumentul pentru repository", "Permite ADORE să citească tichete și să publice propuneri de review pe Gitea, GitHub sau GitLab.", "Instalează pe serverul ADORE instrumentul pentru serviciul repository configurat."],
@@ -51,6 +55,8 @@ const copy = {
     ok: "✓ Réussi", error: "! Intervention nécessaire", unknown: "? Impossible à vérifier", skipped: "○ Non vérifié",
     testHint: "Utilisez Tester la connexion IA dans Paramètres → Agent et modèle pour vérifier explicitement le modèle configuré.",
     signIn: ["Connexion ChatGPT", "Le serveur ADORE est connecté à ChatGPT : chaque étape peut recevoir un jeton d’accès de courte durée.", "Utilisez Se connecter avec ChatGPT dans Paramètres → Agent et modèle."],
+    egressProxy: ["Image du proxy réseau", "L’accès Internet de l’agent est désactivé : chaque exécution atteint le fournisseur du modèle par un proxy propre construit à partir de cette image.", "Construisez l’image du proxy sur le serveur ADORE (docker/Dockerfile.egress-proxy), puis vérifiez à nouveau."],
+    webSearchKey: ["Clé de recherche web", "L’accès Internet de l’agent est activé et la recherche web utilise Brave ou Tavily, qui demande sa clé.", "Enregistrez la clé de recherche dans Paramètres → Agent et modèle."],
     rows: [
       ["Git", "Crée des copies de travail isolées et enregistre les modifications du code.", "Installez Git sur le serveur ADORE et vérifiez son accès par le service."],
       ["Outil du dépôt", "Permet de lire les tickets et de publier des demandes de revue en brouillon sur Gitea, GitHub ou GitLab.", "Installez l’outil du service de dépôt configuré sur le serveur ADORE."],
@@ -68,6 +74,8 @@ const copy = {
     ok: "✓ Bestanden", error: "! Handlung erforderlich", unknown: "? Nicht feststellbar", skipped: "○ Nicht geprüft",
     testHint: "Nutzen Sie KI-Verbindung testen in Einstellungen → Agent und Modell, um das konfigurierte Modell explizit zu prüfen.",
     signIn: ["ChatGPT-Anmeldung", "Der ADORE-Server ist mit ChatGPT angemeldet, sodass jede Phase ein kurzlebiges Zugriffstoken erhält.", "Nutzen Sie Mit ChatGPT anmelden unter Einstellungen → Agent und Modell."],
+    egressProxy: ["Netzwerk-Proxy-Image", "Der Internetzugang des Agenten ist aus: Jeder Lauf erreicht den Modellanbieter über einen eigenen Proxy aus diesem Image.", "Bauen Sie das Proxy-Image auf dem ADORE-Server (docker/Dockerfile.egress-proxy) und prüfen Sie erneut."],
+    webSearchKey: ["Websuche-Schlüssel", "Der Internetzugang des Agenten ist an und die Websuche nutzt Brave oder Tavily, das seinen Schlüssel braucht.", "Speichern Sie den Suchschlüssel unter Einstellungen → Agent und Modell."],
     rows: [
       ["Git", "Erstellt isolierte Arbeitskopien und speichert Codeänderungen.", "Installieren Sie Git auf dem ADORE-Server und prüfen Sie den Zugriff des Dienstes."],
       ["Repository-Werkzeug", "Liest Tickets und veröffentlicht Review-Entwürfe auf Gitea, GitHub oder GitLab.", "Installieren Sie das Werkzeug des konfigurierten Repository-Dienstes auf dem ADORE-Server."],
@@ -110,16 +118,16 @@ export function ReadinessEvidence({ evidence, locale, local, modelEvidence }: { 
         </div>
         <strong className="readiness-result">{result(status)}</strong>
       </div>;
-    })}{typeof evidence.checks.executor_sign_in === "boolean" && (() => {
-      const [label, purpose, fix] = c.signIn;
-      const status = evidence.checks.executor_sign_in ? "passed" : "failed";
-      return <div className={`readiness-check ${status}`} key="executor_sign_in">
+    })}{([["executor_sign_in", c.signIn], ["egress_proxy", c.egressProxy], ["web_search_key", c.webSearchKey]] as const).map(([key, [label, purpose, fix]]) => {
+      if (typeof evidence.checks[key] !== "boolean") return null;
+      const status = evidence.checks[key] ? "passed" : "failed";
+      return <div className={`readiness-check ${status}`} key={key}>
         <div><strong>{label}</strong><p>{purpose}</p>
           {status === "failed" && <p className="readiness-remediation">{fix}</p>}
         </div>
         <strong className="readiness-result">{result(status)}</strong>
       </div>;
-    })()}<div className={`readiness-check ${modelStatus}`} key="model">
+    })}<div className={`readiness-check ${modelStatus}`} key="model">
         <div><strong>{modelLabel}</strong><p>{modelPurpose}</p>
           {modelStatus === "failed" && <p className="readiness-remediation">{modelFix}</p>}
           <p>{modelEvidence ? `${modelEvidence.executor} · ${modelEvidence.model}` : c.testHint}</p>

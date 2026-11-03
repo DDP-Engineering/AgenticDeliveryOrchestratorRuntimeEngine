@@ -53,7 +53,7 @@ from adore.branding import (
     EXECUTOR_BASE_IMAGE,
     EXECUTOR_NAME,
 )
-from adore.config import Config
+from adore.config import Config, egress_policy
 from adore.execution import (
     ContainerBackend,
     ExecutionBackend,
@@ -250,7 +250,8 @@ class Orchestrator:
         @return     Production-wired orchestrator.
         """
         env = {**load_env_file(env_file), **os.environ}
-        secrets = {key: env[key] for key in secret_names(config.executor) if env.get(key)}
+        secrets = {key: env[key] for key in secret_names(config.executor, config.execution.backend)
+                   if env.get(key)}
         return cls(
             config=config,
             forge=build_forge(
@@ -268,7 +269,7 @@ class Orchestrator:
                 config.container.uv_cache_volume,
                 config.container.npm_cache_volume,
                 run_args=config.container.run_args,
-                egress=config.container.egress,
+                egress=egress_policy(config),
                 selinux_relabel=config.container.selinux_relabel,
             ),
             executor=build_executor(
@@ -277,6 +278,8 @@ class Orchestrator:
                 config.executor.questions_file,
                 provider=config.executor.provider,
                 models=models_json(config.executor, ENDPOINT_KEY_VARIABLE in secrets),
+                internet=config.executor.internet,
+                web_search=config.executor.web.search,
             ),
             secrets=secrets,
         )
@@ -3036,7 +3039,8 @@ class Orchestrator:
         if self.config.execution.backend == "local":
             env = self.backend.executor_environment()
             env.update({key: value for key, value in self.secrets.items()
-                        if key in secret_names(self.config.executor)})
+                        if key in secret_names(self.config.executor,
+                                               self.config.execution.backend)})
             return env
         env = build_container_env(
             self.worktrees.admin_dir_name(run.run_id),

@@ -66,11 +66,13 @@ are separate backlog items). The lightweight runtime bundle is owned by
   **verified** on Windows: building through a WSL-wrapped runtime needs
   mount-path translation, and the canonical commands live in
   `docker/README.md` - the script prints them and fails closed.
-- Unattended egress fails closed: `--service` / Task Scheduler registration
-  refuse `[container.egress] mode = "open"` unless the operator passes
-  `--allow-open-egress` / `-AllowOpenEgress`. `allowlist-proxy` verifies the
-  proxy image; Ubuntu may build it, Windows prints the exact build command if
-  it is absent.
+- Unattended egress fails closed: both scripts read `executor.internet` from
+  `adore config show`, and `--service` / Task Scheduler registration refuse
+  `[executor] internet = true` (open egress) unless the operator passes
+  `--allow-open-egress` / `-AllowOpenEgress`. With `internet = false` the run
+  sits behind the per-run proxy, so the scripts verify the
+  `[container.egress] proxy_image`; Ubuntu may build it, Windows prints the
+  exact build command if it is absent.
 - Uninstall on both platforms removes only the service/task; `.adore/` state,
   worktrees, and containers are `adore cleanup` / `adore delete` territory.
 
@@ -138,7 +140,10 @@ Start-ScheduledTask -TaskName "ADORE Orchestrator & Runtime Engine"
 - The Ubuntu service runs as a normal user with docker access; a dedicated
   service account is on the organizational checklist.
 - Egress proxy is HTTP/HTTPS proxy based; SSH and other non-proxy-aware
-  protocols remain outside v1.
+  protocols remain outside v1. Package caches and adaptive dependency
+  installation are out of scope (#26): with internet off, `pip install` and
+  `npm install` in a run fail unless the operator adds the package hosts to
+  `[container.egress] allowlist`.
 - Native packaging (Windows exe / Ubuntu deb) is separate future work; the
   implemented handoff artifact is the runtime bundle from `02_Tools/`.
 - The Windows loop task starts at logon (not boot); running as a service

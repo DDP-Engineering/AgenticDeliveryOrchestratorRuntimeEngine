@@ -170,8 +170,10 @@ class Runtime:
                 return CommandResult(argv, stdout="running")
             return CommandResult(argv, 1, stderr="No such container")
         if "run" in argv:
-            mount = next(arg for arg in argv if ":/adore/io" in arg)
-            self.roots.append(Path(mount.split(":/adore/io")[0]))
+            # The egress proxy of an internet-off probe mounts no io dir.
+            mount = next((arg for arg in argv if ":/adore/io" in arg), None)
+            if mount:
+                self.roots.append(Path(mount.split(":/adore/io")[0]))
         if "cp" in argv:
             self.models.append(json.loads((self.roots[0] / "pi-models.json").read_text("utf-8")))
             return CommandResult(argv, 1 if self.copy_fails else 0)
@@ -219,13 +221,53 @@ def test_rpc_probe_reports_each_outcome_distinctly(tmp_path, monkeypatch, fixtur
     assert pi[pi.index("--provider") + 1] == "openai" and pi[pi.index("--model") + 1] == "gpt-5.5"
     sent = [json.loads(line) for line in runtime.record.read_text("utf-8").splitlines()]
     assert sent[0]["type"] == "prompt" and "echo ADORE_TOOL_" in sent[0]["message"]
-    run = next(kwargs for argv, kwargs in runtime.calls if "run" in argv)
+    run = next(kwargs for argv, kwargs in runtime.calls if "run" in argv and "infinity" in argv)
     assert run["env"]["OPENAI_API_KEY"] == SECRET
     assert all(SECRET not in " ".join(argv) for argv, _ in runtime.calls + runtime.spawned)
     assert SECRET not in json.dumps(result) and "sk-test" not in json.dumps(result)
     assert any("rm" in argv for argv, _ in runtime.calls)
     assert all(not root.exists() for root in runtime.roots)
     assert all("pull" not in argv for argv, _ in runtime.calls)
+
+
+def set_internet(profiles, internet: bool, search: str = "") -> None:
+    """@brief Set [executor] internet (and [executor.web] search) in the project config."""
+    path = profiles.config_path("alpha")
+    raw = path.read_text(encoding="utf-8")
+    raw = raw.replace('model = "gpt-5.5"\n',
+                      f'model = "gpt-5.5"\ninternet = {str(internet).lower()}\n', 1)
+    if search:
+        raw += f'\n[executor.web]\nsearch = "{search}"\n'
+    path.write_text(raw, encoding="utf-8")
+
+
+def test_probe_runs_under_the_internet_switch(tmp_path, monkeypatch):
+    """@brief Off: the probe container sits behind the provider-only proxy; On: open network."""
+    monkeypatch.setenv("OPENAI_API_KEY", SECRET)
+    profiles = project(tmp_path)
+    runtime = Runtime(tmp_path, "run_connection_test_endpoint")
+    assert probe(profiles, runtime)["reason"] == "ready"
+    run = next(argv for argv, _ in runtime.calls if "run" in argv and "infinity" in argv)
+    assert run[run.index("--network") + 1].startswith("adore-egress-")
+    assert any(part.startswith("HTTPS_PROXY=http://adore-egress-proxy:") for part in run)
+    assert any("run" in argv and "adore-egress-proxy:1.0.0" in argv for argv, _ in runtime.calls)
+    assert ["docker", "image", "inspect", "adore-egress-proxy:1.0.0"] in [
+        argv for argv, _ in runtime.calls]
+    pi = runtime.spawned[0][0]
+    assert "--append-system-prompt" not in pi and "pi-web-access" not in " ".join(pi)
+
+    opened = project(tmp_path / "on")
+    set_internet(opened, True, "brave")
+    monkeypatch.setenv("BRAVE_API_KEY", "brave-test-key")
+    runtime = Runtime(tmp_path / "on", "run_connection_test_endpoint")
+    assert probe(opened, runtime)["reason"] == "ready"
+    run = next(argv for argv, _ in runtime.calls if "run" in argv and "infinity" in argv)
+    assert "--network" not in run
+    assert not any(part.upper().startswith(("HTTP_PROXY=", "HTTPS_PROXY=")) for part in run)
+    # The connection test loads no web tools and never receives the search key.
+    assert "BRAVE_API_KEY" not in run
+    assert all("BRAVE_API_KEY" not in env for _, env in runtime.spawned)
+    assert not any("adore-egress-proxy:1.0.0" in argv for argv, _ in runtime.calls)
 
 
 def test_rpc_probe_wrong_reply_is_an_invalid_response(tmp_path, monkeypatch):
@@ -282,7 +324,7 @@ def test_endpoint_probe_places_models_json_and_passes_the_endpoint_key(
     assert copy[-2:] == ["/adore/io/pi-models.json", "/home/adore/.adore-pi-agent/models.json"]
     pi = runtime.spawned[0][0]
     assert pi[pi.index("--provider") + 1] == "adore-endpoint"
-    run = next(kwargs for argv, kwargs in runtime.calls if "run" in argv)
+    run = next(kwargs for argv, kwargs in runtime.calls if "run" in argv and "infinity" in argv)
     assert (run["env"].get("ADORE_ENDPOINT_API_KEY") == SECRET) is keyed
     assert all(SECRET not in " ".join(argv) for argv, _ in runtime.calls + runtime.spawned)
 

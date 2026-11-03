@@ -31,6 +31,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Sequence
 import hashlib
+import ipaddress
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
@@ -49,7 +50,7 @@ from adore.branding import (
     EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_ALIAS,
 )
-from adore.config import SELINUX_RELABEL_OPTIONS, ContainerEgressConfig
+from adore.config import SELINUX_RELABEL_OPTIONS, EgressPolicy
 from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
@@ -822,7 +823,7 @@ class ContainerManager:
         runner: CommandRunner = run_command,
         *,
         run_args: Sequence[str] = (),
-        egress: ContainerEgressConfig | None = None,
+        egress: EgressPolicy | None = None,
         selinux_relabel: str = "off",
         pull_never: bool = False,
     ) -> None:
@@ -840,7 +841,8 @@ class ContainerManager:
         @param[in]  run_args Extra option tokens for `<runtime> run`
                              ([container] run_args; e.g. "--userns=keep-id"
                              for rootless podman, live finding 2026-07-04).
-        @param[in]  egress Optional egress policy for executor containers.
+        @param[in]  egress Optional egress policy for executor containers
+                    (`config.egress_policy`; default open).
         @param[in]  selinux_relabel [container] selinux_relabel mode; "shared"
                              appends `z` to every host bind mount so an
                              SELinux-enforcing host lets the container read
@@ -864,7 +866,7 @@ class ContainerManager:
         self.npm_cache_volume = npm_cache_volume
         self.runner = runner
         self.run_args = [str(arg) for arg in run_args]
-        self.egress = egress or ContainerEgressConfig()
+        self.egress = egress or EgressPolicy()
         self.selinux_relabel = selinux_relabel
         self.pull_never = pull_never
 
@@ -1536,6 +1538,22 @@ class ContainerManager:
             "no_proxy": no_proxy,
         }
 
+    def _proxy_host_args(self) -> list[str]:
+        """
+        @brief      The `--add-host` options of run_args, for the proxy container.
+        @details    A host alias the executor uses (such as
+                    host.docker.internal on a Docker Engine) must resolve in
+                    the proxy too, because the proxy opens the connection.
+        @return     The options in their original spelling and order.
+        """
+        args: list[str] = []
+        for index, arg in enumerate(self.run_args):
+            if arg.startswith("--add-host="):
+                args.append(arg)
+            elif arg == "--add-host" and index + 1 < len(self.run_args):
+                args += [arg, self.run_args[index + 1]]
+        return args
+
     def _squid_domain(self, pattern: str) -> str:
         """
         @brief      Convert an ADORE hostname pattern to Squid dstdomain form.
@@ -1547,18 +1565,36 @@ class ContainerManager:
     def _write_proxy_config(self, io_path: str | Path) -> Path:
         """
         @brief      Write the per-run Squid allowlist configuration.
+        @details    Host names (exact or `*.` wildcards) are admitted by
+                    destination domain, IP addresses (an endpoint such as
+                    192.168.1.20) by destination address; everything else is
+                    denied.
         @param[in]  io_path Run IO directory.
         @return     Host path to the generated Squid config.
         """
         proxy_dir = Path(io_path) / "egress-proxy"
         proxy_dir.mkdir(parents=True, exist_ok=True)
-        domains = " ".join(self._squid_domain(host) for host in self.egress.allowlist)
+        addresses, names = [], []
+        for host in self.egress.allowlist:
+            try:
+                ipaddress.ip_address(host)
+            except ValueError:
+                names.append(self._squid_domain(host))
+            else:
+                addresses.append(host)
+        rules = []
+        if names:
+            rules += [f"acl allowed_domains dstdomain {' '.join(names)}",
+                      "http_access allow allowed_domains"]
+        if addresses:
+            rules += [f"acl allowed_addresses dst {' '.join(addresses)}",
+                      "http_access allow allowed_addresses"]
         config_path = proxy_dir / "squid.conf"
         config_path.write_text(
             "\n".join([
                 f"http_port {self.egress.proxy_port}",
-                f"acl allowed_domains dstdomain {domains}",
-                "http_access allow allowed_domains",
+                *[rule for rule in rules if rule.startswith("acl")],
+                *[rule for rule in rules if rule.startswith("http_access")],
                 "http_access deny all",
                 "access_log stdio:/var/log/squid/access.log",
                 "cache_log /var/log/squid/cache.log",
@@ -1591,6 +1627,7 @@ class ContainerManager:
             self._run([
                 *self.runtime_argv, "run", "--detach",
                 *(["--pull=never"] if self.pull_never else []),
+                *self._proxy_host_args(),
                 "--name", proxy_name,
                 "--volume", self._bind_mount(config_path, "/etc/squid/squid.conf", "ro"),
                 self.egress.proxy_image,

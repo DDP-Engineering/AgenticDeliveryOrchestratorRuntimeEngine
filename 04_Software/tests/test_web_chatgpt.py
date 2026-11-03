@@ -211,6 +211,46 @@ def test_readiness_reports_the_sign_in_for_chatgpt_projects_only(tmp_path):
         assert "executor_sign_in" not in checks
 
 
+def test_readiness_reflects_the_internet_switch(tmp_path, monkeypatch):
+    """@brief Off adds the proxy image check; On with Brave adds the key check; exa neither."""
+    from tests.test_model_connection import set_internet
+
+    proxy_present = {"value": False}
+
+    def runner(argv, **_kwargs):
+        if list(argv[-3:]) == ["image", "inspect", "adore-egress-proxy:1.0.0"]:
+            return CommandResult(list(argv), 0 if proxy_present["value"] else 1)
+        return CommandResult(list(argv), 127)
+
+    monkeypatch.delenv("BRAVE_API_KEY", raising=False)
+    profiles = project(tmp_path)
+    module = importlib.import_module("adore.web.app")
+    app = module.create_app(profiles.home, probe_runner=runner)
+    path = profiles.config_path("alpha")
+    base = path.read_text(encoding="utf-8")
+    with TestClient(app) as client:
+        headers = sign_in(client)
+
+        def checks() -> dict:
+            return client.post("/api/v1/projects/alpha/readiness-check",
+                               headers=headers).json()["checks"]
+
+        assert checks()["egress_proxy"] is False
+        proxy_present["value"] = True
+        result = checks()
+        assert result["egress_proxy"] is True and "web_search_key" not in result
+        set_internet(profiles, True, "brave")
+        result = checks()
+        assert "egress_proxy" not in result and result["web_search_key"] is False
+        (profiles.profile_dir("alpha") / ".env").write_text("BRAVE_API_KEY=brave-test-key\n",
+                                                            encoding="utf-8")
+        assert checks()["web_search_key"] is True
+        path.write_text(base, encoding="utf-8")
+        set_internet(profiles, True)
+        result = checks()
+        assert "egress_proxy" not in result and "web_search_key" not in result
+
+
 def test_a_chatgpt_connection_result_holds_only_while_signed_in(tmp_path, monkeypatch):
     """@brief Disconnecting hides the saved Test AI connection result of ChatGPT projects."""
     from adore.state import StateStore

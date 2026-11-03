@@ -103,9 +103,9 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
         setattr(config.execution, field, value)
         assert any("local" in issue for issue in validate_config(config))
         setattr(config.execution, field, "")
-    config.container.egress.mode = "none"
+    config.container.egress.allowlist = ["pypi.org"]
     assert any("local" in issue for issue in validate_config(config))
-    config.container.egress.mode = "open"
+    config.container.egress.allowlist = []
     assert validate_config(config) == []
 
 
@@ -577,7 +577,7 @@ def test_local_backend_refuses_unsafe_direct_profiles(tmp_path, monkeypatch, fie
     if field == "recipe":
         config.execution.preparation = "prepare.yml#setup@" + "a" * 40
     elif field == "egress":
-        config.container.egress.mode = "none"
+        config.container.egress.allowlist = ["pypi.org"]
     else:
         config.local.environment["OPENAI_API_KEY"] = "unsafe-persisted-secret"
     with pytest.raises(LocalExecutionError):

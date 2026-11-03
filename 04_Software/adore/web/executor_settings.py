@@ -26,7 +26,7 @@ import re
 import tempfile
 
 from adore.branding import EXECUTOR_NAME
-from adore.pi_providers import MODEL_ID_RE, credential_variable, key_variables, secret_names
+from adore.pi_providers import MODEL_ID_RE, credential_variables, key_variables, secret_names
 from adore.web.model_connection import REASONS as MODEL_TEST_REASONS
 
 # CONSTANTS
@@ -116,13 +116,15 @@ def _atomic(path: Path, raw: bytes) -> None:
 
 
 def credential_view(directory: Path, config) -> dict:
-    """@brief Return the configured provider's credential name and source, never its value.
+    """@brief Return the project's credential names and sources, never their values.
+    @details The configured provider's key, then the web search key of an
+             internet-on project searching with Brave or Tavily.
     @param[in] directory Project profile directory holding `.env`.
     @param[in] config Validated project configuration.
-    @return `{"variables": [{"name", "source"}]}`; empty for a ChatGPT subscription.
+    @return `{"variables": [{"name", "source"}]}`; a ChatGPT subscription has no
+            provider key.
     """
     _, values = _environment(directory)
-    variable = credential_variable(config.executor.provider)
     return {
         "variables": [
             {
@@ -133,7 +135,7 @@ def credential_view(directory: Path, config) -> dict:
                 if values.get(key)
                 else "missing",
             }
-            for key in ([variable] if variable else [])
+            for key in credential_variables(config.executor, config.execution.backend)
         ]
     }
 
@@ -144,7 +146,8 @@ def update_credential(directory: Path, config, variable: str, token: str | None)
     @exception ExecutorSettingsError Unsafe input, ambient override or corrupt dotenv.
     """
     lines, _ = _environment(directory)
-    if variable is None or variable != credential_variable(config.executor.provider):
+    if variable is None or variable not in credential_variables(config.executor,
+                                                              config.execution.backend):
         raise ExecutorSettingsError("executor_credential_invalid")
     if variable in os.environ:
         raise ExecutorSettingsError("executor_credential_external")
@@ -180,7 +183,7 @@ def credential_binding(directory: Path, config) -> str:
     _, values = _environment(directory)
     effective = {
         key: os.environ[key] if key in os.environ else values.get(key, "")
-        for key in secret_names(config.executor)
+        for key in secret_names(config.executor, config.execution.backend)
     }
     return sha256(json.dumps(effective, sort_keys=True).encode("utf-8")).hexdigest()
 

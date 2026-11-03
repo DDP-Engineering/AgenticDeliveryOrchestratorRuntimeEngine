@@ -30,7 +30,9 @@ systemd service. `deploy/install-windows.ps1` prepares Windows 11 and can
 register the ADORE Task Scheduler task in loop or repeating-once mode.
 Both scripts are fail-fast, idempotent, validate the chosen config, leave state
 on uninstall, and never put secret values in argv or logs. They refuse
-unattended open container egress unless the operator explicitly overrides it.
+an unattended install with `[executor] internet = true` (open container egress)
+unless the operator passes `--allow-open-egress` / `-AllowOpenEgress`; with it
+false they build (Ubuntu) or verify (Windows) the egress proxy image.
 The OS scheduler and ADORE's durable lock together prevent a second poller.
 
 ## Invariants

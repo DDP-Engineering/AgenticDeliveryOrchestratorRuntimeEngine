@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-Before a run starts, the runtime shall reject an executor configuration without a model, a launch command without a {prompt} placeholder, with the --auto flag or with a placeholder other than {prompt}, {model} or {worktree}, an executor mode other than thick or headless, and an invalid container egress policy.
+Before a run starts, the runtime shall reject an executor configuration without a model, a launch command without a {prompt} placeholder, with the --auto flag or with a placeholder other than {prompt}, {model} or {worktree}, an executor mode other than thick or headless, and an invalid container egress allowlist, no_proxy list, proxy port, proxy image or network prefix.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ Before a run starts, the runtime shall reject an executor configuration without 
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated configuration tests reject a missing model, a command without {prompt}, the --auto flag, an unsupported or malformed placeholder, and invalid egress modes or allowlist entries."
+verification = "Automated configuration tests reject a missing model, a command without {prompt}, the --auto flag, an unsupported or malformed placeholder, and invalid egress allowlist or no_proxy entries."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/config.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_config.py::test_validation_rejects_auto_flag_in_executor_command", "04_Software/tests/test_config.py::test_validation_requires_a_model_and_prompt_placeholder", "04_Software/tests/test_config.py::test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill", "04_Software/tests/test_config.py::test_container_egress_rejects_bad_allowlist_entries"]
+linked_tests = ["04_Software/tests/test_config.py::test_validation_rejects_auto_flag_in_executor_command", "04_Software/tests/test_config.py::test_validation_requires_a_model_and_prompt_placeholder", "04_Software/tests/test_config.py::test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill", "04_Software/tests/test_config.py::test_container_egress_rejects_bad_allowlist_entries", "04_Software/tests/test_config.py::test_container_egress_mode_is_refused_naming_the_switch"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "The configuration is the earliest enforceable safety boundary."
 
 created = 2026-08-15
-updated = 2026-11-02
+updated = 2026-11-03

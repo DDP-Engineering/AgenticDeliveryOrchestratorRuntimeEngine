@@ -18,6 +18,9 @@
          and models behind one variable; no network call is made and no real
          key is used. The models of a ChatGPT subscription come from Pi's
          ChatGPT catalog in the installed pi-ai package (`chatgpt_models`).
+         Each provider's `hosts` are the host names of every `baseUrl` in
+         pi-ai's `providers/data/<id>.json`: the hosts an internet-off run
+         must reach.
          The result is `04_Software/adore/pi_catalog.json`.
          Providers whose key is a forge token (GitHub Copilot) or that list
          no chat models (TypeSafe classifiers) are left out. Run it again
@@ -38,6 +41,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlsplit
 
 # CONSTANTS
 OUTPUT = Path(__file__).resolve().parents[1] / "04_Software" / "adore" / "pi_catalog.json"
@@ -110,6 +114,55 @@ def list_models(node: str, cli: str, variable: str) -> dict[str, list[str]]:
     return models
 
 
+def pi_ai_data(package: Path) -> Path:
+    """
+    @brief      The provider data directory of the installed pi-ai package.
+    @param[in]  package Installed pi-coding-agent package directory.
+    @return     `.../pi-ai/dist/providers/data`.
+    @exception  SystemExit When it is missing.
+    """
+    data = Path("dist") / "providers" / "data"
+    candidates = (package / "node_modules" / "@earendil-works" / "pi-ai" / data,
+                  package.parent / "pi-ai" / data)
+    path = next((item for item in candidates if item.is_dir()), None)
+    if path is None:
+        raise SystemExit("Pi's provider data (pi-ai dist/providers/data) was not found")
+    return path
+
+
+def provider_hosts(data: Path, provider: str) -> list[str]:
+    """
+    @brief      Host names of every base URL Pi uses for a provider.
+    @param[in]  data pi-ai provider data directory.
+    @param[in]  provider Provider id.
+    @return     Sorted unique host names.
+    @exception  SystemExit When the provider has no data file or no concrete host.
+    """
+    path = data / f"{provider}.json"
+    if not path.is_file():
+        raise SystemExit(f"Pi has no provider data for {provider}")
+    hosts: set[str] = set()
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key == "baseUrl" and isinstance(item, str):
+                    host = urlsplit(item).hostname
+                    if not host or "{" in item:
+                        raise SystemExit(f"{provider} has a base URL without a fixed host: {item}")
+                    hosts.add(host)
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(json.loads(path.read_text(encoding="utf-8")))
+    if not hosts:
+        raise SystemExit(f"{provider} lists no base URL")
+    return sorted(hosts)
+
+
 def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
     """
     @brief      The models a ChatGPT subscription serves, from Pi's own catalog.
@@ -122,11 +175,8 @@ def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
     @return     Model ids.
     @exception  SystemExit When the catalog is missing or empty.
     """
-    data = Path("dist") / "providers" / "data" / "openai-codex.json"
-    candidates = (package / "node_modules" / "@earendil-works" / "pi-ai" / data,
-                  package.parent / "pi-ai" / data)
-    path = next((item for item in candidates if item.is_file()), None)
-    if path is None:
+    path = pi_ai_data(package) / "openai-codex.json"
+    if not path.is_file():
         raise SystemExit("Pi's ChatGPT catalog (pi-ai openai-codex.json) was not found")
     chat = json.loads(path.read_text(encoding="utf-8")).get("openai-codex-responses", {})
     models = [key.split(":", 1)[1] for key in chat if key.startswith("chat:")]
@@ -164,7 +214,8 @@ def main() -> int:
             if len(listed) > 1 and provider not in SPLIT_NAMES:
                 raise SystemExit(f"name the provider {provider} in SPLIT_NAMES")
             providers[provider] = {"id": provider, "name": SPLIT_NAMES.get(provider, name),
-                                   "variable": variable, "models": models}
+                                   "variable": variable, "models": models,
+                                   "hosts": provider_hosts(pi_ai_data(package), provider)}
     catalog = {"pi_version": version,
                "providers": sorted(providers.values(), key=lambda item: item["name"].casefold()),
                "chatgpt_models": chatgpt_models(package, providers["openai"]["models"])}

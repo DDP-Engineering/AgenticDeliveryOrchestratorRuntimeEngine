@@ -31,8 +31,10 @@ use native defaults; explicit values select an already prepared environment.
 A worktree is not a host sandbox. Project commands can access files, credentials
 and helpers permitted to the OS account. Use a dedicated least-privilege account
 and keep forge publication credentials outside it when possible. Environment
-filtering does not remove filesystem access. Container egress restrictions are
-refused locally; `container.egress.mode` must be `open`.
+filtering does not remove filesystem access. A local run is not
+network-restricted: a non-empty `[container.egress] allowlist` is refused, and
+`[executor] internet` (Internet access for the agent) is not enforced; Pi
+reaches whatever the server reaches.
 
 ## Platform controls
 

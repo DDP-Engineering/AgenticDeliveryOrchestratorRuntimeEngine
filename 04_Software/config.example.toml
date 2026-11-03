@@ -134,6 +134,15 @@ exclude = "no-agent"          # permanently human-only, ignore always
 provider = "openai"
 # Model id within the provider (Pi's list, or any id the provider accepts).
 model = "gpt-5.5"
+# Internet access for the agent (Settings -> Agent and model). false (default):
+# a container run reaches only the model provider's hosts (ADORE derives them,
+# plus [container.egress] allowlist) through a per-run proxy; web search, page
+# reading and downloads are unavailable. true: open network, with Pi's web
+# search and page reading ([executor.web]); downloads use bash (curl, npm, pip).
+# With true, a malicious page could try to make the agent send its API key or
+# ChatGPT token out: prefer limited, short-lived keys. A local (server-installed)
+# run is not restricted by this switch.
+# internet = false
 # The provider's API key is a credential, never a value in this file: save it in
 # Settings -> Agent and model, or put it in .env beside this config.toml under
 # the variable Pi reads for the provider (OPENAI_API_KEY for "openai",
@@ -169,6 +178,12 @@ env_keys = []
 # [executor.endpoint]
 # base_url = "http://192.168.1.20:1234/v1"
 # api = "openai-completions"
+
+# Web search while internet = true: "exa" (default, no key), "brave" or "tavily"
+# (key saved in Settings -> Agent and model as BRAVE_API_KEY or TAVILY_API_KEY,
+# or in .env), or "none" (no web search or page reading).
+# [executor.web]
+# search = "exa"
 
 # ----- Clarification -----------------------------------------------------------
 # Bounds for parked runs (executor asked a question, waiting on a human).
@@ -256,20 +271,16 @@ required_tool_checks = [
 ]
 
 [container.egress]
-# "open" = unrestricted egress, intended for supervised operation.
-# "none" = start executor containers with --network none for fully offline,
-#          pre-provisioned runs.
-# "allowlist-proxy" = executor has no direct internet; HTTP/HTTPS egress goes
-#                     through an ADORE-managed per-run proxy container.
-mode = "open"
-# Exact or wildcard hostnames only. Runtime projects fill this with the
-# minimum hosts their executor and package manager require, e.g.
-# ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"].
+# The per-run proxy behind which a run with [executor] internet = false sits.
+# ADORE admits the model provider's hosts itself; allowlist adds hosts such a
+# run may also reach, exact or wildcard host names only, e.g. a package mirror
+# ["pypi.org", "*.pythonhosted.org"]. Unused while internet = true.
 allowlist = []
 # Bypassed by proxy-aware tools. Keep loopback defaults unless your executor
 # also needs an internal hostname.
 no_proxy = ["localhost", "127.0.0.1", "::1"]
-# Build from docker/Dockerfile.egress-proxy.
+# Build from docker/Dockerfile.egress-proxy; the readiness check reports it
+# missing for an internet-off project.
 proxy_image = "adore-egress-proxy:1.0.0"
 proxy_port = 3128
 network_prefix = "adore-egress"
@@ -433,7 +444,7 @@ html_out = ".adore/metrics/stats.html"
 
 # Native local alternative: switch the existing [execution] backend to "local".
 # Keep preparation empty; remove container required_tool_checks/run_args/custom
-# runtime_env and set egress open. No tools are installed.
+# runtime_env and leave [container.egress] allowlist empty. No tools are installed.
 # Set [executor] command to the installed native Pi argv; Windows npm shims need
 # explicit node.exe + installed JS. Each gate starts a fresh Pi session.
 # [local]

@@ -375,7 +375,13 @@ probes on explicit request. It returns booleans for Git, the selected forge CLI
 and authentication, the Pi CLI, AEGIS file presence in the
 configured repository, and a directly selected Docker/Podman runtime; a project
 with provider `chatgpt` also gets `executor_sign_in`, true when the server's
-ChatGPT credential files report `signed-in` (read without starting Pi). It does
+ChatGPT credential files report `signed-in` (read without starting Pi).
+`_internet_checks` adds `egress_proxy` for a container project with
+`[executor] internet` off (`<runtime> image inspect <proxy_image>` succeeds; never
+pulled) and `web_search_key` for a project with internet on searching with Brave
+or Tavily (the key is set in the server environment or the project's credential
+store; the value is never returned). The image probe runs under the derived
+`egress_policy`. Enrollment's environment check returns the same two keys. It does
 not execute repository code from the API process and does not test the model;
 model access is proven only by the explicit AI connection test. WSL-wrapped
 runtime detection remains unverified.
@@ -540,7 +546,8 @@ state corruption, duplicate/overlapping ownership and publication-lock races.
 project scope, cost privacy, paged/filterable runs, input boundaries and operation behavior offline.
 `test_web_chatgpt.py` covers the ChatGPT sign-in routes with a fake helper
 (`tests/fake_chatgpt_helper.py`), their roles, CSRF, error codes and audit details, and the
-`executor_sign_in` readiness check.
+`executor_sign_in` readiness check; `test_readiness_reflects_the_internet_switch`
+covers `egress_proxy` and `web_search_key`.
 The RBAC suite includes ten accounts and twenty projects with five concurrent
 viewer requests; it is a functional scope check, not a throughput guarantee.
 
@@ -650,8 +657,9 @@ Schema 1 contains immutable `project_id`, exact config-byte SHA-256 `revision`, 
 Checks cover git, forge CLI/auth, runtime, the Pi CLI and AEGIS files; there is no
 model endpoint check (model access comes only from the explicit AI connection test).
 A `chatgpt` project's record also carries the boolean `executor_sign_in` (the server's
-ChatGPT sign-in); the reader accepts that key in addition to the six required ones, and
-a false value makes the record `failed`.
+ChatGPT sign-in), and the internet switch adds the boolean `egress_proxy` or
+`web_search_key` (`_INTERNET_CHECKS`); the reader accepts these optional keys in
+addition to the six required ones, and a false value makes the record `failed`.
 Commands/output/credentials are never persisted. Schema, keys, types,
 identity, digest, time and redacted values are validated on read; corrupt evidence
 fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`).
@@ -738,13 +746,13 @@ and an unreadable run to 503 `run_state_corrupt`; no partial list is returned. I
 
 Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
-Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). A container project whose provider needs a key with none saved or set reports **credential-missing** without starting a container. A `chatgpt` project first gets an access token from the server's ChatGPT sign-in (valid for the 90 s probe plus 300 s) and reports **sign-in-required** when the server is not signed in or must sign in again, **subscription-refused** when OpenAI refuses the account's plan, **connection-failed** when OpenAI cannot be reached and **usage-limit** when Pi reports the subscription's rate limit. Failures provide redacted guidance for a missing or invalid credential, model availability, rate limits, provider errors, image, CLI version or network. The action reuses executor credentials and egress and starts no job. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). A container project whose provider needs a key with none saved or set reports **credential-missing** without starting a container. A `chatgpt` project first gets an access token from the server's ChatGPT sign-in (valid for the 90 s probe plus 300 s) and reports **sign-in-required** when the server is not signed in or must sign in again, **subscription-refused** when OpenAI refuses the account's plan, **connection-failed** when OpenAI cannot be reached and **usage-limit** when Pi reports the subscription's rate limit. Failures provide redacted guidance for a missing or invalid credential, model availability, rate limits, provider errors, image, CLI version or network. The action reuses executor credentials and the derived egress (`egress_policy`), never loads web tools and starts no job. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 ## Project executor configuration
 
-**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type), the launch command (`executor.command`; only the Pi preset for container projects, validated native argv for local projects), additional credential variables (`executor.env_keys`), the provider API key, the execution environment and estimated prices. The connection and the command are reviewed settings (prepare candidate, review, apply on a paused/idle project). Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
+**Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type), the launch command (`executor.command`; only the Pi preset for container projects, validated native argv for local projects), Internet access for the agent (`executor.internet`, boolean, default false), Web search (`executor.web.search`, choices `exa`, `brave`, `tavily`, `none` in the setting catalog), additional credential variables (`executor.env_keys`), the provider API key, the execution environment and estimated prices. The connection, the command, internet access and web search are reviewed settings (prepare candidate, review, apply on a paused/idle project). Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the configured provider's credential variable only and shows its source only; key changes require paused pickup and idle/pending-free state. A `chatgpt` project has no credential variable; it uses the server's ChatGPT sign-in (next section). Explicit Test AI connection remains the evidence of model access and may incur provider charges. Config GET returns `model_connection: null` for a `chatgpt` project while the server is not signed in. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the variables of `pi_providers.credential_variables` only (the configured provider's credential variable, then `BRAVE_API_KEY` or `TAVILY_API_KEY` while internet is on with Brave or Tavily search) and shows their sources only; key changes require paused pickup and idle/pending-free state. A `chatgpt` project has no provider credential variable (only the search key, when needed); it uses the server's ChatGPT sign-in (next section). Explicit Test AI connection remains the evidence of model access and may incur provider charges. Config GET returns `model_connection: null` for a `chatgpt` project while the server is not signed in. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ### ChatGPT sign-in
 

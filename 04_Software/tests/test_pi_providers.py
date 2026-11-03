@@ -109,6 +109,39 @@ def test_corrupt_catalog_fails_closed(tmp_path: Path, monkeypatch) -> None:
     pi_providers.catalog.cache_clear()
 
 
+def test_catalog_providers_carry_their_hosts() -> None:
+    """@brief Every provider names the hosts of Pi's base URLs for the Off allowlist."""
+    providers = pi_providers.api_key_providers()
+    assert all(1 <= len(item["hosts"]) <= 8 for item in providers.values())
+    assert providers["openai"]["hosts"] == ["api.openai.com"]
+    assert providers["anthropic"]["hosts"] == ["api.anthropic.com"]
+    assert providers["openrouter"]["hosts"] == ["openrouter.ai"]
+
+
+def test_catalog_hosts_are_validated(tmp_path: Path, monkeypatch) -> None:
+    """@brief A provider without hosts, with none or with a malformed one is refused."""
+    bad = tmp_path / "pi_catalog.json"
+    provider = {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a"],
+                "hosts": ["api.x.example"]}
+
+    def write(item: dict) -> None:
+        bad.write_text(json.dumps({"pi_version": "1.4.0", "providers": [item],
+                                   "chatgpt_models": ["a"]}), encoding="utf-8")
+        monkeypatch.setattr(pi_providers, "CATALOG_PATH", bad)
+        pi_providers.catalog.cache_clear()
+
+    write(provider)
+    assert pi_providers.catalog()["providers"][0]["hosts"] == ["api.x.example"]
+    without = {key: value for key, value in provider.items() if key != "hosts"}
+    for item in (without, {**provider, "hosts": []}, {**provider, "hosts": ["api.x/v1"]},
+                 {**provider, "hosts": ["bad host"]}, {**provider, "hosts": "api.x.example"},
+                 {**provider, "hosts": ["h.example"] * 9}):
+        write(item)
+        with pytest.raises(CatalogError):
+            pi_providers.catalog()
+    pi_providers.catalog.cache_clear()
+
+
 def test_provider_choices_map_to_pi_and_their_key_variable() -> None:
     """@brief chatgpt is Pi's openai without a key variable; custom is the endpoint."""
     assert pi_provider("openai") == "openai" and credential_variable("openai") == "OPENAI_API_KEY"

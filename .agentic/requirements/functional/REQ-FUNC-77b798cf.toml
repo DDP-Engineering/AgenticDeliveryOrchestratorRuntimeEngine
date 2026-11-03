@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-77b798cf"
+
+title = "Refuse invalid internet and web search settings"
+
+status = "active"
+
+requirement = """
+If `[executor] internet` is not a boolean or `[executor.web] search` is not exa, brave, tavily or none, then configuration validation shall refuse the configuration with a message naming the key.
+"""
+
+verification = "Automated configuration tests set internet = \"yes\" and search = \"google\" and observe a validation issue naming each key, while search = \"none\" is accepted."
+
+affected_paths = ["04_Software/adore/config.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_internet_and_search_values_are_validated", "04_Software/tests/test_config.py::test_internet_defaults_off_with_exa_search"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

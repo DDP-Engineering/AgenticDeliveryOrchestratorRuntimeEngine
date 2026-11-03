@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-f801e9f3"
+
+title = "Open egress when internet access is on"
+
+status = "active"
+
+requirement = """
+While `[executor] internet` is true, ADORE shall run container stages and the Test AI connection with open egress.
+"""
+
+verification = "An automated test derives the run egress with internet = true and observes mode open and no proxy, and a provisioned container gets no egress network or proxy variables."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/model_connection.py"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_egress_policy_off_admits_only_the_provider_hosts", "04_Software/tests/test_model_connection.py::test_probe_runs_under_the_internet_switch"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

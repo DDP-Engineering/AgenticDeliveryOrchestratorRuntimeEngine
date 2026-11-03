@@ -49,6 +49,9 @@ CONTAINER_PI_CLI = (
     f"{CONTAINER_PI_PREFIX}/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
 )
 CONTAINER_PI_GUARD = "/opt/adore/pi/adore-guard.ts"
+#: The pinned pi-web-access extension next to Pi, loaded with `-e` only while
+#: internet access is on.
+CONTAINER_PI_WEB_ACCESS = f"{CONTAINER_PI_PREFIX}/lib/node_modules/pi-web-access"
 CONTAINER_PI_AGENT_DIR = f"{CONTAINER_HOME}/.adore-pi-agent"
 # The server's ChatGPT sign-in: ADORE's helper script in the image and the
 # mount point of the credential directory in its helper container (never in a

@@ -35,6 +35,7 @@ from adore.branding import (
     CONTAINER_PI_AGENT_DIR,
     CONTAINER_PI_CLI,
     CONTAINER_PI_GUARD,
+    CONTAINER_PI_WEB_ACCESS,
     DEFAULT_QUESTIONS_FILE,
 )
 from adore.execution import SHELL_HEADER, ExecutionPaths
@@ -52,6 +53,18 @@ ARCHIVE_DIR = "archive"
 #: io-dir file holding the endpoint models.json before it is copied into Pi's
 #: agent directory (outside the worktree, so the executor never commits it).
 MODELS_FILE = "pi-models.json"
+#: io-dir file holding pi-web-access's web-search.json before it is copied into
+#: Pi's agent directory; it names the search provider and never a key.
+WEB_SEARCH_FILE = "pi-web-search.json"
+#: System-prompt notice of an internet-off run, so the agent does not keep
+#: retrying tools that cannot reach anything.
+INTERNET_OFF_NOTICE = (
+    "Internet access is off for this project: only the model provider and any extra "
+    "hosts the project allows are reachable. Web search and page reading are "
+    "unavailable, and downloads (curl, npm install, pip install and the like) fail "
+    "for every other host; do not retry a refused download. Work with the repository "
+    "and the tools already installed."
+)
 
 _ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
@@ -404,6 +417,13 @@ class PiExecutor(FileProtocolExecutor):
              the ADORE-owned agent directory through the exec seam before Pi
              starts; a failed copy fails the gate without starting Pi.
 
+             With internet access on and a web search chosen, the pinned
+             pi-web-access extension is loaded with `-e` and its
+             web-search.json (provider, no curator, tools always active; keys
+             only from the environment) is placed the same way. With internet
+             access off nothing web-related is loaded and the system prompt
+             says that only the model provider is reachable.
+
              A native target has no `spawn` seam and keeps the file protocol
              with the configured template, where completed `turn_end` events
              carry the usage; `{model}` is `<pi provider>/<model id>` there.
@@ -422,6 +442,8 @@ class PiExecutor(FileProtocolExecutor):
         *,
         provider: str = "",
         models: dict | None = None,
+        internet: bool = False,
+        web_search: str = "exa",
     ) -> None:
         """
         @brief      Configure Pi from the [executor] section.
@@ -430,10 +452,14 @@ class PiExecutor(FileProtocolExecutor):
         @param[in]  questions_file Clarification questions filename.
         @param[in]  provider `[executor] provider` ("" keeps a bare `--model`).
         @param[in]  models Endpoint models.json document, or None.
+        @param[in]  internet `[executor] internet`.
+        @param[in]  web_search `[executor.web] search` (used while internet is on).
         """
         self.provider = pi_provider(provider) if provider else ""
         self.model_id = model
         self.models = models
+        self.internet = internet
+        self.web_search = web_search
         native_model = f"{self.provider}/{model}" if self.provider else model
         super().__init__(command_template, native_model, questions_file)
 
@@ -478,9 +504,19 @@ class PiExecutor(FileProtocolExecutor):
         stderr_path = io_dir / STDERR_FILE
         output_path.unlink(missing_ok=True)
         stderr_path.unlink(missing_ok=True)
-        argv = pi_rpc_argv(self.model_id, self.provider)
+        web = self.internet and self.web_search != "none"
+        argv = pi_rpc_argv(self.model_id, self.provider, web=web,
+                           notice="" if self.internet else INTERNET_OFF_NOTICE)
+        placements = []
         if self.models is not None:
-            placed = self._place_models(execute, io_dir)
+            placements.append((MODELS_FILE, "models.json", self.models,
+                               "Pi models.json could not be placed in the agent directory: "))
+        if web:
+            placements.append((WEB_SEARCH_FILE, "web-search.json", web_search_json(self.web_search),
+                               "The web search configuration could not be placed in Pi's "
+                               "agent directory: "))
+        for source, target, document, reason in placements:
+            placed = self._place_file(execute, io_dir, source, target, document, reason)
             if placed is not None:
                 return placed
         with (io_dir / GATE_SCRIPT).open("w", encoding="utf-8", newline="\n") as handle:
@@ -531,28 +567,33 @@ class PiExecutor(FileProtocolExecutor):
             artifact_dirs=artifacts,
         )
 
-    def _place_models(self, execute: ExecTarget, io_dir: Path) -> GateRun | None:
+    def _place_file(self, execute: ExecTarget, io_dir: Path, source: str, target: str,
+                    document: dict, reason: str) -> GateRun | None:
         """
-        @brief      Put the endpoint models.json into Pi's agent directory.
-        @details    The document holds no key (only `$ADORE_ENDPOINT_API_KEY` or
-                    a placeholder); it is written host-side into the io dir and
-                    copied inside the container, so a kept-warm container gets
-                    the current file for every gate.
+        @brief      Put a generated Pi configuration file into Pi's agent directory.
+        @details    The endpoint models.json and pi-web-access's web-search.json
+                    hold no key (only `$ADORE_ENDPOINT_API_KEY`, a placeholder or
+                    a provider name); each is written host-side into the io dir
+                    and copied inside the container, so a kept-warm container
+                    gets the current file for every gate.
         @param[in]  execute Exec seam bound to the run's target.
         @param[in]  io_dir HOST path of the run's io exchange dir.
+        @param[in]  source File name in the io dir.
+        @param[in]  target File name in the agent directory.
+        @param[in]  document JSON document to write.
+        @param[in]  reason Evidence prefix when the copy fails.
         @return     None when placed; a failed GateRun otherwise.
         """
         paths = getattr(execute, "paths", ExecutionPaths())
-        (io_dir / MODELS_FILE).write_bytes(
-            (json.dumps(self.models, ensure_ascii=True, indent=1) + "\n").encode("utf-8"))
-        result = execute(["cp", f"{paths.io}/{MODELS_FILE}",
-                          f"{CONTAINER_PI_AGENT_DIR}/models.json"], timeout=60)
+        (io_dir / source).write_bytes(
+            (json.dumps(document, ensure_ascii=True, indent=1) + "\n").encode("utf-8"))
+        result = execute(["cp", f"{paths.io}/{source}",
+                          f"{CONTAINER_PI_AGENT_DIR}/{target}"], timeout=60)
         if result.ok:
             return None
         detail = (result.stderr or result.stdout or "").strip()[:500]
         return GateRun(exit_code=result.exit_code or 1, timed_out=result.timed_out,
-                       stderr=("Pi models.json could not be placed in the agent directory: "
-                               + detail).strip())
+                       stderr=(reason + detail).strip())
 
     def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
         """
@@ -624,14 +665,34 @@ class PiExecutor(FileProtocolExecutor):
                 cache_write if observed else None)
 
 
-def pi_rpc_argv(model: str, provider: str = "") -> list[str]:
+def web_search_json(search: str) -> dict:
+    """
+    @brief      pi-web-access's web-search.json for an internet-on run.
+    @details    The provider is fixed (no automatic fallback chain), the
+                curator workflow is off for a headless run and the tools are
+                always active. Brave and Tavily read their key from
+                BRAVE_API_KEY / TAVILY_API_KEY in the environment.
+    @param[in]  search `[executor.web] search` (exa, brave or tavily).
+    @return     The document.
+    """
+    return {"provider": search, "workflow": "none", "toolActivation": "eager"}
+
+
+def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False,
+                notice: str = "") -> list[str]:
     """
     @brief      Fixed command line of a container Pi RPC launch.
     @param[in]  model Model id within the provider.
     @param[in]  provider Pi provider id ("" passes only `--model`).
-    @return     `node <cli.js> --mode rpc ... -e <guard> [--provider <p>] --model <model>`.
+    @param[in]  web Load the pinned pi-web-access extension (internet on only).
+    @param[in]  notice Text appended to Pi's system prompt ("" appends nothing);
+                a stage with internet off passes INTERNET_OFF_NOTICE.
+    @return     `node <cli.js> --mode rpc ... -e <guard> [-e <pi-web-access>]
+                [--append-system-prompt <notice>] [--provider <p>] --model <model>`.
     """
     return ["node", CONTAINER_PI_CLI, *PI_RPC_FLAGS, "-e", CONTAINER_PI_GUARD,
+            *(["-e", CONTAINER_PI_WEB_ACCESS] if web else []),
+            *(["--append-system-prompt", notice] if notice else []),
             *(["--provider", provider] if provider else []), "--model", model]
 
 
@@ -642,6 +703,8 @@ def build_executor(
     *,
     provider: str = "",
     models: dict | None = None,
+    internet: bool = False,
+    web_search: str = "exa",
 ) -> Executor:
     """
     @brief      Construct the Pi launcher (config selection point).
@@ -651,10 +714,13 @@ def build_executor(
     @param[in]  questions_file Clarification questions filename.
     @param[in]  provider `[executor] provider`.
     @param[in]  models Endpoint models.json for `provider = "custom"`, else None.
+    @param[in]  internet `[executor] internet`.
+    @param[in]  web_search `[executor.web] search`.
     @return     A PiExecutor.
     """
     return PiExecutor(command_template, model, questions_file,
-                      provider=provider, models=models)
+                      provider=provider, models=models, internet=internet,
+                      web_search=web_search)
 
 
 # END OF FILE

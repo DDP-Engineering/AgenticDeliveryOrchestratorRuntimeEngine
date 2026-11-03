@@ -17,7 +17,8 @@ from __future__ import annotations
 # IMPORTS
 from pathlib import Path
 
-from adore.config import Config, load_config, validate_config
+from adore.config import Config, egress_policy, load_config, validate_config
+from adore.pi_providers import secret_names
 import pytest
 
 # CONSTANTS
@@ -339,7 +340,9 @@ def test_defaults_without_file_sections() -> None:
     """
     config = Config()
     assert config.container.image == "adore-executor-base:1.0.0"
-    assert config.container.egress.mode == "open"
+    assert config.container.egress.allowlist == []
+    assert config.executor.internet is False
+    assert config.executor.web.search == "exa"
     assert config.container.required_tool_checks == []
     assert config.container.parked_ttl_polls == 30
     assert config.clarification.max_rounds == 3
@@ -516,56 +519,145 @@ required_tool_checks = ["", "--version", "make --version && rm -rf /", "untermin
     assert any("not parseable" in issue for issue in issues)
 
 
-def test_container_egress_defaults_and_valid_modes(tmp_path: Path) -> None:
+def _with_executor(text: str) -> str:
     """
-    @brief   Missing [container.egress] defaults to unrestricted open egress;
-             none and allowlist-proxy validate when explicitly configured.
+    @brief      MINIMAL_VALID with extra lines in its [executor] table.
+    @param[in]  text TOML lines for [executor] (a following table may come after them).
+    @return     The configuration text.
+    """
+    return MINIMAL_VALID.replace('model = "gpt-5.4-fast"\n', 'model = "gpt-5.4-fast"\n' + text)
+
+
+def _with_provider(provider: str, model: str, extra: str = "") -> str:
+    """
+    @brief      MINIMAL_VALID with another provider and model.
+    @param[in]  provider `[executor] provider`.
+    @param[in]  model `[executor] model`.
+    @param[in]  extra TOML appended after the [executor] table.
+    @return     The configuration text.
+    """
+    return MINIMAL_VALID.replace(
+        'provider = "openai"\nmodel = "gpt-5.4-fast"\n',
+        f'provider = "{provider}"\nmodel = "{model}"\n{extra}')
+
+
+def test_internet_defaults_off_with_exa_search(tmp_path: Path) -> None:
+    """
+    @brief   Without the keys internet access is off and search is Exa;
+             every search choice loads unchanged with internet on.
     """
     defaulted = load_config(_write_config(tmp_path, MINIMAL_VALID))
-    assert defaulted.container.egress.mode == "open"
+    assert defaulted.executor.internet is False
+    assert defaulted.executor.web.search == "exa"
     assert validate_config(defaulted) == []
+    for search in ("exa", "brave", "tavily", "none"):
+        config = load_config(_write_config(tmp_path, _with_executor(
+            f'internet = true\n\n[executor.web]\nsearch = "{search}"\n')))
+        assert config.executor.internet is True
+        assert config.executor.web.search == search
+        assert validate_config(config) == []
 
-    none = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+
+def test_internet_and_search_values_are_validated(tmp_path: Path) -> None:
+    """
+    @brief   A non-boolean switch and an unknown search provider are refused by name.
+    """
+    config = load_config(_write_config(tmp_path, _with_executor(
+        'internet = "yes"\n\n[executor.web]\nsearch = "google"\nextra = 1\n')))
+    issues = validate_config(config)
+    assert any(issue.startswith("[executor] internet must be true or false") for issue in issues)
+    assert any(issue.startswith("[executor.web] search must be") for issue in issues)
+    assert any("[executor.web] unknown key 'extra'" in issue for issue in issues)
+
+
+def test_container_egress_mode_is_refused_naming_the_switch(tmp_path: Path) -> None:
+    """
+    @brief   The removed [container.egress] mode is refused and points at
+             [executor] internet; the remaining egress settings validate.
+    """
+    old = load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [container.egress]
-mode = "none"
+mode = "open"
 """))
-    assert none.container.egress.mode == "none"
-    assert validate_config(none) == []
-
-    proxy = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+    issues = validate_config(old)
+    assert any("[container.egress] unknown key 'mode'" in issue
+               and "[executor] internet" in issue for issue in issues)
+    current = load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [container.egress]
-mode = "allowlist-proxy"
 allowlist = ["gitlab.example.com", "*.pythonhosted.org"]
 no_proxy = ["localhost", "127.0.0.1", "::1", "*.internal.example"]
 proxy_image = "adore-egress-proxy:1.0.0"
 proxy_port = 3128
 network_prefix = "adore-egress"
 """))
-    assert proxy.container.egress.allowlist == [
-        "gitlab.example.com",
-        "*.pythonhosted.org",
-    ]
-    assert validate_config(proxy) == []
+    assert current.container.egress.allowlist == ["gitlab.example.com", "*.pythonhosted.org"]
+    assert validate_config(current) == []
 
 
 def test_container_egress_rejects_bad_allowlist_entries(tmp_path: Path) -> None:
     """
-    @brief   allowlist-proxy fails closed on empty or unsafe host patterns.
+    @brief   The extra allowlist fails closed on unsafe host patterns; an
+             empty one is the default.
     """
-    empty = load_config(_write_config(tmp_path, MINIMAL_VALID + """
-[container.egress]
-mode = "allowlist-proxy"
-allowlist = []
-"""))
-    assert any("non-empty allowlist" in issue for issue in validate_config(empty))
-
     invalid = load_config(_write_config(tmp_path, MINIMAL_VALID + """
 [container.egress]
-mode = "allowlist-proxy"
 allowlist = ["https://api.openai.com", "gitlab.example.com/path", "bad host", "ok.com;rm"]
 """))
     issues = validate_config(invalid)
     assert sum("allowlist entries" in issue for issue in issues) == 4
+
+
+def test_egress_policy_off_admits_only_the_provider_hosts(tmp_path: Path) -> None:
+    """
+    @brief   Internet off derives allowlist-proxy egress with the provider's
+             hosts plus the configured extra hosts; on derives open egress.
+    """
+    off = load_config(_write_config(tmp_path, MINIMAL_VALID + """
+[container.egress]
+allowlist = ["pypi.org"]
+"""))
+    policy = egress_policy(off)
+    assert policy.mode == "allowlist-proxy"
+    assert policy.allowlist == ["api.openai.com", "pypi.org"]
+    assert policy.proxy_image == off.container.egress.proxy_image
+    assert policy.no_proxy == off.container.egress.no_proxy
+
+    anthropic = load_config(_write_config(
+        tmp_path, _with_provider("anthropic", "claude-sonnet-4-5")))
+    assert egress_policy(anthropic).allowlist == ["api.anthropic.com"]
+    chatgpt = load_config(_write_config(tmp_path, _with_provider("chatgpt", "gpt-5.6-luna")))
+    assert egress_policy(chatgpt).allowlist == ["api.openai.com"]
+    custom = load_config(_write_config(tmp_path, _with_provider(
+        "custom", "qwen3-coder",
+        '\n[executor.endpoint]\nbase_url = "http://192.168.1.20:1234/v1"\n')))
+    assert egress_policy(custom).allowlist == ["192.168.1.20"]
+
+    on = load_config(_write_config(tmp_path, _with_executor("internet = true\n")))
+    opened = egress_policy(on)
+    assert opened.mode == "open"
+    assert opened.allowlist == []
+
+
+def test_search_key_reaches_only_an_internet_on_run(tmp_path: Path) -> None:
+    """
+    @brief   BRAVE_API_KEY / TAVILY_API_KEY are launch secrets only with
+             internet on and that search provider.
+    """
+    def names(text: str) -> list[str]:
+        return secret_names(load_config(_write_config(tmp_path, _with_executor(text))).executor)
+
+    assert "BRAVE_API_KEY" in names('internet = true\n\n[executor.web]\nsearch = "brave"\n')
+    assert "TAVILY_API_KEY" in names('internet = true\n\n[executor.web]\nsearch = "tavily"\n')
+    off = names('internet = false\n\n[executor.web]\nsearch = "brave"\n')
+    exa = names("internet = true\n")
+    for listed in (off, exa):
+        assert "BRAVE_API_KEY" not in listed and "TAVILY_API_KEY" not in listed
+    assert "OPENAI_API_KEY" in exa
+    brave = load_config(_write_config(tmp_path, _with_executor(
+        'internet = true\n\n[executor.web]\nsearch = "brave"\n'))).executor
+    # Pi installed on the server loads no web tools, so it never gets the key.
+    assert "BRAVE_API_KEY" not in secret_names(brave, "local")
+    assert "BRAVE_API_KEY" in secret_names(brave, "container")
 
 
 def test_container_egress_proxy_env_is_managed(tmp_path: Path) -> None:

@@ -226,9 +226,18 @@ or attributable commit identity.
 - Build project tools into a project image; never bake credentials into it.
 - Keep the run-as account non-privileged where practical.
 - Use rootless Podman with `--userns=keep-id` when that matches the host model.
-- Keep `[container.egress] mode = "open"` only when unrestricted executor
-  network access is acceptable. Use `none` or `allowlist-proxy` where the
-  target project's policy requires it.
+- Keep **Internet access for the agent** (`[executor] internet`) Off, the
+  default, unless the project needs web search, page reading or downloads.
+  With it Off each run sits behind its own proxy that admits only the model
+  provider's hosts, which ADORE derives from the provider (or the endpoint's
+  `base_url`), plus `[container.egress] allowlist`; everything else, package
+  installs included, is refused.
+- With it On the run's network is open and Pi loads its web tools. A
+  malicious web page could try to make the agent send its API key or ChatGPT
+  token out, so prefer limited, short-lived keys. Brave or Tavily search adds
+  `BRAVE_API_KEY` or `TAVILY_API_KEY` to the run's secrets; Exa needs no key.
+- The switch is not enforced for a server-installed (local) project: Pi there
+  reaches whatever the server reaches.
 - Use `[container] required_tool_checks` to prove project tools are present
   before an executor starts a gate.
 
@@ -238,10 +247,12 @@ Before the first real poll, confirm:
 
 1. The run-as account can authenticate the selected forge CLI.
 2. The profile contains no secret values.
-3. Pi has only the provider's key and the keys listed in `env_keys`.
+3. Pi has only the provider's key, the web search key when one is needed and
+   the keys listed in `env_keys`.
 4. The target project's branch protections require human review and merge.
 5. The chosen image contains no secret files.
-6. The configured egress mode meets the target project's policy.
+6. Internet access for the agent and `[container.egress] allowlist` meet the
+   target project's policy.
 7. `adore --profile <profile-name> config validate` completes successfully.
 
 

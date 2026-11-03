@@ -53,7 +53,9 @@ executor; the launcher only composes commands and collects outcomes.
   or a cancel, termination after a grace period, failure classification and
   usage summed per turn; returns a `PiRpcResult`.
 - `build_executor(command_template, model, questions_file, *, provider,
-  models)` - the config selection point; returns a `PiExecutor`.
+  models, internet, web_search)` - the config selection point; returns a
+  `PiExecutor`. `internet` is `[executor] internet` (default False) and
+  `web_search` is `[executor.web] search` (default `exa`).
   `command_template` is the native `[executor] command` (default
   `pi -p --mode json --model {model} {prompt}`, `branding.PI_NATIVE_COMMAND`);
   `model` is the model ID within the provider; `provider` is the
@@ -128,13 +130,28 @@ which verifies the pinned container identity, then calls
    code, or 1) with stderr `Pi models.json could not be placed in the agent
    directory: ...` and Pi is not started. The document holds no key: `apiKey`
    is `$ADORE_ENDPOINT_API_KEY` when that secret is set, else the literal
-   `adore-no-key`. Then write a descriptive `gate.sh` with the argv and
-   environment (no shell runs; the prompt never enters it).
+   `adore-no-key`. With internet on and `[executor.web] search` not `none`,
+   the same way write `web_search_json(search)` =
+   `{"provider": <search>, "workflow": "none", "toolActivation": "eager"}` as
+   `pi-web-search.json` (`WEB_SEARCH_FILE`) and copy it to
+   `/home/adore/.adore-pi-agent/web-search.json`; a failed copy fails the gate
+   without starting Pi (`The web search configuration could not be placed in
+   Pi's agent directory: ...`). The file names the search provider only:
+   pi-web-access reads `BRAVE_API_KEY` / `TAVILY_API_KEY` from the environment.
+   Then write a descriptive `gate.sh` with the argv and environment (no shell
+   runs; the prompt never enters it).
 2. Start `node /opt/pi/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
    --mode rpc --no-session --no-approve --no-skills --no-extensions
    --no-prompt-templates --no-themes --no-mcp -e /opt/adore/pi/adore-guard.ts
+   [-e /opt/pi/lib/node_modules/pi-web-access]
+   [--append-system-prompt <INTERNET_OFF_NOTICE>]
    --provider <pi provider> --model <model id>` (`pi_rpc_argv(model,
-   provider)`) with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
+   provider, web=..., notice=...)`). Internet on with a search provider adds
+   `-e` pi-web-access (`branding.CONTAINER_PI_WEB_ACCESS`); internet off loads
+   no web tools and appends `INTERNET_OFF_NOTICE`, which tells the agent that
+   only the model provider is reachable and that web search, page reading and
+   downloads (curl, npm install, pip install) are unavailable. No download tool
+   is added: with internet on, downloads use bash. The command runs with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
    `PI_OFFLINE=1`, `PI_TELEMETRY=0`, `PI_SKIP_VERSION_CHECK=1` (inline
    `--env` values; the provider key keeps the bare-key rule). Nothing comes
    from the personal `~/.pi`, `~/.agents/skills` or the project's `.pi`; the
@@ -187,8 +204,9 @@ in depth: the boundary stays that no forge credential is in the container.
   helper at `/opt/adore/pi/adore-chatgpt.mjs` and the agent
   directory `/home/adore/.adore-pi-agent` (`docker/Dockerfile.executor-base`;
   `docker/verify-runtime.sh` checks the versions and that the helper loads the
-  pinned Pi). `adore.chatgpt` supplies a ChatGPT stage's access token. pi-web-access is
-  installed but not loaded.
+  pinned Pi). `adore.chatgpt` supplies a ChatGPT stage's access token.
+  pi-web-access is loaded only for an internet-on stage with a search provider;
+  the network itself is the isolation component's `EgressPolicy`.
 - External: Pi inside the `adore-executor` image (container runs) or on the
   host (native runs only); the target repo's `AGENTS.md` arrives with the
   worktree (its `.pi` directory is not loaded by a container RPC run).
@@ -203,8 +221,9 @@ in depth: the boundary stays that no forge credential is in the container.
 
 ## 6. Data Contracts
 
-- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log`, and
-  `pi-models.json` for an endpoint; archive root: `archive/` (module constants
+- io-dir filenames: `gate.sh`, `output.jsonl`, `stderr.log`,
+  `pi-models.json` for an endpoint and `pi-web-search.json` for an internet-on
+  stage with a search provider; archive root: `archive/` (module constants
   shared with tests).
 - Archive directory shape: `<stem>-attempt<N>` with a numeric suffix on rare
   collisions so archives are never overwritten. Missing output/stderr becomes
@@ -293,7 +312,10 @@ elif run.ok:
   environment, the usage event through `_journal_usage`, the conductor's
   cancel grace, `--provider`/`--model` on RPC and `<pi provider>/<model id>`
   in the native template, and the endpoint `models.json` placed before Pi
-  starts (a failed copy fails the stage). `tests/test_isolation.py` covers
+  starts (a failed copy fails the stage), and the internet switch
+  (`test_pi_executor_loads_web_tools_when_internet_is_on`,
+  `test_pi_executor_fails_the_stage_when_web_search_json_cannot_be_placed`,
+  `test_pi_executor_tells_the_agent_when_internet_is_off`). `tests/test_isolation.py` covers
   `ContainerManager.spawn`; `tests/test_pi_providers.py` covers the provider
   rules and `models_json`.
 - `tests/test_chatgpt_stage.py` (offline): a ChatGPT stage's token reaches only

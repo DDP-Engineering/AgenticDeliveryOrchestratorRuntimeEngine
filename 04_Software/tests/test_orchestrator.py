@@ -33,7 +33,7 @@ from adore.aegis import (
     AegisTaskError,
     AegisTimeoutError,
 )
-from adore.config import Config, ContainerEgressConfig
+from adore.config import Config, EgressPolicy
 from adore.executor.base import GateRun
 from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
 from adore.isolation import ContainerManager, IsolationError
@@ -3009,7 +3009,7 @@ def _shared_host(tmp_path: Path, engine: Orchestrator, worktrees: FakeWorktrees,
         runtime.networks.add(f"adore-egress-{executor}")
     engine.containers = ContainerManager(
         "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runtime,
-        egress=ContainerEgressConfig(mode=mode),
+        egress=EgressPolicy(mode=mode),
     )
     return root, runtime
 

@@ -15,6 +15,31 @@ export const agentSettingsCopy = {
  de:{command:"Executor-Startbefehl",model:"Modell",variables:"Zusätzliche Zugangsdaten-Variablen",authentication:"Authentifizierung",connection:"KI-Verbindung",variableHelp:"Zusätzliche geheime Variablen, die Pi neben der Schlüsselvariable des Anbieters erhält. Dies sind Namen, keine Werte; die meisten Projekte brauchen keine.",modelHelp:"Das Modell des Anbieters, z. B. gpt-5.5 für OpenAI. Es gibt kein universelles Standardmodell.",commandHelp:"Container-Projekte führen das im Executor-Image fixierte Pi mit der Vorgabe aus. Lokale Projekte führen das installierte Pi mit diesen Argumenten aus."},
 };
 
+/** Internet access for the agent and its web search, in four locales. */
+export const internetCopy = {
+ en:{internet:"Internet access for the agent",internetHelp:"Off (default): a container run reaches only the model provider; web search, page reading and downloads are unavailable. On: open network, web search and page reading, downloads with curl, npm or pip.",search:"Web search",searchHelp:"Search service used while internet access for the agent is on: exa (no key), brave or tavily (key saved in Agent and model) or none (no web search or page reading).",on:"On",off:"Off",internetWarning:"With internet access on, a malicious web page could try to make the agent send its API key or ChatGPT token out. Prefer limited, short-lived keys.",internetLocal:"Not enforced: this project runs Pi installed on the server, which reaches whatever the server reaches.",exa:"Exa (no key)",brave:"Brave (key needed)",tavily:"Tavily (key needed)",none:"None"},
+ ro:{internet:"Acces la internet pentru agent",internetHelp:"Dezactivat (implicit): o rulare în container ajunge doar la furnizorul modelului; căutarea web, citirea paginilor și descărcările nu sunt disponibile. Activat: rețea deschisă, căutare web, citirea paginilor și descărcări cu curl, npm sau pip.",search:"Căutare web",searchHelp:"Serviciul de căutare folosit când accesul la internet al agentului este activat: exa (fără cheie), brave sau tavily (cheie salvată în Agent și model) sau none (fără căutare web sau citirea paginilor).",on:"Activat",off:"Dezactivat",internetWarning:"Cu accesul la internet activat, o pagină web rău intenționată ar putea încerca să facă agentul să trimită cheia API sau tokenul ChatGPT. Preferă chei limitate și de scurtă durată.",internetLocal:"Neaplicat: acest proiect rulează Pi instalat pe server, care ajunge oriunde ajunge serverul.",exa:"Exa (fără cheie)",brave:"Brave (necesită cheie)",tavily:"Tavily (necesită cheie)",none:"Niciuna"},
+ fr:{internet:"Accès Internet de l’agent",internetHelp:"Désactivé (par défaut) : une exécution en conteneur n’atteint que le fournisseur du modèle ; recherche web, lecture de pages et téléchargements sont indisponibles. Activé : réseau ouvert, recherche web, lecture de pages et téléchargements avec curl, npm ou pip.",search:"Recherche web",searchHelp:"Service de recherche utilisé quand l’accès Internet de l’agent est activé : exa (sans clé), brave ou tavily (clé enregistrée dans Agent et modèle) ou none (ni recherche web ni lecture de pages).",on:"Activé",off:"Désactivé",internetWarning:"Avec l’accès Internet activé, une page web malveillante pourrait tenter de faire envoyer par l’agent sa clé API ou son jeton ChatGPT. Préférez des clés limitées et de courte durée.",internetLocal:"Non appliqué : ce projet exécute Pi installé sur le serveur, qui atteint tout ce que le serveur atteint.",exa:"Exa (sans clé)",brave:"Brave (clé requise)",tavily:"Tavily (clé requise)",none:"Aucune"},
+ de:{internet:"Internetzugang für den Agenten",internetHelp:"Aus (Standard): Ein Containerlauf erreicht nur den Modellanbieter; Websuche, Seitenlesen und Downloads sind nicht verfügbar. An: offenes Netzwerk, Websuche, Seitenlesen und Downloads mit curl, npm oder pip.",search:"Websuche",searchHelp:"Suchdienst bei eingeschaltetem Internetzugang des Agenten: exa (ohne Schlüssel), brave oder tavily (Schlüssel unter Agent und Modell gespeichert) oder none (keine Websuche und kein Seitenlesen).",on:"An",off:"Aus",internetWarning:"Bei eingeschaltetem Internetzugang könnte eine bösartige Webseite versuchen, den Agenten seinen API-Schlüssel oder sein ChatGPT-Token versenden zu lassen. Verwenden Sie möglichst eingeschränkte, kurzlebige Schlüssel.",internetLocal:"Nicht durchgesetzt: Dieses Projekt führt das auf dem Server installierte Pi aus, das alles erreicht, was der Server erreicht.",exa:"Exa (ohne Schlüssel)",brave:"Brave (Schlüssel nötig)",tavily:"Tavily (Schlüssel nötig)",none:"Keine"},
+};
+
+/** Web search choices of `[executor.web] search`. */
+export const WEB_SEARCH_CHOICES = ["exa", "brave", "tavily", "none"] as const;
+
+/** The displayed value of the internet switch or the web search, else null. */
+export function agentValue(key:string,value:unknown,locale:Locale):string|null {
+ const c=internetCopy[locale];
+ if (key==="executor.internet") return value===true || value==="true" ? c.on : value===false || value==="false" ? c.off : null;
+ if (key==="executor.web.search" && (WEB_SEARCH_CHOICES as readonly unknown[]).includes(value)) return c[value as typeof WEB_SEARCH_CHOICES[number]];
+ return null;
+}
+
+/** Whether a project's configuration needs a Brave or Tavily key (internet on). */
+export function searchKeyNeeded(config:Record<string, unknown>):boolean {
+ const executor=config.executor as {internet?:unknown; web?:{search?:unknown}}|undefined;
+ return executor?.internet===true && ["brave","tavily"].includes(String(executor.web?.search));
+}
+
 /** Names-only list, including retained custom names; server verifies provider/forge scope. */
 export function validCredentialNames(value:unknown):value is string[] {
  return Array.isArray(value) && value.length<=32 && value.every(v=>typeof v==="string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(v)) && new Set(value).size===value.length;
@@ -30,6 +55,8 @@ export function executorSettingLabel(key:string,locale:Locale):string|null {
  if (key==="executor.endpoint.base_url") return connection.baseUrl;
  if (key==="executor.endpoint.api") return connection.api;
  if (key==="executor.connection") return c.connection;
+ if (key==="executor.internet") return internetCopy[locale].internet;
+ if (key==="executor.web.search") return internetCopy[locale].search;
  return null;
 }
 
@@ -42,6 +69,8 @@ export function executorSettingHelp(key:string,locale:Locale):string|null {
  if (key==="executor.provider" || key==="executor.connection") return connection.providerHelp;
  if (key==="executor.endpoint.base_url") return connection.baseUrlHelp;
  if (key==="executor.endpoint.api") return connection.apiHelp;
+ if (key==="executor.internet") return internetCopy[locale].internetHelp;
+ if (key==="executor.web.search") return internetCopy[locale].searchHelp;
  return null;
 }
 

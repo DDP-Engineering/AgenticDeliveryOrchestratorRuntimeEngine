@@ -29,6 +29,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -54,6 +55,7 @@ from adore.config import (
     SELINUX_RELABEL_MODES,
     branch_naming_preview,
     default_config,
+    egress_policy,
     load_config,
     valid_reviewers,
     validate_config,
@@ -66,9 +68,11 @@ from adore.pi_providers import (
     CHATGPT,
     ENDPOINT_APIS,
     MODEL_ID_RE,
+    WEB_SEARCH_CHOICES,
     credential_variable,
     provider_ids,
     public_catalog,
+    search_key_variable,
 )
 from adore.portable_settings import (
     MAX_SOURCE_BYTES,
@@ -95,7 +99,7 @@ from adore.repository_auth import (
 )
 from adore.selection import start_blocker, start_preparation
 from adore.state import StateError, StateStore
-from adore.util import CommandRunner, force_rmtree, run_command, strict_json_loads
+from adore.util import CommandRunner, force_rmtree, load_env_file, run_command, strict_json_loads
 from adore.web import analytics
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
@@ -156,6 +160,8 @@ _EDITABLE_SECTIONS = frozenset({
     "container", "execution", "local", "worktree", "workflow", "recovery", "budgets",
     "delivery", "review", "reconcile", "metrics", "labels",
 })
+# Optional readiness checks that follow the internet switch.
+_INTERNET_CHECKS = frozenset({"egress_proxy", "web_search_key"})
 # Container presets; local profiles accept validated installed native argv.
 _LAUNCH_PRESETS = LAUNCH_PRESETS
 
@@ -590,8 +596,10 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
         checks = value["checks"]
         check_keys = {"git", "forge_cli", "forge_auth", "container_runtime", "executor_cli",
                       "aegis_files"}
-        # A ChatGPT project's record also carries the server's sign-in.
-        if not isinstance(checks, dict) or set(checks) - {"executor_sign_in"} != check_keys:
+        # Optional checks: the server's ChatGPT sign-in, the egress proxy
+        # image (internet off) and the web search key (internet on).
+        if (not isinstance(checks, dict)
+                or set(checks) - {"executor_sign_in", *_INTERNET_CHECKS} != check_keys):
             raise ValueError("invalid readiness checks")
         for key, result in checks.items():
             if type(result) is not bool and not (
@@ -605,6 +613,35 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
               "failed" if any(result is False for result in checks.values()) else
               "partial" if checks["container_runtime"] is None else "verified")
     return {**{key: item for key, item in value.items() if key != "schema"}, "status": status}
+
+
+def _internet_checks(config, runner: CommandRunner, env_file: Path | None) -> dict:
+    """
+    @brief      Readiness checks that follow the internet switch.
+    @details    A container project with internet off runs behind the per-run
+                egress proxy, so its image must be present (never pulled); a
+                project with internet on that searches with Brave or Tavily
+                needs that key in the server environment or the project's
+                credential store. Values are never returned.
+    @param[in]  config Validated configuration snapshot.
+    @param[in]  runner Bounded command runner.
+    @param[in]  env_file The project's credential store.
+    @return     `{"egress_proxy": bool}`, `{"web_search_key": bool}`, both or neither.
+    """
+    checks: dict[str, bool] = {}
+    policy = egress_policy(config)
+    if config.execution.backend == "container" and policy.mode == "allowlist-proxy":
+        try:
+            checks["egress_proxy"] = runner(
+                [*shlex.split(config.container.runtime), "image", "inspect",
+                 policy.proxy_image], timeout=8).ok
+        except (OSError, TimeoutError, ValueError):
+            checks["egress_proxy"] = False
+    variable = search_key_variable(config.executor, config.execution.backend)
+    if variable:
+        saved = {**(load_env_file(env_file) if env_file else {}), **os.environ}
+        checks["web_search_key"] = bool(saved.get(variable))
+    return checks
 
 
 def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
@@ -693,13 +730,14 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                             "forge_auth": auth.authenticated,
                             "container_runtime": True, "executor_cli": executor,
                             "aegis_files": (aegis_root / "aegis.py").is_file()
-                            and (aegis_root / "aegis.toml").is_file()}}
+                            and (aegis_root / "aegis.toml").is_file(),
+                            **_internet_checks(config, bounded_runner, env_file)}}
     try:
         image_runtime = ContainerManager(
             config.container.runtime, config.container.image,
             config.container.uv_cache_volume, config.container.npm_cache_volume,
             bounded_runner, run_args=config.container.run_args, pull_never=True,
-            egress=config.container.egress,
+            egress=egress_policy(config),
             selinux_relabel=config.container.selinux_relabel,
         )
         executor = bounded_runner([
@@ -728,6 +766,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
     if config.executor.provider == CHATGPT:
         checks["executor_sign_in"] = (
             chatgpt.status(chatgpt_dir or chatgpt.credential_dir()) == "signed-in")
+    checks.update(_internet_checks(config, bounded_runner, env_file))
     return {"checks": checks}
 
 
@@ -877,7 +916,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "image": config.container.image, "env_keys": config.executor.env_keys,
             "hold_label": config.labels.control.hold,
             "exclude_label": config.labels.control.exclude,
-            "egress_mode": config.container.egress.mode,
+            "egress_mode": egress_policy(config).mode,
             "branch_template": config.worktree.branch_template,
             "config_path": str(profiles.config_path(body.name).resolve()),
             "store_root": config.state.store_root, "worktree_root": config.worktree.root,
@@ -1718,7 +1757,7 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
         "clarification.timeout_state": ["failed", "stale"],
         "container.selinux_relabel": list(SELINUX_RELABEL_MODES),
         "container.parked_ttl_mode": ["seconds", "polls"],
-        "container.egress.mode": ["open", "allowlist-proxy", "none"],
+        "executor.web.search": list(WEB_SEARCH_CHOICES),
         "execution.backend": ["container", "local"],
         "delivery.draft": [True, False],
         "review.trigger": ["label"],
@@ -1941,7 +1980,7 @@ def _inspect_project_import(
                       "container": {"runtime": ("local" if config.execution.backend == "local"
                                                 else config.container.runtime),
                                     "image": config.container.image,
-                                    "egress": config.container.egress.mode}}
+                                    "egress": egress_policy(config).mode}}
     except (AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
         findings = [_finding("config_invalid", "config", "Supply a valid UTF-8 TOML document.")]
         config, review = None, None
