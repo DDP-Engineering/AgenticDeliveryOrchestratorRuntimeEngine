@@ -49,6 +49,17 @@ Plan with the evidence, target design and decisions:
 PI-06 and PI-07 can run in parallel with PI-05. Native Gitea dependencies mirror
 this table.
 
+## Progress
+
+- [x] PI-01 #51 spike: 83a346e (2026-11-01)
+- [x] PI-02 #52 Pi through RPC mode: 776e56f
+- [x] PI-03 #53 OpenCode, Codex and Qwen Code removed: b6379b3
+- [x] PI-04 #54 provider, model, API key and endpoint: e80b37a
+- [x] PI-05 #55 ChatGPT sign-in: 2b5a0fc (owner decision: each stage gets a short-lived access token; the credential stays on the server)
+- [ ] PI-06 #56 internet switch and web tools (in validation)
+- [ ] PI-07 #57 ADORE-managed server installation
+- [ ] PI-08 #58 live acceptance
+
 ## Done when
 
 - [ ] All child tickets are closed with their acceptance criteria met.
