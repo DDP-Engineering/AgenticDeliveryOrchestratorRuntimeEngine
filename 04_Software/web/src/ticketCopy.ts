@@ -25,6 +25,9 @@ const en = {
   cancelQueued: "Cancellation for #{iid} queued as operation #{id}.", noCancel: "#{iid} had no unfinished job to cancel.",
   labelRemoved: "Ready label removed.", labelAbsent: "The ticket had no ready label.",
   labelFailed: "The ready label could not be removed: {reason}",
+  pickup_paused: "Monitoring paused",
+  pickupStopped: "Monitoring is paused for this project, so Start is unavailable. An administrator activates monitoring in the project Summary.",
+  labelsKept: "The ticket keeps the labels {labels}: ADORE picks it up when its pickup rules allow, and Stop removes them.",
   operation: { pending: "queued", running: "running", succeeded: "finished", failed: "failed", uncertain: "outcome uncertain" },
 };
 
@@ -49,6 +52,9 @@ const ro: TicketCopy = {
   cancelQueued: "Anularea pentru #{iid} a fost pusă în coadă ca operația #{id}.", noCancel: "#{iid} nu avea nicio lucrare neterminată de anulat.",
   labelRemoved: "Eticheta ready a fost eliminată.", labelAbsent: "Tichetul nu avea eticheta ready.",
   labelFailed: "Eticheta ready nu a putut fi eliminată: {reason}",
+  pickup_paused: "Monitorizare în pauză",
+  pickupStopped: "Monitorizarea este în pauză pentru acest proiect, deci Pornește nu este disponibil. Un administrator activează monitorizarea din Rezumatul proiectului.",
+  labelsKept: "Tichetul păstrează etichetele {labels}: ADORE îl preia când regulile de preluare o permit, iar Oprește le elimină.",
   operation: { pending: "în coadă", running: "în curs", succeeded: "finalizată", failed: "eșuată", uncertain: "rezultat incert" },
 };
 
@@ -71,6 +77,9 @@ const fr: TicketCopy = {
   cancelQueued: "Annulation de #{iid} mise en file comme opération #{id}.", noCancel: "#{iid} n’avait aucune tâche inachevée à annuler.",
   labelRemoved: "Étiquette ready retirée.", labelAbsent: "Le ticket n’avait pas l’étiquette ready.",
   labelFailed: "L’étiquette ready n’a pas pu être retirée : {reason}",
+  pickup_paused: "Surveillance en pause",
+  pickupStopped: "La surveillance est en pause pour ce projet : Démarrer est indisponible. Un administrateur active la surveillance dans le Résumé du projet.",
+  labelsKept: "Le ticket garde les étiquettes {labels} : ADORE le prend en charge quand ses règles de sélection le permettent, et Arrêter les retire.",
   operation: { pending: "en file", running: "en cours", succeeded: "terminée", failed: "échouée", uncertain: "résultat incertain" },
 };
 
@@ -93,6 +102,9 @@ const de: TicketCopy = {
   cancelQueued: "Abbruch für #{iid} als Vorgang #{id} eingereiht.", noCancel: "#{iid} hatte keinen unvollständigen Auftrag.",
   labelRemoved: "Ready-Label entfernt.", labelAbsent: "Das Ticket hatte kein Ready-Label.",
   labelFailed: "Das Ready-Label konnte nicht entfernt werden: {reason}",
+  pickup_paused: "Überwachung pausiert",
+  pickupStopped: "Die Überwachung ist für dieses Projekt pausiert, daher ist Starten nicht verfügbar. Ein Administrator aktiviert die Überwachung in der Projekt-Zusammenfassung.",
+  labelsKept: "Das Ticket behält die Labels {labels}: ADORE übernimmt es, sobald seine Auswahlregeln es erlauben, und Stoppen entfernt sie.",
   operation: { pending: "eingereiht", running: "läuft", succeeded: "abgeschlossen", failed: "fehlgeschlagen", uncertain: "Ergebnis unsicher" },
 };
 

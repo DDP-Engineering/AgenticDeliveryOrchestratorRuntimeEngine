@@ -48,7 +48,13 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
   worktree and remote/local recovery evidence;
 - distinguish clarification, stage failures, transient infrastructure failures
   and immediate integrity/policy/budget failures;
-- persist and deliver mandatory incident/terminal/approval notifications;
+- persist and deliver mandatory incident/terminal/approval notifications; a
+  `NO_STAGE_PROGRESS` incident appends the gate's last stderr lines (`_stderr_tail`:
+  NUL and ANSI escapes removed, an unterminated OSC/DCS string ending at its line,
+  and credentials redacted on the whole stderr, then the last 20 lines within 2000
+  characters), and a terminal failure's `run.outcome` keeps the evidence's first
+  line when it bounds long evidence (`_head_and_tail` on the unbounded redacted
+  evidence, so the 6000-character evidence cut cannot drop it);
 - integrate the target, run independent strict verification and fingerprint the
   candidate/target/commit series;
 - require a fresh approval-label transition after presentation;
@@ -174,8 +180,9 @@ approval freshness and publishes the same candidate; without a fresh approval
 it conducts the run from done. A run whose candidate already reached review
 (its fingerprint equals the recorded `published_fingerprint`) returns to
 review on retry. Publication refuses a run outside stage done or publishing
-with `PUBLICATION_STAGE`, and reset refuses every target for a run
-recorded at `deliver`. Existing open branch MRs are adopted before creation.
+with `PUBLICATION_STAGE`; a run saved at the removed `deliver` stage is
+refused when its state loads, so reset never reaches it. Existing open branch
+MRs are adopted before creation.
 
 Two triggers feed one governed revision path: the revise label a human applies,
 and a newly `failed` forge pipeline when `[review] on_pipeline_failure` is

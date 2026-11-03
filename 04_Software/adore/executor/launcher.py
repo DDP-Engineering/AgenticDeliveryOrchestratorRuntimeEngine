@@ -263,9 +263,7 @@ class FileProtocolExecutor(Executor):
     def _build_command(self, *, prompt: str, model: str, worktree: str) -> str:
         """
         @brief      Compose the executor command from the configured template.
-        @details    Overridable so an executor whose template carries an extra
-                    placeholder (Codex's `{resume}`) can supply it. `prompt`
-                    and `model` arrive already shell-quoted.
+        @details    `prompt` and `model` arrive already shell-quoted.
         @param[in]  prompt Shell-quoted prompt text.
         @param[in]  model Shell-quoted model string.
         @param[in]  worktree Container worktree mount (/adore/work).
@@ -589,26 +587,20 @@ class CodexExecutor(FileProtocolExecutor):
     """
     @brief   OpenAI Codex (`@openai/codex`, the Rust CLI) executor launcher.
     @details Runs headless via `codex exec` from the [executor.codex] template,
-             e.g. `codex exec {resume}--json --model {model}
+             e.g. `codex exec --json --model {model}
              --ignore-user-config --disable plugins
              --dangerously-bypass-approvals-and-sandbox {prompt}`. Codex reads
              AGENTS.md natively and gets its guardrails from ADORE container
              isolation (no remote credentials in the container).
 
-             Two Codex specifics vs opencode/pi:
-             1. **The `{resume}` placeholder always resolves to empty.** Codex
-                continues a session with the `exec resume --last` subcommand
-                rather than a flag, so the template carries a `{resume}` slot.
-                ADORE runs every gate fresh, so `_build_command` fills it with
-                "" and the command stays plain `codex exec`. The slot is still
-                accepted so an existing profile keeps working.
-             2. **Approval model is inverted.** The command MUST run
+             Codex specifics vs opencode/pi:
+             1. **Approval model is inverted.** The command MUST run
                 non-interactively (`--sandbox workspace-write`,
                 `--full-auto`, or
                 `--dangerously-bypass-approvals-and-sandbox`, enforced by
                 config validation). In ADORE, the container/worktree boundary
                 is the external sandbox for full-auto Codex runs.
-             3. **User config/plugins are ignored.** The orchestrator stages
+             2. **User config/plugins are ignored.** The orchestrator stages
                 only auth.json into an isolated CODEX_HOME and the command
                 disables the Codex `plugins` feature so workstation-local or
                 bundled plugin marketplace state cannot alter a portable run.
@@ -648,23 +640,6 @@ class CodexExecutor(FileProtocolExecutor):
             if isinstance(usage.get("cost_usd"), (int, float)):
                 return True
         return False
-
-    def _build_command(self, *, prompt: str, model: str, worktree: str) -> str:
-        """
-        @brief      Codex command: always plain `exec`, never `exec resume`.
-        @details    Supplies the template's `{resume}` placeholder as empty.
-                    The placeholder is kept accepted rather than rejected so an
-                    existing profile carrying it keeps working, but ADORE
-                    starts a fresh session every gate, so it never resolves to
-                    `resume --last `.
-        @param[in]  prompt Shell-quoted prompt.
-        @param[in]  model Shell-quoted model.
-        @param[in]  worktree Container worktree mount.
-        @return     The full command string.
-        """
-        return self.command_template.format(
-            prompt=prompt, model=model, worktree=worktree, resume=""
-        )
 
     def _extract_usage(self, output: str) -> tuple[int, int, float]:
         """

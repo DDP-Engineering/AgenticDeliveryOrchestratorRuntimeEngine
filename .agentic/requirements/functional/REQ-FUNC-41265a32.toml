@@ -49,14 +49,14 @@ When profile metadata changes, the profile store shall atomically persist non-se
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated profile tests cover CRUD, duplicate refusal, rename/delete, active pointer lifecycle, and unknown-key tolerance."
+verification = "Automated profile tests cover CRUD, duplicate refusal, rename/delete, active pointer lifecycle, and refusal of a profile.json with unknown or missing keys as written by another ADORE build."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/profiles.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_profiles.py::test_profile_crud_round_trip", "04_Software/tests/test_profiles.py::test_profile_rename_and_delete", "04_Software/tests/test_profiles.py::test_active_pointer_lifecycle", "04_Software/tests/test_profiles.py::test_profile_json_ignores_unknown_keys"]
+linked_tests = ["04_Software/tests/test_profiles.py::test_profile_crud_round_trip", "04_Software/tests/test_profiles.py::test_profile_rename_and_delete", "04_Software/tests/test_profiles.py::test_active_pointer_lifecycle", "04_Software/tests/test_profiles.py::test_profile_json_of_another_build_is_refused", "04_Software/tests/test_profiles.py::test_profile_directory_name_overrides_the_stored_name"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Profile data is operator-owned state and cannot silently point at a different project."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-01

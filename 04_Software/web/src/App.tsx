@@ -26,7 +26,6 @@ import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, CHOSEN_ENVIRONMENT_KEYS, validBranchPreview, type BranchPreview } from "./settings";
 import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
-import { imageCopy } from "./imageBuild";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
@@ -41,6 +40,7 @@ import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace } from "./JobWorkspace";
 import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
+import { outcomeText } from "./operationReason";
 import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
 import { userCopy } from "./userCopy";
 import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
@@ -61,7 +61,7 @@ type Session = { user: User; csrf: string };
 type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; local_endpoint_timeout_seconds?: number | null; local_endpoint?: { protocol: string; auth_env: string | null } | null; settings?: SettingMeta[] };
-type Operation = { id: number; status: string; result?: string; action?: string };
+type Operation = { id: number; status: string; result?: string; reason?: string; detail?: string; action?: string };
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "cloneProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
@@ -574,7 +574,9 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    if (!operationVisible || !operation || ["pending", "running"].includes(operation.status)) return;
+    // A failure with engine lines stays until it is closed; other outcomes fade after 5 s.
+    if (!operationVisible || !operation || ["pending", "running"].includes(operation.status) ||
+      ["failed", "uncertain"].includes(operation.status) && operation.detail) return;
     const timer = window.setTimeout(() => setOperationVisible(false), 5000);
     return () => window.clearTimeout(timer);
   }, [operationVisible, operation?.id, operation?.status]);
@@ -810,13 +812,13 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  const stageSetting = async (key: string, value: string, imageBuildId?: string): Promise<boolean> => {
+  const stageSetting = async (key: string, value: string): Promise<boolean> => {
     if (!projectConfig || !selected || configMutation.current || projectPendingConfig || pendingReadFailed || !pendingReady) return false;
     const target = selected, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
     const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
     configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", { key, value, revision: projectConfig.revision, ...(imageBuildId ? {image_build_id:imageBuildId} : {}) }, session?.csrf);
+      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", { key, value, revision: projectConfig.revision }, session?.csrf);
       if (!validPendingConfig(staged) || !staged || staged.base_revision !== projectConfig.revision || staged.key !== key) throw new ApiError("unexpected_response");
       if (!current()) return false;
       setPendingConfig(staged); setPendingConfigScope(target); setNotice(t("changeStaged"));
@@ -1002,8 +1004,7 @@ export default function App() {
   const revisionChips: Chip[] = metrics ? [[t("mrRevisions"), formatNumber(metrics.totals.mr_revisions || 0)], [t("pipelineRepairs"), formatNumber(metrics.totals.pipeline_repairs || 0)],
     [t("unclassifiedRevisions"), formatNumber(metrics.coverage.revision_events_unclassified || 0)]] : [];
   const revisionDays = metrics?.daily.filter(day => day.mr_revisions || day.pipeline_repairs) || [];
-  const trendChips: Chip[] = metrics ? [[t("coverage"), `${formatNumber(metrics.coverage.runs_with_usage || 0)}/${formatNumber(metrics.totals.runs || 0)}`, t("jobs")],
-    [t("unallocatedUsage"), formatNumber(metrics.coverage.usage_events_unallocated || 0)]] : [];
+  const trendChips: Chip[] = metrics ? [[t("coverage"), `${formatNumber(metrics.coverage.runs_with_usage || 0)}/${formatNumber(metrics.totals.runs || 0)}`, t("jobs")]] : [];
   const usageColumns: Array<[UsageSortKey, MessageKey]> = [["date", "date"], ["executor", "executor"], ["model", "model"], ["events", "usageEvents"], ["tokens_in", "tokensIn"],
     ["tokens_out", "tokensOut"], ["cache_read_tokens", "cacheRead"], ["cache_write_tokens", "cacheWrite"], ...(isAdmin ? [["reported_cost_usd", "cost"], ["estimated_cost_usd", "estimatedCost"]] as Array<[UsageSortKey, MessageKey]> : [])];
 
@@ -1112,7 +1113,7 @@ export default function App() {
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {(notice || (operationVisible && operation)) && <div className="notice" role="status">
-          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{operation.result && operation.result !== "completed" ? ` · ${operationResultText(operation.result, locale)}` : ""}</>)}
+          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && operation.result !== "completed" ? ` · ${(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}` : ""}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}</>)}
           <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
@@ -1371,18 +1372,16 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
     rows.push({ label: t("endpointTimeout"), active: config.local_endpoint_timeout_seconds, proposed: candidate.endpoint.timeout_seconds });
     rows.push({ label: t("endpointCa"), active: settingValue(config.config, "container.runtime_env.NODE_EXTRA_CA_CERTS"), proposed: candidate.endpoint.ca_file ?? t("settingNoDefault") });
   }
-  if (candidate.image_build) rows.push({label:imageCopy[locale].reviewed,active:settingValue(config.config,"container.required_tool_checks"),proposed:candidate.image_build.verified_checks});
   // Candidate values are validated JSON; property order is immaterial, array order is retained.
   const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.map(canonical).join(",")}]`
     : value !== null && typeof value === "object" ? `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`
     : JSON.stringify(value ?? null);
   const changed = rows.filter(row => canonical(row.active) !== canonical(row.proposed));
-  const unchanged = changed.length === 0 && !candidate.image_build && !candidate.execution_plan;
+  const unchanged = changed.length === 0 && !candidate.execution_plan;
   const compact = compactReviewCopy[locale];
   const comparison = (items: typeof rows, className: string) => <table className={`candidate-table ${className}`}><thead><tr><th scope="col">{compact.setting}</th><th scope="col">{copy.active}</th><th scope="col">{copy.proposed}</th></tr></thead><tbody>{items.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td data-label={copy.active}>{show(row.active)}</td><td data-label={copy.proposed}>{show(row.proposed)}</td></tr>)}</tbody></table>;
   const stale = candidate.base_revision !== config.revision;
-  // A retained image-build selection stays external like the other environment keys.
-  const external = !!candidate.image_build || !candidate.endpoint && !BRANCH_NAMING_KEYS.has(candidate.key) && !CHOSEN_ENVIRONMENT_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
+  const external = !candidate.endpoint && !BRANCH_NAMING_KEYS.has(candidate.key) && !CHOSEN_ENVIRONMENT_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
   const blocked = unchanged || external || stale || candidate.restart_required && !paused;
   const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
   return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
@@ -1399,7 +1398,6 @@ function PendingReview({ config, candidate, project, paused, busy, locale, t, on
       <p>{copy.idle}</p><p>{copy.discard}</p>
       <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p>
       <p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p>
-      {candidate.image_build && <section><h4>{imageCopy[locale].advanced}</h4><p><code>{candidate.image_build.runtime}</code></p><p><code>{candidate.image_build.base_id}</code></p><p><code>{candidate.image_build.context_sha256}</code></p></section>}
       <div className="button-row"><button className="ghost" onClick={() => void navigator.clipboard.writeText(reviewText).then(() => setCopied(true)).catch(() => setCopied(false))}>{copy.copy}</button>{copied && <span role="status">{copy.copied}</span>}</div>
     </details>
   </div>;

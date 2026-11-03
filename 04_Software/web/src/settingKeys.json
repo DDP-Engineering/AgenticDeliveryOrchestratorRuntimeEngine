@@ -100,7 +100,6 @@
   "review.review_reminder_after",
   "review.revise_label",
   "review.trigger",
-  "state.channel",
   "state.store_root",
   "workflow.aegis_python",
   "workflow.default_kind",

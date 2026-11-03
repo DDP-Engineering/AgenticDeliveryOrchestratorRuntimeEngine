@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Native local execution, version 1 (#21)
 
-## Selection and compatibility
+## Selection
 
 `[execution] backend = "local"` is explicit; omitted backend stays container.
 Local mode rejects nonempty preparation, container egress other than open,
@@ -43,16 +43,15 @@ host/account identity, exact native worktree/IO paths and normalized policy.
 It never creates a container/image, performs recipe setup or installs tools.
 Machine/account, effective non-secret environment and selected executable identity
 are pinned with the reviewed local plan. Missing/corrupt/replaced records, changed
-backend/config/account/host or incompatible active legacy runs fail closed. An
+backend/config/account/host or incompatible runs fail closed. An
 explicit Retry may refresh effective environment and resolved executable identity
 on the same machine/account after verifying the saved plan and runtime ownership.
 The same job, task journal, branch, worktree, history and cumulative budgets remain.
 The existing bounded version check runs before AEGIS; unavailable, timed-out or
 invalid-version executors remain failed with the actual cause. Automatic polling
 and other resume paths retain pinned identity. This applies to every supported
-native executor on Windows/Linux and every forge, without job-specific rules. Legacy container recovery
-retains its previous behavior. Local records are an additive closed alternative
-within schema 1; older binaries reject them. Portable working-rule exports omit
+native executor on Windows/Linux and every forge, without job-specific rules. Local records are a closed alternative
+within the current schema. Portable working-rule exports omit
 backend/machine/account/path/runtime identity and local environment.
 
 ## Process ownership and recovery

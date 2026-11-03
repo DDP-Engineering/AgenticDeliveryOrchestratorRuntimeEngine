@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-NFR-f4b171f4"
+title = "Retain up to 1 MiB of native Test AI connection output"
+status = "active"
+requirement = """
+While running a native local Test AI connection, ADORE shall retain and accept up to 1 MiB of the executor's standard output, while native job gates keep their 64 KiB bound.
+"""
+verification = "Offline: a Pi challenge stream of about 300 KB through the local test reports ready and the native controller receives stdout_limit 1048576; a target bound for job gates still passes stdout_limit 65536. Native: on this Windows host the local Pi test with a live model reports ready."
+affected_paths = ["04_Software/adore/local_execution.py", "04_Software/adore/web/model_connection.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_model_test_keeps_large_pi_streams_while_gates_keep_64_kib"]
+spec = ""
+priority = "normal"
+rationale = "Pi's JSON event stream repeats the whole conversation and exceeds 64 KiB, which cut its final reply; container probes already keep 1 MiB."
+created = 2026-11-01
+updated = 2026-11-01

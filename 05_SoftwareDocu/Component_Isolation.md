@@ -26,7 +26,7 @@ is mandatory once the human leaves the loop; the workflow's hooks are
 guardrails, not a sandbox.
 
 
-`WorktreeManager.remove_remote_branch(branch, expected, target)` uses host Git authentication to delete one exact merged run ref with `--force-with-lease`. It rejects the target branch, malformed identities and a changed remote commit through `IsolationError`, verifies remote absence after pushing, and treats an already absent ref as success. Legacy runs may use the exact local branch head when no published commit was persisted; arbitrary remote output is rejected.
+`WorktreeManager.remove_remote_branch(branch, expected, target)` uses host Git authentication to delete one exact merged run ref with `--force-with-lease`. It rejects the target branch, malformed identities and a changed remote commit through `IsolationError`, verifies remote absence after pushing, and treats an already absent ref as success. An empty or malformed published commit is refused like a changed one; arbitrary remote output is rejected.
 
 ## 2. Responsibilities
 
@@ -65,8 +65,8 @@ guardrails, not a sandbox.
   `cleanup_orphan_containers(prefix, targets, retained)`,
   `cleanup_egress_proxies(targets, retained)` (lists proxies by their
   `-egress-proxy` suffix), and `cleanup_egress_networks(targets, retained)`
-  methods (each removes only listed names derived, in per-run or old cut form,
-  from the `targets` executor names and not from `retained`),
+  methods (each removes only listed current per-run names derived from the
+  `targets` executor names and not from `retained`),
   `verify_required_tools` (project-image checks run inside the provisioned
   container), and `exec` (the seam the executor launcher runs commands through).
 - `build_container_env(git_dir_name, git_name, git_email)` supplies managed Git
@@ -257,12 +257,14 @@ replacing resources to change a mount.
   executor name, so every run has its own proxy and network. Reaping removes
   executor, proxy container, and network; `adore cleanup` also removes the
   listed executors, proxies, and networks derived from the target executor
-  names the orchestrator passes, in per-run form and in the old cut form of
-  releases that simply cut long names, keeping any name also derived from a
-  retained executor (old cut names can be shared). The network sweep checks the
+  names the orchestrator passes, recognising only the current per-run bounded
+  proxy container and egress network names and keeping any name also derived
+  from a retained executor. Containers and networks named by earlier builds are
+  not recognised; an operator removes such leftovers by hand (see
+  `01_Documentation/Recovery_And_Maintenance.md`). The network sweep checks the
   canonical `adore-egress` prefix even after the current profile changes mode,
-  plus the current configured prefix; it never guesses arbitrary historical
-  names.
+  plus the current configured prefix; it never guesses arbitrary other
+  prefixes.
 
 ## 7. Workflow Integration
 

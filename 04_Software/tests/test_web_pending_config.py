@@ -44,8 +44,8 @@ def _headers(client):
     return {"X-CSRF-Token": csrf}
 
 
-def test_legacy_environment_candidate_is_readable_discardable_but_not_applicable(tmp_path):
-    """@brief A valid pre-upgrade candidate for a still-external key remains recoverable."""
+def test_pending_candidate_for_an_external_key_is_corrupt_but_discardable(tmp_path):
+    """@brief Only an earlier build staged operator-owned keys: refuse it, let it be discarded."""
     from hashlib import sha256
 
     profiles, path, _state = _project(tmp_path)
@@ -64,11 +64,12 @@ def test_legacy_environment_candidate_is_readable_discardable_but_not_applicable
     with TestClient(create_app(profiles.home)) as client:
         headers = _headers(client)
         viewed = client.get("/api/v1/projects/alpha/config/pending")
-        assert viewed.status_code == 200, viewed.text
+        assert viewed.status_code == 503
+        assert viewed.json()["detail"]["code"] == "pending_config_corrupt"
         response = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-            json={"candidate_revision": pending["candidate_revision"]})
-        assert response.status_code == 400, response.text
-        assert response.json()["detail"]["code"] == "environment_managed_externally"
+            json={"candidate_revision": pending["candidate_revision"],
+                  "base_revision": pending["base_revision"]})
+        assert response.status_code == 503, response.text
         assert path.read_bytes() == original and retained.exists()
         assert client.delete(
             "/api/v1/projects/alpha/config/pending", headers=headers).status_code == 200
@@ -87,6 +88,7 @@ def test_stage_review_apply_and_discard_config(tmp_path):
                             headers=headers)
         assert stage.status_code == 200, stage.text
         candidate = stage.json()["candidate_revision"]
+        base = stage.json()["base_revision"]
         assert stage.json()["key"] == "budgets.max_iterations"
         assert path.read_bytes() == original
         assert client.get("/api/v1/projects/alpha/config/pending").json() == stage.json()
@@ -94,12 +96,12 @@ def test_stage_review_apply_and_discard_config(tmp_path):
                            headers=headers).status_code == 409
         state.save(RunState(run_id="working", ticket_iid=42, lifecycle="working"))
         blocked = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": candidate}, headers=headers)
+            "candidate_revision": candidate, "base_revision": base}, headers=headers)
         assert blocked.status_code == 409
         assert path.read_bytes() == original
         state.save(RunState(run_id="working", ticket_iid=42, lifecycle="done"))
         applied = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": candidate}, headers=headers)
+            "candidate_revision": candidate, "base_revision": base}, headers=headers)
         assert applied.status_code == 200, applied.text
         assert applied.json()["revision"] == candidate
         assert load_config(path).budgets.max_iterations == 12
@@ -133,24 +135,28 @@ def test_pending_config_rejects_stale_corrupt_and_unauthorized_actions(tmp_path)
                              json=body, headers=headers)
         assert staged.status_code == 200
         assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": "0" * 64}, headers=headers).status_code == 409
+            "candidate_revision": "0" * 64, "base_revision": staged.json()["base_revision"],
+        }, headers=headers).status_code == 409
         assert state.acquire_lock()
         try:
             assert client.post("/api/v1/projects/alpha/config/apply", json={
-                "candidate_revision": staged.json()["candidate_revision"]},
+                "candidate_revision": staged.json()["candidate_revision"],
+                "base_revision": staged.json()["base_revision"]},
                 headers=headers).status_code == 409
         finally:
             state.release_lock()
         path.write_text(path.read_text(encoding="utf-8") + "\n# host edit\n",
                         encoding="utf-8")
         assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"]},
+            "candidate_revision": staged.json()["candidate_revision"],
+            "base_revision": staged.json()["base_revision"]},
             headers=headers).status_code == 409
         pending_path = profiles.profile_dir("alpha") / "pending_config.json"
         pending_path.write_text("{bad-json", encoding="utf-8")
         assert client.get("/api/v1/projects/alpha/config/pending").status_code == 503
         assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"]},
+            "candidate_revision": staged.json()["candidate_revision"],
+            "base_revision": staged.json()["base_revision"]},
             headers=headers).status_code == 503
         client.delete("/api/v1/session", headers=headers)
         dev_csrf = client.post("/api/v1/session", json={
@@ -191,11 +197,14 @@ def test_identity_edit_requires_paused_pickup_before_apply(tmp_path):
         assert staged.status_code == 200, staged.text
         assert staged.json()["restart_required"] is True
         candidate = staged.json()["candidate_revision"]
+        base = staged.json()["base_revision"]
         assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": candidate}, headers=headers).status_code == 409
+            "candidate_revision": candidate, "base_revision": base,
+        }, headers=headers).status_code == 409
         state.pause()
         assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": candidate}, headers=headers).status_code == 200
+            "candidate_revision": candidate, "base_revision": base,
+        }, headers=headers).status_code == 200
         assert load_config(path).platform.repo == "org/renamed"
         assert client.get("/api/v1/projects/alpha").json()["repo"] == "org/renamed"
         assert profiles.load("alpha").repo == "org/renamed"
@@ -258,6 +267,7 @@ def test_pending_config_apply_rejects_missing_live_config(tmp_path):
         path.unlink()
         response = client.post("/api/v1/projects/alpha/config/apply", json={
             "candidate_revision": staged.json()["candidate_revision"],
+            "base_revision": staged.json()["base_revision"],
         }, headers=headers)
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "config_corrupt"
@@ -279,6 +289,7 @@ def test_pending_config_apply_finishes_interrupted_metadata_commit(tmp_path):
         state.pause()
         response = client.post("/api/v1/projects/alpha/config/apply", json={
             "candidate_revision": record["candidate_revision"],
+            "base_revision": record["base_revision"],
         }, headers=headers)
         assert response.status_code == 200, response.text
         assert profiles.load("alpha").repo == "org/recovered"
@@ -337,7 +348,8 @@ def test_review_state_is_applied_only_after_review(tmp_path, value):
         assert staged.json()["proposed_value"] is (value == "true")
         assert path.read_bytes() == original
         applied = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-            json={"candidate_revision": staged.json()["candidate_revision"]})
+            json={"candidate_revision": staged.json()["candidate_revision"],
+                  "base_revision": staged.json()["base_revision"]})
         assert applied.status_code == 200, applied.text
         assert load_config(path).delivery.draft is (value == "true")
 
@@ -513,7 +525,8 @@ def test_implementation_settings_review_and_apply_exact_value(tmp_path, key, val
         assert path.read_bytes() == original
         assert client.get('/api/v1/projects/alpha/config/pending').json() == result.json()
         applied = client.post('/api/v1/projects/alpha/config/apply', headers=headers,
-                              json={'candidate_revision': result.json()['candidate_revision']})
+                              json={'candidate_revision': result.json()['candidate_revision'],
+                                    'base_revision': result.json()['base_revision']})
         assert applied.status_code == 200, applied.text
         section, name = key.split('.')
         before[section][name] = expected
@@ -571,7 +584,8 @@ def test_stage_timeout_map_handles_human_toml_and_removes_override(tmp_path, sha
             assert response.status_code == 200, response.text
             applied = client.post('/api/v1/projects/alpha/config/apply', headers=headers,
                                   json={'candidate_revision':
-                                        response.json()['candidate_revision']})
+                                        response.json()['candidate_revision'],
+                                        'base_revision': response.json()['base_revision']})
             assert applied.status_code == 200, applied.text
             section, name = key.split('.')
             before[section][name] = expected
@@ -626,7 +640,8 @@ def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value
         pending.write_text(json.dumps(record),encoding='utf-8')
         assert client.get('/api/v1/projects/alpha/config/pending').status_code == 503
         assert client.post('/api/v1/projects/alpha/config/apply',headers=headers,
-            json={'candidate_revision':response.json()['candidate_revision']}).status_code == 503
+            json={'candidate_revision': response.json()['candidate_revision'],
+                  'base_revision': response.json()['base_revision']}).status_code == 503
         assert path.read_bytes() == original
 
 
@@ -661,7 +676,8 @@ def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         pending.write_text(json.dumps(record), encoding="utf-8")
         assert client.get("/api/v1/projects/alpha/config/pending").status_code == 503
         refused = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                              json={"candidate_revision": record["candidate_revision"]})
+                              json={"candidate_revision": record["candidate_revision"],
+                                    "base_revision": record["base_revision"]})
         assert refused.status_code == 503
         client.post("/api/v1/session/logout", headers=headers)
         csrf = client.post("/api/v1/session", json={
@@ -669,7 +685,8 @@ def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         assert client.post("/api/v1/projects/alpha/config/pending", json=body,
                            headers={"X-CSRF-Token": csrf}).status_code == 403
         assert client.post("/api/v1/projects/alpha/config/apply",
-                           json={"candidate_revision": record["candidate_revision"]},
+                           json={"candidate_revision": record["candidate_revision"],
+                                 "base_revision": record["base_revision"]},
                            headers={"X-CSRF-Token": csrf}).status_code == 403
         assert path.read_bytes() == original
 

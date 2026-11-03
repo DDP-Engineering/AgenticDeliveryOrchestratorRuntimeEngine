@@ -43,6 +43,8 @@ from adore.state import RunState, StateError, StateStore, content_hash
 from adore.util import CommandResult, utc_now_iso
 import pytest
 
+from tests.usage_events import versioned_usage
+
 # CONSTANTS
 
 TASK_ID = "TASK-abc123ef"
@@ -968,6 +970,89 @@ def test_two_failures_then_success_resets_counter_and_questions_do_not_consume_i
     assert saved.clarification_rounds == 1
 
 
+@pytest.mark.parametrize(
+    "case",
+    ["ansi", "osc", "osc-open", "token", "token-cut", "token-line", "token-nul", "blank", "long",
+     "huge"],
+)
+def test_no_stage_progress_evidence_carries_the_stderr_tail(tmp_path: Path, case: str) -> None:
+    """@brief A zero-exit gate without AEGIS progress shows its last stderr lines."""
+    sentence = "executor exited zero but AEGIS remained at frame"
+    stderr = {
+        "ansi": "starting\n\x1b[93m\x1b[1m! \x1b[0mpermission requested: bash (git status);"
+                " auto-rejecting\n",
+        "osc": "\x1b]0;agent title\x07\x1b(Bplain \x1b]8;;https://x\x1b\\link\x1b]8;;\x1b\\\n",
+        # A killed process can leave a string sequence open; it must not swallow later lines.
+        "osc-open": "\x1b]0;agent title\nERROR: real cause\n\x1bPpayload\nlast line\n",
+        "token": "token=abc123secret\nstill waiting\n",
+        "token-cut": "token=SECRETVALUE" + "w" * 1990,
+        "token-line": "\n".join(["token:", "S3CRETLINE", *(f"after {i}" for i in range(19))]),
+        "token-nul": "\n".join(["tok\x00en:", "NULSECRET", *(f"after {i}" for i in range(19))]),
+        "blank": "   \n",
+        "long": "\n".join(f"line {index}" for index in range(500)),
+        "huge": "\n".join(f"{index:04d} " + "z" * 295 for index in range(30)),
+    }[case]
+    # Each attempt hits the same cause; the incident comment is edited in place per attempt.
+    executor = FakeExecutor(*[GateRun(exit_code=0, stderr=stderr) for _ in range(3)])
+    engine, forge, _, _, _ = make_engine(tmp_path, executor=executor)
+    run = make_run(engine)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("frame")]), "")
+
+    saved = engine.store.load(run.run_id)
+    evidence = saved.failure_history[0]["evidence"]
+    incident = next(body for body in forge.ticket_comments.values()
+                    if "Stable error code: `NO_STAGE_PROGRESS`" in body)
+    terminal = next(body for body in forge.ticket_comments.values()
+                    if "Terminal error code: `NO_STAGE_PROGRESS`" in body)
+    header = "\nExecutor stderr (last lines):\n"
+    tail = evidence[len(sentence) + len(header):]
+    assert evidence.startswith(sentence) and "\x1b" not in evidence
+    # Job details shows run.outcome; the sentence must survive its 2000-character bound.
+    assert saved.outcome.startswith(
+        f"NO_STAGE_PROGRESS: stage frame failed on attempt 3/3: {sentence}")
+    assert sentence in incident and sentence in terminal
+    if case == "ansi":
+        assert evidence.endswith("! permission requested: bash (git status); auto-rejecting")
+        assert "! permission requested: bash (git status); auto-rejecting" in incident
+        assert "! permission requested: bash (git status); auto-rejecting" in terminal
+    elif case == "osc":
+        assert tail == "plain link"
+    elif case == "osc-open":
+        assert tail == "ERROR: real cause\n\nlast line"
+    elif case == "token":
+        assert "abc123secret" not in evidence and "token=[REDACTED]" in evidence
+    elif case == "token-cut":
+        assert "ECRETVALUE" not in evidence and "ECRETVALUE" not in saved.outcome
+    elif case == "token-line":
+        assert "S3CRETLINE" not in evidence and "S3CRETLINE" not in incident
+    elif case == "token-nul":
+        assert "NULSECRET" not in evidence and "NULSECRET" not in incident
+    elif case == "blank":
+        assert evidence == sentence
+    elif case == "long":
+        assert "line 499" in tail and "line 480" in tail and "line 479" not in tail
+    else:
+        assert len(tail) == 2000 and tail.endswith("0029 " + "z" * 295)
+        assert "\n0010 " not in "\n" + tail
+        assert len(saved.outcome) == len("NO_STAGE_PROGRESS: ") + 2000
+
+
+def test_terminal_outcome_keeps_the_failure_sentence_of_long_evidence(tmp_path: Path) -> None:
+    """@brief Job details keeps the attempt sentence when stderr exceeds every evidence bound."""
+    stderr = "\n".join(f"{index:04d} " + "y" * 95 for index in range(200))
+    executor = FakeExecutor(*[GateRun(exit_code=2, stderr=stderr) for _ in range(3)])
+    engine, forge, _, _, _ = make_engine(tmp_path, executor=executor)
+    run = make_run(engine)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("frame") for _ in range(3)]), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.outcome.startswith("EXECUTOR_EXIT: stage frame failed on attempt 3/3: ")
+    assert saved.outcome.endswith("\n0199 " + "y" * 95)
+    assert len(saved.outcome) == len("EXECUTOR_EXIT: ") + 2000
+
+
 def test_exact_third_failed_attempt_aborts_without_fourth_launch(tmp_path: Path) -> None:
     """@brief Default 3 means three attempts total, not three retries."""
     executor = FakeExecutor(*[
@@ -1868,10 +1953,10 @@ def test_retry_conducts_a_published_run_reset_to_an_earlier_stage(
 def test_publication_refuses_a_run_outside_the_done_stage(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A run recorded at the removed deliver stage is history, never published."""
+    """@brief An approved run that is not at the done stage is never published."""
     engine, forge, worktrees, _, executor = make_engine(tmp_path)
     run = _approved_run(engine, worktrees)
-    run.stage = "deliver"
+    run.stage = "validate"
     engine.store.save(run)
     forge.ticket.labels.append("agent-approved")
     monkeypatch.setattr(orchestrator_module, "AegisClient", _NoAegis)
@@ -1992,28 +2077,6 @@ def test_retry_publishes_a_review_round_candidate_not_yet_published(
     assert saved.lifecycle == "in-review"
     assert saved.published_fingerprint == worktrees.fingerprint
     assert executor.prompts == []
-
-
-@pytest.mark.parametrize("target", orchestrator_module.RESETTABLE_STAGES)
-def test_reset_refuses_every_target_for_a_run_recorded_at_deliver(
-    tmp_path: Path, target: str,
-) -> None:
-    """
-    @brief   A run recorded at the removed deliver stage is never reset.
-    @details Its old approval stays in the run state, so a reset to validate
-             followed by one to publishing would publish it without the
-             current flow's verification.
-    """
-    engine, _, _, _, _ = make_engine(tmp_path)
-    run = make_run(engine)
-    run.stage = "deliver"
-    run.lifecycle = "failed"
-    engine.store.save(run)
-
-    assert not engine.reset(run.run_id, target)
-
-    saved = engine.store.load(run.run_id)
-    assert saved.stage == "deliver" and saved.lifecycle == "failed"
 
 
 def test_done_task_without_evidence_returns_to_validate_before_approval(
@@ -3009,7 +3072,7 @@ def test_disabled_cost_cap_preserves_other_bounds_and_usage(tmp_path, monkeypatc
     engine, _, worktrees, _, _ = make_engine(tmp_path)
     engine.config.budgets.max_cost_usd = 0
     run = make_run(engine)
-    engine.store.journal(run.run_id, "usage", cost_usd=6.22)
+    engine.store.journal(run.run_id, "usage", **versioned_usage(run.run_id, 1, cost_usd=6.22))
     if bound == "iterations":
         run.iterations = engine.config.budgets.max_iterations
     elif bound == "clock":
@@ -3036,7 +3099,7 @@ def test_reported_cost_cap_controls_validation_resume_without_erasing_usage(tmp_
     engine.config.budgets.max_cost_usd = cap
     run = make_run(engine)
     run.stage = "validate"
-    engine.store.journal(run.run_id, "usage", cost_usd=6.22)
+    engine.store.journal(run.run_id, "usage", **versioned_usage(run.run_id, 2, cost_usd=6.22))
     engine._conduct_task(run, forge.ticket, FakeAegis(sequence("validate", "done")), "")
     assert run.lifecycle == ("awaiting-approval" if cap == 0 else "failed")
     assert any(e.get("cost_usd") == 6.22 for e in engine.store.read_journal(run.run_id))
@@ -3206,38 +3269,6 @@ def test_cleanup_keeps_resources_of_runs_with_corrupt_state(tmp_path: Path) -> N
         assert report[key] == [], key
 
 
-def test_cleanup_keeps_truncated_egress_names_shared_with_a_protected_run(
-    tmp_path: Path,
-) -> None:
-    """
-    @brief   A done and a handed-off run of a long-named project created before
-             per-run names share old cut proxy and network names; the done
-             run's executor and worktree go, the shared proxy and network stay.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    engine.config.platform.kind = "gitea"
-    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
-    done, human = (f"gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-{iid}"
-                   for iid in (26, 27))
-    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
-    engine.store.save(RunState(run_id=human, ticket_iid=27, lifecycle="handed-off"))
-    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done, human])
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runtime.containers |= {f"adore-run-{done}", f"adore-run-{human}", proxy}
-    runtime.networks.add(network)
-
-    report = engine.cleanup()
-
-    assert report["containers_removed"] == [f"adore-run-{done}"]
-    assert report["proxy_containers_removed"] == []
-    assert report["egress_networks_removed"] == []
-    assert report["worktrees_removed"] == [done]
-    assert runtime.containers == {f"adore-run-{human}", proxy}
-    assert runtime.networks == {network}
-    assert (root / human).is_dir() and not (root / done).exists()
-
-
 def test_cleanup_continues_when_the_container_runtime_fails(tmp_path: Path) -> None:
     """
     @brief   Failed runtime listings and sweeps are skipped: cleanup still
@@ -3286,34 +3317,6 @@ def test_cleanup_reports_only_worktrees_it_removed(
     assert report["worktrees_removed"] == []
 
 
-def test_cleanup_keeps_old_cut_names_another_projects_executor_uses(tmp_path: Path) -> None:
-    """
-    @brief   A done run's old cut proxy and network that another project's
-             existing executor also derives stay; the done run's executor and
-             worktree go.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    engine.config.platform.kind = "gitea"
-    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
-    done = "gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
-    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
-    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done])
-    other = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Other-3"
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runtime.containers |= {f"adore-run-{done}", other, proxy}
-    runtime.networks.add(network)
-
-    report = engine.cleanup()
-
-    assert report["containers_removed"] == [f"adore-run-{done}"]
-    assert report["proxy_containers_removed"] == []
-    assert report["egress_networks_removed"] == []
-    assert runtime.containers == {other, proxy}
-    assert runtime.networks == {network}
-    assert not (root / done).exists()
-
-
 def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
     tmp_path: Path,
 ) -> None:
@@ -3350,32 +3353,6 @@ def test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails(
 
     assert calls == ["executors"]
     assert report["worktrees_removed"] == [run_id]
-
-
-def test_cleanup_removes_unshared_old_cut_names_of_a_finished_run(tmp_path: Path) -> None:
-    """
-    @brief   A done long-named run's old cut proxy and network go when no other
-             executor exists: a proxy never counts as an executor that still
-             uses (and would so retain) its own old cut name.
-    """
-    engine, _, worktrees, _, _ = make_engine(tmp_path)
-    engine.config.platform.kind = "gitea"
-    engine.config.platform.repo = "dpasare/2026_Networked_Intelligent_Lab_Orchestrator"
-    done = "gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-26"
-    engine.store.save(RunState(run_id=done, ticket_iid=26, lifecycle="done"))
-    root, runtime = _shared_host(tmp_path, engine, worktrees, dirs=[done])
-    proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
-    network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
-    runtime.containers |= {f"adore-run-{done}", proxy}
-    runtime.networks.add(network)
-
-    report = engine.cleanup()
-
-    assert report["containers_removed"] == [f"adore-run-{done}"]
-    assert report["proxy_containers_removed"] == [proxy]
-    assert report["egress_networks_removed"] == [network]
-    assert runtime.containers == set() and runtime.networks == set()
-    assert not (root / done).exists()
 
 
 @pytest.mark.parametrize("backoff, expected", [

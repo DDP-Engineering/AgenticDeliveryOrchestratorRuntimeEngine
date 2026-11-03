@@ -5,51 +5,51 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Project image evidence and external preparation
+# Project images and external preparation
 
 ## 1. Purpose
 
-Preserve historical project image evidence and owned interruption recovery while
-executor image definition and build are operator actions outside ADORE; backend,
+Executor image definition and build are operator actions outside ADORE; backend,
 container runtime and image selection are administrator choices at enrollment and in
 reviewed Settings edits. Executor configuration explains both.
 
 ## 2. Responsibilities
 
-`ImageBuildStore` retains bounded strict project-owned source/operation records.
-`ImageBuildService` retains readers, verification contracts and interrupted owned
-cleanup. Its internal pipeline remains available to existing artifact tests; web
-routes and the worker do not expose build execution. `ContainerBackend` continues
-to own actual run image identity and reviewed preparation recipe authority.
+ADORE owns no image definition or build. The retired image-build subsystem (the
+Dockerfile draft store, the build runner and its web routes) is removed.
+`ContainerBackend` owns actual run image identity and reviewed preparation recipe
+authority. The executor environment lists the server's installed images and the
+administrator chooses one.
 
 ## 3. Implementation Overview
 
-`app.py` authenticates and scopes historical reads/exports/status/cancellation.
-Definition PUT and operation POST return 410 `environment_managed_externally`
-before artifact or runtime changes. The worker fails retained queued builds and
-marks their evidence rejected; it never starts a build. Previously running owned
-scopes retain existing recovery/cleanup checks. No history/image/schema migration
-or resource deletion accompanies this change.
+`app.py` has no image-build routes: `GET/PUT /api/v1/projects/{name}/image-build`,
+`/image-build/export`, `/image-build/operations`, `/image-build/operations/{id}`
+and `/image-build/operations/{id}/cancel` answer 404. The worker does not handle
+`image-build` operations or recover running builds. There are no migrations:
+evidence left by earlier builds is not read.
 
 ## 4. Dependencies
 
-Existing ProfileStore, WebStore, ImageBuildStore, ImageBuildService and native
-owned process controllers. Existing Docker/Podman clients are used only by owned
-interruption recovery here. Actual image preparation uses the operator's runtime.
+Existing ProfileStore, WebStore and the executor environment image listing.
+Actual image preparation uses the operator's runtime.
 
 ## 5. Inputs And Outputs
 
-Scoped historical image-build GET/export/operation-status and cancellation
-contracts remain. Authorized definition save/build creation receive HTTP410.
-Environment configuration direct/stage/apply requests receive HTTP400
+`execution.backend`, `container.runtime`, `container.image` and the local
+account/home/path/cgroup keys are chosen through the reviewed pending flow.
+Other environment configuration direct/stage/apply requests receive HTTP400
 `environment_managed_externally`; other executor/model edits remain supported.
-Old pending candidates can be read and discarded but not applied.
+A pending candidate carrying an `image_build` binding, or a candidate for an
+operator-owned environment key, could only be staged by an earlier build: it is
+503 `pending_config_corrupt` on view and on apply, and an administrator can still
+discard it through `DELETE /api/v1/projects/{name}/config/pending`.
 
 ## 6. Data Contracts
 
-Existing strict artifact schemas, UUID ownership, bounded source/output,
-secret redaction and uncertain cleanup fail-closed semantics remain. Configuration
-schema, database action enum and installed images retain compatibility.
+`ConfigEdit` has no `image_build_id` staging field, and the pending review shows
+no image-build binding. Container images remain externally managed; the
+configured `container.image` names an installed image.
 
 ## 7. Workflow Integration
 
@@ -64,9 +64,10 @@ See [Project executor images](../01_Documentation/Project_Executor_Images.md).
 
 ## 9. Validation And Tests
 
-`tests/test_web_image_build.py`: guidance metadata, membership/role/CSRF scoping,
-mutation refusal with unchanged bytes/artifacts/runtime, queued rejection and
-non-environment edits. `test_web_pending_config.py`: strict legacy read/discard
-and apply refusal. `test_image_build.py` retains artifact/native identity/recovery
-trust-boundary coverage. `web/e2e/images.spec.ts`: localized disclosure/local
-suppression/Admin path/mobile presentation.
+`test_executor_environment_choice.py`: installed image listing, chosen
+environment keys through review, other environment keys staying external, and
+`test_pending_image_build_binding_is_corrupt_but_discardable`.
+`test_web_pending_config.py`:
+`test_pending_candidate_for_an_external_key_is_corrupt_but_discardable`.
+`web/e2e/images.spec.ts`: localized disclosure/local suppression/Admin
+path/mobile presentation.

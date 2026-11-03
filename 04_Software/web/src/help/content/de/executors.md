@@ -24,9 +24,9 @@ Werte von Zugangsdaten erscheinen nie in Prüfungen, Audit-Einträgen oder Expor
 
 ## KI-Verbindung testen {#test-connection}
 
-Administratoren wählen **KI-Verbindung testen** unter **KI-Verbindung**. Das sendet eine kurze Anfrage über den konfigurierten Agenten in einem temporären Container, wodurch Anbietergebühren entstehen können. Das Projekt muss inaktiv sein, gültige gespeicherte Einstellungen und keine ausstehende Änderung haben; das Image braucht Python und den Agenten.
+Administratoren wählen **KI-Verbindung testen** unter **KI-Verbindung**. Das sendet eine kurze Anfrage über den konfigurierten Agenten in einem temporären Container oder, bei einem auf dem Server installierten Agenten, in einem temporären Ordner, wodurch Anbietergebühren entstehen können. Das Projekt muss inaktiv sein, gültige gespeicherte Einstellungen und keine ausstehende Änderung haben; bei einem Container-Projekt braucht das Image Python und den Agenten.
 
-Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätigt**, mit Hinweisen bei Zeitüberschreitung, fehlendem Image oder Agenten, falschen Zugangsdaten oder nicht verfügbarem Modell. Es belegt nur den Modellzugriff, nicht die Unterstützung von Werkzeugen, und startet keinen Auftrag. Das gespeicherte Ergebnis ist an das aktuelle Modell, die Einstellungen und die Zugangsdaten gebunden und erscheint in den Host-Prüfungen der Zusammenfassung. Entwickler sehen es, können den Test aber nicht ausführen.
+Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätigt**, mit Hinweisen bei Zeitüberschreitung, fehlendem Image oder Agenten, falschen Zugangsdaten, nicht verfügbarem Modell oder einem Shell-Befehl, den der Agent nicht ausführen konnte. Bei auf dem Server installiertem OpenCode, Pi oder Codex bittet die Anfrage den Agenten zusätzlich, einen Shell-Befehl auszuführen, und das Ergebnis lautet nur dann verbunden, wenn dieser Befehl lief; sonst belegt der Test nur den Modellzugriff. Er startet keinen Auftrag. Das gespeicherte Ergebnis ist an das aktuelle Modell, die Einstellungen und die Zugangsdaten gebunden und erscheint in den Host-Prüfungen der Zusammenfassung. Entwickler sehen es, können den Test aber nicht ausführen.
 
 ## Wo Aufträge laufen {#where-jobs-run}
 
@@ -35,6 +35,7 @@ Das Ergebnis lautet **KI-Modell verbunden** oder **KI-Verbindung nicht bestätig
 | Läuft in | Einem temporären Docker- oder Podman-Container auf dem ADORE-Server | Dem ADORE-Server selbst, unter dem Betriebssystemkonto des Dienstes, in einem eigenen Worktree |
 | Umgebung | Einem vom Administrator vorbereiteten Projekt-Image | Werkzeugen, Versionen und Bibliotheken, die Sie selbst auf diesem Server installieren |
 | Anmeldung | Aufgeführte API-Schlüssel oder Host-Anmeldung | Die vorhandene Anmeldung des Agenten auf diesem Konto, an Ort und Stelle weiterverwendet |
+| Agent-Einstellungen | Die Einstellungen des Images, dazu der [lokale Endpunkt für OpenCode](#local-endpoint), falls gesetzt | Für OpenCode ein von ADORE verwalteter Einstellungsordner: Agenten, Anbieter, Plugins und Berechtigungen aus Ihrem persönlichen OpenCode-Einstellungsordner werden nicht verwendet, `git push` und die Forge-Werkzeuge sind gesperrt, und die Ordner `.opencode` und `.agents/skills` im Home-Verzeichnis des Kontos gelten weiterhin |
 | Isolation | Container mit Netzwerkrichtlinie | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
 | Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |
 

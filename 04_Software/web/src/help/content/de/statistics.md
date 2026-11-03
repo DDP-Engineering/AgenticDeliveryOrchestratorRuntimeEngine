@@ -36,7 +36,7 @@ Karten für **Gestartete Jobs**, **Abgeschlossene Jobs**, **Fehlgeschlagene Jobs
 
 ### Trends {#tab-trends}
 
-Die Messabdeckung und **Nutzung ohne Verbrauchsdatum** erscheinen als kompakte Werte. Eine Tabelle hat eine Zeile je Gruppe (Tag, Woche oder Monat) mit gestarteten, abgeschlossenen und fehlgeschlagenen Aufträgen als proportionale Balken, dazu Eingabe- und Ausgabe-Token und, für Administratoren, gemeldete und geschätzte Kosten.
+Die Messabdeckung erscheint als kompakter Wert. Eine Tabelle hat eine Zeile je Gruppe (Tag, Woche oder Monat) mit gestarteten, abgeschlossenen und fehlgeschlagenen Aufträgen als proportionale Balken, dazu Eingabe- und Ausgabe-Token und, für Administratoren, gemeldete und geschätzte Kosten.
 
 Hat der Bereich noch keine Aufträge, sagen Qualität und Trends das und weisen Sie auf Aufträge → Tickets hin, wo Sie einen starten können.
 

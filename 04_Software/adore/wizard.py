@@ -57,7 +57,7 @@ _LICENSE_LINES = (
 _OPENCODE_COMMAND = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 _PI_COMMAND = "pi -p --mode json --model {model} {prompt}"
 _CODEX_COMMAND = (
-    "codex exec {resume}--json --model {model} "
+    "codex exec --json --model {model} "
     "--ignore-user-config --disable plugins "
     "--dangerously-bypass-approvals-and-sandbox {prompt}"
 )

@@ -1,0 +1,27 @@
+format: 1
+id: wb_01M69JK84JV195DRBMQ9NCDM15
+name: 2026_AgenticDeliveryOrchestratorRuntimeEngine
+description: ""
+embeddings:
+  model: Xenova/bge-small-en-v1.5
+  chunkSize: 1400
+  overlap: 200
+docs:
+  include:
+    - .agentic/**
+    - 00_Planning/**
+    - 01_Documentation/**
+    - 02_Tools/**
+    - 05_SoftwareDocu/**
+    - 09_Others/**
+  exclude: []
+retrieval:
+  results: 8
+  mode: hybrid
+skills:
+  disabled: []
+tools:
+  disabled: []
+agent:
+  permission_mode: bypass
+  model: null

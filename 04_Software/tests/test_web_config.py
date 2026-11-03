@@ -55,7 +55,8 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
         assert path.read_bytes() == original
         assert client.get("/api/v1/projects/alpha/config/pending").json() == candidate
         result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                             json={"candidate_revision": candidate["candidate_revision"]})
+                             json={"candidate_revision": candidate["candidate_revision"],
+                                   "base_revision": candidate["base_revision"]})
         assert result.status_code == 200, result.text
     expected = tomllib.loads(original.decode())
     expected["delivery"]["reviewers"] = ["alice", "bob.smith"]
@@ -223,7 +224,8 @@ def test_local_endpoint_uses_only_allowlisted_auth_reference(tmp_path):
         staged = client.post(target, json=body, headers={"X-CSRF-Token": csrf})
         assert staged.status_code == 200, staged.text
         applied = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"]},
+            "candidate_revision": staged.json()["candidate_revision"],
+            "base_revision": staged.json()["base_revision"]},
             headers={"X-CSRF-Token": csrf})
         assert applied.status_code == 200, applied.text
         viewed = client.get("/api/v1/projects/alpha/config").json()
@@ -272,7 +274,8 @@ def test_local_endpoint_profile_persists_timeout_and_custom_ca(tmp_path):
             "ca_file": "/etc/ssl/adore-model-ca.pem",
         }
         applied = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"]},
+            "candidate_revision": staged.json()["candidate_revision"],
+            "base_revision": staged.json()["base_revision"]},
             headers={"X-CSRF-Token": csrf})
         assert applied.status_code == 200, applied.text
         assert load_config(path).container.runtime_env[
@@ -284,7 +287,8 @@ def test_local_endpoint_profile_persists_timeout_and_custom_ca(tmp_path):
         assert cleared.status_code == 200, cleared.text
         assert cleared.json()["endpoint"]["ca_file"] is None
         assert client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": cleared.json()["candidate_revision"]},
+            "candidate_revision": cleared.json()["candidate_revision"],
+            "base_revision": cleared.json()["base_revision"]},
             headers={"X-CSRF-Token": csrf}).status_code == 200
     config = load_config(path)
     assert config.container.runtime_env["NODE_EXTRA_CA_CERTS"] == ""
@@ -591,7 +595,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         assert settings["delivery.reviewers"]["editable"] is True
         assert settings["delivery.reviewers"]["type"] == "list"
         not_editable = ["container.egress.allowlist", "container.runtime_env.UV_LINK_MODE",
-                        "state.channel", "state.store_root", "clarification.reminder_after"]
+                        "state.store_root", "clarification.reminder_after"]
         for key in not_editable:
             assert settings[key]["editable"] is False, key
         assert "container.runtime_env.API_KEY" not in settings  # redacted, never listed
@@ -610,7 +614,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
                                                "revision": revision}, headers=csrf)
             assert staged.status_code == 200, (key, staged.text)
             assert client.delete(target, headers=csrf).status_code == 200
-        for key in ("executor.unknown.command", "state.channel", "state.store_root",
+        for key in ("executor.unknown.command", "state.store_root",
                     "clarification.reminder_after", "container.runtime_env.api_key"):
             refused = client.post(target, json={"key": key, "value": "x",
                                                 "revision": revision}, headers=csrf)
@@ -620,7 +624,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         original = profiles.config_path("alpha").read_bytes()
         for method, route in ((client.put, "/api/v1/projects/alpha/config"),
                               (client.post, target)):
-            refused = method(route, json={"key": "state.channel", "value": "labels",
+            refused = method(route, json={"key": "state.store_root", "value": "elsewhere",
                                           "revision": revision}, headers=csrf)
             assert refused.status_code == 400
             assert refused.json()["detail"]["code"] == "setting_not_editable"

@@ -95,7 +95,7 @@ resolved configuration.
 | `adore [selector] retry <run-id>` | Re-arm a retryable run. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
 | `adore [selector] handoff <run-id>` | Transfer a run to a human at the next safe boundary, preserving its worktree and checkpoint evidence. If the conductor lock is held, the command queues the request; wait for `handed-off` before editing. This does not approve publication. |
-| `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, or `publishing`; any other target, and every target for a run recorded at the removed `deliver` stage, is refused and the run stays unchanged. After `publishing`, `retry` returns an already published candidate to review, publishes an approved unpublished one, and otherwise conducts the run from `done`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
+| `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, or `publishing`; any other target is refused and the run stays unchanged. After `publishing`, `retry` returns an already published candidate to review, publishes an approved unpublished one, and otherwise conducts the run from `done`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Reclaim a provably stale local lock and remove the selected project's finished and orphaned run resources: the executor/proxy containers, egress networks and worktree directories of its done, cancelled, stale and state-less runs. Other projects' resources stay, even with a shared slug, egress network prefix or worktree root. Active, failed, human-owned and corrupt runs are protected; a live/unknown lock remains held and is reported. |
 
@@ -129,8 +129,11 @@ diagnostic.
 | `adore [selector] export --csv` | Export metrics, including governance outcome, as CSV. |
 
 `report` and `stats --rebuild` fail with a metrics-evidence error when a
-versioned usage record is malformed or conflicts with another record for the
-same launch. Rebuild validates all terminal runs before refreshing summaries.
+usage record has no event ID, is malformed or conflicts with another record for
+the same launch. Rebuild validates all terminal runs before refreshing summaries.
+A metrics database whose summary table has other columns than the current
+summary is refused with `metrics database <path> was written by another ADORE
+build; delete it to start fresh`; ADORE does not alter the table.
 
 ## Exit Codes
 

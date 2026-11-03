@@ -7,12 +7,12 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Portable working-rules contract
 
-## Behavior and compatibility
+## Behavior
 
 Export validates the authoritative active TOML snapshot, recognized declared
 structure and the portable values. It projects resolved defaults as well as
-declared settings. A source with unknown fields or malformed types fails closed;
-the legacy lenient TOML loader and exact TOML enrollment remain unchanged.
+declared settings. A source with unknown fields or malformed types fails closed,
+as config.toml validation does; exact TOML enrollment remains unchanged.
 Known excluded fields are intentionally omitted under this documented contract.
 No redacted read model is an export source.
 
@@ -20,8 +20,8 @@ JSON has exactly `kind`, `schema_version`, `source`, `settings`, `checksum`.
 Kind is `adore-project-settings`, schema_version is integer 1 (boolean rejected).
 Source has exactly `product: "ADORE"`, `version: adore.__version__` and
 `contract: "portable-rules-v1"`. Consumers accept only their exact installed
-ADORE version and this contract. A different release requires an explicit
-future compatibility decision; nothing is guessed, dropped or migrated.
+ADORE version and this contract. A package from a different release is
+refused; nothing is guessed, dropped or migrated.
 No separate hardcoded release version or runtime state migration exists.
 
 ## Enumerated complete allowlist

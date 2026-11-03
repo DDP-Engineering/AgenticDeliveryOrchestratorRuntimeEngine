@@ -96,6 +96,7 @@ from adore.util import (
     in_quiet_hours,
     iso_to_datetime,
     load_env_file,
+    output_tail,
     run_command,
     strict_json_loads,
     utc_now_iso,
@@ -118,6 +119,9 @@ _REDACTIONS = (
     re.compile(r"(?i)(api[_-]?key\s*[:=]\s*)(\S+)"),
 )
 _MAX_EVIDENCE = 6000
+# Executor stderr shown with NO_STAGE_PROGRESS: the decisive line is usually the last.
+_STDERR_TAIL_LINES = 20
+_STDERR_TAIL_CHARS = 2000
 _TICKET_CONTENT_CHANGED_NOTE = "ticket content changed since pickup"
 # Valid only while the single-conductor lock prevents another process from
 # reconciling a legitimately long-running stage as abandoned.
@@ -131,12 +135,36 @@ class _CheckpointHalted(IsolationError):
 # HELPER FUNCTIONS
 
 
-def _sanitize(value: Any, limit: int = _MAX_EVIDENCE) -> str:
-    """@brief Render bounded evidence with common credential forms redacted."""
+def _sanitize(value: Any, limit: int | None = _MAX_EVIDENCE) -> str:
+    """@brief Render evidence with common credential forms redacted, keeping its end.
+    @param[in] limit Characters kept from the end, or None to keep the whole text.
+    """
     text = str(value).replace("\x00", "")
     for pattern in _REDACTIONS:
         text = pattern.sub(r"\1[REDACTED]", text)
-    return text[-limit:]
+    return text if limit is None else text[-limit:]
+
+
+def _stderr_tail(stderr: str) -> str:
+    """@brief Last executor stderr lines without ANSI escapes, bounded for evidence.
+    @param[in] stderr Gate stderr as read from the run's io directory.
+    @return The last 20 lines within 2000 characters, or "" when stderr is blank.
+    """
+    return output_tail(stderr, lambda text: _sanitize(text, None),
+                       lines=_STDERR_TAIL_LINES, chars=_STDERR_TAIL_CHARS)
+
+
+def _head_and_tail(text: str, limit: int) -> str:
+    """@brief Bound text but keep its first line, which carries the failure sentence.
+    @param[in] text Sanitized evidence.
+    @param[in] limit Maximum length of the result.
+    @return The text when it fits, otherwise its first line, "...", and its end.
+    """
+    if len(text) <= limit:
+        return text
+    head = text.split("\n", 1)[0][: limit // 2]
+    marker = "\n...\n"
+    return head + marker + text[-(limit - len(head) - len(marker)):]
 
 
 def _task_type(ticket: Ticket, config: Config) -> str:
@@ -512,12 +540,6 @@ class Orchestrator:
         if run.lifecycle in {"handed-off", "handoff-pending"}:
             self.log("human-owned run cannot be reset for automatic execution")
             return False
-        if run.stage == "deliver":
-            # deliver is history from AEGIS before 0.15.0. Its old approval stays
-            # in the run state, so any reset could lead on to publishing it.
-            self.log("a run recorded at the removed deliver stage cannot be reset; "
-                     "cancel or delete it")
-            return False
         run.stage = stage
         run.lifecycle = "failed"
         run.stage_failures = 0
@@ -535,7 +557,7 @@ class Orchestrator:
                  slug, egress network prefix or worktree root. Active, failed,
                  human-owned and corrupt runs keep their resources, and a
                  proxy or network any other existing executor still derives
-                 (an old cut name can be shared) stays. Without the executor
+                 stays. Without the executor
                  listing no proxy or network is removed.
         @return  Lock outcome, removed resources (sorted) and corrupt run IDs.
         """
@@ -1149,11 +1171,11 @@ class Orchestrator:
                         + _sanitize("\n".join(added))
                     )
                     continue
-                if not self._stage_failure(
-                    run,
-                    "NO_STAGE_PROGRESS",
-                    f"executor exited zero but AEGIS remained at {task.stage}",
-                ):
+                evidence = f"executor exited zero but AEGIS remained at {task.stage}"
+                tail = _stderr_tail(result.stderr)
+                if tail:
+                    evidence += "\nExecutor stderr (last lines):\n" + tail
+                if not self._stage_failure(run, "NO_STAGE_PROGRESS", evidence):
                     return
                 failure_context = "Complete or legally route the current AEGIS stage."
                 continue
@@ -2027,7 +2049,8 @@ class Orchestrator:
     def _terminal_failure(self, run: RunState, code: str, evidence: str) -> None:
         """@brief Enter failed, stop execution, preserve worktree and post separately."""
         run.lifecycle = "failed"
-        run.outcome = f"{code}: {_sanitize(evidence, 2000)}"
+        # Unbounded first: the 6000-character cut would drop the sentence at the start.
+        run.outcome = f"{code}: {_head_and_tail(_sanitize(evidence, None), 2000)}"
         self.store.save(run)
         with contextlib.suppress(IsolationError):
             self.backend.stop(run.container, expected=run.execution.get("resource") or None)

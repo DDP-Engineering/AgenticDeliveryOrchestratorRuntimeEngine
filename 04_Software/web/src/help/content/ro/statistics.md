@@ -36,7 +36,7 @@ Carduri pentru **Joburi începute**, **Joburi terminate**, **Joburi eșuate**, *
 
 ### Tendințe {#tab-trends}
 
-Acoperirea utilizării și **Consum fără dată de atribuire** apar ca valori compacte. Un tabel are un rând pe interval (zi, săptămână sau lună) cu lucrările începute, terminate și eșuate ca bare proporționale, plus tokenurile de intrare și de ieșire și, pentru administratori, costul raportat și estimat.
+Acoperirea utilizării apare ca valoare compactă. Un tabel are un rând pe interval (zi, săptămână sau lună) cu lucrările începute, terminate și eșuate ca bare proporționale, plus tokenurile de intrare și de ieșire și, pentru administratori, costul raportat și estimat.
 
 Dacă domeniul nu are încă lucrări, Calitate și Tendințe spun asta și vă trimit la Lucrări → Tichete pentru a porni una.
 

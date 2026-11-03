@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { validPreparationEvidence, type PreparationEvidence } from "./executionPlan.ts";
 export const lifecycles = ["working", "publishing", "parked-clarification", "awaiting-approval", "in-review", "handoff-pending", "handed-off", "done", "failed", "cancelled", "stale"] as const;
-export const stages = ["frame", "specify", "design", "build", "validate", "deliver", "done", "publishing"] as const;
+export const stages = ["frame", "specify", "design", "build", "validate", "done", "publishing"] as const;
 export type Lifecycle = typeof lifecycles[number];
 export type Job = {
   preparation?: PreparationEvidence | null;

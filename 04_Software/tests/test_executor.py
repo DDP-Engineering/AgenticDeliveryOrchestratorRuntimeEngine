@@ -42,7 +42,7 @@ import pytest
 TEMPLATE = "opencode run --dir {worktree} -m {model} --format json {prompt}"
 PI_TEMPLATE = "pi -p --mode json --model {model} {prompt}"
 CODEX_TEMPLATE = (
-    "codex exec {resume}--json --model {model} "
+    "codex exec --json --model {model} "
     "--ignore-user-config --disable plugins "
     "--dangerously-bypass-approvals-and-sandbox {prompt}"
 )
@@ -536,24 +536,6 @@ def test_factory_selects_codex_and_allows_container_full_auto() -> None:
     """
     executor = build_executor("codex", CODEX_TEMPLATE, "gpt-5.5-codex")
     assert isinstance(executor, CodexExecutor)
-
-
-def test_codex_resume_placeholder_always_resolves_empty(tmp_path: Path) -> None:
-    """
-    @brief   Codex continues a session with the `exec resume --last`
-             subcommand, so its template carries a `{resume}` slot. ADORE runs
-             every gate fresh, so the slot must resolve to nothing and the
-             command must stay plain `codex exec` on every launch - including
-             the second one, which used to become `exec resume --last`.
-    """
-    worktree, io_dir = _dirs(tmp_path)
-    executor = CodexExecutor(CODEX_TEMPLATE, "gpt-5.5-codex")
-    for prompt in ("gate one", "gate two"):
-        executor.run_gate(FakeExec(CommandResult(exit_code=0)), worktree, io_dir, prompt)
-        script = (io_dir / GATE_SCRIPT).read_text(encoding="utf-8")
-        assert "codex exec --json" in script
-        assert "resume" not in script
-        assert "--session" not in script
 
 
 def test_pi_gate_uses_the_shared_fresh_session_protocol(tmp_path: Path) -> None:

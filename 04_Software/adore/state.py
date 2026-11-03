@@ -56,10 +56,8 @@ STATE_SCHEMA_VERSION = 1
 _TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8,64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #: Stages a persisted run may name. ADORE conducts frame to done and points at
-#: publishing; deliver is history from AEGIS before 0.15.0, kept so those runs
-#: stay readable, and no conduct, reset or setting path accepts it.
-_STAGES = {"frame", "specify", "design", "build", "validate", "deliver", "done",
-           "publishing"}
+#: publishing.
+_STAGES = {"frame", "specify", "design", "build", "validate", "done", "publishing"}
 _LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing",
     "in-review", "failed", "done", "cancelled", "stale", "handed-off", "handoff-pending",
@@ -119,19 +117,14 @@ class RunState:
     mr_missing_polls: int = 0
     #: Last forge pipeline verdict already surfaced for this MR/PR, so a red
     #: pipeline is reported once rather than on every poll of a run that may
-    #: sit in review for days. Additive with a default, so state written before
-    #: it existed still loads.
+    #: sit in review for days.
     pipeline_reported: str = ""
     notification_outbox: list[dict[str, Any]] = field(default_factory=list)
     candidate_fingerprint: str = ""
     candidate_base_ref: str = ""
-    #: No longer written: the delivery bookkeeping it guarded is gone. Kept so
-    #: schema-1 state recorded before AEGIS 0.15.0 still loads.
-    approved_product: str = ""
     #: Candidate fingerprint of the last publication that reached review.
     #: Stage done spans approval, publication and review, so this is what
     #: tells a published candidate from one still waiting to publish.
-    #: Additive with a default, so state written before it existed loads.
     published_fingerprint: str = ""
     approval_presented_at: str = ""
     approval_comment_id: int | None = None
@@ -157,8 +150,10 @@ class RunState:
     def from_dict(cls, data: dict[str, Any]) -> RunState:
         """
         @brief      Rebuild a RunState from a persisted mapping.
-        @details    Missing or wrong schema and unknown keys are rejected, so
-                    foreign state is never reinterpreted as an AEGIS task run.
+        @details    Missing or wrong schema, unknown keys and missing keys are
+                    rejected, so foreign state is never reinterpreted as an AEGIS
+                    task run and state of another ADORE build is never filled in
+                    with defaults (no migrations while ADORE is in development).
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
         """
@@ -173,6 +168,12 @@ class RunState:
             raise StateError(
                 f"run-state schema {STATE_SCHEMA_VERSION} has unknown "
                 f"keys: {unknown}"
+            )
+        missing = sorted(known - set(data))
+        if missing:
+            raise StateError(
+                f"run-state schema {STATE_SCHEMA_VERSION} is missing keys {missing}; "
+                "it was written by another ADORE build"
             )
         state = cls(**data)
         if (
@@ -221,8 +222,7 @@ class RunState:
             and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", state.checkpoint_remote_commit) is None
         ):
             raise StateError("run-state checkpoint_remote_commit must be a commit digest")
-        for name in ("candidate_fingerprint", "candidate_base_ref", "approved_product",
-                     "published_fingerprint"):
+        for name in ("candidate_fingerprint", "candidate_base_ref", "published_fingerprint"):
             value = getattr(state, name)
             if value and re.fullmatch(r"[0-9a-f]{40,64}", value) is None:
                 raise StateError(f"run-state {name} must be a hexadecimal digest")
@@ -589,6 +589,10 @@ class StateStore:
             return RunState.from_dict(data)
         except TypeError as exc:
             raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
+        except StateError as exc:
+            raise StateError(
+                f"{exc} (run {run_id!r}; delete {self.run_dir(run_id)} to remove it)"
+            ) from exc
 
     def list_runs(self) -> list[RunState]:
         """

@@ -9,15 +9,15 @@ schema = 1
 
 id = "REQ-FUNC-7bb356df"
 
-title = "Historical usage backfill and coverage"
+title = "Usage backfill and coverage from retained journals"
 
 status = "active"
 
 requirement = """
-When an operator rebuilds web analytics from retained journals and terminal summaries, ADORE shall reconstruct idempotent usage and coverage history without changing execution state or inventing missing executor, model, token or cost evidence.
+When an operator rebuilds web analytics from retained journals and terminal summaries, ADORE shall reconstruct idempotent usage and coverage history keyed by the usage event IDs without changing execution state or inventing unreported model or cost evidence, and shall refuse a usage event without its versioned event ID or current fields.
 """
 
-verification = "Replay known and partial legacy fixture histories twice and compare project/repository/run totals, coverage and source identities before and after; verify missing fields remain unknown, conflicting events fail closed, and run state bytes are unchanged."
+verification = "Replay fixture histories twice and compare project/repository/run totals, coverage and source identities (the usage event IDs) before and after; verify unreported values remain unknown, a usage event without an event ID and conflicting events fail closed, and run state bytes are unchanged."
 
 affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/adore/metrics.py"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-09-30
-updated = 2026-09-30
+updated = 2026-11-01

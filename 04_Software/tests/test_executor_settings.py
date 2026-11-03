@@ -143,6 +143,33 @@ def test_credential_boundary_preserves_original_bytes(tmp_path, monkeypatch, mod
                 store.release_lock()
 
 
+def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypatch):
+    """@brief A local agent that cannot run its shell call yields saved, readable evidence."""
+    profiles = project(tmp_path, kind="pi")
+    module = importlib.import_module("adore.web.app")
+    from adore.config import load_config
+
+    model = load_config(profiles.config_path("alpha")).executor.commands["pi"].model
+    monkeypatch.setattr(
+        module,
+        "probe_model_connection",
+        lambda *args: {"executor": "pi", "model": model, "ready": False,
+                       "reason": "tool-call-failed"},
+    )
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        result = client.post(
+            "/api/v1/projects/alpha/model-connection-test", headers={"X-CSRF-Token": csrf}
+        )
+        assert result.status_code == 200
+        assert (result.json()["ready"], result.json()["reason"]) == (False, "tool-call-failed")
+        assert client.get("/api/v1/projects/alpha/config").json()["model_connection"] == (
+            result.json()
+        )
+
+
 def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path, monkeypatch):
     """@brief A current explicit result survives host checks and credential drift hides it."""
     profiles = project(tmp_path, kind="pi")

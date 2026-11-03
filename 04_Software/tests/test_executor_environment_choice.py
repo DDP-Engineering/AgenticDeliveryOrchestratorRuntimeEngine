@@ -135,7 +135,8 @@ def test_chosen_environment_keys_apply_through_review(tmp_path, key, value):
         applied = client.post(
             "/api/v1/projects/alpha/config/apply",
             headers=headers,
-            json={"candidate_revision": stage.json()["candidate_revision"]},
+            json={"candidate_revision": stage.json()["candidate_revision"],
+                  "base_revision": stage.json()["base_revision"]},
         )
         assert applied.status_code == 200, applied.text
     section, name = key.split(".")
@@ -245,29 +246,8 @@ def test_wsl_wrapped_runtime_stays_accepted(tmp_path):
         assert stage.status_code == 200, stage.text
 
 
-def test_image_build_selection_stays_refused(tmp_path):
-    """@brief A built-image binding would also rewrite tool checks, so it is refused."""
-    profiles, path = _project(tmp_path)
-    original = path.read_bytes()
-    with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
-        headers = _login(client)
-        response = client.post(
-            "/api/v1/projects/alpha/config/pending",
-            headers=headers,
-            json={
-                "key": "container.image",
-                "value": "adore-built-x:1",
-                "image_build_id": "a" * 32,
-                "revision": sha256(original).hexdigest(),
-            },
-        )
-        assert response.status_code == 400, response.text
-        assert response.json()["detail"]["code"] == "environment_managed_externally"
-    assert path.read_bytes() == original
-
-
-def test_legacy_image_build_candidate_is_not_applicable(tmp_path):
-    """@brief A well-formed retained build binding is refused by the apply guard itself."""
+def test_pending_image_build_binding_is_corrupt_but_discardable(tmp_path):
+    """@brief Only an earlier build staged image bindings: refuse it, let it be discarded."""
     import json
 
     profiles, path = _project(tmp_path)
@@ -302,19 +282,24 @@ def test_legacy_image_build_candidate_is_not_applicable(tmp_path):
             "draft_revision": "e" * 64,
         },
     }
-    (path.parent / "pending_config.json").write_text(json.dumps(pending), encoding="utf-8")
+    retained = path.parent / "pending_config.json"
+    retained.write_text(json.dumps(pending), encoding="utf-8")
     with TestClient(create_app(profiles.home, probe_runner=Runner())) as client:
         headers = _login(client)
-        # The record is readable (not corrupt), so the refusal below is the guard's.
-        assert client.get("/api/v1/projects/alpha/config/pending").status_code == 200
+        viewed = client.get("/api/v1/projects/alpha/config/pending")
+        assert viewed.status_code == 503
+        assert viewed.json()["detail"]["code"] == "pending_config_corrupt"
         response = client.post(
             "/api/v1/projects/alpha/config/apply",
             headers=headers,
-            json={"candidate_revision": pending["candidate_revision"]},
+            json={"candidate_revision": pending["candidate_revision"],
+                  "base_revision": pending["base_revision"]},
         )
-        assert response.status_code == 400, response.text
-        assert response.json()["detail"]["code"] == "environment_managed_externally"
-    assert path.read_bytes() == original
+        assert response.status_code == 503, response.text
+        assert path.read_bytes() == original and retained.exists()
+        assert client.delete(
+            "/api/v1/projects/alpha/config/pending", headers=headers).status_code == 200
+    assert not retained.exists() and path.read_bytes() == original
 
 
 # END OF FILE

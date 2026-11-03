@@ -55,6 +55,7 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 | Lipsesc criteriile de acceptare | Textul cerut nu a fost găsit. |
 | Are o lucrare sau Lucrare: ... | ADORE are deja o lucrare; se afișează starea ei. |
 | Nu este deschis | Tichetul este închis. |
+| Monitorizare în pauză | Monitorizarea proiectului este în pauză; un administrator o activează din Rezumatul proiectului. Până atunci, Pornește nu este disponibil. |
 
 **Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.
 

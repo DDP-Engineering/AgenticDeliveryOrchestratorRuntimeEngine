@@ -74,7 +74,8 @@ def test_preview_and_each_reviewed_branch_edit_leave_other_values_unchanged(proj
         assert path.read_bytes() == before
         state.resume()
         target = "/api/v1/projects/alpha/config/apply"
-        body = {"candidate_revision": staged.json()["candidate_revision"]}
+        body = {"candidate_revision": staged.json()["candidate_revision"],
+                "base_revision": staged.json()["base_revision"]}
         assert client.post(target, headers=headers, json=body).status_code == 409
         assert path.read_bytes() == before
         state.pause()

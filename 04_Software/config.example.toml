@@ -52,11 +52,8 @@ repo = "group/subgroup/project"
 # How run state is reflected ON THE TICKET for humans. The authoritative state
 # always lives locally under the store_root; the ticket only mirrors it.
 [state]
-# Accepted values: "comments" | "labels" | "both". Validated for compatibility;
-# the runtime mirrors every state change with ONE status comment, edited in
-# place, and the lifecycle labels regardless of this value. Clarification and
-# delivery notices are separate comments.
-channel = "comments"
+# Every state change is mirrored by ONE status comment, edited in place, and
+# the lifecycle labels. Clarification and delivery notices are separate comments.
 # Local authoritative state directory (runs, lock, pause flag, metrics).
 # Leave out to derive ".<slug>".
 store_root = ".adore"
@@ -96,8 +93,8 @@ max_scope_hint = "small"
 # All label STRINGS are configurable; the orchestrator refers to labels only by
 # their role, so a team can rename any label without code changes.
 
-# Lifecycle labels - managed by the orchestrator (only applied when
-# state.channel includes "labels"). `ready` and `answered` are the two a HUMAN
+# Lifecycle labels - managed by the orchestrator. `ready` and `answered` are
+# the two a HUMAN
 # applies to move a ticket into / back into the flow.
 [labels.lifecycle]
 ready    = "agent-ready"      # eligible, not yet picked (human opt-in)
@@ -172,8 +169,7 @@ model = "openai/gpt-5.4-fast"
 
 # Alternative executor: OpenAI Codex (@openai/codex). To use it, set
 # `default = "codex"` above and uncomment this table. Codex reads AGENTS.md
-# natively. {resume} becomes `resume --last ` on continuation (Codex resumes
-# a prior session only outside ADORE; each ADORE gate is fresh). SAFETY: full-auto Codex mode is
+# natively; each ADORE gate is a fresh session. SAFETY: full-auto Codex mode is
 # acceptable only because ADORE runs executors inside an external container/
 # worktree sandbox and keeps push/MR ownership outside the executor.
 # `--ignore-user-config` plus `--disable plugins` prevents workstation-local
@@ -181,7 +177,7 @@ model = "openai/gpt-5.4-fast"
 # ADORE stages only auth.json into an isolated CODEX_HOME when
 # `stage_host_auth = true`.
 # [executor.codex]
-# command = "codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
+# command = "codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
 # model = "gpt-5.5"
 
 # Alternative executor: Qwen Code (@qwen-code/qwen-code, a Gemini-CLI fork). To
@@ -463,7 +459,7 @@ html_out = ".adore/metrics/stats.html"
 # Keep preparation empty; remove container required_tool_checks/run_args/custom
 # runtime_env, set egress open and stage_host_auth=false. No tools are installed.
 # Select installed native argv; Windows npm shims need explicit node.exe + installed JS.
-# Each gate starts fresh; {resume} is empty, including Codex.
+# Each gate starts a fresh session, including Codex.
 # [local]
 # account = "current"  # Actual ADORE account; named value asserts it.
 # home = ""           # Already prepared home; blank uses the account default.

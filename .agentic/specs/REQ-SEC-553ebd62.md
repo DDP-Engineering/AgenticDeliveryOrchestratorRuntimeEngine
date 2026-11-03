@@ -28,32 +28,31 @@ network. Their names are derived from the executor container name `E`:
    connect) and reaping (`remove_egress`) use only these names.
 6. Names that fit their limit are the same as before; only cut names change.
 
-## Old cut names (clean break)
+## Names of earlier builds
 
-Before this contract a long `S` was simply cut to 50 (proxy) or 48 (network)
-characters. Such **old cut names** are never created or reused by
-provisioning and never removed by reaping. A run whose executor container was
-created under an old cut network must be finished or re-provisioned before the
-upgrade; otherwise its restarted executor stays on the old network without a
-reachable proxy.
+Earlier ADORE builds simply cut a long `S` to 50 (proxy) or 48 (network)
+characters. ADORE does not recognise such old cut names: provisioning never
+creates or reuses them, and neither reaping nor `adore cleanup` removes them.
+An operator removes leftovers of an earlier build by hand with the container
+runtime CLI (01_Documentation/Recovery_And_Maintenance.md).
 
-`adore cleanup` treats both forms as derived names of a run: for each target
-executor it may remove the new and the old cut proxy/network names, except any
-name that a retained executor or any other existing executor container (listed
-under `<slug>-run-`, proxies excluded) also derives in either form. If that
-listing fails, cleanup removes no proxy or network in that pass.
+For each target executor `adore cleanup` may remove its per-run proxy and
+network names, except any name that a retained executor or any other existing
+executor container (listed under `<slug>-run-`, proxies excluded) also
+derives. If that listing fails, cleanup removes no proxy or network in that
+pass.
 
 ## Data / interface
 
 - `ContainerManager.cleanup_orphan_containers(prefix, targets, retained)`,
   `cleanup_egress_proxies(targets, retained)` and
-  `cleanup_egress_networks(targets, retained)` derive both name forms. Proxy
+  `cleanup_egress_networks(targets, retained)` derive the per-run names. Proxy
   candidates are listed by the `-egress-proxy` suffix, because a bounded
   per-run proxy name of a long slug no longer starts with `<slug>-run-`;
   networks are listed by their prefixes.
 - `ContainerManager.list_executors(prefix)` lists executor containers without
-  proxy containers (an old cut proxy name derives itself and would otherwise
-  keep itself).
+  proxy containers (a proxy name often starts with the executor prefix but is
+  not an executor).
 - No configuration, command or report change.
 
 ## Examples
@@ -71,13 +70,13 @@ listing fails, cleanup removes no proxy or network in that pass.
 - Two projects `dpasare/2026_Networked_Intelligent_Lab_Orchestrator` and
   `dpasare/2026_Networked_Intelligent_Lab_Other` get different proxy and
   network names.
-- Cleanup of project A's done run keeps the old cut proxy that project B's
-  existing executor also derives.
+- Cleanup of project A's done run leaves an old cut proxy or network of an
+  earlier build in place.
 
 ## Acceptance
 
 - Automated tests cover the examples, provisioning of a second long-named run,
-  reaping, and the cleanup rules for old cut names, including a failed listing.
+  reaping, and the cleanup rules for per-run names, including a failed listing.
 
 ## Assumptions and open decisions
 

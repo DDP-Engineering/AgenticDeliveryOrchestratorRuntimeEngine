@@ -30,10 +30,9 @@ missing. RepositoryAuthError subclasses ForgeError with a value-free code.
 
 
 load_connection publicly returns the strictly validated protected internal record
-or None when absent. project_runner uses that read for scoped forge auth; image
-artifacts use only its token for in-memory rejection/redaction. Build clients
-receive no token. Additional focused proof: tests/test_image_build.py credential
-boundaries and tests/test_repository_connection.py scoped/corrupt persistence.
+or None when absent. project_runner uses that read for scoped forge auth.
+Additional focused proof: tests/test_repository_connection.py scoped/corrupt
+persistence.
 
 ## Invariants
 
@@ -60,7 +59,6 @@ flowchart LR
     engine([from_config / readiness]) --> load[project_runner]
     load --> read[load_connection]
     read --> secret
-    images([ImageBuildService redaction]) --> read
     load --> runner
     load --> external[portable_tea_runner when no scoped record]
     external --> discovery[discover_tea_logins]

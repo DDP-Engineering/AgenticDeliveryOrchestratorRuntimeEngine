@@ -22,6 +22,8 @@ from pathlib import Path
 import re
 import tempfile
 
+from adore.web.model_connection import REASONS as MODEL_TEST_REASONS
+
 # CONSTANTS
 PROVIDER_KEYS = frozenset(
     {
@@ -37,19 +39,8 @@ PROVIDER_KEYS = frozenset(
         "GROQ_API_KEY",
     }
 )
-REASONS = frozenset(
-    {
-        "ready",
-        "timeout",
-        "image-missing",
-        "cli-missing",
-        "credential-invalid",
-        "model-unavailable",
-        "connection-failed",
-        "invalid-response",
-        "runtime-error",
-    }
-)
+# One closed reason set for probing and for persisted evidence.
+REASONS = frozenset(MODEL_TEST_REASONS)
 RESULT_KEYS = {"project_id", "revision", "checked_at", "executor", "model", "ready", "reason"}
 
 
@@ -128,15 +119,6 @@ def _atomic(path: Path, raw: bytes) -> None:
 
 
 # PUBLIC API
-
-
-def credential_values(directory: Path) -> list[str]:
-    """@brief Read existing private dotenv values solely for in-memory redaction.
-    @return Nonempty configured values; callers must never persist or forward them.
-    @exception ExecutorSettingsError Corrupt stored input fails closed.
-    """
-    _lines, values = _environment(directory)
-    return [value for value in values.values() if value]
 
 
 def credential_view(directory: Path, config) -> dict:

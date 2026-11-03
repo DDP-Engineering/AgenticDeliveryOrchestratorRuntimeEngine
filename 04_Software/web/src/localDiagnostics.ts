@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type { Locale } from "./i18n";
+import { modelConnectionCopy } from "./modelEvidence.ts";
 
 export const localProbeReasons = ["ready", "executable-missing", "credential-missing", "credential-invalid", "executor-exit", "version-invalid", "timeout", "account-mismatch", "permission-denied", "scope-error", "cleanup-failed", "runtime-error"] as const;
 export type LocalProbe = {ready: boolean; reason: typeof localProbeReasons[number]; exit_code: number | null};
@@ -51,6 +52,6 @@ export function modelFailureText(locale: Locale, reason: string): string {
 
 /** The model request uses the selected backend and reuses its existing sign-in. */
 export function modelTestHelp(locale: Locale, local: boolean): string {
-  if (local) return localDiagnosticCopy[locale].help;
+  if (local) return modelConnectionCopy[locale].help;
   return {en: "Sends one short request through the configured agent in a temporary container. Provider charges may apply. Full jobs and tools are checked separately.", ro: "Trimite o cerere scurtă prin agentul configurat într-un container temporar. Furnizorul poate percepe un cost. Joburile complete și instrumentele se verifică separat.", fr: "Envoie une courte requête via l’agent configuré dans un conteneur temporaire. Des frais peuvent s’appliquer. Les tâches complètes et outils sont vérifiés séparément.", de: "Sendet eine kurze Anfrage über den konfigurierten Agenten in einem temporären Container. Anbietergebühren sind möglich. Vollständige Aufträge und Werkzeuge werden separat geprüft."}[locale];
 }

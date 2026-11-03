@@ -61,7 +61,7 @@ Badges carry a symbol as well as colour, and job lists show the current stage be
 
 On Jobs, **Status** narrows the list to **Active jobs**, **Waiting**, **Human review** or **Finished jobs**. A project's Monitoring badge reads **Active** or **Paused**, and an archived project reads **Archived**. Environment verification reads **Verified**, **Partially verified**, **Verification failed**, **Stale verification** or **Unverified**; Unverified means there is no current evidence, not that a check failed.
 
-After **Start**, **Retry** or **Cancel**, a notice reports the command as queued, running, completed, failed or uncertain. Inspect an uncertain command before submitting it again.
+After **Start**, **Retry** or **Cancel**, a notice reports the command as queued, running, completed, failed or uncertain. Inspect an uncertain command before submitting it again. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
 
 ## Automatic updates, language and theme {#preferences}
 

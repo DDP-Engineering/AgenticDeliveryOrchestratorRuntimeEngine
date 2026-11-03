@@ -15,7 +15,18 @@ conductor owns stages, budgets, questions, approval and draft delivery.
 ## 2. Responsibilities
 
 `local_execution.py` selects/pins actual machine/account/environment/executable,
-binds paths and reuses auth in place. `local_process.py` owns durable leases,
+binds paths and reuses auth in place. `local_environment` builds the explicit
+allowlist: `SYSTEM_ENV_KEYS` on every platform plus `WINDOWS_SYSTEM_ENV_KEYS`
+(PATHEXT, PROCESSOR_*, NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData,
+ProgramFiles*, CommonProgramFiles*, ALLUSERSPROFILE, PUBLIC) on Windows; account-
+derived and forge credential names stay out, and the result is pinned as
+`environment_sha256`. For OpenCode profiles it adds `XDG_CONFIG_HOME` =
+`managed_opencode_config` (`<state root>/executor-config`),
+`OPENCODE_DISABLE_CLAUDE_CODE=1` and `OPENCODE_PERMISSION` =
+`OPENCODE_PERMISSION_POLICY` before `[local].environment`, so explicit values win
+(for the three managed names on Windows regardless of name case);
+`LocalBackend` creates the managed folder (or raises `LocalExecutionError`) before
+any native launch. `local_process.py` owns durable leases,
 Windows Jobs and Linux delegated cgroups. `local_child.py` joins its scope and
 holds a durable release barrier before project commands. Project tools are user-owned.
 
@@ -76,7 +87,7 @@ full epic integration remain operator work; offline proof does not prove real
 Job/cgroup availability.
 
 Native AEGIS stdout preserves the established 4 MiB JSON exchange bound; gate
-stdout, stderr and questions remain bounded at 64 KiB. Native stream decoding
+stdout, stderr and questions remain bounded at 64 KiB through `LocalTarget.output_limit`; Test AI connection raises its probe target's stdout bound to 1 MiB, as in the container test, because Pi repeats the whole conversation in its events. Native stream decoding
 rejects invalid UTF-8; truncated JSON cannot become successful AEGIS evidence.
 The shared drain retains container defaults. Saved local readiness checks reuse
 approved profile .env values in memory through the same native environment.

@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-0b728218"
+title = "Report tool-call-failed when the local agent cannot complete its shell call"
+status = "active"
+requirement = """
+If a local Test AI connection for an OpenCode, Pi or Codex profile exits zero with a parseable event stream but without a completed, successful shell tool call whose output contains the tool nonce, then ADORE shall report the result not ready with reason tool-call-failed.
+"""
+verification = "Offline: streams with no tool call, a rejected or errored OpenCode tool_use, a Pi tool_execution_end with isError true, a Codex command_execution with a nonzero exit_code or failed status, a shell output without the tool nonce, or the nonce printed by a non-shell tool yield reason tool-call-failed; an unparseable stream yields invalid-response; a timeout still yields timeout and a nonzero executor exit still yields connection-failed."
+affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/adore/web/executor_settings.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_model_challenge_requires_a_completed_shell_call", "04_Software/tests/test_local_execution.py::test_local_codex_shell_call_needs_exit_code_zero", "04_Software/tests/test_executor_settings.py::test_model_evidence_saves_and_returns_a_tool_call_failure"]
+spec = "specs/REQ-FUNC-8f369d55.md"
+priority = "high"
+rationale = "A distinct reason points the administrator at the agent's permissions instead of the model."
+created = 2026-11-01
+updated = 2026-11-01

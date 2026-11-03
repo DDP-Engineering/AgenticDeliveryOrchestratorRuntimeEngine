@@ -43,7 +43,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Browse a project's open forge tickets from its Jobs tab: a Tickets sub-tab reads them on request with ADORE pickup eligibility and job state, starts a ticket (adding its missing ready and chosen priority labels after confirmation), retries a failed job, stops a ticket (cancels its unfinished job and removes the ready label) and shows its description and comments as plain text; the job table moves to a Jobs sub-tab.
 
-- Compact project Dockerfile definition, durable bounded image build/verification, redacted owned runtime evidence and revision-bound image/tool selection through existing configuration review.
 
 - Native local executor profiles reuse installed account authentication with pinned machine/environment identity, verified Windows Job/Linux cgroup ownership, native AEGIS/gate evidence, backend-aware setup/settings/readiness and user-owned tooling guidance.
 
@@ -86,6 +85,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   Windows and Linux installers resolve `04_Software/` in a checkout and the
   runtime root in a delivery bundle; both packagers copy deployment resources
   from the tools directory and keep bundled `deploy/` commands working.
+- ADORE no longer reads data written by earlier builds: there are no migrations or compatibility while it is in development. Run state at the removed `deliver` stage or missing a current key, `profile.json` with unknown or missing keys, `config.toml` keys this build does not read (such as `[state] channel` or the Codex `{resume}` placeholder), a `metrics.db` with other columns, journal events without a timestamp or with one lacking its UTC offset, usage events without an event ID, pending configuration candidates staged by an earlier build, and audit rows without evidence are refused with a message that names what to delete or fix. The retired image-build subsystem and its `/image-build` routes are removed, and `adore cleanup` no longer recognises container and network names cut by earlier builds; remove such leftovers with the runtime CLI (Recovery_And_Maintenance.md). Statistics Trends no longer shows **Usage without a consumption date**, which every current usage event has. `POST /config/apply` requires `base_revision`, which the browser already sends. Before starting this build, delete the run directories, `metrics.db` and `pending_config.json` that the refusals name, and remove stale keys from `config.toml`.
+- **Test AI connection** for OpenCode, Pi or Codex installed on the server now asks the agent to run `echo <nonce>` with its shell tool and then reply with a second nonce. It reports connected only when the shell call completed and printed the nonce and the reply is exact; a missing, rejected or failed shell call reports the new reason `tool-call-failed`, with guidance in four languages to check the agent's permissions. The local test is bounded at 90 seconds instead of 45 and keeps up to 1 MiB of agent output instead of 64 KiB, so a local Pi test, whose events repeat the whole conversation, can pass at all. Qwen and container profiles keep the no-tool challenge. The help text, the host-check row and the docs no longer say tools are never checked.
 - **BREAKING: ADORE conducts AEGIS 0.15.0, where validate closes the task, and
   requires AEGIS 0.15.0 or newer.** The conducted paths are frame, specify,
   design, build, validate and done, and the quick path frame, build, validate
@@ -105,11 +106,10 @@ This project follows Keep a Changelog and Semantic Versioning.
   that failed after publication to review, resumes publication of an approved
   unpublished candidate (also after `reset --to publishing`) and conducts any
   other run from done; publication refuses a run outside stage done or the
-  publishing pointer with `PUBLICATION_STAGE`, and `reset` refuses every
-  target for a run recorded at deliver. The probe and the readiness check refuse an older AEGIS with a
+  publishing pointer with `PUBLICATION_STAGE`. The probe and the readiness check refuse an older AEGIS with a
   message naming 0.15.0, so runs begun under the deliver flow, including runs
-  already in review, are not carried over; run records and run-journal events that name deliver still load for
-  history. Stage prompts name `advance`, `log` and `pause` (`pause --blocked`
+  already in review, are not carried over; run records and run-journal events that name deliver
+  are refused. Stage prompts name `advance`, `log` and `pause` (`pause --blocked`
   for questions), the continuation context names `brief` and the journal State,
   and the human handoff note names `brief` and the full task journal instead of
   the retired Handoff and Stage report sections. Re-verified against the installed 0.15.0 CLI: the version line,
@@ -182,7 +182,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Allow `delivery.draft = false` to create review-ready PR/MRs after fresh human publication approval; settings show localized Draft/Ready for review choices. Existing review records retain their state, and ADORE never merges.
 
-- Move execution environment preparation outside ADORE: Executor configuration now shows conditional container Dockerfile/server-profile instructions and effective image; Settings and guided enrollment omit environment editors. Retired web build/config mutations fail closed while existing profiles, historical evidence and owned recovery remain.
+- Move execution environment preparation outside ADORE: Executor configuration now shows conditional container Dockerfile/server-profile instructions and effective image; Settings and guided enrollment omit environment editors.
 
 - Unify executor settings and Provider credentials in one panel with heading Test AI connection; offer server-validated launch command presets through reviewed dropdown edits.
 
@@ -245,6 +245,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Reviewed web settings tolerate brief Windows file-read locks and retain the candidate with an explicit error if saving remains unavailable.
 
 
+- **Check details** for a project that runs on the server no longer repeats the local-execution notice in the *Local execution* row. The notice appears once at the top; the row says what it checks (the selected agent's tools for the server account and its existing sign-in or a provider API key) and, when the check fails, how to fix it: sign the agent in on the ADORE server under that account, or save a provider API key in Settings → Agent and model, and check the installed tool PATH.
+- Manual Start remains available while automatic monitoring is paused. When the worker cannot start a queued ticket, `adore run --once --ticket N` prints `error: ticket #N not started: <code>` (`pickup_paused`, `at_capacity`, `aegis_probe_failed`, `not_eligible`, `conductor_busy`) and the operation keeps that `reason` plus a `detail` with the engine's last 20 lines (at most 2000 characters, ANSI removed, credentials redacted), shown as a sentence in the user's language and a bounded block in Tickets, Jobs and the project status and returned by `GET /api/v1/operations/{id}`; every failed engine operation keeps its `detail`. Labels a refused Start added stay on the ticket, and the notice names them. Start and Stop confirmations open under their ticket, and the Start message names the chosen priority label instead of the word Priority. The web database schema changed (operations gain `reason` and `detail`) and is not migrated: delete `web.db` and `web.db.initialized` in the ADORE home before starting this build. ADORE now refuses a web database from any other schema with a message naming both files, and no longer upgrades older ones.
+- A `NO_STAGE_PROGRESS` stage failure (the executor exited 0 but AEGIS stayed at the same stage) now carries the executor's last stderr lines in its evidence: up to 20 lines and 2000 characters, ANSI colour codes removed and credentials redacted on the whole stderr before it is cut, so a cut never separates a key from its secret. The incident and terminal comments on the ticket, the run journal and Job details show it, so a cause such as auto-rejected tool permissions is visible without reading `io/stderr.log` on the server. When a failed job's evidence exceeds 2000 characters, for any error code, Job details now keeps its first line, such as `stage build failed on attempt 3/3: …`, then `...` and the end, instead of only the end.
+- Native local OpenCode runs no longer use the service account's personal OpenCode configuration home, whose `ask` permissions made every tool call auto-reject and fail the stage with `NO_STAGE_PROGRESS`. Every local command of an OpenCode profile gets `XDG_CONFIG_HOME` = `<state root>/executor-config` (created by ADORE; an unusable path stops the job), `OPENCODE_DISABLE_CLAUDE_CODE=1` and `OPENCODE_PERMISSION` allowing edits and shell commands while denying `git push`, `tea`, `gh` and `glab`. Agents, prompts, MCP servers, plugins, providers, model overrides and the small model from `~/.config/opencode` no longer apply, nor does Claude Code compatibility (`~/.claude` skills and instructions, and the repository's `.claude/skills` and `CLAUDE.md` fallback); the repository's own OpenCode configuration, AGENTS.md and the existing sign-in still do. A model from a personal provider needs `OPENCODE_CONFIG_CONTENT` in `[local].environment`. OpenCode still reads `~/.opencode` and `~/.agents/skills` in the account's home. Explicit `[local].environment` values for the three managed names win (case-insensitive on Windows). The pinned local environment changes: finish or cancel local runs before upgrading.
+- Native local execution on Windows passes the standard Windows machine/system variables (`PATHEXT`, `PROCESSOR_ARCHITECTURE` and the other `PROCESSOR_*` names, `NUMBER_OF_PROCESSORS`, `OS`, `SystemDrive`, `ProgramData`, `ProgramFiles`, `ProgramFiles(x86)`, `ProgramW6432`, the `CommonProgramFiles*` names, `ALLUSERSPROFILE`, `PUBLIC`) to executor gates, readiness probes and strict verification. Project tooling detects the platform again (`platform.machine()` was empty) and `%SystemDrive%` no longer turns into a literal folder inside the worktree. Account names (`HOMEDRIVE`, `HOMEPATH`, `USERDOMAIN`) and forge credentials stay excluded. The pinned local environment changes with this fix: finish or cancel local runs before upgrading, because a local run started on the earlier build is treated as drifted.
 - Disabled buttons now look unavailable everywhere (dimmed, not-allowed cursor); on Enroll new project, **Read repository** is the primary action and **Continue** stays visibly disabled until the repository has been read.
 - Restore the accented letters in the German, French and Romanian handoff status labels (Übergabe läuft / Übergeben, Transféré, Predare în curs), which showed "?" instead.
 - Preserve inline setting action placement when validation appears after changing the coding agent.
@@ -265,7 +270,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   nonnegative jitter and quiet hours, with independent per-project waits after
   completion. Polling settings remain available with localized scope guidance.
 
-- Hide the ineffective State reporting channel from web Settings while retaining the read-only durable job state folder and compatible TOML.
+- Remove the ineffective State reporting channel (`[state] channel`); the read-only durable job state folder stays.
 
 - Complete localized corrective messages for environment, preparation, model and executor credential failures.
 
@@ -311,8 +316,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Structured redacted web change evidence with known before/after and revisions,
   distinct preparation/application/discard results, atomic identity/access/queue
-  evidence, durable filesystem uncertainty and idempotent completion. Explicit
-  web schema-14 upgrade preserves legacy unknowns and rejects corruption.
+  evidence, durable filesystem uncertainty and idempotent completion. Corrupt
+  or unknown audit storage is rejected.
   Authorized server-filtered/paged history and project evidence accompany
   separate administrative retention settings and deletion impact (#19).
 
@@ -358,7 +363,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Authorized global/project job read API with composite identities, complete
   paging/search/status groups and optimistic source revisions. Persisted titles,
-  activity and waiting evidence retain honest legacy/usage unknowns; strict local
+  activity and waiting evidence keep honest unknowns; strict local
   source/URL validation fails closed without external refresh commands (#11).
 
 - Guided exact server TOML enrollment with localized source/effect explanations,
@@ -402,7 +407,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Project hubs separate pickup from revision/time-bound verification and expose
   Summary, Settings and History alongside existing Admin Prices/Access and
-  Jobs/Statistics links. Missing legacy activity remains unknown; unsafe or corrupt
+  Jobs/Statistics links. Unsafe or corrupt
   job evidence hides data, and changed page sources require explicit restart (#12).
 
 
@@ -426,7 +431,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Audit and Overview job tables load one page at a time from the server (new `/api/v1/audit-page`; job pages accept several lifecycles), and background refresh pauses while the browser tab is hidden.
 - Forms mark required fields, example placeholders are styled and prefixed as examples, and password fields state the 8-character minimum.
 - On phones, wide tables show a scroll shadow and Jobs filters collapse behind a counted Filters button.
-- An administrator password reset now requires the account to choose a new password at its next sign-in; until then the web interface shows only a change-password screen and the API returns `password_change_required`. The identity database moves to schema 13; existing accounts, including `admin`, are not affected.
+- An administrator password reset now requires the account to choose a new password at its next sign-in; until then the web interface shows only a change-password screen and the API returns `password_change_required`. The bootstrap `admin` account is not affected.
 - Web API errors now always carry a stable snake_case `detail.code` with optional `detail.message` diagnostics, including request validation (`invalid_request`), account and price failures, and unknown API paths (404 `not_found`).
 - Ticket timelines show the latest recorded events first; subsequent pages move toward older history.
 - Selected-ticket timelines on Jobs now use a table with 10/25/50/All row choices and page navigation.
@@ -463,7 +468,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - `metrics.capture_tokens` now appears in a project's Configuration and can be changed there and with `adore config set`; it was hidden and refused as a secret because its name contains "tokens". It must be true or false; any other value is refused and never shown, and other secret-looking names stay hidden and refused.
 - The configuration reference and the example configuration now say that a closed source ticket cancels a waiting run (a deleted ticket or a closed-unmerged MR/PR fails it, and a run in review follows its MR/PR first), and that `remove_source_branch` takes effect only on GitLab.
 - Configuration edits from the web interface and `adore config set` keep the file's CR LF or LF line endings on every OS; staging a new table in a CR LF file on Windows no longer fails as invalid configuration, and `config set` no longer rewrites every line ending.
-- In `allowlist-proxy` egress mode every run gets its own proxy container and egress network: long names end in a short digest of the executor name instead of being cut to a shared value, so a run no longer starts behind another run's proxy or loses it when that run ends. Upgrade note: finish, cancel or re-provision parked long-named `allowlist-proxy` runs from an earlier release first (see Recovery and Maintenance).
+- In `allowlist-proxy` egress mode every run gets its own proxy container and egress network: long names end in a short digest of the executor name instead of being cut to a shared value, so a run no longer starts behind another run's proxy or loses it when that run ends. Proxies and networks named by an earlier build are not recognised; remove them by hand (see Recovery and Maintenance).
 - `adore cleanup` works only on the selected project's runs: on a host where projects share the agent slug, egress network prefix or worktree root it no longer removes another project's containers, proxies, networks or worktrees, nor a proxy or network another existing executor still uses, and runs with corrupt state keep their worktree and containers.
 - Required-field markers now sit on the same line as their label instead of below it.
 - Web error banners now show a sentence in the selected language instead of raw error codes, and clear after a later successful action or a view change.
@@ -614,19 +619,17 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Inclusive UTC daily reporting periods for project/global metrics and CSV,
   with dated-event period totals separate from all-time totals.
 - Terminal job elapsed-time sample count, average and median in Metrics, with
-  a separate UTC completion-period view and explicit undated-history coverage.
+  a separate UTC completion-period view.
 - Evidence-based reviewer-rework, first-validation and human-merge quality
   rates with eligible-job denominators and open-review counts.
 - Account-scoped language and theme preferences with browser fallback before
-  login and a schema-6 migration preserving existing identity data.
+  login.
 
 ### Changed
 
-- Web identity schema 4 binds developer grants to the profile creation time.
-  Upgrading from schemas 1-3 clears older name-only grants; administrators must
-  reassign access to the current profiles.
-- Web identity schema 5 adds worker heartbeat storage while preserving existing
-  users, sessions, grants and prices.
+- Developer grants are bound to the profile creation time, so a profile
+  replaced under the same name does not inherit them.
+- The web store records the control worker's heartbeat.
 
 - **ADORE now watches the forge pipeline on a published draft and can repair
   it.** Each poll of an `in-review` run reads the verdict through the new
@@ -778,8 +781,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   on Windows, so the new push-access probe reported a missing git binary or a
   raw OS code. It now names the directory that does not exist.
 - **An executor command template could carry a placeholder nothing fills.** The
-  launcher renders the template with `str.format`, so `{resume}` on a non-Codex
-  executor, or a shell `${HOME}`, raised `KeyError` at gate time once per
+  launcher renders the template with `str.format`, so an unsupported placeholder
+  such as `{resume}`, or a shell `${HOME}`, raised `KeyError` at gate time once per
   attempt until the stage budget was spent, with nothing pointing at the cause.
   Configuration validation now rejects unsupported and malformed placeholders
   at setup.
@@ -802,9 +805,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   self-heal relaunch and the per-executor `_extract_session_id` hooks could
   never run; `GateRun.session_id` and the `session` argument are gone with
   them. Every gate was, and remains, a fresh executor session with the durable
-  AEGIS journal as the resume authority. Codex's `{resume}` template slot is
-  still accepted and always resolves to empty, so existing profiles keep
-  working.
+  AEGIS journal as the resume authority.
 - `adore init` now probes host git push access with `git ls-remote` in the
   target clone. That credential is separate from the platform CLI login and was
   previously unverified until `_publish` reached the push, where a failure
@@ -849,8 +850,7 @@ This project follows Keep a Changelog and Semantic Versioning.
   `CANDIDATE_MUTATION`, `DIRTY_DELIVERY`, `CLOSE_OUT_FAILED`,
   `CLOSE_OUT_NOT_DONE` and `CLOSE_OUT_PUSH_FAILED` failures are gone with them,
   and `deliver` is no longer a reset target or a stage-timeout key.
-  `RunState.approved_product` stays readable in schema-1 state and is no
-  longer written.
+  `RunState.approved_product` is gone.
 
 - Remove the Jobs Advanced filters (exact status, stage, observed executor, outcome text and update dates) and their `/api/v1/jobs-page` parameters; Jobs keeps search and the status group.
 

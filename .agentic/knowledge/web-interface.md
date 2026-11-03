@@ -103,7 +103,7 @@ for attention/global jobs/details; `web/e2e/jobs.spec.ts` verifies those views. 
 
 The optional web package gives one ADORE host an authenticated dashboard and
 durable control queue. The API reads existing profiles and run state and never
-launches an executor directly. The separate worker executes fixed CLI commands and rejects queued historical image-build requests;
+launches an executor directly. The separate worker executes fixed CLI commands;
 the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
@@ -242,7 +242,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 - Fresh identity stores bootstrap `admin` / `admin` once with an Argon2id hash.
   A corrupt or deleted initialized store does not recreate the default login.
-- Schema 6 stores optional per-account language and theme. Authenticated
+- Accounts store optional language and theme. Authenticated
   preference reads and CSRF-protected partial updates remain account-scoped;
   null values use the browser fallback and corrupt rows fail closed.
 - Developer routes check membership before reading a project and omit all
@@ -253,19 +253,17 @@ SQLite bytes, authorization, scope and financial redaction.
   row/default/review generation. Other project identities return
   404.
   Configuration mutations, account management and global metrics require admin.
-- Schema 7 binds grants to immutable profile IDs. Older creation-stamped grants
-  migrate only while they still match the original profile; name-only grants
-  are cleared. Schema 9 binds rates to project IDs, retaining older rates
-  without applying them if their profile ownership cannot be proven. Schema 8
-  binds queued operations to project IDs and marks
-  unprovable legacy pending work uncertain. Renames retain grants and queued
-  targets, while a reused name cannot inherit either.
+- Grants, rates and queued operations are bound to immutable profile IDs.
+  Renames retain grants and queued targets, while a reused name cannot inherit
+  either. The web store has one schema (15); a database in another version is
+  refused with a message naming `web.db` and `web.db.initialized` to delete,
+  never migrated (AGENTS.md "Stored data during development").
 - Mutations require CSRF; sessions are opaque, expiring and revocable.
-- Administrator password reset revokes target sessions and sets the schema-13
-  reset marker; until the account changes its own password, only `/me`,
+- Administrator password reset revokes target sessions and sets the reset
+  marker; until the account changes its own password, only `/me`,
   `/me/preferences`, `/me/password` and sign-out answer, and other
   authenticated routes return 403 `password_change_required`. The bootstrap
-  `admin` and upgraded accounts start unmarked.
+  `admin` starts unmarked.
 - Every API error body is `{"detail": {"code", "message"?, "issues"?}}` with a stable
   snake_case code; store sentences map to fixed codes, unknown text becomes
   `request_rejected`, validation is 422 `invalid_request`, and unknown
@@ -334,8 +332,9 @@ SQLite bytes, authorization, scope and financial redaction.
   verification, counts/activity and scoped actions. Summary includes the same
   evidence; Jobs and Statistics are hub tabs; Settings stays read-only for Dev, Access is
   Admin-only, and History selects terminal jobs. Legacy configuration, executor
-  and prices routes open Settings. Missing legacy update times remain unknown in
-  project summaries; nonempty corrupt timestamps fail closed.
+  and prices routes open Settings. Every save stamps a run's created_at and
+  updated_at; a project summary over a run whose updated_at is empty or corrupt
+  fails closed with 503 `run_state_corrupt`.
   Enroll new project (and Clone project config) start from a repository URL: Read
   repository (`/api/v1/projects/repository-source`, `adore/web/repository_source.py`)
   fills forge, repository, login, branch and the derived ID and prefills an editable
@@ -382,12 +381,13 @@ terminal now, including only actual retained runtime state.
 
 Unique usage is attributed at its own consumption instant. `jobs` uses
 `(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
-source and coverage. Historical summaries survive runtime-state removal;
-positive summary-only measurements belong to lifetime/unallocated, never a
-fabricated period. Missing individual token fields stay null; explicit measured
-zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
-invalid, naive or date-only timestamps contribute unallocated coverage and
-amounts. Financial fields and financial coverage are Admin-only in every nested
+source and coverage. Summaries survive runtime-state removal; positive
+summary-only measurements (a run known only from metrics.db, for example a
+deleted one) belong to lifetime/unallocated, never a fabricated period.
+Missing individual token fields stay null; explicit measured zero stays zero.
+Every usage event carries its versioned event ID and current fields; a naive,
+date-only or unparseable usage timestamp is `metrics_corrupt`, and a summary
+table with missing or extra columns fails closed (503). Financial fields and financial coverage are Admin-only in every nested
 projection and export. Reported and estimated costs remain separate; matching
 immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
@@ -423,7 +423,7 @@ partial token subtotals, reported/estimated money); job elapsed time is in Usage
 and per-job consumption only in Jobs. Server buckets feed one Trends table whose
 count cells carry bars, in all four locales/themes; Admin unpriced events are a
 Usage total and estimated cost per project is in the All projects Usage table.
-Composite job consumption exposes lifetime, selected-period and undated amounts;
+Composite job consumption exposes lifetime, selected-period and unallocated amounts;
 Jobs/detail show lifetime only (one all-time read per visible project) and the Jobs
 table sorts on the server (`jobs-page` sort/order). Statistics deep links retain selection.
 
@@ -431,8 +431,8 @@ Offline proof: `test_web_scoped_metrics.py`, `test_web_metrics.py`,
 `test_web_pricing.py`, and `web/tests/metrics.test.mjs`, followed by native
 Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
-- Schema-11 SQLite usage and launch-coverage projections are reconciled against retained journals
-  before attributed reads. An administrator can explicitly replay archived and
+- SQLite usage and launch-coverage projections are reconciled against retained journals
+  before attributed reads; usage projection source IDs are the usage event IDs. An administrator can explicitly replay archived and
   current projects; a per-run cursor prevents repeated events adding rows, and changed or vanished
   source evidence fails closed without changing run state.
 - Administrators add immutable effective-dated rates for exact
@@ -447,6 +447,21 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   and performs normal teardown; a revoked grant creates no marker.
 - Selected-ticket starts retain the conductor's readiness and approval gates.
   The web layer never merges.
+- Stopped pickup refuses a ticket Start with 409 `ticket_not_startable`
+  (`pickup_paused`) right after the idempotency replay and before any forge
+  call; the ticket view reports `blocked_by: pickup_paused` with nothing to add
+  and unchanged eligibility (REQ-FUNC-4e5e56ed, REQ-FUNC-ef5a60d0).
+- The worker runs the CLI with stderr joined to stdout (`CommandOutcome`; a
+  runner may still return a bare exit code). A non-zero exit or timeout keeps a
+  `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
+  the 20-line/2000-character cut), and a refused start keeps the CLI's
+  not-started code for its own ticket as `reason` (REQ-FUNC-fbb6448c,
+  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 15), never in audit
+  evidence. The UI localizes `reason` through `operationReason.ts` in Tickets,
+  Jobs and the project status, names a refused Start's kept labels only for a
+  failure with a known reason, and opens Start/Stop confirmations as a row under their
+  ticket (REQ-UX-3cafa0cc, REQ-UX-5fb31254, REQ-UX-21f0f5a5, REQ-UX-61a21b3d,
+  REQ-UX-c18f6fec).
 - Offline installation verifies the manifest and runs `pip --no-index`.
 - About exposes bundled project license text and versioned third-party notices.
 - Below 760px, primary navigation opens from a labeled collapsible menu and
@@ -571,8 +586,8 @@ Native control/auth route to local-execution.md. Focused proof:
   project from its Access tab; other grants stay; developers see no tab.
 - `REQ-SEC-c2298428` - redacted project configuration reads follow grants; edits remain administrator-only.
 - `REQ-PLAT-a1b60ff9` - host-specific offline installation.
-- `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles remain
-  readable and protected after replacement of the DCP runtime.
+- `REQ-REL-94e653aa` - checkpoint-bearing state and handoff lifecycles are
+  loaded and protected.
 
 
 ## Files
@@ -655,7 +670,7 @@ Discard focus restoration runs in a post-render effect after the mutation busy g
 - `04_Software/adore/web/analytics.py` - shared scope, strict sources and analytical reports.
 - `04_Software/tests/test_web_scoped_metrics.py` - scoped analytical boundary proof.
 
-Persisted audit project names, including legacy rows, reject unsafe names with a redacted typed storage error on initialization and public reads; empty names preserve global scope.
+Persisted audit project names reject unsafe names with a redacted typed storage error on initialization and public reads; empty names preserve global scope. Every audit write carries structured evidence; a row without it is corrupt, and so is an operation without a project ID.
 
 
 Project Summary uses two panels beneath the shared project header. The first
@@ -727,14 +742,14 @@ HTTP and a valid unique JSON login. CLI exit zero alone does not authenticate.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. OpenCode endpoint tool compatibility remains separately reported. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Persisted evidence is bound to current project/model/configuration/credentials and presented consistently in Summary and host verification. OpenCode endpoint tool compatibility remains separately reported. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md and Component_Executor_Configuration.md.
 
 
 ## Project setting scope and guidance
 
-Project Settings displays the selected project's effective configuration controls and inherited defaults. Executor/model and AI endpoint fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. The reserved `state.channel` value is retained in compatible TOML/API metadata; SettingsList omits its row for both roles while existing API edit refusal remains. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
+Project Settings displays the selected project's effective configuration controls and inherited defaults. Executor/model and AI endpoint fields belong to Settings → Agent and model; the backend, container runtime and image are reviewed edits there, while other environment setup is externally managed. The durable job state folder remains a read-only row. config.toml has no `state.channel` key; validation refuses it as unknown, and SettingsList shows no such row. Descriptions remain permanently below each label and provide the editor's accessible description. There is no per-row Help disclosure or override-only filter. The default/source marker describes value origin, not ADORE-wide scope. Polling intervals, per-project concurrency, executor and recovery settings remain per-project. Global capacity and audit retention belong to Administration. No project setting is promoted into a global policy by this presentation.
 
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
@@ -754,7 +769,7 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 
 ## External executor environment seam
 
-ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; credential names are optional in API-key mode. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes, staging/application and build artifacts; the dedicated existing AI endpoint is retained. Queued historical builds fail without launching a runtime. Historical read/export/cancel/owned interrupted cleanup and pending discard are retained. Focused proof: test_web_image_build.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
+ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; credential names are optional in API-key mode. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI endpoint is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 
 External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.
 

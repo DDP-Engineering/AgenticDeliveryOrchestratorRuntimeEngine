@@ -37,12 +37,18 @@ _GROUPS = {
     "in-review": "review", "done": "terminal", "failed": "terminal",
     "cancelled": "terminal", "stale": "terminal", "handed-off": "terminal",
 }
+# The lookbehind starts a key only at the start of its word, keeping long runs linear.
 _SECRET = re.compile(
-    r"(?i)((?:[\w.-]*(?:token|password|secret|api[_-]?key|authorization)[\w.-]*)"
+    r"(?i)((?<![\w.-])(?:[\w.-]*(?:token|password|secret|api[_-]?key|authorization)[\w.-]*)"
     r"[\"']?\s*[:=]\s*)"
     r'''("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)'''
 )
 _AUTH = re.compile(r"(?i)(\b(?:Bearer|Basic)\s+)\S+")
+# A bounded scheme keeps runs such as "a.a.a." linear; real schemes are short.
+_URL_CREDENTIAL = re.compile(r"(?i)(\b[a-z][a-z0-9+.-]{0,31}://[^/\s:@]+:)[^@\s/]+(@)")
+_FORGE_TOKEN = re.compile(
+    r"\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|glpat-[A-Za-z0-9_-]{16,})"
+)
 
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -75,13 +81,13 @@ def _text(value: object, code: str) -> str:
         value.encode("utf-8")
     except UnicodeError as exc:
         raise JobReadError(code) from exc
-    return _SECRET.sub(r"\1[REDACTED]", _AUTH.sub(r"\1[REDACTED]", value))
+    return redact_text(value)
 
 
 def _stamp(value: object, code: str) -> str | None:
     """
-    @brief Normalize an observed aware timestamp; empty legacy values stay unknown.
-    @param[in] value Persisted ISO timestamp or legacy empty string.
+    @brief Normalize an observed aware timestamp; an unset optional one is unknown.
+    @param[in] value Persisted ISO timestamp, or an empty string for an unset field.
     @param[in] code Safe failure code for invalid input.
     @return UTC ISO timestamp or None.
     @exception JobReadError For a nonempty malformed or naive timestamp.
@@ -215,7 +221,7 @@ def _sources(profiles: ProfileStore, items: list[Profile]) -> dict:
 def _journal(raw: bytes | None) -> list[dict]:
     """
     @brief Strictly read evidence JSONL, preserving the operational reader unchanged.
-    @param[in] raw Persisted journal bytes or absent legacy evidence.
+    @param[in] raw Persisted journal bytes, or None for a run without a journal.
     @return Validated event objects in saved order.
     @exception JobReadError For malformed records or selected evidence fields.
     """
@@ -229,14 +235,13 @@ def _journal(raw: bytes | None) -> list[dict]:
         if not isinstance(event.get("event"), str) or not event["event"]:
             raise JobReadError("run_journal_corrupt")
         _text(event["event"], "run_journal_corrupt")
-        if "ts" in event:
-            _stamp(event["ts"], "run_journal_corrupt")
+        if _stamp(event.get("ts"), "run_journal_corrupt") is None:
+            raise JobReadError("run_journal_corrupt")  # The journal stamps every event.
         for key in ("questions", "stage"):
             if key in event:
                 _text(event[key], "run_journal_corrupt")
-        # deliver is history from AEGIS before 0.15.0; old journals still name it.
         if "stage" in event and event["stage"] not in {
-            "frame", "specify", "design", "build", "validate", "deliver", "done", "publishing",
+            "frame", "specify", "design", "build", "validate", "done", "publishing",
         }:
             raise JobReadError("run_journal_corrupt")
         if "executor" in event and (not isinstance(event["executor"], str)
@@ -327,6 +332,8 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         raise JobReadError("run_state_corrupt") from exc
     updated = _stamp(run.updated_at, "run_state_corrupt")
     created = _stamp(run.created_at, "run_state_corrupt")
+    if updated is None or created is None:
+        raise JobReadError("run_state_corrupt")  # Every save stamps both.
     _stamp(run.approval_presented_at, "run_state_corrupt")
     _stamp(run.parked_at, "run_state_corrupt")
     raw_ticket = sources[(item.project_id, run_id, "ticket.json")]
@@ -338,7 +345,7 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
     ticket_url, mr_url = _url(ticket.get("web_url", "")), _url(run.mr_url)
     raw_journal = sources[(item.project_id, run_id, "journal.jsonl")]
     events = _journal(raw_journal)
-    activity = [stamp for stamp in [updated, *(_stamp(event.get("ts", ""),
+    activity = [stamp for stamp in [updated, *(_stamp(event["ts"],
                 "run_journal_corrupt") for event in events)] if stamp is not None]
     last = max(activity, key=datetime.fromisoformat) if activity else None
     detail_url = f"/api/v1/jobs/{item.project_id}/{quote(run_id, safe='')}"
@@ -360,7 +367,7 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
                          "fingerprint": run.execution["plan"]["fingerprint"],
                          "steps": run.execution["steps"]}
                         if run.execution and run.execution["plan"]["selection"] else None),
-        "timeline": [{"ts": _stamp(event.get("ts", ""), "run_journal_corrupt"),
+        "timeline": [{"ts": _stamp(event["ts"], "run_journal_corrupt"),
                       "event": _text(event["event"], "run_journal_corrupt"),
                       "stage": event.get("stage")} for event in events],
         "coverage": {"ticket": "missing" if raw_ticket is None else "present",
@@ -371,6 +378,17 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
 
 
 # PUBLIC API
+def redact_text(value: str) -> str:
+    """
+    @brief Mask credential values in free text shown in the web interface.
+    @param[in] value Text such as projected run evidence or engine output.
+    @return Text with key=value, quoted, Bearer/Basic, URL and forge-token credentials masked.
+    """
+    value = _URL_CREDENTIAL.sub(r"\1[REDACTED]\2", value)
+    value = _FORGE_TOKEN.sub("[REDACTED]", value)
+    return _SECRET.sub(r"\1[REDACTED]", _AUTH.sub(r"\1[REDACTED]", value))
+
+
 def read_jobs(profiles: ProfileStore, items: list[Profile]) -> tuple[list[dict], str]:
     """
     @brief Capture a complete authorized projection and optimistic source revision.

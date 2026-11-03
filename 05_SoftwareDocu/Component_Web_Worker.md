@@ -84,10 +84,10 @@ cap or multi-host dispatch in this implementation.
 
 ## Project image work
 
-Queued historical image-build actions are marked failed without runtime execution.
-On startup, interrupted image requests reconcile verified owned resources through
-ImageBuildService before ordinary operations become uncertain. See
-Component_Project_Images.md and test_web_image_build.py.
+The worker does not handle `image-build` operations and recovers no running
+builds on startup; `WebStore.enqueue` accepts only `start`, `retry`, `cancel`,
+`pause`, `resume` and `delete`. Images are managed outside ADORE. See
+Component_Project_Images.md.
 
 ## Automatic polling cadence
 

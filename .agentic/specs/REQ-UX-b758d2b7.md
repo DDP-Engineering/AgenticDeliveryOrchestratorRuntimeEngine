@@ -20,9 +20,9 @@ Consumption/named actor and unobserved AEGIS stages remain unknown; completed jo
 
 jobs-page adds attention (boolean; clarification, approval, in-review, failed, stale or handoff-pending). Validate every selected source before filters; no source repair. Counts/groups retain searched scope before status-group and attention selection. q, status_group, project_id and snapshot semantics are unchanged; sort/order (REQ-FUNC-dd0820ea) order matched jobs before paging; other query parameters are ignored.
 
-Project summary treats empty legacy update timestamps as absent; malformed nonempty values remain typed errors. This permits navigation to strict job evidence with unknown activity.
+Every save stamps created_at and updated_at. Project summary refuses a run whose updated_at is empty, malformed or naive with 503 run_state_corrupt.
 
-Strict detail adds timeline [{ts: UTC|null, event: redacted string, stage: valid persisted stage|null}], from captured JSONL bytes. Only these fields are displayed; omitted timestamps stay unknown. Global list excludes timeline. Invalid executor/stage journal evidence fails closed before any result. No state/schema migration, external read or usage implementation.
+Strict detail adds timeline [{ts: UTC|null, event: redacted string, stage: valid persisted stage|null}], from captured JSONL bytes. Only these fields are displayed; omitted timestamps stay unknown. Global list excludes timeline. Invalid executor/stage journal evidence, including an event naming the removed deliver stage, fails closed as run_journal_corrupt before any result. No state/schema migration, external read or usage implementation.
 
 ## Views and semantics
 

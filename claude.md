@@ -29,6 +29,11 @@ change, and the journal records `help: updated | none (<reason>)`; see
 
 <!-- AEGIS:BEGIN (managed by .agentic/aegis.py init) -->
 
+Stored data: while ADORE is in development there are no migrations, schema
+upgrades or compatibility with earlier builds; a store in another schema is
+refused with a message naming what to delete; see `AGENTS.md` "Stored data
+during development".
+
 ## AEGIS workflow
 
 This repository uses AEGIS to guide software implementation, one feature,

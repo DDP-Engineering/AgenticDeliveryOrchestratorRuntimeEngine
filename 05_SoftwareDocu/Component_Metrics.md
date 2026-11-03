@@ -52,15 +52,16 @@ transitions), token extraction (executor launcher), resource probing
   launch (`GateRun.tokens_in/out/cost_usd` from opencode `step_finish`
   events - schema pinned live 2026-07-03) and the orchestrator journals a
   `usage` event per launch (gated by `[metrics] capture_tokens`). Metrics
-  sums those events. New events carry a run/attempt ID; identical replay is
-  counted once in terminal summaries and web views, while a conflicting or
-  malformed versioned replay raises `MetricsError`. Older events without IDs
-  retain their historical behavior.
+  sums those events. Every usage event carries a run/attempt ID; identical
+  replay is counted once in terminal summaries and web views, while a
+  conflicting or malformed replay raises `MetricsError`, and so does a usage
+  event without an event ID.
+- Executor launches count `stage-launch` events only; the retired
+  `delivery-fix` and `revise-start` events are not counted.
 - The orchestrator records terminal ADORE lifecycle outcomes; metrics failures
   are logged and never mask the governed run result.
 - Human merge completion is stored as `merged by human`; aggregate and profile
-  success metrics count outcomes beginning with `merged`, preserving both the
-  operator-visible wording and older `merged` summary rows.
+  success metrics count outcomes beginning with `merged`.
 - Parked wait = sum of parked->resumed gaps; span = first->last journal
   timestamp (includes waits, deliberately - it is the human-visible
   latency); time-to-MR = first event -> `mr-opened`.
@@ -69,8 +70,9 @@ transitions), token extraction (executor launcher), resource probing
 
 `adore/web/analytics.py` owns strict read-only sources, shared Scope, measured
 usage/job projections and scoped lifecycle/cohort/duration calculations.
-`load_analytical_summaries` reads existing SQLite in mode=ro, accepts neutral
-missing legacy columns and rejects corrupt/unsupported rows without migration.
+`load_analytical_summaries` reads existing SQLite in mode=ro and requires
+exactly the current summary columns: a table with missing or extra columns, or
+corrupt/unsupported rows, fail closed (503) without migration.
 
 Reporting scope is the authorized immutable project set, a half-open UTC
 instant interval `[from,to)`, the selected IANA timezone and day/week/month
@@ -87,12 +89,13 @@ terminal now, including only actual retained runtime state.
 
 Unique usage is attributed at its own consumption instant. `jobs` uses
 `(project_id,run_id)` with separate `lifetime`, `in_period`, `unallocated`,
-source and coverage. Historical summaries survive runtime-state removal;
-positive summary-only measurements belong to lifetime/unallocated, never a
-fabricated period. Missing individual token fields stay null; explicit measured
-zero stays zero. Neutral legacy summary defaults are unknown. Legacy missing,
-invalid, naive or date-only timestamps contribute unallocated coverage and
-amounts. Financial fields and financial coverage are Admin-only in every nested
+source and coverage. Recorded summaries survive runtime-state removal;
+positive summary-only measurements (a run known only from `metrics.db`, for
+example a deleted one) belong to lifetime/unallocated, never a fabricated
+period. Missing individual token fields stay null; explicit measured zero stays
+zero. Zero summary amounts are unknown. A usage event without an event ID is
+refused, and a naive, date-only or unparseable usage timestamp is
+`metrics_corrupt`. Financial fields and financial coverage are Admin-only in every nested
 projection and export. Reported and estimated costs remain separate; matching
 immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
@@ -111,10 +114,11 @@ support pooled mean/median without browser date approximation. Recorded zero
 is valid; absent pairs are excluded and inconsistent pairs fail.
 
 Raw state/JSONL and read-only summary rows are validated before filters.
-Malformed JSON, duplicate keys, unsupported schema, invalid fields, conflicting
-versioned identity/timestamp, numeric overflow and invalid versioned timestamps
-fail typed 503 without source rewriting. Invalid scope/identity filters return
-422. Analytical summary reads neither initialize nor migrate runtime data.
+Malformed JSON, duplicate keys, unsupported schema, a summary table with missing
+or extra columns, invalid fields, conflicting versioned identity/timestamp,
+numeric overflow and invalid timestamps fail typed 503 without source rewriting.
+Invalid scope/identity filters return 422. Analytical summary reads neither
+initialize nor migrate runtime data.
 CSV includes scope/project provenance, empty unavailable cells and spreadsheet
 escaping; `X-ADORE-Scope`/`X-ADORE-Coverage` describe empty exports too.
 Project `/api/v1/projects/{name}/jobs-usage.csv` and Admin global
@@ -140,21 +144,23 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 - One SQLite row per run (`run_summaries`, PK run_id), columns = the
   `RunSummary` fields; the JSONL mirror always equals the table.
-- `_connect` adds newly introduced summary columns with neutral defaults. The
+- `_connect` never alters the table: a `run_summaries` table whose columns
+  differ from the current `RunSummary` is refused with `metrics database <path>
+  was written by another ADORE build; delete it to start fresh`. The
   `governance_outcome` value comes only from schema-1 `strict-verification`
   journal events and is `ok` or `failed`.
 - Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
   attempt, context: <gate|phase>, executor, model, review_round, tokens_in,
-  tokens_out, cost_usd, cost_reported}` for new launches. Legacy events may
-  omit identity fields.
+  tokens_out, cost_usd, cost_reported}`. Every usage event carries the
+  versioned identity and the full current fields.
 
 ## 7. Workflow Integration
 
 Pi versioned usage records carry nullable `cache_read_tokens` and
 `cache_write_tokens` with `input_includes_cache=true`; duplicate identity
 comparison checks these fields. The web daily usage projection exposes them as
-nullable subsets of input and exports both columns. Legacy and other-executor
-records have unknown cache categories, not an inferred zero.
+nullable subsets of input and exports both columns. Other-executor records
+have unknown cache categories, not an inferred zero.
 Web analytics projects versioned launch observations alongside numeric usage,
 with a per-run journal cursor. An unchanged journal replay adds no rows;
 append-only attempts advance the cursor, and altered earlier evidence fails
@@ -166,16 +172,17 @@ recorded or not), `adore export --csv`. `--rebuild` re-summarizes all
 terminal runs in the store. The summary key is the run ID, so repeated rebuilds
 retain one row per run; the run state and journals remain unchanged. Web usage
 views reconcile versioned source identities into the web SQLite projection and
-do not add those events to legacy summary totals a second time. An
+do not add those events to summary totals a second time. An
 administrator can replay all retained journals through the web rebuild action;
-missing legacy usage remains
-unknown rather than being assigned to an invented day.
+summary-only usage remains unallocated rather than being assigned to an
+invented day.
 
 ## 9. Validation And Tests
 
 - `tests/test_metrics.py`: full catalog computation from a schema-1 journal,
   including failed and successful strict checks; duplicate-free SQLite
-  round-trip + mirror; in-place legacy table extension; since-window filtering
+  round-trip + mirror; refusal of a metrics database of another build
+  (`test_metrics_database_of_another_build_is_refused_untouched`); since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs
   (escaping, no scripts), merged-by-human aggregation/profile statistics, and
   terminal classification.
@@ -188,7 +195,5 @@ unknown rather than being assigned to an invented day.
 
 - `capture_resource` (docker stats / disk probes) is config intent, pending.
 - Code-size lines (+/-) not captured yet (files-changed count only).
-- Runs before 2026-07-04 have no `usage` events, so token/cost read 0 for
-  them (the pilot run included).
 - Time-per-gate breakdown exists in the journal but is not yet a summary
   column; add when the dashboard needs it.

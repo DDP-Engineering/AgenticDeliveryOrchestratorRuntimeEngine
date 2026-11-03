@@ -57,9 +57,9 @@ the `adore` package. An optional web API also exposes selected controls.
     without `--force` (resetting may repeat orchestration work: executor cost,
     ticket churn), then tells the operator to `adore retry`. It moves only
     ADORE's pointer to `frame`, `specify`, `design`, `build`, `validate` or
-    `publishing`, refusing any other target, and every target for a run
-    recorded at `deliver`, with the run unchanged; AEGIS still owns the
-    governed stage;
+    `publishing`, refusing any other target with the run unchanged (a run
+    saved at the removed `deliver` stage is already refused when its state
+    loads); AEGIS still owns the governed stage;
   - `adore profile delete <name> --force --remove-resources [--remove-clone]` - under the
     conductor lock, refuses unfinished or corrupt runs, removes the containers,
     egress resources and worktrees recorded for the project's own runs except
@@ -211,6 +211,11 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
 - `adore run --once --ticket IID` requests one specific ready ticket. The
   normal hold/exclude/readiness checks still apply; a missing or ineligible
   ticket returns an error. The web worker uses this entry point for Start.
+  A completed pass that does not pick the ticket, or a held conductor lock, ends with
+  `error: ticket #IID not started: <code>`
+  (`pickup_paused`, `at_capacity`, `aegis_probe_failed`, `not_eligible`, or
+  `conductor_busy` for a held lock) and exits 1; the worker records the code as
+  the operation's reason.
 
 - `adore config set` edits one scalar at a time and infers the value type from
   the text; it does not set arrays/tables or change a value's declared type on

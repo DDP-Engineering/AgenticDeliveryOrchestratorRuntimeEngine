@@ -61,7 +61,7 @@ Les badges portent un symbole en plus de la couleur, et les listes de tâches af
 
 Dans Tâches, **État** limite la liste à **Tâches actives**, **En attente**, **Revue humaine** ou **Travaux terminés**. Le badge de surveillance d’un projet indique **Active** ou **En pause**, et un projet archivé indique **Archivé**. La vérification de l’environnement indique **Vérifié**, **Partiellement vérifié**, **Vérification échouée**, **Vérification périmée** ou **Non vérifié** ; Non vérifié signifie qu’il n’y a aucune preuve à jour, pas qu’un contrôle a échoué.
 
-Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la commande est en file, en cours, terminée, échouée ou incertaine. Examinez une commande incertaine avant de la soumettre de nouveau.
+Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la commande est en file, en cours, terminée, échouée ou incertaine. Examinez une commande incertaine avant de la soumettre de nouveau. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.
 
 ## Mises à jour automatiques, langue et thème {#preferences}
 

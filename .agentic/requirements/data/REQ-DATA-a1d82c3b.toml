@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-a1d82c3b"
+title = "Refuse a web database of another schema version"
+status = "active"
+requirement = """
+When the web store opens an existing database whose schema version differs from the build's single schema, ADORE shall refuse to start with an error that names the database file and its .initialized marker as the files to delete for a fresh start, and leave both files unchanged.
+"""
+verification = "Automated store tests: a web database whose user_version is set to 14 or 16 raises WebStoreError naming the schema version, the database path and web.db.initialized, and the database bytes are unchanged; a fresh database opens at the current schema; the corrupt-storage test still refuses version 99."
+affected_paths = ["04_Software/adore/web/store.py"]
+linked_tests = ["04_Software/tests/test_web_commands.py::test_web_database_of_another_schema_is_refused_untouched", "04_Software/tests/test_web_audit_evidence.py::test_corrupt_audit_storage_fails_closed_without_identity_reset"]
+spec = ""
+priority = "normal"
+rationale = "ADORE is in development; there are no migrations or compatibility with earlier builds (AGENTS.md, RULING-006 of TASK-235f217c)."
+created = 2026-11-01
+updated = 2026-11-01

@@ -44,9 +44,10 @@ outcomes.
   events report input/output and cache read/write tokens. Streaming updates
   and message-end duplicates are ignored. Its embedded cost is an executor
   estimate, so ADORE leaves reported cost unavailable.
-- `CodexExecutor`: OpenAI Codex CLI; supplies the template's `{resume}` slot as
-  empty so the command stays plain `codex exec`. The slot is still accepted so
-  an existing profile keeps working.
+- `CodexExecutor`: OpenAI Codex CLI; the command is plain `codex exec`
+  (default `codex exec --json --model {model} --ignore-user-config --disable
+  plugins --dangerously-bypass-approvals-and-sandbox {prompt}`). The removed
+  `{resume}` placeholder is refused by config validation as unsupported.
 - `QwenExecutor`: Qwen Code; nothing executor-specific beyond the `--yolo`
   refusal.
 - `build_executor(kind, command_template, model, questions_file)` - the config
@@ -67,8 +68,8 @@ so live streaming looks hung.
    gate must mean it was written by THIS gate.
 2. Render the command from the `[executor.<name>]` template: `{prompt}` ->
    shell-quoted prompt text, `{model}` -> quoted model, `{worktree}` ->
-   `/adore/work` (the container-side mount), and for Codex `{resume}` -> empty.
-   Nothing is appended for continuation: each gate is a fresh session.
+   `/adore/work` (the container-side mount). No other placeholder is
+   supplied. Nothing is appended for continuation: each gate is a fresh session.
 3. Write `gate.sh` (LF endings; Windows CRLF would break `sh`) into the
    run's io dir: `cd /adore/work`, then the command wrapped in a `{ ...; }`
    group with stdout redirected to `output.jsonl` and stderr to `stderr.log`,

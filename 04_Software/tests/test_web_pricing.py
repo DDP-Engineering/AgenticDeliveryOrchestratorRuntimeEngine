@@ -23,23 +23,7 @@ from adore.web.app import create_app
 from adore.web.store import WebStore
 from fastapi.testclient import TestClient
 
-from tests.test_web_auth import _legacy_audit
-
-
-def test_price_schema_upgrade_preserves_changed_admin(tmp_path):
-    """@brief A schema-two upgrade never reboots admin/admin credentials."""
-    path = tmp_path / "web.db"
-    store = WebStore(path)
-    admin = store.authenticate("admin", "admin")
-    store.change_password(admin["id"], "admin", "new-long-password")
-    with sqlite3.connect(path) as connection:
-        connection.execute("DROP TABLE prices")
-        _legacy_audit(connection)
-        connection.execute("PRAGMA user_version=2")
-    upgraded = WebStore(path)
-    assert upgraded.authenticate("admin", "new-long-password")
-    assert upgraded.authenticate("admin", "admin") is None
-    assert upgraded.list_prices("alpha") == []
+from tests.usage_events import versioned_usage
 
 
 def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
@@ -55,32 +39,6 @@ def test_prices_follow_project_identity_across_rename_and_name_reuse(tmp_path):
     web.add_price("alpha", "codex", "local-1", "2026-01-01", "5", "9", 1)
     assert web.list_prices("alpha")[0]["input_usd_per_million"] == "5"
     assert web.list_prices("renamed")[0]["input_usd_per_million"] == "2"
-
-
-def test_legacy_price_binding_rejects_older_recycled_name(tmp_path):
-    """@brief Upgrade keeps pre-replacement rates but does not attach them."""
-    profiles = ProfileStore(tmp_path)
-    profiles.create("alpha")
-    web = WebStore(tmp_path / "web.db")
-    with sqlite3.connect(web.path) as connection:
-        connection.execute("DROP TABLE prices")
-        connection.execute(
-            "CREATE TABLE prices (id INTEGER PRIMARY KEY, project TEXT NOT NULL, "
-            "executor TEXT NOT NULL, model TEXT NOT NULL, effective_from TEXT NOT NULL, "
-            "input_usd_per_million TEXT NOT NULL, output_usd_per_million TEXT NOT NULL, "
-            "actor_id INTEGER NOT NULL, created_at TEXT NOT NULL, "
-            "UNIQUE(project,executor,model,effective_from))"
-        )
-        connection.execute(
-            "INSERT INTO prices VALUES(1,'alpha','codex','local-1',"
-            "'2026-01-01','2','4',1,'2020-01-01T00:00:00+00:00')"
-        )
-        _legacy_audit(connection)
-        connection.execute("PRAGMA user_version=8")
-    upgraded = WebStore(web.path)
-    assert upgraded.list_prices("alpha") == []
-    with sqlite3.connect(web.path) as connection:
-        assert connection.execute("SELECT COUNT(*) FROM prices").fetchone()[0] == 1
 
 
 def test_admin_prices_are_immutable_and_developer_cannot_read(tmp_path):
@@ -128,15 +86,16 @@ def test_estimates_use_effective_rate_without_double_counting_reported_cost(tmp_
     run = RunState(run_id="run-1", ticket_iid=7, lifecycle="done")
     state.save(run)
     state.journal("run-1", "picked", ts="2026-01-01T00:00:00+00:00")
-    for stamp, model, reported in (
+    for attempt, (stamp, model, reported) in enumerate((
             ("2026-01-20T00:00:00+00:00", "local-1", False),
             ("2026-02-20T00:00:00+00:00", "local-1", False),
             ("2026-02-21T00:00:00+00:00", "local-1", True),
-            ("2026-02-22T00:00:00+00:00", "unknown", False)):
-        state.journal("run-1", "usage", ts=stamp, executor="codex", model=model,
+            ("2026-02-22T00:00:00+00:00", "unknown", False)), start=1):
+        state.journal("run-1", "usage", **versioned_usage("run-1", attempt,
+                                                          ts=stamp, executor="codex", model=model,
                       tokens_in=1_000_000, tokens_out=1_000_000,
                       cost_usd=0.3 if reported else 0.0,
-                      cost_reported=reported)
+                      cost_reported=reported))
     metrics.record_summary(state.root / "metrics.db", metrics.summarize_run(state, "run-1"))
     app = create_app(profiles.home)
     web = app.state.web_store
@@ -204,8 +163,8 @@ def test_nonfinite_journal_cost_is_not_exposed(tmp_path):
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
     state = StateStore(profile.store_root)
     state.save(RunState(run_id="run-1", ticket_iid=7, lifecycle="working"))
-    state.journal("run-1", "usage", tokens_in=4, tokens_out=2,
-                  cost_usd="NaN", cost_reported=True)
+    state.journal("run-1", "usage", **versioned_usage("run-1", 31, tokens_in=4, tokens_out=2,
+                  cost_usd="NaN", cost_reported=True))
     app = create_app(profiles.home)
     with TestClient(app) as client:
         client.post("/api/v1/session", json={

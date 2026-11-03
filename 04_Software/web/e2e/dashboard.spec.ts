@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { setPickup } from "./pickup";
 
 // Browser traffic stays on the owned test server; API calls use relative URLs.
 test.beforeEach(async ({ context }) => {
@@ -108,14 +109,14 @@ test("CSRF and expired candidate revisions fail closed", async ({ page }) => {
   const pending = await staged.json();
   try {
     const rejected = await page.request.post("/api/v1/projects/beta/config/apply", {
-      headers, data: { candidate_revision: "0".repeat(64) },
+      headers, data: { candidate_revision: "0".repeat(64), base_revision: pending.base_revision },
     });
     expect(rejected.status()).toBe(409);
     expect((await rejected.json()).detail.code).toBe("stale_pending_revision");
     const unchanged = await (await page.request.get("/api/v1/projects/beta/config")).json();
     expect(unchanged.revision).toBe(before.revision);
     const applied = await page.request.post("/api/v1/projects/beta/config/apply", {
-      headers, data: { candidate_revision: pending.candidate_revision },
+      headers, data: { candidate_revision: pending.candidate_revision, base_revision: pending.base_revision },
     });
     expect(applied.status()).toBe(200);
     const stale = await page.request.post("/api/v1/projects/beta/config/pending", { headers, data: body });
@@ -158,38 +159,44 @@ test("narrow viewport menu and configuration editor remain usable", async ({ pag
 });
 
 test("worker processes queued requests and preserves a rejected engine exit", async ({ page }) => {
-  await signIn(page, "developer", "test-password");
-  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
-  const assigned = await (await page.request.get("/api/v1/projects")).json();
-  await page.locator("#jobs-project").selectOption(assigned[0].id);
-  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-  const submitted = page.waitForResponse(response => response.url().endsWith("/tickets/44/start") &&
-    response.request().method() === "POST");
-  await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" }).getByRole("button", { name: "Start", exact: true }).click();
-  const response = await submitted;
-  expect(response.status()).toBe(200);
-  const operation = { id: (await response.json()).operation_id };
-  await expect.poll(async () => (await (await page.request.get(
-    `/api/v1/operations/${operation.id}`)).json()).status).toBe("succeeded");
-  const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
-  const headers = { "X-CSRF-Token": csrf };
-  const rejected = await page.request.post("/api/v1/projects/alpha/operations/start", {
-    headers, data: { ticket_iid: 0, idempotency_key: "invalid-ticket" },
-  });
-  expect(rejected.status()).toBe(400);
-  const failed = await page.request.post("/api/v1/projects/alpha/operations/start", {
-    headers, data: { ticket_iid: 43, idempotency_key: "engine-fails" },
-  });
-  expect(failed.status()).toBe(200);
-  const failedOperation = await failed.json();
-  await expect.poll(async () => (await (await page.request.get(
-    `/api/v1/operations/${failedOperation.id}`)).json()).status).toBe("failed");
-  const outcome = await (await page.request.get(`/api/v1/operations/${failedOperation.id}`)).json();
-  expect(outcome.result).toBe("engine rejected operation");
-  const replay = await page.request.post("/api/v1/projects/alpha/operations/start", {
-    headers, data: { ticket_iid: 43, idempotency_key: "engine-fails" },
-  });
-  expect((await replay.json()).id).toBe(failedOperation.id);
+  // Start needs active pickup; the fixture keeps it stopped for the other specs.
+  await setPickup("alpha", true);
+  try {
+    await signIn(page, "developer", "test-password");
+    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
+    const assigned = await (await page.request.get("/api/v1/projects")).json();
+    await page.locator("#jobs-project").selectOption(assigned[0].id);
+    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    const submitted = page.waitForResponse(response => response.url().endsWith("/tickets/44/start") &&
+      response.request().method() === "POST");
+    await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" }).getByRole("button", { name: "Start", exact: true }).click();
+    const response = await submitted;
+    expect(response.status()).toBe(200);
+    const operation = { id: (await response.json()).operation_id };
+    await expect.poll(async () => (await (await page.request.get(
+      `/api/v1/operations/${operation.id}`)).json()).status).toBe("succeeded");
+    const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
+    const headers = { "X-CSRF-Token": csrf };
+    const rejected = await page.request.post("/api/v1/projects/alpha/operations/start", {
+      headers, data: { ticket_iid: 0, idempotency_key: "invalid-ticket" },
+    });
+    expect(rejected.status()).toBe(400);
+    const failed = await page.request.post("/api/v1/projects/alpha/operations/start", {
+      headers, data: { ticket_iid: 43, idempotency_key: "engine-fails" },
+    });
+    expect(failed.status()).toBe(200);
+    const failedOperation = await failed.json();
+    await expect.poll(async () => (await (await page.request.get(
+      `/api/v1/operations/${failedOperation.id}`)).json()).status).toBe("failed");
+    const outcome = await (await page.request.get(`/api/v1/operations/${failedOperation.id}`)).json();
+    expect(outcome.result).toBe("engine rejected operation");
+    const replay = await page.request.post("/api/v1/projects/alpha/operations/start", {
+      headers, data: { ticket_iid: 43, idempotency_key: "engine-fails" },
+    });
+    expect((await replay.json()).id).toBe(failedOperation.id);
+  } finally {
+    await setPickup("alpha", false);
+  }
 });
 
 for (const finalStatus of ["succeeded", "failed"]) {

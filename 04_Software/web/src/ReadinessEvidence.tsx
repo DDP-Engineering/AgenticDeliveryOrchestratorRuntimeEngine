@@ -9,7 +9,8 @@ import { type Locale } from "./i18n";
 import { readinessKeys, type ProjectReadiness } from "./readiness";
 import { localCopy } from "./localExecution";
 import { repositoryConnectionHelp } from "./errors";
-import { localDiagnosticCopy, localFailureText, modelFailureText } from "./localDiagnostics";
+import { localFailureText, modelFailureText } from "./localDiagnostics";
+import { modelGuidance } from "./modelEvidence";
 
 const copy = {
   en: {
@@ -101,15 +102,16 @@ export function ReadinessEvidence({ evidence, locale, modelReason, modelEvidence
       const value = explicit ? explicit.ready : evidence.checks[key];
       const status = value === true ? "passed" : value === false ? "failed" : value === null ? "unknown" : "skipped";
       const [label, purpose, fix] = local && key === "executor_cli"
-        ? [localCopy[locale].title, localDiagnosticCopy[locale].purpose,
-            localFailureText(locale, evidence.executor_probe)]
+        ? [localCopy[locale].title, localCopy[locale].agentPurpose, evidence.executor_probe
+            ? localFailureText(locale, evidence.executor_probe) : localCopy[locale].agentFix]
         : c.rows[index];
-      const accessPurpose = {en:"Explicit model access test through the selected executor. Full job and tool support require separate acceptance.",ro:"Test explicit de acces la model prin executorul selectat. Joburile complete și instrumentele necesită acceptare separată.",fr:"Test explicite d’accès au modèle via l’exécuteur. Les tâches complètes et outils nécessitent une validation distincte.",de:"Expliziter Modellzugriffstest über den Executor. Vollständige Aufträge und Werkzeuge benötigen separate Abnahme."}[locale];
+      const accessPurpose = {en:"Explicit model access test through the selected executor; OpenCode, Pi or Codex installed on the server must also run a shell command. A complete job requires separate acceptance.",ro:"Test explicit de acces la model prin executorul selectat; OpenCode, Pi sau Codex instalate pe server trebuie să ruleze și o comandă shell. Un job complet necesită acceptare separată.",fr:"Test explicite d’accès au modèle via l’exécuteur ; OpenCode, Pi ou Codex installés sur le serveur doivent aussi exécuter une commande shell. Une tâche complète nécessite une validation distincte.",de:"Expliziter Modellzugriffstest über den Executor; auf dem Server installiertes OpenCode, Pi oder Codex muss auch einen Shell-Befehl ausführen. Ein vollständiger Auftrag benötigt separate Abnahme."}[locale];
       const reason = evidence.model_probe.reason;
       return <div className={`readiness-check ${status}`} key={key}>
         <div><strong>{label}</strong><p>{explicit || local && key === "model_endpoint" ? accessPurpose : purpose}</p>
           {value === false && <p className="readiness-remediation">{explicit
-            ? modelFailureText(locale, explicit.reason) : fix}</p>}
+            ? (explicit.reason === "tool-call-failed" ? modelGuidance(explicit.reason, locale)
+              : modelFailureText(locale, explicit.reason)) : fix}</p>}
           {key === "forge_auth" && value === false && <p>{c.externalSignIn}</p>}
           {value === null && <p className="readiness-remediation">{fix}</p>}
           {explicit && <p>{explicit.executor} · {explicit.model}</p>}

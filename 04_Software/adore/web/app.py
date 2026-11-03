@@ -104,7 +104,6 @@ from adore.web.executor_settings import (
     save_model_evidence,
     update_credential,
 )
-from adore.web.image_build import ImageBuildError, ImageBuildService, dockerfile_template
 from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
 from adore.web.jobs import JobReadError, read_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
@@ -380,7 +379,6 @@ class ConfigEdit(BaseModel):
     protocol: Literal["openai-chat-completions"] | None = None
     timeout_seconds: int | None = Field(default=None, ge=1, le=600)
     ca_file: str | None = None
-    image_build_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
 
 
 class BranchPreview(BaseModel):
@@ -392,33 +390,11 @@ class BranchPreview(BaseModel):
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
-class ImageDefinition(BaseModel):
-    """@brief Closed bounded administrator Dockerfile text input."""
-
-    model_config = ConfigDict(extra="forbid", strict=True)
-    dockerfile: str = Field(max_length=65536)
-    checks: list[str] = Field(max_length=32)
-    revision: str = Field(max_length=64)
-    network: Literal["none", "default"] = "none"
-    timeout_seconds: int = Field(default=600, ge=30, le=1800)
-    memory_mib: int = Field(default=1024, ge=512, le=4096)
-
-
-class ImageRequest(BaseModel):
-    """@brief Current definition/config binding for one durable image request."""
-
-    model_config = ConfigDict(extra="forbid", strict=True)
-    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
-    config_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
-    idempotency_key: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
-
-
 class ConfigApply(BaseModel):
     """@brief Exact pending candidate the administrator reviewed."""
 
     candidate_revision: str = Field(min_length=64, max_length=64)
-    base_revision: str | None = Field(default=None, min_length=64, max_length=64,
-                                      pattern=r"^[0-9a-f]{64}$")
+    base_revision: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
 
 
 class PriceInput(BaseModel):
@@ -1465,8 +1441,6 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
     runs = store.list_runs()
     last_activity: datetime | None = None
     for run in runs:
-        if run.updated_at == "":
-            continue
         try:
             changed = datetime.fromisoformat(run.updated_at)
             if changed.tzinfo is None or changed.utcoffset() is None:
@@ -1721,6 +1695,11 @@ def _read_pending_config(path: Path) -> dict | None:
 
 def _public_pending_config(value: dict, *, active_text: str | None = None) -> dict:
     """@brief Return review metadata without exposing the full TOML document."""
+    # Only an earlier build could stage an image binding or an operator-owned key.
+    if "image_build" in value or (
+            isinstance(value.get("key"), str) and _external_environment_key(
+                value["key"], endpoint=value["key"] == "container.runtime_env.OPENAI_BASE_URL")):
+        raise _error(503, "pending_config_corrupt")
     public = {key: value[key] for key in (
         "base_revision", "candidate_revision", "key", "value", "created_at",
         "restart_required",
@@ -1757,7 +1736,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         public["value"] = (json.dumps(proposed, ensure_ascii=False, separators=(",", ":"))
                            if isinstance(proposed, (list, dict)) else
                            str(proposed).lower() if type(proposed) is bool else str(proposed))
-        if (value["key"] == "container.image" and "image_build" not in value
+        if (value["key"] == "container.image"
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]):
             active = tomllib.loads(active_text)
@@ -1806,33 +1785,6 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError,
                 json.JSONDecodeError) as exc:
             raise _error(503, "pending_config_corrupt") from exc
-    if "image_build" in value:
-        binding = value["image_build"]
-        try:
-            fields = {"id", "project_id", "config_revision", "runtime", "runtime_identity",
-                      "base_id", "image_id", "context_sha256", "verified_checks", "draft_revision"}
-            if (not isinstance(binding, dict) or set(binding) != fields
-                    or value["key"] != "container.image"
-                    or binding["config_revision"] != value["base_revision"]
-                    or binding["image_id"] != proposed
-                    or not all(isinstance(binding[k], str) and re.fullmatch(r"[0-9a-f]{32}",
-                        binding[k]) for k in ("id", "project_id"))
-                    or not all(isinstance(binding[k], str) and re.fullmatch(r"[0-9a-f]{64}",
-                        binding[k]) for k in (
-                            "config_revision", "context_sha256", "draft_revision"))
-                    or not all(isinstance(binding[k], str) and re.fullmatch(r"sha256:[0-9a-f]{64}",
-                        binding[k]) for k in ("image_id", "base_id"))
-                    or not isinstance(binding["runtime"], str)
-                    or not isinstance(binding["runtime_identity"], str)
-                    or not isinstance(binding["verified_checks"], list)
-                    or not binding["verified_checks"]
-                    or not all(isinstance(c, str) for c in binding["verified_checks"])
-                    or candidate["container"]["required_tool_checks"]
-                    != binding["verified_checks"][1:]):
-                raise ValueError
-            public["image_build"] = binding
-        except (KeyError, TypeError, ValueError) as exc:
-            raise _error(503, "pending_config_corrupt") from exc
     return public
 
 
@@ -1868,7 +1820,6 @@ def _external_environment_key(key: str, *, endpoint: bool = False) -> bool:
     @param[in] key Dotted configuration key.
     @param[in] endpoint Dedicated validated AI endpoint editing exception.
     @return True for operator-owned environment settings.
-    @note Legacy pending readers retain their original validation and discard contract.
     """
     return (not endpoint and key not in {"worktree.branch_template", "worktree.branch_rule"}
             and key not in _CHOSEN_ENVIRONMENT_KEYS
@@ -1954,7 +1905,6 @@ def _setting_domain(key: str, value: object, config: dict, declared: object) -> 
     model_value = expected if expected is not None else value
     choices = {
         "platform.kind": ["gitlab", "github", "gitea"],
-        "state.channel": ["comments", "labels", "both"],
         "polling.mode": ["loop", "once"],
         "executor.mode": ["thick", "headless"],
         "executor.default": list(SUPPORTED_AGENTS),
@@ -2339,7 +2289,7 @@ def _analytical_csv(views: list[tuple[object, dict]], admin: bool,
     if admin and kind != "jobs-usage":
         columns.extend(("reported_cost_usd", "estimated_cost_usd"))
     prefix = ["project", "repository"] if global_view else []
-    coverage_columns = ["usage_events_unallocated", "summary_only_runs"]
+    coverage_columns = ["summary_only_runs"]
     writer.writerow(prefix + scope_columns + coverage_columns + columns)
     for profile, view in views:
         scope = view["scope"]
@@ -2453,23 +2403,11 @@ def create_app(home: str | Path | None = None,
     @return Configured FastAPI application.
     """
     profiles = ProfileStore(home)
-    images = ImageBuildService(
-        profiles, runner=probe_runner if probe_runner is not run_command else None)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
     app = FastAPI(title="ADORE", version=__version__, docs_url=None, redoc_url=None)
     app.state.web_store = web
     app.state.profiles = profiles
-    app.state.image_builds = images
-
-    @app.exception_handler(ImageBuildError)
-    async def image_failure(_request: Request, exc: ImageBuildError) -> JSONResponse:
-        """@brief Expose safe typed artifact/runtime errors without source values."""
-        status = 503 if any(s in exc.code for s in (
-            "corrupt", "storage", "retention_invalid")) else (
-            409 if any(s in exc.code for s in (
-                "stale", "terminal", "verified", "changed", "full")) else 400)
-        return JSONResponse(status_code=status, content={"detail": {"code": exc.code}})
 
     @app.exception_handler(WebStoreError)
     async def web_store_failure(_request: Request, _exc: WebStoreError) -> JSONResponse:
@@ -2592,65 +2530,6 @@ def create_app(home: str | Path | None = None,
             yield
         finally:
             state.release_lock()
-
-    def image_view(item) -> dict:
-        """@brief Read saved definition/evidence without invoking the runtime."""
-        store = images.store(item.name)
-        config = load_config(profiles.config_path(item.name))
-        return {"project_id": item.project_id, "backend": config.execution.backend,
-                "draft": store.read(), "template": dockerfile_template(),
-                "template_checks": config.container.required_tool_checks,
-                "operations": [public_image(value) for value in store.operations()]}
-
-    def public_image(value: dict) -> dict:
-        """@brief Expose bounded build evidence without server home/PATH controls."""
-        return {key: value[key] for key in ("id", "project_id", "phase", "tag", "error",
-            "config_revision", "image_id", "base_id", "context_sha256", "runtime",
-            "runtime_identity", "verified_checks")} | {"draft_revision": value["draft"]["revision"],
-                "host": {k: value["host"][k] for k in ("system", "account", "machine")}}
-
-    @app.get("/api/v1/projects/{name}/image-build")
-    def image_definition(name: str, user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Read a scoped definition, template and durable build summaries."""
-        return image_view(project(name, user))
-
-    @app.put("/api/v1/projects/{name}/image-build")
-    def save_image_definition(name: str, body: ImageDefinition,
-                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Refuse externally owned image definition changes after authorization."""
-        project(name, user)
-        raise _error(410, "environment_managed_externally")
-
-    @app.get("/api/v1/projects/{name}/image-build/export")
-    def export_image_definition(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
-        """@brief Export only the validated bounded project definition."""
-        item = project(name, user)
-        return images.store(item.name).export()
-
-    @app.post("/api/v1/projects/{name}/image-build/operations")
-    def build_image(name: str, body: ImageRequest,
-                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Refuse externally owned image build requests after authorization."""
-        project(name, user)
-        raise _error(410, "environment_managed_externally")
-
-    @app.get("/api/v1/projects/{name}/image-build/operations/{operation_id}")
-    def image_operation(name: str, operation_id: str,
-                        user: Annotated[dict, Depends(principal)]) -> dict:
-        """@brief Read scoped truthful phases and bounded redacted output."""
-        item = project(name, user)
-        store = images.store(item.name)
-        return {"build": public_image(store.operation(operation_id)),
-                "log": store.live_log(operation_id)}
-
-    @app.post("/api/v1/projects/{name}/image-build/operations/{operation_id}/cancel")
-    def cancel_image(name: str, operation_id: str,
-                     user: Annotated[dict, Depends(admin_mutation)]) -> dict:
-        """@brief Signal owned build cancellation without guessing completion."""
-        item = project(name, user)
-        images.store(item.name).cancel(operation_id)
-        web.audit(user["id"], "image-build-cancel-requested", item.name, operation_id)
-        return {"ok": True}
 
     @app.get("/api/v1/health")
     def health() -> dict:
@@ -3980,9 +3859,6 @@ def create_app(home: str | Path | None = None,
             raise _error(400, "environment_managed_externally")
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
-        if body.image_build_id:
-            # Selecting a built image would also rewrite the required tool checks.
-            raise _error(400, "environment_managed_externally")
         with config_lock, _web_config_edit_lock(path):
             if _read_pending_config(pending_path) is not None:
                 raise _error(409, "pending_config_exists")
@@ -4039,13 +3915,7 @@ def create_app(home: str | Path | None = None,
             if pending is None:
                 raise _error(404, "pending_config_not_found")
             _public_pending_config(pending)
-            if "image_build" in pending or _external_environment_key(
-                    pending["key"],
-                    endpoint=pending["key"] == "container.runtime_env.OPENAI_BASE_URL"):
-                raise _error(400, "environment_managed_externally")
-            if body.base_revision is not None and not secrets.compare_digest(
-                body.base_revision, pending["base_revision"]
-            ):
+            if not secrets.compare_digest(body.base_revision, pending["base_revision"]):
                 raise _error(409, "stale_config_revision")
             if not secrets.compare_digest(body.candidate_revision, pending["candidate_revision"]):
                 raise _error(409, "stale_pending_revision")
@@ -4294,7 +4164,7 @@ def create_app(home: str | Path | None = None,
             "in-review", "done", "failed", "cancelled",
             "handoff-pending", "handed-off",
         ]] | None, Query()] = None,
-        stage: Literal["frame", "specify", "design", "build", "validate", "deliver"] | None = None,
+        stage: Literal["frame", "specify", "design", "build", "validate"] | None = None,
         updated_from: date | None = None,
         updated_to: date | None = None,
         outcome: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
@@ -4698,7 +4568,9 @@ def create_app(home: str | Path | None = None,
     @app.post("/api/v1/projects/{name}/tickets/{iid}/start")
     def start_ticket(name: str, iid: int, body: TicketStartInput,
                      user: Annotated[dict, Depends(mutation)]) -> dict:
-        """@brief Add a ticket's missing ready/priority labels, then queue its start."""
+        """@brief Add a ticket's missing ready/priority labels, then queue its start.
+        @details Manual admission preserves stopped automatic monitoring and other gates.
+        """
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
@@ -4811,7 +4683,8 @@ def create_app(home: str | Path | None = None,
             if not gone:
                 raise
         return {key: operation[key] for key in
-                ("id", "project", "action", "status", "result", "created_at", "updated_at")}
+                ("id", "project", "action", "status", "result", "reason", "detail",
+                 "created_at", "updated_at")}
 
     @app.get("/{path:path}", include_in_schema=False)
     def frontend(path: str) -> Response:

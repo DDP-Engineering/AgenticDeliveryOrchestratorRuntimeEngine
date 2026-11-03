@@ -23,7 +23,7 @@ text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Executoren", ro = "Executori" }
-text = { en = "Windows executors find tools, check models reliably and keep output archives within size limits.", fr = "Les outils Windows sont détectés, les modèles vérifiés et les archives restent limitées.", de = "Windows-Werkzeuge und Modelltests funktionieren zuverlässig; Ausgaben bleiben begrenzt.", ro = "Uneltele și modelele Windows sunt verificate corect; arhivele păstrează limita de dimensiune." }
+text = { en = "Local OpenCode isolates settings; model tests run tools; Windows output stays bounded.", fr = "OpenCode local isole ses réglages ; les tests exécutent un outil ; sorties Windows limitées.", de = "OpenCode isoliert Einstellungen; Modelltests nutzen Werkzeuge; Windows-Ausgaben bleiben begrenzt.", ro = "OpenCode local izolează setările; testele AI execută unelte; ieșirile Windows rămân limitate." }
 
 [[release.entry]]
 category = "fixed"
@@ -156,16 +156,15 @@ topic = { en = "Delivery", fr = "Livraison", de = "Lieferung", ro = "Livrare" }
 text = { en = "Draft reviews, busy-ticket resumes and retries after brief push failures work again.", fr = "Revues en brouillon, reprises de tickets occupés et nouvelles tentatives de publication corrigées.", de = "Review-Entwürfe, belegte Tickets und Wiederholungen nach kurzen Push-Fehlern funktionieren.", ro = "Funcționează review-urile draft, reluarea tichetelor ocupate și reîncercarea publicării." }
 
 
-
 [[release.entry]]
 category = "fixed"
 topic = { en = "Messages", fr = "Messages", de = "Meldungen", ro = "Mesaje" }
-text = { en = "Errors appear as sentences in your language instead of raw codes.", fr = "Les erreurs s'affichent en phrases dans votre langue au lieu de codes bruts.", de = "Fehler erscheinen als Sätze in Ihrer Sprache statt als rohe Codes.", ro = "Erorile apar ca propoziții în limba dumneavoastră, nu drept coduri brute." }
+text = { en = "Errors read as sentences in your language; a stalled agent or a refused Start shows its last lines.", fr = "Erreurs en phrases dans votre langue ; agent bloqué ou démarrage refusé montre ses dernières lignes.", de = "Fehler als Sätze in Ihrer Sprache; blockierter Agent oder abgelehnter Start zeigt letzte Zeilen.", ro = "Erori ca propoziții în limba aleasă; un agent blocat sau o pornire refuzată arată ultimele linii." }
 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Settings preserve line endings and retry brief Windows file locks when saving.", fr = "Les réglages gardent les fins de ligne et réessaient les blocages Windows brefs.", de = "Einstellungen behalten Zeilenenden und wiederholen kurze Windows-Dateisperren beim Speichern.", ro = "Setările păstrează terminațiile de linie și reîncearcă blocajele scurte Windows la salvare." }
+text = { en = "Settings and data from earlier versions are refused with what to delete; edits keep line endings.", fr = "Paramètres et données d'anciennes versions refusés, avec quoi effacer ; fins de ligne conservées.", de = "Einstellungen und Daten älterer Versionen werden mit Löschhinweis abgelehnt; Zeilenenden bleiben.", ro = "Setări și date din versiuni anterioare refuzate, cu ce trebuie șters; terminațiile de linie rămân." }
 
 [[release]]
 version = "0.13.0"

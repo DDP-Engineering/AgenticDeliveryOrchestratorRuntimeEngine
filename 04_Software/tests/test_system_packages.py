@@ -207,7 +207,8 @@ def test_package_setting_requires_review_and_preserves_network(tmp_path):
         candidate = response.json()
         assert candidate["proposed_value"] is True and candidate["restart_required"] is True
         response = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                               json={"candidate_revision": candidate["candidate_revision"]})
+                               json={"candidate_revision": candidate["candidate_revision"],
+                                     "base_revision": view["revision"]})
         assert response.status_code == 200, response.text
     assert load_config(path).container.system_packages is True
     assert load_config(path).container.egress == original_network

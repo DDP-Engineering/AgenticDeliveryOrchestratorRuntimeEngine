@@ -24,9 +24,9 @@ Credential values never appear in reviews, audit records or exports. An empty va
 
 ## Test AI connection {#test-connection}
 
-Administrators choose **Test AI connection** under **AI connection**. It sends one short request through the configured agent in a temporary container, which may incur provider charges. The project must be idle with valid saved settings and no pending change; the image needs Python and the agent.
+Administrators choose **Test AI connection** under **AI connection**. It sends one short request through the configured agent in a temporary container, or in a temporary folder for an agent installed on the server, which may incur provider charges. The project must be idle with valid saved settings and no pending change; for a container project the image needs Python and the agent.
 
-The result is **AI model connected** or **AI connection could not be verified**, with guidance for a timeout, missing image or agent, bad credentials or unavailable model. It proves model access only, not tool support, and starts no job. The saved result is bound to the current model, settings and credentials and appears in the Summary host checks. Developers see it but cannot run the test.
+The result is **AI model connected** or **AI connection could not be verified**, with guidance for a timeout, missing image or agent, bad credentials, unavailable model or a shell command the agent could not run. For OpenCode, Pi or Codex installed on the server the request also asks the agent to run one shell command, and the result is connected only when that command ran; otherwise the test proves model access only. It starts no job. The saved result is bound to the current model, settings and credentials and appears in the Summary host checks. Developers see it but cannot run the test.
 
 ## Where jobs run {#where-jobs-run}
 
@@ -35,6 +35,7 @@ The result is **AI model connected** or **AI connection could not be verified**,
 | Runs in | A temporary Docker or Podman container on the ADORE server | The ADORE server itself, under the service's operating system account, in a dedicated worktree |
 | Environment | A project image prepared by the administrator | Tools, versions and libraries you install yourself on that server |
 | Sign-in | Listed API keys or host sign-in | The agent's existing login on that account, reused in place |
+| Agent settings | The image's settings, plus the [local endpoint for OpenCode](#local-endpoint) when set | For OpenCode, a settings folder managed by ADORE: agents, providers, plugins and permissions from your personal OpenCode settings folder are not used, `git push` and the forge tools are blocked, and `.opencode` and `.agents/skills` folders in the account's home still apply |
 | Isolation | Container with a network policy | Only the worktree; commands can reach whatever the account can, so use a dedicated least-privilege account |
 | Chosen | **Runs in** → **Container**, the default, on enrollment step 2 or in Settings → Agent and model | **Runs in** → **Installed on the server**, or the server profile or TOML enrollment |
 

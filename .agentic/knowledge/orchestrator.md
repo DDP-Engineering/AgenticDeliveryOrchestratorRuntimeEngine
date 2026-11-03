@@ -125,13 +125,19 @@ Container profiles without recipes or enabled package permission retain the exis
 - `REQ-FUNC-67469d47` - a failed independent check is routed back from done.
 - `REQ-FUNC-67bd56c8` - publication pushes and opens or adopts the MR/PR with no executor session or AEGIS command.
 - `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
-- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing,
-  and refuses every target for a run recorded at deliver.
+- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing.
 - `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
   approved unpublished one and conducts any other run from done.
 - `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
 - `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
+- `REQ-FUNC-93bd3c8e` - NO_STAGE_PROGRESS evidence carries the gate's stderr tail
+  after its sentence: NUL and ANSI stripped (an open OSC/DCS string stops at its
+  line) and redacted on the whole stderr before the 20-line/2000-character cut, so
+  a cut never splits a key from its secret; the terminal `run.outcome` keeps the
+  sentence through `_head_and_tail` over `_sanitize(evidence, None)`, for every code.
+  The strip-redact-cut is the shared `util.output_tail`, also used by the web
+  worker's operation detail with its own redaction.
 - `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
 - `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.
 - `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context

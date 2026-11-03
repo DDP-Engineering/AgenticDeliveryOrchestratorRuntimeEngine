@@ -17,7 +17,7 @@ Implementation uses shared four-locale names for reviewed settings, including **
 
 `review.max_review_rounds` and other review policies map to PR/MR and review; pickup gates map to Tickets. Localized help explains the shared additional-round budget and distinct exhaustion outcomes. Portable mapping validation derives its exact size from `portableFields`, whose readiness map contains two booleans.
 
-`lifecycleCopy` names pickup/status/answer labels consistently in rows, editors and candidate review. `STATUS_LABEL_KEYS` partitions six rows (including answered) into a native initially closed Status labels disclosure inside Tickets. `HIDDEN_SETTING_KEYS` omits CLI-only startup mode (`polling.mode`) and inactive reserved controls; effective config/catalog and scalar transport retain those keys for compatibility. Status edits retain existing administrator/revision/idle authority; Dev remains read-only. The disclosure uses the existing responsive row layout.
+`lifecycleCopy` names pickup/status/answer labels consistently in rows, editors and candidate review. `STATUS_LABEL_KEYS` partitions six rows (including answered) into a native initially closed Status labels disclosure inside Tickets. `HIDDEN_SETTING_KEYS` omits CLI-only startup mode (`polling.mode`) and inactive reserved controls; effective config/catalog and scalar transport still carry those keys. Status edits retain existing administrator/revision/idle authority; Dev remains read-only. The disclosure uses the existing responsive row layout.
 
 `labels.control.exclude` uses `excludeLabelCopy` for the settings row, editor and candidate review in all four locales. Help describes its configured name, presence-based pickup exclusion, removal under remaining eligibility gates and already-started job boundary. The scalar editing and conductor contracts remain unchanged.
 
@@ -94,9 +94,8 @@ Request review from has a localized label and six-line resizable account editor,
 ## 2. Responsibilities
 
 Project Settings retains the effective durable state folder as a read-only row.
-The shared SettingsList filters the reserved `state.channel` compatibility key
-before grouping for both Admin and Dev. Server metadata and raw TOML retain it;
-existing API read-only rules continue to reject edits.
+`state.channel` is removed: it is not in the setting catalog, and config
+validation refuses it as an unknown key.
 
 **Project → Settings → Agent and model** owns the default coding agent, the selected agent's launch command/model, AI connection testing, `execution.backend`, the container runtime and image (and the local account, home, PATH and cgroup root for local projects) and external container guidance. Its **Authentication** disclosure groups allowed credential variable names, host sign-in reuse and **Provider API keys**. The agent editor offers OpenCode, Pi, Codex and Qwen Code even when their command tables are absent. Selecting an agent loads its saved command/model or the documented command preset; a new model ID must be supplied explicitly. Prepare reviews agent, command and model together, then Apply writes one complete paused/idle candidate. The generic launch-command/model labels follow the selected agent. Edit keeps agent, command and model controls inside their existing description/value rows; the default-agent row owns Prepare/Cancel for the complete draft, beside its dropdown using the shared editor layout and normal responsive wrapping. Grouped-edit guidance stays in the description column. Validation occupies its own line after the controls, keeping selector/actions aligned when the selected agent needs a model; Prepare remains disabled until the complete draft is valid. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply). While the image row is edited it offers the same server image suggestions. Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
@@ -150,7 +149,7 @@ UTC filters, matched counts and 10/25/50/All pages from `/audit-page`. Filters r
 the offset. The view shows Who/What/When/Result and expandable known before/after,
 operation correlation and revision evidence in a full-width `audit-detail-row` under
 the event (fixed table layout; 12-character ids with the full value as title;
-revisions only when recorded). Missing legacy values say Before
+revisions only when recorded). Missing values say Before
 value not recorded; candidate preparation and uncertain application attempts are
 labeled separately from applied results. `auditCopy.ts` supplies four locales.
 Strict transport/value checks withhold malformed, mismatched or failed evidence
@@ -316,7 +315,13 @@ Previous/Next; a new read resets to the first page),
 shows eligibility, the blocking rule or job state with Start (confirming and
 choosing a priority when it must add labels), Retry for a failed job, confirmed Stop
 and Details (description plus comments loaded on first expand), and starts work only
-from the table (disabled actions are visibly dimmed); forge text is
+from the table (disabled actions are visibly dimmed). Start and Stop confirmations
+open as one row directly under their ticket, and the Start message names the
+selected priority label; a `pickup_paused` blocker shows Monitoring paused plus a
+per-project explanation, also used for a 409 `pickup_paused`. The followed
+operation shows its `reason` as a localized sentence (`operationReason.ts`, shared
+with `JobWorkspace` and the project status line), its `detail` lines in a bounded
+`pre`, and for a refused Start the labels it left on the ticket; forge text is
 rendered as React text and only http(s) links open, with `noopener noreferrer`.
 The Jobs sub-tab renders `JobWorkspace` in jobs mode with a fixed scope, no start
 form and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
@@ -462,7 +467,7 @@ localized common labels and localized setting guidance for remaining headings.
 `settingsCopy.ts` supplies four-locale category, effect and recovery copy.
 
 `PendingReview` compares safe active values to typed server-derived proposed values,
-names the affected display project. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; image/plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. Preparation focuses the review heading; discard returns keyboard
+names the affected display project. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. Preparation focuses the review heading; discard returns keyboard
 focus to the edited row or endpoint field. Endpoint review includes URL, model, protocol, credential variable,
 timeout and CA; unobserved active connection fields stay unknown. Safe clipboard
 copy uses only review values and full revisions. A single mutation ref lock and
@@ -800,9 +805,9 @@ narrow/dark layout, token clearing and wrong-scope rejection.
 
 ## Explicit AI connection test
 
-Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; its installed image must contain Python and the agent.
+Administrators use **Settings → Agent and model → Test AI connection** for the configured OpenCode, Pi, Codex or Qwen model. Each explicit click sends one short request in a temporary container, or in a temporary folder for an agent installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain Python and the agent.
 
-Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress; it starts no job and proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected. Failures provide redacted guidance for credentials, model availability, image, CLI version or network. The action reuses executor credentials and egress and starts no job. For OpenCode, Pi or Codex installed on the server it also requires one completed shell command (a failure reports **tool-call-failed** with permission guidance); in a container, or for Qwen, it proves no tool capability. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result; endpoint/tool compatibility remains separate. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 
 ## Project setting scope and guidance
@@ -835,9 +840,9 @@ Native execution is selected with **Runs in → Installed on the server** at enr
 
 ## Project image workspace
 
-Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image; **Executor image** (enrollment step 2 and Settings) selects one that the administrator prepared on the server. Specialized profiles use server TOML enrollment. Historical records remain readable/exportable/cancellable; old pending candidates can be discarded, and queued image-build requests fail without runtime execution. See [Project executor images](../01_Documentation/Project_Executor_Images.md).
+Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image; **Executor image** (enrollment step 2 and Settings) selects one that the administrator prepared on the server. Specialized profiles use server TOML enrollment. The retired image-build routes are removed and answer 404. See [Project executor images](../01_Documentation/Project_Executor_Images.md).
 
-`ExecutorEnvironment.tsx` renders read-only four-locale content from the config response. `serverImages.ts` reads the server's images (`readServerImages`, `validServerImages`) and proposes an image for an executor (`proposeImage`: tag starts with `<executor>-`, preferring `adore-executor-base:`); the enrollment wizard and the Settings image row use it, and an unreadable list is shown as unavailable. `settings.ts` exposes `CHOSEN_ENVIRONMENT_KEYS` (`execution.backend`, `container.runtime`, `container.image`, `local.*` account keys), which Agent and model shows and edits through the reviewed flow. `App.tsx` filters the other container/execution/local/worktree settings from both settings lists. Legacy environment candidates show disabled Apply and retain Discard. `images.spec.ts` proves the disclosure, Admin/Dev scoping, local suppression and mobile wrapping; `test_web_image_build.py` proves typed API/worker refusals.
+`ExecutorEnvironment.tsx` renders read-only four-locale content from the config response. `serverImages.ts` reads the server's images (`readServerImages`, `validServerImages`) and proposes an image for an executor (`proposeImage`: tag starts with `<executor>-`, preferring `adore-executor-base:`); the enrollment wizard and the Settings image row use it, and an unreadable list is shown as unavailable. `settings.ts` exposes `CHOSEN_ENVIRONMENT_KEYS` (`execution.backend`, `container.runtime`, `container.image`, `local.*` account keys), which Agent and model shows and edits through the reviewed flow. `App.tsx` filters the other container/execution/local/worktree settings from both settings lists. The pending review shows no image-build binding. A candidate with an image-build binding or for an operator-owned environment key could only be staged by an earlier build; the server reports it as `pending_config_corrupt` and the administrator can still discard it. `images.spec.ts` proves the disclosure, Admin/Dev scoping, local suppression and mobile wrapping; `test_web_pending_config.py` and `test_executor_environment_choice.py` prove the corrupt-but-discardable candidates.
 
 External environment refusals and preparation/model/credential failures have four-locale corrective messages in errors.ts; errors.test.mjs verifies complete server-code coverage and preserved diagnostic/generic fallback.
 

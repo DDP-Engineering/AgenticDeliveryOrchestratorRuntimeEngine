@@ -392,7 +392,8 @@ test("Dev redacted purpose view remains read-only at 390px in both themes", asyn
 });
 
 
-test("purpose guidance and single-setting flow preserve four locales", async ({ page }) => {
+for (const locale of ["fr", "de", "ro", "en"] as const) {
+test(`purpose guidance and single-setting flow preserve locale ${locale}`, async ({ page }) => {
   await openSettings(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const id = projects.find((item: { name: string }) => item.name === "alpha").id;
@@ -409,69 +410,67 @@ test("purpose guidance and single-setting flow preserve four locales", async ({ 
     de: ["Label für aufnahmebereite Tickets", "Label für beantwortete Rückfragen", "Statuslabels"],
     ro: ["Eticheta pentru preluare", "Eticheta de răspuns la clarificări", "Etichete de stare"],
   };
-  for (const locale of ["fr", "de", "ro", "en"] as const) {
-    await page.goto("/account");
-    const saved = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() !== "GET");
-    await page.locator(".form-stack select").first().selectOption(locale);
-    await saved;
-    await page.goto(`/projects/${id}/configuration`);
-    await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
-    await page.locator("#project-settings > .setting-groups > details > summary").first().click();
-    await expect(page.locator(".setting-essential").first()).toBeVisible();
-    await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
-    await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
-    const agent = page.locator('[data-setting-purpose="executor"]');
-    await agent.locator(":scope > summary").click();
-    await expect(agent.locator('[id="setting-executor.default"] strong')).toHaveText(agentSettingsCopy[locale].agent);
-    await expect(agent.locator('[id="setting-executor.commands.opencode.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
-    await expect(agent.locator('[id="setting-executor.commands.opencode.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
-    await agent.locator('[data-setting-topic="authentication"] > summary').click();
-    await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
-    const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
-    await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
-    await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
-    const database = page.locator('[id="setting-metrics.db_path"]');
-    await expect(database.locator("strong")).toHaveText(statisticsDatabaseCopy[locale].label);
-    await expect(database.getByRole("button")).toHaveCount(0);
-    await expect(page.locator('[id="setting-metrics.export_jsonl"], [id="setting-metrics.html_out"]')).toHaveCount(0);
-    await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
-    const statuses = page.locator(".status-label-settings");
-    const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
-    await rules.locator("summary").first().click();
-    await expect(page.getByText(labelNames[locale][0], { exact: true })).toBeVisible();
-    await expect(page.getByText(labelNames[locale][1], { exact: true })).not.toBeVisible();
-    await expect(statuses.locator("summary")).toContainText(labelNames[locale][2]);
-    await expect(statuses).not.toHaveAttribute("open");
-    await statuses.locator("summary").click();
-    await expect(statuses.locator(".setting-row")).toHaveCount(6);
-    await expect(statuses.locator(".setting-row").first()).toBeVisible();
-    await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
-    await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
-    await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
-    const implementation = page.locator('[data-setting-purpose="implementation"]');
-    await implementation.locator("summary").first().click();
-    for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.max_stage_failures", "recovery.max_transient_retries", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
-      await expect(implementation.locator(`[id="setting-${key}"] strong`)).toHaveText(implementationLabels[locale][key]);
-    }
-    for (const [index, key] of ["polling.max_concurrent_runs", "budgets.max_iterations", "budgets.max_wall_clock_seconds"].entries()) {
-      const row = implementation.locator(`[id="setting-${key}"]`);
-      await expect(row.locator("strong")).toHaveText(implementationNames[locale][index]);
-      await expect(row.getByRole("button")).toHaveAccessibleName(new RegExp(implementationNames[locale][index].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-    }
-    const launchRow = implementation.locator('[id="setting-budgets.max_iterations"]');
-    await launchRow.getByRole("button").click();
-    const editor = launchRow.locator(".setting-editor");
-    await expect(editor.getByRole("spinbutton")).toHaveAccessibleName(implementationNames[locale][1]);
-    const active = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
-    await editor.getByRole("spinbutton").fill(String(active.config.budgets.max_iterations + 1));
-    await editor.locator("button.primary").click();
-    await expect(page.locator(".candidate-review")).toContainText(implementationNames[locale][1]);
-    expect((await (await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(active.revision);
-    const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
-    await page.request.delete(`/api/v1/projects/${id}/config/pending`, { headers: { "X-CSRF-Token": csrf } });
+  await page.goto("/account");
+  const saved = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() !== "GET");
+  await page.locator(".form-stack select").first().selectOption(locale);
+  await saved;
+  await page.goto(`/projects/${id}/configuration`);
+  await expect(page.locator("#project-settings > .setting-groups > details > summary").first()).toContainText(expected[locale]);
+  await page.locator("#project-settings > .setting-groups > details > summary").first().click();
+  await expect(page.locator(".setting-essential").first()).toBeVisible();
+  await expect(page.locator('[id="setting-worktree.branch_template"] strong')).toHaveText(branchNamingCopy[locale].template);
+  await expect(page.locator('[id="setting-worktree.branch_rule"] strong')).toHaveText(branchNamingCopy[locale].rule);
+  const agent = page.locator('[data-setting-purpose="executor"]');
+  await agent.locator(":scope > summary").click();
+  await expect(agent.locator('[id="setting-executor.default"] strong')).toHaveText(agentSettingsCopy[locale].agent);
+  await expect(agent.locator('[id="setting-executor.commands.opencode.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
+  await expect(agent.locator('[id="setting-executor.commands.opencode.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
+  await agent.locator('[data-setting-topic="authentication"] > summary').click();
+  await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
+  const ci = page.locator('[id="setting-review.on_pipeline_failure"]');
+  await expect(ci.locator("strong")).toHaveText(pipelineFailureCopy[locale].label);
+  await expect(ci.locator("code")).toHaveText(pipelineFailureCopy[locale].revise);
+  const database = page.locator('[id="setting-metrics.db_path"]');
+  await expect(database.locator("strong")).toHaveText(statisticsDatabaseCopy[locale].label);
+  await expect(database.getByRole("button")).toHaveCount(0);
+  await expect(page.locator('[id="setting-metrics.export_jsonl"], [id="setting-metrics.html_out"]')).toHaveCount(0);
+  await expect(page.getByRole("region", { name: branchNamingCopy[locale].preview })).toContainText(branchNamingCopy[locale].noRule);
+  const statuses = page.locator(".status-label-settings");
+  const rules = page.locator("#project-settings > .setting-groups > details").filter({ has: statuses });
+  await rules.locator("summary").first().click();
+  await expect(page.getByText(labelNames[locale][0], { exact: true })).toBeVisible();
+  await expect(page.getByText(labelNames[locale][1], { exact: true })).not.toBeVisible();
+  await expect(statuses.locator("summary")).toContainText(labelNames[locale][2]);
+  await expect(statuses).not.toHaveAttribute("open");
+  await statuses.locator("summary").click();
+  await expect(statuses.locator(".setting-row")).toHaveCount(6);
+  await expect(statuses.locator(".setting-row").first()).toBeVisible();
+  await expect(page.getByText(labelNames[locale][1], { exact: true })).toBeVisible();
+  await expect(page.locator('[id="help-labels.executor.prefix"], [id="help-readiness.max_scope_hint"]')).toHaveCount(0);
+  await expect(page.locator('[id="setting-polling.mode"], [id="help-polling.mode"]')).toHaveCount(0);
+  const implementation = page.locator('[data-setting-purpose="implementation"]');
+  await implementation.locator("summary").first().click();
+  for (const key of ["clarification.answer_timeout", "clarification.max_rounds", "recovery.max_stage_failures", "recovery.max_transient_retries", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"]) {
+    await expect(implementation.locator(`[id="setting-${key}"] strong`)).toHaveText(implementationLabels[locale][key]);
   }
+  for (const [index, key] of ["polling.max_concurrent_runs", "budgets.max_iterations", "budgets.max_wall_clock_seconds"].entries()) {
+    const row = implementation.locator(`[id="setting-${key}"]`);
+    await expect(row.locator("strong")).toHaveText(implementationNames[locale][index]);
+    await expect(row.getByRole("button")).toHaveAccessibleName(new RegExp(implementationNames[locale][index].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  const launchRow = implementation.locator('[id="setting-budgets.max_iterations"]');
+  await launchRow.getByRole("button").click();
+  const editor = launchRow.locator(".setting-editor");
+  await expect(editor.getByRole("spinbutton")).toHaveAccessibleName(implementationNames[locale][1]);
+  const active = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
+  await editor.getByRole("spinbutton").fill(String(active.config.budgets.max_iterations + 1));
+  await editor.locator("button.primary").click();
+  await expect(page.locator(".candidate-review")).toContainText(implementationNames[locale][1]);
+  expect((await (await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(active.revision);
+  const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
+  await page.request.delete(`/api/v1/projects/${id}/config/pending`, { headers: { "X-CSRF-Token": csrf } });
 });
-
+}
 
 test("unpaused identity candidate is blocked in the browser without an apply request", async ({ page }) => {
   await page.route("**/api/v1/projects", async route => {
@@ -793,7 +792,8 @@ test("typed Implementation controls review and apply human duration, rounds, ret
   const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   const prepared = await page.request.post("/api/v1/projects/alpha/config/pending", {headers:{"X-CSRF-Token":csrf},data:{key,value:typeof value === "object" ? JSON.stringify(value) : String(value),revision:current.revision}});
   expect(prepared.ok()).toBe(true);
-  const result = await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:(await prepared.json()).candidate_revision}});
+  const candidate = await prepared.json();
+  const result = await page.request.post("/api/v1/projects/alpha/config/apply", {headers:{"X-CSRF-Token":csrf},data:{candidate_revision:candidate.candidate_revision,base_revision:candidate.base_revision}});
   expect(result.ok()).toBe(true);
  }
 });

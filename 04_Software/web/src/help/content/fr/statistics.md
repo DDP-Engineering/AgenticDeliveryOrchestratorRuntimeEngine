@@ -36,7 +36,7 @@ Des cartes pour **Jobs démarrés**, **Jobs terminés**, **Jobs échoués**, **J
 
 ### Tendances {#tab-trends}
 
-La couverture de l’utilisation et **Utilisation sans date de consommation** apparaissent sous forme de valeurs compactes. Un tableau comporte une ligne par tranche (jour, semaine ou mois) avec les tâches démarrées, terminées et échouées sous forme de barres proportionnelles, ainsi que les jetons en entrée et en sortie et, pour les administrateurs, le coût déclaré et estimé.
+La couverture de l’utilisation apparaît sous forme de valeur compacte. Un tableau comporte une ligne par tranche (jour, semaine ou mois) avec les tâches démarrées, terminées et échouées sous forme de barres proportionnelles, ainsi que les jetons en entrée et en sortie et, pour les administrateurs, le coût déclaré et estimé.
 
 Si le périmètre n’a encore aucune tâche, Qualité et Tendances l’indiquent et vous orientent vers Tâches → Tickets pour en démarrer une.
 

@@ -50,7 +50,6 @@ SYSTEM_ENV_KEYS = frozenset(
         "SYSTEMROOT",
         "WINDIR",
         "COMSPEC",
-        "PATHEXT",
         "APPDATA",
         "LOCALAPPDATA",
         "TEMP",
@@ -68,6 +67,45 @@ SYSTEM_ENV_KEYS = frozenset(
         "CODEX_HOME",
         "PI_CODING_AGENT_DIR",
     }
+)
+# Windows machine/system names that platform detection, executable lookup and
+# %SystemDrive%-style folder expansion need; account-derived names stay managed.
+WINDOWS_SYSTEM_ENV_KEYS = frozenset(
+    {
+        "PATHEXT",
+        "PROCESSOR_ARCHITECTURE",
+        "PROCESSOR_ARCHITEW6432",
+        "PROCESSOR_IDENTIFIER",
+        "PROCESSOR_LEVEL",
+        "PROCESSOR_REVISION",
+        "NUMBER_OF_PROCESSORS",
+        "OS",
+        "SYSTEMDRIVE",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "PROGRAMW6432",
+        "COMMONPROGRAMFILES",
+        "COMMONPROGRAMFILES(X86)",
+        "COMMONPROGRAMW6432",
+        "ALLUSERSPROFILE",
+        "PUBLIC",
+    }
+)
+# Local OpenCode commands resolve this policy instead of the account's personal
+# permissions: tools work non-interactively, push and forge CLIs are denied.
+OPENCODE_PERMISSION_POLICY = {
+    "edit": "allow",
+    "bash": {
+        "*": "allow",
+        "git push*": "deny",
+        "tea *": "deny",
+        "gh *": "deny",
+        "glab *": "deny",
+    },
+}
+MANAGED_OPENCODE_ENV_KEYS = frozenset(
+    {"XDG_CONFIG_HOME", "OPENCODE_DISABLE_CLAUDE_CODE", "OPENCODE_PERMISSION"}
 )
 RESOURCE_KEYS = {"kind", "id", "host", "account", "name", "worktree", "io"}
 FORBIDDEN_EXECUTABLES = {
@@ -118,7 +156,7 @@ def local_argv(template: str, *, prompt: str, model: str, worktree: str) -> list
     @param[in] prompt Full gate instruction.
     @param[in] model Configured model identifier.
     @param[in] worktree Native ticket worktree.
-    @return Fresh-session argv with empty legacy resume placeholder removed.
+    @return Fresh-session argv.
     @exception LocalExecutionError Unsupported or malformed argv template.
     """
     try:
@@ -126,12 +164,22 @@ def local_argv(template: str, *, prompt: str, model: str, worktree: str) -> list
         if not tokens or any(token in {"&&", "||", ";", "|", ">", "<", "&"} for token in tokens):
             raise ValueError
         result = [
-            token.format(prompt=prompt, model=model, worktree=worktree, resume="")
+            token.format(prompt=prompt, model=model, worktree=worktree)
             for token in tokens
         ]
         return [token for token in result if token]
     except (ValueError, KeyError, IndexError) as exc:
         raise LocalExecutionError("local executor requires a native argv template") from exc
+
+
+def managed_opencode_config(config) -> Path | None:
+    """@brief Locate the ADORE-managed OpenCode configuration home of a local profile.
+    @param[in] config Validated local profile.
+    @return `<state root>/executor-config` when OpenCode is the default executor, else None.
+    """
+    if config.executor.default != "opencode":
+        return None
+    return Path(config.state.store_root).resolve() / "executor-config"
 
 
 def local_environment(config, context: dict, secrets: dict | None = None) -> dict[str, str]:
@@ -153,7 +201,22 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     if not Path(home).is_dir():
         raise LocalExecutionError("selected local account home is unavailable")
     # Windows environment lookup is case-insensitive; filtering names is explicit.
-    env = {key: value for key, value in os.environ.items() if key.upper() in SYSTEM_ENV_KEYS}
+    allowed = SYSTEM_ENV_KEYS
+    if context["system"] == "Windows":
+        allowed = allowed | WINDOWS_SYSTEM_ENV_KEYS
+    env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
+    managed = managed_opencode_config(config)
+    if managed is not None:
+        # Replaces the account's personal OpenCode configuration home; explicit [local] values win.
+        env.update(
+            XDG_CONFIG_HOME=str(managed),
+            OPENCODE_DISABLE_CLAUDE_CODE="1",
+            OPENCODE_PERMISSION=json.dumps(OPENCODE_PERMISSION_POLICY, separators=(",", ":")),
+        )
+    if managed is not None and context["system"] == "Windows":
+        # A differently cased explicit managed name replaces the managed entry.
+        explicit = {key.upper() for key in config.local.environment} & MANAGED_OPENCODE_ENV_KEYS
+        env = {key: value for key, value in env.items() if key not in explicit}
     env.update(config.local.environment)
     env.update(
         HOME=home,
@@ -307,6 +370,14 @@ class LocalBackend:
         self.resolver = resolver
         self.policy = local_policy(config, context=self.context, resolver=resolver)
         self.environment = local_environment(config, self.context)
+        managed = managed_opencode_config(config)
+        if managed is not None and self.environment.get("XDG_CONFIG_HOME") == str(managed):
+            try:
+                managed.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise LocalExecutionError(
+                    "managed executor configuration directory is unavailable"
+                ) from exc
         self.controller = controller or LocalProcessController(
             NativeScopes(self.context["system"], config.local.cgroup_root)
         )
@@ -540,6 +611,8 @@ class LocalTarget:
     def __init__(self, backend: LocalBackend, name: str, env: dict, resource: dict) -> None:
         self.backend, self.name, self.env, self.resource = backend, name, dict(env), resource
         self.paths = ExecutionPaths(worktree=resource["worktree"], io=resource["io"], shell="")
+        # Bound for non-AEGIS native output; Test AI connection raises it on its probe target.
+        self.output_limit = 65536
 
     def _auth_path(self) -> Path:
         """@brief Locate the installed executor's existing account credential store."""
@@ -611,7 +684,7 @@ class LocalTarget:
         try:
             from adore.aegis import AEGIS_STDOUT_FILE, MAX_JSON_BYTES
 
-            limit = MAX_JSON_BYTES if path.name == AEGIS_STDOUT_FILE else 65536
+            limit = MAX_JSON_BYTES if path.name == AEGIS_STDOUT_FILE else self.output_limit
             if optional and not path.exists() and not path.is_symlink():
                 return ""
             if (
@@ -661,7 +734,7 @@ class LocalTarget:
             run_id=self.resource["id"],
             host=self.resource["host"],
             secrets=secrets,
-            stdout_limit=MAX_JSON_BYTES if stdout.name == AEGIS_STDOUT_FILE else 65536,
+            stdout_limit=MAX_JSON_BYTES if stdout.name == AEGIS_STDOUT_FILE else self.output_limit,
         )
         self.read_output(stdout)
         self.read_output(stderr)

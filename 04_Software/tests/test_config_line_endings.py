@@ -199,7 +199,8 @@ def test_web_edits_keep_the_file_line_endings(tmp_path, newline):
             "revision": revision()}, headers=headers)
         assert staged.status_code == 200, staged.text
         applied = client.post("/api/v1/projects/alpha/config/apply", json={
-            "candidate_revision": staged.json()["candidate_revision"]}, headers=headers)
+            "candidate_revision": staged.json()["candidate_revision"],
+            "base_revision": staged.json()["base_revision"]}, headers=headers)
         assert applied.status_code == 200, applied.text
         before = path.read_bytes()
         _assert_endings(before, newline)

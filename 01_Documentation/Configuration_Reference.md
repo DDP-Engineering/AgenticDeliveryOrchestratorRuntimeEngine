@@ -11,8 +11,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 This reference describes the ADORE configuration. The canonical
 annotated example is [config.example.toml](../04_Software/config.example.toml).
-Unknown top-level sections fail validation. Unknown execution/local keys are rejected. Other known sections
-currently ignore unknown keys, so use only documented keys and run `adore config
+Unknown top-level sections fail validation. Every section and subtable,
+including `labels.*`, `executor.<name>` and `container.egress`, refuses a key
+this build does not read with `[section] unknown key 'x': remove it from
+config.toml`. A missing key takes its documented default. Run `adore config
 validate` after an edit. Secrets do not belong in TOML.
 
 ## Agent, Platform and State
@@ -25,13 +27,17 @@ validate` after an edit. Secrets do not belong in TOML.
 | `platform.kind` | `github`, `gitlab`, or `gitea`. | `gitlab` |
 | `platform.repo` | Forge repository identity. | required |
 | `platform.login` | Named `tea` login; Gitea only. | empty |
-| `state.channel` | TOML compatibility setting; status uses its comment and lifecycle labels regardless of this value. Omitted from web Settings. | `comments` |
 | `state.store_root` | Durable local run-state root; visible read-only in web Settings. | `.<slug>` |
+
+Every run-state change is mirrored on the ticket by one status comment, edited
+in place, and the lifecycle labels; there is no setting for it.
 
 ADORE's run-state schema is `1`, numbered alongside the AEGIS JSON schema it
 is conducted with and independent of any ADORE release number. Any other
 value is rejected with an actionable message and never reinterpreted or
-migrated.
+migrated. A `state.json` with unknown or missing keys, or a stage outside
+`frame`, `specify`, `design`, `build`, `validate`, `done` and `publishing`, is
+refused the same way, and the message names the run directory to delete.
 
 ## Branch naming
 
@@ -78,8 +84,11 @@ The GUI exposes `labels.lifecycle.ready` directly in Tickets as **Ready for pick
 ## Executor and Container
 
 `executor.default` selects a command table. Every command is non-interactive
-and must contain `{prompt}`. `executor.env_keys` is the allowlist of
-model-provider environment variables copied into a container. Forge credential
+and must contain `{prompt}`. The supported placeholders are `{prompt}`,
+`{model}` and `{worktree}`; any other, `{resume}` included, is refused. The
+default Codex command is
+`codex exec --json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}`.
+`executor.env_keys` is the allowlist of model-provider environment variables copied into a container. Forge credential
 names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 `GITEA_TOKEN`, and `TEA_TOKEN` are rejected.
 

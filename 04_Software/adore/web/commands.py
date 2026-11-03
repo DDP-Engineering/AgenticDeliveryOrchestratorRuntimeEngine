@@ -20,8 +20,10 @@ from __future__ import annotations
 # IMPORTS
 import argparse
 from collections.abc import Callable
+from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from threading import Event, Thread
@@ -37,28 +39,56 @@ from adore.util import (
     automatic_environment,
     background_process_options,
     in_quiet_hours,
+    output_tail,
 )
-from adore.web.image_build import ImageBuildError, ImageBuildService
+from adore.web.jobs import redact_text
 from adore.web.store import WebStore, WebStoreError
 
+
 # DATA MODELS / TYPEDEFINITIONS
-Runner = Callable[[list[str], dict[str, str]], int | CommandResult]
+@dataclass(frozen=True)
+class CommandOutcome:
+    """@brief Exit code and combined stdout/stderr of one engine command."""
+
+    code: int
+    output: str = ""
+
+
+# A runner may return a bare exit code when it has no output to keep.
+Runner = Callable[[list[str], dict[str, str]], int | CommandOutcome | CommandResult]
+
+
+# The line `adore run --once --ticket N` prints when it starts no job.
+_NOT_STARTED = re.compile(
+    r"^error: ticket #(\d+) not started: "
+    r"(pickup_paused|at_capacity|aegis_probe_failed|not_eligible|conductor_busy)$",
+    re.MULTILINE,
+)
 
 
 # HELPER FUNCTIONS
-def _run(argv: list[str], env: dict[str, str]) -> CommandResult:
-    """@brief Run a fixed CLI argument vector with a finite timeout."""
+def _run(argv: list[str], env: dict[str, str]) -> CommandOutcome:
+    """@brief Run a fixed CLI argument vector with a finite timeout, keeping its output.
+    @details stderr joins stdout so the kept lines stay in the order they were printed.
+    """
     try:
         result = subprocess.run(
-            argv, env=automatic_environment(env), capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
-            check=False, timeout=21600, stdin=subprocess.DEVNULL,
-            **background_process_options(),
+            argv, env=automatic_environment(env), stdin=subprocess.DEVNULL,
+            **background_process_options(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace", check=False, timeout=21600,
         )
-    except subprocess.TimeoutExpired:
-        return CommandResult(argv=argv, exit_code=124, timed_out=True)
-    return CommandResult(argv=argv, exit_code=result.returncode,
-                         stdout=result.stdout, stderr=result.stderr)
+    except subprocess.TimeoutExpired as exc:
+        output = exc.output
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", "replace")
+        return CommandOutcome(124, output or "")
+    return CommandOutcome(result.returncode, result.stdout or "")
+
+
+def _refusal_reason(output: str, ticket: str) -> str:
+    """@brief Return the stable code the CLI printed for this ticket, or ""."""
+    codes = [code for iid, code in _NOT_STARTED.findall(output) if iid == ticket]
+    return codes[-1] if codes else ""
 
 
 # PUBLIC API
@@ -66,12 +96,13 @@ class CommandWorker:
     """@brief Execute authorized persisted commands through ADORE's CLI."""
 
     def __init__(self, profiles: ProfileStore, web: WebStore,
-                 runner: Runner = _run, *, image_runner=None) -> None:
+                 runner: Runner = _run) -> None:
         self.profiles = profiles
         self.web = web
         self.runner = runner
-        self.environment = {**os.environ, "ADORE_HOME": str(profiles.home)}
-        self.images = ImageBuildService(profiles, runner=image_runner)
+        # Unbuffered UTF-8 output keeps the engine's lines in order and every character printable.
+        self.environment = {**os.environ, "ADORE_HOME": str(profiles.home),
+                            "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
 
     def run_pending(self) -> int:
         """@brief Execute at most one pending command; return 1 if claimed."""
@@ -85,40 +116,30 @@ class CommandWorker:
                       if actor is not None and actor["role"] != "admin" else set())
         except WebStoreError:
             self.web.finish(operation["id"], "failed", "project grants are corrupt")
-            self.reject_image(operation)
             return 1
         if (actor is None or actor["disabled"] or not self.profiles.exists(project)
                 or (actor["role"] != "admin" and project not in grants)):
             self.web.finish(operation["id"], "failed", "permission or project revoked")
-            self.reject_image(operation)
             return 1
         try:
             profile = self.profiles.load(project)
             if profile.project_id != operation["project_id"]:
                 self.web.finish(operation["id"], "failed", "project identity changed")
-                self.reject_image(operation)
                 return 1
             if operation["action"] == "delete":
                 if actor["role"] != "admin" or not profile.archived:
                     self.web.finish(operation["id"], "failed",
                                     "delete requires an administrator and an archived project")
-                    self.reject_image(operation)
                     return 1
             elif profile.archived:
                 self.web.finish(operation["id"], "failed", "project archived")
-                self.reject_image(operation)
                 return 1
         except ProfileError:
             self.web.finish(operation["id"], "failed", "project metadata corrupt")
-            self.reject_image(operation)
             return 1
         argv = [sys.executable, "-m", "adore", "--profile", project]
         action = operation["action"]
         target = operation["run_id"]
-        if action == "image-build":
-            self.web.finish(operation["id"], "failed", "environment managed externally")
-            self.reject_image(operation)
-            return 1
         if action == "cancel":
             try:
                 profile = self.profiles.load(project)
@@ -153,8 +174,13 @@ class CommandWorker:
         except Exception:  # noqa: BLE001 - unexpected outcome needs reconciliation
             self.web.finish(operation["id"], "uncertain", "worker invocation failed")
             return 1
-        code = outcome.exit_code if isinstance(outcome, CommandResult) else outcome
-        if type(code) is not int:
+        if isinstance(outcome, CommandResult):
+            code, output = outcome.exit_code, outcome.stdout + "\n" + outcome.stderr
+        elif isinstance(outcome, CommandOutcome):
+            code, output = outcome.code, outcome.output
+        else:
+            code, output = outcome, ""
+        if type(code) is not int or type(output) is not str:
             self.web.finish(operation["id"], "uncertain", "invalid engine outcome")
             return 1
         status = "uncertain" if code == 124 else "succeeded" if code == 0 else "failed"
@@ -162,17 +188,20 @@ class CommandWorker:
             "completed" if code == 0 else
             "outcome uncertain" if code == 124 else "engine rejected operation"
         )
-        if action == "start" and isinstance(outcome, CommandResult) and code != 124:
+        evidence = outcome.stdout if isinstance(outcome, CommandResult) else output
+        if (action == "start" and isinstance(outcome, (CommandResult, CommandOutcome))
+                and code != 124):
             try:
-                reason = read_start_result(outcome.stdout, ticket=int(target), exit_code=code)
+                reason = read_start_result(evidence, ticket=int(target), exit_code=code)
             except StartResultError:
                 reason = "invalid_result"
                 if code == 0:
                     status = "uncertain"
             result = "completed" if reason == "started" else "start:" + reason
-        if action == "retry" and isinstance(outcome, CommandResult) and code != 124:
+        if (action == "retry" and isinstance(outcome, (CommandResult, CommandOutcome))
+                and code != 124):
             try:
-                reason = read_retry_result(outcome.stdout, run_id=target, exit_code=code)
+                reason = read_retry_result(evidence, run_id=target, exit_code=code)
             except StartResultError:
                 reason = "invalid_result"
                 if code == 0:
@@ -188,27 +217,12 @@ class CommandWorker:
                     result = "retry:failed:" + failed.outcome[:2200]
                 except (FileNotFoundError, StateError, OSError):
                     result = "retry:state_unavailable"
-        self.web.finish(operation["id"], status, result)
+        detail = output_tail(output, redact_text) if code != 0 else ""
+        reason = _refusal_reason(output, target) if status == "failed" and action == "start" else ""
+        self.web.finish(operation["id"], status, result, reason=reason, detail=detail)
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
         return 1
-
-    def reject_image(self, operation: dict) -> None:
-        """@brief Mark a revoked queued image artifact failed without runtime effects.
-        @param[in] operation Identity-bound queue request whose authorization failed.
-        """
-        if operation["action"] != "image-build":
-            return
-        try:
-            profile = self.profiles.load(operation["project"])
-            if profile.project_id != operation["project_id"]:
-                return
-            value = self.images.store(profile.name).operation(operation["run_id"])
-            if value["phase"] == "queued":
-                self.images.set_phase(profile.name, value["id"], "failed",
-                                      error="image_worker_rejected")
-        except (ProfileError, ImageBuildError, OSError, ValueError):
-            pass  # Corruption cannot grant authority; queue retains the failed outcome.
 
     def _signal_pending_cancels(self) -> None:
         """@brief Recheck grants before signalling any active conductor."""
@@ -233,7 +247,7 @@ class CommandWorker:
                 # The claimed command will report the unavailable run or state.
                 continue
 
-    def _run_with_cancel_watch(self, argv: list[str]) -> int | CommandResult:
+    def _run_with_cancel_watch(self, argv: list[str]) -> int | CommandOutcome | CommandResult:
         """@brief Watch queued cancellations around one blocking engine command."""
         done = Event()
 
@@ -258,7 +272,9 @@ class CommandWorker:
         """@brief Poll one project while watching for newly authorized cancels."""
         argv = [sys.executable, "-m", "adore", "--profile", project,
                 "run", "--once"]
-        return self._run_with_cancel_watch(argv)
+        outcome = self._run_with_cancel_watch(argv)
+        return (outcome.code if isinstance(outcome, CommandOutcome) else
+                outcome.exit_code if isinstance(outcome, CommandResult) else outcome)
 
     def run_forever(self, *, interval: float = 2.0,
                     heartbeat_interval: float = 2.0,
@@ -285,13 +301,6 @@ class CommandWorker:
         next_poll: dict[str, float] = {}
         cadences: dict[str, PollCadence] = {}
         try:
-            for operation in self.web.running_image_builds():
-                try:
-                    profile = self.profiles.load(operation["project"])
-                    if profile.project_id == operation["project_id"]:
-                        self.images.recover(profile.name, operation["run_id"])
-                except (ProfileError, ImageBuildError, OSError, ValueError):
-                    pass  # No authority from corrupt/replaced profiles; evidence stays uncertain.
             self.web.recover_interrupted()
             self.web.touch_worker()
             heartbeat_started = True

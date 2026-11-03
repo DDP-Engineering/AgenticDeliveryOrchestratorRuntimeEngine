@@ -28,7 +28,7 @@ LAUNCH_PRESETS = {
     ),
     "executor.pi.command": ("pi -p --mode json --model {model} {prompt}",),
     "executor.codex.command": (
-        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "codex exec --json --model {model} --ignore-user-config "
         "--disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}",
     ),
     "executor.qwen.command": ("qwen -p --model {model} --output-format json {prompt}",),

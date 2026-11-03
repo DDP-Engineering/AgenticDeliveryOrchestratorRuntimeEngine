@@ -41,11 +41,13 @@ Writes are atomic, corrupt metadata fails closed and is reported, and deletion
 clears a matching active pointer. The store deliberately persists metadata
 only, never credentials or `.env` values.
 Each profile has an immutable 32-hex `project_id` distinct from its directory
-label. Legacy sidecars derive a stable ID from their stored name and creation
-timestamp; a rename persists that ID, while a malformed ID fails closed.
+label: `create()` assigns a random one and `save()` requires one. A rename
+persists that ID, while a malformed ID fails closed. A `profile.json` with
+unknown or missing keys was written by another ADORE build and is refused with
+"delete or fix that file"; nothing derives a substitute ID or fills defaults.
 
 `display_name` is a validated 1–120 character trimmed Unicode human label, with
-no control/format characters. Only an absent legacy key falls back to `name`.
+no control/format characters. A profile saved without one stores `name`.
 Display edits retain directory, immutable ID, paths and web ownership. Web IDs
 use portable lowercase ASCII syntax with route/device/32-hex aliases reserved.
 Guided `setup-check` and `setup-create`, plus portable `transfer-source`,

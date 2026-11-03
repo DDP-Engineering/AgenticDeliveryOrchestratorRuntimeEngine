@@ -259,37 +259,42 @@ def test_load_missing_profile_raises(tmp_path: Path) -> None:
         store.load("absent")
 
 
-def test_profile_json_ignores_unknown_keys(tmp_path: Path) -> None:
-    """
-    @brief   Forward compatibility: an unknown key in profile.json is dropped,
-             the directory name overrides any stored name.
-    """
+@pytest.mark.parametrize("change", ["unknown", "missing"])
+def test_profile_json_of_another_build_is_refused(tmp_path: Path, change: str) -> None:
+    """@brief An unknown or missing key means another build wrote profile.json."""
     store = _store(tmp_path)
     store.create("proj", repo="g/p")
     meta = store.profile_dir("proj") / "profile.json"
     data = json.loads(meta.read_text(encoding="utf-8"))
-    data["future_field"] = "x"
+    if change == "unknown":
+        data["future_field"] = "x"
+    else:
+        data.pop("display_name")
+    meta.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ProfileError, match="another ADORE build"):
+        store.load("proj")
+
+
+def test_profile_directory_name_overrides_the_stored_name(tmp_path: Path) -> None:
+    """@brief The directory name is the profile's identity."""
+    store = _store(tmp_path)
+    store.create("proj", repo="g/p")
+    meta = store.profile_dir("proj") / "profile.json"
+    data = json.loads(meta.read_text(encoding="utf-8"))
     data["name"] = "WRONG"
     meta.write_text(json.dumps(data), encoding="utf-8")
     loaded = store.load("proj")
     assert loaded.name == "proj" and loaded.repo == "g/p"
 
 
-def test_legacy_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> None:
-    """@brief Legacy metadata gets a stable ID and corrupt IDs fail closed."""
+def test_profile_identity_survives_rename_and_bad_ids_fail(tmp_path: Path) -> None:
+    """@brief The project ID is stable across renames and a corrupt ID fails closed."""
     store = _store(tmp_path)
-    store.create("old", repo="g/p")
-    meta = store.profile_dir("old") / "profile.json"
-    data = json.loads(meta.read_text(encoding="utf-8"))
-    data.pop("project_id")
-    meta.write_text(json.dumps(data), encoding="utf-8")
-    legacy_id = store.load("old").project_id
-    assert len(legacy_id) == 32
+    identity = store.create("old", repo="g/p").project_id
     store.rename("old", "new")
-    assert store.load("new").project_id == legacy_id
+    assert store.load("new").project_id == identity
     stored = json.loads((store.profile_dir("new") / "profile.json").read_text(
         encoding="utf-8"))
-    assert stored["project_id"] == legacy_id
     stored["project_id"] = "invalid"
     (store.profile_dir("new") / "profile.json").write_text(
         json.dumps(stored), encoding="utf-8")

@@ -23,9 +23,10 @@ tools and interactive account authentication.
 ## Public interface
 
 LocalBackend revalidate_for_retry/provision/bind/resource_identity/verify_required_tools/stop/interrupt/remove;
-LocalTarget run_files/call/read_output/redact/auth_available; local_policy,
-local_environment, local_argv and local_probe. probe_local_executor returns closed
-ready/reason/exit_code diagnostics; validate_local_probe protects persisted evidence. LocalProcessController launch/interrupt/
+LocalTarget run_files/call/read_output/redact/auth_available and `output_limit` (64 KiB default for non-AEGIS output; Test AI connection raises it to 1 MiB); local_policy,
+local_environment, managed_opencode_config, local_argv and local_probe;
+probe_local_executor and validate_local_probe own closed measured readiness evidence;
+OPENCODE_PERMISSION_POLICY. LocalProcessController launch/interrupt/
 recover delegates to NativeScopes; child.main enforces scope membership and release.
 
 ## Invariants
@@ -36,6 +37,22 @@ Scope assignment and durable ownership precede project code. Confirm descendants
 drained before release; corruption/control failure preserves evidence/worktrees.
 No recovered PID-only kill, login, credential copies, forge env or tool installs.
 Worktrees are not host sandboxes; container egress/recipes cannot be selected.
+Gates and probes share one bound target and one `local_environment` result; the
+conductor remains the stage owner. The environment is an explicit allowlist:
+`SYSTEM_ENV_KEYS` everywhere plus `WINDOWS_SYSTEM_ENV_KEYS` (PATHEXT, PROCESSOR_*,
+NUMBER_OF_PROCESSORS, OS, SystemDrive, ProgramData, ProgramFiles*, CommonProgramFiles*,
+ALLUSERSPROFILE, PUBLIC) on Windows, then for OpenCode profiles the managed
+`XDG_CONFIG_HOME` (`<state root>/executor-config`), `OPENCODE_DISABLE_CLAUDE_CODE=1`
+and `OPENCODE_PERMISSION`, then `[local].environment` (explicit values win), managed
+account/home/PATH and approved provider keys; on Windows an explicit managed
+OpenCode name replaces the managed entry regardless of case. The personal OpenCode configuration home (agents,
+providers, plugins, permissions) and Claude Code compatibility content do not
+apply unless the operator overrides the managed names; OpenCode still reads the
+account's `~/.opencode` and `~/.agents/skills`, a documented gap. `XDG_DATA_HOME`
+auth is untouched. LocalBackend creates the managed folder or raises
+before any launch; `local_policy` (also `config plan`) writes nothing. For OpenCode
+profiles the digest includes the state root; it is pinned, so changing the allowlist, the managed
+entries or the state root makes runs started earlier drift.
 
 ## Change map
 
@@ -65,11 +82,17 @@ cumulative budgets remain intact. Focused proof: test_retry_revalidation.py.
 - REQ-FUNC-ffb9ed29: pinned local selection/resource and default container compatibility.
 - REQ-REL-50474528: scoped lifecycle with immutable launch/PID-birth checks.
 - REQ-FUNC-5e2fe079: same fresh gate/AEGIS file contract through native argv.
-- REQ-SEC-f7b9111e: bounded strict/redacted evidence and auth reused in place.
+- REQ-SEC-f7b9111e: allowlisted account environment (Windows system names included),
+  bounded strict/redacted evidence and auth reused in place.
 - REQ-UX-b75e1df8: native probes and actual machine/account/tooling notice.
 
 Ownership is persisted and scope established before release. Shared gates/probes
 use the same bound target; the existing conductor remains the stage owner.
+- REQ-SEC-eaad89c3: OpenCode resolves the managed config home, not the personal one
+  (home-level `~/.opencode` and `~/.agents/skills` remain a documented gap).
+- REQ-SEC-617a95f5: OpenCode permission policy (bash/edit allow; push and forge CLIs deny).
+- REQ-FUNC-17d58879: explicit `[local].environment` values override managed entries.
+- REQ-REL-23ce3d34: unusable managed folder raises LocalExecutionError before launch.
 
 ## Files
 

@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 # IMPORTS
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -40,6 +40,13 @@ _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
 _DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
 
 DEFAULT_COMMAND_TIMEOUT = 600.0
+
+# CSI, OSC (BEL or ST terminated), DCS/SOS/PM/APC strings, then any other ESC
+# sequence; an unterminated string sequence ends at its own line.
+ANSI_ESCAPE = re.compile(
+    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b\n]*(?:\x07|\x1b\\)?"
+    r"|[PX^_][^\x1b\n]*(?:\x1b\\)?|[ -/]*[0-~])"
+)
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -278,6 +285,23 @@ def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
         if inside:
             return True
     return False
+
+
+def output_tail(text: str, redact: Callable[[str], str], *,
+                lines: int = 20, chars: int = 2000) -> str:
+    """
+    @brief      Keep the last lines of process output as evidence safe to show.
+    @details    NUL and ANSI escapes are removed and the whole text is redacted
+                before the cut, so a cut never separates a key from its value.
+    @param[in]  text Captured output.
+    @param[in]  redact Credential redaction for the whole cleaned text.
+    @param[in]  lines Maximum number of trailing lines kept.
+    @param[in]  chars Maximum length of the result.
+    @return     The trailing lines, or "" when the output is blank.
+    """
+    clean = ANSI_ESCAPE.sub("", str(text).replace("\x00", ""))
+    kept = redact(clean).strip().splitlines()
+    return "\n".join(kept[-lines:])[-chars:]
 
 
 def force_rmtree(path: str | Path) -> None:

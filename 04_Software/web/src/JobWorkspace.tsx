@@ -13,6 +13,7 @@ import { PreparationResults } from "./ExecutionPlanReview";
 import { activityAge, commandAllowed, IncompleteJobs, readJobDetail, readJobPage, type Job, type JobPage } from "./jobModel";
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
+import { outcomeText } from "./operationReason";
 import { formatRoute } from "./routes";
 import { SortHeader } from "./SortHeader";
 import { readConsumption, consumptionIdentity } from "./statistics";
@@ -31,7 +32,7 @@ type Props = {
   admin: boolean;
 };
 type ReadState = "loading" | "ready" | "error" | "incomplete" | "changed";
-type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string };
+type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
 type JobSort = "ticket" | "project" | "status" | "activity";
 type Filters = { q: string; group: string; size: 10 | 25 | 50 | "all"; sort: JobSort; descending: boolean; offset: number };
 const initialFilters = (mode: Props["mode"]): Filters => ({ q: "", group: mode === "history" ? "terminal" : "", size: 10, sort: "activity", descending: true, offset: 0 });
@@ -40,14 +41,14 @@ const lifecycleKeys: Record<string, MessageKey> = {
   "awaiting-approval": "awaitingApprovalStatus", "in-review": "inReviewStatus", "handoff-pending": "handoffPendingStatus",
   "handed-off": "handedOffStatus", done: "done", failed: "failed", cancelled: "cancelled",
 };
-const stageKeys: Record<string, MessageKey> = { frame: "frameStage", specify: "specifyStage", design: "designStage", build: "buildStage", validate: "validateStage", deliver: "deliverStage", done: "done", publishing: "publishingStatus" };
+const stageKeys: Record<string, MessageKey> = { frame: "frameStage", specify: "specifyStage", design: "designStage", build: "buildStage", validate: "validateStage", done: "done", publishing: "publishingStatus" };
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
 const normalizeFailure = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError("unexpected_response");
 const readOperation = (value: unknown): Operation => {
   const operation = value as Operation;
   if (!operation || !Number.isSafeInteger(operation.id) || operation.id < 1 ||
     !["pending", "running", "succeeded", "failed", "uncertain"].includes(operation.status) ||
-    operation.result !== undefined && typeof operation.result !== "string") throw new ApiError("unexpected_response");
+    [operation.result, operation.reason, operation.detail].some(value => value !== undefined && typeof value !== "string")) throw new ApiError("unexpected_response");
   return operation;
 };
 
@@ -247,7 +248,7 @@ export function JobWorkspace(props: Props) {
     {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
     {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>}
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
-    {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{operation.result && <p>{operationResultText(operation.result, locale)}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
+    {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>
     </section>}
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}

@@ -36,7 +36,7 @@ Cards for **Started jobs**, **Completed jobs**, **Failed jobs**, **Input tokens*
 
 ### Trends {#tab-trends}
 
-Usage coverage and **Usage without a consumption date** appear as compact values. One table has a row per bucket (day, week or month) with started, completed and failed jobs as proportional bars, plus input and output tokens, and for administrators reported and estimated cost.
+Usage coverage appears as a compact value. One table has a row per bucket (day, week or month) with started, completed and failed jobs as proportional bars, plus input and output tokens, and for administrators reported and estimated cost.
 
 If the scope has no jobs yet, Quality and Trends say so and point you to Jobs → Tickets to start one.
 

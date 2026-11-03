@@ -77,6 +77,25 @@ wording in the managed AEGIS digest below or in `.agentic/AGENTS.md`.
 - Bound every autonomous run with explicit limits (iterations, wall-clock,
   cost, files touched).
 
+## Stored data during development (repository rule)
+
+ADORE is in development. Until the user states otherwise in writing, this rule
+overrides any requirement, spec, document or habit that asks for more:
+
+- Do not implement data migrations, schema-version upgrades, backward or
+  forward compatibility, or readers for older stored formats. This covers the
+  web database, run state, profiles, configuration, journals, exports and any
+  other data ADORE stores.
+- Each build supports exactly one current schema per stored format. Change a
+  format in place; a fresh store gets the current schema.
+- A store in any other schema version is refused with a clear message that
+  names what the operator deletes to start fresh. Never delete, rewrite or
+  recreate it automatically.
+- Do not write requirements, specs, documentation, help, CHANGELOG entries or
+  release notes that promise migration, upgrade or downgrade paths, or
+  compatibility with earlier ADORE builds. A breaking format change gets one
+  CHANGELOG line saying what to delete before starting the new build.
+
 ## Testing Rules
 
 - Do not add or run automated tests for deployment or environment setup scripts.

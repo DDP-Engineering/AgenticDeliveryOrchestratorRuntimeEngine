@@ -21,6 +21,9 @@ Contents:
 - [ADORE_Web_Interface_Plan.md](ADORE_Web_Interface_Plan.md) - draft web
   interface architecture, login and project access, configuration, metrics,
   deployment, phased delivery, and open product decisions.
+- [2026-11-01_Pi_Single_Executor/PLAN.md](2026-11-01_Pi_Single_Executor/PLAN.md) -
+  Pi as ADORE's single coding agent: decision, evidence, target design and the
+  Gitea backlog (epic #50) for removing OpenCode, Codex and Qwen Code.
 - `ADORE_System_Overview.md` - what ADORE is, the ADORE/AEGIS ownership
   boundary, the end-to-end run, runtime states, the safety and approval model,
   the components as implemented, the supported environment, and the known

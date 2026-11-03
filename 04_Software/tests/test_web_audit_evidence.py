@@ -108,21 +108,22 @@ def test_authorized_server_filters_counts_and_paging(tmp_path):
         assert page.json()["items"][0]["project_id"] == alpha.project_id
 
 
-def test_legacy_rows_have_explicit_unknowns_and_schema14(tmp_path):
-    """@brief Upgrade preserves identities and historical unknown values."""
+def test_audit_row_without_evidence_is_corrupt(tmp_path):
+    """@brief Every audit row the current build writes has evidence; one without it fails closed."""
     web = WebStore(tmp_path / "web.db")
     with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 15
         connection.execute(
             "INSERT INTO audit(actor_id,action,project,detail,created_at) "
             "VALUES (1,'old','alpha','historic','2020-01-01T00:00:00+00:00')"
         )
-    row = WebStore(web.path).recent_audit()[0]
-    assert row["before"] is None and row["result"] is None and row["project_id"] is None
-    assert row["detail"] == "[redacted]"
+    with pytest.raises(WebStoreError, match="audit row is corrupt"):
+        web.recent_audit()
+    with pytest.raises(WebStoreError, match="audit row is corrupt"):
+        WebStore(web.path)
 
 
-def test_corrupt_legacy_project_fails_closed_on_public_reads(tmp_path):
+def test_corrupt_project_fails_closed_on_public_reads(tmp_path):
     """@brief Persisted project metadata cannot expose credential-bearing URLs."""
     app = create_app(tmp_path)
     web = app.state.web_store
@@ -191,7 +192,8 @@ def test_config_prepare_apply_discard_truthful_values(tmp_path):
         applied = client.post(
             "/api/v1/projects/alpha/config/apply",
             headers=headers,
-            json={"candidate_revision": staged.json()["candidate_revision"]},
+            json={"candidate_revision": staged.json()["candidate_revision"],
+                  "base_revision": staged.json()["base_revision"]},
         )
         assert applied.status_code == 200
         event = app.state.web_store.recent_audit()[0]
@@ -286,31 +288,6 @@ def test_retention_does_not_break_filesystem_confirmation(tmp_path):
     assert web.recent_audit() == []
 
 
-def test_schema13_upgrade_preserves_actual_legacy_identity(tmp_path):
-    """@brief A genuine old audit shape upgrades atomically without historic fabrication."""
-    web = WebStore(tmp_path / "web.db")
-    web.change_password(1, "admin", "replacement-password")
-    with sqlite3.connect(web.path) as connection:
-        connection.execute("DROP TABLE audit")
-        connection.execute("DROP TABLE audit_attempts")
-        connection.execute(
-            "CREATE TABLE audit(id INTEGER PRIMARY KEY, actor_id INTEGER, "
-            "action TEXT NOT NULL, project TEXT NOT NULL DEFAULT '', "
-            "detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)"
-        )
-        connection.execute(
-            "INSERT INTO audit VALUES(7,1,'config-applied','alpha',"
-            "'budgets.max_iterations','2020-01-01T00:00:00+00:00')"
-        )
-        connection.execute("PRAGMA user_version=13")
-    restored = WebStore(web.path)
-    assert restored.authenticate("admin", "replacement-password")["id"] == 1
-    row = restored.recent_audit()[0]
-    assert row["id"] == 7 and row["action"] == "config-applied"
-    assert all(row[field] is None for field in ("result", "before", "after", "project_id"))
-    assert restored.audit_policy() == {"retention_days": None, "max_bytes": None}
-
-
 @pytest.mark.parametrize(
     "damage", ["schema", "timestamp", "json", "secret", "duplicate", "column", "index", "attempt"]
 )
@@ -348,27 +325,6 @@ def test_corrupt_audit_storage_fails_closed_without_identity_reset(tmp_path, dam
     with sqlite3.connect(web.path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
         assert connection.execute("SELECT password_hash FROM users").fetchone()[0] != "admin"
-
-
-def test_bad_legacy_upgrade_rolls_back_schema_atomically(tmp_path):
-    """@brief Invalid old audit rows leave the version and identity intact."""
-    web = WebStore(tmp_path / "web.db")
-    with sqlite3.connect(web.path) as connection:
-        connection.execute("DROP TABLE audit")
-        connection.execute("DROP TABLE audit_attempts")
-        connection.execute(
-            "CREATE TABLE audit(id INTEGER PRIMARY KEY, actor_id INTEGER, "
-            "action TEXT NOT NULL, project TEXT NOT NULL DEFAULT '', "
-            "detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)"
-        )
-        connection.execute("INSERT INTO audit VALUES(1,1,'config-applied','alpha','','bad')")
-        connection.execute("PRAGMA user_version=13")
-    with pytest.raises(WebStoreError):
-        WebStore(web.path)
-    with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
-        assert "evidence" not in {row[1] for row in connection.execute("PRAGMA table_info(audit)")}
-        assert connection.execute("SELECT COUNT(*) FROM audit").fetchone()[0] == 1
 
 
 def test_operation_completion_fault_rolls_back_status_and_event(tmp_path):
@@ -450,8 +406,8 @@ def test_admin_filters_counts_period_and_bad_queries(tmp_path):
             assert client.get("/api/v1/audit-page", params=bad).status_code == 422
 
 
-def test_dev_project_history_excludes_admin_and_legacy_metadata(tmp_path):
-    """@brief Grant filtering excludes administrator access/price rows and old name-only events."""
+def test_dev_project_history_excludes_admin_metadata(tmp_path):
+    """@brief Grant filtering excludes administrator access and price rows."""
     profiles = ProfileStore(tmp_path)
     alpha = profiles.create("alpha")
     app = create_app(tmp_path)
@@ -472,11 +428,6 @@ def test_dev_project_history_excludes_admin_and_legacy_metadata(tmp_path):
     web.audit(
         1, "config-applied", "alpha", resource_type="config", resource_id="budgets.max_iterations"
     )
-    with sqlite3.connect(web.path) as connection:
-        connection.execute(
-            "INSERT INTO audit(actor_id,action,project,detail,created_at) "
-            "VALUES(1,'config-applied','alpha','','2020-01-01T00:00:00+00:00')"
-        )
     with TestClient(app) as client:
         client.post("/api/v1/session", json={"username": "dev", "password": "secret-password"})
         response = client.get("/api/v1/audit-page", params={"project_id": alpha.project_id})
@@ -526,7 +477,8 @@ def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, m
         response = client.post(
             "/api/v1/projects/alpha/config/apply",
             headers=headers,
-            json={"candidate_revision": staged["candidate_revision"]},
+            json={"candidate_revision": staged["candidate_revision"],
+                  "base_revision": staged["base_revision"]},
         )
         assert response.status_code == 503 and "private-sensitive-crash" not in response.text
         row = [row for row in web.recent_audit() if row["action"] == "config-applied"][0]
@@ -545,7 +497,8 @@ def test_filesystem_apply_crash_retry_preserves_original_before_once(tmp_path, m
         response = client.post(
             "/api/v1/projects/alpha/config/apply",
             headers=headers,
-            json={"candidate_revision": staged["candidate_revision"]},
+            json={"candidate_revision": staged["candidate_revision"],
+                  "base_revision": staged["base_revision"]},
         )
         assert response.status_code == 200
         rows = [

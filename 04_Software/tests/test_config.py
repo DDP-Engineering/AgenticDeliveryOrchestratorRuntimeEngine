@@ -170,7 +170,8 @@ reviewers = ["r"]
     issues = validate_config(load_config(_write_config(tmp_path, text)))
     assert any("[platform] kind" in issue for issue in issues)
     assert any("[platform] repo" in issue for issue in issues)
-    assert any("[state] channel" in issue for issue in issues)
+    assert any("[state] unknown key 'channel': remove it from config.toml" in issue
+               for issue in issues)
     assert any("[worktree] repo_path" in issue for issue in issues)
 
 
@@ -407,9 +408,9 @@ def test_executor_command_rejects_a_placeholder_the_launcher_cannot_fill(
     """
     @brief   The launcher renders the template with str.format, so an
              unsupported brace raises KeyError at GATE time, once per attempt
-             until the stage budget is spent, pointing at nothing. Only Codex
-             supplies {resume}; a shell `${HOME}` fails the same way. Both are
-             caught at setup instead.
+             until the stage budget is spent, pointing at nothing. No executor
+             supplies {resume} any more, and a shell `${HOME}` fails the same
+             way. Both are caught at setup instead.
     """
     text = MINIMAL_VALID.replace(
         'command = "opencode run --dir {worktree} -m {model} {prompt}"',
@@ -453,12 +454,12 @@ def test_codex_requires_non_interactive_sandboxed_json(tmp_path: Path) -> None:
     @brief   A codex command without JSON + workspace sandboxing is reported;
              adding the current non-interactive CLI shape fixes it.
     """
-    blocking = "codex exec {resume}--json --model {model} {prompt}"
+    blocking = "codex exec --json --model {model} {prompt}"
     issues = validate_config(load_config(_write_config(tmp_path, _codex_config(blocking))))
     assert any("non-interactively" in issue for issue in issues)
 
     ok = (
-        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "codex exec --json --model {model} --ignore-user-config "
         "--disable plugins --sandbox workspace-write {prompt}"
     )
     assert validate_config(load_config(_write_config(tmp_path, _codex_config(ok)))) == []
@@ -470,7 +471,7 @@ def test_codex_accepts_external_container_sandbox_bypass(tmp_path: Path) -> None
              external container sandbox boundary.
     """
     bypass = (
-        "codex exec {resume}--json --model {model} "
+        "codex exec --json --model {model} "
         "--ignore-user-config --disable plugins "
         "--dangerously-bypass-approvals-and-sandbox {prompt}"
     )
@@ -483,7 +484,7 @@ def test_codex_rejects_machine_local_user_config(tmp_path: Path) -> None:
              use ADORE's staged CODEX_HOME instead.
     """
     command = (
-        "codex exec {resume}--json --model {model} "
+        "codex exec --json --model {model} "
         "--dangerously-bypass-approvals-and-sandbox {prompt}"
     )
     issues = validate_config(load_config(_write_config(tmp_path, _codex_config(command))))
@@ -496,7 +497,7 @@ def test_codex_rejects_plugin_materialization(tmp_path: Path) -> None:
              not materialized into the target worktree.
     """
     command = (
-        "codex exec {resume}--json --model {model} --ignore-user-config "
+        "codex exec --json --model {model} --ignore-user-config "
         "--dangerously-bypass-approvals-and-sandbox {prompt}"
     )
     issues = validate_config(load_config(_write_config(tmp_path, _codex_config(command))))

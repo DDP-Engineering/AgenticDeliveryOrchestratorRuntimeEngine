@@ -17,7 +17,7 @@ requirement = """
 When a web project is created, imported, or relabeled, ADORE web shall retain an immutable project identifier for its grants, commands, history and API references independently of the profile display name; replacing a profile or reusing its name must not inherit another project's access.
 """
 
-verification = "Create and import projects, grant a developer one project, relabel that project, and verify its ID, grant, command scope and history persist. Replace a profile under an old name and verify the former grant cannot access it; reject duplicate or corrupt IDs and preserve legacy history during migration."
+verification = "Create and import projects, grant a developer one project, relabel that project, and verify its ID, grant, command scope and history persist. Replace a profile under an old name and verify the former grant cannot access it; reject duplicate or corrupt IDs."
 
 affected_paths = ["04_Software/adore/profiles.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-09-30
-updated = 2026-09-30
+updated = 2026-11-01

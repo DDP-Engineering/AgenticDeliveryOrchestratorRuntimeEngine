@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { setPickup } from "./pickup";
 
 const nav = (page: Page) => page.getByRole("navigation", { name: "Primary navigation", exact: true });
 async function signIn(page: Page, user = "admin") {
@@ -169,58 +170,64 @@ test("manual start from Tickets reports queueing and the asynchronous worker fai
 });
 
 test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs sub-tabs", async ({ page }) => {
-  await signIn(page);
-  await page.goto("/jobs");
-  await expect(page.locator("#jobs-project")).toHaveValue("");
-  const tabs = page.locator(".jobs-subtabs");
-  await expect(tabs.getByRole("tab", { name: "Tickets", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#job-ticket-number")).toHaveCount(0);
-  await expect(page.getByText("Worker available", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/Jobs shown here belong|The heartbeat describes/)).toHaveCount(0);
-  const projects = await (await page.request.get("/api/v1/projects")).json();
-  const alpha = projects.find((item: { name: string }) => item.name === "alpha").id, beta = projects.find((item: { name: string }) => item.name === "beta").id;
-  // All projects reads every authorized project's tickets into one table with a Project column;
-  // a failed project read reports only that project and keeps the others.
-  const betaTickets = `**/api/v1/projects/${beta}/tickets`;
-  await page.route(betaTickets, route => route.abort());
-  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-  const rows = page.locator(".ticket-table tbody tr.ticket-row");
-  // Other specs may add projects whose forge reads fail too, so alerts are matched per project.
-  const alerts = page.locator(".ticket-workspace .alert");
-  const projectRows = (name: string) => rows.filter({ has: page.getByRole("cell", { name, exact: true }) });
-  await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toBeVisible();
-  await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(1);
-  await expect(alerts.filter({ hasText: /^alpha: / })).toHaveCount(0);
-  await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
-  await expect(projectRows("beta")).toHaveCount(0);
-  await page.unroute(betaTickets);
-  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-  await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(0);
-  // Both projects' tickets exceed one page of 10; show them all.
-  await page.locator(".ticket-pagination").getByLabel("Rows per page").selectOption("all");
-  await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
-  const betaRow = projectRows("beta").filter({ hasText: "#44" });
-  await expect(betaRow).toHaveCount(1);
-  const started = page.waitForRequest(request => request.method() === "POST" && new URL(request.url()).pathname === `/api/v1/projects/${beta}/tickets/44/start`);
-  await betaRow.getByRole("button", { name: "Start", exact: true }).click();
-  await started;
-  await expect(page.locator(".ticket-notice")).toContainText("beta · Start for #44 queued");
-  await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
-  await expect(page).toHaveURL(/view=jobs/);
-  await expect(page.locator(".action-jobs-table")).toBeVisible();
-  await page.locator("#jobs-project").selectOption(alpha);
-  await tabs.getByRole("tab", { name: "Tickets", exact: true }).click();
-  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-  await expect(rows.first()).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toHaveCount(0);
-  await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
-  await expect(page).toHaveURL(/view=jobs/);
-  await expect(page.locator(".action-jobs-table")).toBeVisible();
-  await page.reload();
-  await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
-  await page.goto(`/jobs?project=${alpha}&run=ux-working`);
-  await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".detail-panel")).toBeVisible();
+  // Start needs active pickup; the fixture keeps it stopped for the other specs.
+  await setPickup("beta", true);
+  try {
+    await signIn(page);
+    await page.goto("/jobs");
+    await expect(page.locator("#jobs-project")).toHaveValue("");
+    const tabs = page.locator(".jobs-subtabs");
+    await expect(tabs.getByRole("tab", { name: "Tickets", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#job-ticket-number")).toHaveCount(0);
+    await expect(page.getByText("Worker available", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/Jobs shown here belong|The heartbeat describes/)).toHaveCount(0);
+    const projects = await (await page.request.get("/api/v1/projects")).json();
+    const alpha = projects.find((item: { name: string }) => item.name === "alpha").id, beta = projects.find((item: { name: string }) => item.name === "beta").id;
+    // All projects reads every authorized project's tickets into one table with a Project column;
+    // a failed project read reports only that project and keeps the others.
+    const betaTickets = `**/api/v1/projects/${beta}/tickets`;
+    await page.route(betaTickets, route => route.abort());
+    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    const rows = page.locator(".ticket-table tbody tr.ticket-row");
+    // Other specs may add projects whose forge reads fail too, so alerts are matched per project.
+    const alerts = page.locator(".ticket-workspace .alert");
+    const projectRows = (name: string) => rows.filter({ has: page.getByRole("cell", { name, exact: true }) });
+    await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toBeVisible();
+    await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(1);
+    await expect(alerts.filter({ hasText: /^alpha: / })).toHaveCount(0);
+    await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
+    await expect(projectRows("beta")).toHaveCount(0);
+    await page.unroute(betaTickets);
+    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    await expect(alerts.filter({ hasText: /^beta: / })).toHaveCount(0);
+    // Both projects' tickets exceed one page of 10; show them all.
+    await page.locator(".ticket-pagination").getByLabel("Rows per page").selectOption("all");
+    await expect(projectRows("alpha").filter({ hasText: "#44" })).toHaveCount(1);
+    const betaRow = projectRows("beta").filter({ hasText: "#44" });
+    await expect(betaRow).toHaveCount(1);
+    const started = page.waitForRequest(request => request.method() === "POST" && new URL(request.url()).pathname === `/api/v1/projects/${beta}/tickets/44/start`);
+    await betaRow.getByRole("button", { name: "Start", exact: true }).click();
+    await started;
+    await expect(page.locator(".ticket-notice")).toContainText("beta · Start for #44 queued");
+    await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
+    await expect(page).toHaveURL(/view=jobs/);
+    await expect(page.locator(".action-jobs-table")).toBeVisible();
+    await page.locator("#jobs-project").selectOption(alpha);
+    await tabs.getByRole("tab", { name: "Tickets", exact: true }).click();
+    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    await expect(rows.first()).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Project", exact: true })).toHaveCount(0);
+    await tabs.getByRole("tab", { name: "Jobs", exact: true }).click();
+    await expect(page).toHaveURL(/view=jobs/);
+    await expect(page.locator(".action-jobs-table")).toBeVisible();
+    await page.reload();
+    await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+    await page.goto(`/jobs?project=${alpha}&run=ux-working`);
+    await expect(tabs.getByRole("tab", { name: "Jobs", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".detail-panel")).toBeVisible();
+  } finally {
+    await setPickup("beta", false);
+  }
 });
 
 test("all real lifecycle groups explain exact stage evidence and protected handoffs", async ({ page }) => {
@@ -285,7 +292,6 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
   await expect(detail.getByRole("heading", { name: "Ticket title not recorded" })).toBeVisible();
-  await expect(detail).toContainText("No activity timestamp recorded.");
   await expect(detail).toContainText("saved evidence does not identify an action location");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
   await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");
@@ -391,24 +397,30 @@ test("developer search counts navigation direct routes and command CSRF exclude 
 });
 
 test("queued pending and final successful commands do not predict job outcome", async ({ page }) => {
-  await signIn(page); await page.goto("/jobs?project=alpha");
-  let release!: () => void; const pending = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/api/v1/operations/*", async route => { const response = await route.fetch(); await pending; await route.fulfill({ response }); });
-  let submits = 0; page.on("request", request => { if (request.method() === "POST" && request.url().endsWith("/tickets/44/start")) submits++; });
-  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
-  const row = page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" });
-  await row.getByRole("button", { name: "Start", exact: true }).click();
-  const notice = page.locator(".ticket-notice");
-  await expect(notice).toContainText("Start for #44 queued");
-  await expect(row.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
-  expect(submits).toBe(1);
-  await expect(notice).not.toContainText("finished");
-  release();
-  await expect(notice).toContainText("finished");
-  await page.goto("/jobs?project=alpha&run=ux-failed");
-  await expect(page.locator(".detail-panel")).toContainText("does not bypass validation or approval");
-  await page.locator(".detail-panel").getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Command failed" })).toBeVisible();
+  // Start needs active pickup; the fixture keeps it stopped for the other specs.
+  await setPickup("alpha", true);
+  try {
+    await signIn(page); await page.goto("/jobs?project=alpha");
+    let release!: () => void; const pending = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/api/v1/operations/*", async route => { const response = await route.fetch(); await pending; await route.fulfill({ response }); });
+    let submits = 0; page.on("request", request => { if (request.method() === "POST" && request.url().endsWith("/tickets/44/start")) submits++; });
+    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    const row = page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" });
+    await row.getByRole("button", { name: "Start", exact: true }).click();
+    const notice = page.locator(".ticket-notice");
+    await expect(notice).toContainText("Start for #44 queued");
+    await expect(row.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+    expect(submits).toBe(1);
+    await expect(notice).not.toContainText("finished");
+    release();
+    await expect(notice).toContainText("finished");
+    await page.goto("/jobs?project=alpha&run=ux-failed");
+    await expect(page.locator(".detail-panel")).toContainText("does not bypass validation or approval");
+    await page.locator(".detail-panel").getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Command failed" })).toBeVisible();
+  } finally {
+    await setPickup("alpha", false);
+  }
 });
 
 test("keyboard 390px both themes and localized evidence remain usable", async ({ page }, info) => {
@@ -688,6 +700,24 @@ for (const scenario of ["passed", "partial", "model-passed", "model-failed", "un
     }
   });
 }
+
+test("local host prerequisites state the local notice once and give the agent row its own fix", async ({ page }) => {
+  await page.route("**/api/v1/projects/*/readiness-check", route => {
+    const result = readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false });
+    result.model_probe = { context: "executor-local", ready: false, model: "", reason: "not-configured" };
+    return route.fulfill({ status: 200, json: result });
+  });
+  await signIn(page);
+  await page.goto("/projects/alpha");
+  await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+  const panel = page.locator(".readiness-evidence");
+  await expect(panel.locator(".readiness-check")).toHaveCount(6);
+  const agent = panel.locator(".readiness-check").filter({ hasText: "Local execution" });
+  await expect(agent).toContainText("its existing sign-in or a provider API key is available");
+  await expect(agent).toContainText("save a provider API key in Settings → Agent and model");
+  await expect(agent).not.toContainText("A worktree is not a host sandbox");
+  await expect(panel.locator("p").filter({ hasText: "A worktree is not a host sandbox" })).toHaveCount(1);
+});
 
 test("host prerequisite explanations support four locales and dark theme", async ({ page }, info) => {
   await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,

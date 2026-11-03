@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-fbb6448c"
+title = "Keep a failed engine operation's last output lines"
+status = "active"
+requirement = """
+When the engine command of a queued web operation exits non-zero or times out, the worker shall store with the failed or uncertain outcome a detail holding the last 20 lines, at most 2000 characters, of the command's combined output, with NUL and ANSI escape sequences removed and credentials redacted before the cut, that GET /api/v1/operations/{id} returns and that stays empty for a successful operation.
+"""
+verification = "Automated worker and store tests: a fake engine exiting 1 with ANSI-coloured lines and a token value yields a failed operation whose detail ends with the last line, has no escape codes and shows token=[REDACTED]; 500 output lines keep only the last 20; a timeout keeps the partial output with the uncertain outcome; a zero exit leaves detail empty; the operation API returns the detail."
+affected_paths = ["04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py", "04_Software/adore/util.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_web_commands.py::test_failed_engine_operation_keeps_bounded_redacted_detail", "04_Software/tests/test_web_commands.py::test_engine_runner_keeps_stdout_and_stderr_in_one_output", "04_Software/tests/test_web_commands.py::test_worker_environment_keeps_engine_output_ordered_and_utf8", "04_Software/tests/test_web_commands.py::test_engine_runner_timeout_keeps_partial_output", "04_Software/tests/test_web_commands.py::test_project_poll_returns_the_exit_code_of_a_full_outcome", "04_Software/tests/test_web_commands.py::test_operation_api_returns_reason_and_detail", "04_Software/tests/test_web_jobs.py::test_redact_text_stays_linear_on_long_word_runs", "04_Software/tests/test_web_jobs.py::test_redact_text_masks_url_credentials_and_forge_tokens"]
+spec = ""
+priority = "normal"
+rationale = "Every engine refusal previously became 'engine rejected operation' with its cause discarded."
+created = 2026-11-01
+updated = 2026-11-01
