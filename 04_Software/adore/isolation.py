@@ -1368,6 +1368,47 @@ class ContainerManager:
             env=process_env,
         )
 
+    def helper_command(
+        self,
+        name: str,
+        argv: Sequence[str],
+        *,
+        mount: tuple[str | Path, str],
+        env: dict[str, str],
+        interactive: bool = False,
+    ) -> list[str]:
+        """
+        @brief      Command line of a one-off ADORE helper container from the image.
+        @details    `<runtime> run --rm` with exactly one host bind mount (the
+                    SELinux relabel applies as for run containers), working
+                    directory on that mount, the configured run_args, never an
+                    implicit pull, and the default network: a helper is ADORE's
+                    own tool, not the agent. Its environment holds no secret,
+                    so every value is passed inline. The first argv element is
+                    the entrypoint. The caller bounds the process and removes
+                    the container by `name` if it has to stop it.
+        @param[in]  name Container name for a forced removal.
+        @param[in]  argv Entrypoint and its arguments inside the image.
+        @param[in]  mount (host directory, container directory).
+        @param[in]  env Non-secret environment.
+        @param[in]  interactive Attach stdin (`-i`) for a helper that reads it.
+        @return     The full argv, runtime prefix included.
+        """
+        source, target = mount
+        full = [*self.runtime_argv, "run", "--rm", *(["-i"] if interactive else []),
+                "--name", name, *self.run_args, "--pull=never",
+                "--volume", self._bind_mount(source, target), "--workdir", target]
+        for key, value in env.items():
+            full += ["--env", f"{key}={value}"]
+        return [*full, "--entrypoint", str(argv[0]), self.image, *[str(part) for part in argv[1:]]]
+
+    def remove_helper(self, name: str) -> None:
+        """
+        @brief      Force-remove a helper container by name, best effort.
+        @param[in]  name Helper container name.
+        """
+        self.runner([*self.runtime_argv, "rm", "--force", name])
+
     def _exec_command(
         self,
         name: str,

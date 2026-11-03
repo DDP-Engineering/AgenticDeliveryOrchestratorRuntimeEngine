@@ -30,6 +30,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import subprocess
 import tempfile
 from threading import Lock
 from time import monotonic
@@ -43,9 +44,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from adore import __version__, doctor, metrics
+from adore import __version__, chatgpt, doctor, metrics
 from adore.aegis import RUN_KINDS
-from adore.branding import EXECUTOR_NAME
+from adore.branding import EXECUTOR_BASE_IMAGE, EXECUTOR_NAME
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.clone_cleanup import project_clone_decision
 from adore.config import (
@@ -62,6 +63,7 @@ from adore.forge import ForgeError, ForgeResponseError
 from adore.forge_labels import ensure_labels, project_labels
 from adore.isolation import ContainerManager, IsolationError
 from adore.pi_providers import (
+    CHATGPT,
     ENDPOINT_APIS,
     MODEL_ID_RE,
     credential_variable,
@@ -215,6 +217,31 @@ class ExecutorCredentialInput(BaseModel):
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
     variable: str = Field(min_length=1, max_length=64)
     token: str | None = Field(default=None, max_length=4096)
+
+
+class ChatGptRedirectInput(BaseModel):
+    """@brief The browser's redirect address of a pending Sign in with ChatGPT."""
+    model_config = ConfigDict(extra="forbid", strict=True)
+    redirect_url: str = Field(min_length=1, max_length=8192)
+
+
+#: ChatGPT sign-in cause -> API code.
+_CHATGPT_CODES = {
+    "redirect-invalid": "chatgpt_redirect_invalid",
+    "state-mismatch": "chatgpt_state_mismatch",
+    "not-pending": "chatgpt_sign_in_not_pending",
+    "unreadable": "chatgpt_credential_unreadable",
+    "not-eligible": "chatgpt_not_eligible",
+    "denied": "chatgpt_access_denied",
+    "code-rejected": "chatgpt_code_rejected",
+    "refused": "chatgpt_sign_in_refused",
+    "failed": "chatgpt_sign_in_refused",
+    "unavailable": "chatgpt_sign_in_unavailable",
+    "helper-failed": "chatgpt_helper_failed",
+}
+#: HTTP status of a ChatGPT sign-in cause; an OpenAI refusal is 502.
+_CHATGPT_STATUS = {"redirect-invalid": 400, "state-mismatch": 400, "not-pending": 409,
+                   "unreadable": 409, "unavailable": 503, "helper-failed": 503}
 
 
 class NewUser(Credentials):
@@ -563,7 +590,8 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
         checks = value["checks"]
         check_keys = {"git", "forge_cli", "forge_auth", "container_runtime", "executor_cli",
                       "aegis_files"}
-        if not isinstance(checks, dict) or set(checks) != check_keys:
+        # A ChatGPT project's record also carries the server's sign-in.
+        if not isinstance(checks, dict) or set(checks) - {"executor_sign_in"} != check_keys:
             raise ValueError("invalid readiness checks")
         for key, result in checks.items():
             if type(result) is not bool and not (
@@ -585,12 +613,15 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
-def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None) -> dict:
+def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None,
+                 chatgpt_dir: Path | None = None) -> dict:
     """@brief Run bounded redacted prerequisites for an explicit config snapshot.
 
     @param[in] config Validated configuration snapshot.
     @param[in] probe_runner Injectable external command boundary.
     @param[in] env_file Existing approved provider values for native checks.
+    @param[in] chatgpt_dir The server's ChatGPT credential directory; a ChatGPT
+               project gets the check `executor_sign_in`, read from its files.
     @return Typed prerequisite checks and redacted model evidence.
     @exception HTTPException A prerequisite command fails to produce usable evidence.
     """
@@ -694,6 +725,9 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         "aegis_files": ((aegis_root / "aegis.py").is_file()
                         and (aegis_root / "aegis.toml").is_file()),
     }
+    if config.executor.provider == CHATGPT:
+        checks["executor_sign_in"] = (
+            chatgpt.status(chatgpt_dir or chatgpt.credential_dir()) == "signed-in")
     return {"checks": checks}
 
 
@@ -2139,16 +2173,23 @@ def _run_view(run) -> dict:
 
 # PUBLIC API
 def create_app(home: str | Path | None = None,
-               *, probe_runner: CommandRunner = run_command) -> FastAPI:
+               *, probe_runner: CommandRunner = run_command,
+               chatgpt_popen: Callable[..., subprocess.Popen] = subprocess.Popen) -> FastAPI:
     """
     @brief Construct the optional web service for a profile home.
     @param[in] home ADORE_HOME override used by tests and deployment.
     @param[in] probe_runner Injectable runner for explicit readiness probes.
+    @param[in] chatgpt_popen Process factory of the ChatGPT sign-in helper.
     @return Configured FastAPI application.
     """
     profiles = ProfileStore(home)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
+    # The server's one ChatGPT sign-in and at most one sign-in waiting for its
+    # redirect address (memory only: a restart ends a pending sign-in).
+    chatgpt_dir = chatgpt.credential_dir(profiles.home)
+    chatgpt_lock = Lock()
+    chatgpt_pending: dict[str, chatgpt.SignIn | None] = {"session": None}
     app = FastAPI(title="ADORE", version=__version__, docs_url=None, redoc_url=None)
     app.state.web_store = web
     app.state.profiles = profiles
@@ -2807,7 +2848,8 @@ def create_app(home: str | Path | None = None,
                        _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Explicitly probe exact target; reread authorization/source after probes."""
         preview, candidate = reviewed_transfer(body, request)
-        evidence = _probe_setup(_config_from_bytes(candidate.document.encode()), probe_runner)
+        evidence = _probe_setup(_config_from_bytes(candidate.document.encode()), probe_runner,
+                                chatgpt_dir=chatgpt_dir)
         reviewed_transfer(body, request)
         checks = evidence["checks"]
         if _pending_clone(body.target):
@@ -2878,7 +2920,7 @@ def create_app(home: str | Path | None = None,
         """
         preview, candidate = reviewed_setup(body)
         config = _config_from_bytes(candidate.document.encode("utf-8"))
-        evidence = _probe_setup(config, probe_runner)
+        evidence = _probe_setup(config, probe_runner, chatgpt_dir=chatgpt_dir)
         checks = evidence["checks"]
         if _pending_clone(body):
             checks["aegis_files"] = "not-checked"  # The clone is made at creation.
@@ -2948,7 +2990,7 @@ def create_app(home: str | Path | None = None,
         @exception HTTPException Invalid/stale input or unusable probe fails closed.
         """
         preview, config = _reviewed_import(profiles, body)
-        evidence = _probe_setup(config, probe_runner)
+        evidence = _probe_setup(config, probe_runner, chatgpt_dir=chatgpt_dir)
         _reviewed_import(profiles, body)
         checks = evidence["checks"]
         status = ("failed" if any(value is False for value in checks.values()) else
@@ -3119,6 +3161,111 @@ def create_app(home: str | Path | None = None,
             except (OSError, ValueError, TypeError) as exc:
                 raise _error(503, "executor_credentials_corrupt") from exc
 
+    def chatgpt_view() -> dict:
+        """@brief The server's sign-in status and whether a sign-in waits (lock held)."""
+        session = chatgpt_pending["session"]
+        if session is not None and not session.pending:
+            session.cancel()
+            chatgpt_pending["session"] = session = None
+        return {"status": chatgpt.status(chatgpt_dir), "pending": session is not None}
+
+    def chatgpt_failure(user: dict, exc: chatgpt.ChatGptError, project_name: str = "") -> None:
+        """@brief Audit a sign-in failure by cause code only and raise its API error."""
+        code = _CHATGPT_CODES.get(exc.code, "chatgpt_sign_in_refused")
+        status = _CHATGPT_STATUS.get(exc.code, 502)
+        if exc.code not in {"redirect-invalid", "state-mismatch", "not-pending"}:
+            web.audit(user["id"], "chatgpt-sign-in-failed", project_name, detail=code)
+        raise _error(status, code) from exc
+
+    @app.get("/api/v1/chatgpt-sign-in")
+    def chatgpt_sign_in_read(user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Report the server's ChatGPT sign-in without starting Pi."""
+        with chatgpt_lock:
+            return chatgpt_view()
+
+    @app.post("/api/v1/projects/{name}/chatgpt-sign-in")
+    def chatgpt_sign_in_start(name: str,
+                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Start Sign in with ChatGPT with this project's runtime and image."""
+        with config_lock:
+            item = project(name, user)
+            if item.archived:
+                raise _error(409, "project_archived")
+            try:
+                config = _config_from_bytes(profiles.config_path(item.name).read_bytes())
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error(503, "config_corrupt") from exc
+            if config.execution.backend != "container":
+                raise _error(409, "chatgpt_sign_in_container_required")
+            if _config_findings(config):
+                raise _error(409, "invalid_config")
+        manager = ContainerManager(
+            config.container.runtime, config.container.image or EXECUTOR_BASE_IMAGE,
+            config.container.uv_cache_volume, config.container.npm_cache_volume,
+            probe_runner, run_args=config.container.run_args,
+            selinux_relabel=config.container.selinux_relabel)
+        with chatgpt_lock:
+            previous = chatgpt_pending["session"]
+            if previous is not None:
+                previous.cancel()
+            chatgpt_pending["session"] = None
+            session = chatgpt.SignIn(manager, chatgpt_dir, popen=chatgpt_popen)
+            try:
+                url = session.start()
+            except chatgpt.ChatGptError as exc:
+                chatgpt_failure(user, exc, item.name)
+            except OSError as exc:
+                session.cancel()
+                raise _error(503, "chatgpt_sign_in_unavailable") from exc
+            chatgpt_pending["session"] = session
+            web.audit(user["id"], "chatgpt-sign-in-started", item.name)
+            return {"authorize_url": url, "expires_in": chatgpt.SIGN_IN_SECONDS}
+
+    @app.put("/api/v1/chatgpt-sign-in")
+    def chatgpt_sign_in_complete(body: ChatGptRedirectInput,
+                                 user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Pass the pasted redirect address to the waiting sign-in."""
+        with chatgpt_lock:
+            chatgpt_view()
+            session = chatgpt_pending["session"]
+            if session is None:
+                raise _error(409, "chatgpt_sign_in_not_pending")
+            try:
+                session.submit(body.redirect_url)
+            except chatgpt.ChatGptError as exc:
+                if session.finished:
+                    chatgpt_pending["session"] = None
+                chatgpt_failure(user, exc)
+            chatgpt_pending["session"] = None
+            web.audit(user["id"], "chatgpt-sign-in-completed")
+            return chatgpt_view()
+
+    @app.delete("/api/v1/chatgpt-sign-in/pending")
+    def chatgpt_sign_in_cancel(user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief End a waiting sign-in; the stored credential stays."""
+        with chatgpt_lock:
+            session = chatgpt_pending["session"]
+            chatgpt_pending["session"] = None
+            if session is not None:
+                session.cancel()
+                web.audit(user["id"], "chatgpt-sign-in-cancelled")
+            return chatgpt_view()
+
+    @app.delete("/api/v1/chatgpt-sign-in")
+    def chatgpt_disconnect(user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Delete the server's ChatGPT credential and end a waiting sign-in."""
+        with chatgpt_lock:
+            session = chatgpt_pending["session"]
+            chatgpt_pending["session"] = None
+            if session is not None:
+                session.cancel()
+            try:
+                chatgpt.disconnect(chatgpt_dir)
+            except OSError as exc:
+                raise _error(503, "chatgpt_credential_unreadable") from exc
+            web.audit(user["id"], "chatgpt-disconnected")
+            return chatgpt_view()
+
     @app.post("/api/v1/projects/{name}/model-connection-test")
     def model_connection_test(name: str,
                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
@@ -3142,7 +3289,8 @@ def create_app(home: str | Path | None = None,
                     binding = credential_binding(directory, config)
                     model_evidence(directory, config, item.project_id, revision)
                     result = probe_model_connection(
-                        config, probe_runner, profiles.profile_dir(item.name) / ".env")
+                        config, probe_runner, profiles.profile_dir(item.name) / ".env",
+                        chatgpt_dir=chatgpt_dir)
                     if (project(name, user).project_id != item.project_id
                             or sha256(path.read_bytes()).hexdigest() != revision):
                         raise _error(409, "stale_config_revision")
@@ -3177,7 +3325,7 @@ def create_app(home: str | Path | None = None,
             try:
                 evidence = _probe_setup(
                     config, project_runner(profiles.profile_dir(item.name), config, probe_runner),
-                    profiles.config_path(item.name).parent / ".env")
+                    profiles.config_path(item.name).parent / ".env", chatgpt_dir)
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
             value = {"schema": 1, "project_id": item.project_id, "revision": revision,
@@ -3303,6 +3451,10 @@ def create_app(home: str | Path | None = None,
         try:
             connection = model_evidence(profiles.profile_dir(item.name), config,
                                         item.project_id, sha256(raw).hexdigest())
+            # A ChatGPT result holds only while the server stays signed in.
+            if (connection is not None and config.executor.provider == CHATGPT
+                    and chatgpt.status(chatgpt_dir) != "signed-in"):
+                connection = None
         except ExecutorSettingsError as exc:
             raise _error(503, "executor_evidence_corrupt") from exc
         issues = validate_config(config)

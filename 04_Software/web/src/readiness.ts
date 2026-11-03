@@ -8,10 +8,19 @@ import { ApiError } from "./errors.ts";
 
 export const readinessKeys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"] as const;
 export type ReadinessKey = typeof readinessKeys[number];
+/** Present exactly for a ChatGPT project: the server's ChatGPT sign-in. */
+export const signInKey = "executor_sign_in";
 export type ProjectReadiness = {
   status: "failed" | "partial" | "verified" | "stale"; project_id: string; revision: string; context: "api-host"; checked_at: string;
-  checks: Record<ReadinessKey, boolean | null>;
+  checks: Record<ReadinessKey, boolean | null> & { executor_sign_in?: boolean };
 };
+
+/** Whether a check set has the required keys plus, at most, a boolean ChatGPT sign-in. */
+export function readinessChecksShape(checks: Record<string, unknown>, required: readonly string[]): boolean {
+  const extra = Object.keys(checks).filter(key => !required.includes(key));
+  return required.every(key => key in checks)
+    && extra.every(key => key === signInKey && typeof checks[key] === "boolean");
+}
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Validate scoped host-check evidence before presenting any successful result. */
@@ -21,7 +30,7 @@ export function readReadiness(value: unknown, project: string): ProjectReadiness
       || typeof value.revision !== "string" || !/^[a-f0-9]{64}$/.test(value.revision)
       || typeof value.checked_at !== "string" || !/Z$|[+]00:00$/.test(value.checked_at)
       || !Number.isFinite(Date.parse(value.checked_at)) || Date.parse(value.checked_at) > Date.now() + 60000
-      || !object(value.checks) || Object.keys(value.checks).length !== readinessKeys.length) return reject();
+      || !object(value.checks) || !readinessChecksShape(value.checks, readinessKeys)) return reject();
   for (const key of readinessKeys) {
     const result = value.checks[key];
     if (typeof result !== "boolean" && !(key === "container_runtime" && result === null)) return reject();

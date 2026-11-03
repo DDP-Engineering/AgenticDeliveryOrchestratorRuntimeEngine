@@ -48,7 +48,7 @@ text = { en = "Prepare an executor image from a short Dockerfile, or run Pi on t
 [[release.entry]]
 category = "new"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "Choose the AI provider and model, save its API key, or use your own server such as LM Studio.", fr = "Choisissez fournisseur IA et modèle, enregistrez sa clé API, ou votre serveur comme LM Studio.", de = "KI-Anbieter und Modell wählen, API-Schlüssel speichern oder eigenen Server wie LM Studio nutzen.", ro = "Alegeți furnizorul AI și modelul, salvați cheia API sau folosiți propriul server, ca LM Studio." }
+text = { en = "Choose the AI provider and model: an API key, your own server like LM Studio, or ChatGPT sign-in.", fr = "Choisissez fournisseur IA et modèle : clé API, votre serveur comme LM Studio, ou connexion ChatGPT.", de = "KI-Anbieter und Modell wählen: API-Schlüssel, eigener Server wie LM Studio oder ChatGPT-Anmeldung.", ro = "Alegeți furnizorul AI și modelul: cheie API, propriul server ca LM Studio sau autentificare ChatGPT." }
 
 [[release.entry]]
 category = "new"

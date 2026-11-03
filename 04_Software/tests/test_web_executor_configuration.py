@@ -164,7 +164,7 @@ def test_provider_catalog_is_served_to_signed_in_users_only(tmp_path):
     providers = {item["id"]: item for item in catalog["providers"]}
     assert providers["openai"]["variable"] == "OPENAI_API_KEY"
     assert "gpt-5.5" in providers["openai"]["models"]
-    assert catalog["chatgpt"] == {"id": "chatgpt"}
+    assert catalog["chatgpt"]["id"] == "chatgpt" and "gpt-5.6-luna" in catalog["chatgpt"]["models"]
     assert catalog["custom"]["variable"] == "ADORE_ENDPOINT_API_KEY"
     assert catalog["custom"]["apis"][0] == "openai-completions"
     assert catalog["pi_version"] == "1.4.0"

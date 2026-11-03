@@ -43,7 +43,9 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
+from adore.chatgpt import MAX_STAGE_SECONDS as CHATGPT_MAX_STAGE_SECONDS
 from adore.pi_providers import (
+    CHATGPT,
     CUSTOM,
     DEFAULT_ENDPOINT_API,
     ENDPOINT_APIS,
@@ -929,6 +931,35 @@ def _unknown_key_issues(raw: dict) -> list[str]:
     return issues
 
 
+def _chatgpt_issues(config: Config) -> list[str]:
+    """
+    @brief      Refuse what a ChatGPT subscription cannot run.
+    @details    ADORE mints a ChatGPT access token before every stage through
+                the image's pinned Pi, so a local run is refused; the token
+                lasts about an hour and is not refreshed during a stage, so a
+                stage limit above MAX_STAGE_SECONDS is refused too.
+    @param[in]  config Loaded configuration with `provider = "chatgpt"`.
+    @return     One issue per problem, naming the key.
+    """
+    issues: list[str] = []
+    if config.execution.backend == "local":
+        issues.append('[executor] provider "chatgpt" needs a container run: a local run has '
+                      "no ADORE-managed Pi to refresh the ChatGPT sign-in")
+    limit = config.budgets.per_gate_timeout_seconds
+    if isinstance(limit, int) and not isinstance(limit, bool) and limit > CHATGPT_MAX_STAGE_SECONDS:
+        issues.append(f"[budgets] per_gate_timeout_seconds must be at most "
+                      f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": a ChatGPT access "
+                      "token lasts about an hour")
+    overrides = config.workflow.stage_timeout_overrides
+    for stage, seconds in (overrides.items() if isinstance(overrides, dict) else ()):
+        if isinstance(seconds, int) and not isinstance(seconds, bool) \
+                and seconds > CHATGPT_MAX_STAGE_SECONDS:
+            issues.append(f"[workflow] stage_timeout_overrides.{stage} must be at most "
+                          f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": a ChatGPT "
+                          "access token lasts about an hour")
+    return issues
+
+
 def _provider_issues(config: Config) -> list[str]:
     """
     @brief      Validate [executor] provider, model and [executor.endpoint].
@@ -958,6 +989,8 @@ def _provider_issues(config: Config) -> list[str]:
     elif not MODEL_ID_RE.fullmatch(executor.model):
         issues.append(f"[executor] model {executor.model!r} must be one model id without "
                       "spaces, quotes or control characters (at most 200 characters)")
+    if executor.provider == CHATGPT:
+        issues.extend(_chatgpt_issues(config))
     raw_executor = config.raw.get("executor")
     raw_endpoint = raw_executor.get("endpoint") if isinstance(raw_executor, dict) else None
     if executor.provider != CUSTOM:

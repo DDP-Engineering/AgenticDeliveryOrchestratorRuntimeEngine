@@ -136,10 +136,22 @@ class BoundTarget:
     """@brief Callable gate target carrying backend-native paths and identity."""
 
     def __init__(
-        self, backend: ContainerBackend, name: str, env: dict[str, str], expected: dict | None
+        self, backend: ContainerBackend, name: str, env: dict[str, str], expected: dict | None,
+        secrets: Sequence[str] = (),
     ) -> None:
         self.backend, self.name, self.env, self.expected = backend, name, env, expected
         self.paths = backend.paths
+        self.secrets = sorted((value for value in secrets if value), key=len, reverse=True)
+
+    def redact(self, text: str) -> str:
+        """
+        @brief      Mask this target's per-launch secret values in evidence.
+        @param[in]  text Evidence text before retention.
+        @return     The text with each value replaced by [REDACTED].
+        """
+        for value in self.secrets:
+            text = text.replace(value, "[REDACTED]")
+        return text
 
     def __call__(self, argv: Sequence[str], *, timeout: float | None = None) -> CommandResult:
         """@brief Execute argv only after verifying the pinned resource identity."""
@@ -195,9 +207,18 @@ class ContainerBackend:
         manager.ensure_volumes()
         return manager.provision(name, repo, worktree, io, env)
 
-    def bind(self, name: str, env: dict[str, str], expected: dict | None = None) -> ExecutionTarget:
-        """@brief Bind this adapter's command and target-path contract."""
-        return BoundTarget(self, name, env, expected)
+    def bind(self, name: str, env: dict[str, str], expected: dict | None = None,
+             *, secrets: Sequence[str] = ()) -> ExecutionTarget:
+        """
+        @brief      Bind this adapter's command and target-path contract.
+        @param[in]  name Container name.
+        @param[in]  env Exec-time environment of every command on the target.
+        @param[in]  expected Pinned resource identity.
+        @param[in]  secrets Values that exist only for this binding (a ChatGPT
+                    stage token) and are masked in the launch evidence.
+        @return     The bound target.
+        """
+        return BoundTarget(self, name, env, expected, secrets)
 
     def verify_required_tools(
         self, name: str, checks: Sequence[str], *, env: dict[str, str]

@@ -153,6 +153,23 @@ which verifies the pinned container identity, then calls
 6. Archive as in the file protocol; `output.jsonl` is copied from the
    bounded persisted file.
 
+**ChatGPT subscription stages.** For `provider = "chatgpt"` the orchestrator's
+`_launch_stage` first asks its `chatgpt_token` source (by default
+`chatgpt.bearer_token` with the project's `ContainerManager` and the server's
+credential directory `<ADORE home>/chatgpt`) for an access token valid for the
+stage limit plus `chatgpt.TOKEN_MARGIN_SECONDS` (300 s). That runs ADORE's helper
+script `/opt/adore/pi/adore-chatgpt.mjs` in a one-off helper container
+(`ContainerManager.helper_command`: `<runtime> run --rm` with exactly one bind
+mount, the credential directory at `/adore/chatgpt`); the run container never
+mounts it, so the refresh token never enters a run. The token then joins only
+this gate's target: `ContainerBackend.bind(name, {..., OPENAI_API_KEY: <access
+token>}, ..., secrets=(token,))`, and `BoundTarget.redact` replaces the token with
+`[REDACTED]` in Pi's persisted evidence (`pi_rpc` receives it as `redact`); the
+descriptive `gate.sh` lists only Pi's fixed RPC environment. Pi starts with `--provider openai`. When no token can be had, the stage
+attempt returns a failed `GateRun` (exit 1, stderr `ChatGPT sign-in: <sentence>`)
+without starting Pi, the conductor logs only the cause code, and the ordinary
+retry policy applies. See [ChatGPT sign-in](Component_ChatGPT_Sign_In.md).
+
 The guard extension blocks `git push` and `gh`/`glab`/`tea` in the `bash` and
 `powershell` tools (`tool_call` handler returning a block; Pi reports a
 failed tool result starting with "ADORE blocks") and answers `project_trust`
@@ -166,9 +183,11 @@ in depth: the boundary stays that no forge credential is in the container.
   `adore.execution.BoundTarget`, `adore.branding` (Pi paths in the image),
   `adore.util.CommandResult`; `[executor]` config.
 - Executor image: Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0 under
-  `/opt/pi`, the guard at `/opt/adore/pi/adore-guard.ts` and the agent
+  `/opt/pi`, the guard at `/opt/adore/pi/adore-guard.ts`, ADORE's ChatGPT
+  helper at `/opt/adore/pi/adore-chatgpt.mjs` and the agent
   directory `/home/adore/.adore-pi-agent` (`docker/Dockerfile.executor-base`;
-  `docker/verify-runtime.sh` checks the versions). pi-web-access is
+  `docker/verify-runtime.sh` checks the versions and that the helper loads the
+  pinned Pi). `adore.chatgpt` supplies a ChatGPT stage's access token. pi-web-access is
   installed but not loaded.
 - External: Pi inside the `adore-executor` image (container runs) or on the
   host (native runs only); the target repo's `AGENTS.md` arrives with the
@@ -203,7 +222,8 @@ in depth: the boundary stays that no forge credential is in the container.
 - Pi RPC `GateRun`: exit 0 completed (settled, not aborted, last assistant
   stopReason not `error`, whatever the process exit code); 1 failed, with
   `stderr` starting `Pi run failed (<class>): <message>` where the class is
-  credential, sign-in, rate-limit, model, network or provider and masked key
+  subscription (`subscription_sharing_user_not_eligible`, matched first),
+  sign-in, model, credential, rate-limit, network or provider and masked key
   hints are redacted; 124 + `timed_out` at the stage timeout; 130 on cancel;
   the process code (or 1) for a protocol failure (exit before settling,
   malformed stdout record, unreadable last assistant record, rejected command), 127/126 when Pi cannot start.
@@ -276,6 +296,10 @@ elif run.ok:
   starts (a failed copy fails the stage). `tests/test_isolation.py` covers
   `ContainerManager.spawn`; `tests/test_pi_providers.py` covers the provider
   rules and `models_json`.
+- `tests/test_chatgpt_stage.py` (offline): a ChatGPT stage's token reaches only
+  that gate as `OPENAI_API_KEY` and is redacted, a stage override sets the
+  requested token life, a missing token fails the attempt without starting Pi,
+  and an API-key project gets no token.
 - Live check 2026-11-02 (image built from this Dockerfile in WSL Docker, a
   fake chat-completions endpoint in the container, no key): see the TASK-41fd0159
   journal for the recorded guard and isolation result.

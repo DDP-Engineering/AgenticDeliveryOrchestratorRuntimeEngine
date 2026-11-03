@@ -9,6 +9,7 @@ import type { Locale, MessageKey } from "./i18n";
 import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
 import { importCopy } from "./importCopy";
+import { readinessChecksShape } from "./readiness";
 
 type Finding = { code: string; field: string; remediation: string };
 type Draft = { name: string; display_name: string; description: string; config_text: string };
@@ -169,7 +170,7 @@ export function ImportWizard({ locale, csrf, t, onCancel, onOpen, onCreated, reg
       const keys = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"];
       if (!value || value.revision !== preview.revision || value.config_revision !== preview.config_revision || value.context !== "api-host" ||
         typeof value.checked_at !== "string" || !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
-        Object.keys(value.checks).length !== keys.length || keys.some(key => !(key in value.checks) ||
+        !readinessChecksShape(value.checks, keys) || keys.some(key => !(key in value.checks) ||
           typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null))) throw new ApiError("unexpected_response");
       const status = Object.values(value.checks).some(v => v === false) ? "failed" :
         Object.values(value.checks).some(v => typeof v !== "boolean") ? "partial" : "verified";

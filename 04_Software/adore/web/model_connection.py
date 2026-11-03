@@ -30,9 +30,11 @@ import tempfile
 from time import monotonic
 from uuid import uuid4
 
+from adore import chatgpt
 from adore.branding import CONTAINER_PI_AGENT_DIR, EXECUTOR_NAME
 from adore.isolation import ContainerManager, IsolationError
 from adore.pi_providers import (
+    CHATGPT,
     ENDPOINT_KEY_VARIABLE,
     MODEL_ID_RE,
     credential_required,
@@ -49,6 +51,15 @@ LOCAL_TIMEOUT_SECONDS = 90
 LOCAL_OUTPUT_BYTES = 1048576
 #: Wall-clock bound of the Pi run inside the temporary container.
 CONTAINER_TIMEOUT_SECONDS = 60
+#: Wall-clock bound of one whole container probe (setup, run and cleanup).
+PROBE_SECONDS = 90
+#: ChatGPT token failure -> reason.
+_TOKEN_REASONS = {
+    "not-signed-in": "sign-in-required",
+    "sign-in-again": "sign-in-required",
+    "not-eligible": "subscription-refused",
+    "unavailable": "connection-failed",
+}
 REASONS = {
     "tool-call-failed",
     "ready",
@@ -63,11 +74,15 @@ REASONS = {
     "provider-error",
     "invalid-response",
     "runtime-error",
+    "sign-in-required",
+    "subscription-refused",
+    "usage-limit",
 }
 #: Pi failure class (`pi_rpc`) -> reason.
 _FAILURE_REASONS = {
+    "subscription": "subscription-refused",
     "credential": "credential-invalid",
-    "sign-in": "credential-invalid",
+    "sign-in": "sign-in-required",
     "model": "model-unavailable",
     "network": "connection-failed",
     "rate-limit": "rate-limited",
@@ -129,17 +144,20 @@ def _challenge() -> tuple[str, str, str]:
     return prompt, tool_nonce, nonce
 
 
-def _rpc_reason(result, tool_nonce: str, nonce: str) -> str:
+def _rpc_reason(result, tool_nonce: str, nonce: str, *, subscription: bool = False) -> str:
     """
     @brief      Turn one Pi RPC outcome into a closed reason.
     @param[in]  result `PiRpcResult` of the challenge run.
     @param[in]  tool_nonce Token the shell command had to print.
     @param[in]  nonce Expected final reply.
+    @param[in]  subscription A ChatGPT subscription run: a rate limit is its usage limit.
     @return     A member of REASONS.
     """
     if result.outcome == "completed":
         return _native_tool_response(result.output, tool_nonce, nonce)
     if result.outcome == "failed":
+        if subscription and result.failure == "rate-limit":
+            return "usage-limit"
         return _FAILURE_REASONS.get(result.failure, "provider-error")
     if result.outcome == "timed-out":
         return "timeout"
@@ -152,12 +170,16 @@ def _rpc_reason(result, tool_nonce: str, nonce: str) -> str:
 
 
 def probe_model_connection(config, runner, env_file: Path, *,
-                           popen=subprocess.Popen) -> dict:
+                           popen=subprocess.Popen, chatgpt_dir: Path | None = None) -> dict:
     """@brief Run one bounded challenge through the selected container/native target.
+    @details A ChatGPT project first gets an access token from the server's
+             sign-in (a helper container mounting only that directory) and
+             passes it to Pi only in the launch environment.
     @param[in] config Validated project snapshot.
     @param[in] runner Injectable external runtime boundary.
     @param[in] env_file Selected profile executor secret file.
     @param[in] popen Process factory of the streaming `exec -i` (tests inject a fake Pi).
+    @param[in] chatgpt_dir The server's ChatGPT credential directory (default: ADORE home).
     @return Closed redacted executor/model/readiness/reason evidence.
     @exception IsolationError Cleanup cannot be confirmed.
     """
@@ -188,10 +210,12 @@ def probe_model_connection(config, runner, env_file: Path, *,
         return result
     saved = {**load_env_file(env_file), **os.environ}
     variable = credential_variable(executor.provider)
-    if credential_required(executor.provider) and not (variable and saved.get(variable)):
+    subscription = executor.provider == CHATGPT
+    if (not subscription and credential_required(executor.provider)
+            and not (variable and saved.get(variable))):
         result["reason"] = "credential-missing"
         return result
-    deadline = monotonic() + 90
+    deadline = monotonic() + PROBE_SECONDS
 
     def bounded(argv, *, cwd=None, timeout=None, env=None):
         """@brief Bound all setup/inference operations while reserving cleanup time."""
@@ -218,6 +242,20 @@ def probe_model_connection(config, runner, env_file: Path, *,
         egress=config.container.egress,
         selinux_relabel=config.container.selinux_relabel,
     )
+    launch_env: dict[str, str] = {}
+    if subscription:
+        try:
+            token = chatgpt.bearer_token(
+                runtime, chatgpt_dir or chatgpt.credential_dir(),
+                PROBE_SECONDS + chatgpt.TOKEN_MARGIN_SECONDS,
+                timeout=max(1.0, deadline - monotonic() - 10))
+        except chatgpt.ChatGptError as exc:
+            result["reason"] = _TOKEN_REASONS.get(exc.code, "runtime-error")
+            return result
+        except (TimeoutError, OSError):
+            result["reason"] = "timeout"
+            return result
+        launch_env[chatgpt.TOKEN_VARIABLE] = token
     name = "adore-ai-test-" + uuid4().hex[:16]
     with tempfile.TemporaryDirectory(prefix="adore-ai-test-") as directory:
         root = Path(directory)
@@ -250,7 +288,8 @@ def probe_model_connection(config, runner, env_file: Path, *,
             from adore.executor.launcher import PI_RPC_ENV, pi_rpc_argv
 
             prompt, tool_nonce, nonce = _challenge()
-            values = [value for value in secrets.values() if len(value) >= 4]
+            values = [value for value in [*secrets.values(), *launch_env.values()]
+                      if len(value) >= 4]
 
             def redact(text: str) -> str:
                 for value in values:
@@ -259,11 +298,12 @@ def probe_model_connection(config, runner, env_file: Path, *,
 
             remaining = max(1.0, min(CONTAINER_TIMEOUT_SECONDS, deadline - monotonic() - 10))
             launched = pi_rpc.run_pi_rpc(
-                lambda argv, extra: runtime.spawn(name, argv, env=extra, popen=popen),
+                lambda argv, extra: runtime.spawn(name, argv, env={**extra, **launch_env},
+                                                  popen=popen),
                 pi_rpc_argv(model, pi_provider(executor.provider)), dict(PI_RPC_ENV), prompt,
                 timeout=remaining, output_path=root / "io" / "output.jsonl",
                 stderr_path=root / "io" / "stderr.log", redact=redact)
-            reason = _rpc_reason(launched, tool_nonce, nonce)
+            reason = _rpc_reason(launched, tool_nonce, nonce, subscription=subscription)
             result.update(ready=reason == "ready", reason=reason)
         except TimeoutError:
             result["reason"] = "timeout"

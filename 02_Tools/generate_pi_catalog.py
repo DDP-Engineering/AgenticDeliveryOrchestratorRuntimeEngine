@@ -16,7 +16,9 @@
          and an empty agent directory. Pi lists the built-in catalog of every
          provider that has a credential, so each run yields the provider ids
          and models behind one variable; no network call is made and no real
-         key is used. The result is `04_Software/adore/pi_catalog.json`.
+         key is used. The models of a ChatGPT subscription come from Pi's
+         ChatGPT catalog in the installed pi-ai package (`chatgpt_models`).
+         The result is `04_Software/adore/pi_catalog.json`.
          Providers whose key is a forge token (GitHub Copilot) or that list
          no chat models (TypeSafe classifiers) are left out. Run it again
          whenever the pinned Pi version changes.
@@ -108,6 +110,32 @@ def list_models(node: str, cli: str, variable: str) -> dict[str, list[str]]:
     return models
 
 
+def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
+    """
+    @brief      The models a ChatGPT subscription serves, from Pi's own catalog.
+    @details    Pi's ChatGPT-backed catalog (`openai-codex`, the legacy client's
+                provider) lists the chat models of a ChatGPT account; Sign in
+                with ChatGPT runs them as provider `openai`, so only those that
+                are also openai models are kept, in Pi's order.
+    @param[in]  package Installed pi-coding-agent package directory.
+    @param[in]  openai Models Pi lists for provider openai.
+    @return     Model ids.
+    @exception  SystemExit When the catalog is missing or empty.
+    """
+    data = Path("dist") / "providers" / "data" / "openai-codex.json"
+    candidates = (package / "node_modules" / "@earendil-works" / "pi-ai" / data,
+                  package.parent / "pi-ai" / data)
+    path = next((item for item in candidates if item.is_file()), None)
+    if path is None:
+        raise SystemExit("Pi's ChatGPT catalog (pi-ai openai-codex.json) was not found")
+    chat = json.loads(path.read_text(encoding="utf-8")).get("openai-codex-responses", {})
+    models = [key.split(":", 1)[1] for key in chat if key.startswith("chat:")]
+    models = [model for model in models if model in openai]
+    if not models:
+        raise SystemExit("Pi's ChatGPT catalog lists no openai chat model")
+    return models
+
+
 # PUBLIC API
 
 
@@ -138,11 +166,13 @@ def main() -> int:
             providers[provider] = {"id": provider, "name": SPLIT_NAMES.get(provider, name),
                                    "variable": variable, "models": models}
     catalog = {"pi_version": version,
-               "providers": sorted(providers.values(), key=lambda item: item["name"].casefold())}
+               "providers": sorted(providers.values(), key=lambda item: item["name"].casefold()),
+               "chatgpt_models": chatgpt_models(package, providers["openai"]["models"])}
     options.out.write_bytes((json.dumps(catalog, indent=1, ensure_ascii=False) + "\n")
                             .encode("utf-8"))
     print(f"wrote {options.out}: Pi {version}, {len(providers)} providers, "
-          f"{sum(len(item['models']) for item in providers.values())} models")
+          f"{sum(len(item['models']) for item in providers.values())} models, "
+          f"{len(catalog['chatgpt_models'])} ChatGPT models")
     return 0
 
 

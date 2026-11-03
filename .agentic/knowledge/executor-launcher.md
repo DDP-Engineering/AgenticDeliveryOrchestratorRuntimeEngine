@@ -94,6 +94,26 @@ assistant `message_end` (input includes cache read/write), cross-checked once
 with `get_session_stats`; an unreadable assistant record makes tokens
 unavailable; cost is never reported. The guard blocks `git push` and
 `gh`/`glab`/`tea` in bash/powershell and refuses project trust.
+The failure classes, matched in this order, are `subscription`
+(`subscription_sharing_user_not_eligible`), `sign-in`, `model`, `credential`,
+`rate-limit`, `network`, else `provider`.
+
+For `provider = "chatgpt"` the orchestrator's `_launch_stage` asks its
+`chatgpt_token` source for an access token valid for the stage limit plus
+`chatgpt.TOKEN_MARGIN_SECONDS` (300 s) before `run_gate`. The default source is
+`chatgpt.bearer_token(self.containers, chatgpt.credential_dir(), seconds)`: Pi's
+`token` command in a one-off helper container from the project's image whose
+only bind mount is the server's credential directory `<ADORE home>/chatgpt`.
+The run container never mounts that directory, so the refresh token never
+enters a run. The token reaches only that gate as `OPENAI_API_KEY`, through
+`ContainerBackend.bind(name, env, resource, secrets=(token,))`; the exec passes
+it as a bare `--env` name. `BoundTarget.redact` replaces it with `[REDACTED]` in
+Pi's evidence (`pi_rpc` gets it as `redact`). Pi runs with `--provider openai`.
+When no token can be had (`ChatGptError`), the attempt returns
+`GateRun(exit_code=1, stderr="ChatGPT sign-in: <sentence>")` without starting Pi,
+the conductor logs `<run id>: ChatGPT token unavailable (<code>)`, and the
+ordinary retry policy applies. The token is not refreshed during a stage, so
+config validation limits a `chatgpt` stage to 3000 s.
 
 ## Key behaviors
 
@@ -118,6 +138,8 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-PLAT-1a1960b2` - pinned Node/Pi/pi-web-access and guard in the image.
 - `REQ-FUNC-c6e5282d` - questions parking and immutable launch archives.
 - `REQ-FUNC-448cbde7` - usage and cost coverage for web metrics.
+- `REQ-SEC-0fb2bba3` - each ChatGPT stage receives only a short-lived access token.
+- `REQ-FUNC-87f05705` - a ChatGPT stage without an access token fails clearly without starting Pi.
 
 ## Architecture
 
@@ -146,6 +168,10 @@ quoting; the caller owns stage policy.
   Pi RPC launch.
 - `04_Software/adore/executor/pi_rpc.py` - Pi RPC client.
 - `04_Software/docker/pi/adore-guard.ts` - Pi guard extension (image).
+- `04_Software/adore/chatgpt.py`, `04_Software/docker/pi/adore-chatgpt.mjs` -
+  the server's ChatGPT sign-in and the helper that mints a stage's access token.
+- `04_Software/tests/test_chatgpt_stage.py` - a ChatGPT stage's token, its
+  redaction, its requested life and the no-token failure.
 - `04_Software/tests/test_pi_rpc.py`, `tests/fake_pi_rpc.py`,
   `tests/fixtures/pi_rpc/` - offline replay of the PI-01 recordings.
 - `04_Software/tests/test_executor.py` - launch, timeout and usage contracts.

@@ -28,3 +28,14 @@ test("corrupt scope status keys dates and the removed model check fail closed", 
   }
   for (const value of [null, [], {}, false]) assert.throws(() => readReadiness(value, project), error => error.code === "readiness_corrupt");
 });
+test("a ChatGPT project's sign-in check is an optional boolean that decides the verdict", () => {
+  const value = evidence();
+  value.checks.executor_sign_in = true;
+  assert.equal(readinessVerdict(readReadiness(value, project)), "verified");
+  value.checks.executor_sign_in = false; value.status = "failed";
+  assert.equal(readinessVerdict(readReadiness(value, project)), "failed");
+  for (const wrong of [null, "yes", 1]) {
+    const bad = evidence(); bad.checks.executor_sign_in = wrong;
+    assert.throws(() => readReadiness(bad, project), error => error.code === "readiness_corrupt");
+  }
+});

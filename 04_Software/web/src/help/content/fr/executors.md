@@ -12,7 +12,7 @@ Ouvrez **Paramètres → Agent et modèle**. Les lignes sont **Fournisseur**, **
 
 - **Fournisseur** : un fournisseur Pi à clé API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral et d’autres), **Abonnement ChatGPT** ou **Point de terminaison compatible OpenAI**.
 - **Modèle** : choisissez dans la liste de Pi pour ce fournisseur ou saisissez tout ID de modèle accepté par le fournisseur, par exemple `gpt-5.4`. La liste accompagne la version de Pi fournie par ADORE et se lit sans accès à internet. Il n’y a pas de modèle universel par défaut.
-- **Abonnement ChatGPT** : la connexion avec ChatGPT n’est pas disponible dans cette version ; choisissez un fournisseur à clé API ou un point de terminaison pour exécuter des tâches.
+- **Abonnement ChatGPT** : Pi utilise le compte ChatGPT Plus ou Pro auquel ce serveur ADORE est connecté, voir [Se connecter avec ChatGPT](#chatgpt). La liste propose les modèles servis par un abonnement ChatGPT, par exemple `gpt-5.6-luna`.
 
 **Préparer le candidat** montre la valeur active et proposée de chaque champ et **Appliquer** les écrit ; prévoyez de suspendre la surveillance, voir [Paramètres du projet](/help/settings#editing). En conteneur, ADORE démarre lui-même le Pi intégré à l’image, via son mode RPC avec des réglages fixes, et l’arrête à la limite de temps de l’étape ou à l’annulation ; la commande de lancement n’y sert pas, seul le préréglage Pi est proposé. Pour un projet installé sur le serveur, la commande de lancement démarre le Pi installé, vaut par défaut `pi -p --mode json --model {model} {prompt}` (`{model}` devient fournisseur/modèle), doit contenir `{prompt}` et ne doit pas utiliser `--auto`.
 
@@ -31,17 +31,32 @@ Une clé de point de terminaison est facultative : enregistrez-la sous Authentif
 Ouvrez **Authentification** dans le même groupe.
 
 - **Clé API du fournisseur.** Le panneau indique la variable requise par le fournisseur configuré, par exemple OPENAI_API_KEY pour OpenAI ou ANTHROPIC_API_KEY pour Anthropic. Saisissez la **Clé API** et choisissez **Enregistrer la clé API**. ADORE la conserve en privé dans le magasin d’identifiants du projet sur le serveur, jamais dans le fichier de configuration, ne la transmet à Pi que par cette variable et ne l’affiche plus jamais ; **Déconnecter la clé API du projet** la supprime. Changer une clé exige la surveillance suspendue, un projet inactif et aucune proposition en attente, et ne teste pas la clé.
-- **Connexion existante du compte.** Uniquement pour un projet installé sur le serveur : Pi utilise sa propre connexion pour le compte du serveur, configurée hors de l’interface web. Un projet en conteneur utilise toujours la clé API du fournisseur ; aucune connexion n’est copiée dans le conteneur.
+- **Connexion existante du compte.** Uniquement pour un projet installé sur le serveur : Pi utilise sa propre connexion pour le compte du serveur, configurée hors de l’interface web. Un projet en conteneur utilise la clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la [connexion ChatGPT](#chatgpt) du serveur ; aucune connexion n’est copiée dans le conteneur.
 - **Valeurs gérées par l’environnement.** Une variable déjà définie dans l’environnement du serveur ADORE porte la mention **Définie sur le serveur ADORE ; gestion externe**. L’interface web ne peut pas l’écraser.
 - **Variables d’identification supplémentaires.** Noms uniquement (**Ajouter une variable d’identification**) de secrets supplémentaires reçus par Pi en plus de la clé du fournisseur ; la plupart des projets n’en ont pas besoin.
 
 Les valeurs d’identifiants n’apparaissent jamais dans le fichier de configuration, les revues, les journaux d’audit, les journaux ou les exports.
 
+## Se connecter avec ChatGPT {#chatgpt}
+
+Un seul compte ChatGPT Plus ou Pro sert tous les projets de ce serveur ADORE dont le fournisseur est **Abonnement ChatGPT**. Les administrateurs se connectent dans **Authentification** d’un tel projet ; ADORE exécute la connexion OpenAI de Pi, le serveur n’a donc besoin d’aucun navigateur.
+
+1. Choisissez **Se connecter avec ChatGPT**.
+2. Ouvrez **Ouvrir la page de connexion ChatGPT** sur votre ordinateur et connectez-vous avec le compte ChatGPT. Le lien est valable 15 minutes.
+3. Le navigateur affiche ensuite une page d’erreur sur `127.0.0.1:1455`. C’est normal : copiez l’adresse complète de sa barre d’adresse.
+4. Collez-la dans **Adresse de redirection** et choisissez **Terminer la connexion**.
+
+L’état est **Connecté**, **Non connecté** ou **Reconnectez-vous**. **Reconnectez-vous** signifie qu’OpenAI n’accepte plus la connexion enregistrée ; les tâches échouent jusqu’à ce qu’un administrateur se reconnecte. Une adresse issue d’un lien plus ancien est refusée et la connexion reste en attente ; **Annuler** y met fin. Quand OpenAI refuse le compte, par exemple parce que son abonnement ne peut pas être partagé, la connexion se termine avec ce motif. **Déconnecter ChatGPT** supprime la connexion enregistrée.
+
+La connexion reste dans un dossier privé du serveur ADORE. Avant chaque étape, ADORE en tire un jeton d’accès récent, valable environ une heure, et ne transmet que ce jeton à Pi ; la connexion elle-même n’entre jamais dans le conteneur de la tâche. Un projet ChatGPT s’exécute donc en conteneur, ses limites de durée par étape sont d’au plus 3000 secondes, et son image doit être construite à partir de l’image d’exécuteur ADORE actuelle. Seuls les administrateurs voient ou modifient la connexion ; le journal d’audit nomme l’action, jamais un jeton ni une adresse.
+
+> ADORE est gratuit aujourd’hui. Le proposer comme service hébergé ou payant avec la connexion ChatGPT exigerait d’abord le formulaire d’intérêt d’OpenAI.
+
 ## Tester la connexion IA {#test-connection}
 
 Les administrateurs choisissent **Tester la connexion IA** sous **Connexion IA**. Le test démarre Pi une fois dans un conteneur temporaire, ou dans un dossier temporaire pour Pi installé sur le serveur, lui demande d’exécuter une commande shell puis de répondre par un texte fixe, et peut entraîner des frais du fournisseur. Le projet doit être inactif, avec des paramètres enregistrés valides et aucune proposition en attente ; pour un projet en conteneur, l’image configurée doit exister sur le serveur.
 
-Le résultat est **Modèle IA connecté** seulement si la commande shell a été exécutée et que la réponse est arrivée. Sinon **Connexion IA non vérifiée** s’accompagne de conseils propres pour : aucun identifiant enregistré, une clé refusée par le fournisseur, un fournisseur ou point de terminaison que Pi n’a pas pu joindre, un modèle inconnu du fournisseur ou du point de terminaison, une limite de débit, une autre erreur du fournisseur, un délai dépassé, une image ou un Pi manquant, ou une commande shell que Pi n’a pas pu exécuter. Aucune tâche n’est lancée. Le résultat enregistré est lié au fournisseur, au modèle, aux paramètres et aux identifiants actuels et apparaît dans les vérifications de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
+Le résultat est **Modèle IA connecté** seulement si la commande shell a été exécutée et que la réponse est arrivée. Sinon **Connexion IA non vérifiée** s’accompagne de conseils propres pour : aucun identifiant enregistré, aucune connexion ChatGPT, un abonnement ChatGPT qui ne peut pas être partagé, une limite d’utilisation ChatGPT atteinte, une clé refusée par le fournisseur, un fournisseur ou point de terminaison que Pi n’a pas pu joindre, un modèle inconnu du fournisseur ou du point de terminaison, une limite de débit, une autre erreur du fournisseur, un délai dépassé, une image ou un Pi manquant, ou une commande shell que Pi n’a pas pu exécuter. Aucune tâche n’est lancée. Le résultat enregistré est lié au fournisseur, au modèle, aux paramètres et aux identifiants actuels et apparaît dans les vérifications de l’hôte du Résumé. Les développeurs le voient mais ne peuvent pas lancer le test.
 
 ## Où s’exécutent les tâches {#where-jobs-run}
 
@@ -49,7 +64,7 @@ Le résultat est **Modèle IA connecté** seulement si la commande shell a été
 |---|---|---|
 | S’exécute dans | Un conteneur Docker ou Podman temporaire sur le serveur ADORE | Le serveur ADORE lui-même, sous le compte du système d’exploitation du service, dans un worktree dédié |
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
-| Connexion | La clé API du fournisseur | La clé API du fournisseur ou la connexion existante de Pi sur ce compte, réutilisée telle quelle |
+| Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé API du fournisseur ou la connexion existante de Pi sur ce compte, réutilisée telle quelle |
 | Réglages de l’agent | Le Pi intégré à l’image, avec des réglages fixés par ADORE ; les réglages et compétences Pi personnels ne sont pas lus | Le Pi installé pour ce compte, lancé avec la commande de lancement et les réglages Pi de ce compte |
 | Isolation | Conteneur avec une politique réseau | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |

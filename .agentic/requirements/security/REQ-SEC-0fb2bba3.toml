@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-SEC-0fb2bba3"
+
+title = "Each ChatGPT stage receives only a short-lived access token"
+
+status = "active"
+
+requirement = """When ADORE launches a Pi stage, or a Test AI connection, for a project whose provider is `chatgpt`, it shall first obtain from the server's ChatGPT credential directory, through Pi in a helper container that mounts only that directory read-write, an access token valid for at least the stage limit plus five minutes (refreshing it under Pi's credential lock when needed), and pass it to Pi only as `OPENAI_API_KEY` in that launch's process environment, never in argv, the run container's creation environment or a file, and redacted from the launch evidence; the refresh token never enters a run container."""
+
+verification = "Orchestrator test with a fake token source: the spawn env holds OPENAI_API_KEY with the token, the container provision env and argv do not, and the archived evidence shows [REDACTED] for an echoed token; unit test: the helper argv has exactly one --volume, the credential directory, and min validity = stage limit + 300 s."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/execution.py", "04_Software/adore/chatgpt.py", "04_Software/adore/isolation.py", "04_Software/adore/web/model_connection.py", "04_Software/adore/branding.py", "04_Software/docker/pi/adore-chatgpt.mjs", "04_Software/docker/Dockerfile.executor-base", "04_Software/docker/verify-runtime.sh"]
+
+linked_tests = ["04_Software/tests/test_chatgpt_stage.py::test_the_stage_token_reaches_only_this_gate_and_is_redacted", "04_Software/tests/test_chatgpt_stage.py::test_a_stage_override_sets_the_requested_token_life", "04_Software/tests/test_chatgpt.py::test_stage_token_mounts_only_the_credential_directory", "04_Software/tests/test_model_connection.py::test_chatgpt_probe_answers_with_a_fresh_access_token"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

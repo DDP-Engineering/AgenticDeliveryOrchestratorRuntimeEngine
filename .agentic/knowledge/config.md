@@ -65,7 +65,13 @@ table for any other provider; `base_url` is http(s) with a host and no user
 info, query or fragment, and `api` is one of `openai-completions`,
 `openai-responses`, `anthropic-messages`, `google-generative-ai`. `custom` with
 `[execution] backend = "local"` is refused (no ADORE-owned agent directory for
-`models.json`). The command must contain `{prompt}`,
+`models.json`). `_chatgpt_issues` refuses `chatgpt` with `[execution] backend =
+"local"` (no ADORE-managed Pi to refresh the ChatGPT sign-in), refuses
+`[budgets] per_gate_timeout_seconds` above 3000 with `chatgpt`, and refuses each
+`[workflow] stage_timeout_overrides.<stage>` above 3000 with `chatgpt`; 3000 is
+`chatgpt.MAX_STAGE_SECONDS`, because a ChatGPT access token lasts about an hour
+and is not refreshed during a stage. A `chatgpt` model is not checked against
+the catalog's `chatgpt_models`. The command must contain `{prompt}`,
 must not contain the `--auto` token, and may use only the `{prompt}`, `{model}`
 and `{worktree}` placeholders (a literal brace is doubled). `[container]
 runtime_env` and `[local] environment` names starting `OPENCODE_`, `CODEX_` or
@@ -102,6 +108,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
   validator.
 - `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
 - `REQ-DATA-eebc4f88` - stage timeout overrides accept only the five executor stages.
+- `REQ-FUNC-a5d65a57` - `chatgpt` is refused for a local run and for a stage limit above 3000 s.
 
 ## Files
 
@@ -109,4 +116,5 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 
 - `04_Software/adore/config.py`, `04_Software/adore/pi_providers.py`
-- `04_Software/tests/test_config.py`
+- `04_Software/adore/chatgpt.py` (`MAX_STAGE_SECONDS`)
+- `04_Software/tests/test_config.py`, `04_Software/tests/test_pi_providers.py` (the `chatgpt` refusals)

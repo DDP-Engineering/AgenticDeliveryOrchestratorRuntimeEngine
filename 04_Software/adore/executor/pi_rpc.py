@@ -84,6 +84,7 @@ _ROLE_RE = re.compile(rb'"role"\s*:\s*"([A-Za-z]+)"')
 
 #: Failure classes in match order: the first pattern found in Pi's error wins.
 _FAILURE_CLASSES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("subscription", re.compile(r"subscription_sharing_user_not_eligible", re.I)),
     ("sign-in", re.compile(r"invalid_grant|OAuth refresh failed|sign in again", re.I)),
     ("model", re.compile(r"model_not_found|\b404\b|model\b.*\bnot (?:found|supported)", re.I)),
     ("credential", re.compile(
@@ -174,7 +175,7 @@ def _classify(error: str) -> str:
     """
     @brief      Name the failure class of a Pi provider error.
     @param[in]  error Pi's errorMessage or prompt rejection text.
-    @return     credential, sign-in, rate-limit, model, network or provider.
+    @return     subscription, sign-in, model, credential, rate-limit, network or provider.
     """
     for name, pattern in _FAILURE_CLASSES:
         if pattern.search(error):

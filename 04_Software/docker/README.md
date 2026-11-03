@@ -14,11 +14,16 @@ ADORE uses a two-layer executor-image contract:
   the generic executor tools: Python 3.11 via uv, Node 22.23.4/npm, git,
   `glab`, `gh`, Pi 1.4.0 (ADORE's only coding agent) with pi-web-access 0.46.0
   under `/opt/pi`, ADORE's Pi guard extension (`pi/adore-guard.ts`, copied to
-  `/opt/adore/pi/`), the ADORE-owned Pi agent directory
+  `/opt/adore/pi/`), ADORE's ChatGPT helper (`pi/adore-chatgpt.mjs`, copied to
+  `/opt/adore/pi/adore-chatgpt.mjs`), the ADORE-owned Pi agent directory
   `/home/adore/.adore-pi-agent`, the non-root `adore` user, fixed mount points,
-  caches, HOME pinning, and Git safe-directory setup. `verify-runtime.sh`
-  checks the Node, Pi and pi-web-access versions. Rebuild the image after
-  pulling a change to these pins.
+  caches, HOME pinning, and Git safe-directory setup. ADORE runs the ChatGPT
+  helper only in a one-off helper container that mounts the server's ChatGPT
+  credential directory (`<ADORE home>/chatgpt`), to sign in with ChatGPT and to
+  get each stage's short-lived access token; a run container never mounts that
+  directory. `verify-runtime.sh` checks the Node, Pi and pi-web-access versions,
+  and its step 14 checks that the ChatGPT helper loads the pinned Pi. Rebuild
+  the image after pulling a change to these pins.
 - Each runtime project supplies a Dockerfile that extends the base with that
   project's build and test tools. Tag the resulting image as
   `adore-executor-<project>:<tag>` and select it in the profile's
@@ -150,7 +155,9 @@ Docker has no equivalent constraint. The other two egress modes, `open` and
 
 `verify-runtime.sh` checks the operations ADORE performs: image inspect/build,
 volume create, mounted execution, egress modes, Git worktrees, parking and
-resuming, listing, cleanup, and absence detection.
+resuming, listing, cleanup, and absence detection. Step 14 runs the ChatGPT
+helper's `token` command against an empty directory and expects
+`{"status":"not-signed-in"}`, which proves the helper loads the pinned Pi.
 
 ```bash
 # Generic base-image validation.

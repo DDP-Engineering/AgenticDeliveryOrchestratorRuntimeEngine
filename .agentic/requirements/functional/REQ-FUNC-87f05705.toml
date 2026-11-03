@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-87f05705"
+
+title = "Fail a ChatGPT stage clearly when no access token can be obtained"
+
+status = "active"
+
+requirement = """If no access token can be obtained for a ChatGPT stage, then ADORE shall fail that attempt without starting Pi, with a sentence saying to sign in with ChatGPT, to sign in again (marking the status sign-in-again when OpenAI refused the refresh, for example invalid_grant), that the account cannot share its subscription, or that OpenAI could not be reached."""
+
+verification = "Orchestrator tests with a fake token source raising not-signed-in, sign-in-again, not-eligible and unavailable: the gate fails with exit 1 and the matching sentence and Pi is not spawned; chatgpt unit test: a sign-in-again answer writes the mark."
+
+affected_paths = ["04_Software/docker/pi/adore-chatgpt.mjs", "04_Software/adore/orchestrator.py", "04_Software/adore/chatgpt.py"]
+
+linked_tests = ["04_Software/tests/test_chatgpt_helper_script.py", "04_Software/tests/test_chatgpt.py::test_a_bounded_runner_timeout_removes_the_helper", "04_Software/tests/test_chatgpt_stage.py::test_no_token_fails_the_attempt_without_starting_pi", "04_Software/tests/test_chatgpt.py::test_stage_token_failures_are_typed", "04_Software/tests/test_chatgpt.py::test_a_successful_refresh_clears_the_sign_in_again_mark", "04_Software/tests/test_chatgpt.py::test_a_helper_timeout_removes_the_helper_container"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-REL-acf4c32d"
+
+title = "Concurrent ChatGPT token requests share Pi's credential lock"
+
+status = "active"
+
+requirement = """When two ChatGPT stages request an access token at the same time, ADORE shall let both helpers use the same mounted credential directory, so Pi's lock (`auth.json.lock` beside `auth.json`) serializes the refresh, and the stored credential shall remain one valid OAuth credential after both requests."""
+
+verification = "Fake-process test: two concurrent token requests against a fake Pi that locks auth.json.lock and rotates an expiring credential leave valid JSON, one rotation and the same token for both; Manual: one live check with two concurrent ChatGPT token requests, recorded in the ticket comment."
+
+affected_paths = ["04_Software/adore/chatgpt.py"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_concurrent_token_requests_share_the_credential_lock"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

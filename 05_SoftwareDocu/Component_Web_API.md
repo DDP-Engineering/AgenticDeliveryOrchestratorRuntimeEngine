@@ -259,7 +259,8 @@ session check and before CSRF and role checks. Account objects include
 full bundled license text.
 `GET /api/v1/pi-providers` (any signed-in user) returns the shipped Pi
 provider catalog as `{pi_version, providers: [{id, name, variable, models}],
-chatgpt: {id}, custom: {id, variable, apis}}` from
+chatgpt: {id, models}, custom: {id, variable, apis}}` (`chatgpt.models` holds the
+models a ChatGPT subscription serves, the catalog's `chatgpt_models`) from
 `pi_providers.public_catalog()`; an unreadable catalog returns 503
 `provider_catalog_unavailable`.
 `/api/v1/about` also returns the bundled third-party component notices, compiled from the
@@ -372,7 +373,9 @@ The administrator-only, CSRF-protected
 `POST /api/v1/projects/{name}/readiness-check` runs bounded host-side doctor
 probes on explicit request. It returns booleans for Git, the selected forge CLI
 and authentication, the Pi CLI, AEGIS file presence in the
-configured repository, and a directly selected Docker/Podman runtime. It does
+configured repository, and a directly selected Docker/Podman runtime; a project
+with provider `chatgpt` also gets `executor_sign_in`, true when the server's
+ChatGPT credential files report `signed-in` (read without starting Pi). It does
 not execute repository code from the API process and does not test the model;
 model access is proven only by the explicit AI connection test. WSL-wrapped
 runtime detection remains unverified.
@@ -535,6 +538,9 @@ state corruption, duplicate/overlapping ownership and publication-lock races.
 `test_web_metrics.py`, `test_web_pricing.py`, and
 `test_web_commands.py` exercise
 project scope, cost privacy, paged/filterable runs, input boundaries and operation behavior offline.
+`test_web_chatgpt.py` covers the ChatGPT sign-in routes with a fake helper
+(`tests/fake_chatgpt_helper.py`), their roles, CSRF, error codes and audit details, and the
+`executor_sign_in` readiness check.
 The RBAC suite includes ten accounts and twenty projects with five concurrent
 viewer requests; it is a functional scope check, not a throughput guarantee.
 
@@ -643,6 +649,9 @@ Schema 1 contains immutable `project_id`, exact config-byte SHA-256 `revision`, 
 `checked_at`, API-host context and typed prerequisite checks.
 Checks cover git, forge CLI/auth, runtime, the Pi CLI and AEGIS files; there is no
 model endpoint check (model access comes only from the explicit AI connection test).
+A `chatgpt` project's record also carries the boolean `executor_sign_in` (the server's
+ChatGPT sign-in); the reader accepts that key in addition to the six required ones, and
+a false value makes the record `failed`.
 Commands/output/credentials are never persisted. Schema, keys, types,
 identity, digest, time and redacted values are validated on read; corrupt evidence
 fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`).
@@ -729,13 +738,25 @@ and an unreadable run to 503 `run_state_corrupt`; no partial list is returned. I
 
 Administrators use **Settings → Agent and model → Test AI connection** for the configured Pi provider and model. Each explicit click sends one short request over Pi's RPC mode in a temporary container, or in a temporary folder for Pi installed on the server, and may incur provider charges. The project must be idle with valid saved settings and no pending configuration/operations; a container project's installed image must contain the pinned Pi.
 
-Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). A container project whose provider needs a key with none saved or set reports **credential-missing** without starting a container. Failures provide redacted guidance for a missing or invalid credential, model availability, rate limits, provider errors, image, CLI version or network. The action reuses executor credentials and egress and starts no job. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
+Only a valid completed challenge response reports connected: one completed shell command printing a nonce, then the exact reply (a failed shell call reports **tool-call-failed** with permission guidance). A container project whose provider needs a key with none saved or set reports **credential-missing** without starting a container. A `chatgpt` project first gets an access token from the server's ChatGPT sign-in (valid for the 90 s probe plus 300 s) and reports **sign-in-required** when the server is not signed in or must sign in again, **subscription-refused** when OpenAI refuses the account's plan, **connection-failed** when OpenAI cannot be reached and **usage-limit** when Pi reports the subscription's rate limit. Failures provide redacted guidance for a missing or invalid credential, model availability, rate limits, provider errors, image, CLI version or network. The action reuses executor credentials and egress and starts no job. Evidence is durably saved, bound to current project/model/configuration and credential inputs. Summary and host-check details reuse the current access result. Host-check time/version are internally validated and hidden from Summary/check details. See Component_Model_Connection.md.
 
 ## Project executor configuration
 
 **Project → Settings → Agent and model** configures Pi, ADORE's only coding agent; there is no agent choice. It shows Test AI connection, the agent connection (Provider, Model, and for an OpenAI-compatible endpoint Endpoint base URL and Endpoint API type), the launch command (`executor.command`; only the Pi preset for container projects, validated native argv for local projects), additional credential variables (`executor.env_keys`), the provider API key, the execution environment and estimated prices. The connection and the command are reviewed settings (prepare candidate, review, apply on a paused/idle project). Installed agents and runtime preparation remain external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the configured provider's credential variable only (none for a ChatGPT subscription, whose sign-in is not available yet) and shows its source only; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only selector for additional credential variables offers the known provider key variables and retained custom names; it defaults to empty because the provider's key variable is always passed. Applying names does not delete saved `.env` values. Provider API key offers private Save/Disconnect for the configured provider's credential variable only and shows its source only; key changes require paused pickup and idle/pending-free state. A `chatgpt` project has no credential variable; it uses the server's ChatGPT sign-in (next section). Explicit Test AI connection remains the evidence of model access and may incur provider charges. Config GET returns `model_connection: null` for a `chatgpt` project while the server is not signed in. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+
+### ChatGPT sign-in
+
+The server holds one ChatGPT sign-in in `<ADORE home>/chatgpt` and at most one pending sign-in in memory, both under one lock; `adore/chatgpt.py` does the work (see [ChatGPT sign-in](Component_ChatGPT_Sign_In.md)). All routes are Admin-only; changes also need CSRF.
+
+- `GET /api/v1/chatgpt-sign-in` returns `{status, pending}`: `status` is `signed-in`, `not-signed-in` or `sign-in-again`, read from the files without starting Pi; `pending` says whether a sign-in waits for its redirect address. A sign-in older than 15 minutes is ended and reported as not pending.
+- `POST /api/v1/projects/{name}/chatgpt-sign-in` starts Sign in with ChatGPT in a helper container from that project's runtime and image (the image's pinned Pi does the OAuth flow) and returns `{authorize_url, expires_in}` with `expires_in` 900. It ends a previous pending sign-in first. It returns 409 `project_archived`, 503 `config_corrupt`, 409 `chatgpt_sign_in_container_required` for a project that does not run in a container and 409 `invalid_config` for an invalid configuration. It does not require paused pickup or an idle project.
+- `PUT /api/v1/chatgpt-sign-in` takes exactly `{redirect_url}` (1-8192 characters) and returns `{status, pending}` after Pi stored the credential. A malformed address (400 `chatgpt_redirect_invalid`) or one from another attempt (400 `chatgpt_state_mismatch`) leaves the sign-in pending; any other failure ends it. Without a pending sign-in it returns 409 `chatgpt_sign_in_not_pending`.
+- `DELETE /api/v1/chatgpt-sign-in/pending` ends a waiting sign-in and keeps the stored credential; it returns `{status, pending}`.
+- `DELETE /api/v1/chatgpt-sign-in` (Disconnect) ends a waiting sign-in, deletes `auth.json` and the sign-in-again mark, keeps the installation id and returns `{status, pending}`; a file that cannot be removed returns 503 `chatgpt_credential_unreadable`.
+
+Sign-in failures map to value-free codes: 409 `chatgpt_credential_unreadable`, 502 `chatgpt_not_eligible` (the account's plan cannot share the subscription with Pi), 502 `chatgpt_access_denied`, 502 `chatgpt_code_rejected`, 502 `chatgpt_sign_in_refused`, 503 `chatgpt_sign_in_unavailable` (OpenAI not reachable, or no link within 60 s) and 503 `chatgpt_helper_failed` (the image cannot run ADORE's helper). Audit actions are `chatgpt-sign-in-started` (with the project name), `chatgpt-sign-in-failed` (with the project name when the start failed), `chatgpt-sign-in-completed`, `chatgpt-sign-in-cancelled` and `chatgpt-disconnected`; the stored detail of `chatgpt-sign-in-failed` is only the `chatgpt_<code>` error code, and redirect-invalid, state-mismatch and not-pending are not audited. Audit rows and error responses never carry a token, authorization code, link or redirect address; the link appears only in the start response's `authorize_url`. `create_app(chatgpt_popen=...)` injects the helper's process factory for tests. Proof: `tests/test_web_chatgpt.py`.
 
 ## Preparation review and apply
 

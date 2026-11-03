@@ -12,7 +12,7 @@ Open **Settings → Agent and model**. The rows are **Provider**, **Model**, **E
 
 - **Provider**: one of Pi's API-key providers (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral and others), **ChatGPT subscription** or **OpenAI-compatible endpoint**.
 - **Model**: choose from Pi's list for that provider or type any model ID the provider accepts, for example `gpt-5.4`. The list comes with the Pi version ADORE ships and is read without internet access. There is no universal default.
-- **ChatGPT subscription**: sign-in with ChatGPT is not available in this version; choose an API-key provider or an endpoint to run jobs.
+- **ChatGPT subscription**: Pi uses the ChatGPT Plus or Pro account this ADORE server is signed in to, see [Sign in with ChatGPT](#chatgpt). The model list holds the models a ChatGPT subscription serves, for example `gpt-5.6-luna`.
 
 **Prepare candidate** shows each field's active and proposed value and **Apply change** writes them; expect to pause monitoring first, see [Project settings](/help/settings#editing). In a container ADORE starts the Pi built into the image itself, through its RPC mode with fixed settings, and stops it at the stage time limit or when you cancel; the launch command is not used there, so only the Pi preset is offered. For a project installed on the server the launch command starts the installed Pi, defaults to `pi -p --mode json --model {model} {prompt}` (`{model}` becomes provider/model), must contain `{prompt}` and must not use `--auto`.
 
@@ -31,17 +31,32 @@ An endpoint key is optional: save it under Authentication as ADORE_ENDPOINT_API_
 Open **Authentication** in the same group.
 
 - **Provider API key.** The panel names the variable the configured provider needs, for example OPENAI_API_KEY for OpenAI or ANTHROPIC_API_KEY for Anthropic. Enter the **API key** and choose **Save API key**. ADORE stores it privately in the project's credential store on the server, never in the configuration file, passes it to Pi only as that variable and never shows it again; **Disconnect project API key** removes it. Changing a key needs monitoring paused, an idle project and no pending change, and does not test the key.
-- **Existing account sign-in.** Only for a project installed on the server: Pi uses its own sign-in for the server account, set up outside the web interface. A container project always uses the provider's API key; no sign-in is copied into the container.
+- **Existing account sign-in.** Only for a project installed on the server: Pi uses its own sign-in for the server account, set up outside the web interface. A container project uses the provider's API key, or for a ChatGPT subscription a short-lived access token from the server's [ChatGPT sign-in](#chatgpt); no sign-in is copied into the container.
 - **Environment-managed values.** A variable already set in the ADORE server environment is labelled **Set on the ADORE server; manage it externally**. The web interface cannot overwrite it.
 - **Additional credential variables.** Names only (**Add credential variable**) of extra secrets Pi receives besides the provider's key; most projects need none.
 
 Credential values never appear in the configuration file, reviews, audit records, logs or exports.
 
+## Sign in with ChatGPT {#chatgpt}
+
+One ChatGPT Plus or Pro account serves every project on this ADORE server whose provider is **ChatGPT subscription**. Administrators sign in under **Authentication** of such a project; ADORE runs Pi's own OpenAI sign-in, so the server needs no browser.
+
+1. Choose **Sign in with ChatGPT**.
+2. Open **Open the ChatGPT sign-in page** on your own computer and sign in with the ChatGPT account. The link is valid for 15 minutes.
+3. The browser then shows an error page at `127.0.0.1:1455`. That is expected: copy the full address from its address bar.
+4. Paste it into **Redirect address** and choose **Complete sign-in**.
+
+The status is **Signed in**, **Not signed in** or **Sign in again**. **Sign in again** means OpenAI no longer accepts the stored sign-in; jobs fail until an administrator signs in again. An address from an older link is refused and the sign-in keeps waiting; **Cancel** ends it. When OpenAI refuses the account, for example because its plan cannot share the subscription, the sign-in ends with that reason. **Disconnect ChatGPT** deletes the stored sign-in.
+
+The sign-in stays in a private folder on the ADORE server. Before each stage ADORE takes a fresh access token from it, valid for about an hour, and passes only that token to Pi; the sign-in itself never enters the job's container. A ChatGPT project therefore runs in a container, its stage time limits are at most 3000 seconds, and its image must be built from the current ADORE executor image. Only administrators see or change the sign-in; audit records name the action, never a token or address.
+
+> ADORE is free today. Offering it as a hosted or paid service with ChatGPT sign-in would first need OpenAI's interest form.
+
 ## Test AI connection {#test-connection}
 
 Administrators choose **Test AI connection** under **AI connection**. It starts Pi once in a temporary container, or in a temporary folder for Pi installed on the server, asks it to run one shell command and then to reply with a fixed text, and may incur provider charges. The project must be idle with valid saved settings and no pending change; for a container project the configured image must exist on the server.
 
-The result is **AI model connected** only when the shell command ran and the reply arrived. Otherwise **AI connection could not be verified** comes with its own guidance for: no credential saved, a key the provider rejected, a provider or endpoint Pi could not reach, a model the provider or endpoint does not know, a rate limit, another provider error, a timeout, a missing image or Pi, or a shell command Pi could not run. It starts no job. The saved result is bound to the current provider, model, settings and credentials and appears in the Summary host checks. Developers see it but cannot run the test.
+The result is **AI model connected** only when the shell command ran and the reply arrived. Otherwise **AI connection could not be verified** comes with its own guidance for: no credential saved, no ChatGPT sign-in, a ChatGPT plan that cannot share its subscription, a reached ChatGPT usage limit, a key the provider rejected, a provider or endpoint Pi could not reach, a model the provider or endpoint does not know, a rate limit, another provider error, a timeout, a missing image or Pi, or a shell command Pi could not run. It starts no job. The saved result is bound to the current provider, model, settings and credentials and appears in the Summary host checks. Developers see it but cannot run the test.
 
 ## Where jobs run {#where-jobs-run}
 
@@ -49,7 +64,7 @@ The result is **AI model connected** only when the shell command ran and the rep
 |---|---|---|
 | Runs in | A temporary Docker or Podman container on the ADORE server | The ADORE server itself, under the service's operating system account, in a dedicated worktree |
 | Environment | A project image prepared by the administrator | Tools, versions and libraries you install yourself on that server |
-| Sign-in | The provider's API key | The provider's API key or Pi's existing sign-in on that account, reused in place |
+| Sign-in | The provider's API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in | The provider's API key or Pi's existing sign-in on that account, reused in place |
 | Agent settings | The Pi built into the image, with settings fixed by ADORE; personal Pi settings and skills are not read | The Pi installed for that account, started with the launch command and that account's Pi settings |
 | Isolation | Container with a network policy | Only the worktree; commands can reach whatever the account can, so use a dedicated least-privilege account |
 | Chosen | **Runs in** → **Container**, the default, on enrollment step 2 or in Settings → Agent and model | **Runs in** → **Installed on the server**, or the server profile or TOML enrollment |

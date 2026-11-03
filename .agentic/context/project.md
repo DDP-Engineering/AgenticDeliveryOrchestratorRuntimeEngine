@@ -56,7 +56,7 @@ ADORE's only coding agent.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
   Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one reviewed `executor.connection` edit; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
-  (no agent choice), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
+  (no agent choice); a ChatGPT-subscription project shows the server's one ChatGPT sign-in instead of the key (admin-only Pi OAuth through a helper container, a short-lived access token per stage; container runs and stage limits up to 3000 s only), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
   Settings uses six purpose
   categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
   review with explicit base/candidate binding, idle/lock/pause safety and Dev

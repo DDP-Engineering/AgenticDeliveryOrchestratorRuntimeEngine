@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-055f8047"
+
+title = "Complete Sign in with ChatGPT with the pasted redirect address"
+
+status = "active"
+
+requirement = """When an administrator submits the browser's redirect address for the pending sign-in and its `state` matches the authorization link, ADORE shall pass it to the waiting sign-in, store the returned credential in the server's ChatGPT credential directory through Pi's own credential store (file mode 0600), clear any sign-in-again mark and report the status signed in."""
+
+verification = "API test with a fake Pi helper: PUT with a matching redirect address returns signed-in, the fake helper received exactly that line, auth.json holds an oauth credential and the sign-in-again mark is gone."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py", "04_Software/docker/pi/adore-chatgpt.mjs"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_sign_in_returns_the_link_and_stores_the_credential", "04_Software/tests/test_web_chatgpt.py::test_admin_signs_the_server_in_and_out"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

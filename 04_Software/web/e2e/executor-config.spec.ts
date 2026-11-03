@@ -6,6 +6,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import {agentSettingsCopy,credentialEditorCopy} from "../src/executorSettings";
 import {connectionCopy} from "../src/agentConnection";
+import {chatgptCopy} from "../src/chatgptCopy";
+import {errorMessages} from "../src/errors";
 import {test, expect} from "@playwright/test";
 
 const PI_PRESET="pi -p --mode json --model {model} {prompt}";
@@ -286,4 +288,40 @@ test("estimated prices live in Agent and model for administrators only",async({p
  await expect(page.locator('[data-setting-purpose="executor"]')).toBeVisible();
  await expect(page.locator(".executor-prices")).toHaveCount(0);
  await expect(page.getByRole("heading",{name:"Estimated prices",exact:true})).toHaveCount(0);
+});
+
+test("an administrator signs the server in with ChatGPT and disconnects it",async({page})=>{
+ await page.context().route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
+ const fixture=(value:string)=>page.request.post(`/__e2e__/provider?value=${value}`,{headers:{"X-ADORE-E2E":"local-test"}});
+ expect((await fixture("chatgpt")).ok()).toBe(true);
+ try {
+  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
+  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+  const projects=await(await page.request.get("/api/v1/projects")).json();const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+  await page.goto(`/projects/${id}/executor`);await page.getByText(/^Agent and model \(\d+\)$/).click();
+  await page.locator('[data-setting-topic="authentication"] > summary').click();
+  const panel=page.locator("#chatgpt-sign-in"),c=chatgptCopy.en;
+  await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Provider API key",exact:true})).toHaveCount(0);
+  await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["not-signed-in"]);
+  await panel.getByRole("button",{name:c.start,exact:true}).click();
+  const link=panel.getByRole("link",{name:c.link,exact:true});
+  await expect(link).toHaveAttribute("href",/^https:\/\/auth\.openai\.com\//);
+  await expect(link).toHaveAttribute("target","_blank");await expect(link).toHaveAttribute("rel","noopener noreferrer");
+  const field=panel.getByLabel(c.field,{exact:true});
+  await field.fill("http://127.0.0.1:1455/auth/callback?code=c&state=another-attempt");
+  await panel.getByRole("button",{name:c.complete,exact:true}).click();
+  await expect(panel.getByRole("alert")).toContainText(errorMessages.en.chatgpt_state_mismatch);
+  await expect(link).toBeVisible();await expect(field).toHaveValue("");
+  await field.fill("http://127.0.0.1:1455/auth/callback?code=fake-code&state=fake-state-0123456789&client_id=x");
+  await panel.getByRole("button",{name:c.complete,exact:true}).click();
+  await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["signed-in"]);
+  await expect(panel.getByRole("status")).toHaveText(c.signedIn);await expect(link).toHaveCount(0);
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await panel.getByRole("button",{name:c.disconnect,exact:true}).click();
+  await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["not-signed-in"]);
+ } finally {
+  await page.request.delete("/api/v1/chatgpt-sign-in",{headers:{"X-CSRF-Token":(await(await page.request.get("/api/v1/session")).json()).csrf}}).catch(()=>undefined);
+  expect((await fixture("openai")).ok()).toBe(true);
+ }
 });

@@ -34,7 +34,7 @@ from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
 
-from adore import metrics
+from adore import chatgpt, metrics
 from adore.aegis import (
     FULL_STAGES,
     AegisCheck,
@@ -73,7 +73,7 @@ from adore.isolation import (
     WorktreeManager,
     build_container_env,
 )
-from adore.pi_providers import ENDPOINT_KEY_VARIABLE, models_json, secret_names
+from adore.pi_providers import CHATGPT, ENDPOINT_KEY_VARIABLE, models_json, secret_names
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan
 from adore.repository_auth import project_runner
@@ -208,8 +208,14 @@ class Orchestrator:
         sleep: Callable[[float], None] = time.sleep,
         log: Callable[[str], None] = print,
         backend: ExecutionBackend | None = None,
+        chatgpt_token: Callable[[int], str] | None = None,
     ) -> None:
-        """@brief Wire the conductor from production or fake collaborators."""
+        """
+        @brief Wire the conductor from production or fake collaborators.
+        @param[in] chatgpt_token Source of a ChatGPT access token valid for the
+                   given seconds; by default Pi in a helper container of this
+                   project's image refreshes the server's sign-in.
+        """
         self.config = config
         self.forge = forge
         self.store = store
@@ -227,6 +233,9 @@ class Orchestrator:
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
         self._in_flight_run_id = ""
+        self.chatgpt_token = chatgpt_token or (
+            lambda seconds: chatgpt.bearer_token(
+                self.containers, chatgpt.credential_dir(), seconds))
 
     @classmethod
     def from_config(
@@ -1199,6 +1208,17 @@ class Orchestrator:
             run.stage, self.config.budgets.per_gate_timeout_seconds
         )
         execute = self._execute(run)
+        if self.config.executor.provider == CHATGPT:
+            # The server's ChatGPT sign-in never enters the container: this gate
+            # alone receives an access token that outlives the stage limit.
+            try:
+                token = self.chatgpt_token(timeout + chatgpt.TOKEN_MARGIN_SECONDS)
+            except chatgpt.ChatGptError as exc:
+                self.log(f"{run.run_id}: ChatGPT token unavailable ({exc.code})")
+                return GateRun(exit_code=1, stderr=f"ChatGPT sign-in: {exc.sentence()}")
+            execute = self.backend.bind(
+                run.container, {**self._container_env(run), chatgpt.TOKEN_VARIABLE: token},
+                run.execution.get("resource") or None, secrets=(token,))
         # An executor that watches the cancel marker itself (Pi over RPC sends
         # `abort`) gets that grace before the container is stopped underneath it.
         grace_of = getattr(self.executor, "cancel_grace_seconds", None)

@@ -152,7 +152,7 @@ def test_model_evidence_saves_and_returns_a_tool_call_failure(tmp_path, monkeypa
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "pi", "model": model, "ready": False,
+        lambda *args, **_options: {"executor": "pi", "model": model, "ready": False,
                        "reason": "tool-call-failed"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
@@ -179,7 +179,8 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "pi", "model": model, "ready": True, "reason": "ready"},
+        lambda *args, **_options: {"executor": "pi", "model": model, "ready": True,
+                                   "reason": "ready"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
@@ -235,7 +236,8 @@ def test_model_evidence_corruption_fails_closed(tmp_path, monkeypatch, mode):
     monkeypatch.setattr(
         module,
         "probe_model_connection",
-        lambda *args: {"executor": "pi", "model": model, "ready": True, "reason": "ready"},
+        lambda *args, **_options: {"executor": "pi", "model": model, "ready": True,
+                                   "reason": "ready"},
     )
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
@@ -304,7 +306,7 @@ def test_credentials_changing_during_test_do_not_publish_evidence(tmp_path, monk
     profiles = project(tmp_path)
     module = importlib.import_module("adore.web.app")
 
-    def probe(config, runner, env_file):
+    def probe(config, runner, env_file, **_options):
         """@brief Change an external credential after the initial snapshot."""
         env_file.write_text("OPENAI_API_KEY=concurrent-change\n", encoding="utf-8")
         return {
@@ -384,7 +386,7 @@ def test_provider_key_never_leaves_the_credential_store(tmp_path, monkeypatch):
     StateStore(tmp_path / "state").pause()
     module = importlib.import_module("adore.web.app")
     runtime = Runtime(tmp_path, "failed_invalid_api_key", "--key-hint", "sk-test****6789")
-    monkeypatch.setattr(module, "probe_model_connection", lambda config, runner, env_file:
+    monkeypatch.setattr(module, "probe_model_connection", lambda config, runner, env_file, **_:
                         model_connection.probe_model_connection(
                             config, runtime.runner, env_file, popen=runtime.popen))
     responses = []

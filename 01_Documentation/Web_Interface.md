@@ -584,11 +584,12 @@ default** - the value used when the project's file does not set it. Assigned
 developers see read-only purpose categories with financial settings and secrets
 omitted, plus field types and help. My account contains account preferences and password.
 Web-created profiles place worktrees under an absolute, project-specific path
-inside ADORE home. Pi in a container runs with ADORE's own agent directory
-and reads only its provider API key from the environment: a Pi agent directory
-mounted at `/home/adore/.pi/agent` through `[container] run_args` is not read,
-so a ChatGPT subscription or a custom endpoint does not reach a container Pi
-run in this build. `run_args` is a list, so Project details shows it as
+inside ADORE home. Pi in a container runs with ADORE's own agent directory: a
+Pi agent directory mounted at `/home/adore/.pi/agent` through `[container]
+run_args` is not read. ADORE gives a container Pi its provider API key, or for
+a ChatGPT subscription a short-lived access token from the server's ChatGPT
+sign-in, and writes its own endpoint settings for an OpenAI-compatible
+endpoint. `run_args` is a list, so Project details shows it as
 **Not editable here**. An administrator can edit the profile TOML while pickup
 is paused or import an existing profile with absolute paths, then validate and
 resume it.
@@ -709,8 +710,26 @@ The workflow supports one pending setting per project and keeps existing jobs on
 their original configuration. The existing direct API retains its safety checks.
 
 A model served by an OpenAI-compatible server on your network (LM Studio,
-Ollama, vLLM) is configured with the **OpenAI-compatible endpoint** provider;
-ChatGPT subscription sign-in is not available yet.
+Ollama, vLLM) is configured with the **OpenAI-compatible endpoint** provider.
+
+**ChatGPT subscription.** For a project whose provider is **ChatGPT
+subscription**, **Authentication** shows **ChatGPT sign-in** instead of the
+API-key form (administrators only). It reports the server's status (**Signed
+in**, **Not signed in**, **Sign in again**). **Sign in with ChatGPT** shows
+OpenAI's sign-in link; the administrator opens it on their own computer, signs
+in, copies the address of the error page the browser then shows at
+`127.0.0.1:1455`, pastes it into **Redirect address** and chooses **Complete
+sign-in**. An address from an older link is refused and the sign-in keeps
+waiting (15 minutes at most); **Cancel** ends it; **Disconnect ChatGPT**
+deletes the stored sign-in. One sign-in serves every ChatGPT project on the
+server, and a project's Model list offers the models a ChatGPT subscription
+serves. The routes are `GET`/`PUT`/`DELETE /api/v1/chatgpt-sign-in`,
+`DELETE /api/v1/chatgpt-sign-in/pending` and
+`POST /api/v1/projects/{name}/chatgpt-sign-in` (it uses that project's
+container runtime and image). The readiness check of a ChatGPT project adds
+**ChatGPT sign-in**; Test AI connection reports a missing sign-in, a plan that
+cannot share its subscription and a reached usage limit separately. See
+[Security and credentials](Security_And_Credentials.md#chatgpt-subscription-sign-in).
 Every Statistics read reconciles retained journal usage and launch coverage into
 the local SQLite projection; administrators can also call
 `POST /api/v1/usage/rebuild` to reconcile every project at once.
@@ -1099,7 +1118,7 @@ Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidan
 
 **Project → Settings → Agent and model** owns AI connection testing, the provider (`executor.provider`), the model (`executor.model`), the endpoint base URL and API type for an OpenAI-compatible endpoint (`executor.endpoint.*`, shown only for that provider), the launch command (`executor.command`), the additional credential variables (`executor.env_keys`), **Provider API key**, estimated prices, where the project runs (`execution.backend`), the container runtime and image (plus the local account, home, PATH and cgroup root for local projects) and external container guidance. There is no agent choice: Pi is the only coding agent. **Edit** on the provider, model or endpoint rows opens one editor (provider dropdown with Pi's API-key providers, ChatGPT subscription and OpenAI-compatible endpoint; model field with Pi's list for the provider and free text; endpoint URL and API type for an endpoint; a note naming where the credential goes), and the selection is staged as one candidate `executor.connection` whose review lists provider, model, base URL and API type. The launch command is an ordinary reviewed setting. A container project offers only the Pi launch preset, because a container run starts the image's pinned Pi in RPC mode and ignores the command; a local project accepts native argv that contains `{prompt}` and does not use `--auto`. Credential names are added through a dropdown and remain visible as individually removable selections. Backend, runtime and image edits go only through the reviewed flow (prepare candidate, review, apply); a direct PUT returns 409 `pending_config_required`. While the image row is edited it offers the same server image suggestions. Runtime preparation remains external.
 
-The names-only additional credential selector offers Pi's provider variables and retained custom names; the provider's own key variable is always passed and needs no listing. Applying names does not delete saved `.env` values. **Provider API key** names the configured provider's variable (for example OPENAI_API_KEY, or ADORE_ENDPOINT_API_KEY, optional, for an endpoint; none for a ChatGPT subscription, which shows that sign-in is not available yet), offers private Save/Disconnect for that variable only and shows its source; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges; its reasons distinguish a missing key, a rejected key, an unreachable provider or endpoint, an unknown model, a rate limit and other provider errors. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
+The names-only additional credential selector offers Pi's provider variables and retained custom names; the provider's own key variable is always passed and needs no listing. Applying names does not delete saved `.env` values. **Provider API key** names the configured provider's variable (for example OPENAI_API_KEY, or ADORE_ENDPOINT_API_KEY, optional, for an endpoint; none for a ChatGPT subscription, which shows the server's ChatGPT sign-in instead), offers private Save/Disconnect for that variable only and shows its source; key changes require paused pickup and idle/pending-free state. Explicit Test AI connection remains the evidence of model access and may incur provider charges; its reasons distinguish a missing key, a rejected key, an unreachable provider or endpoint, an unknown model, a rate limit and other provider errors. See [Executor configuration](../05_SoftwareDocu/Component_Executor_Configuration.md) for the exact API/storage contracts.
 
 ### Transient application notifications
 

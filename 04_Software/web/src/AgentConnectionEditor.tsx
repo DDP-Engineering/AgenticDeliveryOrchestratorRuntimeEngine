@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { useEffect, useId, useState } from "react";
 import type { Locale } from "./i18n";
 import {
-  CHATGPT, CUSTOM, ENDPOINT_APIS, connectionCopy, credentialNote, readProviderCatalog,
+  CHATGPT, CUSTOM, ENDPOINT_APIS, connectionCopy, credentialNote, providerModels, readProviderCatalog,
   type Connection, type ProviderCatalog,
 } from "./agentConnection";
 
@@ -33,7 +33,7 @@ export function AgentConnectionEditor({ value, locale, disabled, onChange }: {
     onChange(JSON.stringify(next));
   };
   const providers = catalog?.providers ?? [];
-  const models = providers.find(item => item.id === draft.provider)?.models ?? [];
+  const models = providerModels(draft.provider, catalog);
   const known = [CUSTOM, CHATGPT, ...providers.map(item => item.id)];
   const note = credentialNote(draft.provider, catalog, locale);
   return <div className="connection-editor form-stack">

@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-SEC-2689e1f5"
+
+title = "ChatGPT sign-in routes are admin-only, CSRF-protected and audited without secrets"
+
+status = "active"
+
+requirement = """The ChatGPT sign-in routes (status, start, complete, cancel, disconnect) shall answer only administrators, shall require the CSRF token for every change, shall answer developers with 403 admin_required, and shall write audit rows that name the action, project and cause code but never a token, authorization code, link or redirect address."""
+
+verification = "RBAC tests: a developer gets 403 on every route; a change without the CSRF header gets 403 csrf_required; after a full sign-in and a refusal the audit table contains no token, code, state, link or redirect value."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py"]
+
+linked_tests = ["04_Software/tests/test_web_chatgpt.py::test_routes_are_admin_only_and_changes_need_csrf", "04_Software/tests/test_web_chatgpt.py::test_admin_signs_the_server_in_and_out", "04_Software/tests/test_web_chatgpt.py::test_an_openai_refusal_ends_the_sign_in_with_its_code"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

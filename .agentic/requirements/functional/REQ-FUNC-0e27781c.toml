@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-0e27781c"
+
+title = "End a sign-in that OpenAI refuses with a localized cause"
+
+status = "active"
+
+requirement = """If OpenAI refuses the sign-in (the redirect address carries an error, or the code exchange fails), then ADORE shall end the pending sign-in, keep the stored credential unchanged and answer with one cause code - chatgpt_not_eligible for an account that cannot share its subscription (`subscription_sharing_user_not_eligible`), chatgpt_access_denied, chatgpt_code_rejected, chatgpt_sign_in_unavailable or chatgpt_sign_in_refused - that the interface shows as one sentence in English, French, German and Romanian."""
+
+verification = "API tests: a redirect with error=access_denied and with error=subscription_sharing_user_not_eligible, and a fake helper answering not-eligible, code-rejected and unavailable each give their code and end the pending sign-in; web unit test: every code has a sentence in the four locales."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py", "04_Software/docker/pi/adore-chatgpt.mjs", "04_Software/web/src/errors.ts", "04_Software/web/src/ChatGptSignIn.tsx"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_a_helper_silent_after_the_address_is_ended_without_blocking", "04_Software/tests/test_chatgpt.py::test_an_openai_refusal_ends_the_sign_in", "04_Software/tests/test_web_chatgpt.py::test_an_openai_refusal_ends_the_sign_in_with_its_code", "04_Software/web/tests/chatgpt.test.mjs", "04_Software/web/tests/errors.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

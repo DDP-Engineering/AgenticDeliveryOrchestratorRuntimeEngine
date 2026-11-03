@@ -11,9 +11,9 @@ title = "Report a missing credential in Test AI connection"
 
 status = "active"
 
-requirement = """If the configured provider needs a credential and none is saved for the project or set on the server, then Test AI connection shall report credential-missing without starting a container."""
+requirement = """If the configured provider takes an API key, needs it, and none is saved for the project or set on the server, then Test AI connection shall report credential-missing without starting a container."""
 
-verification = "A probe for openai with no OPENAI_API_KEY reports credential-missing and the runner records no container command; chatgpt reports credential-missing until sign-in exists."
+verification = "A probe for openai with no OPENAI_API_KEY reports credential-missing and the runner records no container command; an endpoint without a key is not refused here."
 
 affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/adore/pi_providers.py", "04_Software/web/src/modelEvidence.ts"]
 
@@ -26,4 +26,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-02
-updated = 2026-11-02
+updated = 2026-11-03

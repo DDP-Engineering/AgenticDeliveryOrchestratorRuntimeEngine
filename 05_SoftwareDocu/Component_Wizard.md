@@ -63,11 +63,14 @@ commands + `--profile` resolution.
   containers.
 - **Provider and model:** the wizard asks the provider (`provider`, default
   `openai`, validated against `pi_providers.provider_ids()`: a Pi API-key
-  provider id, `chatgpt` or `custom`); for `custom` it then asks the endpoint
+  provider id, `chatgpt` (this server's ChatGPT Plus/Pro sign-in) or
+  `custom`); for `custom` it then asks the endpoint
   base URL (`endpoint_base_url`, an http(s) address as seen from the container
   with no credentials, query or fragment) and API type (`endpoint_api`,
   default `openai-completions`); then the model ID within the provider
-  (`model`, matching `MODEL_ID_RE`; default `gpt-5.5` only for `openai`). It
+  (`model`, matching `MODEL_ID_RE`; default `gpt-5.5` only for `openai`). For
+  `chatgpt` the model prompt lists the catalog's `chatgpt_models` (the models a
+  ChatGPT subscription serves) and defaults to the first of them. It
   writes `[executor] provider`, `model` and `env_keys = []` (additional names;
   the provider's key variable always reaches Pi), and `[executor.endpoint]`
   `base_url`/`api` for `custom`.
@@ -130,8 +133,11 @@ commands + `--profile` resolution.
   matching CLI engine resolution rather than relying on the service cwd, and
   name the provider's credential variable (`pi_providers.credential_variable`,
   for example `OPENAI_API_KEY`, or `ADORE_ENDPOINT_API_KEY` for an endpoint)
-  with Settings → Agent and model as the alternative; for `chatgpt` they say
-  that ChatGPT sign-in is not available yet.
+  with Settings → Agent and model as the alternative; for `chatgpt` the first
+  step is to sign in with ChatGPT once for the server in the web interface
+  (Settings → Agent and model → Sign in with ChatGPT). Configuration validation
+  refuses a `chatgpt` profile that runs locally or has a stage limit above
+  3000 s, so the wizard never saves one.
 
 - **Workflow labels:** the wizard asks for the ready label,
   task-type labels (fix/change), and the quick framing hint, and writes

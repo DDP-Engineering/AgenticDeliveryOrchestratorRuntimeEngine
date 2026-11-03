@@ -85,7 +85,8 @@ ENV PATH=/opt/pi/bin:$PATH
 # ADORE's guard extension, loaded with `-e` by every Pi run; root-owned, so the
 # agent cannot change it.
 COPY pi/adore-guard.ts /opt/adore/pi/adore-guard.ts
-RUN chmod 0644 /opt/adore/pi/adore-guard.ts
+COPY pi/adore-chatgpt.mjs /opt/adore/pi/adore-chatgpt.mjs
+RUN chmod 0644 /opt/adore/pi/adore-guard.ts /opt/adore/pi/adore-chatgpt.mjs
 
 # --- Non-root user; mount points; git trust for bind-mounted repos ------------
 # Bind mounts on Docker Desktop (Windows) show foreign ownership; without

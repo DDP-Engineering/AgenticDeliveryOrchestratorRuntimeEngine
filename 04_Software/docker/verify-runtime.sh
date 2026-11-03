@@ -65,6 +65,7 @@ EXPECTED_PI_WEB_ACCESS_VERSION="0.46.0"
 PI_PREFIX="/opt/pi/lib/node_modules"
 PI_CLI="${PI_PREFIX}/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
 PI_GUARD="/opt/adore/pi/adore-guard.ts"
+PI_CHATGPT="/opt/adore/pi/adore-chatgpt.mjs"
 PI_AGENT_DIR="/home/adore/.adore-pi-agent"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAME="adore-verify-$$"
@@ -303,6 +304,12 @@ step "Pi guard extension present and agent directory writable"
 "${RT[@]}" exec "${NAME}" sh -c \
     "test -r '${PI_GUARD}' && test ! -w '${PI_GUARD}' && test -w '${PI_AGENT_DIR}'" \
     && ok || bad "guard missing/writable or agent dir not writable"
+
+step "ChatGPT helper loads the pinned Pi (token with nothing stored)"
+FOUND="$("${RT[@]}" exec "${NAME}" sh -c \
+    "d=\$(mktemp -d) && PI_CODING_AGENT_DIR=\$d node '${PI_CHATGPT}' token --min-validity-seconds 600; rm -rf \$d" \
+    2>&1 || true)"
+[ "${FOUND}" = '{"status":"not-signed-in"}' ] && ok || bad "ChatGPT helper answered '${FOUND}'"
 
 if [ -n "${REQUIRED_TOOL_CHECKS:-}" ]; then
     step "runtime-project required tool checks"

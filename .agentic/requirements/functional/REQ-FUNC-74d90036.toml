@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-74d90036"
+
+title = "Refuse a pasted address that is not this sign-in's callback"
+
+status = "active"
+
+requirement = """If a submitted redirect address is not `http://127.0.0.1:1455/auth/callback` with a code, or its `state` differs from the pending authorization link, then ADORE shall refuse it with chatgpt_redirect_invalid or chatgpt_state_mismatch without passing it on and keep the sign-in pending; a submission with no pending sign-in is refused with chatgpt_sign_in_not_pending."""
+
+verification = "API tests: a wrong host, a missing code and a different state each give 400 with their code, the fake helper received nothing and a correct address afterwards still signs in; PUT without a start gives 409 chatgpt_sign_in_not_pending."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_a_wrong_address_is_refused_and_the_sign_in_stays_pending", "04_Software/tests/test_web_chatgpt.py::test_admin_signs_the_server_in_and_out", "04_Software/tests/test_web_chatgpt.py::test_cancel_nothing_pending_and_a_local_project"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

@@ -127,7 +127,8 @@ exclude = "no-agent"          # permanently human-only, ignore always
 # agents (`default`, `stage_host_auth`, `[executor.<name>]` tables) are refused.
 # Provider: one of Pi's API-key providers (for example "openai", "anthropic",
 # "google", "openrouter", "mistral"; Settings -> Agent and model lists them all),
-# "chatgpt" (ChatGPT subscription; its sign-in is not available yet) or
+# "chatgpt" (this server's ChatGPT Plus/Pro sign-in, made in the web interface;
+# container runs only, stage time limits at most 3000 seconds) or
 # "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM,
 # described in [executor.endpoint] below).
 provider = "openai"

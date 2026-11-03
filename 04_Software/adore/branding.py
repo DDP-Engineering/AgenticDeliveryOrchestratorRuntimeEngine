@@ -50,6 +50,12 @@ CONTAINER_PI_CLI = (
 )
 CONTAINER_PI_GUARD = "/opt/adore/pi/adore-guard.ts"
 CONTAINER_PI_AGENT_DIR = f"{CONTAINER_HOME}/.adore-pi-agent"
+# The server's ChatGPT sign-in: ADORE's helper script in the image and the
+# mount point of the credential directory in its helper container (never in a
+# run container), and that directory's name under the ADORE home.
+CONTAINER_PI_CHATGPT_SCRIPT = "/opt/adore/pi/adore-chatgpt.mjs"
+CONTAINER_CHATGPT_MOUNT = "/adore/chatgpt"
+CHATGPT_CREDENTIAL_DIR = "chatgpt"
 EGRESS_PROXY_ALIAS = "adore-egress-proxy"
 
 EXECUTOR_BASE_IMAGE = "adore-executor-base:1.0.0"

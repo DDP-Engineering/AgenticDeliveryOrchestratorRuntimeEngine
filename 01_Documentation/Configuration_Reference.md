@@ -87,7 +87,7 @@ Pi is ADORE's only coding agent. The `[executor]` table holds:
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `executor.provider` | A Pi API-key provider id (for example `openai`, `anthropic`, `google`, `openrouter`, `mistral`; Settings → Agent and model lists them all), `chatgpt` (ChatGPT subscription; its sign-in is not available yet) or `custom` (an OpenAI-compatible endpoint). | required |
+| `executor.provider` | A Pi API-key provider id (for example `openai`, `anthropic`, `google`, `openrouter`, `mistral`; Settings → Agent and model lists them all), `chatgpt` (the server's ChatGPT Plus/Pro sign-in, made in the web interface; container execution only, stage time limits at most 3000 seconds) or `custom` (an OpenAI-compatible endpoint). | required |
 | `executor.model` | Model ID within the provider, for example `gpt-5.4`; Pi's list or any ID the provider accepts. | required |
 | `executor.endpoint.base_url` | Only with `custom`: the endpoint address as seen from the container. | required with `custom` |
 | `executor.endpoint.api` | Only with `custom`: `openai-completions`, `openai-responses`, `anthropic-messages` or `google-generative-ai`. | `openai-completions` |
@@ -240,7 +240,7 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 | --- | --- | --- |
 | `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `20` |
 | `max_wall_clock_seconds` | Active-work time; re-armed by retry, clarification resume, revision, or approval invalidation. | `3600` |
-| `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts only. | `1800` |
+| `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts only. With `provider = "chatgpt"` this value and every stage override must be at most 3000, because a ChatGPT access token lasts about an hour. | `1800` |
 | `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `5.0` |
 | `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `120` |
 
@@ -349,7 +349,7 @@ SQLite bytes, authorization, scope and financial redaction.
 
 **Project → Settings → Agent and model** shows **Test AI connection**, the provider (`executor.provider`), the model (`executor.model`), for an endpoint its base URL and API type (`executor.endpoint.*`), the launch command (`executor.command`), the additional credential variables (`executor.env_keys`), **Provider API key**, the execution environment and estimated prices. There is no agent choice: Pi is the only coding agent. Provider, model and endpoint are edited together and staged as one reviewed candidate (`executor.connection`); the model list comes from the pinned Pi and any typed ID is accepted. The launch command is an ordinary reviewed setting. Prepare reviews the change, then Apply writes one complete paused/idle candidate. For a container project the launch command offers only the Pi preset, because a container run starts the image's pinned Pi in RPC mode; a local project accepts any native argv that contains `{prompt}` and does not use `--auto`. **Provider API key** saves or removes only the configured provider's variable (none for a ChatGPT subscription). Runtime preparation remains external. The old `/executor` URL redirects to Settings. Developers read non-secret settings/results without mutation actions.
 
-The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that uses the account's existing Pi sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container project always uses provider API keys; no host sign-in is copied into the container. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
+The names-only credential selector offers known provider names and retained custom names. An empty list suits a local project that uses the account's existing Pi sign-in. Applying names does not delete saved `.env` values. Provider API keys offers private Save/Disconnect for known allowed variables and shows sources only; key changes require paused pickup and idle/pending-free state. A container project uses its provider API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in; no host sign-in is copied into the container. A ChatGPT project's model evidence counts only while the server stays signed in. Explicit Test AI connection runs Pi and remains the evidence of model access; it may incur provider charges. New jobs use applied values; active jobs retain their durable configuration. Current model evidence is invalidated by configuration/credential drift.
 
 ## Container preparation
 

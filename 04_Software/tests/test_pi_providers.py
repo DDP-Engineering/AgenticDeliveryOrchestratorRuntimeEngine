@@ -77,12 +77,30 @@ def test_shipped_catalog_matches_the_pinned_pi_and_lists_key_providers() -> None
     assert ENDPOINT_KEY_VARIABLE in pi_providers.key_variables()
 
 
+def test_chatgpt_models_come_from_pis_chatgpt_catalog() -> None:
+    """@brief A ChatGPT subscription serves only some OpenAI models; the catalog names them."""
+    catalog = pi_providers.catalog()
+    models = catalog["chatgpt_models"]
+    assert "gpt-5.6-luna" in models
+    assert not {"gpt-5.4", "gpt-5.4-mini", "gpt-5.5"} & set(models)
+    assert set(models) <= set(pi_providers.api_key_providers()["openai"]["models"])
+    assert pi_providers.public_catalog()["chatgpt"] == {"id": "chatgpt", "models": models}
+
+
 def test_corrupt_catalog_fails_closed(tmp_path: Path, monkeypatch) -> None:
     """@brief A malformed catalog file is an error, never an empty provider list."""
     bad = tmp_path / "pi_catalog.json"
+    provider = {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a"]}
     for text in ("{", json.dumps({"pi_version": "1.4.0", "providers": []}),
                  json.dumps({"pi_version": "1.4.0", "providers": [
-                     {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a b"]}]})):
+                     {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a b"]}]}),
+                 json.dumps({"pi_version": "1.4.0", "providers": [provider]}),
+                 json.dumps({"pi_version": "1.4.0", "providers": [provider],
+                             "chatgpt_models": []}),
+                 json.dumps({"pi_version": "1.4.0", "providers": [provider],
+                             "chatgpt_models": ["a", "a"]}),
+                 json.dumps({"pi_version": "1.4.0", "providers": [provider],
+                             "chatgpt_models": ["bad id"]})):
         bad.write_text(text, encoding="utf-8")
         monkeypatch.setattr(pi_providers, "CATALOG_PATH", bad)
         pi_providers.catalog.cache_clear()
@@ -156,6 +174,25 @@ def test_custom_endpoint_is_refused_for_a_local_run(tmp_path: Path) -> None:
     issues = _issues(tmp_path, endpoint, local)
     assert any("[executor] provider" in issue and "local" in issue for issue in issues), issues
     assert not any("[executor] provider" in issue for issue in _issues(tmp_path, endpoint))
+
+
+def test_chatgpt_is_refused_for_a_local_run_and_stage_limits_beyond_the_token(
+        tmp_path: Path) -> None:
+    """@brief A ChatGPT access token lasts about an hour and needs the image's Pi."""
+    chatgpt = 'provider = "chatgpt"\nmodel = "gpt-5.6-luna"\n'
+    assert not _issues(tmp_path, chatgpt, "\n[budgets]\nper_gate_timeout_seconds = 3000\n")
+    local = _issues(tmp_path, chatgpt, "\n[execution]\nbackend = \"local\"\n")
+    assert any("[executor] provider" in issue and "local" in issue for issue in local), local
+    gate = _issues(tmp_path, chatgpt, "\n[budgets]\nper_gate_timeout_seconds = 3001\n")
+    assert any("[budgets] per_gate_timeout_seconds" in issue and "3000" in issue
+               for issue in gate), gate
+    stage = _issues(tmp_path, chatgpt,
+                    "\n[workflow]\nstage_timeout_overrides = { build = 3001 }\n")
+    assert any("[workflow] stage_timeout_overrides.build" in issue and "3000" in issue
+               for issue in stage), stage
+    keyed = 'provider = "openai"\nmodel = "gpt-5.5"\n'
+    assert not _issues(tmp_path, keyed, "\n[budgets]\nper_gate_timeout_seconds = 3601\n"
+                       "[workflow]\nstage_timeout_overrides = { build = 7200 }\n")
 
 
 def test_secret_names_add_the_provider_variable_to_additional_names(tmp_path: Path) -> None:

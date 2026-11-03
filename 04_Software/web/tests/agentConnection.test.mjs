@@ -7,14 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  connectionCopy, connectionOf, credentialNote, providerName, validConnection, validEndpointUrl, validProviderCatalog,
+  connectionCopy, connectionOf, credentialNote, providerModels, providerName, validConnection, validEndpointUrl, validProviderCatalog,
 } from "../src/agentConnection.ts";
 import { modelConnectionCopy, modelGuidance, validModelEvidence } from "../src/modelEvidence.ts";
 import { connectionRowVisible, settingRows, validPendingConfig } from "../src/settings.ts";
 
 const locales = ["en", "fr", "de", "ro"];
 const catalog = { pi_version: "1.4.0", providers: [{ id: "openai", name: "OpenAI", variable: "OPENAI_API_KEY", models: ["gpt-5.5"] }],
-  chatgpt: { id: "chatgpt" }, custom: { id: "custom", variable: "ADORE_ENDPOINT_API_KEY", apis: ["openai-completions"] } };
+  chatgpt: { id: "chatgpt", models: ["gpt-5.6-luna"] }, custom: { id: "custom", variable: "ADORE_ENDPOINT_API_KEY", apis: ["openai-completions"] } };
 
 test("connection transport accepts a provider with its endpoint only for custom", () => {
   assert.equal(validConnection({ provider: "openai", model: "gpt-5.5", base_url: "", api: "" }), true);
@@ -87,4 +87,13 @@ test("Test AI connection reasons each have their own guidance in every locale", 
     for (const locale of locales) assert.equal(modelGuidance(reason, locale), modelConnectionCopy[locale][key], `${locale} ${reason}`);
   }
   assert.equal(new Set(Object.values(reasons).map(key => modelConnectionCopy.en[key])).size, Object.keys(reasons).length);
+});
+
+test("ChatGPT offers the subscription's models and the catalog must carry them", () => {
+  assert.deepEqual(providerModels("chatgpt", catalog), ["gpt-5.6-luna"]);
+  assert.deepEqual(providerModels("openai", catalog), ["gpt-5.5"]);
+  assert.deepEqual(providerModels("chatgpt", null), []);
+  assert.equal(validProviderCatalog(catalog), true);
+  assert.equal(validProviderCatalog({ ...catalog, chatgpt: { id: "chatgpt" } }), false);
+  for (const locale of locales) assert.doesNotMatch(connectionCopy[locale].chatgptNote, /not available|indisponible|nicht verfügbar|nu este încă/i);
 });

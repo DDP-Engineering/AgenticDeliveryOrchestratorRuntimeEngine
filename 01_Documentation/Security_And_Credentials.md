@@ -112,11 +112,12 @@ The variable follows the provider (`ANTHROPIC_API_KEY` for `anthropic`,
 `GEMINI_API_KEY` for `google`, and so on). An OpenAI-compatible endpoint
 (`provider = "custom"`) takes an optional `ADORE_ENDPOINT_API_KEY`; the
 generated Pi `models.json` names that variable (`$ADORE_ENDPOINT_API_KEY`) or a
-literal placeholder, never the key. A ChatGPT subscription has no key variable;
-its sign-in is not available yet. The web interface shows only the variable
-name and whether it is set for the project or on the server, and its value
-never appears in API responses, audit records, logs or Test AI connection
-results.
+literal placeholder, never the key. A ChatGPT subscription
+(`provider = "chatgpt"`) has no key variable: it uses the server's ChatGPT
+sign-in, see [ChatGPT Subscription Sign-In](#chatgpt-subscription-sign-in).
+The web interface shows only the variable name and whether it is set for the
+project or on the server, and its value never appears in API responses, audit
+records, logs or Test AI connection results.
 
 `[executor] env_keys` lists additional secrets Pi receives besides the
 provider's key; most projects need none. Only those names and the provider's
@@ -134,14 +135,66 @@ operator signal.
 
 Keep the list small and remove keys Pi does not need.
 
+## ChatGPT Subscription Sign-In
+
+One ChatGPT Plus or Pro account serves every project on an ADORE server whose
+provider is `chatgpt`. An administrator signs the server in from **Settings →
+Agent and model → ChatGPT sign-in** of such a project; developers get 403 on
+every sign-in route, and every change needs the CSRF token.
+
+- **Pi's official flow.** ADORE runs Pi's own "Sign in with ChatGPT" (Pi
+  provider `openai` with OAuth) through `/opt/adore/pi/adore-chatgpt.mjs` in a
+  one-off helper container started from the project's executor image. The
+  administrator opens the shown OpenAI link on their own computer and pastes
+  the browser's redirect address (`http://127.0.0.1:1455/auth/callback?...`)
+  back; the server needs no browser. ADORE checks the address and its `state`
+  before passing it on. A started sign-in waits at most 15 minutes. The legacy
+  Codex-client flow is not offered.
+- **Where it lives.** `<ADORE home>/chatgpt/` (mode 0700 on Linux) holds Pi's
+  `auth.json` (written by Pi's own credential store, mode 0600), Pi's lock
+  directory `auth.json.lock`, ADORE's installation id `device-id` (the agent
+  host id OpenAI sees, kept across sign-ins) and the mark `sign-in-again`. On
+  Windows, protect the ADORE home with the service-account ACL.
+- **Helper container.** The helper container is the only container that
+  mounts this directory: read-write, as its only bind mount, on the default
+  network, with no secret in its environment or command line.
+- **What a run receives.** Before every stage ADORE asks the helper for an
+  access token valid for the stage time limit plus five minutes; Pi refreshes
+  the stored sign-in under its own lock when needed. The stage's Pi process
+  receives only `OPENAI_API_KEY=<access token>` in its exec environment (never
+  in argv, the container's creation environment or a file), and the token is
+  masked in the stage evidence. The refresh token never enters a run
+  container. Because an access token lasts about an hour, a ChatGPT project
+  refuses stage time limits above 3000 seconds and refuses local execution.
+- **Concurrent stages.** Several stages may ask for a token at once; the
+  directory (not a single file) is mounted, so Pi's `auth.json.lock` serializes
+  the refresh and the stored credential stays valid.
+- **Status.** Signed in, Not signed in or Sign in again (the stored sign-in
+  cannot be read, or OpenAI refused its refresh, for example `invalid_grant`).
+  A stage that gets no token fails without starting Pi and names the cause.
+- **Refusals.** An account whose plan cannot share its subscription
+  (`subscription_sharing_user_not_eligible`), a declined sign-in, a rejected
+  code and an unreachable OpenAI each end the sign-in with their own message;
+  a reached usage limit is reported by Test AI connection and in stage
+  evidence.
+- **Audit.** Audit rows record `chatgpt-sign-in-started`, `-completed`,
+  `-failed` (with the cause code), `-cancelled` and `chatgpt-disconnected`,
+  never a token, authorization code, link or redirect address.
+- **Disconnect** deletes `auth.json` and the mark; revoking the grant at OpenAI
+  stays with the account owner.
+
+ADORE is free today. Offering ADORE as a hosted or paid service that uses
+ChatGPT sign-in would first need OpenAI's interest form for such products.
+
 ## Pi Sign-In
 
 ADORE copies no host sign-in into a container: the former `stage_host_auth`
 bridge is removed, and the key is refused with `[executor] unknown key
 'stage_host_auth': remove it from config.toml`. Pi in a container runs with
 ADORE's own agent directory (`/home/adore/.adore-pi-agent`) and reads nothing
-from `~/.pi`, so a container project always uses a provider API key in the
-provider's environment variable. ADORE's guard extension, loaded for every
+from `~/.pi`, so a container project uses a provider API key in the
+provider's environment variable, or a short-lived ChatGPT access token (see
+above). ADORE's guard extension, loaded for every
 container Pi run, refuses `git push` and the `gh`, `glab` and `tea` commands in
 the agent's shell; the boundary stays that no forge credential is in the
 container.

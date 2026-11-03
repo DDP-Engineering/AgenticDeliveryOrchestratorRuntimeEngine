@@ -104,10 +104,32 @@ query or fragment, as seen from the container. `custom` with
 agent directory for Pi's `models.json`. An unreadable catalog is reported as
 an `[executor] provider` issue.
 
+`_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
+cannot run, because ADORE mints a short-lived ChatGPT access token before every
+stage through the image's pinned Pi and does not refresh it during a stage:
+
+- `[execution] backend = "local"` is refused (a local run has no ADORE-managed
+  Pi to refresh the ChatGPT sign-in);
+- `[budgets] per_gate_timeout_seconds` above 3000 is refused;
+- each `[workflow] stage_timeout_overrides.<stage>` above 3000 is refused.
+
+3000 is `chatgpt.MAX_STAGE_SECONDS`: an access token lasts about an hour, Pi
+keeps a 3-minute margin and ADORE asks for 5 minutes more. The model is not
+checked against the catalog's `chatgpt_models`.
+
 ```toml
 [executor]
 provider = "openai"
 model = "gpt-5.5"
+```
+
+A ChatGPT subscription (container run only; the server signs in once in the
+web interface):
+
+```toml
+[executor]
+provider = "chatgpt"
+model = "<a model from chatgpt_models>"
 ```
 
 An OpenAI-compatible endpoint (container run only):
@@ -134,8 +156,9 @@ pinned Pi over RPC. Templates support only the `{prompt}`, `{model}` and
 `tests/test_config.py` covers defaults, recovery bounds, AEGIS stage names,
 approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules. `tests/test_pi_providers.py`
-covers the shipped catalog, provider/model/endpoint validation, the local-run
-refusal of `custom`, `secret_names` and `models_json`.
+covers the shipped catalog (including `chatgpt_models`), provider/model/endpoint
+validation, the local-run refusal of `custom`, the local-run and stage-limit
+refusals of `chatgpt`, `secret_names` and `models_json`.
 
 ## Reviewed preparation settings
 

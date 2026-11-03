@@ -17,8 +17,9 @@ import { settingDisplayLabel } from "./settingLabels";
 import { settingPurpose, settingVisible, PURPOSE_GROUPS } from "./settings";
 import { pipelineFailureValue, publicationValue, settingsCopy } from "./settingsCopy";
 import { HelpLink } from "./HelpCenter";
-import { CUSTOM, CHATGPT, ENDPOINT_APIS, connectionCopy, credentialNote, providerName, readProviderCatalog, validEndpointUrl, type ProviderCatalog } from "./agentConnection";
+import { CUSTOM, CHATGPT, ENDPOINT_APIS, connectionCopy, credentialNote, providerModels, providerName, readProviderCatalog, validEndpointUrl, type ProviderCatalog } from "./agentConnection";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
+import { readinessChecksShape } from "./readiness";
 
 type Draft = {
   clone_url: string; name: string; display_name: string; description: string; kind: string; repo: string;
@@ -363,7 +364,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       if (!value || !["failed", "partial", "verified"].includes(value.status) || value.draft_revision !== preview.revision ||
         value.revision !== preview.config_revision || typeof value.checked_at !== "string" ||
         !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
-        Object.keys(value.checks).length !== expected.length || expected.some(key => !(key in value.checks) ||
+        !readinessChecksShape(value.checks, expected) || expected.some(key => !(key in value.checks) ||
           typeof value.checks[key] !== "boolean" && !(key === "container_runtime" && value.checks[key] === null) &&
           // AEGIS files are checked at creation when the repository is cloned then.
           !(key === "aegis_files" && value.checks[key] === "not-checked")))
@@ -412,7 +413,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     ["env_keys", "auth_mode"].includes(key) ? "credentials" : ["provider", "model", "endpoint_base_url", "endpoint_api"].includes(key) ? "agent"
     : fields[2].includes(key) ? "environment" :
     numeric.includes(key as typeof numeric[number]) ? "limits" : "rules";
-  const modelOptions = catalog?.providers.find(item => item.id === draft.provider)?.models ?? [];
+  const modelOptions = providerModels(draft.provider, catalog);
   const control = (key: FieldName) => {
     if (key === "login" && draft.kind !== "gitea" || key === "env_keys" && draft.auth_mode === "existing"
         || key.startsWith("local_") && draft.execution_backend !== "local"

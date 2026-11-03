@@ -16,6 +16,7 @@ const copy = {
     coverage: "This checks prerequisites on the ADORE server and in the configured image. It does not test a complete job or confirm Git push permission.",
     ok: "✓ Passed", error: "! Action needed", unknown: "? Could not verify", skipped: "○ Not checked",
     testHint: "Use Test AI connection in Settings → Agent and model to explicitly check the configured model through Pi.",
+    signIn: ["ChatGPT sign-in", "The ADORE server is signed in with ChatGPT, so each stage can get a short-lived access token.", "Use Sign in with ChatGPT in Settings → Agent and model."],
     rows: [
       ["Git", "Creates isolated working copies and records code changes.", "Install Git on the ADORE server and check that the service can run it."],
       ["Repository command tool", "Lets ADORE read issues and publish draft reviews on Gitea, GitHub or GitLab.", "Install the command tool for the configured repository service on the ADORE server."],
@@ -32,6 +33,7 @@ const copy = {
     coverage: "Verifică cerințele pe serverul ADORE și în imaginea configurată. Nu testează un job complet și nu confirmă permisiunea Git de publicare.",
     ok: "✓ Reușit", error: "! Necesită intervenție", unknown: "? Nu s-a putut verifica", skipped: "○ Neverificat",
     testHint: "Folosește Testează conexiunea AI din Setări → Agent și model pentru a verifica explicit modelul configurat.",
+    signIn: ["Autentificare ChatGPT", "Serverul ADORE este autentificat cu ChatGPT, deci fiecare etapă poate primi un token de acces de scurtă durată.", "Folosește Autentificare cu ChatGPT din Setări → Agent și model."],
     rows: [
       ["Git", "Creează copii de lucru izolate și înregistrează modificările de cod.", "Instalează Git pe serverul ADORE și verifică dacă serviciul îl poate executa."],
       ["Instrumentul pentru repository", "Permite ADORE să citească tichete și să publice propuneri de review pe Gitea, GitHub sau GitLab.", "Instalează pe serverul ADORE instrumentul pentru serviciul repository configurat."],
@@ -48,6 +50,7 @@ const copy = {
     coverage: "Vérifie les prérequis sur le serveur ADORE et dans l’image configurée. Ne teste pas une tâche complète ni l’autorisation de publication Git.",
     ok: "✓ Réussi", error: "! Intervention nécessaire", unknown: "? Impossible à vérifier", skipped: "○ Non vérifié",
     testHint: "Utilisez Tester la connexion IA dans Paramètres → Agent et modèle pour vérifier explicitement le modèle configuré.",
+    signIn: ["Connexion ChatGPT", "Le serveur ADORE est connecté à ChatGPT : chaque étape peut recevoir un jeton d’accès de courte durée.", "Utilisez Se connecter avec ChatGPT dans Paramètres → Agent et modèle."],
     rows: [
       ["Git", "Crée des copies de travail isolées et enregistre les modifications du code.", "Installez Git sur le serveur ADORE et vérifiez son accès par le service."],
       ["Outil du dépôt", "Permet de lire les tickets et de publier des demandes de revue en brouillon sur Gitea, GitHub ou GitLab.", "Installez l’outil du service de dépôt configuré sur le serveur ADORE."],
@@ -64,6 +67,7 @@ const copy = {
     coverage: "Prüft Voraussetzungen auf dem ADORE-Server und im konfigurierten Image. Testet keinen vollständigen Job und bestätigt keine Git-Push-Berechtigung.",
     ok: "✓ Bestanden", error: "! Handlung erforderlich", unknown: "? Nicht feststellbar", skipped: "○ Nicht geprüft",
     testHint: "Nutzen Sie KI-Verbindung testen in Einstellungen → Agent und Modell, um das konfigurierte Modell explizit zu prüfen.",
+    signIn: ["ChatGPT-Anmeldung", "Der ADORE-Server ist mit ChatGPT angemeldet, sodass jede Phase ein kurzlebiges Zugriffstoken erhält.", "Nutzen Sie Mit ChatGPT anmelden unter Einstellungen → Agent und Modell."],
     rows: [
       ["Git", "Erstellt isolierte Arbeitskopien und speichert Codeänderungen.", "Installieren Sie Git auf dem ADORE-Server und prüfen Sie den Zugriff des Dienstes."],
       ["Repository-Werkzeug", "Liest Tickets und veröffentlicht Review-Entwürfe auf Gitea, GitHub oder GitLab.", "Installieren Sie das Werkzeug des konfigurierten Repository-Dienstes auf dem ADORE-Server."],
@@ -106,7 +110,16 @@ export function ReadinessEvidence({ evidence, locale, local, modelEvidence }: { 
         </div>
         <strong className="readiness-result">{result(status)}</strong>
       </div>;
-    })}<div className={`readiness-check ${modelStatus}`} key="model">
+    })}{typeof evidence.checks.executor_sign_in === "boolean" && (() => {
+      const [label, purpose, fix] = c.signIn;
+      const status = evidence.checks.executor_sign_in ? "passed" : "failed";
+      return <div className={`readiness-check ${status}`} key="executor_sign_in">
+        <div><strong>{label}</strong><p>{purpose}</p>
+          {status === "failed" && <p className="readiness-remediation">{fix}</p>}
+        </div>
+        <strong className="readiness-result">{result(status)}</strong>
+      </div>;
+    })()}<div className={`readiness-check ${modelStatus}`} key="model">
         <div><strong>{modelLabel}</strong><p>{modelPurpose}</p>
           {modelStatus === "failed" && <p className="readiness-remediation">{modelFix}</p>}
           <p>{modelEvidence ? `${modelEvidence.executor} · ${modelEvidence.model}` : c.testHint}</p>

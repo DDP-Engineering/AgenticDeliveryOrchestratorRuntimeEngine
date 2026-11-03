@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-UX-0d58a662"
+
+title = "ChatGPT sign-in panel in Settings with help in four locales"
+
+status = "active"
+
+requirement = """When a ChatGPT project's Settings -> Agent and model is shown to an administrator, the interface shall show the server's ChatGPT sign-in status, a Sign in with ChatGPT action that shows the authorization link and a field for the redirect address, Cancel and Disconnect, with labels, guidance and errors in English, French, German and Romanian and a help section describing the steps."""
+
+verification = "Playwright test against the offline server with a fake helper: sign in, paste a wrong then the right address, see Signed in, disconnect; web unit test for copy parity in four locales; help test for the four locales."
+
+affected_paths = ["04_Software/web/src/ChatGptSignIn.tsx", "04_Software/web/src/chatgptCopy.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/agentConnection.ts", "04_Software/web/src/help/content"]
+
+linked_tests = ["04_Software/web/tests/chatgpt.test.mjs", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

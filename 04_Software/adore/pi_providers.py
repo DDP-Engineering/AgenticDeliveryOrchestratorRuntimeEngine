@@ -15,7 +15,8 @@
          Pi's single-variable API-key providers, each with the environment
          variable Pi reads its key from and the models Pi knows. Two ADORE
          choices sit beside them: `chatgpt` (Pi provider `openai` signed in
-         with a ChatGPT subscription; the sign-in is not available yet) and
+         with the server's ChatGPT subscription, offered the models of Pi's
+         ChatGPT catalog, `chatgpt_models`) and
          `custom`, an OpenAI-compatible endpoint that ADORE describes to Pi in
          a generated `models.json` under the provider id `adore-endpoint`.
          A key never enters a file: models.json names the variable
@@ -72,7 +73,7 @@ def _validated(value: Any) -> dict:
     @return     The catalog.
     @exception  CatalogError On any deviation.
     """
-    if not isinstance(value, dict) or set(value) != {"pi_version", "providers"}:
+    if not isinstance(value, dict) or set(value) != {"pi_version", "providers", "chatgpt_models"}:
         raise CatalogError("catalog keys")
     if not isinstance(value["pi_version"], str) or not _VERSION_RE.fullmatch(value["pi_version"]):
         raise CatalogError("catalog version")
@@ -92,6 +93,11 @@ def _validated(value: Any) -> dict:
                            for model in item["models"])):
             raise CatalogError("catalog provider")
         seen.add(item["id"])
+    models = value["chatgpt_models"]
+    if (not isinstance(models, list) or not models or len(set(models)) != len(models)
+            or not all(isinstance(model, str) and MODEL_ID_RE.fullmatch(model)
+                       for model in models)):
+        raise CatalogError("catalog chatgpt models")
     return value
 
 
@@ -102,7 +108,8 @@ def _validated(value: Any) -> dict:
 def catalog() -> dict:
     """
     @brief      The shipped Pi provider catalog, validated once.
-    @return     `{"pi_version": str, "providers": [{"id", "name", "variable", "models"}]}`.
+    @return     `{"pi_version": str, "providers": [{"id", "name", "variable", "models"}],
+                "chatgpt_models": [str]}`.
     @exception  CatalogError When the file is missing or malformed.
     """
     try:
@@ -228,7 +235,7 @@ def public_catalog() -> dict:
     """
     data = catalog()
     return {"pi_version": data["pi_version"], "providers": data["providers"],
-            "chatgpt": {"id": CHATGPT}, "custom": {
+            "chatgpt": {"id": CHATGPT, "models": data["chatgpt_models"]}, "custom": {
                 "id": CUSTOM, "variable": ENDPOINT_KEY_VARIABLE, "apis": list(ENDPOINT_APIS)}}
 
 

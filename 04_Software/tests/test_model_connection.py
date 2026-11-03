@@ -20,6 +20,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from adore import chatgpt
+from adore.chatgpt import CONTAINER_SCRIPT, TOKEN_MARGIN_SECONDS
 from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.util import CommandResult
@@ -47,7 +49,7 @@ def test_explicit_model_test_returns_scoped_evidence(tmp_path, monkeypatch):
     profiles = project(tmp_path)
     calls = []
 
-    def probe(config, runner, env_file):
+    def probe(config, runner, env_file, **_options):
         """@brief Fake one external model call without a paid provider."""
         calls.append(env_file)
         return {"ready": True, "reason": "ready", "executor": "pi",
@@ -74,7 +76,7 @@ def test_model_test_rejects_trust_boundary(tmp_path, monkeypatch, mode):
     profiles = project(tmp_path)
     calls = []
 
-    def probe(config, runner, env_file):
+    def probe(config, runner, env_file, **_options):
         """@brief Simulate concurrent configuration drift after the request."""
         calls.append(True)
         if mode == "stale":
@@ -121,6 +123,7 @@ def test_model_test_rejects_trust_boundary(tmp_path, monkeypatch, mode):
 FAKE = Path(__file__).with_name("fake_pi_rpc.py")
 FIXTURES = Path(__file__).parent / "fixtures" / "pi_rpc"
 SECRET = "sk-test-private-key-0123456789"
+CHATGPT_TOKEN = "eyJ-fake-chatgpt-access-token-0123"
 
 
 def set_executor(profiles, provider: str, model: str, base_url: str = "") -> None:
@@ -139,8 +142,10 @@ class Runtime:
 
     def __init__(self, tmp_path: Path, fixture: str, *options: str,
                  image_missing: bool = False, copy_fails: bool = False,
-                 cleanup_fails: bool = False) -> None:
+                 cleanup_fails: bool = False, token_answer: dict | None = None) -> None:
         self.fixture = FIXTURES / f"{fixture}.jsonl"
+        self.token_answer = token_answer or {"status": "ok", "token": CHATGPT_TOKEN,
+                                             "expires": 4102444800000}
         self.options = list(options)
         self.image_missing, self.copy_fails = image_missing, copy_fails
         self.cleanup_fails = cleanup_fails
@@ -156,6 +161,9 @@ class Runtime:
         self.calls.append((argv, kwargs))
         if "image" in argv and "inspect" in argv:
             return CommandResult(argv, 1 if self.image_missing else 0)
+        if CONTAINER_SCRIPT in argv:
+            return CommandResult(argv, 0 if self.token_answer.get("status") == "ok" else 1,
+                                 stdout=json.dumps(self.token_answer) + "\n")
         if "inspect" in argv:
             removed = any("rm" in previous for previous, _ in self.calls[:-1])
             if self.cleanup_fails and removed:
@@ -182,6 +190,7 @@ class Runtime:
 def probe(profiles, runtime: Runtime, **kwargs) -> dict:
     """@brief Run the probe against the fake runtime with a test-sized bound."""
     config = load_config(profiles.config_path("alpha"))
+    kwargs.setdefault("chatgpt_dir", profiles.home / "chatgpt")
     return probe_model_connection(config, runtime.runner, profiles.profile_dir("alpha") / ".env",
                                   popen=runtime.popen, **kwargs)
 
@@ -251,9 +260,6 @@ def test_missing_credential_is_reported_without_a_container(tmp_path, monkeypatc
     runtime = Runtime(tmp_path, "run_connection_test_endpoint")
     assert probe(profiles, runtime)["reason"] == "credential-missing"
     assert runtime.calls == [] and runtime.spawned == []
-    set_executor(profiles, "chatgpt", "gpt-5.6-luna")
-    assert probe(profiles, runtime)["reason"] == "credential-missing"
-    assert runtime.calls == []
 
 
 @pytest.mark.parametrize("keyed", [False, True])
@@ -314,6 +320,75 @@ def test_runtime_failures_fail_closed(tmp_path, monkeypatch, mode):
     assert result["reason"] == expected and result["ready"] is False
     if mode == "image":
         assert not any("run" in argv for argv, _ in runtime.calls)
+
+
+def chatgpt_project(tmp_path, *, state: str = "signed-in"):
+    """@brief A ChatGPT project and the server's credential files."""
+    profiles = project(tmp_path)
+    set_executor(profiles, "chatgpt", "gpt-5.6-luna")
+    directory = profiles.home / "chatgpt"
+    chatgpt.prepare(directory)
+    if state != "not-signed-in":
+        (directory / "auth.json").write_text(json.dumps({"openai": {
+            "type": "oauth", "access": "a", "refresh": "r", "expires": 1}}), encoding="utf-8")
+    if state == "sign-in-again":
+        (directory / "sign-in-again").write_text("", encoding="utf-8")
+    return profiles
+
+
+def test_chatgpt_probe_answers_with_a_fresh_access_token(tmp_path, monkeypatch):
+    """@brief The token rides only on Pi's launch environment; the refresh token stays home."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    profiles = chatgpt_project(tmp_path)
+    runtime = Runtime(tmp_path, "run_connection_test_endpoint")
+    result = probe(profiles, runtime)
+    assert result == {"executor": "pi", "model": "gpt-5.6-luna", "ready": True, "reason": "ready"}
+    helper = next(argv for argv, _ in runtime.calls if CONTAINER_SCRIPT in argv)
+    assert [helper[i + 1] for i, part in enumerate(helper) if part == "--volume"] == [
+        f"{(profiles.home / 'chatgpt').resolve().as_posix()}:/adore/chatgpt"]
+    assert int(helper[-1]) >= 90 + TOKEN_MARGIN_SECONDS
+    argv, env = runtime.spawned[0]
+    assert env["OPENAI_API_KEY"] == CHATGPT_TOKEN
+    assert argv[argv.index("--provider") + 1] == "openai"
+    run = next(kwargs for argv, kwargs in runtime.calls if "run" in argv and "/adore/io" in
+               " ".join(argv))
+    assert "OPENAI_API_KEY" not in (run.get("env") or {})
+    assert all(CHATGPT_TOKEN not in " ".join(argv) for argv, _ in runtime.calls + runtime.spawned)
+    assert all("/adore/chatgpt" not in " ".join(argv) for argv, _ in runtime.calls
+               if CONTAINER_SCRIPT not in argv)
+
+
+@pytest.mark.parametrize(("state", "answer", "reason"), [
+    ("not-signed-in", None, "sign-in-required"),
+    ("sign-in-again", None, "sign-in-required"),
+    ("signed-in", {"status": "sign-in-again"}, "sign-in-required"),
+    ("signed-in", {"status": "not-eligible"}, "subscription-refused"),
+    ("signed-in", {"status": "unavailable"}, "connection-failed"),
+    ("signed-in", {"status": "garbage"}, "runtime-error"),
+])
+def test_chatgpt_probe_without_a_token_starts_no_run_container(tmp_path, state, answer, reason):
+    """@brief No token: a closed reason and no Pi run container."""
+    profiles = chatgpt_project(tmp_path, state=state)
+    runtime = Runtime(tmp_path, "run_connection_test_endpoint", token_answer=answer)
+    assert probe(profiles, runtime)["reason"] == reason
+    assert runtime.spawned == []
+    assert not any("/adore/io" in " ".join(argv) for argv, _ in runtime.calls)
+
+
+@pytest.mark.parametrize(("fixture", "old", "new", "reason"), [
+    ("failed_invalid_api_key", "Incorrect API key provided",
+     "subscription_sharing_user_not_eligible", "subscription-refused"),
+    ("failed_rate_limit_retry", "", "", "usage-limit"),
+])
+def test_chatgpt_refusals_have_their_own_reasons(tmp_path, monkeypatch, fixture, old, new, reason):
+    """@brief A plan that cannot share its subscription, and a reached usage limit."""
+    profiles = chatgpt_project(tmp_path)
+    text = (FIXTURES / f"{fixture}.jsonl").read_text("utf-8")
+    changed = tmp_path / "changed.jsonl"
+    changed.write_text(text.replace(old, new) if old else text, encoding="utf-8")
+    runtime = Runtime(tmp_path, fixture)
+    runtime.fixture = changed
+    assert probe(profiles, runtime)["reason"] == reason
 
 
 # END OF FILE

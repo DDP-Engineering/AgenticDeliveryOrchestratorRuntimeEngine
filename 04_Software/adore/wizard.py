@@ -44,10 +44,12 @@ from adore.branding import (
 )
 from adore.config import load_config, validate_config
 from adore.pi_providers import (
+    CHATGPT,
     CUSTOM,
     DEFAULT_ENDPOINT_API,
     ENDPOINT_APIS,
     MODEL_ID_RE,
+    catalog,
     credential_variable,
     provider_ids,
     valid_endpoint_url,
@@ -557,7 +559,7 @@ def run_wizard(
             default=executor_command, validate=_require), asker, out)
     provider = ask(FieldSpec(
         "provider", "Model provider:",
-        'a Pi API-key provider id, "chatgpt" (subscription; sign-in not available yet) '
+        'a Pi API-key provider id, "chatgpt" (this server\'s ChatGPT Plus/Pro sign-in) '
         'or "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM)',
         "openai  |  anthropic  |  openrouter  |  custom", default=_DEFAULT_PROVIDER,
         validate=_provider_ok,
@@ -574,10 +576,15 @@ def run_wizard(
             "endpoint_api", "Endpoint API type:", "the Pi API type the server speaks",
             default=DEFAULT_ENDPOINT_API, choices=ENDPOINT_APIS,
         ), asker, out)
+    chatgpt_models = catalog()["chatgpt_models"] if provider == CHATGPT else []
     model = ask(FieldSpec(
         "model", "Model id:",
+        ("a model a ChatGPT subscription serves: " + ", ".join(chatgpt_models))
+        if chatgpt_models else
         "the model within the provider (Pi's list or any id the provider accepts)",
-        _DEFAULT_MODEL, default=_DEFAULT_MODEL if provider == _DEFAULT_PROVIDER else None,
+        chatgpt_models[0] if chatgpt_models else _DEFAULT_MODEL,
+        default=(chatgpt_models[0] if chatgpt_models else
+                 _DEFAULT_MODEL if provider == _DEFAULT_PROVIDER else None),
         validate=_model_ok,
     ), asker, out)
     auth_mode = "api-key" if execution_backend == "container" else ask(FieldSpec(
@@ -987,8 +994,8 @@ def _print_next_steps(
             f"config.toml (`adore profile path {name}`), or save it in Settings -> "
             "Agent and model.")
     else:
-        out("  1. Sign in with ChatGPT is not available yet; choose an API-key provider "
-            "or an endpoint to run jobs.")
+        out("  1. Sign in with ChatGPT once for this server in the web interface: "
+            "Settings -> Agent and model -> Sign in with ChatGPT.")
     out(f"  2. Build the executor image ({image}) - see docker/README.md.")
     out(f"  3. Validate:  adore --profile {name} config validate")
     out(f"  4. Dry-run:   adore --profile {name} run --dry-run")

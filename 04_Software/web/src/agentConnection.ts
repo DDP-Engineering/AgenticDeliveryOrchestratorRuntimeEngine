@@ -12,7 +12,7 @@ export type CatalogProvider = { id: string; name: string; variable: string; mode
 /** Pi's API-key providers and models from the pinned Pi, plus the two ADORE choices. */
 export type ProviderCatalog = {
   pi_version: string; providers: CatalogProvider[];
-  chatgpt: { id: "chatgpt" }; custom: { id: "custom"; variable: string; apis: string[] };
+  chatgpt: { id: "chatgpt"; models: string[] }; custom: { id: "custom"; variable: string; apis: string[] };
 };
 
 export const CONNECTION_KEY = "executor.connection";
@@ -28,7 +28,7 @@ export const connectionCopy = {
   modelHelp:"The model within the provider. Choose from Pi's list or type any model ID the provider accepts.",
   baseUrlHelp:"The endpoint address as seen from the container, for example http://192.168.1.20:1234/v1. localhost is the container itself; host.docker.internal reaches the host only on Docker Desktop.",
   apiHelp:"The API the endpoint speaks; LM Studio, Ollama and vLLM use openai-completions.",
-  chatgptNote:"Sign in with ChatGPT is not available yet. Choose an API-key provider or an endpoint to run jobs.",
+  chatgptNote:"This ADORE server signs in to one ChatGPT Plus or Pro account below; every project that uses the ChatGPT subscription shares it. Stages run in a container and get a short-lived access token.",
   keyNote:"The API key is saved below in the project's credential store as {variable}, never in the configuration file.",
   endpointKeyNote:"An endpoint key is optional; when the endpoint needs one, save it below as {variable}.",
   catalogUnavailable:"Pi's model list could not be loaded; type the model ID.", invalid:"Choose a provider, enter one model ID without spaces and, for an endpoint, an http or https address."},
@@ -37,7 +37,7 @@ export const connectionCopy = {
   modelHelp:"Modelul furnizorului. Alege din lista Pi sau scrie orice ID de model acceptat de furnizor.",
   baseUrlHelp:"Adresa endpointului văzută din container, de exemplu http://192.168.1.20:1234/v1. localhost este containerul însuși; host.docker.internal ajunge la gazdă doar cu Docker Desktop.",
   apiHelp:"API-ul folosit de endpoint; LM Studio, Ollama și vLLM folosesc openai-completions.",
-  chatgptNote:"Autentificarea cu ChatGPT nu este încă disponibilă. Alege un furnizor cu cheie API sau un endpoint pentru a rula joburi.",
+  chatgptNote:"Acest server ADORE se autentifică mai jos cu un singur cont ChatGPT Plus sau Pro, folosit de toate proiectele cu abonament ChatGPT. Etapele rulează în container și primesc un token de acces de scurtă durată.",
   keyNote:"Cheia API se salvează mai jos în depozitul de credențiale al proiectului ca {variable}, niciodată în fișierul de configurare.",
   endpointKeyNote:"Cheia endpointului este opțională; dacă endpointul o cere, salveaz-o mai jos ca {variable}.",
   catalogUnavailable:"Lista de modele Pi nu a putut fi încărcată; scrie ID-ul modelului.", invalid:"Alege un furnizor, introdu un ID de model fără spații și, pentru un endpoint, o adresă http sau https."},
@@ -46,7 +46,7 @@ export const connectionCopy = {
   modelHelp:"Le modèle du fournisseur. Choisissez dans la liste de Pi ou saisissez tout ID de modèle accepté par le fournisseur.",
   baseUrlHelp:"L’adresse du point de terminaison vue depuis le conteneur, par exemple http://192.168.1.20:1234/v1. localhost est le conteneur lui-même ; host.docker.internal n’atteint l’hôte qu’avec Docker Desktop.",
   apiHelp:"L’API du point de terminaison ; LM Studio, Ollama et vLLM utilisent openai-completions.",
-  chatgptNote:"La connexion avec ChatGPT n’est pas encore disponible. Choisissez un fournisseur à clé API ou un point de terminaison pour exécuter des tâches.",
+  chatgptNote:"Ce serveur ADORE se connecte ci-dessous à un seul compte ChatGPT Plus ou Pro, partagé par tous les projets qui utilisent l’abonnement ChatGPT. Les étapes s’exécutent en conteneur et reçoivent un jeton d’accès de courte durée.",
   keyNote:"La clé API s’enregistre ci-dessous dans le magasin d’identifiants du projet sous {variable}, jamais dans le fichier de configuration.",
   endpointKeyNote:"Une clé de point de terminaison est facultative ; si nécessaire, enregistrez-la ci-dessous sous {variable}.",
   catalogUnavailable:"La liste des modèles de Pi n’a pas pu être chargée ; saisissez l’ID du modèle.", invalid:"Choisissez un fournisseur, saisissez un ID de modèle sans espace et, pour un point de terminaison, une adresse http ou https."},
@@ -55,7 +55,7 @@ export const connectionCopy = {
   modelHelp:"Das Modell des Anbieters. Wählen Sie aus der Pi-Liste oder geben Sie eine vom Anbieter akzeptierte Modell-ID ein.",
   baseUrlHelp:"Die Endpunkt-Adresse aus Sicht des Containers, z. B. http://192.168.1.20:1234/v1. localhost ist der Container selbst; host.docker.internal erreicht den Host nur mit Docker Desktop.",
   apiHelp:"Die API des Endpunkts; LM Studio, Ollama und vLLM nutzen openai-completions.",
-  chatgptNote:"Die Anmeldung mit ChatGPT ist noch nicht verfügbar. Wählen Sie einen Anbieter mit API-Schlüssel oder einen Endpunkt, um Aufträge auszuführen.",
+  chatgptNote:"Dieser ADORE-Server meldet sich unten bei einem ChatGPT-Plus- oder -Pro-Konto an, das alle Projekte mit ChatGPT-Abonnement teilen. Phasen laufen im Container und erhalten ein kurzlebiges Zugriffstoken.",
   keyNote:"Der API-Schlüssel wird unten im Zugangsdatenspeicher des Projekts als {variable} gespeichert, nie in der Konfigurationsdatei.",
   endpointKeyNote:"Ein Endpunkt-Schlüssel ist optional; falls nötig, speichern Sie ihn unten als {variable}.",
   catalogUnavailable:"Die Pi-Modellliste konnte nicht geladen werden; geben Sie die Modell-ID ein.", invalid:"Wählen Sie einen Anbieter, geben Sie eine Modell-ID ohne Leerzeichen und für einen Endpunkt eine http- oder https-Adresse ein."},
@@ -96,7 +96,8 @@ export function validProviderCatalog(value: unknown): value is ProviderCatalog {
   return !!item && typeof item.pi_version === "string" && Array.isArray(item.providers)
     && item.providers.every(entry => !!entry && typeof entry.id === "string" && typeof entry.name === "string"
       && VARIABLE.test(entry.variable) && Array.isArray(entry.models) && entry.models.every(model => typeof model === "string"))
-    && item.chatgpt?.id === CHATGPT && item.custom?.id === CUSTOM && VARIABLE.test(item.custom.variable)
+    && item.chatgpt?.id === CHATGPT && Array.isArray(item.chatgpt.models)
+    && item.chatgpt.models.every(model => typeof model === "string") && item.custom?.id === CUSTOM && VARIABLE.test(item.custom.variable)
     && Array.isArray(item.custom.apis);
 }
 
@@ -109,6 +110,12 @@ export function readProviderCatalog(): Promise<ProviderCatalog | null> {
     .catch(() => null)
     .then(value => { if (value === null) cached = null; return value; });
   return cached;
+}
+
+/** The models offered for a provider: Pi's list, or the ChatGPT subscription's. */
+export function providerModels(id: string, catalog: ProviderCatalog | null): string[] {
+  if (id === CHATGPT) return catalog?.chatgpt.models ?? [];
+  return catalog?.providers.find(item => item.id === id)?.models ?? [];
 }
 
 /** The name a provider has in the interface. */

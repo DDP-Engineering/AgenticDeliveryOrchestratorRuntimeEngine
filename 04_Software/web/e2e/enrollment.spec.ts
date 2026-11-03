@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
+import { connectionCopy } from "../src/agentConnection";
 import { type Locale } from "../src/i18n";
 
 test.beforeEach(async ({ context }) => {
@@ -50,7 +51,7 @@ test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the
   await expect(page.locator('#enroll-model-options option[value="gpt-5.5"]')).toHaveCount(1);
   await expect(page.getByLabel(/^Endpoint base URL/)).toHaveCount(0);
   await provider.selectOption("chatgpt");
-  await expect(help).toContainText("Sign in with ChatGPT is not available yet.");
+  await expect(help).toContainText(connectionCopy.en.chatgptNote);
   await provider.selectOption("custom");
   await expect(help).toContainText("ADORE_ENDPOINT_API_KEY");
   await expect(help).toContainText("host.docker.internal");
