@@ -466,21 +466,10 @@ transport fails closed. English labels clarify catalog keys; other locales retai
 localized common labels and localized setting guidance for remaining headings.
 `settingsCopy.ts` supplies four-locale category, effect and recovery copy.
 
-`PendingReview` compares safe active values to typed server-derived proposed values,
-names the affected display project. An `executor.connection` candidate is shown as four
-rows: Provider, Model, Endpoint base URL and Endpoint API type. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens. Preparation focuses the review heading; discard returns keyboard
-focus to the edited row. Safe clipboard
-copy uses only review values and full revisions. A single mutation ref lock and
-captured session/request/view identities suppress duplicate submission and late
-cross-project completions. Editing waits for the pending read and freezes while a
-candidate exists.
+`settingsSave.ts` normalizes a project-scoped raw draft into a bounded batch, with structural equality (object key order ignored; array order significant), typed controls and explicit important-effect classification. `SettingsList` retains multiple editors and raw invalid inputs. One Save bar owns Save/Discard, dirty and invalid state, recovered candidates and stale-revision feedback. Navigation, Refresh and before-unload guard abandonment.
 
-Apply sends both candidate/base revisions; stale base or required unpaused pickup
-disables the browser action. Server idle/lock/pause checks remain decisive and a
-blocked result retains review. Discard removes only the candidate. A failed pending
-read offers explicit refresh/discard and prevents edits or Apply. Assigned Dev sees
-read-only groups with financial/secret fields omitted. Existing jobs retain their
-configuration; the UI explicitly describes the one-setting candidate contract.
+`SettingsImpactDialog` is a native modal for important saves only. It compares the server's no-write preview to the active snapshot and shows changed values and concise effects; connection edits expand to changed provider/model/endpoint fields. Initial focus is Keep editing; Escape cancels and focus returns to Save. Cancellation creates no new persistent candidate. Ordinary saves proceed without a dialog. App prepares and applies the exact confirmed batch, comparing preview/prepared hashes and runtime plans. Scoped mutation identities prevent duplicate submissions and late cross-project completions. Failed saves retain editable inputs; corrupt pending reads disable editing with explicit discard recovery. The server's idle/lock/pause/revision checks remain decisive. Developers see read-only settings with financial/secret values omitted.
+
 Statistics also shows reviewer-requested MR/PR revisions and automatic pipeline
 repairs as distinct counts; unknown revision triggers appear as an Unclassified
 revisions value. Quality panels use the shared `Chips` (`.metric-chips`) row: the
@@ -538,7 +527,7 @@ Administrators use **Preview raw configuration** or **Download raw configuration
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
 `DataFeedback`, `ProjectEmpty`, `StatusBadge` and `DeliveryGlossary`.
-`App.tsx` owns session, project hubs, SettingsList/PendingReview, configuration/statistics mutations and route/history flow.
+`App.tsx` owns session, project hubs, SettingsList/SettingsImpactDialog, configuration/statistics mutations and route/history flow.
 `settings.ts` owns purpose grouping and strict catalog/candidate transport validation
 (input kind `connection` for rows whose `edit_key` is `executor.connection`,
 `connectionRowVisible` hiding the endpoint rows unless the provider is `custom`, and
@@ -567,7 +556,7 @@ status. `chatgptCopy.ts` holds its four-locale copy and the strict transport par
 `readChatGptView` (exactly `{status, pending}`) and `readChatGptStart` (exactly
 `{authorize_url, expires_in}`, a link starting with `https://auth.openai.com/` of at
 most 8192 characters); the `chatgpt_*` error sentences are in `errors.ts`;
-`settingsCopy.ts` owns clear labels and localized single-candidate guidance.
+`settingsCopy.ts` owns clear labels and localized setting guidance.
 `JobWorkspace.tsx` owns scoped jobs/attention/detail, visible polling and command
 feedback. `jobModel.ts` validates complete counts, composite identity, saved
 links and observed events; `jobCopy.ts` supplies four-locale action guidance. Request completion retains session-generation guards
@@ -866,7 +855,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows desktop description and control columns in a 3:2 ratio separated by 32px, with values/actions aligned to the right; below 640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## Preparation review and outcomes
 
@@ -918,3 +907,8 @@ completion clears the temporary link and address; failed helper completion
 shows the existing localized cause. Manual state-checked completion remains
 available when the browser cannot reach Pi's loopback listener.
 The callback Chromium journey proves completion without sending a PUT.
+
+
+### Exact API-candidate recovery
+
+A valid pending candidate containing an API-only or hidden setting remains read-only in the row UI. Navigation is guarded throughout saving and confirmation, including read-only recovery with no local dirty fields. The one Save action rereads and compares the complete pending envelope, confirms its safe values and applies the exact existing candidate/base pair without preparing a replacement. Stale or corrupt evidence blocks Save and remains explicitly discardable. GUI-editable pending batches recover into visible editors and use bound replacement. Focused proof: `settings-save.spec.ts` API-only success/stale/corrupt cases and `test_web_settings_batch.py` collateral replacement preservation.

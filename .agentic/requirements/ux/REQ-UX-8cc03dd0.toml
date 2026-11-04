@@ -1,19 +1,17 @@
 # Copyright (c) 2026 DDP Engineering
 # This software is licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a separate commercial license.
-# See the LICENSE.txt in the .agentic folder for full license details.
-# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
-
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 schema = 1
 id = "REQ-UX-8cc03dd0"
-title = "Balanced collapsed project Settings"
+title = "Use available width for project settings rows"
 status = "active"
-requirement = "Project Settings shall initially show collapsed purpose categories. Opening a category presents equal left description/right active-value columns with a24px gap on desktop; on narrow screens columns stack with equal full widths. Existing Edit/candidate and Dev read-only behavior remain intact."
-verification = "Offline Chromium Admin/Dev initial collapsed category assertions, explicit expansion,1280/390px geometry, edit/cancel and candidate apply."
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/dashboard.spec.ts", "04_Software/adore/web/static/"]
-linked_tests = ["04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/dashboard.spec.ts"]
+requirement = "When a project Settings category is opened, the dashboard shall use the available desktop width for a left label/description column and a right value/control column with actions aligned to the right, stacking the columns without horizontal overflow on narrow screens."
+verification = "Chromium geometry and screenshots at desktop and 390px verify row width, column/action placement, long values and expanded typed editors in all locales; collapsed purpose groups remain unchanged."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/settings-save.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
 spec = ""
 priority = "normal"
 created = 2026-10-07
-updated = 2026-10-07
+updated = 2026-11-04

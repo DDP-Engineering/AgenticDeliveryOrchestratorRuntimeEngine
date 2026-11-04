@@ -14,7 +14,7 @@ Open **Settings → Agent and model**. Edit **Provider**, **Model**, and, for an
 - **Model**: choose from Pi's list for that provider or type any model ID the provider accepts, for example `gpt-5.4`. The list comes with the Pi version ADORE ships and is read without internet access. There is no universal default.
 - **ChatGPT subscription**: Pi uses the ChatGPT Plus or Pro account this ADORE server is signed in to, see [Sign in with ChatGPT](#chatgpt). The model list holds the models a ChatGPT subscription serves, for example `gpt-5.6-luna`.
 
-**Prepare candidate** shows active and proposed values. **Apply change** writes them; see [Project settings](/help/settings#editing) for pausing monitoring. ADORE starts a fresh Pi process for each stage and stops it on timeout or cancellation.
+**Save** saves the edited settings together after confirmation of important effects; see [Project settings](/help/settings#editing) for pausing monitoring. ADORE starts a fresh Pi process for each stage and stops it on timeout or cancellation.
 
 ## OpenAI-compatible endpoint {#endpoint}
 
@@ -72,7 +72,7 @@ The result is **AI model connected** only when the shell command ran and the rep
 
 > With internet access On, a malicious web page could try to make the agent send its API key or ChatGPT token out. Prefer limited, short-lived keys.
 
-Both settings change through **Prepare candidate** and **Apply change** like other settings. With internet access Off the proxy image must exist on the ADORE server; **Check host prerequisites** reports it, and the search key when one is needed. For a project installed on the server the switch is shown as **Not enforced**: Pi reaches whatever the server reaches.
+Use **Save** for both settings and confirm important effects. With internet access Off the proxy image must exist on the ADORE server; **Check host prerequisites** reports it, and the search key when one is needed. For a project installed on the server the switch is shown as **Not enforced**: Pi reaches whatever the server reaches.
 
 ## Where jobs run {#where-jobs-run}
 

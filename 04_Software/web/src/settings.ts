@@ -252,7 +252,30 @@ export function validSettingCatalog(settings: unknown): settings is SettingMeta[
   });
 }
 
-export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | Record<string, string>; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan };
+export const BATCH_KEY = "settings.batch";
+export type BatchValues = Record<string, string | number | boolean | string[] | number[] | Record<string, number> | Record<string, string>>;
+export type PendingConfig = { base_revision: string; candidate_revision: string; key: string; value: string; proposed_value: string | number | boolean | string[] | number[] | Record<string, number> | Record<string, string> | BatchValues; created_at: string; restart_required: boolean; execution_plan?: ExecutionPlan };
+
+/** A batch contains only closed scalar or declared collection/connection values. */
+export function validBatchValues(value: unknown): value is BatchValues {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (!entries.length || entries.length > 100) return false;
+  const keys = entries.map(([key]) => key);
+  if (keys.some(key => key === BATCH_KEY || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(key)
+    || keys.some(other => key !== other && key.startsWith(other + ".")))) return false;
+  if (keys.includes(CONNECTION_KEY) && keys.some(key => ["executor.provider", "executor.model", "executor.endpoint.base_url", "executor.endpoint.api"].includes(key))) return false;
+  return entries.every(([key, item]) => {
+    if (key === CONNECTION_KEY) return validConnection(item);
+    if (key === "executor.env_keys") return validCredentialNames(item);
+    if (key === "recovery.retry_backoff_seconds" || key === "workflow.stage_timeout_overrides") return validImplementationCollection(key, item);
+    if (key === "delivery.reviewers") return Array.isArray(item) && item.every(name =>
+      typeof name === "string" && name.length > 0 && name.length <= 255
+      && !name.startsWith("-") && !/[\s\u0000-\u001f\u007f]/.test(name));
+    return typeof item === "string" || typeof item === "boolean"
+      || typeof item === "number" && Number.isFinite(item);
+  });
+}
 
 /** A malformed or unbound server candidate never enables Apply. */
 export function validPendingConfig(value: unknown): value is PendingConfig | null {
@@ -266,11 +289,12 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   const credentials = item.key === "executor.env_keys" && validCredentialNames(item.proposed_value);
   const collection = validImplementationCollection(item.key, item.proposed_value);
   const connection = item.key === CONNECTION_KEY && validConnection(item.proposed_value);
-  const json = reviewerList || collection || credentials || connection;
+  const batch = item.key === BATCH_KEY && validBatchValues(item.proposed_value);
+  const json = reviewerList || collection || credentials || connection || batch;
   return digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
     && item.value === (json ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
-    && (json || ![CONNECTION_KEY, "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
+    && (json || ![BATCH_KEY, CONNECTION_KEY, "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))
     && (typeof item.proposed_value !== "number" || Number.isFinite(item.proposed_value))
     && typeof item.restart_required === "boolean"
     && (item.execution_plan === undefined || validExecutionPlan(item.execution_plan))

@@ -9,13 +9,14 @@ import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./me
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
-import { agentSettingsCopy, agentValue, executorSettingHelp, executorSettingLabel, internetCopy, searchKeyNeeded, validCredentialNames } from "./executorSettings";
+import { agentSettingsCopy, agentValue, executorSettingHelp, internetCopy, searchKeyNeeded } from "./executorSettings";
 import { localCopy } from "./localExecution";
+import { candidateMatchesEdits, pendingSettingEdits, normalizeSettingDraft, prepareSettingDrafts, recoverSettingDrafts, settingDraftValue, settingImpacts, settingsSaveCopy, sameSettingValue, type SettingEdit, type SettingDrafts } from "./settingsSave";
 import { CredentialNamesEditor } from "./CredentialNamesEditor";
 import { ExecutorCredentials, executorCopy } from "./ExecutorCredentials";
 import { ChatGptSignIn } from "./ChatGptSignIn";
 import { AgentConnectionEditor } from "./AgentConnectionEditor";
-import { CHATGPT, CONNECTION_KEY, connectionCopy, connectionOf, validConnection } from "./agentConnection";
+import { CHATGPT, CONNECTION_KEY, connectionCopy, connectionOf } from "./agentConnection";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
 import { readReadiness, type ProjectReadiness } from "./readiness";
@@ -25,13 +26,13 @@ import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
-import { editValue, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, CHOSEN_ENVIRONMENT_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
-import { ExecutorEnvironment, externalEnvironmentCopy, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
+import { BATCH_KEY, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
+import { ExecutorEnvironment, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
 import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
-import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "./implementationSettings";
-import { compactReviewCopy, settingsCopy, technicalSettingsHelp, settingLabel, publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, reviewerCopy, targetBranchCopy, excludeLabelCopy, lifecycleCopy, branchNamingCopy, branchSettingLabel, implementationSettingLabel, localizedSettingLabel } from "./settingsCopy";
+import { durationParts, executionStages, implementationEditorCopy } from "./implementationSettings";
+import { compactReviewCopy, settingsCopy, technicalSettingsHelp, publicationValue, pipelineFailureValue, lifecycleCopy, branchNamingCopy } from "./settingsCopy";
 import { ImportWizard } from "./ImportWizard";
 import { RawConfiguration } from "./RawConfiguration";
 import { TransferWizard } from "./TransferWizard";
@@ -135,6 +136,17 @@ export default function App() {
   const [configScope, setConfigScope] = useState("");
   const [pendingConfig, setPendingConfig] = useState<PendingConfig | null>(null);
   const [pendingConfigScope, setPendingConfigScope] = useState("");
+  const [settingsStale, setSettingsStale] = useState(false);
+  const [settingsConfirmation, setSettingsConfirmation] = useState<{
+    candidate: PendingConfig; edits: SettingEdit[]; project: string; config: Config;
+    resolve: (accepted: boolean) => void;
+  } | null>(null);
+  const settingsConfirmationResolve = useRef<((accepted: boolean) => void) | null>(null);
+  useEffect(() => () => {
+    settingsConfirmationResolve.current?.(false);
+    settingsConfirmationResolve.current = null;
+    setSettingsConfirmation(null);
+  }, [selected, session?.user.id]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [pricesScope, setPricesScope] = useState("");
   const [users, setUsers] = useState<AccountUser[]>([]);
@@ -179,6 +191,14 @@ export default function App() {
   const [operationVisible, setOperationVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
+  const registerSettingsGuard = useCallback((guard: (() => boolean) | null) => {
+    enrollmentGuard.current = guard;
+  }, []);
+  const refreshView = (interactive = false) => {
+    if (enrollmentGuard.current && (!interactive || !enrollmentGuard.current())) return false;
+    setViewRefresh(value => value + 1);
+    return true;
+  };
   // The address of the page shown now, restored when a guarded wizard refuses browser Back.
   const shownUrl = useRef("");
   const [resetTarget, setResetTarget] = useState<number | null>(null);
@@ -232,11 +252,13 @@ export default function App() {
   const projectTabs: ProjectTab[] = isAdmin ? ["overview", "configuration", "jobs", "statistics", "history", "access"] : ["overview", "configuration", "jobs", "statistics", "history"];
   // Leaving a tab closes any job detail opened in the Jobs tab.
   const selectProjectTab = (tab: ProjectTab) => {
+    if (tab !== projectTab && enrollmentGuard.current && !enrollmentGuard.current()) return false;
     setRequestedRun("");
     if (tab === "statistics" && tab !== projectTab) setMetricsTab("summary");
     // The Jobs tab opens on Tickets; job detail links select the Jobs sub-tab explicitly.
     if (tab === "jobs" && tab !== projectTab) setJobsView("tickets");
     setProjectTab(tab);
+    return true;
   };
   const selectJobsView = (view: "tickets" | "jobs") => { setRequestedRun(""); setJobsView(view); };
   const onJobsViewKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -253,8 +275,7 @@ export default function App() {
       event.key === "Home" ? 0 : event.key === "End" ? projectTabs.length - 1 : -1;
     if (next < 0) return;
     event.preventDefault();
-    selectProjectTab(projectTabs[next]);
-    document.getElementById(`project-tab-${projectTabs[next]}`)?.focus();
+    if (selectProjectTab(projectTabs[next])) document.getElementById(`project-tab-${projectTabs[next]}`)?.focus();
   };
   const projectStatusLabel = (item: Project) => t(item.readiness === "configured" ? "configured" : item.readiness === "needs-config" ? "needsConfig" : item.readiness === "invalid-state" ? "invalidState" : item.readiness === "archived" ? "archived" : "paused");
   const sortedProjects = [...projects].sort((left, right) => {
@@ -483,7 +504,7 @@ export default function App() {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
       setConfigState({ key: selected, state: "loading" });
-      setPendingReadFailed(false); setPendingReady(false);
+      setPendingReadFailed(false); setPendingReady(false); setSettingsStale(false);
       setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
       request<Config>("/projects/" + encodeURIComponent(selected) + "/config").then(value => {
         if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues) || !validSettingCatalog(value.settings)) throw new ApiError("unexpected_response");
@@ -577,7 +598,7 @@ export default function App() {
         setOperation(current);
         if (!["pending", "running"].includes(current.status)) {
           if (current.action === "delete") await refreshProjects();
-          else { await refreshSelected(); await refreshProjects(); setViewRefresh(value => value + 1); }
+          else { await refreshSelected(); await refreshProjects(); refreshView(); }
         }
       } catch (cause) {
         if (generation === viewGeneration.current) setError(cause);
@@ -593,6 +614,7 @@ export default function App() {
 
 
   const openProject = (id: string) => {
+    if (enrollmentGuard.current && !enrollmentGuard.current()) return;
     setRequestedRun("");
     setSelected(id); setProjectTab("overview"); setPage("projectDetails");
   };
@@ -798,50 +820,106 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  const stageSetting = async (key: string, value: string): Promise<boolean> => {
-    if (!projectConfig || !selected || configMutation.current || projectPendingConfig || pendingReadFailed || !pendingReady) return false;
+  const saveSettings = async (edits: SettingEdit[], base: string): Promise<boolean> => {
+    if (!projectConfig || !selected || configMutation.current || pendingReadFailed || !pendingReady
+      || projectConfig.revision !== base) return false;
     const target = selected, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
     const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
+    const rows = settingRows(projectConfig.config, projectConfig.settings || []);
+    let writeAttempted = false, pendingReadAttempted = false;
     configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      const staged = await request<PendingConfig>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", { key, value, revision: projectConfig.revision }, session?.csrf);
-      if (!validPendingConfig(staged) || !staged || staged.base_revision !== projectConfig.revision || staged.key !== key) throw new ApiError("unexpected_response");
+      let candidate = projectPendingConfig;
+      const confirm = async (value:PendingConfig, changes:SettingEdit[]) => {
+        if (!current()) return false;
+        setConfigBusy(false);
+        const accepted = await new Promise<boolean>(resolve => {
+          settingsConfirmationResolve.current = resolve;
+          setSettingsConfirmation({candidate:value,edits:changes,project:target,config:projectConfig,resolve});
+        });
+        settingsConfirmationResolve.current = null;setSettingsConfirmation(null);
+        if (!accepted || !current()) return false;
+        setConfigBusy(true);return true;
+      };
+      if (edits.length) {
+        const body = {
+          key: BATCH_KEY, value: JSON.stringify(edits), revision: base,
+          ...(candidate ? {pending_revision: candidate.candidate_revision} : {}),
+        };
+        let preview: PendingConfig | null = null;
+        if (settingImpacts(edits, rows).length) {
+          const proposed = await request<unknown>(`/projects/${encodeURIComponent(target)}/config/preview`, "POST", body, session?.csrf);
+          if (!validPendingConfig(proposed) || !proposed || proposed.base_revision !== base
+            || !candidateMatchesEdits(proposed, edits, rows)) throw new ApiError("unexpected_response");
+          preview = proposed;
+          if (!await confirm(proposed,edits)) return false;
+        }
+        writeAttempted = true;
+        const prepared = await request<unknown>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", body, session?.csrf);
+        if (!validPendingConfig(prepared) || !prepared || prepared.base_revision !== base
+          || !candidateMatchesEdits(prepared, edits, rows)
+          || preview && (preview.candidate_revision !== prepared.candidate_revision
+            || !sameSettingValue(preview.execution_plan,prepared.execution_plan))) throw new ApiError("unexpected_response");
+        candidate = prepared;
+        if (!current()) return false;
+        setPendingConfig(candidate); setPendingConfigScope(target);
+      } else if (!candidate) return false;
+      else if (candidate.candidate_revision !== base) {
+        // API-only keys retain read-only rows. Confirm and apply their exact stored candidate.
+        pendingReadAttempted = true;
+        const verified=await request<unknown>(`/projects/${encodeURIComponent(target)}/config/pending`);
+        if (!validPendingConfig(verified) || !verified || verified.base_revision!==base
+          || !sameSettingValue(verified,candidate)) throw new ApiError("stale_pending_revision");
+        if (!await confirm(verified,pendingSettingEdits(verified))) return false;
+        candidate=verified;
+      }
+      if (!candidate || !current()) return false;
+      writeAttempted = true;
+      const applied = await request<{revision:string}>(`/projects/${encodeURIComponent(target)}/config/apply`, "POST", {
+        candidate_revision: candidate.candidate_revision, base_revision: candidate.base_revision,
+      }, session?.csrf);
+      if (applied.revision !== candidate.candidate_revision) throw new ApiError("unexpected_response");
       if (!current()) return false;
-      setPendingConfig(staged); setPendingConfigScope(target); setNotice(t("changeStaged"));
-      return true;
-    } catch (cause) { if (current()) { setError(cause); if (cause instanceof ApiError && ["unexpected_response", "network_error", "pending_config_exists"].includes(cause.code)) setPendingReadFailed(true); } return false; }
-    finally { configMutation.current = false; setConfigBusy(false); }
-  };
-
-  const applyPendingConfig = async () => {
-    if (!selected || !projectPendingConfig || !projectConfig || configMutation.current || pendingReadFailed || projectPendingConfig.base_revision !== projectConfig.revision) return;
-    const target = selected, candidate = projectPendingConfig, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
-    const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
-    configMutation.current = true; setConfigBusy(true); setError("");
-    try {
-      await request(`/projects/${encodeURIComponent(target)}/config/apply`, "POST", { candidate_revision: candidate.candidate_revision, base_revision: candidate.base_revision }, session?.csrf);
-      if (!current()) return;
       setPendingConfig(null); setNotice(t("changeApplied")); setViewRefresh(value => value + 1);
       await refreshProjects();
-    } catch (cause) { if (current()) setError(cause); }
-    finally { configMutation.current = false; setConfigBusy(false); }
+      return true;
+    } catch (cause) {
+      if (current()) {
+        setError(cause);
+        if (cause instanceof ApiError && (["pending_config_exists", "stale_pending_revision"].includes(cause.code)
+          || (writeAttempted || pendingReadAttempted) && ["unexpected_response", "network_error", "pending_config_corrupt"].includes(cause.code))) setPendingReadFailed(true);
+        if (cause instanceof ApiError && cause.code === "stale_config_revision") setSettingsStale(true);
+      }
+      return false;
+    } finally { configMutation.current = false; setConfigBusy(false); }
   };
 
   const discardPendingConfig = async () => {
-    if (!selected || (!projectPendingConfig && !pendingReadFailed) || configMutation.current) return;
+    if (!selected || configMutation.current) return false;
+    if (!projectPendingConfig && !pendingReadFailed) {
+      if (settingsStale) {setSettingsStale(false);setViewRefresh(value => value + 1);}
+      return true;
+    }
     const target = selected, key = projectPendingConfig?.key, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
     const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
     configMutation.current = true; setConfigBusy(true); setError("");
     try {
-      await request(`/projects/${encodeURIComponent(target)}/config/pending`, "DELETE", undefined, session?.csrf);
+      try {
+        await request(`/projects/${encodeURIComponent(target)}/config/pending`, "DELETE", undefined, session?.csrf);
+      } catch (cause) {
+        // Explicitly confirmed absence also completes a requested draft discard.
+        if (!(cause instanceof ApiError) || cause.code !== "pending_config_not_found") throw cause;
+      }
       if (current()) { setPendingConfig(null); setPendingReadFailed(false); setPendingReady(true); setNotice(t("changeDiscarded"));
+        if (settingsStale) {setSettingsStale(false);setViewRefresh(value => value + 1);}
         configDiscardFocus.current = () => {
           if (!current()) return;
           const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button[data-edit-key]")).find(item => item.dataset.editKey === key);
           button?.focus();
         };
       }
-    } catch (cause) { if (current()) setError(cause); }
+      return current();
+    } catch (cause) { if (current()) setError(cause); return false; }
     finally { configMutation.current = false; setConfigBusy(false); }
   };
 
@@ -1042,7 +1120,7 @@ export default function App() {
     onSignOut={signOut} context={projectContext}
     controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
     actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
-      <button className="ghost" onClick={() => { void refreshProjects().catch(setError); setViewRefresh(value => value + 1); }}>{t("refresh")}</button></>}
+      <button className="ghost" onClick={() => { if (refreshView(true)) void refreshProjects().catch(setError); }}>{t("refresh")}</button></>}
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><a className="ghost link-button" href="/help" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigateHref("/help"); }}>{t("glossary")}</a></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className={"modal about-modal" + (aboutView === "whatsNew" ? " about-wide" : "")} onClick={event => event.stopPropagation()} onKeyDown={event => {
       if (event.key === "Escape") closeAbout();
@@ -1165,7 +1243,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={`${selected}-${projectConfig.revision}`} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || isAdmin && !pendingReady} onStage={stageSetting} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+          {projectConfig && <SettingsList key={selected} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
                   <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <>{String(settingValue(projectConfig.config, "executor.provider") ?? "") === CHATGPT && <ChatGptSignIn key={`${session.user.id}:chatgpt`} locale={locale} read={() => request("/chatgpt-sign-in")} start={() => request(`/projects/${encodeURIComponent(selected)}/chatgpt-sign-in`, "POST", undefined, session.csrf)} complete={(redirect_url: string) => request("/chatgpt-sign-in", "PUT", {redirect_url}, session.csrf)} cancel={() => request("/chatgpt-sign-in/pending", "DELETE", undefined, session.csrf)} disconnect={() => request("/chatgpt-sign-in", "DELETE", undefined, session.csrf)} />}{(String(settingValue(projectConfig.config, "executor.provider") ?? "") !== CHATGPT || searchKeyNeeded(projectConfig.config)) && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} provider={String(settingValue(projectConfig.config, "executor.provider") ?? "")} project={selectedProject.id} revision={projectConfig.revision} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
@@ -1173,8 +1251,8 @@ export default function App() {
                   </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
-            {projectPendingConfig && <PendingReview config={projectConfig} candidate={projectPendingConfig} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} busy={configBusy} locale={locale} t={t} onApply={applyPendingConfig} onDiscard={discardPendingConfig} />}
-            {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p><p>{settingsCopy[locale].discard}</p><button className="ghost" disabled={configBusy} onClick={() => void discardPendingConfig()}>{t("discardChange")}</button></div>}
+            {settingsConfirmation && settingsConfirmation.project === selected && <SettingsImpactDialog config={settingsConfirmation.config} candidate={settingsConfirmation.candidate} edits={settingsConfirmation.edits} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} locale={locale} onDecision={accepted => settingsConfirmation.resolve(accepted)} />}
+            {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p></div>}
             </>}
           </SettingsList>}
           </>}
@@ -1318,68 +1396,154 @@ function ProjectAccess({ project, csrf, locale, t, onError, onNotice }: { projec
   </section>;
 }
 
-function PendingReview({ config, candidate, project, paused, busy, locale, t, onApply, onDiscard }: { config: Config; candidate: PendingConfig; project: string; paused: boolean; busy: boolean; locale: Locale; t: (key: MessageKey) => string; onApply: () => Promise<void>; onDiscard: () => Promise<void> }) {
-  const copy = settingsCopy[locale];
-  const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, [candidate.candidate_revision]);
-  const [copied, setCopied] = useState(false);
-  const meta = config.settings?.find(item => item.edit_key === candidate.key);
-  const active = settingValue(config.config, meta?.key || candidate.key);
-  const show = (value: unknown) => agentValue(candidate.key, value, locale) ?? (candidate.key === "review.on_pipeline_failure" && pipelineFailureValue(value, locale) !== null ? pipelineFailureValue(value, locale) : candidate.key === "delivery.draft" && publicationValue(value, locale) !== null ? publicationValue(value, locale) : value == null ? copy.unknown : value === "" ? t("settingNoDefault") : typeof value === "object" ? JSON.stringify(value) : String(value));
-  const connectionRows = (): Array<{ label: string; active: unknown; proposed: unknown }> => {
-    const active = connectionOf(config.config), proposed = candidate.proposed_value as Record<string, string>, names = connectionCopy[locale];
-    return ([["provider", names.provider], ["model", names.model], ["base_url", names.baseUrl], ["api", names.api]] as const)
-      .map(([field, label]) => ({ label, active: active[field], proposed: proposed[field] }));
-  };
-  const rows: Array<{ label: string; active: unknown; proposed: unknown }> = candidate.key === CONNECTION_KEY ? connectionRows() : [{ label: executorSettingLabel(meta?.key || candidate.key,locale) || branchSettingLabel(candidate.key, locale) || implementationSettingLabel(candidate.key, locale) || localizedSettingLabel(candidate.key, locale) || lifecycleCopy[locale].labels[candidate.key] || (candidate.key === "review.on_pipeline_failure" ? pipelineFailureCopy[locale].label : candidate.key === "labels.control.exclude" ? excludeLabelCopy[locale].label : candidate.key === "delivery.target_branch" ? targetBranchCopy[locale].label : candidate.key === "delivery.reviewers" ? reviewerCopy[locale].label : candidate.key === "delivery.draft" ? publicationCopy[locale].label : locale === "en" ? settingLabel(meta?.key || candidate.key) : t("config")), active, proposed: candidate.proposed_value }];
-  // Candidate values are validated JSON; property order is immaterial, array order is retained.
-  const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.map(canonical).join(",")}]`
-    : value !== null && typeof value === "object" ? `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`
-    : JSON.stringify(value ?? null);
-  const changed = rows.filter(row => canonical(row.active) !== canonical(row.proposed));
-  const unchanged = changed.length === 0 && !candidate.execution_plan;
-  const compact = compactReviewCopy[locale];
-  const comparison = (items: typeof rows, className: string) => <table className={`candidate-table ${className}`}><thead><tr><th scope="col">{compact.setting}</th><th scope="col">{copy.active}</th><th scope="col">{copy.proposed}</th></tr></thead><tbody>{items.map(row => <tr key={row.label}><th scope="row">{row.label}</th><td data-label={copy.active}>{show(row.active)}</td><td data-label={copy.proposed}>{show(row.proposed)}</td></tr>)}</tbody></table>;
-  const stale = candidate.base_revision !== config.revision;
-  const external = !BRANCH_NAMING_KEYS.has(candidate.key) && !CHOSEN_ENVIRONMENT_KEYS.has(candidate.key) && ["container.", "execution.", "local.", "worktree."].some(prefix => candidate.key.startsWith(prefix));
-  const blocked = unchanged || external || stale || candidate.restart_required && !paused;
-  const reviewText = [copy.project + ": " + project, ...rows.map(row => `${row.label}: ${copy.active}: ${show(row.active)} → ${copy.proposed}: ${show(row.proposed)}`), copy.base + ": " + candidate.base_revision, copy.candidate + ": " + candidate.candidate_revision].join("\n");
-  return <div className="import-preview candidate-review"><h3 ref={heading} tabIndex={-1}>{t("pendingChange")}</h3>
-    <p className="muted"><strong>{copy.project}:</strong> {project}</p>
-    {changed.length > 0 && comparison(changed, "candidate-changes")}
-    {unchanged && <p role="status">{compact.unchanged}</p>}
-    {candidate.key === "executor.internet" && candidate.proposed_value === true && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>}
-    {candidate.execution_plan && <ExecutionPlanReview plan={candidate.execution_plan} locale={locale} />}
-    {candidate.restart_required && <p className={!paused ? "alert" : "muted"}>{copy.pause}</p>}{stale && <p className="alert">{copy.stale}</p>}
-    {external && <p role="note">{externalEnvironmentCopy[locale].external}</p>}
-    <div className="button-row candidate-actions"><button className="primary" disabled={busy || blocked} onClick={() => void onApply()}>{t("apply")}</button><button className="ghost" disabled={busy} onClick={() => void onDiscard()}>{t("discardChange")}</button></div>
-    <details className="candidate-details"><summary>{copy.details}</summary>
-      <h4>{compact.complete}</h4>{comparison(rows, "candidate-complete")}
-      <h4>{copy.effect}</h4><p>{candidate.key === CONNECTION_KEY ? executorSettingHelp(CONNECTION_KEY, locale) : executorSettingHelp(meta?.key || candidate.key, locale) ?? settingHelp(meta?.key || candidate.key, locale)}</p><p>{copy.future}</p>
-      <p>{copy.idle}</p><p>{copy.discard}</p>
-      <p>{copy.prepared}: <time dateTime={candidate.created_at}>{new Date(candidate.created_at).toLocaleString(locale)}</time></p>
-      <p><code>{candidate.key}</code></p><p>{copy.base}: <code>{candidate.base_revision}</code></p><p>{copy.candidate}: <code>{candidate.candidate_revision}</code></p>
-      <div className="button-row"><button className="ghost" onClick={() => void navigator.clipboard.writeText(reviewText).then(() => setCopied(true)).catch(() => setCopied(false))}>{copy.copy}</button>{copied && <span role="status">{copy.copied}</span>}</div>
-    </details>
-  </div>;
+function SettingsImpactDialog({config, candidate, edits, project, paused, locale, onDecision}: {
+  config: Config; candidate: PendingConfig; edits: SettingEdit[]; project: string;
+  paused: boolean; locale: Locale; onDecision: (accepted: boolean) => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null), cancelButton = useRef<HTMLButtonElement>(null);
+  const copy = settingsSaveCopy[locale];
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.current?.showModal(); cancelButton.current?.focus();
+    return () => { dialog.current?.close(); if (trigger?.isConnected) trigger.focus(); };
+  }, []);
+  const rows = settingRows(config.config, config.settings || []);
+  const proposed = candidate.key === BATCH_KEY ? candidate.proposed_value as Record<string,unknown> : {[candidate.key]:candidate.proposed_value};
+  const show = (key: string, value: unknown) => agentValue(key,value,locale)
+    ?? (key === "delivery.draft" ? publicationValue(value,locale) : key === "review.on_pipeline_failure" ? pipelineFailureValue(value,locale) : null)
+    ?? (Array.isArray(value) || value && typeof value === "object" ? JSON.stringify(value) : String(value ?? ""));
+  const changed = edits.flatMap(({key}) => {
+    if (key === CONNECTION_KEY) {
+      const before = connectionOf(config.config), after = proposed[key] as typeof before;
+      return ([["executor.provider", "provider"], ["executor.model", "model"], ["executor.endpoint.base_url", "base_url"], ["executor.endpoint.api", "api"]] as const)
+        .filter(([,field])=>!sameSettingValue(before[field],after[field]))
+        .map(([key,field])=>({key,before:before[field],after:after[field]}));
+    }
+    return [{key,before:settingValue(config.config,key),after:proposed[key]}];
+  });
+  return <dialog ref={dialog} className="settings-impact-dialog" aria-labelledby="settings-impact-title"
+    onCancel={event=>{event.preventDefault();onDecision(false);}}>
+    <h2 id="settings-impact-title">{copy.title}</h2>
+    <p><strong>{copy.project}:</strong> {project}</p>
+    <div className="table-scroll"><table className="settings-impact-values"><thead><tr><th>{compactReviewCopy[locale].setting}</th><th>{copy.before}</th><th>{copy.after}</th></tr></thead>
+      <tbody>{changed.map(row=><tr key={row.key}><th scope="row">{settingDisplayLabel(row.key,locale)}</th>
+        <td data-label={copy.before}>{show(row.key,row.before)}</td><td data-label={copy.after}>{show(row.key,row.after)}</td></tr>)}</tbody></table></div>
+    <ul>{settingImpacts(edits,rows).map(impact=><li key={impact}>{impact === "network" && settingValue(config.config,"execution.backend") === "local" ? internetCopy[locale].internetLocal : copy.effects[impact]}</li>)}</ul>
+    {proposed["executor.internet"] === true && settingValue(config.config,"execution.backend") !== "local"
+      && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>}
+    <p className="muted">{copy.future}</p>
+    {candidate.execution_plan && <details><summary>{settingsCopy[locale].details}</summary><ExecutionPlanReview plan={candidate.execution_plan} locale={locale} /></details>}
+    {candidate.restart_required && !paused && <p role="alert" className="alert">{copy.pause}</p>}
+    <div className="button-row"><button ref={cancelButton} type="button" className="ghost" onClick={()=>onDecision(false)}>{copy.cancel}</button>
+      <button type="button" className="primary" disabled={candidate.restart_required && !paused} onClick={()=>onDecision(true)}>{copy.confirm}</button></div>
+  </dialog>;
 }
 
-function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate, config, localIdentity, settings, t, locale, canEdit, disabled, onStage, actions, children, header, executorBefore, executorAfter, executorAuthentication }: { executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode; project?: string; revision?: string; csrf?: string; branchCandidate?: PendingConfig | null; header?: ReactNode; actions?: ReactNode; children?: ReactNode; executorOnly?:boolean; config: Record<string, unknown>; localIdentity?: Config["local_execution"]; settings: SettingMeta[]; t: (key: MessageKey) => string; locale: Locale; canEdit: boolean; disabled: boolean; onStage: (key: string, value: string) => Promise<boolean> }) {
-  const [editing, setEditing] = useState("");
+function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
+  executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode;
+  project?:string; revision?:string; csrf?:string; branchCandidate?:PendingConfig|null;
+  header?:ReactNode; actions?:ReactNode; children?:ReactNode; executorOnly?:boolean;
+  config:Record<string,unknown>; localIdentity?:Config["local_execution"]; settings:SettingMeta[];
+  t:(key:MessageKey)=>string; locale:Locale; canEdit:boolean; disabled:boolean; stale?:boolean; readFailed?:boolean;
+  onSave:(edits:SettingEdit[],base:string)=>Promise<boolean>; onDiscard:()=>Promise<boolean>;
+  registerGuard:(guard:(()=>boolean)|null)=>void;
+}) {
+  const rows = settingRows(config, settings);
+  const recoveryBackend=branchCandidate?.key===BATCH_KEY
+    ? (branchCandidate.proposed_value as Record<string,unknown>)["execution.backend"] : undefined;
+  const exactRecovery=!!branchCandidate && pendingSettingEdits(branchCandidate).some(edit=>!rows.some(row=>
+    row.editKey===edit.key && row.input!=="none" && settingVisible(row.key,executorOnly,String(recoveryBackend ?? settingValue(config,"execution.backend") ?? "container"))
+    && connectionRowVisible(row.key,settingValue(config,"executor.provider"))));
+  const recoveredEditors = (values:SettingDrafts) => new Set(rows.filter(row=>values[row.editKey]!==undefined
+    && (row.input!=="connection" || row.key==="executor.model")).map(row=>row.key));
+  const [drafts, setDrafts] = useState<SettingDrafts>(()=>exactRecovery ? {} : recoverSettingDrafts(config,rows,branchCandidate));
+  const [editing, setEditing] = useState<Set<string>>(()=>recoveredEditors(drafts));
+  const [saving, setSaving] = useState(false), [conflict, setConflict] = useState(false);
+  const disabled = externallyDisabled || saving || readFailed;
+  const saveBar = useRef<HTMLDivElement>(null), wasSaving = useRef(false);
+  useEffect(() => {
+    if (wasSaving.current && !saving) {
+      const button=saveBar.current?.querySelector<HTMLButtonElement>("button.primary:not(:disabled)");
+      if (button) button.focus(); else saveBar.current?.focus();
+    }
+    wasSaving.current=saving;
+  }, [saving]);
+  const base = useRef({config,rows,revision});
+  const live = useRef({config,rows,revision}); live.current = {config,rows,revision};
+  const pendingRevision = useRef(branchCandidate?.candidate_revision || "");
+  const prepared = prepareSettingDrafts(base.current.config,base.current.rows,drafts);
+  const dirty = prepared.edits.length + prepared.invalid.length > 0;
+  const alreadyApplied = !!branchCandidate && branchCandidate.candidate_revision === revision;
+  const stale = externallyStale || conflict || dirty && base.current.revision !== revision
+    || !!branchCandidate && branchCandidate.base_revision !== revision && !alreadyApplied;
+  const saveCopy = settingsSaveCopy[locale];
+  useEffect(() => {
+    const next = branchCandidate?.candidate_revision || "";
+    if (next && next !== pendingRevision.current && !saving) {
+      if (!dirty) {
+        const recovered=exactRecovery ? {} : recoverSettingDrafts(config,rows,branchCandidate);
+        setDrafts(recovered);setEditing(recoveredEditors(recovered));
+      }
+      else if (pendingRevision.current) setConflict(true);
+    }
+    pendingRevision.current = next;
+  }, [branchCandidate?.candidate_revision, saving]);
+  useEffect(() => {
+    if (!dirty && !saving && base.current.revision !== revision) {
+      base.current = live.current; setDrafts({}); setEditing(new Set());
+    }
+  }, [revision, dirty, saving]);
+  useEffect(() => {
+    registerGuard(dirty || saving ? ()=>!saving && window.confirm(saveCopy.leave) : null);
+    const unload = (event:BeforeUnloadEvent) => { if (dirty || saving) {event.preventDefault();event.returnValue="";} };
+    window.addEventListener("beforeunload",unload);
+    return () => {registerGuard(null);window.removeEventListener("beforeunload",unload);};
+  }, [dirty,saving,saveCopy.leave,registerGuard]);
+  const draftFor = (row:SettingRow) => drafts[row.editKey] ?? settingDraftValue(row,config);
+  const updateDraft = (row:SettingRow,value:string) => setDrafts(previous=>({...previous,[row.editKey]:value}));
+  const beginEdit = (row:SettingRow) => {
+    setEditing(previous=>{
+      const next=new Set(previous);
+      if (row.input==="connection") for (const item of rows) if (item.editKey===row.editKey) next.delete(item.key);
+      next.add(row.key);return next;
+    });
+  };
+  const cancelEdit = (row:SettingRow) => {
+    setDrafts(previous=>{const next={...previous};delete next[row.editKey];return next;});
+    setEditing(previous=>{const next=new Set(previous);next.delete(row.key);return next;});
+  };
+  const saveAll = async () => {
+    if (disabled || stale || prepared.invalid.length || branchInvalid || !base.current.revision) return;
+    setSaving(true);
+    try {
+      if (await onSave(prepared.edits,base.current.revision)) {
+        base.current=live.current;setDrafts({});setEditing(new Set());setConflict(false);
+      }
+    } finally {setSaving(false);}
+  };
+  const discardAll = async () => {
+    if (externallyDisabled || saving) return;
+    setSaving(true);
+    try {
+      if (await onDiscard()) {
+        base.current=live.current;setDrafts({});setEditing(new Set());setConflict(false);
+      }
+    } finally {setSaving(false);}
+  };
   // Image suggestions from the server while the image row is being edited.
   const [serverImages, setServerImages] = useState<ServerImages | null>(null);
+  const imageRuntime = drafts["container.runtime"] ?? String(settingValue(config,"container.runtime") ?? "docker");
   useEffect(() => {
-    if (editing !== "container.image") return;
+    if (!editing.has("container.image")) return;
     let active = true;
     setServerImages(null);
-    void readServerImages(String(settingValue(config, "container.runtime") ?? "docker")).then(value => { if (active) setServerImages(value); });
+    void readServerImages(imageRuntime).then(value => { if (active) setServerImages(value); });
     return () => { active = false; };
-  }, [editing, config]);
-  const [draft, setDraft] = useState("");
+  }, [editing, imageRuntime]);
   const [branchPreview, setBranchPreview] = useState<BranchPreview | null>(null);
   const [branchFailure, setBranchFailure] = useState("");
-  const template = editing === "worktree.branch_template" ? draft : branchCandidate?.key === "worktree.branch_template" ? String(branchCandidate.proposed_value) : String(settingValue(config, "worktree.branch_template") ?? "");
-  const rule = editing === "worktree.branch_rule" ? draft : branchCandidate?.key === "worktree.branch_rule" ? String(branchCandidate.proposed_value) : String(settingValue(config, "worktree.branch_rule") ?? "");
+  const template = drafts["worktree.branch_template"] ?? String(settingValue(config, "worktree.branch_template") ?? "");
+  const rule = drafts["worktree.branch_rule"] ?? String(settingValue(config, "worktree.branch_rule") ?? "");
   const branchIdentity = JSON.stringify([project, revision, template, rule]);
   const currentPreview = branchPreview && branchPreview.revision === revision && branchPreview.template === template && branchPreview.rule === rule ? branchPreview : null;
   useEffect(() => {
@@ -1394,7 +1558,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     }, 250);
     return () => { current = false; window.clearTimeout(timer); };
   }, [executorOnly, project, revision, csrf, template, rule, branchIdentity]);
-  const backend = String(settingValue(config, "execution.backend") ?? "container");
+  const backend = drafts["execution.backend"] ?? String(settingValue(config, "execution.backend") ?? "container");
   const groups = settingGroups(settingRows(config, settings).filter(row => settingVisible(row.key, executorOnly, backend)
     && connectionRowVisible(row.key, settingValue(config, "executor.provider"))), false);
   const copy = settingsCopy[locale];
@@ -1402,26 +1566,13 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     Array.isArray(value) || typeof value === "object" ? JSON.stringify(value) : String(value);
   const label = (row: SettingRow) => settingDisplayLabel(row.key, locale);
   const editorCopy = implementationEditorCopy[locale];
-  const typedKinds = ["duration", "retry-delays", "stage-timeouts"];
-  const typedValue = (row: SettingRow) => {
-    if (row.input === "credential-names") {
-      try { return validCredentialNames(JSON.parse(draft)) ? draft : null; } catch { return null; }
-    }
-    if (row.input === "connection") {
-      try { return validConnection(JSON.parse(draft)) ? draft : null; } catch { return null; }
-    }
-    return typedKinds.includes(row.input) ? implementationDraft(row.input, draft) : draft;
-  };
-  let stageValues: Record<string, number> = {};
-  try { const parsed = JSON.parse(draft); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stageValues = parsed; } catch { /* Incomplete drafts cannot be prepared. */ }
-  const submit = async (event: FormEvent<HTMLFormElement>, row: SettingRow) => {
-    event.preventDefault();
-    if (BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid) return;
-    const value = row.input === "reviewers" ? JSON.stringify(draft.split(/\r?\n/).map(name => name.trim()).filter(Boolean)) : typedValue(row);
-    if (value === null) return;
-    if (await onStage(row.editKey, value)) setEditing("");
-  };
-  const editor = (row:SettingRow) => <form className="setting-editor" onSubmit={event => void submit(event, row)}>
+  const typedValue = (row:SettingRow) => normalizeSettingDraft(row,draftFor(row));
+  const branchInvalid = prepared.edits.some(edit=>BRANCH_NAMING_KEYS.has(edit.key)) && !currentPreview?.valid;
+  const editor = (row:SettingRow) => {
+    const draft=draftFor(row), setDraft=(value:string)=>updateDraft(row,value);
+    let stageValues:Record<string,number>={};
+    try { const parsed=JSON.parse(draft);if(parsed && typeof parsed==="object" && !Array.isArray(parsed)) stageValues=parsed; } catch { /* Incomplete input remains local. */ }
+    return <div className="setting-editor">
           {row.input === "connection" ? <AgentConnectionEditor value={draft} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "credential-names" ? <CredentialNamesEditor value={draft} choices={row.choices} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "duration" ? <div className="duration-inputs">
@@ -1443,9 +1594,10 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           {row.key === "container.image" && !!serverImages?.images.length && <datalist id="setting-image-options">{serverImages.images.map(name => <option value={name} key={name} />)}</datalist>}
           {row.key === "container.image" && serverImages && (!serverImages.available ? <p className="field-hint">{enrollmentCopy[locale].imagesUnavailable}</p>
             : draft.trim() && !serverImages.images.includes(draft.trim()) && <p className="field-hint" role="status">{enrollmentCopy[locale].imageMissing}</p>)}
-          <div className="button-row"><button className="primary" disabled={disabled || typedValue(row) === null || BRANCH_NAMING_KEYS.has(row.key) && !currentPreview?.valid || row.input === "choice" && !row.choices.includes(draft)}>{copy.prepare}</button><button type="button" className="ghost" onClick={() => setEditing("")}>{t("cancel")}</button></div>
+          <div className="button-row"><button type="button" className="ghost" disabled={disabled} onClick={() => cancelEdit(row)}>{t("cancel")}</button></div>
           {typedValue(row) === null && <p role="alert">{row.input === "connection" ? connectionCopy[locale].invalid : editorCopy.invalid}</p>}
-        </form>;
+        </div>;
+  };
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
         <div>
           <strong>{label(row)}</strong><p className="setting-essential" id={`help-${row.key}`}>{executorSettingHelp(row.key, locale) ?? settingHelp(row.key, locale) ?? t("settingGeneralHelp")}</p>
@@ -1453,17 +1605,24 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           {canEdit && row.input !== "none" && row.restart && <small className="setting-note">{t("settingRestartShort")}</small>}
           {canEdit && row.input === "none" && <small className="setting-note">{t("settingNotEditableShort")}</small>}
         </div>
-        {editing === row.key ? editor(row) : <div><div className="setting-value-heading"><small>{copy.active}</small>
-          {canEdit && row.input !== "none" && editing !== row.key && <button type="button" className="text-button" disabled={disabled} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => { setEditing(row.key); setDraft(row.input === "connection" ? JSON.stringify(connectionOf(config)) : ["reviewers", "retry-delays"].includes(row.input) && Array.isArray(row.value) ? row.value.join("\n") : editValue(row.value)); }}>{t("editSetting")}</button>}
+        {editing.has(row.key) ? <div className="setting-control">{editor(row)}</div> : <div className="setting-control"><div className="setting-value-heading"><small>{copy.active}</small>
+          {canEdit && row.input !== "none" && !editing.has(row.key) && <button type="button" className="text-button" disabled={disabled || exactRecovery} aria-label={`${t("editSetting")} ${label(row)}`} data-edit-key={row.editKey} onClick={() => beginEdit(row)}>{t("editSetting")}</button>}
         </div><code>{agentValue(row.key, row.value, locale) ?? (row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.value, locale) ?? shown(row.value) : row.key === "delivery.draft" ? publicationValue(row.value, locale) : shown(row.value))}</code><small>{t("settingDefaultValue")}: {hasDefault(row.defaultValue) ? agentValue(row.key, row.defaultValue, locale) ?? (row.key === "review.on_pipeline_failure" ? pipelineFailureValue(row.defaultValue, locale) ?? shown(row.defaultValue) : row.key === "delivery.draft" ? publicationValue(row.defaultValue, locale) : shown(row.defaultValue)) : t("settingNoDefault")}</small></div>}
         {row.key === "executor.internet" && (backend === "local"
           ? <p className="setting-note" role="note">{internetCopy[locale].internetLocal}</p>
-          : (editing === row.key ? draft === "true" : row.value === true) && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>)}
+          : (editing.has(row.key) ? draftFor(row) === "true" : row.value === true) && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>)}
 
       </div>;
   return <section className="panel" id="project-settings">
     {header ?? <div className="panel-heading"><div className="heading-with-help"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{!executorOnly && <HelpLink topic={CONTEXT_TOPICS.projectSettings} locale={locale} />}</div>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
+    {canEdit && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
+      <div><span role="status" aria-live="polite">{dirty ? saveCopy.dirty.replace("{count}",String(prepared.edits.length+prepared.invalid.length)) : branchCandidate ? saveCopy.prepared : saveCopy.clean}</span>
+      {stale && <p role="alert">{saveCopy.stale}</p>}
+      {(prepared.invalid.length>0 || branchInvalid) && <p role="alert">{saveCopy.invalid}</p>}</div>
+      <div className="button-row"><button type="button" className="ghost" disabled={externallyDisabled || saving || !dirty && !branchCandidate && !readFailed} onClick={()=>void discardAll()}>{saveCopy.discard}</button>
+      <button type="button" className="primary" disabled={disabled || stale || prepared.invalid.length>0 || branchInvalid || !prepared.edits.length && !alreadyApplied && !exactRecovery} onClick={()=>void saveAll()}>{saving ? saveCopy.saving : saveCopy.save}</button></div>
+    </div>}
     {children}
     {groups.length === 0 ? <Empty label={t("settingsNoneSet")} /> : <div className="setting-groups">{groups.map(group => {
       return <details key={group.name} data-setting-purpose={group.name} open={executorOnly}>
@@ -1481,7 +1640,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           if (category) category.open = true;
           target.focus(); target.scrollIntoView({ block: "center" });
         }}>{copy.integrationBranchLink}</a></div>
-        <div><div className="setting-value-heading"><small>{copy.active}</small></div><code>{shown(settingValue(config, "delivery.target_branch"))}</code></div>
+        <div className="setting-control"><div className="setting-value-heading"><small>{copy.active}</small></div><code>{shown(settingValue(config, "delivery.target_branch"))}</code></div>
       </div>}
       <div className="setting-list">{group.rows.filter(row => !STATUS_LABEL_KEYS.has(row.key) && !settingSubgroup(row.key)).map(renderRow)}
         {group.name === "repository" && <section className="branch-naming-preview" aria-label={branchNamingCopy[locale].preview}>

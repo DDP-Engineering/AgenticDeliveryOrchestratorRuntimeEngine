@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import {settingsSave,settingsImpact,discardSettings} from "./settings-actions";
 import { test, expect } from "@playwright/test";
 
 test("agent package permission reviews separately from network access", async ({ page }) => {
@@ -24,15 +25,13 @@ test("agent package permission reviews separately from network access", async ({
   await expect(row).toContainText("Network access is configured separately");
   await row.getByRole("button", { name: "Edit Allow agent system package installation" }).click();
   await row.getByRole("combobox").selectOption("true");
-  await row.getByRole("button", { name: "Prepare candidate", exact: true }).click();
-  await expect(page.locator(".candidate-review")).toContainText(
+  await settingsSave(page).click();
+  await expect(settingsImpact(page)).toContainText(
     "Allow agent system package installation");
   const pending = await (await page.request.get(`/api/v1/projects/${id}/config/pending`)).json();
-  expect(pending.key).toBe("container.system_packages");
-  expect(pending.proposed_value).toBe(true);
+  expect(pending).toBeNull();
+  await expect(settingsImpact(page)).toContainText("true");
   const current = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
   expect(current.config.container.egress).toEqual(before.config.container.egress);
-  await page.locator(".candidate-review").getByRole("button", {
-    name: "Discard change", exact: true,
-  }).click();
+  await discardSettings(page);
 });

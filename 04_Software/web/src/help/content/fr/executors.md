@@ -14,7 +14,7 @@ Ouvrez **Paramètres → Agent et modèle**. Modifiez ensemble **Fournisseur**, 
 - **Modèle** : choisissez dans la liste de Pi pour ce fournisseur ou saisissez tout ID de modèle accepté par le fournisseur, par exemple `gpt-5.4`. La liste accompagne la version de Pi fournie par ADORE et se lit sans accès à internet. Il n’y a pas de modèle universel par défaut.
 - **Abonnement ChatGPT** : Pi utilise le compte ChatGPT Plus ou Pro auquel ce serveur ADORE est connecté, voir [Se connecter avec ChatGPT](#chatgpt). La liste propose les modèles servis par un abonnement ChatGPT, par exemple `gpt-5.6-luna`.
 
-**Préparer le candidat** présente les valeurs actuelles et proposées. **Appliquer** les enregistre ; voir [Paramètres du projet](/help/settings#editing) pour la mise en pause. ADORE lance un nouveau processus Pi par étape et l’arrête en cas de délai dépassé ou d’annulation.
+**Enregistrer** sauvegarde les paramètres ensemble après confirmation des effets importants ; voir [Paramètres du projet](/help/settings#editing) pour suspendre la surveillance. ADORE lance un nouveau processus Pi par étape et l’arrête en cas de délai dépassé ou d’annulation.
 
 ## Point de terminaison compatible OpenAI {#endpoint}
 
@@ -72,7 +72,7 @@ Le résultat est **Modèle IA connecté** seulement si la commande shell a été
 
 > Avec l’accès Internet activé, une page web malveillante pourrait tenter de faire envoyer par l’agent sa clé API ou son jeton ChatGPT. Préférez des clés limitées et de courte durée.
 
-Les deux paramètres changent par **Préparer le candidat** et **Appliquer** comme les autres. Avec l’accès Internet désactivé, l’image du proxy doit exister sur le serveur ADORE ; **Vérifier les prérequis de l’hôte** la signale, ainsi que la clé de recherche si elle est nécessaire. Pour un projet installé sur le serveur, le commutateur est affiché **Non appliqué** : Pi atteint tout ce que le serveur atteint.
+Utilisez **Enregistrer** pour les deux paramètres et confirmez les effets importants. Avec l’accès Internet désactivé, l’image du proxy doit exister sur le serveur ADORE ; **Vérifier les prérequis de l’hôte** la signale, ainsi que la clé de recherche si elle est nécessaire. Pour un projet installé sur le serveur, le commutateur est affiché **Non appliqué** : Pi atteint tout ce que le serveur atteint.
 
 ## Où s’exécutent les tâches {#where-jobs-run}
 

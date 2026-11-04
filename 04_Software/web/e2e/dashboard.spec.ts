@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import {settingsSave} from "./settings-actions";
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 
@@ -81,13 +82,13 @@ test("admin stages and applies a budget change without changing live config duri
   await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   const editor = page.locator(".setting-editor");
   await editor.getByRole("spinbutton").fill(String(value));
-  await editor.getByRole("button", { name: "Prepare candidate", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Pending configuration", exact: true })).toBeVisible();
+  await settingsSave(page).click();
+  await expect(page.getByRole("heading", { name: "Confirm important changes", exact: true })).toBeVisible();
   const staged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(staged.revision).toBe(before.revision);
   expect(staged.config.budgets.max_iterations).toBe(before.config.budgets.max_iterations);
-  await page.getByRole("button", { name: "Apply change", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Pending configuration", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Confirm important changes", exact: true })).toHaveCount(0);
   await expect(page.locator(".notice[role=status]")).toContainText("Configuration applied");
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.budgets.max_iterations).toBe(value);

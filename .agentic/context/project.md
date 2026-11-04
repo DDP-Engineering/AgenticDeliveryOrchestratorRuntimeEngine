@@ -12,7 +12,7 @@ Installation settings in Technical details are informational and configured in s
 
 Shared CLI/web configuration defaults optional acceptance checking to false and additional revision rounds to five; the typed readiness and portable contracts contain supported fields only.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins edit several settings, choose Save, confirm important effects and save only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
 ## Purpose and users
 
@@ -56,11 +56,10 @@ ADORE's only coding agent.
   Header help discloses localized delivery meanings beside Refresh/About; sidebar
   Jobs supplies scoped full-history navigation.
   Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
-  Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one reviewed `executor.connection` edit; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
+  Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one coherent `executor.connection` member in the settings batch; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
   (no agent choice; the native command is fixed); a ChatGPT-subscription project shows the server's one ChatGPT sign-in instead of the key (admin-only Pi OAuth through the selected container or managed native helper, a temporary access token per stage; container and native Windows/Linux runs with stage limits up to 3000 s), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.
   Settings uses six purpose
-  categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and exact single-candidate active/proposed
-  review with explicit base/candidate binding, idle/lock/pause safety and Dev
+  categories and closed informational Technical details, with clarification/recovery/statistics-path topics and one Repository branch editor linked from PR/MR, visible catalog guidance and one Save for all edits with a concise important-effect confirmation with explicit base/candidate binding, idle/lock/pause safety and Dev
   financial/secret redaction. Admin portable export validates active configuration
   and transfers only complete polling/readiness/recovery/budget defaults with exact
   package-version compatibility and a change-detection checksum. Strict parsing

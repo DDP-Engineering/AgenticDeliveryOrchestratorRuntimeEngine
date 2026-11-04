@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-1f5bc86b"
+title = "Confirm important setting effects before saving"
+status = "active"
+requirement = "When Save includes an identity, runtime, internet, privilege, execution-budget or publication-policy change, the dashboard shall request confirmation of the exact affected project, changed values and concise effects before applying its bound candidate."
+verification = "Chromium tests confirm an important multi-edit save, cancel without publishing, reject stale/mismatched evidence and check modal focus/keyboard behavior; ordinary changes save without an impact dialog."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/settings-save.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+spec = "specs/settings-save.md"
+priority = "normal"
+rationale = ""
+created = 2026-11-04
+updated = 2026-11-04

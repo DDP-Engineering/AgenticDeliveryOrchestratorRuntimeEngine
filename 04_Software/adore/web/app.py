@@ -145,6 +145,7 @@ from adore.web.repository_source import (
 from adore.web.repository_source import (
     clone as clone_repository,
 )
+from adore.web.settings_batch import BATCH_KEY, parse_batch
 from adore.web.store import WebStore, WebStoreError
 from adore.web.tickets import (
     RunReadError,
@@ -417,11 +418,12 @@ class ProjectImportInput(BaseModel):
 
 
 class ConfigEdit(BaseModel):
-    """@brief One validated scalar configuration edit."""
+    """@brief One validated scalar or complete settings-batch edit."""
 
     key: str
     value: str
     revision: str
+    pending_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class BranchPreview(BaseModel):
@@ -1468,6 +1470,12 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
     @param[in] proposed Parsed candidate value.
     @return True for a declared scalar type or an exact approved collection.
     """
+    if key == BATCH_KEY:
+        return (isinstance(proposed, dict) and 1 <= len(proposed) <= 100
+                and all(_editable_setting_key(member) and not _external_environment_key(member)
+                        and member != BATCH_KEY
+                        and _valid_candidate_scalar(member, item, backend)
+                        for member, item in proposed.items()))
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
     if key == CONNECTION_KEY:
@@ -1501,6 +1509,14 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     @return Candidate text, preserving unrelated keys and line endings.
     @exception ValueError When collection input or existing key spelling is unsupported.
     """
+    if key == BATCH_KEY:
+        for member, wire in parse_batch(value):
+            if _external_environment_key(member):
+                raise _error(400, "environment_managed_externally")
+            if not _editable_setting_key(member):
+                raise _error(400, "setting_not_editable")
+            text = _set_candidate_value(text, member, wire)
+        return text
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
     if key == CONNECTION_KEY:
@@ -1542,8 +1558,10 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
     return "".join(lines)
 
 
-def _candidate_value(tree: dict, key: str):
+def _candidate_value(tree: dict, key: str, wire: str = ""):
     """@brief Read one scalar or collection value, or the complete connection review."""
+    if key == BATCH_KEY:
+        return {member: _candidate_value(tree, member) for member, _ in parse_batch(wire)}
     return connection_value(tree) if key == CONNECTION_KEY else _value_at(tree, key)
 
 
@@ -1565,11 +1583,11 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
         changed = _set_candidate_value(current, body.key, body.value)
         parsed_change = tomllib.loads(changed)
         if not _valid_candidate_scalar(
-            body.key, _candidate_value(parsed_change, body.key),
+            body.key, _candidate_value(parsed_change, body.key, body.value),
             parsed_change.get("execution", {}).get("backend", "container")
         ):
             raise _error(400, "invalid_config")
-        if _secret_config_keys({"setting": _candidate_value(parsed_change, body.key)}):
+        if _secret_config_keys({"setting": _candidate_value(parsed_change, body.key, body.value)}):
             raise _error(400, "invalid_config")
         if len(changed.encode("utf-8")) > 1048576:
             raise _error(413, "config_too_large")
@@ -1582,6 +1600,41 @@ def _candidate_config_edit(path: Path, body: ConfigEdit) -> tuple[bytes, str]:
             tomllib.TOMLDecodeError) as exc:
         raise _error(400, "invalid_config") from exc
     return raw, changed
+
+
+def _prepare_config_candidate(path: Path, body: ConfigEdit,
+                              runner: CommandRunner) -> tuple[bytes, str, dict]:
+    """@brief Build one canonical candidate for no-write preview or preparation.
+    @param[in] path Active project configuration.
+    @param[in] body Exact scalar or batch edit and inspected base revision.
+    @param[in] runner Injectable read-only execution-plan command boundary.
+    @return Active bytes, candidate TOML and current-format candidate record.
+    @exception HTTPException Invalid edits, stale source or unavailable plan.
+    """
+    raw, changed = _candidate_config_edit(path, body)
+    if sha256(path.read_bytes()).digest() != sha256(raw).digest():
+        raise _error(409, "stale_config_revision")
+    value = {
+        "schema": 1,
+        "base_revision": sha256(raw).hexdigest(),
+        "candidate_revision": sha256(changed.encode("utf-8")).hexdigest(),
+        "candidate_text": changed,
+        "key": body.key,
+        "value": body.value,
+        "created_at": datetime.now(UTC).isoformat(),
+        "restart_required": _restart_required(body.key, body.value),
+    }
+    candidate_config = _config_from_bytes(changed.encode())
+    if (candidate_config.execution.preparation
+            or candidate_config.execution.backend == "local"):
+        try:
+            value["execution_plan"] = preview_plan(candidate_config, runner=runner)
+        except PreparationError as exc:
+            raise _error(400, "execution_plan_invalid", message=str(exc)) from exc
+    if sha256(path.read_bytes()).hexdigest() != value["base_revision"]:
+        raise _error(409, "stale_config_revision")
+    _public_pending_config(value, active_text=raw.decode("utf-8"))
+    return raw, changed, value
 
 
 def _read_pending_config(path: Path) -> dict | None:
@@ -1603,7 +1656,7 @@ def _read_pending_config(path: Path) -> dict | None:
                 or re.fullmatch(r"[0-9a-f]{64}", value["base_revision"]) is None
                 or re.fullmatch(r"[0-9a-f]{64}", value["candidate_revision"]) is None
                 or type(value.get("restart_required")) is not bool
-                or value["restart_required"] != _restart_required(value["key"])
+                or value["restart_required"] != _restart_required(value["key"], value["value"])
                 or len(value["candidate_text"].encode("utf-8")) > 1048576
                 or sha256(value["candidate_text"].encode("utf-8")).hexdigest()
                 != value["candidate_revision"]):
@@ -1635,19 +1688,22 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         candidate = tomllib.loads(value["candidate_text"])
         if not _editable_setting_key(value["key"]):
             raise ValueError("unreviewable setting")
-        proposed = _candidate_value(candidate, value["key"])
+        proposed = _candidate_value(candidate, value["key"], value["value"])
         if not _valid_candidate_scalar(value["key"], proposed,
                                        candidate.get("execution", {}).get("backend", "container")):
             raise ValueError("invalid proposed value")
         if _secret_config_keys({"setting": proposed}):
             raise ValueError("unsafe proposed value")
-        claimed = (strict_json_loads(value["value"])
+        claimed = (_candidate_value(
+                       tomllib.loads(_set_candidate_value("", value["key"], value["value"])),
+                       value["key"], value["value"])
+                   if value["key"] == BATCH_KEY else strict_json_loads(value["value"])
                    if value["key"] in COLLECTION_KEYS or value["key"] == CONNECTION_KEY
                    else _value_at(tomllib.loads(_set_candidate_value(
                        "", value["key"], value["value"])), value["key"]))
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
-        if ((value["key"] in COLLECTION_KEYS or value["key"] == CONNECTION_KEY)
+        if ((value["key"] in COLLECTION_KEYS or value["key"] in {CONNECTION_KEY, BATCH_KEY})
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
@@ -1669,8 +1725,10 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
     return public
 
 
-def _restart_required(key: str) -> bool:
+def _restart_required(key: str, wire: str = "") -> bool:
     """@brief Classify edits that change project identity or runtime wiring."""
+    if key == BATCH_KEY:
+        return any(_restart_required(member) for member, _ in parse_batch(wire))
     return key.startswith(("agent.", "platform.", "worktree.",
                            "container.", "execution.", "local.", "executor."))
 
@@ -1718,7 +1776,8 @@ def _editable_setting_key(key: str) -> bool:
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
                "workflow.aegis_python"}:
         return False
-    if key in {"clarification.answer_timeout", "clarification.max_rounds", CONNECTION_KEY}:
+    if key in {"clarification.answer_timeout", "clarification.max_rounds",
+               CONNECTION_KEY, BATCH_KEY}:
         return True
     if key in CONNECTION_KEYS:
         return False
@@ -3670,7 +3729,7 @@ def create_app(home: str | Path | None = None,
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
         item = project(name, user)
-        if body.key == "executor.env_keys":
+        if body.key in {"executor.env_keys", BATCH_KEY}:
             raise _error(409, "pending_config_required")
         if _external_environment_key(body.key):
             raise _error(400, "environment_managed_externally")
@@ -3727,7 +3786,8 @@ def create_app(home: str | Path | None = None,
                     resource_id=body.key,
                     base_revision=sha256(raw).hexdigest(),
                     candidate_revision=sha256(candidate.read_bytes()).hexdigest(),
-                    before={"value": _candidate_value(tomllib.loads(raw.decode()), body.key)},
+                    before={"value": _candidate_value(
+                        tomllib.loads(raw.decode()), body.key, body.value)},
                 )
                 candidate.replace(path)
                 _sync_profile_config_identity(profiles, item, path)
@@ -3758,6 +3818,19 @@ def create_app(home: str | Path | None = None,
             raise _error(503, "config_corrupt") from exc
         return _public_pending_config(value, active_text=active_text)
 
+    @app.post("/api/v1/projects/{name}/config/preview")
+    def preview_config(
+        name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
+        """@brief Validate effects without publishing active or pending settings."""
+        item = project(name, user)
+        if _external_environment_key(body.key):
+            raise _error(400, "environment_managed_externally")
+        path = profiles.config_path(item.name)
+        with config_lock, _web_config_edit_lock(path):
+            raw, _changed, value = _prepare_config_candidate(path, body, probe_runner)
+            return _public_pending_config(value, active_text=raw.decode("utf-8"))
+
     @app.post("/api/v1/projects/{name}/config/pending")
     def stage_config(
         name: str, body: ConfigEdit, user: Annotated[dict, Depends(admin_mutation)]
@@ -3769,28 +3842,23 @@ def create_app(home: str | Path | None = None,
         path = profiles.config_path(item.name)
         pending_path = profiles.profile_dir(item.name) / "pending_config.json"
         with config_lock, _web_config_edit_lock(path):
-            if _read_pending_config(pending_path) is not None:
-                raise _error(409, "pending_config_exists")
-            raw, changed = _candidate_config_edit(path, body)
-            if sha256(path.read_bytes()).digest() != sha256(raw).digest():
-                raise _error(409, "stale_config_revision")
-            value = {
-                "schema": 1,
-                "base_revision": sha256(raw).hexdigest(),
-                "candidate_revision": sha256(changed.encode("utf-8")).hexdigest(),
-                "candidate_text": changed,
-                "key": body.key,
-                "value": body.value,
-                "created_at": datetime.now(UTC).isoformat(),
-                "restart_required": _restart_required(body.key),
-            }
-            candidate_config = _config_from_bytes(changed.encode())
-            if (candidate_config.execution.preparation
-                    or candidate_config.execution.backend == "local"):
+            previous = _read_pending_config(pending_path)
+            if previous is not None:
+                if body.pending_revision is None:
+                    raise _error(409, "pending_config_exists")
                 try:
-                    value["execution_plan"] = preview_plan(candidate_config, runner=probe_runner)
-                except PreparationError as exc:
-                    raise _error(400, "execution_plan_invalid", message=str(exc)) from exc
+                    active_text = path.read_bytes().decode("utf-8")
+                except (OSError, UnicodeError) as exc:
+                    raise _error(503, "config_corrupt") from exc
+                _public_pending_config(previous, active_text=active_text)
+                if not secrets.compare_digest(
+                        body.pending_revision, previous["candidate_revision"]):
+                    raise _error(409, "stale_pending_revision")
+                if not secrets.compare_digest(body.revision, previous["base_revision"]):
+                    raise _error(409, "stale_config_revision")
+            elif body.pending_revision is not None:
+                raise _error(409, "stale_pending_revision")
+            raw, changed, value = _prepare_config_candidate(path, body, probe_runner)
             public = _public_pending_config(value)
             attempt = web.begin_change(
                 user["id"],
@@ -3801,12 +3869,13 @@ def create_app(home: str | Path | None = None,
                 phase="prepare",
                 base_revision=value["base_revision"],
                 candidate_revision=value["candidate_revision"],
-                before={"value": _candidate_value(tomllib.loads(raw.decode()), body.key)},
+                before={"value": _candidate_value(
+                    tomllib.loads(raw.decode()), body.key, body.value)},
             )
             _write_pending_config(pending_path, value)
             web.confirm_change(
                 attempt,
-                after={"value": _candidate_value(tomllib.loads(changed), body.key)},
+                after={"value": _candidate_value(tomllib.loads(changed), body.key, body.value)},
                 detail=body.key,
             )
         return public
@@ -3869,7 +3938,8 @@ def create_app(home: str | Path | None = None,
                     base_revision=pending["base_revision"],
                     candidate_revision=pending["candidate_revision"],
                     before=(
-                        {"value": _candidate_value(tomllib.loads(raw.decode()), pending["key"])}
+                        {"value": _candidate_value(
+                            tomllib.loads(raw.decode()), pending["key"], pending["value"])}
                         if not already_applied
                         else None
                     ),
@@ -3905,7 +3975,8 @@ def create_app(home: str | Path | None = None,
                         attempt,
                         after={
                             "value": _candidate_value(
-                                tomllib.loads(pending["candidate_text"]), pending["key"]
+                                tomllib.loads(pending["candidate_text"]),
+                                pending["key"], pending["value"]
                             )
                         },
                         detail=pending["key"],

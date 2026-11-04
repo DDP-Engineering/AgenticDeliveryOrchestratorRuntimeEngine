@@ -1,6 +1,6 @@
 # Paramètres du projet
 
-L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’ADORE lui applique : quels tickets il prend en charge, ses limites, la façon dont il publie et l’agent qu’il utilise. Les administrateurs les modifient par un flux vérifié, un paramètre à la fois ; les développeurs les lisent.
+L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’ADORE lui applique : quels tickets il prend en charge, ses limites, la façon dont il publie et l’agent qu’il utilise. Les administrateurs modifient plusieurs paramètres et les enregistrent ensemble ; les développeurs les lisent.
 
 ## Où trouver les Paramètres {#where}
 
@@ -32,19 +32,19 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Modification {#editing}
 
-1. Choisissez **Modifier** à côté de la valeur active, saisissez la nouvelle valeur et choisissez **Préparer le candidat**. Cela n’écrit qu’un candidat en attente ; la configuration en service reste inchangée.
-2. Le panneau **Configuration en attente** apparaît au-dessus des groupes et ne liste que les valeurs modifiées. Un candidat qui ne change rien ne peut pas être appliqué. Ouvrez **Détails techniques** pour la comparaison complète, l’effet, l’heure de préparation, les deux révisions et **Copier la revue expurgée**. Les valeurs d’identifiants sont masquées.
-3. Choisissez **Appliquer** pour le soumettre, ou **Abandonner** pour supprimer uniquement le candidat.
+1. Choisissez **Modifier** à côté de chaque valeur à changer. Vous pouvez modifier plusieurs paramètres dans différents groupes.
+2. Utilisez le bouton unique **Enregistrer** au-dessus des groupes. Il est actif seulement si des valeurs changent et si toutes les modifications sont valides.
+3. Pour les changements importants, **Confirmer les modifications importantes** affiche le projet, les valeurs modifiées et les effets. Choisissez **Enregistrer les modifications**, ou **Continuer la modification** pour revenir sans enregistrer.
 
 Règles applicables :
 
-- Un paramètre à la fois : les autres boutons Modifier restent désactivés jusqu’à ce que le candidat soit appliqué ou abandonné.
-- La revue est liée aux révisions. Appliquer envoie les révisions de base et du candidat vérifiées ; si le fichier actif a changé entre-temps, vous devez abandonner, actualiser et préparer de nouveau. Deux administrateurs qui modifient en même temps obtiennent un conflit au lieu de s’écraser mutuellement. Les modifications faites directement dans le fichier sur le serveur contournent cette protection.
-- Au moment d’Appliquer, le serveur revérifie qu’aucune tâche n’est active et qu’aucune opération n’est inachevée. Un Appliquer bloqué conserve le candidat et explique comment rétablir la situation.
-- Les paramètres qui changent l’identité ou l’environnement d’exécution exigent aussi que la surveillance soit en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la suspension n’interrompt pas une tâche en cours.
-- Les nouvelles valeurs s’appliquent aux tâches suivantes. Les tâches existantes conservent leur configuration.
+- **Annuler les modifications** efface toutes les modifications non enregistrées. Annuler la confirmation les conserve sans créer de candidat enregistré.
+- L’enregistrement est lié à la configuration modifiée. Une révision périmée bloque l’enregistrement et conserve vos saisies ; abandonnez et actualisez avant de recommencer. Les modifications concurrentes provoquent un conflit.
+- Le serveur vérifie toute la configuration et enregistre les changements ensemble, sans tâche active ni opération inachevée. Un échec conserve vos saisies et tout candidat préparé pour réessayer.
+- Les changements d’identité ou d’environnement exigent aussi la surveillance en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la pause n’interrompt pas une tâche.
+- Les nouvelles valeurs concernent les tâches suivantes. Les tâches existantes conservent leur configuration.
 
-Les blocages brefs de fichier sous Windows sont réessayés automatiquement. Si les réglages ne peuvent toujours pas être enregistrés, la proposition vérifiée reste disponible : vérifiez l’accès au fichier et réessayez **Appliquer**.
+La navigation ou Actualiser demande confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
 
 ## TOML d’origine {#toml}
 
@@ -54,6 +54,6 @@ Les blocages brefs de fichier sous Windows sont réessayés automatiquement. Si 
 
 **Autoriser l’installation de paquets système par l’agent**
 
-Dans Paramètres → Agent et modèle, les administrateurs activent cette permission distincte avec Préparer le candidat et Appliquer le changement. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
+Dans Paramètres → Agent et modèle, les administrateurs activent cette permission avec **Enregistrer** et confirment son effet. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
 
 L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.

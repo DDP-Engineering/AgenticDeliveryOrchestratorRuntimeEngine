@@ -22,7 +22,7 @@ Project settings keeps ready visible in Tickets and places answered/clarify/done
 
 `delivery.target_branch` has a shared four-locale Target branch label (Romanian: Ramura de integrare) in the row/editor/candidate review; help identifies the new-job remote base and PR/MR destination, short name without origin/, and human merge boundary.
 
-`delivery.draft` is presented as localized PR/MR state at publication with Draft/Ready for review choices, using the existing administrator reviewed prepare/apply flow and boolean wire contract. Active/default/proposed values carry the same names; in-review covers both forge states.
+`delivery.draft` is presented as localized PR/MR state at publication with Draft/Ready for review choices, using the administrator Save and important-effect confirmation and boolean wire contract. Active/default/proposed values carry the same names; in-review covers both forge states.
 
 Secondary text uses contrasting light/dark theme colours. Project metadata,
 configuration values, type/domain hints and field help use 0.875rem text with
@@ -63,7 +63,7 @@ Jobs and Statistics render inside the hub; the identity band appears only there.
 The Jobs tab opens on a Tickets sub-tab (read on request, Start that can add the
 ready/priority labels, Retry, Stop and Details per ticket; more than 10 tickets are paged 10/25/50/All with page X of Y) beside a Jobs sub-tab with the job table and detail. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins edit several settings, choose Save, confirm important effects and save only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
 `REQ-FUNC-d67a1d33` / `REQ-UX-66547cbf`: `web/implementation_settings.py` validates only retry delays and the complete six-stage map and verifies a single semantic TOML edit. `web/src/implementationSettings.ts` supplies safe draft serialization and editor copy. Typed groups fill the editor width with normal-height nested controls and action buttons below the stack. Metadata emits one parent stage-map row for empty or populated maps; reviewed values and unchanged-base candidate meaning are checked again before apply. `test_web_pending_config.py`, `web/tests/settings.test.mjs` and typed Implementation/locale/Dev journeys in `web/e2e/settings.spec.ts` prove this seam.
 
@@ -85,7 +85,7 @@ Its link opens Repository and focuses the single target-branch setting.
 
 `POST /api/v1/projects/{name}/config/branch-preview` accepts the closed strict body `{template, rule, revision}` (512-character text bounds, SHA-256 revision). Scoped users supply CSRF; the shared config lock coordinates preview reads with application, and project grants and before/after revision checks precede evidence release. The route returns the shared config preview plus inspected revision and performs no writes or Git operations. Corrupt source returns `config_corrupt`, stale input returns `stale_config_revision`, and malformed transport fails request validation. Scoped developer reads hide inaccessible project identity with the existing 404 policy.
 
-Only `worktree.branch_template`, `worktree.branch_rule` and the administrator-chosen `execution.backend`, `container.runtime`, `container.image` and `local.account/home/path/cgroup_root` are exceptions to the external environment edit restriction. They advertise editability/restart and retain administrator, validated single-setting candidate, lock, revision, paused/idle and replay integrity gates (direct PUT of the chosen keys returns 409 `pending_config_required`). Every other worktree/container/execution/local setting keeps external ownership. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
+Only `worktree.branch_template`, `worktree.branch_rule` and the administrator-chosen `execution.backend`, `container.runtime`, `container.image` and `local.account/home/path/cgroup_root` are exceptions to the external environment edit restriction. They advertise editability/restart and retain administrator, validated candidate, lock, revision, paused/idle and replay integrity gates (direct PUT of the chosen keys returns 409 `pending_config_required`). Every other worktree/container/execution/local setting keeps external ownership. Focused proof: `tests/test_web_branch_naming.py`, `tests/test_web_config.py`, `tests/test_web_pending_config.py`.
 
 ## Routing
 
@@ -278,10 +278,7 @@ SQLite bytes, authorization, scope and financial redaction.
   lock as CLI `config set`; direct host file changes do not use that lock.
   Staged, applied and direct edits write bytes and keep the
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
-- The administrator UI prepares one validated config candidate per project,
-  reviews changed safe values above categories with adjacent Apply/Discard; complete comparison, effect, observed time and full base/candidate revisions are disclosed in Technical details and applies it only with no active run, conductor or
-  queued operation. Identity/runtime edits require paused pickup. Retrying an
-  interrupted apply reconciles exact candidate bytes and profile labels.
+- The administrator UI edits multiple settings and uses one dirty-aware Save. Important effects receive a no-write canonical preview and native modal; cancellation retains inputs without a new stored draft. Confirmed preparation/apply binds exact hashes and plans. Ordinary changes save directly. Drafts survive errors and stale revisions; navigation and Refresh guard abandonment. Apply retains atomic idle/lock/pause authority and interrupted-apply reconciliation.
 - Explicit administrator readiness checks use bounded doctor probes from the
   API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
   executing repository code. The stored checks are exactly `git`, `forge_cli`,
@@ -299,9 +296,7 @@ SQLite bytes, authorization, scope and financial redaction.
   `{provider, model, base_url, api}`), edited by `AgentConnectionEditor.tsx`;
   the rows `executor.provider`, `executor.model`, `executor.endpoint.base_url`
   and `executor.endpoint.api` report that `edit_key` and cannot be staged
-  individually (400 `setting_not_editable`). `PendingReview` shows the
-  candidate as four rows (Provider, Model, Endpoint base URL, Endpoint API
-  type); `settings.ts` input kind `connection`, `connectionRowVisible` hides
+  individually (400 `setting_not_editable`). `SettingsImpactDialog` shows changed connection fields (Provider, Model, Endpoint base URL, Endpoint API type); `settings.ts` input kind `connection`, `connectionRowVisible` hides
   the endpoint rows unless the provider is `custom`.
 - `GET /api/v1/pi-providers` (any signed-in user; 503
   `provider_catalog_unavailable` when the shipped catalog is unreadable)
@@ -606,6 +601,7 @@ for Add and Import project. Primary buttons take their text colour from the
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
+| One settings Save, draft recovery, important effects, responsive rows | `App.tsx` SettingsList/SettingsImpactDialog/saveSettings, `settingsSave.ts`, `web/settings_batch.py`, config preview/pending/apply | `test_web_settings_batch.py`, `settingsSave.test.mjs`, `settings-save.spec.ts`, `settings.spec.ts` |
 | Atomic reviewed accounts and access edits | `UserCreation.tsx`, `userCopy.ts`, `create_user_with_access`, `/users/with-access` | `test_web_user_creation.py`, auth/access/RBAC suites, `web/e2e/users.spec.ts` |
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
 | Portable new-project file/copy, mapping and source revision | `TransferWizard.tsx`, `EnrollmentWizard.tsx`, `_prepare_transfer`, `transfer_source` | `test_web_transfer.py`, `web/e2e/transfer.spec.ts` |
@@ -715,7 +711,7 @@ Native control/auth route to local-execution.md. Focused proof:
 - `REQ-NFR-da638732` / `REQ-NFR-46c98d6c` / `REQ-FUNC-a83c4cd3` - no polling
   while hidden and server-paged Audit/Overview tables.
 - `REQ-UX-2bea4ff1` / `REQ-UX-84025a2c` - purpose categories, visible setting
-  guidance, catalog control domains and exact single-candidate safe review, with
+  guidance, catalog control domains and exact multi-setting save confirmation, with
   explicit apply/discard, recorded evidence fallbacks and scoped request guards.
 - `REQ-UX-66e6f3f5` - project details presents collapsible, guided settings with administrator editing.
 - `REQ-FUNC-49b766fe` / `REQ-UX-9a625fc5` / `REQ-UX-a62e69a9` - per-setting source, editability and
@@ -736,6 +732,8 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
+- `04_Software/adore/web/settings_batch.py`: closed batch parsing; authority and final configuration validation remain in app.py.
+- `04_Software/web/src/settingsSave.ts`: typed local drafts, meaningful equality, recovery, preview binding and four-locale Save copy.
 - `04_Software/adore/web/implementation_settings.py`: strict retry/map domain and semantic single-setting TOML writer.
 - `04_Software/web/src/implementationSettings.ts`: typed Implementation drafts and localized editor terminology.
 
@@ -797,7 +795,7 @@ Native control/auth route to local-execution.md. Focused proof:
 
 ### Settings edit and review seam
 
-Start at `App.tsx` SettingsList/PendingReview and `settings.ts` for grouped controls
+Start at `App.tsx` SettingsList/SettingsImpactDialog and `settings.ts` for grouped controls
 and strict transport; `settingsCopy.ts` and the existing settingHelp catalog supply
 four-locale guidance. Server `_setting_metadata`, `_public_pending_config` and
 pending routes own safe domains and candidate values; the browser supplies both
@@ -933,7 +931,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi provider, model, endpoint and launch command, closed Authentication (additional credential variables and Provider API key, or for a `chatgpt` project the ChatGPT sign-in panel `ChatGptSignIn.tsx` shown to Admins of a non-archived project) and external environment guidance. The panel shows the status, Sign in with ChatGPT (Sign in again unless not signed in), Disconnect ChatGPT (disabled while not signed in) and, while a sign-in waits, the OpenAI link (new tab, `noopener noreferrer`), a 15-minute validity note, the redirect address field, Complete sign-in and Cancel. The link and the address live only in component memory; the field is cleared on every attempt, and the panel rereads the status after every action. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows desktop description and control columns in a 3:2 ratio separated by 32px, with values/actions aligned to the right; below 640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi provider, model, endpoint and launch command, closed Authentication (additional credential variables and Provider API key, or for a `chatgpt` project the ChatGPT sign-in panel `ChatGptSignIn.tsx` shown to Admins of a non-archived project) and external environment guidance. The panel shows the status, Sign in with ChatGPT (Sign in again unless not signed in), Disconnect ChatGPT (disabled while not signed in) and, while a sign-in waits, the OpenAI link (new tab, `noopener noreferrer`), a 15-minute validity note, the redirect address field, Complete sign-in and Cancel. The link and the address live only in component memory; the field is cleared on every attempt, and the panel rereads the status after every action. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## External executor environment seam
 
@@ -956,9 +954,9 @@ no engine invocation. Restart resets cadence; serial work on another project
 may delay a due round. `polling.mode` governs standalone CLI startup; the web
 service schedules repeated `run --once` rounds independently of that value.
 
-Connection and launch-command editing uses the ordinary setting-editor flex layout: Prepare/Cancel follow the control on wide screens, with shared responsive wrapping.
+Connection and launch-command editing retain the right-hand control column, with row Cancel and one project Save bar.
 
-Inline editor validation follows the controls/actions on its own flex line. Incomplete model or command edits keep the same control/action placement and disabled Prepare, while responsive wrapping remains shared.
+Inline editor validation follows the controls/actions on its own flex line. Incomplete model or command edits keep the same control/action placement and disabled Save, while responsive wrapping remains shared.
 
 Explicit native readiness returns closed Node/Pi diagnostic evidence; persisted
 readiness keeps the boolean check contract. The local Settings UI exposes only
@@ -967,3 +965,8 @@ the current account and project tools PATH for native setup.
 The four-locale repository connection browser journey waits for successful
 language and theme preference writes before full document navigation. This
 keeps the keyboard and narrow-layout proof independent of request timing.
+
+
+### Exact API-candidate recovery
+
+A valid pending candidate containing an API-only or hidden setting remains read-only in the row UI. Navigation is guarded throughout saving and confirmation, including read-only recovery with no local dirty fields. The one Save action rereads and compares the complete pending envelope, confirms its safe values and applies the exact existing candidate/base pair without preparing a replacement. Stale or corrupt evidence blocks Save and remains explicitly discardable. GUI-editable pending batches recover into visible editors and use bound replacement. Focused proof: `settings-save.spec.ts` API-only success/stale/corrupt cases and `test_web_settings_batch.py` collateral replacement preservation.

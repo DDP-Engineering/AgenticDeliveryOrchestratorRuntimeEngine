@@ -4,6 +4,8 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import {settingsSave,settingsImpact,saveSettings,discardSettings} from "./settings-actions";
+import {settingsSaveCopy} from "../src/settingsSave";
 import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
 import { connectionRowVisible, settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
@@ -45,32 +47,34 @@ test("branch naming previews invalid drafts and applies both fields through exac
   const text = template.getByRole("textbox", { name: "Job branch name template", exact: true });
   await text.fill("feature/{unknown}-{iid}");
   await expect(preview).toContainText("Use only {slug}, {iid} and {run_id}");
-  await expect(template.getByRole("button", { name: "Prepare candidate" })).toBeDisabled();
+  await expect(settingsSave(page)).toBeDisabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await text.fill("feature/{slug}-{iid}");
   await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
-  await expect(template.getByRole("button", { name: "Prepare candidate" })).toBeEnabled();
-  await template.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
+  await expect(settingsSave(page)).toBeEnabled();
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
   await expect(review).toContainText("Job branch name template");
   await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   await page.locator('[data-setting-purpose="repository"] > summary').click();
   const rule = page.locator('[id="setting-worktree.branch_rule"]');
   await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
   const regex = rule.getByRole("textbox", { name: "Optional branch name rule", exact: true });
   await regex.fill("[");
   await expect(preview).toContainText("not a valid Python regular expression");
-  await expect(rule.getByRole("button", { name: "Prepare candidate" })).toBeDisabled();
+  await expect(settingsSave(page)).toBeDisabled();
   await regex.fill("^bugfix/");
   await expect(preview).toContainText("does not match the rule");
   await regex.fill("^(?P<prefix>feature)/.*$");
   await expect(preview).toContainText("This example matches the rule.");
-  await rule.getByRole("button", { name: "Prepare candidate" }).click();
+  await settingsSave(page).click();
   await expect(review).toContainText("Optional branch name rule");
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.worktree.branch_template).toBe("feature/{slug}-{iid}");
   expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
@@ -80,10 +84,11 @@ test("branch naming previews invalid drafts and applies both fields through exac
     const row = page.locator(`[id="setting-${key}"]`);
     await row.getByRole("button").click();
     await row.getByRole("textbox").fill(value);
-    await expect(row.getByRole("button", { name: "Prepare candidate" })).toBeEnabled();
-    await row.getByRole("button", { name: "Prepare candidate" }).click();
-    await review.getByRole("button", { name: "Apply change", exact: true }).click();
+    await expect(settingsSave(page)).toBeEnabled();
+    await settingsSave(page).click();
+    await review.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   }
 });
 
@@ -96,7 +101,7 @@ test("branch preview rejects corrupt and late responses before preparing a candi
   await page.route("**/config/branch-preview", route => route.fulfill({ json: { valid: true } }));
   await editor.fill("feature/{iid}");
   await expect(preview).toContainText("Preview unavailable");
-  await expect(row.getByRole("button", { name: "Prepare candidate" })).toBeDisabled();
+  await expect(settingsSave(page)).toBeDisabled();
   await page.unroute("**/config/branch-preview");
   await page.route("**/config/branch-preview", async route => {
     const response = await route.fetch();
@@ -110,7 +115,7 @@ test("branch preview rejects corrupt and late responses before preparing a candi
   await expect(preview).toContainText("latest/1");
   await page.waitForTimeout(900);
   await expect(preview).not.toContainText("slow/1");
-  await expect(row.getByRole("button", { name: "Prepare candidate" })).toBeEnabled();
+  await expect(settingsSave(page)).toBeEnabled();
 });
 
 test("branch naming is read-only for developers and wraps on narrow screens", async ({ page }) => {
@@ -144,15 +149,12 @@ test("ticket labels separate actions from collapsed status edits and retain inac
   const row = statuses.locator(".setting-row").filter({ has: page.getByText("Job status: working label", { exact: true }) });
   await row.getByRole("button", { name: "Edit Job status: working label", exact: true }).click();
   await row.getByRole("textbox", { name: "Job status: working label", exact: true }).fill("agent-running");
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
-  await expect(review).toContainText("Job status: working label");
-  await expect(review).toContainText("agent-running");
-  await expect(review).toContainText("human publication approval");
+  await expect(settingsSave(page)).toBeEnabled();
+  await expect(settingsImpact(page)).toHaveCount(0);
   const unchanged = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(unchanged.revision).toBe(before.revision);
   expect(unchanged.config.readiness.max_scope_hint).toBe(before.config.readiness.max_scope_hint);
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await discardSettings(page);
 });
 
 for (const user of ["admin", "developer"]) {
@@ -177,11 +179,9 @@ for (const user of ["admin", "developer"]) {
    await row.getByRole("button", { name: "Edit Maximum revision rounds", exact: true }).click();
    await expect(row.getByRole("spinbutton", { name: "Maximum revision rounds", exact: true })).toHaveAttribute("min", "1");
    await row.getByRole("spinbutton", { name: "Maximum revision rounds", exact: true }).fill("6");
-   await row.getByRole("button", { name: "Prepare candidate" }).click();
-   const review = page.locator(".candidate-review");
-   await expect(review).toContainText("Maximum revision rounds");
-   await expect(review).toContainText("REVIEW_LIMIT");
-   await review.getByRole("button", { name: "Discard change", exact: true }).click();
+   await expect(settingsSave(page)).toBeEnabled();
+   await expect(settingsImpact(page)).toHaveCount(0);
+   await discardSettings(page);
   }
  });
 }
@@ -218,22 +218,24 @@ test("request review from edits one account per line through reviewed apply", as
   await expect(editor).toHaveValue(before.config.delivery.reviewers.join("\n"));
   await expect(editor).toHaveAttribute("rows", "6");
   await editor.fill("alice\nbob.smith");
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
   await expect(review).toContainText("Request review from");
   await expect(review).toContainText("alice");
   await expect(review).toContainText("bob.smith");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.reviewers).toEqual(["alice", "bob.smith"]);
   // Restore the independent test profile using the same reviewed workflow.
   await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
   await row.getByRole("button", { name: "Edit Request review from", exact: true }).click();
   await editor.fill(before.config.delivery.reviewers.join("\n"));
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await settingsSave(page).click();
+  await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
 });
 
 test("publication state offers draft and ready with explicit reviewed apply", async ({ page }) => {
@@ -245,27 +247,27 @@ test("publication state offers draft and ready with explicit reviewed apply", as
   const editor = row.getByRole("combobox");
   await expect(editor.getByRole("option", { name: "Draft", exact: true })).toHaveAttribute("value", "true");
   await editor.selectOption({ label: "Ready for review" });
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
   await expect(review).toContainText("Draft");
   await expect(review).toContainText("Ready for review");
-  await expect(review).toContainText("fresh human publication approval");
+  await expect(row).toContainText("human publication approval");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   await expect(row.locator("code")).toHaveText("Ready for review");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.draft).toBe(false);
   // Restore the independent test profile through the same reviewed UI.
   await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
   await row.getByRole("button", { name: "Edit PR/MR state at publication", exact: true }).click();
   await row.getByRole("combobox").selectOption({ label: "Draft" });
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await settingsSave(page).click();
+  await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(row.locator("code")).toHaveText("Draft");
 });
 
-test("purpose guidance, correction, exact safe review/copy and candidate-only discard", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("purpose guidance, correction and important confirmation preserve unsaved drafts", async ({ page }) => {
   await openSettings(page);
   for (const category of ["Repository", "Tickets", "Implementation", "PR/MR and review", "Statistics", "Technical details"]) await expect(page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: category })).toBeVisible();
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
@@ -273,59 +275,57 @@ test("purpose guidance, correction, exact safe review/copy and candidate-only di
   const editor = page.locator(".setting-editor");
   await expect(editor.getByRole("textbox")).toHaveAttribute("aria-describedby", "help-platform.repo");
   await editor.getByRole("textbox").fill("");
-  await editor.getByRole("button", { name: "Prepare candidate" }).click();
+  await settingsSave(page).click();
   await expect(page.getByRole("alert")).toContainText("invalid");
   await expect(editor.getByRole("textbox")).toHaveValue("");
   await editor.getByRole("textbox").fill("offline/reviewed-repository");
-  await editor.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
-  await expect(review.getByRole("heading", { name: "Pending configuration", exact: true })).toBeFocused();
-  await expect(review).toContainText("Affected project: alpha");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
+  await expect(review.getByRole("button",{name:"Keep editing",exact:true})).toBeFocused();
+  await expect(review).toContainText("alpha");
   await expect(review).toContainText(String(before.config.platform.repo));
   await expect(review).toContainText("offline/reviewed-repository");
-  await expect(review.locator(".candidate-details")).not.toHaveAttribute("open", "");
-  await expect(review).toContainText("Stop project pickup");
-  await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
-  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await review.locator(".candidate-details > summary").click();
-  await review.getByRole("button", { name: "Copy safe review" }).click();
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toContain("offline/reviewed-repository");
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
-  await expect(review).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   expect(await (await page.request.get("/api/v1/projects/alpha/config/pending")).json()).toBeNull();
-  await expect(page.getByRole("button", { name: "Edit Repository owner and name", exact: true })).toBeFocused();
+  await review.getByRole("button",{name:"Keep editing",exact:true}).click();
+  await expect(editor.getByRole("textbox")).toHaveValue("offline/reviewed-repository");
+  await expect(settingsSave(page)).toBeFocused();
+  await discardSettings(page);
+  await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
-test("server blocked apply preserves review and active configuration", async ({ page }) => {
+test("server blocked apply preserves editable drafts and active configuration", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const value=before.config.budgets.max_iterations+1;
   await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   const editor = page.locator(".setting-editor");
-  await editor.getByRole("spinbutton").fill("12");
-  await editor.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
-  await expect(review).toBeVisible();
-  const pending = await (await page.request.get("/api/v1/projects/alpha/config/pending")).json();
-  await page.route("**/config/apply", route => {
+  await editor.getByRole("spinbutton").fill(String(value));
+  await settingsSave(page).click();
+  await expect(settingsImpact(page)).toBeVisible();
+  await page.route("**/config/apply", async route => {
+    const pending = await (await page.request.get("/api/v1/projects/alpha/config/pending")).json();
     expect(route.request().postDataJSON()).toEqual({ candidate_revision: pending.candidate_revision, base_revision: pending.base_revision });
-    return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ detail: { code: "project_has_active_work" } }) });
+    return route.fulfill({ status: 409, json: { detail: { code: "project_has_active_work" } } });
   });
-  await review.getByRole("button", { name: "Apply change", exact: true }).click();
+  await settingsImpact(page).getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Pause pickup");
-  await expect(review).toBeVisible();
+  await expect(settingsImpact(page)).toHaveCount(0);
+  await expect(editor.getByRole("spinbutton")).toHaveValue(String(value));
+  await expect(settingsSave(page)).toBeEnabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await discardSettings(page);
 });
 
-test("late prepare cannot populate another project and repeated clicks prepare once", async ({ page }) => {
+test("an in-flight Save blocks navigation and sends one preview", async ({ page }) => {
   await openSettings(page);
+  const url=page.url();
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
   let count = 0;
-  await page.route("**/projects/*/config/pending", async route => {
-    if (route.request().method() !== "POST") return route.continue();
+  await page.route("**/config/preview", async route => {
     count += 1;
     const response = await route.fetch();
     await held;
@@ -333,20 +333,14 @@ test("late prepare cannot populate another project and repeated clicks prepare o
   });
   await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
   await page.locator(".setting-editor").getByRole("spinbutton").fill("13");
-  const prepare = page.locator(".setting-editor").getByRole("button", { name: "Prepare candidate" });
-  await prepare.click();
-  await expect(prepare).toBeDisabled();
-  const projects = await (await page.request.get("/api/v1/projects")).json();
-  const beta = projects.find((item: { name: string }) => item.name === "beta");
+  await settingsSave(page).click();
+  await expect(page.locator(".settings-save-bar button.primary")).toBeDisabled();
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
-  await page.getByRole("link", { name: "beta", exact: true }).click();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL(url);
   release();
-  await expect(page.locator(".candidate-review")).toHaveCount(0);
+  await expect(settingsImpact(page)).toBeVisible();
   expect(count).toBe(1);
-  expect(beta).toBeTruthy();
-  const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
-  await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": csrf } });
+  await discardSettings(page);
 });
 
 test("Dev redacted purpose view remains read-only at 390px in both themes", async ({ page }, info) => {
@@ -444,11 +438,10 @@ test(`purpose guidance and single-setting flow preserve locale ${locale}`, async
     await expect(editor.getByRole("spinbutton")).toHaveAccessibleName(implementationNames[locale][1]);
     const active = await (await page.request.get(`/api/v1/projects/${id}/config`)).json();
     await editor.getByRole("spinbutton").fill(String(active.config.budgets.max_iterations + 1));
-    await editor.locator("button.primary").click();
-    await expect(page.locator(".candidate-review")).toContainText(implementationNames[locale][1]);
+    await settingsSave(page,locale).click();
+    await expect(settingsImpact(page)).toContainText(implementationNames[locale][1]);
     expect((await (await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(active.revision);
-    const csrf = (await (await page.request.get("/api/v1/me")).json()).csrf;
-    await page.request.delete(`/api/v1/projects/${id}/config/pending`, { headers: { "X-CSRF-Token": csrf } });
+    await discardSettings(page,locale);
 });
 }
 
@@ -463,38 +456,37 @@ test("unpaused identity candidate is blocked in the browser without an apply req
   await openSettings(page);
   await page.getByRole("button", { name: "Edit Repository owner and name", exact: true }).click();
   await page.locator(".setting-editor").getByRole("textbox").fill("offline/paused-required");
-  await page.locator(".setting-editor").getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
   await expect(review).toBeVisible();
-  await expect(review.getByRole("button", { name: "Apply change", exact: true })).toBeDisabled();
-  await expect(review).toContainText("Stop project pickup");
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await expect(review.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
+  await expect(review).toContainText(settingsSaveCopy.en.pause);
+  await discardSettings(page);
 });
 
-test("stale base and malformed restored candidate cannot enable Apply", async ({ page }) => {
+test("stale Save and malformed restored candidate fail closed while retaining edits", async ({ page }) => {
   await openSettings(page);
   await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
-  await page.locator(".setting-editor").getByRole("spinbutton").fill("17");
-  await page.locator(".setting-editor").getByRole("button", { name: "Prepare candidate" }).click();
-  await expect(page.locator(".candidate-review")).toBeVisible();
-  await page.route("**/projects/*/config", async route => {
-    const response = await route.fetch();
-    await route.fulfill({ response, json: { ...await response.json(), revision: "0".repeat(64) } });
-  });
-  await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.locator(".candidate-review")).toContainText("active configuration changed");
-  await expect(page.locator(".candidate-review").getByRole("button", { name: "Apply change", exact: true })).toBeDisabled();
-  await page.unroute("**/projects/*/config");
+  const input=page.locator(".setting-editor").getByRole("spinbutton");
+  await input.fill("17");
+  await page.route("**/config/preview",route=>route.fulfill({status:409,json:{detail:{code:"stale_config_revision"}}}));
+  await settingsSave(page).click();
+  await expect(page.getByRole("alert").first()).toBeVisible();
+  await expect(input).toHaveValue("17");
+  await expect(settingsSave(page)).toBeDisabled();
+  await expect(settingsImpact(page)).toHaveCount(0);
+  await page.unroute("**/config/preview");
+  await discardSettings(page);
   await page.route("**/projects/*/config/pending", async route => {
     if (route.request().method() !== "GET") return route.continue();
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ candidate_revision: "broken" }) });
+    await route.fulfill({json:{candidate_revision:"broken"}});
   });
   await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
-  await expect(page.getByRole("button", { name: "Apply change", exact: true })).toHaveCount(0);
-  await page.locator("#project-settings > .setting-groups > details > summary").filter({hasText:/Implementation/i}).click();
+  await page.locator('[data-setting-purpose="implementation"] > summary').click();
   await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Discard change", exact: true }).click();
+  await page.unroute("**/projects/*/config/pending");
+  await discardSettings(page);
   await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeEnabled();
 });
 
@@ -531,7 +523,8 @@ for (const user of ["admin", "developer"]) {
     await page.setViewportSize({width,height:844});
     const description = await row.locator(":scope > div").nth(0).boundingBox();
     const value = await row.locator(":scope > div").nth(1).boundingBox();
-    expect(Math.abs(description!.width - value!.width)).toBeLessThan(2);
+    if(width===1280) expect(description!.width/value!.width).toBeCloseTo(1.5,1);
+    else expect(Math.abs(description!.width-value!.width)).toBeLessThan(2);
     if (width === 1280) expect(value!.x - description!.x - description!.width).toBeGreaterThanOrEqual(24);
     else expect(Math.abs(description!.x - value!.x)).toBeLessThan(2);
     const label = await heading.locator("small").boundingBox();
@@ -567,12 +560,13 @@ test("administrators choose the executor image in Agent and model through review
   await expect(row.getByText(/not on the ADORE server/)).toBeVisible();
   await input.fill("adore-executor-base:pi-0.87.1");
   await expect(row.getByText(/not on the ADORE server/)).toHaveCount(0);
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
   await expect(review).toContainText("adore-executor-base:pi-0.87.1");
   await expect(review.getByText(/managed externally|prepared externally/)).toHaveCount(0);
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await discardSettings(page);
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -589,11 +583,12 @@ test("internet access for the agent is off by default and warns before it is swi
   await row.getByRole("button", { name: `Edit ${internetCopy.en.internet}`, exact: true }).click();
   await row.getByRole("combobox").selectOption({ label: "On" });
   await expect(row.getByText(internetCopy.en.internetWarning)).toBeVisible();
-  await row.getByRole("button", { name: "Prepare candidate" }).click();
-  const review = page.locator(".candidate-review");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
   await expect(review.getByText(internetCopy.en.internetWarning)).toBeVisible();
-  await review.getByRole("button", { name: "Discard change", exact: true }).click();
+  await discardSettings(page);
   await expect(review).toHaveCount(0);
+  await expect(settingsSave(page)).toBeDisabled();
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -680,7 +675,7 @@ for (const user of ["admin", "developer"]) {
    const other = document.getElementById("setting-delivery.approval_label")!;
    const value = element.querySelector("code")!;
    const compare = other.querySelector("code")!;
-   return { left: value.getBoundingClientRect().left, otherLeft: compare.getBoundingClientRect().left,
+   return { left: element.querySelector(".setting-control")!.getBoundingClientRect().left, otherLeft: other.querySelector(".setting-control")!.getBoundingClientRect().left,
     font: getComputedStyle(value).fontSize, otherFont: getComputedStyle(compare).fontSize,
     width: document.documentElement.scrollWidth, viewport: window.innerWidth };
   });
@@ -719,13 +714,14 @@ test("failed CI action uses human names in values, options and candidate review"
  const select = row.getByRole("combobox", {name:copy.label,exact:true});
  expect(await select.locator("option").allTextContents()).toEqual([copy.revise,copy.notify,copy.ignore]);
  await select.selectOption("notify");
- await row.getByRole("button", {name:"Prepare candidate",exact:true}).click();
- const review = page.locator(".candidate-review");
+ await settingsSave(page).click();
+ const review = settingsImpact(page);
  await expect(review).toContainText(copy.label);
  await expect(review).toContainText(copy.revise);
  await expect(review).toContainText(copy.notify);
  const candidate = await (await page.request.get("/api/v1/projects/alpha/config/pending")).json();
- expect(candidate.proposed_value).toBe("notify");
+ expect(candidate).toBeNull();
+ await discardSettings(page);
 });
 
 
@@ -733,7 +729,6 @@ for (const setting of ["clarification.answer_timeout", "clarification.max_rounds
 test(`typed Implementation control reviews and applies ${setting}`, async ({page}) => {
  await openSettings(page);
  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
- const review = page.locator(".candidate-review");
  const topic = (name:string) => page.locator(`[data-setting-topic="${name}"]`);
  const row = (key:string) => page.locator(`[id="setting-${key}"]`);
  const show = async (name:string) => {
@@ -742,10 +737,7 @@ test(`typed Implementation control reviews and applies ${setting}`, async ({page
   if (await topic(name).getAttribute("open") === null) await topic(name).locator(":scope > summary").click();
  };
  const apply = async (key:string) => {
-  await row(key).getByRole("button", {name:"Prepare candidate",exact:true}).click();
-  await expect(review).toContainText(implementationLabels.en[key]);
-  await review.getByRole("button", {name:"Apply change",exact:true}).click();
-  await expect(review).toHaveCount(0);
+  await saveSettings(page,key==="workflow.stage_timeout_overrides");
  };
  if (setting === "clarification.answer_timeout") {
  await show("clarification");
@@ -754,7 +746,7 @@ test(`typed Implementation control reviews and applies ${setting}`, async ({page
  expect((await answer.getByRole("spinbutton").boundingBox())!.height).toBeLessThanOrEqual(60);
  await answer.getByRole("spinbutton").fill("");
  await answer.getByRole("combobox", {name:"Time unit",exact:true}).selectOption("d");
- await expect(answer.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
+ await expect(settingsSave(page)).toBeDisabled();
  await answer.getByRole("spinbutton").fill("12");
  await answer.getByRole("combobox", {name:"Time unit",exact:true}).selectOption("h");
  await apply("clarification.answer_timeout");
@@ -771,7 +763,7 @@ test(`typed Implementation control reviews and applies ${setting}`, async ({page
  await retry.getByRole("button").click();
  await expect(retry.getByRole("textbox")).toHaveAttribute("rows","6");
  await retry.getByRole("textbox").fill("5\n-1");
- await expect(retry.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
+ await expect(settingsSave(page)).toBeDisabled();
  await retry.getByRole("textbox").fill("0\n10\n45");
  await apply("recovery.retry_backoff_seconds");
  }
@@ -784,14 +776,12 @@ test(`typed Implementation control reviews and applies ${setting}`, async ({page
  for (const width of [1280,390]) {
   await page.setViewportSize({width,height:844});
   for (const control of await stages.getByRole("combobox").all()) expect((await control.boundingBox())!.height).toBeLessThanOrEqual(60);
-  const last = await stages.getByRole("combobox", {name:"Validation",exact:true}).boundingBox();
-  const action = await stages.getByRole("button", {name:"Prepare candidate"}).boundingBox();
-  expect(action!.y).toBeGreaterThan(last!.y + last!.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  }
 
  await stages.getByRole("combobox", {name:"Implementation",exact:true}).selectOption("custom");
  await stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true}).fill("0");
- await expect(stages.getByRole("button", {name:"Prepare candidate"})).toBeDisabled();
+ await expect(settingsSave(page)).toBeDisabled();
  await stages.getByRole("spinbutton", {name:"Implementation Seconds",exact:true}).fill("5400");
  await stages.getByRole("combobox", {name:"Validation",exact:true}).selectOption("custom");
  await stages.getByRole("spinbutton", {name:"Validation Seconds",exact:true}).fill("3600");

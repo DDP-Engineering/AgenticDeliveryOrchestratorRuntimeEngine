@@ -16,6 +16,12 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Save all edits in wider rows with effect confirmation; optional reviewers and five stage limits.", fr = "Un Enregistrer, effets confirmés, lignes larges, relecteurs facultatifs et cinq limites.", de = "Ein Speichern, bestätigte Folgen, breite Zeilen, optionale Reviewer und fünf Phasenlimits.", ro = "Un Salvează, efecte confirmate, rânduri largi, revieweri opționali și cinci limite de etapă." }
+
+
+[[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired container commands stop safely.", fr = "Progrès et dépendances conservés ; Relancer vérifie les outils ; arrêt sûr des commandes expirées.", de = "Aufträge behalten Fortschritt und Pakete; Wiederholen prüft Werkzeuge; abgelaufene Befehle stoppen.", ro = "Lucrările păstrează progresul și dependențele; Reia verifică uneltele; comenzile expirate se opresc." }
@@ -119,11 +125,6 @@ text = { en = "The Jobs table shows ticket, project, status, activity and tokens
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
 text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Statistics, History and Access.", fr = "Chaque projet s'ouvre en un espace avec Résumé, Paramètres, Tâches, Statistiques, Historique, Accès.", de = "Jedes Projekt bündelt Übersicht, Einstellungen, Aufträge, Statistik, Verlauf und Zugriff.", ro = "Fiecare proiect se deschide cu Rezumat, Setări, Lucrări, Statistici, Istoric și Acces." }
-
-[[release.entry]]
-category = "improved"
-topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Settings follow the delivery flow in four languages; reviewers are optional; five stage limits.", fr = "Les paramètres suivent le flux de livraison en 4 langues ; réviseurs optionnels ; 5 limites d'étape.", de = "Einstellungen folgen dem Lieferablauf in vier Sprachen; Prüfende optional; fünf Phasenlimits.", ro = "Setările urmează fluxul de livrare în patru limbi; revizori opționali; limite pentru cinci etape." }
 
 [[release.entry]]
 category = "improved"

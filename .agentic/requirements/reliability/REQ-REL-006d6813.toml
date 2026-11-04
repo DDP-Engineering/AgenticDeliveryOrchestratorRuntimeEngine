@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-006d6813"
+title = "Reject malformed or unauthorized batch members without publication"
+status = "active"
+requirement = "If a settings batch has invalid structure, duplicates, overlapping targets, a nested batch, a noneditable or external key, an invalid final configuration or unsafe values, ADORE shall reject preparation with 400 without changing the active configuration or any existing candidate."
+verification = "Offline API negatives cover every batch input boundary, exact unchanged active/candidate bytes and unauthenticated, Dev and missing-CSRF denials through the existing mutation boundary."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/settings_batch.py"]
+linked_tests = ["04_Software/tests/test_web_settings_batch.py"]
+spec = "specs/settings-save.md"
+priority = "normal"
+rationale = ""
+created = 2026-11-04
+updated = 2026-11-04

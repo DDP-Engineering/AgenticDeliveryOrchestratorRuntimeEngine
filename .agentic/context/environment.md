@@ -160,7 +160,7 @@ have automatic/custom selection and an administrator host folder navigator;
 selection is read-only and actual clone publication retains its existing checks.
 See knowledge/host-folders.md and 01_Documentation/Web_Interface.md.
 
-Reviewed web configuration saves preserve the active file and pending review on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.
+Reviewed web configuration saves preserve the active file and unsaved settings on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.
 
 ## Automatic command presentation
 

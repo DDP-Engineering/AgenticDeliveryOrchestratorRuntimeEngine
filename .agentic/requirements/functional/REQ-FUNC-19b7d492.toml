@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-19b7d492"
+title = "Prepare one validated batch of project setting edits"
+status = "active"
+requirement = "When an administrator saves a nonempty batch of editable project settings against the current revision, ADORE shall prepare one exact candidate from all edits with final-configuration validation and publish its complete contents only through the existing exact-revision, idle and monitoring guards."
+verification = "Offline API tests submit multiple scalar/collection/connection edits, including interdependent values, observe unchanged active bytes until apply and verify all values change together; failed apply retains the candidate."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/settings_batch.py"]
+linked_tests = ["04_Software/tests/test_web_settings_batch.py"]
+spec = "specs/settings-save.md"
+priority = "normal"
+rationale = ""
+created = 2026-11-04
+updated = 2026-11-04

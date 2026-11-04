@@ -1,6 +1,6 @@
 # Projekteinstellungen
 
-Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE dafür anwendet: welche Tickets aufgenommen werden, welche Limits gelten, wie veröffentlicht wird und welcher Agent verwendet wird. Administratoren ändern sie in einem geprüften Ablauf, eine Einstellung nach der anderen; Entwickler lesen sie.
+Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE dafür anwendet: welche Tickets aufgenommen werden, welche Limits gelten, wie veröffentlicht wird und welcher Agent verwendet wird. Administratoren bearbeiten mehrere Einstellungen und speichern sie gemeinsam; Entwickler lesen sie.
 
 ## Wo Sie die Einstellungen finden {#where}
 
@@ -32,19 +32,19 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 
 ## Bearbeiten {#editing}
 
-1. Wählen Sie **Bearbeiten** neben dem Aktiven Wert, geben Sie den neuen Wert ein und wählen Sie **Kandidat vorbereiten**. Das schreibt nur einen ausstehenden Kandidaten; die aktive Konfiguration bleibt unverändert.
-2. Das Feld **Ausstehende Konfiguration** erscheint über den Gruppen und listet nur die geänderten Werte. Ein Kandidat, der nichts ändert, kann nicht angewendet werden. Öffnen Sie **Technische Details** für den vollständigen Vergleich, die Wirkung, den Zeitpunkt der Vorbereitung, beide Revisionen und **Bereinigte Prüfung kopieren**. Werte von Zugangsdaten sind geschwärzt.
-3. Wählen Sie **Anwenden**, um die Änderung zu senden, oder **Änderung verwerfen**, um nur den Kandidaten zu entfernen.
+1. Wählen Sie **Bearbeiten** neben jedem zu ändernden Wert. Sie können mehrere Einstellungen in verschiedenen Gruppen bearbeiten.
+2. Verwenden Sie die einzige Schaltfläche **Speichern** oberhalb der Gruppen. Sie ist nur bei geänderten Werten und gültigen Eingaben aktiv.
+3. Bei wichtigen Änderungen zeigt **Wichtige Änderungen bestätigen** das Projekt, die geänderten Werte und Auswirkungen. Wählen Sie **Änderungen speichern** oder **Weiter bearbeiten**, um ohne Speichern zurückzukehren.
 
-Es gelten diese Regeln:
+Es gelten folgende Regeln:
 
-- Eine Einstellung nach der anderen: Die anderen Schaltflächen Bearbeiten bleiben deaktiviert, bis der Kandidat angewendet oder verworfen wurde.
-- Die Prüfung ist an Revisionen gebunden. Anwenden sendet die geprüfte Basis- und Kandidatenrevision; hat sich die aktive Datei inzwischen geändert, müssen Sie verwerfen, aktualisieren und erneut vorbereiten. Zwei Administratoren, die gleichzeitig bearbeiten, erhalten einen Konflikt, statt sich gegenseitig zu überschreiben. Änderungen direkt an der Datei auf dem Server umgehen diesen Schutz.
-- Der Server prüft beim Anwenden erneut, dass kein Auftrag aktiv und kein Vorgang unvollständig ist. Ein blockiertes Anwenden behält den Kandidaten und erklärt, wie Sie fortfahren können.
-- Einstellungen, die Identität oder Laufzeit ändern, brauchen zusätzlich eine pausierte Überwachung. Wählen Sie auf der Zusammenfassung **Überwachung pausieren** und lassen Sie aktive Arbeit abschließen; das Pausieren unterbricht keinen laufenden Auftrag.
+- **Änderungen verwerfen** entfernt alle ungespeicherten Eingaben. Das Abbrechen der Bestätigung behält sie ohne einen gespeicherten Kandidaten.
+- Speichern ist an die bearbeitete Konfiguration gebunden. Eine veraltete Revision sperrt das Speichern und behält die Eingaben; verwerfen und aktualisieren Sie vor neuen Änderungen. Gleichzeitige Änderungen führen zu einem Konflikt.
+- Der Server prüft die gesamte Konfiguration und speichert alles gemeinsam, nur ohne aktive Aufträge und unfertige Vorgänge. Ein Fehler behält Eingaben und vorbereitete Kandidaten für einen neuen Versuch.
+- Identitäts- und Laufzeitänderungen erfordern zusätzlich pausierte Überwachung. Wählen Sie **Überwachung pausieren** in Übersicht und lassen Sie aktive Arbeit enden; die Pause unterbricht keinen Auftrag.
 - Neue Werte gelten für spätere Aufträge. Bestehende Aufträge behalten ihre Konfiguration.
 
-Kurze Dateisperren unter Windows werden automatisch erneut versucht. Können die Einstellungen weiterhin nicht gespeichert werden, bleibt der geprüfte Entwurf erhalten: Prüfen Sie den Dateizugriff und wählen Sie erneut **Anwenden**.
+Navigation und Aktualisieren fragen vor dem Verwerfen ungespeicherter Eingaben. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
 
 ## Original-TOML {#toml}
 
@@ -54,6 +54,6 @@ Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonf
 
 **Systempaketinstallation durch den Agenten erlauben**
 
-Unter Einstellungen → Agent und Modell aktivieren Administratoren diese separate Berechtigung über Kandidat vorbereiten und Änderung übernehmen. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.
+Unter Einstellungen → Agent und Modell aktivieren Administratoren diese Berechtigung mit **Speichern** und bestätigen die Auswirkung. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.
 
 Netzwerkzugriff bleibt separat: open erlaubt erreichbare Quellen, allowlist-proxy erlaubte HTTP/HTTPS-Domains und none nur verfügbare lokale Quellen. Paketskripte haben administrative Rechte im Container; eingebundene Projektordner bleiben mit dem Server geteilt. Systempakete bleiben beim Fortsetzen desselben Containers erhalten; ein neuer Container erfordert erneute Prüfung und Installation.

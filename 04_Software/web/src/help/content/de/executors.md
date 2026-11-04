@@ -14,7 +14,7 @@ Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer is
 - **Modell**: aus der Pi-Liste für diesen Anbieter wählen oder eine vom Anbieter akzeptierte Modell-ID eingeben, z. B. `gpt-5.4`. Die Liste gehört zur von ADORE ausgelieferten Pi-Version und wird ohne Internetzugang gelesen. Es gibt kein universelles Standardmodell.
 - **ChatGPT-Abonnement**: Pi nutzt das ChatGPT-Plus- oder -Pro-Konto, bei dem dieser ADORE-Server angemeldet ist, siehe [Mit ChatGPT anmelden](#chatgpt). Die Liste enthält die Modelle, die ein ChatGPT-Abonnement bedient, zum Beispiel `gpt-5.6-luna`.
 
-**Kandidaten vorbereiten** zeigt aktive und vorgeschlagene Werte. **Änderung anwenden** speichert sie; siehe [Projekteinstellungen](/help/settings#editing) zum Pausieren der Überwachung. ADORE startet je Phase einen neuen Pi-Prozess und beendet ihn bei Zeitüberschreitung oder Abbruch.
+**Speichern** sichert die bearbeiteten Einstellungen gemeinsam nach Bestätigung wichtiger Auswirkungen; zum Pausieren siehe [Projekteinstellungen](/help/settings#editing). ADORE startet je Phase einen neuen Pi-Prozess und beendet ihn bei Zeitüberschreitung oder Abbruch.
 
 ## OpenAI-kompatibler Endpunkt {#endpoint}
 
@@ -72,7 +72,7 @@ Das Ergebnis ist **KI-Modell verbunden** nur, wenn der Shell-Befehl lief und die
 
 > Bei eingeschaltetem Internetzugang könnte eine bösartige Webseite versuchen, den Agenten seinen API-Schlüssel oder sein ChatGPT-Token versenden zu lassen. Verwenden Sie möglichst eingeschränkte, kurzlebige Schlüssel.
 
-Beide Einstellungen ändern sich wie andere über **Kandidat vorbereiten** und **Anwenden**. Bei ausgeschaltetem Internetzugang muss das Proxy-Image auf dem ADORE-Server vorhanden sein; **Host-Voraussetzungen prüfen** meldet es, ebenso den Suchschlüssel, wenn er nötig ist. Für ein auf dem Server installiertes Projekt wird der Schalter als **Nicht durchgesetzt** angezeigt: Pi erreicht alles, was der Server erreicht.
+Verwenden Sie **Speichern** für beide Einstellungen und bestätigen Sie wichtige Auswirkungen. Bei ausgeschaltetem Internetzugang muss das Proxy-Image auf dem ADORE-Server vorhanden sein; **Host-Voraussetzungen prüfen** meldet es, ebenso den Suchschlüssel, wenn er nötig ist. Für ein auf dem Server installiertes Projekt wird der Schalter als **Nicht durchgesetzt** angezeigt: Pi erreicht alles, was der Server erreicht.
 
 ## Wo Aufträge laufen {#where-jobs-run}
 

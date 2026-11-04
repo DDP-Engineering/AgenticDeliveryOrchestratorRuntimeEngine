@@ -1,6 +1,6 @@
 # Project settings
 
-A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators change them through a reviewed, one-setting-at-a-time flow; developers read them.
+A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators edit several settings and save them together; developers read them.
 
 ## Where to find Settings {#where}
 
@@ -32,19 +32,19 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 
 ## Editing {#editing}
 
-1. Choose **Edit** beside the Active value, enter the new value and choose **Prepare candidate**. This writes only a pending candidate; the live configuration is unchanged.
-2. The **Pending configuration** panel appears above the groups and lists only the changed values. A candidate that changes nothing cannot be applied. Open **Technical details** for the full comparison, the effect, the preparation time, both revisions and **Copy safe review**. Credential values are redacted.
-3. Choose **Apply change** to submit it, or **Discard change** to remove only the candidate.
+1. Choose **Edit** beside each value you want to change. You can edit several settings across groups.
+2. Use the single **Save** button above the groups. It is enabled only when values change and all open edits are valid.
+3. For important changes, **Confirm important changes** shows the project, changed values and effects. Choose **Save changes**, or **Keep editing** to return without saving.
 
 Rules that apply:
 
-- One setting at a time: other Edit buttons stay disabled until the candidate is applied or discarded.
-- Review is bound to revisions. Apply sends the reviewed base and candidate revisions, so if the active file changed meanwhile you must discard, refresh and prepare again. Two administrators editing at once get a conflict instead of overwriting each other. Edits made directly to the file on the server bypass this protection.
-- The server rechecks at Apply that no job is active and no operation is unfinished. A blocked Apply keeps the candidate and explains how to recover.
-- Settings that change identity or runtime also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
+- **Discard changes** clears all unsaved edits. Cancelling the confirmation keeps them without creating a saved candidate.
+- Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs; discard and refresh before editing again. Concurrent administrators get a conflict.
+- The server checks the complete configuration and saves all edits together, only when no job is active and no operation is unfinished. A failed save retains your inputs and any prepared candidate for retry.
+- Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
 - New values apply to later jobs. Existing jobs keep their configuration.
 
-Brief Windows file locks are retried automatically. If settings still cannot be saved, the reviewed candidate stays available: check file access and retry **Apply change**.
+Navigation or Refresh asks before discarding unsaved edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
 
 ## Original TOML {#toml}
 
@@ -54,6 +54,6 @@ Beside the Project settings heading, administrators have **Preview raw configura
 
 **Allow agent system package installation**
 
-In Settings → Agent and model, administrators can enable this separate permission through Prepare candidate and Apply change. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
+In Settings → Agent and model, administrators enable this permission with **Save** and confirm its effect. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
 
 Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.

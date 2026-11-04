@@ -1,6 +1,6 @@
 # Setările proiectului
 
-Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii le modifică printr-un flux revizuit, o setare pe rând; dezvoltatorii le citesc.
+Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii modifică mai multe setări și le salvează împreună; dezvoltatorii le citesc.
 
 ## Unde găsiți Setările {#where}
 
@@ -30,21 +30,21 @@ O insignă **Implicit** înseamnă că `config.toml` al proiectului nu setează 
 
 Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).
 
-## Modificarea {#editing}
+## Editare {#editing}
 
-1. Alegeți **Modifică** lângă valoarea activă, introduceți valoarea nouă și alegeți **Pregătește candidatul**. Aceasta scrie doar un candidat în așteptare; configurația activă rămâne neschimbată.
-2. Panoul **Configurație în așteptare** apare deasupra grupurilor și listează doar valorile modificate. Un candidat care nu schimbă nimic nu poate fi aplicat. Deschideți **Detalii tehnice** pentru comparația completă, efect, ora pregătirii, ambele revizii și **Copiază recenzia fără secrete**. Valorile credențialelor sunt ascunse.
-3. Alegeți **Aplică** pentru a-l trimite sau **Renunță la modificare** pentru a elimina doar candidatul.
+1. Alege **Editează** lângă fiecare valoare de modificat. Poți edita mai multe setări din grupuri diferite.
+2. Folosește unicul buton **Salvează** deasupra grupurilor. Se activează doar când există valori schimbate și toate modificările sunt valide.
+3. Pentru schimbări importante, **Confirmă modificările importante** arată proiectul, valorile schimbate și efectele. Alege **Salvează modificările**, sau **Continuă editarea** pentru a reveni fără salvare.
 
-Reguli care se aplică:
+Reguli aplicabile:
 
-- O singură setare odată: celelalte butoane Modifică rămân dezactivate până când candidatul este aplicat sau eliminat.
-- Revizuirea este legată de revizii. Aplicarea trimite reviziile de bază și de candidat revizuite, deci, dacă fișierul activ s-a schimbat între timp, trebuie să renunțați, să reîmprospătați și să pregătiți din nou. Doi administratori care editează simultan primesc un conflict, în loc să se suprascrie reciproc. Modificările făcute direct în fișierul de pe server ocolesc această protecție.
-- La Aplică, serverul verifică din nou că nicio lucrare nu este activă și nicio operație nu este neterminată. O aplicare blocată păstrează candidatul și explică cum vă puteți recupera.
-- Setările care schimbă identitatea sau mediul de execuție cer și monitorizarea în pauză. Alegeți **Pune monitorizarea în pauză** în Rezumat și lăsați lucrul activ să se încheie; punerea în pauză nu întrerupe o lucrare în curs.
-- Valorile noi se aplică lucrărilor ulterioare. Lucrările existente își păstrează configurația.
+- **Renunță la modificări** elimină toate editările nesalvate. Anularea confirmării le păstrează fără să creeze un candidat salvat.
+- Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse; renunță și reîmprospătează înainte de o nouă editare. Modificările simultane produc un conflict.
+- Serverul verifică întreaga configurație și salvează toate modificările împreună, fără lucrări active sau operații neterminate. O eroare păstrează datele introduse și orice candidat pregătit pentru reîncercare.
+- Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.
+- Noile valori se aplică lucrărilor viitoare. Lucrările existente își păstrează configurația.
 
-Blocajele scurte ale fișierului pe Windows sunt reîncercate automat. Dacă setările tot nu pot fi salvate, propunerea verificată rămâne disponibilă: verificați accesul la fișier și reîncercați **Aplică**.
+Navigarea sau Reîmprospătează cere confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
 
 ## TOML original {#toml}
 
@@ -54,6 +54,6 @@ Lângă titlul Setările proiectului, administratorii au **Previzualizare config
 
 **Permite agentului instalarea pachetelor de sistem**
 
-În Setări → Agent și model, administratorii activează separat permisiunea prin Pregătește candidatul și Aplică schimbarea. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
+În Setări → Agent și model, administratorii activează permisiunea cu **Salvează** și confirmă efectul. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
 
 Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.

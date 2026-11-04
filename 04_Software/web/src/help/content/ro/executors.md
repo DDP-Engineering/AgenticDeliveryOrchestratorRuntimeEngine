@@ -14,7 +14,7 @@ Deschideți **Setări → Agent și model**. Editați împreună **Furnizor**, *
 - **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu `gpt-5.4`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.
 - **Abonament ChatGPT**: Pi folosește contul ChatGPT Plus sau Pro cu care este autentificat acest server ADORE, vezi [Autentificare cu ChatGPT](#chatgpt). Lista conține modelele servite de un abonament ChatGPT, de exemplu `gpt-5.6-luna`.
 
-**Pregătește candidatul** arată valorile active și propuse. **Aplică modificarea** le salvează; vedeți [Setările proiectului](/help/settings#editing) pentru a pune monitorizarea în pauză. ADORE pornește un proces Pi nou la fiecare etapă și îl oprește la expirarea timpului sau la anulare.
+**Salvează** scrie împreună setările editate după confirmarea efectelor importante; vezi [Setările proiectului](/help/settings#editing) pentru pauza monitorizării. ADORE pornește un proces Pi nou la fiecare etapă și îl oprește la expirarea timpului sau la anulare.
 
 ## Endpoint compatibil OpenAI {#endpoint}
 
@@ -72,7 +72,7 @@ Rezultatul este **Model AI conectat** doar dacă comanda shell a rulat și răsp
 
 > Cu accesul la internet activat, o pagină web rău intenționată ar putea încerca să facă agentul să trimită cheia API sau tokenul ChatGPT. Preferă chei limitate și de scurtă durată.
 
-Ambele setări se schimbă prin **Pregătește candidatul** și **Aplică**, ca celelalte. Cu accesul la internet dezactivat, imaginea proxyului trebuie să existe pe serverul ADORE; **Verifică cerințele gazdei** o raportează, la fel și cheia de căutare când este necesară. Pentru un proiect instalat pe server, comutatorul apare ca **Neaplicat**: Pi ajunge oriunde ajunge serverul.
+Folosește **Salvează** pentru ambele setări și confirmă efectele importante. Cu accesul la internet dezactivat, imaginea proxyului trebuie să existe pe serverul ADORE; **Verifică cerințele gazdei** o raportează, la fel și cheia de căutare când este necesară. Pentru un proiect instalat pe server, comutatorul apare ca **Neaplicat**: Pi ajunge oriunde ajunge serverul.
 
 ## Unde rulează lucrările {#where-jobs-run}
 

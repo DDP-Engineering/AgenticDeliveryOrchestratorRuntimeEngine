@@ -145,13 +145,13 @@ Pause semantics are available in header help instead of repeated row guidance.
 
 ### Editing clarification, recovery and stage limits
 
-In Project settings, open **Implementation**, then **Clarifications**, **Recovery after errors** or **Advanced stage time limits**. Choose Edit, enter the typed value and select Prepare candidate. Inspect the active/proposed comparison, then Apply change. Discard change leaves active settings unchanged.
+In Project settings, open **Implementation**, then **Clarifications**, **Recovery after errors** or **Advanced stage time limits**. Choose Edit, enter the typed values and select Save. Confirm important effects when prompted. Discard changes leaves active settings unchanged.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins prepare, inspect active/proposed values and apply only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins edit several settings, choose Save, confirm important effects and save only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
 ## Branch naming
 
-Repository settings provides **Job branch name template** and **Optional branch name rule**. Administrators edit one field at a time, prepare the validated candidate, review active/proposed values, stop project pickup and apply while no jobs are active. Existing jobs retain their configuration. Developers see the same effective settings and example without edit actions. Worktree paths and runtime setup remain externally managed.
+Repository settings provides **Job branch name template** and **Optional branch name rule**. Administrators edit either or both fields, choose Save, confirm important effects and save with monitoring paused and no active jobs. Existing jobs retain their configuration. Developers see the same effective settings and example without edit actions. Worktree paths and runtime setup remain externally managed.
 
 The template generates a name; the optional Python regular expression checks it. For example `feature/{slug}-{iid}` produces `feature/adore-1`, compatible with `^feature/.*$`. Empty rule means no extra naming rule. The repository convention is entered explicitly; ADORE does not fetch it automatically.
 
@@ -576,7 +576,7 @@ Exact server TOML enrollment and statistics CSV remain separate formats.
 An administrator can create a profile in Projects, edit validated scalar
 configuration keys and the requested reviewer list in Project details, and use the CLI for other complex settings.
 **Request review from** is an administrator-editable list with one forge account
-per line; leave it empty to request no review. Prepare the change, compare active/proposed
+per line; leave it empty to request no review. Save the edits, compare current/new
 reviewers, then apply it. Requests affect subsequent PR/MR creation and confer
 no publication approval or merge permission. Other list settings keep their
 individual supported-editing rules.
@@ -688,7 +688,7 @@ a table only when project state roots (`state.store_root`) live on different dis
 It warns when any measured volume has less than 1 GiB free. A failed measurement is shown as a failed check, not as available
 space. This check does not remove data; with indefinite non-audit retention, operators
 must size storage and back it up.
-In Project details > Settings, administrators prepare **one setting at a time**.
+In Project details > Settings, administrators edit several settings and save them together.
 The categories are Repository, Tickets, Implementation, PR/MR and review, Statistics, and Agent and model, followed by closed informational Technical details. Frequent settings appear first within their category.
 Each row gives an understandable label, visible purpose/units/consequence guidance,
 its **Active value** and **ADORE default**; inherited values carry a **Default** badge. Permanent guidance below the label explains each setting; server catalog metadata still constrains edit types, choices and numeric bounds. Supported reviewer/provider-name lists and retry/stage-limit collections use typed reviewed editors; other unsupported sections remain externally configured. Agent and model edits the Pi model, launch command, internet access and web search as ordinary reviewed settings; a container project offers only the Pi launch preset.
@@ -696,23 +696,11 @@ its **Active value** and **ADORE default**; inherited values carry a **Default**
 The **Durable job state folder** remains visible read-only. Runtime reporting
 always uses the status comment and lifecycle labels; there is no setting for it.
 
-Choose **Edit**, correct the value and choose **Prepare candidate**. This writes
-only the pending candidate. Pending configuration appears above the settings categories. The main comparison shows changed values only, with adjacent Apply/Discard actions. A candidate with unchanged simple values displays a clear notice and disables Apply; plan binding candidates retain their review. A pending candidate with an image-build binding, or for an operator-owned environment key, could only be staged by an earlier build: viewing or applying it returns 503 `pending_config_corrupt`, and an administrator discards it with **Discard change** (`DELETE /api/v1/projects/{name}/config/pending`). Closed Technical details contains the complete safe comparison, effect, preparation time, revisions and Copy safe review. Blocking pause/stale notices remain visible. Object property order is ignored when comparing values; list order is significant. The comparison wraps into labeled value cells on narrow screens.
-Copy contains all safe compared values and revision identifiers.
-Credential values, inline provider JSON and credential-bearing URLs are redacted.
+Administrators can edit several settings across groups and use one **Save** above the groups. Save is disabled for unchanged or invalid edits. Ordinary changes save directly; identity, execution, network, package permissions, budgets and publication effects open **Confirm important changes** with the project and exact changed values. **Save changes** publishes after the server rechecks; **Keep editing** retains the inputs and creates no new stored candidate.
 
-Choose **Apply change** explicitly to submit both reviewed revisions. The server
-checks the exact candidate and stored base, configuration/conductor locks,
-nonterminal or corrupt job state and unfinished web operations. Identity/runtime
-changes also require pickup stopped. Stop pickup, wait for active work to finish,
-then apply; stopping pickup does not interrupt an existing job. A blocked apply
-keeps the candidate and explains recovery. Invalid types/ranges fail closed;
-correct the edit and prepare again. If active
-TOML changed, discard the candidate, refresh and prepare against the new revision.
-A failed candidate read disables edits and Apply; refresh or explicitly discard it.
-**Discard change** removes only the candidate and preserves the active configuration.
-The workflow supports one pending setting per project and keeps existing jobs on
-their original configuration. The existing direct API retains its safety checks.
+**Discard changes** clears all local edits and the prepared candidate, if present, without changing active settings. Validation, write and stale-revision failures preserve inputs. Stale settings require explicit discard and reload. Navigation and Refresh ask before abandoning edits. Saved values apply to future execution; existing jobs keep their configuration.
+
+The server validates the final combined configuration and applies one exact candidate atomically, bound to both active and candidate revisions. It rechecks configuration/conductor locks, nonterminal or corrupt runs, unfinished operations and paused monitoring for identity/runtime changes. Pause monitoring and wait for active work to finish before saving those changes. Invalid or corrupt pending evidence disables editing until explicit discard. Developers retain scoped read-only access with financial and secret redaction.
 
 A model served by an OpenAI-compatible server on your network (LM Studio,
 Ollama, vLLM) is configured with the **OpenAI-compatible endpoint** provider.
@@ -1137,7 +1125,7 @@ The application shows one dismissible notification for ordinary feedback or the 
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
-Project Settings purpose categories are collapsed on entry. Opening a category shows equal-width description and active-value columns separated by24px; below640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, internet access and web search, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
+Project Settings purpose categories are collapsed on entry. Opening a category shows desktop description and control columns in a 3:2 ratio separated by 32px, with values/actions aligned to the right; below 640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi model and launch command, internet access and web search, closed Authentication and external environment guidance. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## Container preparation
 

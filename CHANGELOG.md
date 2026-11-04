@@ -12,6 +12,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Project Settings saves all edited values with one Save action, confirms important effects, preserves failed drafts and uses the full row width for descriptions and controls.
+
+
 ### Added
 
 - Support ChatGPT subscription sign-in and scoped Pi execution natively on Windows and Linux/WSL2, with temporary stage tokens.

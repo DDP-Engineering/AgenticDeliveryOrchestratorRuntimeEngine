@@ -52,7 +52,7 @@ New jobs load applied executor/model settings. Existing jobs retain their durabl
 
 ## 8. Usage
 
-Open Project → Settings → Agent and model for credentials. Prepare/apply the provider and model change, pause monitoring for credential changes, and Save API key for the variable the provider names. Test AI connection explicitly, then inspect Summary/check details.
+Open Project → Settings → Agent and model for credentials. Save the provider/model edits together and confirm important effects, pause monitoring for credential changes, and Save API key for the variable the provider names. Test AI connection explicitly, then inspect Summary/check details.
 
 Container projects use a provider API key, the server's ChatGPT sign-in (`provider = "chatgpt"`; an Admin signs in once under Settings → Agent and model, and each stage receives only a short-lived access token as `OPENAI_API_KEY`) or an OpenAI-compatible endpoint (whose `models.json` ADORE writes into the ADORE-owned agent directory before every stage). Server projects use the provider's project credential, the server's ChatGPT subscription, or an OpenAI-compatible endpoint with an optional project key. The managed Pi runtime ignores the account's personal Pi sign-in. The GUI key removal changes only the configured project variable.
 
