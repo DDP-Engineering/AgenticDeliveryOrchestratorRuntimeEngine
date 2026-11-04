@@ -43,7 +43,9 @@ then `npm ci` and `npx playwright install chromium` in `04_Software/web`.
 Vite build and offline Chromium journeys with a temporary API/worker home and
 simulated external commands. The build uses `.e2e-dist`; failure screenshots,
 traces and the HTML report are Git-ignored. `npm run build` produces the
-deployable build. See `01_Documentation/Web_Interface.md` for test isolation,
+deployable build. Every Vite build emits `BUNDLED_LICENSES.json` with the full
+licenses for bundled dependencies, including the isolated forge GFM renderer;
+retain it alongside the copied third-party notice inventory. See `01_Documentation/Web_Interface.md` for test isolation,
 timeouts and diagnostic commands. Direct validation requires no AEGIS task.
 
 ## Configuration and services

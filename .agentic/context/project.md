@@ -161,6 +161,18 @@ protects the worktree from routine cleanup and further autonomous execution.
 - `05_SoftwareDocu/README.md` - component contract index.
 - `CHANGELOG.md` - release history, including each AEGIS re-verification.
 
+## Ticket body presentation
+
+Tickets descriptions and comments default to React-rendered GFM with literal HTML,
+protected absolute HTTP/HTTPS/mailto links, inert image placeholders and read-only
+task checkboxes. The Description-side selector applies exact Markdown source or
+Rendered mode to every open body. The account preference is read on sign-in/reload;
+one optimistic save per session rolls back visibly on failure and ignores stale
+account responses. Four-locale controls/help and themed local overflow support
+keyboard and narrow-screen reading. Web storage uses only schema 16; another
+version is refused with the store files to delete, never migrated. See
+knowledge/web-interface.md and Component_Web_Frontend.md.
+
 ## Web account access
 
 Admin user creation guides identity/credentials, explicit role/stable project

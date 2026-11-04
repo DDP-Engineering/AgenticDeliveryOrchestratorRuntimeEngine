@@ -242,9 +242,12 @@ SQLite bytes, authorization, scope and financial redaction.
 
 - Fresh identity stores bootstrap `admin` / `admin` once with an Argon2id hash.
   A corrupt or deleted initialized store does not recreate the default login.
-- Accounts store optional language and theme. Authenticated
-  preference reads and CSRF-protected partial updates remain account-scoped;
-  null values use the browser fallback and corrupt rows fail closed.
+- Accounts store optional language, theme and `ticket_body_mode`. Authenticated
+  `/me/preferences` reads and CSRF-protected partial updates remain account-scoped.
+  Language/theme nulls use browser fallback; ticket mode null selects Rendered.
+  Explicit null or unsupported ticket mode updates return 422 `invalid_request`.
+  Corrupt saved preferences fail with `WebStoreError`/503 `preferences_corrupt`
+  on reads and partial writes, without repair.
 - Developer routes check membership before reading a project and omit all
   financial fields. Project configuration reads return redacted effective
   settings to assigned developers, with per-setting source, editability (the
@@ -255,7 +258,7 @@ SQLite bytes, authorization, scope and financial redaction.
   Configuration mutations, account management and global metrics require admin.
 - Grants, rates and queued operations are bound to immutable profile IDs.
   Renames retain grants and queued targets, while a reused name cannot inherit
-  either. The web store has one schema (15); a database in another version is
+  either. The web store has one schema (16); a database in another version is
   refused with a message naming `web.db` and `web.db.initialized` to delete,
   never migrated (AGENTS.md "Stored data during development").
 - Mutations require CSRF; sessions are opaque, expiring and revocable.
@@ -509,7 +512,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
   the 20-line/2000-character cut), and a refused start keeps the CLI's
   not-started code for its own ticket as `reason` (REQ-FUNC-fbb6448c,
-  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 15), never in audit
+  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 16), never in audit
   evidence. The UI localizes `reason` through `operationReason.ts` in Tickets,
   Jobs and the project status, names a refused Start's kept labels only for a
   failure with a known reason, and opens Start/Stop confirmations as a row under their
@@ -608,6 +611,7 @@ for Add and Import project. Primary buttons take their text colour from the
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
 | Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
+| Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
 | Statistics evidence, selection, exports and job consumption | `web/src/statistics.ts`, `StatisticsEvidence.tsx`, `App.tsx`, `JobWorkspace.tsx` | `web/tests/statistics.test.mjs`, `web/e2e/statistics.spec.ts` |
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
@@ -625,6 +629,24 @@ for Add and Import project. Primary buttons take their text colour from the
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-UX-95f72cce`, `REQ-UX-a393abfe`, `REQ-UX-a371d306`: descriptions and
+  comments default to semantic GFM; a shared Description-side selector shows exact
+  API strings in source mode. Empty descriptions retain the localized fallback.
+- `REQ-SEC-29fc8db7`, `REQ-SEC-777ae52c`, `REQ-SEC-fc07c123`,
+  `REQ-SEC-a0ea8c6d`, `REQ-SEC-f29221e6`: forge bodies use React-only rendering,
+  literal HTML, absolute HTTP/HTTPS/mailto anchors with opener protection and inert
+  image placeholders; metadata stays plain text with HTTP(S)-only title links.
+  Task checkboxes are disabled. The help parser remains separate.
+- `REQ-DATA-8532e8f2`, `REQ-DATA-529c5e6e`, `REQ-DATA-a493390d`,
+  `REQ-REL-5bb00e92`: account mode persists across projects/reloads/browsers, read
+  on sign-in/reload. App validates responses, allows one optimistic save per
+  session, confirms only that field, rolls back failures with localized feedback
+  and ignores old-session completions. Session clear resets mode and pending guard.
+- `REQ-UX-f79c7d6e`, `REQ-UX-a560ba57`, `REQ-UX-58401aa1`,
+  `REQ-UX-34ee3996`: native focusable mode selectors, four-locale copy/help and
+  theme-token styling contain wide code/source/tables in keyboard-focusable local
+  scroll regions at desktop and narrow widths.
 
 - `REQ-REL-2e67fc6d`: historical Deliver records stay readable and labelled; new
   jobs show Done during approval, publication and human review.
@@ -727,6 +749,17 @@ Native control/auth route to local-execution.md. Focused proof:
 
 
 ## Files
+
+- `04_Software/web/src/forgeMarkdown.ts`: pinned react-markdown/remark-gfm React
+  renderer with controlled anchors, inert images and named overflow regions.
+- `04_Software/web/src/ticketPreferences.ts`: closed account preference response reader.
+- `04_Software/web/src/TicketWorkspace.tsx`, `ticketCopy.ts`, `styles.css`:
+  shared mode controls, untouched source and four-locale themed presentation.
+- `04_Software/web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`,
+  `04_Software/web/e2e/tickets.spec.ts`: renderer/security, preference boundary and
+  offline switching/persistence/session/keyboard/theme/width/locale proof.
+- `04_Software/web/vite.config.ts`, `THIRD_PARTY_NOTICES.md`: emit and identify
+  `BUNDLED_LICENSES.json` with full bundled dependency licenses in each build.
 
 - `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
