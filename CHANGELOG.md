@@ -201,6 +201,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Native ChatGPT configuration errors now explain that ChatGPT sign-in requires a container project.
 - Pi execution plans pin provider, endpoint, internet and search settings; package-enabled RPC stages retain redacted, bounded evidence and settle timed-out processes before reuse.
 - Delete affected job run directories in the configured state store before starting this build; saved execution plans require the current Pi policy.
 

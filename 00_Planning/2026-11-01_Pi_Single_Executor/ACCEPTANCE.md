@@ -7,7 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # PI-08 #58 acceptance record
 
-- Audit date: 2026-11-03.
+- Documentation audit date: 2026-11-03.
+- Test repository: `dpasare/adore-web-acceptance-20260930`.
 - ADORE product commit: `c4c410b4fb5bb9da580f6146a83860fe88049fab` on
   `task/adore-web-interface`.
 - Build pins for the executor image and managed server installation: Pi
@@ -21,8 +22,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
   end-to-end acceptance remain unexecuted. Linux is available through WSL2.
 - Financial cap: none supplied by the owner. The isolated profile sets
   `max_cost_usd = 0`, disabling that cap, and keeps the execution bounds below.
-- Live status: model connection and ChatGPT refusal checks have observations.
-  Complete ChatGPT jobs are blocked on the owner's isolated sign-in.
+- Live status: the owner completed the isolated ChatGPT sign-in and the Pi
+  model/shell probe passed. Both Internet Off and Internet On jobs reached validated candidates. Dedicated timeout, active cancellation and sign-out checks passed.
   Publication remains blocked by the push restriction.
   An em dash in the evidence columns means no observation.
 
@@ -59,17 +60,17 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## Success scenarios
 
-Use one small deterministic change and a focused test per row. S02 adds a
+Use one small deterministic change and a focused test per executed row. S04b adds a
 pinned dependency download to a disposable environment with a cold cache.
 Keep system package elevation disabled for this acceptance.
 
-| ID | Target and credential | Internet | Evidence to collect before approval | Run result | Draft PR/MR | Input/output tokens | Active duration |
+| ID | Target and credential | Internet | Evidence to collect before approval | Run result | Draft PR/MR | Input/output tokens | Duration |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | S01 | Container, provider API key | Off | Pi reaches the provider. A controlled unrelated destination outside the effective allowlist is denied. Web tools are absent. | Excluded by owner scope, unexecuted | Blocked by push restriction | — | — |
 | S02 | Container, same provider API key | On | Fetch the pinned library from the approved registry, import it and run the focused test. Verify the selected web extension is available. | Excluded by owner scope, unexecuted | Blocked by push restriction | — | — |
 | S03 | Container, OpenAI-compatible LM Studio or Ollama endpoint | Off | Pi uses the configured endpoint and model. Reachability is checked inside the job's network boundary. An unrelated destination outside the allowlist is denied. | Excluded by owner scope, unexecuted | Blocked by push restriction | — | — |
-| S04 | Container through WSL2, ChatGPT subscription | Off | Complete sign-in and run a stage. Check mount and injection metadata with values suppressed. Only the helper mounts the credential directory. Stage evidence redacts the access token. | Blocked on isolated ChatGPT sign-in | Blocked by push restriction | — | — |
-| S04b | Container through WSL2, ChatGPT subscription | On | Download a pinned user-level library and complete a focused test with the selected web extension. | Pending S04 and isolated sign-in | Blocked by push restriction | — | — |
+| S04 | Container through WSL2, ChatGPT subscription | Off | Complete sign-in and run a stage. Check mount and injection metadata with values suppressed. Only the helper mounts the credential directory. Stage evidence redacts the access token. | Passed through validated candidate, ticket #3 | Blocked by push restriction | 920205 / 16763 | 10m59s |
+| S04b | Container through WSL2, ChatGPT subscription | On | Download a pinned user-level library and complete a focused test with the selected web extension. | Passed through validated candidate, ticket #4 | Blocked by push restriction | 1718635 / 24017 | 21m07s |
 | S05 | Linux server, provider API key | Host policy | Verify both installed pins, current account, controlled tool PATH and owned cgroup. Use inert personal Pi settings in the dedicated account to confirm isolation. | Excluded by owner scope, unexecuted | Blocked by push restriction | — | — |
 | S06 | Windows server, provider API key | Host policy | Verify both installed pins, current account, direct Node launch, PowerShell tool call and owned Job Object. Use inert personal Pi settings in the dedicated account to confirm isolation. | Excluded by owner scope, unexecuted | Blocked by push restriction | — | — |
 
@@ -83,13 +84,13 @@ Use the same isolated project controls and bounds. For timeout and cancellation,
 use a disposable ticket that keeps the stage active long enough to observe
 abort and process cleanup. Check that the test branch and PR/MR are absent.
 
-| ID | Trigger | Expected evidence | Live result | Input/output tokens | Active duration | Follow-up |
+| ID | Trigger | Expected evidence | Live result | Input/output tokens | Duration | Follow-up |
 | --- | --- | --- | --- | --- | --- | --- |
 | F01 | Replace the test provider key with a synthetic invalid value | Credential rejection in the probe and bounded job failure. The value stays out of retained evidence. | Excluded by owner scope, unexecuted | — | — | — |
 | F02 | Stop the dedicated test endpoint | Connection failure with the endpoint unavailable. No cloud fallback. | Outside the narrowed LM Studio connection check, unexecuted | — | — | — |
-| F03 | Missing ChatGPT sign-in and a separate synthetic expired credential with invalid refresh | Sign-in required prevents the probe. Provider-refused refresh marks the isolated fixture Sign in again. | Passed refusal checks, real disconnect unexecuted | 0 model tokens | Refresh rejection 1.34 s | None |
-| F04 | Let a stage exceed a short per-stage limit | RPC abort is attempted. ADORE removes a process that survives the grace period and records the timeout. | Blocked on isolated ChatGPT sign-in | — | — | — |
-| F05 | Cancel during an active stage | Abort and verified cleanup of the owned scope. Job is cancelled and publishes nothing. | Blocked on isolated ChatGPT sign-in | — | — | — |
+| F03 | Missing ChatGPT sign-in and a separate synthetic expired credential with invalid refresh | Sign-in required prevents the probe. Provider-refused refresh marks the isolated fixture Sign in again. | Passed missing sign-in, disconnect and refresh-refusal checks | 0 model tokens | Refresh rejection 1.34 s | None |
+| F04 | Let a stage exceed a short per-stage limit | RPC abort is attempted. ADORE removes a process that survives the grace period and records the timeout. | Passed, ticket #5 | 4445 / 95 | 2m30s | None |
+| F05 | Cancel during an active stage | Abort and verified cleanup of the owned scope. Job is cancelled and publishes nothing. | Passed, ticket #6 | 34072 / 784 | 2m14s | None |
 
 ## Observed live preparation and connection
 
@@ -97,7 +98,8 @@ abort and process cleanup. Check that the test branch and PR/MR are absent.
   build commands. The executor reports Node `22.23.4`, Pi `1.4.0` and
   `pi-web-access` `0.46.0`. The older installed executor image was left in place.
 - Started the isolated ADORE web instance with a fresh home and one paused
-  project. Existing profiles remain separate. A fresh login flow is pending.
+  project. Existing profiles remain separate. The owner completed a renewed
+  sign-in flow after closing the first browser window.
   The account's personal Pi reports a stored sign-in, while the ADORE credential
   directory reports `not-signed-in`. Personal Pi credentials were not imported.
 - The test repository's remote base is `cb34c08153bce032aaa03a72e37c1e673d46f161`.
@@ -107,7 +109,7 @@ abort and process cleanup. Check that the test branch and PR/MR are absent.
   forge would restore its older AEGIS, so this fixture setup is part of the
   evidence. Both repository remote push URLs are disabled. Checkpoint
   publication is off and the unique approval label is absent.
-- Created four missing acceptance labels through ADORE and test ticket #3.
+- Created four missing acceptance labels through ADORE and test tickets #3–#6.
   Its subtract-helper request has a positive test and invalid-input boundaries.
   The pre-existing test tickets were left untouched.
 - L01, LM Studio connection only, reached the selected model through
@@ -168,7 +170,7 @@ release note.
 
 Read the live ticket bodies and closure comments on 2026-11-03. The
 replacements cover the reported behavior at the implementation and offline
-level. Live confirmation for server behavior belongs to S05 and S06.
+level. The original live server job confirmations belong to S05 and S06 and remain outside the narrowed scope.
 
 | Ticket | Replacement | Evidence and disposition |
 | --- | --- | --- |
@@ -176,9 +178,115 @@ level. Live confirmation for server behavior belongs to S05 and S06.
 | #45 | #53 | The local Codex launcher and its account configuration path were removed. The native runtime launches managed Pi. Keep closed. |
 | #46 | #53 | ADORE no longer launches OpenCode. Managed Pi gates exclude personal and untrusted project resources, covered by the hostile-configuration fixture in `test_local_execution.py`. Keep closed. |
 | #33 | #53, #57 | Case-insensitive removed-prefix checks refuse old settings. Native profiles reject arbitrary local environment overrides and the managed native environment filters forge credentials. `test_config.py` and `test_local_execution.py` cover refusals. Keep closed. |
-| #44 | #57 | Managed Pi uses a fresh agent directory and a filtered environment instead of personal Pi settings or sign-in. The native gate fixture and updated local execution guide cover the replacement. Keep closed, with live confirmation pending. |
-| #32 | #57 | Native launches resolve managed Node and Pi. Readiness reports missing or incompatible prerequisites. Enrollment has no cgroup or executable picker, and arbitrary local environment overrides are refused. Offline coverage is in `test_pi_installation.py`, `test_local_execution.py` and `local-executors.spec.ts`. Keep closed, with Windows acceptance pending. |
+| #44 | #57 | Managed Pi uses a fresh agent directory and a filtered environment instead of personal Pi settings or sign-in. The native gate fixture and updated local execution guide cover the replacement. Keep closed. Native job confirmation is outside the narrowed scope. |
+| #32 | #57 | Native launches resolve managed Node and Pi. Readiness reports missing or incompatible prerequisites. Enrollment has no cgroup or executable picker, and arbitrary local environment overrides are refused. Offline coverage is in `test_pi_installation.py`, `test_local_execution.py` and `local-executors.spec.ts`. Keep closed. Native Windows job acceptance is outside the narrowed scope. |
 | #34 | #52 | `test_pi_rpc.py` covers per-turn accounting, large bounded evidence and unreadable usage. The usage journal receives complete counts, and Statistics represents partial or unavailable totals. Keep closed. |
 
-#26 is open and outside PI-08 backlog cleanup. S02 checks a user-level library
+#26 is open and outside PI-08 backlog cleanup. S04b checks a user-level library
 download and does not exercise adaptive system package installation.
+
+## Complete ChatGPT job evidence
+
+S04, ticket #3, reached `awaiting-approval` after five launches. The final state update was 659 seconds after creation. The approval-presented event occurred after 646 seconds.
+The validated candidate is `a768bcc4c28ba93e66eaf9067b9b230a94ce8aea` and
+its recorded fingerprint is
+`2e038dc03f52a6a7d3782409e263b6bafe03d5711e7e5b3ddfb8757698001ce4`.
+ADORE's final strict verification passed both configured test and lint commands
+with zero errors and one unpromoted `fingerprints-tracked` warning for four
+sidecars already tracked by the fixture. The candidate is clean and changes
+13 files, including four tracked bytecode files inherited from the test
+repository. Those generated binary changes are a fixture limitation.
+The subtraction helper's public import, ordinary arithmetic and type/finiteness
+refusals have unittest coverage. All five stage usage observations report
+tokens. The 920205 input tokens include 785152 reported cache-read tokens.
+The monetary cost remains unavailable.
+
+The active run mounts exclude the ChatGPT credential directory. The container
+creation environment has neither `OPENAI_API_KEY` nor the checked forge token
+names. A value-only scan of retained RPC evidence found neither the stored
+access token nor the refresh token. This scan establishes absence from retained
+evidence. The offline redaction tests exercise echoed secrets explicitly.
+
+S04b, ticket #4, reached `awaiting-approval` after six launches. The final state
+update was 1267 seconds after creation. The approval-presented event occurred
+after 1250 seconds. The first build attempt reached its 300-second stage limit
+and recorded `EXECUTOR_TIMEOUT` with exit 124. ADORE aborted that attempt,
+preserved the work and completed build with a fresh launch under the existing
+limits. The dedicated timeout check is tracked by acceptance ticket #5.
+The validated candidate is `13021f68d6144164e5ad108cc55ea72d991b0f89` and its
+fingerprint is
+`c24bbe3ad9c7b73710ec84012e09f8b7a6fa8fdc9f09c954c5aae0fc418b8a67`.
+Strict verification passed both test and lint with zero errors and the same
+tracked-sidecar warning. The clean candidate changes 14 files, including the
+fixture's four tracked bytecode files. All six usage observations report tokens.
+The 1718635 input tokens include 1508992 reported cache-read tokens. A separate
+in-container import printed `26.0` from `/tmp/pi08-packaging`, and the gate
+script loads the managed web extension. No repository dependency file changed.
+
+Reported run durations above measure creation to final durable state update.
+They include setup, execution, verification and forge notification time.
+
+## Native ChatGPT availability
+
+The owner additionally requested native availability checks on Windows and
+WSL2. Both used isolated test configuration and the public configuration
+validator. ADORE accepts ChatGPT sign-in only for container projects. The stored
+sign-in used successfully by S04 leaves that native restriction in force.
+
+| Check | Product result | Additional native prerequisite observation | Model launch or job |
+| --- | --- | --- | --- |
+| N01, Windows native ChatGPT | Refused by the container-only sign-in rule | `verify_pi` refuses installed Node `24.15.0`. Managed Pi requires Node `22.23.4` or later in the `22.x` line. | Unexecuted |
+| N02, WSL2 native ChatGPT | Refused by the same container-only sign-in rule | `verify_pi` reports the required Node executable missing from the native WSL2 service environment. | Unexecuted |
+
+The initial diagnostic incorrectly attributed the refusal to absent managed
+native Pi. TASK-fbe9d636 corrects that explanation to name container-only
+ChatGPT sign-in. Fresh Windows and WSL2 `adore config validate` commands both exited 1 with the corrected
+message, as expected for this unsupported configuration. The original native API-key scenarios S05 and S06 remain excluded by
+the owner's narrowed scope. These availability checks prove neither a native
+model response nor a native end-to-end job.
+
+## Timeout, cancellation and final controls
+
+- F04, ticket #5, used one permitted launch and a one-second Pi stage limit.
+  Its single attempt ended with `EXECUTOR_TIMEOUT`, exit 124 and retained
+  evidence. The RPC archive contains an abort response. The run is `failed`
+  as expected for this negative test and its container is stopped.
+- F05, ticket #6, was cancelled only after its RPC stream showed `agent_start`.
+  The normal web cancellation request was delivered by the worker's watcher.
+  The RPC archive contains an abort response and `agent_settled`. The run
+  reached `cancelled` after one launch and its container was removed. The queued
+  cancellation operation also completed successfully.
+- The original isolated ChatGPT sign-in was disconnected through ADORE after
+  the job checks. The API then reported `not-signed-in` with no pending flow.
+  This completes the real sign-out observation for F03.
+- All four isolated project stores remain paused. Both successful jobs retain
+  their validated candidates with stopped containers. The timeout evidence is
+  retained and the cancelled job has released its container. There are no
+  checkpoint-pushed, branch-pushed or MR-opened journal events in these runs.
+- A final read-only forge check listed only the pre-existing branch for ticket
+  #1 and `main`, plus the pre-existing PR #2 last updated on 2026-09-30.
+  No branch or PR for tickets #3–#6 was published. The first final Git read
+  returned an authentication error. One bounded noninteractive retry succeeded
+  and confirmed the unchanged `main` head. The authenticated forge CLI reads
+  succeeded throughout the final check.
+
+## Local correction validation and session close
+
+TASK-fbe9d636 corrected the inaccurate native ChatGPT refusal explanation.
+The focused provider/configuration tests passed 97 cases. Two independent
+reviewers approved the correction. The complete offline Python suite passed
+in 1505.3 seconds and Ruff passed in 2.7 seconds. The strict advisory check
+exited 0 with zero errors and 34 unpromoted existing record/path and release-note
+coverage warnings. Release-note validation passed with all four locales.
+The combined full check was stopped during its serial Chromium phase to keep
+this work within the original bounded acceptance session. The frontend reached
+browser execution after its helper/type/build checks, but complete browser
+regression remains unproven. The correction's time allowance increased from
+35 to 45 minutes within the original session limit to finish available proof.
+
+The isolated acceptance API was stopped after sign-out. State, candidates and
+sanitized execution evidence remain in the isolated test area. Production and
+ticket #25 were outside these operations. The original API-key and LM Studio
+end-to-end rows remain unexecuted. Publication acceptance remains unexecuted
+under the push restriction, so this record does not close the original #58
+acceptance criteria in full.

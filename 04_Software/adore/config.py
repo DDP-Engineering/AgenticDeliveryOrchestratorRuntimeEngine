@@ -299,8 +299,8 @@ class ExecutorConfig:
              project's "Internet access for the agent": false limits a
              container run to the model provider's hosts, true opens the
              network and loads Pi's web tools ([executor.web]). `command` is the
-             argv template of a native (installed) Pi run; a container run
-             uses the image's pinned Pi and ignores it. The provider's key
+             retained container preset. Native runs omit it and use managed
+             Pi RPC. Container runs use the image's pinned Pi. The provider's key
              variable always reaches Pi; env_keys names additional secrets
              injected into the executor (from the environment / .env); only
              these keys ever reach it (design 12b: scope minimally).
@@ -990,8 +990,8 @@ def _chatgpt_issues(config: Config) -> list[str]:
     """
     issues: list[str] = []
     if config.execution.backend == "local":
-        issues.append('[executor] provider "chatgpt" needs a container run: a local run has '
-                      "no ADORE-managed Pi to refresh the ChatGPT sign-in")
+        issues.append('[executor] provider "chatgpt" is unavailable with the local backend. '
+                      "ChatGPT sign-in is available only for container projects.")
     limit = config.budgets.per_gate_timeout_seconds
     if isinstance(limit, int) and not isinstance(limit, bool) and limit > CHATGPT_MAX_STAGE_SECONDS:
         issues.append(f"[budgets] per_gate_timeout_seconds must be at most "

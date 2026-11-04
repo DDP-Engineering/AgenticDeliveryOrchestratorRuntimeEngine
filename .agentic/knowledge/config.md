@@ -69,15 +69,16 @@ API-key provider id from the shipped catalog `adore/pi_catalog.json`,
 matching `pi_providers.MODEL_ID_RE`), `endpoint` (`ExecutorEndpointConfig`:
 `base_url`, `api` default `openai-completions`), `command` (default
 `branding.PI_NATIVE_COMMAND`, `pi -p --mode json --model {model} {prompt}`,
-used only by a native run), `mode`, `questions_file` and `env_keys` (default
+retained as the container preset), `mode`, `questions_file` and `env_keys` (default
 empty; additional secret names, the provider's key variable is always passed).
 `_provider_issues` requires `[executor.endpoint]` for `custom` and refuses the
 table for any other provider; `base_url` is http(s) with a host and no user
 info, query or fragment, and `api` is one of `openai-completions`,
-`openai-responses`, `anthropic-messages`, `google-generative-ai`. `custom` with
-`[execution] backend = "local"` is refused (no ADORE-owned agent directory for
-`models.json`). `_chatgpt_issues` refuses `chatgpt` with `[execution] backend =
-"local"` (no ADORE-managed Pi to refresh the ChatGPT sign-in), refuses
+`openai-responses`, `anthropic-messages`, `google-generative-ai`. Both backends
+place generated endpoint settings in a managed agent directory. Native profiles
+omit `command` and use fixed managed Pi RPC. `_chatgpt_issues` refuses `chatgpt`
+with `[execution] backend = "local"` and explains that ChatGPT sign-in is
+available only for container projects. It refuses
 `[budgets] per_gate_timeout_seconds` above 3000 with `chatgpt`, and refuses each
 `[workflow] stage_timeout_overrides.<stage>` above 3000 with `chatgpt`; 3000 is
 `chatgpt.MAX_STAGE_SECONDS`, because a ChatGPT access token lasts about an hour
@@ -103,7 +104,7 @@ Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies account/home/path/environment/cgroup_root. Explicit execution.backend=local rejects recipes, a non-empty container egress allowlist, staging and container-only options. Non-secret local maps reject managed/forge variables and literal inline provider credentials. Container remains the default.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies the current account and optional tools PATH. The local backend rejects recipes, a non-empty container egress allowlist and container-only options. Reserved launch overrides and unknown local fields are refused. Container remains the default.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.

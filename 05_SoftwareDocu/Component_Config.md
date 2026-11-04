@@ -104,9 +104,9 @@ quotes or control characters, at most 200 characters). `[executor.endpoint]`
 `anthropic-messages`, `google-generative-ai`) is required for `custom` and,
 when the table is present in the file, refused for any other provider.
 `base_url` is an http(s) address with a host and no user name, password,
-query or fragment, as seen from the container. `custom` with
-`[execution] backend = "local"` is refused: a local run has no ADORE-owned
-agent directory for Pi's `models.json`. An unreadable catalog is reported as
+query or fragment, as seen from the selected execution environment. Both
+backends use a managed agent directory for Pi's generated `models.json`.
+An unreadable catalog is reported as
 an `[executor] provider` issue. `_provider_issues` also refuses a non-boolean
 `internet`, a non-table `[executor.web]` and a `search` outside
 `WEB_SEARCH_CHOICES`.
@@ -132,8 +132,8 @@ readiness probe use `egress_policy`; a local run is not restricted by it.
 cannot run, because ADORE mints a short-lived ChatGPT access token before every
 stage through the image's pinned Pi and does not refresh it during a stage:
 
-- `[execution] backend = "local"` is refused (a local run has no ADORE-managed
-  Pi to refresh the ChatGPT sign-in);
+- `[execution] backend = "local"` is refused with an explanation that ChatGPT
+  sign-in is available only for container projects;
 - `[budgets] per_gate_timeout_seconds` above 3000 is refused;
 - each `[workflow] stage_timeout_overrides.<stage>` above 3000 is refused.
 
@@ -168,12 +168,11 @@ base_url = "http://192.168.1.20:1234/v1"
 api = "openai-completions"
 ```
 
-`command` is the argv template of a native (local) Pi run only; the default
-is `branding.PI_NATIVE_COMMAND`
-(`pi -p --mode json --model {model} {prompt}`). It must contain `{prompt}`
-and must not use `--auto`; a container run ignores it and drives the image's
-pinned Pi over RPC. Templates support only the `{prompt}`, `{model}` and
-`{worktree}` placeholders; any other placeholder is refused as unsupported.
+`command` retains the container preset `branding.PI_NATIVE_COMMAND`
+(`pi -p --mode json --model {model} {prompt}`). A container run drives the
+image's pinned Pi over RPC. Native profiles omit this key and use managed
+Pi RPC. Configured templates require `{prompt}`, refuse `--auto` and permit
+only `{prompt}`, `{model}` and `{worktree}` placeholders.
 
 ## 5. Validation and Tests
 
@@ -181,7 +180,7 @@ pinned Pi over RPC. Templates support only the `{prompt}`, `{model}` and
 approval-label collisions, forge credential denial, container trust boundaries
 and existing cross-platform configuration rules. `tests/test_pi_providers.py`
 covers the shipped catalog (including `chatgpt_models`), provider/model/endpoint
-validation, the local-run refusal of `custom`, the local-run and stage-limit
+validation, endpoint model generation, the local-run and stage-limit
 refusals of `chatgpt`, `secret_names` and `models_json`. The internet switch
 is covered by `test_internet_defaults_off_with_exa_search`,
 `test_internet_and_search_values_are_validated`,

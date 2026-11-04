@@ -23,7 +23,7 @@ text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "ADORE manages Pi on Windows and Linux without using your personal Pi settings.", fr = "ADORE gère Pi sous Windows et Linux sans utiliser vos réglages Pi personnels.", de = "ADORE verwaltet Pi unter Windows und Linux ohne Ihre persönlichen Pi-Einstellungen.", ro = "ADORE administrează Pi pe Windows și Linux fără a folosi setările Pi personale." }
+text = { en = "Managed Pi ignores personal settings on Windows/Linux. ChatGPT sign-in needs a container.", fr = "Pi géré ignore vos réglages sous Windows/Linux. La connexion ChatGPT nécessite un conteneur.", de = "Pi ignoriert persönliche Einstellungen auf Windows/Linux. ChatGPT-Anmeldung braucht Container.", ro = "Pi ignoră setările personale pe Windows/Linux. Autentificarea ChatGPT cere un container." }
 
 [[release.entry]]
 category = "fixed"
