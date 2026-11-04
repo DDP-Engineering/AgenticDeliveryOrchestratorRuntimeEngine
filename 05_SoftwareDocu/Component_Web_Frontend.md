@@ -7,6 +7,32 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+## Forge Markdown rendering primitive
+
+`src/forgeMarkdown.ts` exports `ForgeMarkdown`, a synchronous React-only renderer
+separate from the help parser. Its inputs are the untouched forge `source` string
+and localized `imageLabel`, `codeLabel` and `tableLabel` strings. The renderer
+returns semantic GFM elements through pinned `react-markdown` 10.1.0 and
+`remark-gfm` 4.0.1. It does not own acquisition, account preferences or the mode
+control. TicketWorkspace integration is not yet present in this build increment.
+
+Raw HTML is retained as escaped React text; no raw-HTML plugin or HTML insertion
+API is used. Custom anchors accept only explicit absolute HTTP, HTTPS or mailto
+URLs validated with `URL`; controls, whitespace, relative URLs and other schemes
+remain readable non-link labels. Allowed anchors have controlled attributes,
+`target="_blank"` and `rel="noopener noreferrer"`. Parser props are not spread
+onto links. Images always become localized inert placeholders, never resource
+elements or automatic requests. Task checkboxes are disabled. Code and tables
+expose named, focusable `forge-scroll` regions for local overflow styling.
+
+`tests/forgeMarkdown.test.mjs` exercises the public React render using static
+markup: the requested nested GFM subset, malformed syntax, literal HTML,
+inline/reference links, scheme obfuscations, image placeholders and escaped
+labels. Browser non-execution/request and responsive oracles must additionally
+be established when the renderer is connected to ticket details. Dependency
+licenses are MIT except the ISC structured-clone dependency; existing automatic
+third-party notice generation remains responsible for distribution notices.
+
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Agent and model groups executor settings in Settings. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
