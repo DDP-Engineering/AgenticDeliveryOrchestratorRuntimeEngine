@@ -105,6 +105,16 @@ test("links point to existing topics, sections or interface addresses", () => {
   }
 });
 
+test("tickets explain shared body modes, exact source, account retention and inert images in every locale", async () => {
+  const { ticketCopy } = await import("../src/ticketCopy.ts");
+  for (const locale of HELP_LOCALES) {
+    const text = read(locale, "tickets");
+    assert.ok(helpOutline(docs()[locale].tickets).some(item => item.id === "reading-bodies"), `${locale} reading bodies section`);
+    for (const key of ["bodyDisplay", "rendered", "markdownSource", "imageNotLoaded"]) assert.ok(text.includes(ticketCopy[locale][key]), `${locale}: ${key}`);
+    assert.match(text, /http.*https.*mailto/i);
+  }
+});
+
 test("contextual help targets existing topics", () => {
   for (const [place, topic] of Object.entries(CONTEXT_TOPICS)) assert.ok(HELP_TOPICS.includes(topic), place);
   assert.deepEqual(CONTEXT_TOPICS, { tickets: "tickets", addProject: "projects", projectSettings: "settings" });

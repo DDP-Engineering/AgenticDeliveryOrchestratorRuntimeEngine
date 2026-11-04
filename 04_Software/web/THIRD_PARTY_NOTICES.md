@@ -8,16 +8,22 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Third-party notices
 
 The ADORE web distribution contains these third-party components. The version
-and license identifiers below reflect the locked 0.13.0 web build. Their own
+and license identifiers below identify the runtime and Markdown renderer. Their own
 license terms apply to their code; ADORE's license applies to ADORE code.
 The offline wheelhouse retains the Python packages' license files. The browser
-bundle contains the React runtime and its dependencies.
+bundle contains the React runtime and its dependencies, plus the GFM renderer.
+Every frontend build also emits `BUNDLED_LICENSES.json` beside this file, with
+versions, authors and full license texts for the dependencies actually bundled,
+including the Markdown parser's transitive MIT and ISC components. Keep that
+file with the distributed assets; this short inventory does not replace it.
 
 | Component | Version | License |
 | --- | --- | --- |
 | React | 19.3.0 | MIT |
 | React DOM | 19.3.0 | MIT |
 | Scheduler | 0.28.0 | MIT |
+| react-markdown | 10.1.0 | MIT |
+| remark-gfm | 4.0.1 | MIT |
 | annotated-doc | 0.0.5 | MIT |
 | annotated-types | 0.8.0 | MIT |
 | AnyIO | 4.15.1 | MIT |

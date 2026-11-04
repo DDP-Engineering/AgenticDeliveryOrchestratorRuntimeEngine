@@ -14,7 +14,25 @@ separate from the help parser. Its inputs are the untouched forge `source` strin
 and localized `imageLabel`, `codeLabel` and `tableLabel` strings. The renderer
 returns semantic GFM elements through pinned `react-markdown` 10.1.0 and
 `remark-gfm` 4.0.1. It does not own acquisition, account preferences or the mode
-control. TicketWorkspace integration is not yet present in this build increment.
+control. `TicketWorkspace` mounts it for descriptions and comments in Rendered
+mode; Markdown source uses a focusable `pre` containing the untouched API string.
+An empty description uses the existing localized fallback before rendering.
+
+`App` owns the shared mode for both project and global Tickets workspaces.
+`ticketPreferences.ts::readPreferences` validates nullable language/theme and the
+closed `ticket_body_mode` response (`rendered`, `source`, or null). Malformed
+responses raise `ApiError("unexpected_response")`; only null means no saved mode
+and selects Rendered. Account initialization/sign-in reads preferences before
+the shell appears. Session generations guard reads and writes, and session clear
+resets mode/confirmed mode/pending guard. One synchronous ref admits a single
+mode PATCH per session; all detail selectors remain mounted and focusable with
+`aria-disabled` while saving. Success confirms only the mode, not stale language
+or theme. Failure restores the last confirmed mode and uses localized error
+feedback; another explicit selection retries. Account storage supplies reload,
+project and browser persistence, read at sign-in/reload rather than live tab sync.
+`ticketCopy` owns four-locale controls and renderer labels. Scoped theme-token
+CSS wraps prose/metadata and contains source, code and wide tables in local
+scroll regions without expanding the outer page.
 
 Raw HTML is retained as escaped React text; no raw-HTML plugin or HTML insertion
 API is used. Custom anchors accept only explicit absolute HTTP, HTTPS or mailto
@@ -28,10 +46,14 @@ expose named, focusable `forge-scroll` regions for local overflow styling.
 `tests/forgeMarkdown.test.mjs` exercises the public React render using static
 markup: the requested nested GFM subset, malformed syntax, literal HTML,
 inline/reference links, scheme obfuscations, image placeholders and escaped
-labels. Browser non-execution/request and responsive oracles must additionally
-be established when the renderer is connected to ticket details. Dependency
-licenses are MIT except the ISC structured-clone dependency; existing automatic
-third-party notice generation remains responsible for distribution notices.
+labels. `tests/ticketPreferences.test.mjs` proves the closed response boundary.
+`e2e/tickets.spec.ts` covers shared exact source, delayed comments, keyboard/focus,
+HTML/link/image DOM and request safety, account/session persistence and save
+failure/retry, four-locale labels/help, and both themes at desktop/360px. Dependency
+licenses are MIT except the ISC structured-clone dependency. Vite's built-in
+`build.license` emits `BUNDLED_LICENSES.json` with full license metadata for the
+bundled graph in each build; the static notice inventory names that companion
+file. Asset stamping keeps the existing project license/notice copy behavior.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
@@ -354,8 +376,9 @@ selected priority label; a `pickup_paused` blocker shows Monitoring paused plus 
 per-project explanation, also used for a 409 `pickup_paused`. The followed
 operation shows its `reason` as a localized sentence (`operationReason.ts`, shared
 with `JobWorkspace` and the project status line), its `detail` lines in a bounded
-`pre`, and for a refused Start the labels it left on the ticket; forge text is
-rendered as React text and only http(s) links open, with `noopener noreferrer`.
+`pre`, and for a refused Start the labels it left on the ticket. Forge metadata
+remains inert React text with http(s)-only ticket-title navigation; description
+and comment bodies use the isolated ForgeMarkdown policy documented above.
 The Jobs sub-tab renders `JobWorkspace` in jobs mode with a fixed scope, no start
 form and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
 shared `statisticsView(true)` without the project selector or the cross-project tab.

@@ -61,8 +61,9 @@ test("raw HTML is visible text rather than an element or execution pipeline", op
     assert.doesNotMatch(html, /<(?:script|img|b|iframe|div|span|style)\b[^>]*(?:src|onclick|onerror)|<script\b|<iframe\b|<style\b/);
     assert.equal(globalThis.forgeSentinel, undefined);
   }
-  const source = readFileSync(moduleUrl, "utf8");
-  assert.doesNotMatch(source, /dangerouslySetInnerHTML|rehype-raw|innerHTML\s*=/);
+  for (const path of [moduleUrl, new URL("../src/TicketWorkspace.tsx", import.meta.url)]) {
+    assert.doesNotMatch(readFileSync(path, "utf8"), /dangerouslySetInnerHTML|rehype-raw|innerHTML\s*=/);
+  }
 });
 
 test("safe inline and reference links are user-activated protected anchors", options, () => {

@@ -9,7 +9,7 @@ id = "REQ-SEC-29fc8db7"
 
 title = "Display raw forge HTML as literal text"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a forge description or comment contains raw HTML in either display mode, the Tickets view shall display that HTML as literal inert text through React text nodes without interpreting it as elements or using dangerouslySetInnerHTML.
@@ -19,7 +19,7 @@ verification = "Automated: render descriptions and comments containing script ta
 
 affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs"]
+linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

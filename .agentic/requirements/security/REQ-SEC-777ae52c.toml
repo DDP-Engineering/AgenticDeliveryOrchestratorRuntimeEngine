@@ -9,7 +9,7 @@ id = "REQ-SEC-777ae52c"
 
 title = "Open allowed forge Markdown links safely"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When rendered forge Markdown contains an explicit link with an absolute http, https or mailto destination, the Tickets view shall expose a navigable anchor protected by rel=\"noopener noreferrer\" and target=\"_blank\" without fetching its destination automatically.
@@ -19,7 +19,7 @@ verification = "Automated: render inline and reference-style links to http, http
 
 affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs"]
+linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

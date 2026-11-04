@@ -47,6 +47,7 @@ import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Acc
 import { userCopy } from "./userCopy";
 import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
 import { TicketWorkspace } from "./TicketWorkspace";
+import { readPreferences, type Preferences, type TicketBodyMode } from "./ticketPreferences";
 import { ticketCopy, operationResultText } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
@@ -60,7 +61,6 @@ import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type AccountUser = User & Account;
 type Session = { user: User; csrf: string };
-type Preferences = { language: Locale | null; theme: "light" | "dark" | "system" | null };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; reason?: string; detail?: string; action?: string };
@@ -111,6 +111,10 @@ export default function App() {
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [theme, setTheme] = useState(localStorage.getItem("adore-theme") || "system");
   const [session, setSession] = useState<Session | null>(null);
+  const [ticketBodyMode, setTicketBodyMode] = useState<TicketBodyMode>("rendered");
+  const confirmedTicketMode = useRef<TicketBodyMode>("rendered");
+  const ticketModePending = useRef(false);
+  const [ticketModeBusy, setTicketModeBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page>("overview");
   const [viewRefresh, setViewRefresh] = useState(0);
@@ -236,6 +240,8 @@ export default function App() {
   const applyPreferences = (saved: Preferences) => {
     if (saved.language) setLocale(saved.language);
     if (saved.theme) setTheme(saved.theme);
+    confirmedTicketMode.current = saved.ticket_body_mode ?? "rendered";
+    setTicketBodyMode(confirmedTicketMode.current);
   };
   const isAdmin = session?.user.role === "admin";
   const metricsTabs: MetricsTab[] = ["summary", "usage", "quality", "trends"];
@@ -360,12 +366,19 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    let active = true;
+    const generation = viewGeneration.current;
+    const currentView = () => active && generation === viewGeneration.current;
     request<Session>("/me").then(async current => {
-      try { applyPreferences(await request<Preferences>("/me/preferences")); }
-      catch (cause) { setError(cause); }
+      try {
+        const saved = readPreferences(await request<unknown>("/me/preferences"));
+        if (currentView()) applyPreferences(saved);
+      } catch (cause) { if (currentView()) setError(cause); }
+      if (!currentView()) return;
       if (current.user.password_change_required) setPasswordSession(current);
       else setSession(current);
-    }).catch(() => setSession(null)).finally(() => setLoading(false));
+    }).catch(() => { if (currentView()) setSession(null); }).finally(() => { if (currentView()) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const updatePreference = (key: "language" | "theme", value: string) => {
@@ -382,6 +395,32 @@ export default function App() {
         if (key === "language") setLocale(previous as Locale);
         else setTheme(previous);
         setError(cause);
+      });
+  };
+
+  /** One in-flight mode save per session; never replay a previous account's result. */
+  const updateTicketBodyMode = (value: TicketBodyMode) => {
+    const account = session;
+    if (!account || ticketModePending.current) return;
+    ticketModePending.current = true;
+    setTicketModeBusy(true); setError("");
+    setTicketBodyMode(value);
+    const generation = viewGeneration.current;
+    void request<unknown>("/me/preferences", "PATCH", { ticket_body_mode: value }, account.csrf)
+      .then(response => {
+        const saved = readPreferences(response);
+        if (saved.ticket_body_mode !== value) throw new ApiError("unexpected_response");
+        if (generation !== viewGeneration.current) return;
+        // Other preferences may have changed while this request was in flight.
+        confirmedTicketMode.current = value;
+      })
+      .catch(cause => {
+        if (generation !== viewGeneration.current) return;
+        setTicketBodyMode(confirmedTicketMode.current); setError(cause);
+      })
+      .finally(() => {
+        if (generation !== viewGeneration.current) return;
+        ticketModePending.current = false; setTicketModeBusy(false);
       });
   };
 
@@ -695,6 +734,8 @@ export default function App() {
 
   const clearPrivateView = () => {
     viewGeneration.current += 1;
+    ticketModePending.current = false; setTicketModeBusy(false);
+    confirmedTicketMode.current = "rendered"; setTicketBodyMode("rendered");
     setPage("overview"); setJobScope(""); setMenuOpen(false);
     selectedMetricsRequest.current += 1;
     globalMetricsRequest.current += 1;
@@ -721,11 +762,14 @@ export default function App() {
     event.preventDefault(); setError("");
     const fields = new FormData(event.currentTarget);
     try {
-      const authenticated = await request<Session>("/session", "POST", Object.fromEntries(fields));
-      let saved: Preferences | null = null;
-      try { saved = await request<Preferences>("/me/preferences"); }
-      catch (cause) { setError(cause); }
       clearPrivateView();
+      const generation = viewGeneration.current;
+      const authenticated = await request<Session>("/session", "POST", Object.fromEntries(fields));
+      if (generation !== viewGeneration.current) return;
+      let saved: Preferences | null = null;
+      try { saved = readPreferences(await request<unknown>("/me/preferences")); }
+      catch (cause) { if (generation === viewGeneration.current) setError(cause); }
+      if (generation !== viewGeneration.current) return;
       if (saved) applyPreferences(saved);
       if (authenticated.user.password_change_required) setPasswordSession(authenticated);
       else setSession(authenticated);
@@ -1235,7 +1279,7 @@ export default function App() {
           {projectTab === "jobs" && selectedProject && <>
             {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} />
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
             </div>
           </>}
@@ -1264,7 +1308,7 @@ export default function App() {
           <section className="panel compact"><div className="workspace-controls"><label htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label></div></section>
           {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} />
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
             </div>
         </>}

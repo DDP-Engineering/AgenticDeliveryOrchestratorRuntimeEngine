@@ -60,6 +60,14 @@ Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela cha
 
 **Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.
 
+## Lire descriptions et commentaires {#reading-bodies}
+
+**Détails** ouvre par défaut descriptions et commentaires en Markdown **Rendu**. Titres, emphase, code, listes imbriquées, tâches en lecture seule, citations, tableaux et liens sont mis en forme ; une description vide conserve **Aucune description.**
+
+Utilisez **Affichage du contenu** à côté de **Description** pour choisir **Rendu** ou **Source Markdown** pour toutes les descriptions et tous les commentaires ouverts. La source montre le texte exact reçu du dépôt, espaces et sauts de ligne compris. Votre compte conserve un choix enregistré entre projets, rechargements et navigateurs ; un autre navigateur connecté le lit à sa prochaine connexion ou au rechargement. Si l’enregistrement échoue, une erreur apparaît et le dernier mode enregistré revient ; choisissez à nouveau pour réessayer.
+
+Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens absolus http, https et mailto sont cliquables et s’ouvrent séparément. Les images ne se chargent jamais automatiquement : **Image non chargée** et le texte alternatif éventuel les remplacent. Code, source et tableaux larges défilent dans leurs propres zones, accessibles au clavier. Les cases de tâches ne modifient pas le ticket.
+
 ## Liste de contrôle pour un premier ticket {#checklist}
 
 1. Créez les neuf étiquettes dans le dépôt de la forge.

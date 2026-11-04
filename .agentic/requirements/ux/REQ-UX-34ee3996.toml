@@ -9,7 +9,7 @@ id = "REQ-UX-34ee3996"
 
 title = "Explain ticket body modes in localized help"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a user opens the Tickets help topic in English, French, German or Romanian, the help center shall explain rendered description/comment bodies, the shared Rendered / Markdown source control, exact source, account-retained selection and non-loading images using that locale's interface terms.
@@ -19,7 +19,7 @@ verification = "Automated: check all four tickets.md topics for equivalent mode/
 
 affected_paths = ["04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/tickets.md", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

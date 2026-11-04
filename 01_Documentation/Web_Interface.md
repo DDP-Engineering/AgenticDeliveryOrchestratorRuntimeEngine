@@ -763,8 +763,21 @@ and to pick a priority, then adds those labels in the repository. A closed, held
 or excluded ticket, one without required acceptance criteria, or one that
 already has a job cannot be started; **Retry** re-runs a failed job; **Stop** asks for confirmation, cancels the ticket's unfinished
 job and removes its ready label so monitoring does not pick it up again;
-**Details** shows the description and loads the comments. Ticket text is shown
-as plain text. The **Jobs** sub-tab (`?view=jobs`) searches and lists the project's jobs and opens a
+**Details** shows the description and loads the comments, rendered as Markdown
+by default (headings, emphasis, code, nested/task lists, quotes, tables and links).
+The **Body display** selector beside **Description** switches all open descriptions
+and comments between **Rendered** and exact **Markdown source**, preserving spaces
+and line breaks. A successfully saved choice belongs to your account across
+projects, reloads and browsers (read on sign-in/reload, not live tab sync).
+While saving, selectors remain focusable but ignore further changes. A failed
+save shows a localized error and restores the last saved mode; select again to
+retry. An empty description retains **No description.** Metadata remains plain
+text; HTML in bodies remains literal text. Only absolute HTTP, HTTPS and mailto
+body links open separately with opener protection. Images never load automatically;
+an **Image not loaded** placeholder and any alternative text appear instead.
+Task checkboxes are read-only. Wide code, source and tables scroll locally in
+keyboard-focusable regions in both themes, including narrow screens.
+The **Jobs** sub-tab (`?view=jobs`) searches and lists the project's jobs and opens a
 job's detail in the same tab (`/projects/<id>/jobs?run=<run_id>`), including jobs
 chosen from Summary or History. **Statistics** shows that project's reporting
 period, statistics tabs and CSV exports (`/projects/<id>/statistics`). Neither

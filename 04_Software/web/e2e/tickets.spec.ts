@@ -7,10 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 
-async function signIn(page: Page) {
+async function signIn(page: Page, username = "admin", password = "admin") {
   await page.goto("/");
-  await page.getByLabel("Username", { exact: false }).fill("admin");
-  await page.getByLabel("Password", { exact: false }).fill("admin");
+  await page.getByLabel("Username", { exact: false }).fill(username);
+  await page.getByLabel("Password", { exact: false }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
 }
@@ -83,7 +83,7 @@ test("tickets sub-tab reads open tickets on request and controls them safely", a
 
     await ready.getByRole("button", { name: "Details", exact: true }).click();
     const readyDetail = page.locator(".ticket-detail").filter({ hasText: "Export the table." });
-    await expect(readyDetail).toContainText("Please keep **bold** headers");
+    await expect(readyDetail.locator("strong")).toHaveText("bold");
     await expect(readyDetail).not.toContainText("added ~agent-ready label");
 
     await ready.getByRole("button", { name: "Start", exact: true }).click();
@@ -250,4 +250,226 @@ test("many tickets are paged with a rows-per-page selector", async ({ page }) =>
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   await expect(rows).toHaveCount(7);
   await expect(pager).toHaveCount(0);
+});
+
+/** Open the same offline ticket surface without changing pickup or invoking an executor. */
+async function openBodies(page: Page, project = "alpha", read = "Read tickets", details = "Details") {
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const id = projects.find((row: { name: string }) => row.name === project).id;
+  await page.goto(`/projects/${id}/jobs`);
+  await page.getByRole("button", { name: read, exact: true }).click();
+  for (const iid of [21, 22]) await page.locator("tr.ticket-row").filter({ hasText: `#${iid}` }).getByRole("button", { name: details, exact: true }).click();
+}
+
+test("ticket bodies render by default, share exact source and retain keyboard focus", async ({ page }) => {
+  const source = '  # Goal\n\n**bold** and *italic*, `code`.\n\n- [ ] task\n\n<script>window.__ticketInjected=true</script>\n<img src="https://tracker.invalid/raw" onerror="alert(1)">\n\n[allowed](https://forge.invalid/issue) [unsafe](javascript:alert%281%29)\n![tracking](https://tracker.invalid/pixel)\n  ';
+  const comment = '  **Comment**\n\n> quote\n\n[mail](mailto:help@example.invalid)\n![comment image](https://tracker.invalid/comment)\n  ';
+  await page.route("**/api/v1/me/preferences", route => route.request().method() === "GET" ? route.fulfill({ json: { language: "en", theme: "light", ticket_body_mode: null } }) : route.fulfill({ json: { language: "en", theme: "light", ...route.request().postDataJSON() } }));
+  await page.route("**/api/v1/projects/*/tickets", async route => {
+    const response = await route.fetch(); const list = await response.json();
+    await route.fulfill({ response, json: { ...list, tickets: list.tickets.map((item: { iid: number; labels: string[] }) => ({ ...item, labels: [...item.labels, '<b onclick="alert(1)">**label**</b>'], description: item.iid === 21 ? source : "" })) } });
+  });
+  let releaseComments!: () => void;
+  const commentsReady = new Promise<void>(resolve => { releaseComments = resolve; });
+  await page.route("**/api/v1/projects/*/tickets/*/comments", async route => {
+    await commentsReady;
+    await route.fulfill({ json: { iid: Number(route.request().url().split("/").at(-2)), comments: [{ author: "<b>author</b>", created_at: "2026-11-01T10:00:00Z", body: comment }] } });
+  });
+  const external: string[] = [];
+  page.on("request", request => { if (new URL(request.url()).origin !== "http://127.0.0.1:18765") external.push(request.url()); });
+  await signIn(page); await openBodies(page);
+  const details = page.locator(".ticket-detail");
+  const controls = details.getByRole("combobox", { name: "Body display", exact: true });
+  await expect(controls).toHaveCount(2);
+  await expect(page.locator(".ticket-labels").first()).toContainText('<b onclick="alert(1)">**label**</b>');
+  await expect(page.locator(".ticket-labels b, .ticket-labels strong")).toHaveCount(0);
+  await expect(controls.first()).toHaveValue("rendered");
+  await expect(details.first().getByRole("heading", { name: "Goal", exact: true })).toBeVisible();
+  await expect(details.first().locator("strong")).toHaveText("bold");
+  await expect(details.first().getByRole("checkbox")).toBeDisabled();
+  await expect(details.last()).toContainText("No description.");
+  await expect(details.first().getByRole("link", { name: "allowed", exact: true })).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(details.first().getByRole("link", { name: "allowed", exact: true })).toHaveAttribute("target", "_blank");
+  await expect(details.getByRole("link", { name: "unsafe", exact: true })).toHaveCount(0);
+  await expect(details.locator("script, img, iframe, b")).toHaveCount(0);
+  await expect(details.first()).toContainText('<script>window.__ticketInjected=true</script>');
+  expect(await page.evaluate(() => (window as unknown as { __ticketInjected?: boolean }).__ticketInjected)).toBeUndefined();
+  // Tab into the first native selector, then choose each mode without replacing the element.
+  await details.first().locator("h3").first().evaluate(el => { el.setAttribute("tabindex", "-1"); (el as HTMLElement).focus(); });
+  await page.keyboard.press("Tab");
+  await expect(controls.first()).toBeFocused();
+  await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
+  await expect(controls.first()).toHaveValue("source");
+  await expect(controls.last()).toHaveValue("source");
+  await expect(controls.first()).toBeFocused();
+  expect(await details.first().locator(".ticket-source").textContent()).toBe(source);
+  releaseComments();
+  await expect(details.locator(".ticket-comments .ticket-source")).toHaveCount(2);
+  expect(await details.first().locator(".ticket-comments .ticket-source").textContent()).toBe(comment);
+  await expect(details.last()).toContainText("No description.");
+  await expect(details.locator("a, img, script, b")).toHaveCount(0);
+  await page.keyboard.press("ArrowUp"); await page.keyboard.press("Enter");
+  await expect(controls.first()).toHaveValue("rendered");
+  await expect(controls.first()).toBeFocused();
+  await expect(details.first().locator(".ticket-comments strong")).toHaveText("Comment");
+  await expect(details.first()).toContainText("<b>author</b>");
+  await expect(details.locator("img, script, iframe, b")).toHaveCount(0);
+  expect(external).toEqual([]);
+});
+
+test("ticket mode saves single-flight, rolls back failures and retries explicitly", async ({ page }) => {
+  let mode = "rendered"; let writes = 0; let fail: "http" | "network" | null = "http";
+  let release!: () => void;
+  let pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/v1/me/preferences", async route => {
+    if (route.request().method() === "PATCH") {
+      writes += 1; await pending;
+      if (fail === "network") { await route.abort("failed"); return; }
+      if (fail === "http") { await route.fulfill({ status: 503, json: { detail: { code: "preferences_corrupt" } } }); return; }
+      mode = route.request().postDataJSON().ticket_body_mode;
+    }
+    await route.fulfill({ json: { language: "en", theme: "light", ticket_body_mode: mode } });
+  });
+  await signIn(page); await openBodies(page);
+  const controls = page.locator(".ticket-detail").getByRole("combobox", { name: "Body display", exact: true });
+  await controls.first().selectOption("source");
+  await expect(controls.first()).toHaveAttribute("aria-disabled", "true");
+  await controls.last().evaluate(el => { (el as HTMLSelectElement).value = "rendered"; el.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(writes).toBe(1);
+  release();
+  await expect(controls.first()).toHaveValue("rendered");
+  const error = page.locator(".main-content [role=alert], main [role=alert]").first();
+  await expect(error).toContainText("Saved preferences cannot be read.");
+  fail = "network"; pending = Promise.resolve();
+  await controls.first().selectOption("source");
+  await expect.poll(() => writes).toBe(2);
+  await expect(controls.first()).toHaveValue("rendered");
+  await expect(error).toContainText("The ADORE server cannot be reached. Check your connection.");
+  fail = null;
+  await controls.first().selectOption("source");
+  await expect(controls.first()).toHaveAttribute("aria-disabled", "false");
+  await expect.poll(() => writes).toBe(3);
+  await page.reload(); await openBodies(page);
+  await expect(page.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveValue("source");
+});
+
+test("ticket bodies contain wide content locally in both themes and widths", async ({ page }) => {
+  const wide = "wide_".repeat(90);
+  const source = `# Heading\n\n${"Readable prose ".repeat(100)}\n\nhttps://forge.invalid/${wide}\n\n\`\`\`\n${wide}\n\`\`\`\n\n| Wide | Other |\n| --- | --- |\n| ${wide} | cell |`;
+  await page.route("**/api/v1/me/preferences", route => route.fulfill({ json: { language: "en", theme: "light", ticket_body_mode: route.request().method() === "PATCH" ? route.request().postDataJSON().ticket_body_mode : "rendered" } }));
+  await page.route("**/api/v1/projects/*/tickets", async route => {
+    const response = await route.fetch(); const list = await response.json();
+    await route.fulfill({ response, json: { ...list, tickets: list.tickets.map((item: object) => ({ ...item, description: source })) } });
+  });
+  await signIn(page); await openBodies(page);
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      for (const mode of ["source", "rendered"]) {
+        const control = page.locator(".ticket-detail select").first();
+        await control.selectOption(mode);
+        await expect(control).toHaveAttribute("aria-disabled", "false");
+        await control.scrollIntoViewIfNeeded();
+        await expect(control).toBeInViewport();
+        await control.focus(); await expect(control).toBeFocused();
+        const box = await control.boundingBox();
+        expect(box!.width).toBeGreaterThan(100); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+        const region = page.locator(".ticket-detail").first().locator(".forge-scroll").first();
+        const geometry = await region.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth, overflow: getComputedStyle(el).overflowX, color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
+        expect(geometry.scroll).toBeGreaterThan(geometry.client);
+        expect(geometry.overflow).toBe("auto");
+        expect(geometry.color).not.toBe(geometry.background);
+        expect(await control.evaluate(el => getComputedStyle(el).outlineStyle)).not.toBe("none");
+      }
+    }
+  }
+});
+
+test("ticket mode persists through the real API across projects and browsers independently of accounts", async ({ page, browser }) => {
+  await signIn(page); await openBodies(page);
+  const select = () => page.getByRole("combobox", { name: "Body display", exact: true }).first();
+  await select().selectOption("source");
+  await expect(select()).toHaveAttribute("aria-disabled", "false");
+  await openBodies(page, "beta"); await expect(select()).toHaveValue("source");
+  await page.reload(); await openBodies(page); await expect(select()).toHaveValue("source");
+  const fresh = await browser.newContext({ serviceWorkers: "block" });
+  await fresh.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
+  try {
+    const other = await fresh.newPage();
+    await signIn(other); await openBodies(other);
+    await expect(other.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveValue("source");
+    await other.getByRole("button", { name: "Sign out", exact: true }).filter({ visible: true }).click();
+    await expect(other.getByLabel("Username", { exact: false })).toBeVisible();
+    await signIn(other, "developer", "test-password"); await openBodies(other);
+    await expect(other.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveValue("rendered");
+    await select().selectOption("rendered");
+    await expect(select()).toHaveAttribute("aria-disabled", "false");
+    await page.reload(); await openBodies(page); await expect(select()).toHaveValue("rendered");
+  } finally { await fresh.close(); }
+});
+
+test("late old-account ticket save cannot change the next account or its pending guard", async ({ page }) => {
+  let release!: () => void; let seen!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const started = new Promise<void>(resolve => { seen = resolve; });
+  await page.route("**/api/v1/me/preferences", async route => {
+    if (route.request().method() === "PATCH") {
+      seen(); await gate;
+      await route.fulfill({ json: { language: "ro", theme: "dark", ticket_body_mode: "source" } });
+    } else await route.continue();
+  });
+  await signIn(page); await openBodies(page);
+  await page.getByRole("combobox", { name: "Body display", exact: true }).first().selectOption("source");
+  await started;
+  await page.getByRole("button", { name: "Sign out", exact: true }).filter({ visible: true }).click();
+  // Keep the same App mounted: a document navigation would cancel the held fetch
+  // and would only test browser cleanup, not the session-generation guard.
+  await page.getByLabel("Username", { exact: false }).fill("developer");
+  await page.getByLabel("Password", { exact: false }).fill("test-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await page.locator("tr.ticket-row").filter({ hasText: "#21" }).getByRole("button", { name: "Details", exact: true }).click();
+  const delivered = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "PATCH");
+  release(); await delivered;
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(page.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveValue("rendered");
+  await expect(page.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveAttribute("aria-disabled", "false");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+});
+
+test("ticket mode labels and help use all four locales without resetting source", async ({ page }) => {
+  test.setTimeout(60_000);
+  let language = "en", mode = "rendered";
+  await page.route("**/api/v1/me/preferences", async route => {
+    if (route.request().method() === "PATCH") {
+      const update = route.request().postDataJSON();
+      language = update.language ?? language; mode = update.ticket_body_mode ?? mode;
+    }
+    await route.fulfill({ json: { language, theme: "light", ticket_body_mode: mode } });
+  });
+  await signIn(page); await openBodies(page);
+  await page.getByRole("combobox", { name: "Body display", exact: true }).first().selectOption("source");
+  for (const [locale, read, details, label, rendered, source] of [
+    ["en", "Read tickets", "Details", "Body display", "Rendered", "Markdown source"],
+    ["fr", "Lire les tickets", "Détails", "Affichage du contenu", "Rendu", "Source Markdown"],
+    ["de", "Tickets lesen", "Details", "Inhaltsanzeige", "Gerendert", "Markdown-Quelltext"],
+    ["ro", "Citește tichetele", "Detalii", "Afișarea conținutului", "Randat", "Sursă Markdown"],
+  ]) {
+    await page.goto("/account");
+    await page.locator("select").filter({ has: page.locator('option[value="en"]') }).selectOption(locale);
+    await openBodies(page, "alpha", read, details);
+    const control = page.getByRole("combobox", { name: label, exact: true }).first();
+    await expect(control).toHaveValue("source");
+    await expect(control.locator('option[value="rendered"]')).toHaveText(rendered);
+    await expect(control.locator('option[value="source"]')).toHaveText(source);
+    await control.selectOption("rendered"); await expect(control).toHaveAttribute("aria-disabled", "false");
+    await control.selectOption("source"); await expect(control).toHaveAttribute("aria-disabled", "false");
+    await page.goto("/help/tickets#reading-bodies");
+    await expect(page.locator("#reading-bodies")).toBeVisible();
+    await expect(page.locator(".help-article")).toContainText(source);
+  }
 });

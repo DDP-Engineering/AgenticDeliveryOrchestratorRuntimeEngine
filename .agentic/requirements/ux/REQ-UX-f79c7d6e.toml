@@ -9,7 +9,7 @@ id = "REQ-UX-f79c7d6e"
 
 title = "Operate ticket body mode with the keyboard"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a keyboard user focuses the ticket body mode control, the Tickets view shall provide an accessible name, exposed current selection, visible focus and keyboard-only selection of both modes without losing focus on rerender.
@@ -19,7 +19,7 @@ verification = "Automated offline browser journey: Tab to the named control, use
 
 affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

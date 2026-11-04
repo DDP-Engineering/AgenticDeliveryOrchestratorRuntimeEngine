@@ -13,6 +13,8 @@ import { keptLabels, outcomeText } from "./operationReason";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
+import { ForgeMarkdown } from "./forgeMarkdown";
+import type { TicketBodyMode } from "./ticketPreferences";
 
 type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
 type TicketJob = { run_id: string; lifecycle: string };
@@ -33,6 +35,7 @@ type Project = { id: string; name: string; display_name?: string; archived: bool
 type Props = {
   /** One project in the hub or for a selected scope; every authorized project for All projects. */
   projects: Project[]; showProject?: boolean; locale: Locale; csrf: string; request: Request;
+  bodyMode: TicketBodyMode; modeBusy: boolean; onBodyMode: (mode: TicketBodyMode) => void;
 };
 /** One ticket row keeps its owning project and that project's label policy. */
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
@@ -101,7 +104,7 @@ function readStop(value: unknown): StopResult {
 }
 
 /** Tickets sub-tab: reads open forge tickets only on request and starts or stops one at a time. */
-export function TicketWorkspace({ projects, showProject = false, locale, csrf, request }: Props) {
+export function TicketWorkspace({ projects, showProject = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode }: Props) {
   const copy = ticketCopy[locale];
   const t = messages[locale];
   const [lists, setLists] = useState<Array<{ project: Project; list: TicketList }> | null>(null);
@@ -230,6 +233,9 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   const failure = notice?.operation && ["failed", "uncertain"].includes(notice.operation.status) ? notice.operation : null;
   const stoppable = ({ ticket, list }: Row) => !!ticket.job && !FINISHED.includes(ticket.job.lifecycle) || ticket.labels.includes(list.ready_label);
   const columns = showProject ? 6 : 5;
+  const body = (source: string) => bodyMode === "source"
+    ? <pre className="ticket-source forge-scroll" tabIndex={0} role="region" aria-label={copy.markdownSource}>{source}</pre>
+    : <ForgeMarkdown source={source} imageLabel={copy.imageNotLoaded} codeLabel={copy.code} tableLabel={copy.table} />;
 
   return <div className="ticket-workspace">
     <section className="panel compact">
@@ -284,15 +290,24 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
               <div className="button-row"><button className="danger" type="button" disabled={busy} onClick={() => void stop(row)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
             </div></td></tr>}
             {open && <tr className="ticket-detail-row"><td colSpan={columns}><div className="ticket-detail" id={detailId}>
-              <h3>{copy.description}</h3>
-              <p className="ticket-text">{ticket.description || copy.noDescription}</p>
+              <div className="ticket-body-heading">
+                <h3>{copy.description}</h3>
+                <label htmlFor={`${detailId}-mode`}>{copy.bodyDisplay}
+                  <select id={`${detailId}-mode`} value={bodyMode} aria-disabled={modeBusy} aria-busy={modeBusy}
+                    onChange={event => { if (!modeBusy) onBodyMode(event.target.value as TicketBodyMode); }}>
+                    <option value="rendered">{copy.rendered}</option><option value="source">{copy.markdownSource}</option>
+                  </select>
+                </label>
+                {modeBusy && <small role="status">{copy.savingMode}</small>}
+              </div>
+              {ticket.description ? body(ticket.description) : <p className="ticket-text">{copy.noDescription}</p>}
               <h3>{copy.comments}</h3>
               {(!thread || thread.state === "loading") && <p className="muted" role="status">{copy.loadingComments}</p>}
               {thread?.state === "error" && <p className="alert" role="alert">{describeError(locale, thread.error)}</p>}
               {thread?.state === "ready" && (thread.comments.length === 0 ? <p className="muted">{copy.noComments}</p> :
                 <ol className="ticket-comments">{thread.comments.map((comment, index) => <li key={`${comment.created_at}-${index}`}>
                   <small className="muted">{fill(copy.by, { author: comment.author, time: when(comment.created_at) })}</small>
-                  <p className="ticket-text">{comment.body}</p>
+                  {body(comment.body)}
                 </li>)}</ol>)}
             </div></td></tr>}
           </Fragment>;

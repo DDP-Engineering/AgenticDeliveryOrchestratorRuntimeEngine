@@ -9,7 +9,7 @@ id = "REQ-UX-a393abfe"
 
 title = "Switch ticket bodies to exact Markdown source"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When the user changes the Rendered / Markdown source control beside Description in ticket details, the Tickets view shall apply the selected mode to descriptions and comments in all open ticket details, displaying the exact API-provided body strings without trimming or reconstruction in Markdown source mode and formatted bodies in Rendered mode.
@@ -19,7 +19,7 @@ verification = "Automated: open two tickets with comments, switch once and asser
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

@@ -11,7 +11,7 @@ id = "REQ-SEC-f29221e6"
 
 title = "Display forge ticket metadata as inert plain text"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When the web interface displays a forge ticket's title, labels or author, it shall present that metadata as inert plain text with no HTML or Markdown interpretation, with ticket-title navigation restricted to absolute http or https web links opened with target="_blank" and rel="noopener noreferrer".

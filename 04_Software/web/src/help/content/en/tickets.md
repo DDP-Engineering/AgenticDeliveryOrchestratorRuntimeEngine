@@ -60,6 +60,14 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 
 **Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
 
+## Reading descriptions and comments {#reading-bodies}
+
+**Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**
+
+Use **Body display** beside **Description** to choose **Rendered** or **Markdown source** for all open descriptions and comments. Source shows the exact text received from the repository, including spaces and line breaks. Your account retains a successfully saved choice across projects, reloads and browsers; another signed-in browser reads it on its next sign-in or reload. If saving fails, an error appears and the last saved mode returns; choose again to retry.
+
+HTML stays visible as text, not executable content. Only absolute http, https and mailto links are clickable and open separately. Images never load automatically: **Image not loaded** and any alternative text appear instead. Wide code, source and tables scroll within their own regions, which you can focus with the keyboard. Task checkboxes cannot change the ticket.
+
 ## Checklist for a first ticket {#checklist}
 
 1. Create all nine labels in the forge repository.

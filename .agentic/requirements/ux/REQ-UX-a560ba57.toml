@@ -9,7 +9,7 @@ id = "REQ-UX-a560ba57"
 
 title = "Localize ticket body mode controls"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When the interface language is English, French, German or Romanian, the Tickets view shall display the body mode control's visible and accessible labels in that language, including Rendered and Markdown source choices.
@@ -19,7 +19,7 @@ verification = "Automated: select each of the four locales, open ticket details 
 
 affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

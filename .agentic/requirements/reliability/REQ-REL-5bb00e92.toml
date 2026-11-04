@@ -9,7 +9,7 @@ id = "REQ-REL-5bb00e92"
 
 title = "Report failed ticket body preference saves"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If saving a selected ticket body mode fails, the web interface shall show a localized save error without claiming the choice was retained, leaving the mode control available for another explicit save attempt.
@@ -19,7 +19,7 @@ verification = "Automated: intercept a mode save with an HTTP error and a networ
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/src/ticketCopy.ts", "04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

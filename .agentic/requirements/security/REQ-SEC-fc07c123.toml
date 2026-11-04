@@ -9,7 +9,7 @@ id = "REQ-SEC-fc07c123"
 
 title = "Disable unsafe forge Markdown destinations"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a forge Markdown link destination is malformed or is not an absolute http, https or mailto URL, the Tickets view shall retain its readable label as inert text without a navigable anchor.
@@ -19,7 +19,7 @@ verification = "Automated: render javascript, data, vbscript, file, protocol-rel
 
 affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs"]
+linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

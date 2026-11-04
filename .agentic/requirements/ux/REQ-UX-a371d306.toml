@@ -9,7 +9,7 @@ id = "REQ-UX-a371d306"
 
 title = "Preserve the absent description message"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a ticket has an empty description, the Tickets view shall display its existing localized No description message in either body display mode.
@@ -19,7 +19,7 @@ verification = "Automated: provide an empty description and switch both modes, a
 
 affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""

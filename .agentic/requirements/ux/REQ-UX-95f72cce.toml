@@ -9,7 +9,7 @@ id = "REQ-UX-95f72cce"
 
 title = "Render forge ticket bodies as Markdown"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When ticket details are opened with Rendered selected, including the default when no mode is saved, the Tickets view shall render description and comment bodies as React elements supporting headings, paragraphs, bold, italic, inline and fenced code, ordered and unordered nested lists, read-only task lists, block quotes, tables, links and horizontal rules, with incomplete or unsupported Markdown retained as inert readable text.
@@ -19,7 +19,7 @@ verification = "Automated: render offline description and comment fixtures conta
 
 affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/package.json", "04_Software/web/package-lock.json", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs"]
+linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 
 spec = ""
