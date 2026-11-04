@@ -17,7 +17,7 @@ When a ticket has an empty description, the Tickets view shall display its exist
 
 verification = "Automated: provide an empty description and switch both modes, asserting the existing localized fallback rather than an empty renderer; a nonempty description displays its body instead."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

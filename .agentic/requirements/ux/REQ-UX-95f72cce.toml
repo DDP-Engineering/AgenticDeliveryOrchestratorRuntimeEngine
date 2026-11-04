@@ -17,7 +17,7 @@ When ticket details are opened with Rendered selected, including the default whe
 
 verification = "Automated: render offline description and comment fixtures containing each supported construct and assert semantic DOM nodes and text; open details without a saved mode and assert formatted bodies; incomplete fences, unmatched emphasis and unsupported syntax retain readable inert content, and task checkboxes cannot mutate the ticket."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/"]
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/package.json", "04_Software/web/package-lock.json", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

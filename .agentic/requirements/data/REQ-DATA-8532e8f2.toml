@@ -17,7 +17,7 @@ When an authenticated user successfully saves a ticket body display mode, ADORE 
 
 verification = "Automated: save source as account A through the authenticated preference API, reload and read another project and a fresh browser session as A to observe source; account B with no saved mode observes Rendered; save Rendered as A and observe the reverse round trip; account switching suppresses delayed A preference responses."
 
-affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

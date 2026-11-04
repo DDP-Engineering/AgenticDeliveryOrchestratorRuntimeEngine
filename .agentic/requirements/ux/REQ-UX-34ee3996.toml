@@ -17,7 +17,7 @@ When a user opens the Tickets help topic in English, French, German or Romanian,
 
 verification = "Automated: check all four tickets.md topics for equivalent mode/persistence/image guidance and run the help parity/link suite; browser help navigation opens the localized Tickets topic, with no missing locale or structural drift."
 
-affected_paths = ["04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/tickets.md"]
+affected_paths = ["04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/tickets.md", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

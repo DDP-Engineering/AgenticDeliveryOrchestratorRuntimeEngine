@@ -17,7 +17,7 @@ If saving a selected ticket body mode fails, the web interface shall show a loca
 
 verification = "Automated: intercept a mode save with an HTTP error and a network failure, assert a visible localized error and usable mode control with no saved-success claim, then allow a subsequent user-triggered save and verify the saved mode survives reload."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/src/ticketCopy.ts", "04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

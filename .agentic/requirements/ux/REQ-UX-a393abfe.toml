@@ -17,7 +17,7 @@ When the user changes the Rendered / Markdown source control beside Description 
 
 verification = "Automated: open two tickets with comments, switch once and assert all body source textContent values equal API fixtures including leading/trailing spaces, newlines, Markdown and HTML; switch back and assert formatted elements return; comments arriving after selection use the current mode."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ While ticket bodies are displayed in light or dark theme at desktop or 360px vie
 
 verification = "Automated offline browser tests: open long prose, an unbroken URL, wide fenced code and a wide table in each mode at 360px and desktop widths in both themes; assert controls remain visible/focusable, foreground differs from background, and body content does not increase document width beyond the viewport, with overflow restricted to local content containers."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css"]
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

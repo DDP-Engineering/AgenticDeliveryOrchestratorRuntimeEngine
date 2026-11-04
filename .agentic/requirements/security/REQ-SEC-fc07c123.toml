@@ -17,7 +17,7 @@ If a forge Markdown link destination is malformed or is not an absolute http, ht
 
 verification = "Automated: render javascript, data, vbscript, file, protocol-relative, relative and malformed destinations including mixed case, encoded and control-character scheme tricks; assert visible readable labels and absence of unsafe hrefs/navigation; valid absolute https links remain navigable as the control."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/"]
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

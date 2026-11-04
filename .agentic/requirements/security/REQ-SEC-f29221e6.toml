@@ -19,7 +19,7 @@ When the web interface displays a forge ticket's title, labels or author, it sha
 
 verification = "Automated: e2e renders a fixture ticket whose title, labels and author contain HTML/script/Markdown markup and confirms literal metadata with no injected element; a javascript: ticket web link renders no link; an https link opens with noopener noreferrer and target _blank."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
 

@@ -17,7 +17,7 @@ When rendered forge Markdown contains an explicit link with an absolute http, ht
 
 verification = "Automated: render inline and reference-style links to http, https and mailto in description and comment fixtures, assert href/rel/target and visible label; observe no destination request before user navigation, and confirm source mode exposes the source string rather than an anchor."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/"]
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

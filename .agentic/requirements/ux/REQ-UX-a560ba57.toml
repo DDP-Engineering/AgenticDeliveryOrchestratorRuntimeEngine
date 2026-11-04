@@ -17,7 +17,7 @@ When the interface language is English, French, German or Romanian, the Tickets 
 
 verification = "Automated: select each of the four locales, open ticket details and assert localized control name and both choice labels with functional switching; change locale while source is selected and verify translated labels without resetting the selected mode."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts"]
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

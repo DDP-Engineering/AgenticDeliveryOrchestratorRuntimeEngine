@@ -17,7 +17,7 @@ When a keyboard user focuses the ticket body mode control, the Tickets view shal
 
 verification = "Automated offline browser journey: Tab to the named control, use its native keyboard interaction to select source and Rendered, assert selected state, body changes and retained focus; repeat with long descriptions and multiple open details to detect focus loss or inaccessible duplicate controls."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css"]
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 

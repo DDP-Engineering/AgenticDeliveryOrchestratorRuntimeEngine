@@ -17,7 +17,7 @@ If a ticket body mode preference update contains a value other than Rendered or 
 
 verification = "Automated: seed a valid saved mode and submit unknown strings, null, numbers, arrays and objects through the CSRF-authenticated API; assert 422 invalid_request and read back unchanged preferences; valid mode updates succeed as the happy-path control."
 
-affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py"]
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py"]
 
 linked_tests = []
 

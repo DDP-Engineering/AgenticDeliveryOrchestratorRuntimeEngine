@@ -17,7 +17,7 @@ When a forge description or comment contains raw HTML in either display mode, th
 
 verification = "Automated: render descriptions and comments containing script tags, img onerror, b onclick, iframe and raw HTML blocks; assert literal tag text, no corresponding injected DOM elements, no executed sentinel and no HTML-induced requests in both modes; ordinary Markdown still renders in Rendered mode; a source guard rejects dangerouslySetInnerHTML in the rendering path."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/"]
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
 
 linked_tests = []
 
