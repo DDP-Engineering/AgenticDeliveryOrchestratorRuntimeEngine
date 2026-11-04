@@ -845,7 +845,7 @@ def test_operation_api_returns_reason_and_detail(tmp_path):
     assert body["detail"] == "error: ticket #42 not started: pickup_paused"
 
 
-@pytest.mark.parametrize("version", [14, 16])
+@pytest.mark.parametrize("version", [14, 15, 17])
 def test_web_database_of_another_schema_is_refused_untouched(tmp_path, version):
     """@brief No migration: another schema version stops startup and names what to delete."""
     profiles, web, _queued = _queued_start(tmp_path)

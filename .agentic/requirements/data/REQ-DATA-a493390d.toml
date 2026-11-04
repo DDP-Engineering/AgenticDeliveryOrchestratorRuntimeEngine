@@ -17,9 +17,9 @@ If a persisted account ticket body mode is neither absent nor a supported Render
 
 verification = "Automated: seed an unknown stored mode, read via WebStore and the authenticated API, and assert WebStoreError and a non-success error response with unchanged stored bytes/value; absent and both valid modes read successfully as controls."
 
-affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py", "04_Software/tests/test_web_audit_evidence.py"]
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py", "04_Software/tests/test_web_audit_evidence.py", "04_Software/tests/test_web_commands.py"]
 
-linked_tests = ["04_Software/tests/test_web_auth.py::test_ticket_body_mode_corrupt_read_and_partial_write_refused", "04_Software/tests/test_web_auth.py::test_ticket_mode_schema_refusal_preserves_store", "04_Software/tests/test_web_rbac.py::test_ticket_body_mode_api_refuses_corrupt_preferences"]
+linked_tests = ["04_Software/tests/test_web_auth.py::test_ticket_body_mode_corrupt_read_and_partial_write_refused", "04_Software/tests/test_web_auth.py::test_ticket_mode_schema_refusal_preserves_store", "04_Software/tests/test_web_rbac.py::test_ticket_body_mode_api_refuses_corrupt_preferences", "04_Software/tests/test_web_commands.py::test_web_database_of_another_schema_is_refused_untouched"]
 
 
 spec = ""

@@ -30,7 +30,13 @@ def test_third_party_notices_match_locked_runtime_versions():
                            for item in tomllib.load(handle)["package"]}
     node_lock = json.loads((software / "web" / "package-lock.json").read_text(
         encoding="utf-8"))["packages"]
-    node_names = {"React": "react", "React DOM": "react-dom", "Scheduler": "scheduler"}
+    node_names = {
+        "React": "react",
+        "React DOM": "react-dom",
+        "Scheduler": "scheduler",
+        "react-markdown": "react-markdown",
+        "remark-gfm": "remark-gfm",
+    }
     for line in source.splitlines():
         if not line.startswith("| ") or "---" in line or "Component" in line:
             continue
