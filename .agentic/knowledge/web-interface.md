@@ -961,3 +961,7 @@ Inline editor validation follows the controls/actions on its own flex line. Inco
 Explicit native readiness returns closed Node/Pi diagnostic evidence; persisted
 readiness keeps the boolean check contract. The local Settings UI exposes only
 the current account and project tools PATH for native setup.
+
+The four-locale repository connection browser journey waits for successful
+language and theme preference writes before full document navigation. This
+keeps the keyboard and narrow-layout proof independent of request timing.

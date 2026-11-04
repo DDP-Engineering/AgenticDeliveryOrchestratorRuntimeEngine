@@ -281,7 +281,7 @@ coverage warnings. Release-note validation passed with all four locales.
 The combined full check was stopped during its serial Chromium phase to keep
 this work within the original bounded acceptance session. The frontend reached
 browser execution after its helper/type/build checks, but complete browser
-regression remains unproven. The correction's time allowance increased from
+regression was still unproven at that checkpoint. The authorized follow-up segment below completes that proof. The correction's time allowance increased from
 35 to 45 minutes within the original session limit to finish available proof.
 
 The isolated acceptance API was stopped after sign-out. State, candidates and
@@ -290,3 +290,28 @@ ticket #25 were outside these operations. The original API-key and LM Studio
 end-to-end rows remain unexecuted. Publication acceptance remains unexecuted
 under the push restriction, so this record does not close the original #58
 acceptance criteria in full.
+
+## Completed outstanding frontend proof
+
+The owner authorized a separate 20-minute segment to finish the outstanding
+frontend checks without repeating the already-passing Python suite or starting
+new live jobs. The first browser segment had completed cases 1–105. Case 106
+was interrupted during the deliberate browser stop, and cases 107–215 had not
+run. Node helper tests, TypeScript and the isolated frontend build had already
+passed before browser execution began.
+
+A selected run of cases 106–215 completed all 110 cases in 786.4 seconds.
+It passed 105 cases and exposed five failures. The first was an existing test
+navigation race. Its third language-preference PATCH was cancelled by a full
+page navigation, leaving the account in another language and causing four
+subsequent English-selector failures. The test now awaits successful locale
+and theme preference responses before navigation. Runtime product behavior
+and all existing keyboard, locale and narrow-layout assertions are preserved.
+The updated TypeScript app/e2e check passed.
+
+Only those five failed cases were rerun on a fresh isolated fixture. All five
+passed in 83.1 seconds, including the repaired journey in 22.9 seconds. The
+combined proof therefore covers all 215 Chromium cases, with no remaining
+unexecuted case. Both independent reviewers approved the corrected candidate
+in review round 2. The earlier Python and Ruff proof remains applicable because
+the follow-up changed browser test ordering and its documentation only.

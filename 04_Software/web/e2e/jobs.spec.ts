@@ -864,14 +864,25 @@ test("repository connection supports keyboard four locales and narrow dark layou
   await page.setViewportSize({width: 390, height: 844});
   for (const [locale, button, label] of [["fr", "Connecter le dépôt", "Jeton d’accès"], ["de", "Repository verbinden", "Zugriffstoken"], ["ro", "Conectează depozitul", "Token de acces"], ["en", "Connect repository", "Access token"]]) {
     await page.goto("/account");
-    await page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale);
+    const [savedLanguage] = await Promise.all([
+      page.waitForResponse(response => response.url().endsWith("/api/v1/me/preferences") &&
+        response.request().method() === "PATCH"),
+      page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale),
+    ]);
+    expect(savedLanguage.ok()).toBe(true);
     await page.goto("/projects/alpha");
     const open = page.locator(".repository-connection").getByRole("button", {name: button, exact: true});
     await open.focus(); await page.keyboard.press("Enter");
     await expect(page.getByLabel(label, {exact: true})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
-  await page.goto("/account"); await page.getByLabel("Theme", {exact: true}).selectOption("dark");
+  await page.goto("/account");
+  const [savedTheme] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/v1/me/preferences") &&
+      response.request().method() === "PATCH"),
+    page.getByLabel("Theme", {exact: true}).selectOption("dark"),
+  ]);
+  expect(savedTheme.ok()).toBe(true);
   await page.goto("/projects/alpha");
   await page.getByRole("button", {name: "Connect repository", exact: true}).click();
   await page.screenshot({path: info.outputPath("repository-connection-dark.png"), fullPage: true});

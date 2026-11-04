@@ -903,3 +903,7 @@ executorSettings.ts supplies four-locale labels and row help for the Pi settings
 ## Managed native Pi
 
 Native enrollment and Settings show the current account and optional project tools PATH. The host checks render closed managed Node/Pi causes in all four locales, and local projects explicitly state that network restrictions are unenforced on the server.
+
+The four-locale repository connection browser journey waits for successful
+language and theme preference writes before full document navigation. This
+keeps the keyboard and narrow-layout proof independent of request timing.
