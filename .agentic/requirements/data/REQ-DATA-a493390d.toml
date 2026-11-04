@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-a493390d"
+
+title = "Refuse corrupt saved ticket body modes"
+
+status = "draft"
+
+requirement = """
+If a persisted account ticket body mode is neither absent nor a supported Rendered or Markdown source value, ADORE shall refuse the preference read with a typed storage error exposed as a non-success API response without replacing or rewriting the corrupt value.
+"""
+
+verification = "Automated: seed an unknown stored mode, read via WebStore and the authenticated API, and assert WebStoreError and a non-success error response with unchanged stored bytes/value; absent and both valid modes read successfully as controls."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

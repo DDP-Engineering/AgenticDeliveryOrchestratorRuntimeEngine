@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-29fc8db7"
+
+title = "Display raw forge HTML as literal text"
+
+status = "draft"
+
+requirement = """
+When a forge description or comment contains raw HTML in either display mode, the Tickets view shall display that HTML as literal inert text through React text nodes without interpreting it as elements or using dangerouslySetInnerHTML.
+"""
+
+verification = "Automated: render descriptions and comments containing script tags, img onerror, b onclick, iframe and raw HTML blocks; assert literal tag text, no corresponding injected DOM elements, no executed sentinel and no HTML-induced requests in both modes; ordinary Markdown still renders in Rendered mode; a source guard rejects dangerouslySetInnerHTML in the rendering path."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

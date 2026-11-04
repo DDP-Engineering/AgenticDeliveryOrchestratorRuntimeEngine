@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-a393abfe"
+
+title = "Switch ticket bodies to exact Markdown source"
+
+status = "draft"
+
+requirement = """
+When the user changes the Rendered / Markdown source control beside Description in ticket details, the Tickets view shall apply the selected mode to descriptions and comments in all open ticket details, displaying the exact API-provided body strings without trimming or reconstruction in Markdown source mode and formatted bodies in Rendered mode.
+"""
+
+verification = "Automated: open two tickets with comments, switch once and assert all body source textContent values equal API fixtures including leading/trailing spaces, newlines, Markdown and HTML; switch back and assert formatted elements return; comments arriving after selection use the current mode."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

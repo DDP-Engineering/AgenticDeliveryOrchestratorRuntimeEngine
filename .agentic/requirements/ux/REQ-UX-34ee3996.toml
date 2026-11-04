@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-34ee3996"
+
+title = "Explain ticket body modes in localized help"
+
+status = "draft"
+
+requirement = """
+When a user opens the Tickets help topic in English, French, German or Romanian, the help center shall explain rendered description/comment bodies, the shared Rendered / Markdown source control, exact source, account-retained selection and non-loading images using that locale's interface terms.
+"""
+
+verification = "Automated: check all four tickets.md topics for equivalent mode/persistence/image guidance and run the help parity/link suite; browser help navigation opens the localized Tickets topic, with no missing locale or structural drift."
+
+affected_paths = ["04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/tickets.md"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

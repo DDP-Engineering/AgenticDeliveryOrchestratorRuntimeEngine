@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-529c5e6e"
+
+title = "Reject invalid ticket body mode updates"
+
+status = "draft"
+
+requirement = """
+If a ticket body mode preference update contains a value other than Rendered or Markdown source, ADORE's authenticated preference API shall reject it with 422 invalid_request without altering saved preferences.
+"""
+
+verification = "Automated: seed a valid saved mode and submit unknown strings, null, numbers, arrays and objects through the CSRF-authenticated API; assert 422 invalid_request and read back unchanged preferences; valid mode updates succeed as the happy-path control."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

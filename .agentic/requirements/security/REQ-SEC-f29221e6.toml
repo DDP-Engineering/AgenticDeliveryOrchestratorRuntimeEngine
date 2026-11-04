@@ -9,15 +9,15 @@ schema = 1
 
 id = "REQ-SEC-f29221e6"
 
-title = "Display forge ticket text as inert plain text"
+title = "Display forge ticket metadata as inert plain text"
 
-status = "active"
+status = "draft"
 
 requirement = """
-When the web interface displays a forge ticket's title, labels, description, author or comments, it shall render them as plain text with no HTML or markup interpretation, and shall link to the ticket only when its web link is an http or https URL, opening it without giving the target page access to ADORE.
+When the web interface displays a forge ticket's title, labels or author, it shall present that metadata as inert plain text with no HTML or Markdown interpretation, with ticket-title navigation restricted to absolute http or https web links opened with target="_blank" and rel="noopener noreferrer".
 """
 
-verification = "Automated: e2e renders a fixture ticket whose title, description and comment contain HTML/script markup and confirms the markup appears as literal text with no injected element; a javascript: web link renders no link; an https link opens with noopener noreferrer."
+verification = "Automated: e2e renders a fixture ticket whose title, labels and author contain HTML/script/Markdown markup and confirms literal metadata with no injected element; a javascript: ticket web link renders no link; an https link opens with noopener noreferrer and target _blank."
 
 affected_paths = ["04_Software/web/src/TicketWorkspace.tsx"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = "Ticket text is written by anyone who can comment on the forge and is untrusted input."        # why this behavior exists, if not obvious
 
 created = 2026-10-10
-updated = 2026-10-10
+updated = 2026-11-04

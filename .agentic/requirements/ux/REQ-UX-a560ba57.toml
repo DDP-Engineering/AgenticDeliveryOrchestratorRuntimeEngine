@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-a560ba57"
+
+title = "Localize ticket body mode controls"
+
+status = "draft"
+
+requirement = """
+When the interface language is English, French, German or Romanian, the Tickets view shall display the body mode control's visible and accessible labels in that language, including Rendered and Markdown source choices.
+"""
+
+verification = "Automated: select each of the four locales, open ticket details and assert localized control name and both choice labels with functional switching; change locale while source is selected and verify translated labels without resetting the selected mode."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

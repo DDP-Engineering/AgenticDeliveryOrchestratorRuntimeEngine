@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-95f72cce"
+
+title = "Render forge ticket bodies as Markdown"
+
+status = "draft"
+
+requirement = """
+When ticket details are opened with Rendered selected, including the default when no mode is saved, the Tickets view shall render description and comment bodies as React elements supporting headings, paragraphs, bold, italic, inline and fenced code, ordered and unordered nested lists, read-only task lists, block quotes, tables, links and horizontal rules, with incomplete or unsupported Markdown retained as inert readable text.
+"""
+
+verification = "Automated: render offline description and comment fixtures containing each supported construct and assert semantic DOM nodes and text; open details without a saved mode and assert formatted bodies; incomplete fences, unmatched emphasis and unsupported syntax retain readable inert content, and task checkboxes cannot mutate the ticket."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04
