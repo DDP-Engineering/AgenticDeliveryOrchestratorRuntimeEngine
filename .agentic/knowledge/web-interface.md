@@ -8,6 +8,11 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+Statistics browser fixtures restore the authenticated account's English/light
+preferences in afterEach so a failed localized journey cannot leak its locale
+to later files. The four-locale/two-theme statistics journey has a60-second
+case budget, with unchanged assertions and suite-wide limits.
+
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Agent and model groups executor settings in Settings. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
@@ -953,7 +958,8 @@ Project Settings displays the selected project's effective configuration control
 Proof: web/e2e/settings.spec.ts project settings keep defaults and single guidance (administrator/developer), plus existing candidate edit/discard journey.
 
 Offline Playwright verification runs serially with a thirty-minute global deadline,
-thirty-second tests, ten-second assertions and no retries. A global timeout does
+default thirty-second tests, an explicit sixty-second statistics locale/theme
+journey, ten-second assertions and no retries. A global timeout does
 not establish complete proof even when every executed test passed.
 Shell locale journeys await the exact successful language-save response before
 closing a context, preserving the shared fixture's restored English preference.

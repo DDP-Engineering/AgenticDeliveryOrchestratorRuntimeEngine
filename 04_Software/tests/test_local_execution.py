@@ -17,6 +17,7 @@
 from contextlib import contextmanager
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -168,6 +169,46 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
     config.local.account = "another-account"
     with pytest.raises(LocalExecutionError):
         local_environment(config, context)
+
+
+@pytest.mark.parametrize("system", ["Windows", "Linux"])
+def test_native_python_utf8_overrides_ambient_encoding(tmp_path, monkeypatch, system):
+    """@brief Native Python uses UTF-8 without accepting ambient Python settings."""
+    config, context, *_ = local_fixture(tmp_path, monkeypatch)
+    context["system"] = system
+    monkeypatch.setenv("PYTHONUTF8", "0")
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1252:replace")
+    monkeypatch.setenv("PYTHONPATH", "untrusted-python")
+    supplied = {"PYTHONUTF8": "0", "PYTHONIOENCODING": "ascii"}
+    env = local_environment(config, context, supplied)
+    assert "PYTHONUTF8" not in env
+    assert env["PYTHONIOENCODING"] == "utf-8"
+    assert "PYTHONPATH" not in env
+    assert supplied == {"PYTHONUTF8": "0", "PYTHONIOENCODING": "ascii"}
+    assert os.environ["PYTHONUTF8"] == "0"
+    assert os.environ["PYTHONIOENCODING"] == "cp1252:replace"
+
+
+@pytest.mark.parametrize("system", ["Windows", "Linux"])
+def test_native_unicode_python_evidence_survives_capture(tmp_path, monkeypatch, system):
+    """@brief A bound native command retains non-ASCII JSON from a Python producer."""
+    config, context, backend, controller, work = local_fixture(tmp_path, monkeypatch)
+    context["system"] = system
+    backend = LocalBackend(config, context=context, controller=controller)
+    payload = '{"reply":"café — răspuns 日本語"}'
+
+    def python_output(argv, **kwargs):
+        """@brief Simulate the producer's stream encoding at the command boundary."""
+        encoding = kwargs["env"].get("PYTHONIOENCODING", "cp1252")
+        kwargs["stdout"].write_bytes(payload.encode(encoding, errors="replace"))
+        kwargs["stderr"].write_bytes(b"")
+        return CommandResult(argv=list(argv))
+
+    monkeypatch.setattr(controller, "run_files", python_output)
+    backend.provision("run-1", work, work, Path(config.state.store_root) / "runs/run-1/io", {})
+    python = Path(context["path"]) / ("python.exe" if system == "Windows" else "python")
+    result = backend.bind("run-1", {})([str(python), "unicode-json"], timeout=1)
+    assert result.ok and result.stdout == payload
 
 
 def test_local_environment_keeps_windows_system_names(tmp_path, monkeypatch):

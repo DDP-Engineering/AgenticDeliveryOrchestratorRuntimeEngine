@@ -47,6 +47,11 @@ refuse unsupported fields. ADORE does not repair stored data automatically.
 AEGIS uses the existing strict file exchange; Pi uses shared bounded,
 redacted RPC evidence and cumulative token accounting.
 
+The controlled native environment sets `PYTHONIOENCODING=utf-8` for Python children on Windows and Linux. These values
+are owned by ADORE; ambient or supplied Python settings cannot override them.
+This keeps standard-stream encoding consistent with strict UTF-8 evidence capture.
+Invalid byte output still fails closed; no replacement decoding is introduced.
+
 ## 9. Validation And Tests
 
 `test_pi_installation.py` uses fake npm and Node to prove install, validation,

@@ -74,6 +74,12 @@ permission to move processes from another subtree. There
 is no fallback to unowned PID control. Set `workflow.aegis_python` to the native
 Python executable if the default command is unavailable.
 
+ADORE selects UTF-8 for native Python standard streams on both
+Windows and Linux, so validation results retain diacritics and non-Latin text.
+This is automatic and does not depend on the service account's code page or
+ambient Python encoding settings. Commands that emit invalid UTF-8 evidence
+are still refused.
+
 Container recipes, runtime options and system package installation permissions
 do not apply locally. **Internet access for the agent** cannot restrict host
 network access. When it is On and a search service is selected, Pi loads ADORE's

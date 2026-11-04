@@ -41,6 +41,8 @@ AEGIS file transport. `probe_local_executor` reports closed readiness causes.
   project resources. Approved provider credentials are injected and redacted.
 - An owned process scope must drain before reuse; unknown or foreign scope
   evidence is refused. A worktree is not a host sandbox.
+- Native Python standard streams use authoritative `PYTHONIOENCODING=utf-8` on Windows/Linux. Ambient Python flags remain
+  filtered; invalid UTF-8 evidence is still a typed failure, never replaced.
 
 ## Key behaviors
 
@@ -57,6 +59,8 @@ three owned standard handles through the Job supervisor. The readiness probe
 makes no model request. The explicit model probe uses the same managed RPC
 scope, with up to 1 MiB of transient output to prove the shell and final reply.
 Explicit Retry retains the durable worktree and rechecks native tools.
+The effective encoding settings participate in the pinned environment;
+explicit Retry refreshes this volatile fingerprint under existing ownership checks.
 
 ## Files
 
