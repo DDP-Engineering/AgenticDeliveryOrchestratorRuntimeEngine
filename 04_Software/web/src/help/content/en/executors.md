@@ -31,7 +31,7 @@ An endpoint key is optional: save it under Authentication as ADORE_ENDPOINT_API_
 Open **Authentication** in the same group.
 
 - **Provider API key.** The panel names the variable the configured provider needs, for example OPENAI_API_KEY for OpenAI or ANTHROPIC_API_KEY for Anthropic. Enter the **API key** and choose **Save API key**. ADORE stores it privately in the project's credential store on the server, never in the configuration file, passes it to Pi only as that variable and never shows it again; **Disconnect project API key** removes it. Changing a key needs monitoring paused, an idle project and no pending change, and does not test the key.
-- **Server projects.** Save the provider key under **Provider API key** if required. ADORE ignores personal Pi sign-in. The server's shared [ChatGPT sign-in](#chatgpt) is for container projects.
+- **Server projects.** Save the provider key under **Provider API key** if required. ADORE ignores personal Pi sign-in. Use the server's shared [ChatGPT sign-in](#chatgpt) for a subscription on Windows or Linux, including WSL2.
 - **Environment-managed values.** A variable already set in the ADORE server environment is labelled **Set on the ADORE server; manage it externally**. The web interface cannot overwrite it.
 - **Web search key.** With internet access On and web search Brave or Tavily, the panel also lists BRAVE_API_KEY or TAVILY_API_KEY, saved the same way, also for a ChatGPT subscription.
 - **Additional credential variables.** Names only (**Add credential variable**) of extra secrets Pi receives besides the provider's key; most projects need none.
@@ -42,6 +42,8 @@ Credential values never appear in the configuration file, reviews, audit records
 
 One ChatGPT Plus or Pro account serves every project on this ADORE server whose provider is **ChatGPT subscription**. Administrators sign in under **Authentication** of such a project; ADORE runs Pi's own OpenAI sign-in, so the server needs no browser.
 
+On the native server, Pi can receive the browser callback directly and ADORE shows completion automatically. If it stays pending, use the manual redirect steps below.
+
 1. Choose **Sign in with ChatGPT**.
 2. Open **Open the ChatGPT sign-in page** on your own computer and sign in with the ChatGPT account. The link is valid for 15 minutes.
 3. The browser then shows an error page at `127.0.0.1:1455`. That is expected: copy the full address from its address bar.
@@ -49,7 +51,7 @@ One ChatGPT Plus or Pro account serves every project on this ADORE server whose 
 
 The status is **Signed in**, **Not signed in** or **Sign in again**. **Sign in again** means OpenAI no longer accepts the stored sign-in; jobs fail until an administrator signs in again. An address from an older link is refused and the sign-in keeps waiting; **Cancel** ends it. When OpenAI refuses the account, for example because its plan cannot share the subscription, the sign-in ends with that reason. **Disconnect ChatGPT** deletes the stored sign-in.
 
-The sign-in stays in a private folder on the ADORE server. Before each stage ADORE takes a fresh access token from it, valid for about an hour, and passes only that token to Pi; the sign-in itself never enters the job's container. A ChatGPT project therefore runs in a container, its stage time limits are at most 3000 seconds, and its image must be built from the current ADORE executor image. Only administrators see or change the sign-in; audit records name the action, never a token or address.
+The sign-in stays in a private folder on the ADORE server. Before each stage ADORE takes a fresh access token from it, valid for about an hour, and passes only that token to Pi; the sign-in itself never enters the job's container. ChatGPT projects run in containers or natively on Windows/Linux, including WSL2. Native sign-in uses ADORE-managed Pi without Docker; container images use the current ADORE executor image. Stage time limits are at most 3000 seconds on both backends. Only administrators see or change the sign-in; audit records name the action, never a token or address.
 
 > ADORE is free today. Offering it as a hosted or paid service with ChatGPT sign-in would first need OpenAI's interest form.
 
@@ -78,7 +80,7 @@ Both settings change through **Prepare candidate** and **Apply change** like oth
 |---|---|---|
 | Runs in | A temporary Docker or Podman container on the ADORE server | The ADORE server itself, under the service's operating system account, in a dedicated worktree |
 | Environment | A project image prepared by the administrator | Tools, versions and libraries you install yourself on that server |
-| Sign-in | The provider's API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in | The project’s provider API key, when needed |
+| Sign-in | The provider's API key, or for a ChatGPT subscription a short-lived access token from the server's ChatGPT sign-in | The provider key or a temporary token from the server’s ChatGPT sign-in |
 | Agent settings | The Pi built into the image, with settings fixed by ADORE; personal Pi settings and skills are not read | ADORE-managed Pi with its own settings and extensions |
 | Isolation | Container; with internet access Off it reaches only the model provider | Only the worktree; commands can reach whatever the account can, so use a dedicated least-privilege account |
 | Chosen | **Runs in** → **Container**, the default, on enrollment step 2 or in Settings → Agent and model | **Runs in** → **Installed on the server**, or the server profile or TOML enrollment |

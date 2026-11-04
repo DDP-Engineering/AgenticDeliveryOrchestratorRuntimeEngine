@@ -454,7 +454,7 @@ class LocalBackend:
             raise LocalExecutionError("local target is not bound")
         return dict(self.verify_identity(name, self.targets[name]))
 
-    def bind(self, name: str, env: dict, expected: dict | None = None):
+    def bind(self, name: str, env: dict, expected: dict | None = None, *, secrets=()):
         """@brief Bind native commands and paths to exact durable run ownership.
         @param[in] name Owned native resource or Job name.
         @param[in] env Controlled account environment and approved values.
@@ -465,7 +465,7 @@ class LocalBackend:
         if resource is None:
             raise LocalExecutionError("local target identity is missing")
         self.verify_identity(name, resource)
-        return LocalTarget(self, name, env, resource)
+        return LocalTarget(self, name, env, resource, secrets=secrets)
 
     def verify_required_tools(self, name: str, checks, *, env: dict) -> None:
         """@brief Check only executor availability; project tools remain user-owned.
@@ -536,9 +536,18 @@ class LocalBackend:
 class LocalTarget:
     """@brief Native argv/file target carrying the existing backend path contract."""
 
-    def __init__(self, backend: LocalBackend, name: str, env: dict, resource: dict) -> None:
+    def __init__(self, backend: LocalBackend, name: str, env: dict, resource: dict,
+                 *, secrets=()) -> None:
         self.backend, self.name, self.resource = backend, name, resource
         self.env = local_environment(backend.config, backend.context, env)
+        self.launch_secrets = tuple(value for value in secrets if value)
+        if backend.config.executor.provider == "chatgpt":
+            # Only the conductor's explicit ephemeral binding can inject this token.
+            # Ambient keys and the normal native environment remain ineligible.
+            self.env.pop("OPENAI_API_KEY", None)
+            token = env.get("OPENAI_API_KEY")
+            if token and token in self.launch_secrets:
+                self.env["OPENAI_API_KEY"] = token
         self.paths = ExecutionPaths(worktree=resource["worktree"], io=resource["io"], shell="")
         # Bound for non-AEGIS native output; Test AI connection raises it on its probe target.
         self.output_limit = 65536
@@ -546,12 +555,14 @@ class LocalTarget:
     def auth_available(self) -> bool:
         """@brief Check only the selected provider's injected project credential."""
         provider = self.backend.config.executor.provider
+        if provider == "chatgpt":
+            return bool(self.env.get("OPENAI_API_KEY"))
         return (not credential_required(provider)
                 or bool(self.env.get(credential_variable(provider) or "")))
 
     def _secrets(self) -> list[str]:
         """@brief Collect the approved injected credentials for redaction."""
-        return sorted({
+        return sorted(set(self.launch_secrets) | {
             self.env[key] for key in secret_names(self.backend.config.executor, "local")
             if self.env.get(key)
         }, key=len, reverse=True)
@@ -756,7 +767,8 @@ def local_probe_failure(error: Exception, fallback: str = "runtime-error") -> st
     return fallback
 
 
-def probe_local_executor(config, env_file: Path | None = None) -> dict:
+def probe_local_executor(config, env_file: Path | None = None, *,
+                         chatgpt_dir: Path | None = None) -> dict:
     """@brief Measure installed executor/version/auth and preserve a safe failed phase.
     @param[in] config Validated current-account configuration.
     @param[in] env_file Selected approved provider values.
@@ -773,7 +785,12 @@ def probe_local_executor(config, env_file: Path | None = None) -> dict:
             backend.verify_scope("probe", target.env)
             value["exit_code"] = 0
             phase = "credential-invalid"
-            ready = target.auth_available()
+            if config.executor.provider == "chatgpt":
+                from adore import chatgpt
+
+                ready = chatgpt.status(chatgpt_dir or chatgpt.credential_dir()) == "signed-in"
+            else:
+                ready = target.auth_available()
             value.update(ready=ready, reason="ready" if ready else "credential-missing")
             phase = "cleanup-failed"
     except (IsolationError, PiInstallationError, OSError, ValueError) as exc:

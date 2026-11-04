@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Locale } from "./i18n";
 import { describeError } from "./errors";
 import { chatgptCopy, readChatGptStart, readChatGptView, type ChatGptView } from "./chatgptCopy";
+import { startVisiblePolling } from "./polling";
 
 /**
  * The server's ChatGPT sign-in: status, Pi's OpenAI sign-in link, the pasted
@@ -30,24 +31,77 @@ export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnec
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const active = useRef(true);
+  const acting = useRef(false);
+  const readStatus = useRef(read);
+  readStatus.current = read;
+  const statusRead = useRef<Promise<ChatGptView> | null>(null);
+  const latest = useRef<ChatGptView | null>(null);
+  // Every status read joins the same tracked request. Mutations wait for it so
+  // an automatic callback cannot be followed by an obsolete manual completion.
+  const loadStatus = () => {
+    if (statusRead.current) return statusRead.current;
+    const request = readStatus.current().then(raw => {
+      const next = readChatGptView(raw);
+      latest.current = next;
+      return next;
+    }).finally(() => { if (statusRead.current === request) statusRead.current = null; });
+    statusRead.current = request;
+    return request;
+  };
 
   useEffect(() => {
     active.current = true;
-    void read().then(raw => { if (active.current) setView(readChatGptView(raw)); })
+    void loadStatus().then(next => { if (active.current) setView(next); })
       .catch(() => { if (active.current) setError(c.unreadable); });
     return () => { active.current = false; };
   }, []);
 
-  const act = async (work: () => Promise<unknown>, after: (raw: unknown) => void) => {
-    if (busy) return;
+  useEffect(() => {
+    if (!view?.pending) return;
+    let current = true, reading = false;
+    const refresh = async () => {
+      if (reading || acting.current) return;
+      reading = true;
+      try {
+        const next = await loadStatus();
+        if (!current) return;
+        setView(next);
+        if (!next.pending) {
+          setLink(""); setAddress("");
+          if (next.status === "signed-in") { setNotice(c.signedIn); setError(""); }
+        }
+      } catch (failure) { if (current) setError(describeError(locale, failure)); }
+      finally { reading = false; }
+    };
+    const halt = startVisiblePolling(() => { void refresh(); }, 1000);
+    const expiry = window.setTimeout(() => {
+      halt(); setLink(""); setAddress("");
+      setView(previous => previous ? {...previous, pending: false} : previous);
+    }, 900_000);
+    return () => { current = false; halt(); window.clearTimeout(expiry); };
+  }, [view?.pending, locale]);
+
+  const act = async (work: () => Promise<unknown>, after: (raw: unknown) => void, completing = false) => {
+    if (acting.current) return;
+    acting.current = true;
     setBusy(true); setError(""); setNotice("");
-    try { const raw = await work(); if (active.current) after(raw); }
+    try {
+      // A failed status read does not replace the mutation's own authority.
+      await statusRead.current?.catch(() => undefined);
+      const observed = latest.current;
+      const raw = completing && observed?.status === "signed-in" && !observed.pending
+        ? observed : await work();
+      if (active.current) after(raw);
+    }
     catch (failure) { if (active.current) setError(describeError(locale, failure)); }
     finally {
+      // Keep mutations serialized through their authoritative status refresh.
+      try {
+        const next = await loadStatus();
+        if (active.current) { setView(next); if (!next.pending) setLink(""); }
+      } catch { /* Preserve the mutation's own result if this refresh fails. */ }
+      acting.current = false;
       if (active.current) setBusy(false);
-      // A refused attempt may have ended the sign-in on the server.
-      void read().then(raw => { if (active.current) { const next = readChatGptView(raw); setView(next); if (!next.pending) setLink(""); } })
-        .catch(() => undefined);
     }
   };
   const begin = () => act(start, raw => { setLink(readChatGptStart(raw).authorize_url); setAddress(""); });
@@ -55,7 +109,7 @@ export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnec
     event.preventDefault();
     const pasted = address.trim();
     setAddress("");
-    void act(() => complete(pasted), raw => { setView(readChatGptView(raw)); setLink(""); setNotice(c.signedIn); });
+    void act(() => complete(pasted), raw => { setView(readChatGptView(raw)); setLink(""); setNotice(c.signedIn); }, true);
   };
   const stop = () => act(cancel, raw => { setView(readChatGptView(raw)); setLink(""); });
   const remove = () => act(disconnect, raw => { setView(readChatGptView(raw)); setLink(""); setNotice(c.disconnected); });

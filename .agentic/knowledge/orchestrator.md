@@ -80,6 +80,13 @@ requests do not conduct in the HTTP process.
 
 ## Key behaviors
 
+Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
+One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage
+and model targets, with native evidence redaction. Readiness reads the stored
+status without refreshing or calling a model. Missing/rejected credentials
+prevent Pi launch. Host network and owned-process scope policy stay in force.
+Offline proof: `tests/test_native_chatgpt.py` and `tests/test_web_chatgpt.py`.
+
 - REQ-REL-6922cfe5 / REQ-FUNC-c405688e: package-enabled jobs persist a policy/resource plan without requiring a recipe, grant authority before agent work, pass bounded retention credentials and describe direct sudo/network limits in each stage prompt. Resource/policy drift fails closed.
 
 REQ-FUNC-8adb68f9: Every stage prompt points to the installed

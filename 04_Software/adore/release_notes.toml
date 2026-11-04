@@ -23,7 +23,7 @@ text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "Managed Pi ignores personal settings on Windows/Linux. ChatGPT sign-in needs a container.", fr = "Pi géré ignore vos réglages sous Windows/Linux. La connexion ChatGPT nécessite un conteneur.", de = "Pi ignoriert persönliche Einstellungen auf Windows/Linux. ChatGPT-Anmeldung braucht Container.", ro = "Pi ignoră setările personale pe Windows/Linux. Autentificarea ChatGPT cere un container." }
+text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, including WSL2.", fr = "Les abonnements ChatGPT fonctionnent en natif sous Windows et Linux, y compris WSL2.", de = "ChatGPT-Abos funktionieren jetzt nativ unter Windows und Linux, einschließlich WSL2.", ro = "Abonamentele ChatGPT funcționează acum nativ pe Windows și Linux, inclusiv WSL2." }
 
 [[release.entry]]
 category = "fixed"

@@ -237,7 +237,8 @@ class Orchestrator:
         self._in_flight_run_id = ""
         self.chatgpt_token = chatgpt_token or (
             lambda seconds: chatgpt.bearer_token(
-                self.containers, chatgpt.credential_dir(), seconds))
+                chatgpt.helper_for(self.config, self.containers),
+                chatgpt.credential_dir(), seconds))
 
     @classmethod
     def from_config(

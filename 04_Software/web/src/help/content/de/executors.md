@@ -31,7 +31,7 @@ Ein Endpunkt-Schlüssel ist optional: Speichern Sie ihn unter Authentifizierung 
 Öffnen Sie **Authentifizierung** in derselben Gruppe.
 
 - **API-Schlüssel des Anbieters.** Das Feld nennt die Variable, die der konfigurierte Anbieter braucht, z. B. OPENAI_API_KEY für OpenAI oder ANTHROPIC_API_KEY für Anthropic. Geben Sie den **API-Schlüssel** ein und wählen Sie **API-Schlüssel speichern**. ADORE speichert ihn privat im Zugangsdatenspeicher des Projekts auf dem Server, nie in der Konfigurationsdatei, gibt ihn Pi nur als diese Variable weiter und zeigt ihn nie wieder an; **Projekt-API-Schlüssel entfernen** löscht ihn. Eine Schlüsseländerung erfordert pausierte Überwachung, ein inaktives Projekt und keinen offenen Vorschlag und prüft den Schlüssel nicht.
-- **Serverprojekte.** Speichern Sie bei Bedarf den **Anbieter-API-Schlüssel**. ADORE ignoriert die persönliche Pi-Anmeldung. Die gemeinsame [ChatGPT-Anmeldung](#chatgpt) ist für Containerprojekte vorgesehen.
+- **Serverprojekte.** Speichern Sie bei Bedarf den **Anbieter-API-Schlüssel**. ADORE ignoriert die persönliche Pi-Anmeldung. Nutzen Sie die gemeinsame [ChatGPT-Anmeldung](#chatgpt) für ein Abo unter Windows oder Linux einschließlich WSL2.
 - **Von der Umgebung verwaltete Werte.** Eine bereits in der Umgebung des ADORE-Servers gesetzte Variable trägt den Hinweis **Auf dem ADORE-Server gesetzt; extern verwalten**. Die Weboberfläche kann sie nicht überschreiben.
 - **Websuche-Schlüssel.** Bei eingeschaltetem Internetzugang und Websuche Brave oder Tavily listet das Feld auch BRAVE_API_KEY oder TAVILY_API_KEY, gespeichert auf dieselbe Weise, auch für ein ChatGPT-Abonnement.
 - **Zusätzliche Zugangsdaten-Variablen.** Nur Namen (**Zugangsdaten-Variable hinzufügen**) weiterer Geheimnisse, die Pi neben dem Schlüssel des Anbieters erhält; die meisten Projekte brauchen keine.
@@ -42,6 +42,8 @@ Zugangsdatenwerte erscheinen nie in der Konfigurationsdatei, in Prüfungen, Audi
 
 Ein ChatGPT-Plus- oder -Pro-Konto dient allen Projekten dieses ADORE-Servers, deren Anbieter **ChatGPT-Abonnement** ist. Administratoren melden sich unter **Authentifizierung** eines solchen Projekts an; ADORE führt die OpenAI-Anmeldung von Pi aus, daher braucht der Server keinen Browser.
 
+Auf dem nativen Server kann Pi den Browser-Rückruf direkt empfangen und ADORE zeigt den Abschluss automatisch an. Andernfalls folgen Sie den manuellen Schritten unten.
+
 1. Wählen Sie **Mit ChatGPT anmelden**.
 2. Öffnen Sie **ChatGPT-Anmeldeseite öffnen** auf Ihrem eigenen Computer und melden Sie sich mit dem ChatGPT-Konto an. Der Link ist 15 Minuten gültig.
 3. Der Browser zeigt danach eine Fehlerseite unter `127.0.0.1:1455`. Das ist erwartet: Kopieren Sie die vollständige Adresse aus seiner Adressleiste.
@@ -49,7 +51,7 @@ Ein ChatGPT-Plus- oder -Pro-Konto dient allen Projekten dieses ADORE-Servers, de
 
 Der Status ist **Angemeldet**, **Nicht angemeldet** oder **Erneut anmelden**. **Erneut anmelden** bedeutet, dass OpenAI die gespeicherte Anmeldung nicht mehr annimmt; Aufträge schlagen fehl, bis sich ein Administrator erneut anmeldet. Eine Adresse von einem älteren Link wird abgelehnt und die Anmeldung wartet weiter; **Abbrechen** beendet sie. Lehnt OpenAI das Konto ab, etwa weil sein Abo nicht geteilt werden kann, endet die Anmeldung mit diesem Grund. **ChatGPT trennen** löscht die gespeicherte Anmeldung.
 
-Die Anmeldung bleibt in einem privaten Ordner auf dem ADORE-Server. Vor jeder Phase holt ADORE daraus ein frisches Zugriffstoken, etwa eine Stunde gültig, und gibt nur dieses Token an Pi weiter; die Anmeldung selbst gelangt nie in den Container des Auftrags. Ein ChatGPT-Projekt läuft deshalb im Container, seine Phasenzeitlimits betragen höchstens 3000 Sekunden, und sein Image muss auf dem aktuellen ADORE-Executor-Image aufbauen. Nur Administratoren sehen oder ändern die Anmeldung; Audit-Einträge nennen die Aktion, nie ein Token oder eine Adresse.
+Die Anmeldung bleibt in einem privaten Ordner auf dem ADORE-Server. Vor jeder Phase holt ADORE daraus ein frisches Zugriffstoken, etwa eine Stunde gültig, und gibt nur dieses Token an Pi weiter; die Anmeldung selbst gelangt nie in den Container des Auftrags. ChatGPT-Projekte laufen im Container oder nativ unter Windows/Linux einschließlich WSL2. Die native Anmeldung nutzt von ADORE verwaltetes Pi ohne Docker; Container nutzen das aktuelle ADORE-Image. Phasen sind in beiden Modi auf 3000 Sekunden begrenzt. Nur Administratoren sehen oder ändern die Anmeldung; Audit-Einträge nennen die Aktion, nie ein Token oder eine Adresse.
 
 > ADORE ist heute kostenlos. Es mit ChatGPT-Anmeldung als gehosteten oder kostenpflichtigen Dienst anzubieten, erfordert zuerst das Interessenformular von OpenAI.
 
@@ -78,7 +80,7 @@ Beide Einstellungen ändern sich wie andere über **Kandidat vorbereiten** und *
 |---|---|---|
 | Läuft in | Einem temporären Docker- oder Podman-Container auf dem ADORE-Server | Dem ADORE-Server selbst, unter dem Betriebssystemkonto des Dienstes, in einem eigenen Worktree |
 | Umgebung | Einem vom Administrator vorbereiteten Projekt-Image | Werkzeugen, Versionen und Bibliotheken, die Sie selbst auf diesem Server installieren |
-| Anmeldung | Der API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der ChatGPT-Anmeldung des Servers | Der API-Schlüssel des Projektanbieters, falls erforderlich |
+| Anmeldung | Der API-Schlüssel des Anbieters oder, bei einem ChatGPT-Abonnement, ein kurzlebiges Zugriffstoken aus der ChatGPT-Anmeldung des Servers | Der Anbieterschlüssel oder ein temporäres Token der ChatGPT-Anmeldung des Servers |
 | Agent-Einstellungen | Das im Image enthaltene Pi mit von ADORE festgelegten Einstellungen; persönliche Pi-Einstellungen und Skills werden nicht gelesen | Von ADORE verwaltetes Pi mit eigenen Einstellungen und Erweiterungen |
 | Isolation | Container; bei ausgeschaltetem Internetzugang erreicht er nur den Modellanbieter | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
 | Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |

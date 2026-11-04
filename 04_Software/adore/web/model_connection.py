@@ -191,6 +191,18 @@ def probe_model_connection(config, runner, env_file: Path, *,
               "reason": "runtime-error"}
     if not isinstance(model, str) or not MODEL_ID_RE.fullmatch(model):
         return result
+    deadline = monotonic() + PROBE_SECONDS
+
+    def bounded(argv, *, cwd=None, timeout=None, env=None):
+        """@brief Bound all setup/inference operations while reserving cleanup time."""
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise TimeoutError()
+        value = runner(argv, cwd=cwd, timeout=min(timeout or 8, remaining), env=env)
+        if value.timed_out:
+            raise TimeoutError()
+        return value
+
     if config.execution.backend == "local":
         from contextlib import ExitStack
 
@@ -200,6 +212,19 @@ def probe_model_connection(config, runner, env_file: Path, *,
         prompt, tool_nonce, nonce = _challenge()
         try:
             with local_probe(config, env_file) as (backend, target, _, _), ExitStack() as stack:
+                if executor.provider == CHATGPT:
+                    try:
+                        token = chatgpt.bearer_token(
+                            chatgpt.helper_for(config, None, runner=bounded),
+                            chatgpt_dir or chatgpt.credential_dir(),
+                            LOCAL_TIMEOUT_SECONDS + chatgpt.TOKEN_MARGIN_SECONDS,
+                            timeout=max(1.0, deadline - monotonic() - 10))
+                    except chatgpt.ChatGptError as exc:
+                        reason = _TOKEN_REASONS.get(exc.code, "runtime-error")
+                        return {**result, "reason": reason}
+                    target = backend.bind(
+                        target.name, {**target.env, chatgpt.TOKEN_VARIABLE: token},
+                        target.resource, secrets=(token,))
                 if not target.auth_available():
                     return {**result, "reason": "credential-missing"}
                 backend.verify_required_tools("probe", [], env=target.env)
@@ -211,12 +236,16 @@ def probe_model_connection(config, runner, env_file: Path, *,
                     """@brief Keep the owned native scope open for the RPC exchange."""
                     return stack.enter_context(target.pi_session(command, placements))
 
+                if deadline - monotonic() <= 10:
+                    return {**result, "reason": "timeout"}
                 launched = pi_rpc.run_pi_rpc(
                     spawn_native, argv, {}, prompt,
-                    timeout=LOCAL_TIMEOUT_SECONDS, redact=target.redact,
+                    timeout=max(1.0, min(LOCAL_TIMEOUT_SECONDS,
+                                        deadline - monotonic() - 10)), redact=target.redact,
                     stdout_tail_bytes=LOCAL_OUTPUT_BYTES,
                 )
-                reason = _rpc_reason(launched, tool_nonce, nonce)
+                reason = _rpc_reason(launched, tool_nonce, nonce,
+                                     subscription=executor.provider == CHATGPT)
                 result.update(ready=reason == "ready", reason=reason)
         except TimeoutError:
             result["reason"] = "timeout"
@@ -235,18 +264,6 @@ def probe_model_connection(config, runner, env_file: Path, *,
             and not (variable and saved.get(variable))):
         result["reason"] = "credential-missing"
         return result
-    deadline = monotonic() + PROBE_SECONDS
-
-    def bounded(argv, *, cwd=None, timeout=None, env=None):
-        """@brief Bound all setup/inference operations while reserving cleanup time."""
-        remaining = deadline - monotonic()
-        if remaining <= 0:
-            raise TimeoutError()
-        value = runner(argv, cwd=cwd, timeout=min(timeout or 8, remaining), env=env)
-        if value.timed_out:
-            raise TimeoutError()
-        return value
-
     try:
         config = effective_probe_config(config, runner=bounded)
     except (PreparationError, TimeoutError, OSError):

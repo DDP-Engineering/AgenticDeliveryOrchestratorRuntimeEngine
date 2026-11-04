@@ -731,7 +731,7 @@ server, and a project's Model list offers the models a ChatGPT subscription
 serves. The routes are `GET`/`PUT`/`DELETE /api/v1/chatgpt-sign-in`,
 `DELETE /api/v1/chatgpt-sign-in/pending` and
 `POST /api/v1/projects/{name}/chatgpt-sign-in` (it uses that project's
-container runtime and image). The readiness check of a ChatGPT project adds
+container runtime/image or its managed native Node/Pi). The readiness check of a ChatGPT project adds
 **ChatGPT sign-in**; Test AI connection reports a missing sign-in, a plan that
 cannot share its subscription and a reached usage limit separately. See
 [Security and credentials](Security_And_Credentials.md#chatgpt-subscription-sign-in).

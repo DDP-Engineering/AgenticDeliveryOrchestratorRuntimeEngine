@@ -12,7 +12,7 @@ verification = "Model-connection tests with a fake helper and fake Pi: signed in
 
 affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/adore/executor/pi_rpc.py", "04_Software/adore/web/app.py", "04_Software/web/src/modelEvidence.ts"]
 
-linked_tests = ["04_Software/tests/test_model_connection.py::test_chatgpt_probe_answers_with_a_fresh_access_token", "04_Software/tests/test_model_connection.py::test_chatgpt_probe_without_a_token_starts_no_run_container", "04_Software/tests/test_model_connection.py::test_chatgpt_refusals_have_their_own_reasons", "04_Software/tests/test_web_chatgpt.py::test_a_chatgpt_connection_result_holds_only_while_signed_in"]
+linked_tests = ["04_Software/tests/test_native_chatgpt.py::test_native_subscription_usage_limit_has_its_own_reason", "04_Software/tests/test_model_connection.py::test_chatgpt_probe_answers_with_a_fresh_access_token", "04_Software/tests/test_model_connection.py::test_chatgpt_probe_without_a_token_starts_no_run_container", "04_Software/tests/test_model_connection.py::test_chatgpt_refusals_have_their_own_reasons", "04_Software/tests/test_web_chatgpt.py::test_a_chatgpt_connection_result_holds_only_while_signed_in"]
 
 
 spec = ""
@@ -21,4 +21,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-03
-updated = 2026-11-03
+updated = 2026-11-04

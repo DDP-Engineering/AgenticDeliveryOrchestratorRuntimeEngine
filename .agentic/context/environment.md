@@ -222,3 +222,13 @@ package or state schema is required. See knowledge/execution.md and Operations_G
 Native server prerequisite setup uses `adore pi install` and `adore pi verify` under
 the ADORE account, with Node 22.23.4+ in the 22.x line. The service sets
 `ADORE_NODE` for an explicit executable and `ADORE_LOCAL_CGROUP_ROOT` for Linux.
+
+
+## Native ChatGPT prerequisites
+
+Native subscription projects use the same verified managed Pi/Node installation
+as other native projects. Their trusted helper performs Pi OAuth without Docker,
+using the ADORE-owned credential directory and filtered service environment.
+Windows requires owned Jobs. Linux/WSL2 requires a delegated cgroup v2
+subtree containing the service process, with writable process and kill controls.
+The container internet switch does not restrict native host networking.

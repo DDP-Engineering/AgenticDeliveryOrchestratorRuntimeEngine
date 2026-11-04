@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Support ChatGPT subscription sign-in and scoped Pi execution natively on Windows and Linux/WSL2, with temporary stage tokens.
+
 - Opt-in agent-controlled system-package installation in job containers, independent of network access, with reviewed settings and pinned recovery.
 
 - ADORE installs and verifies the pinned Pi for native Windows and Linux jobs. Native stages use isolated RPC with the current service account and optional project tools PATH.

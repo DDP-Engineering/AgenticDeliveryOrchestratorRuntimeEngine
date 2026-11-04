@@ -12,8 +12,7 @@ import { errorMessages } from "../src/errors.ts";
 const locales = ["en", "fr", "de", "ro"];
 const codes = ["chatgpt_redirect_invalid", "chatgpt_state_mismatch", "chatgpt_sign_in_not_pending",
   "chatgpt_credential_unreadable", "chatgpt_not_eligible", "chatgpt_access_denied", "chatgpt_code_rejected",
-  "chatgpt_sign_in_refused", "chatgpt_sign_in_unavailable", "chatgpt_helper_failed",
-  "chatgpt_sign_in_container_required"];
+  "chatgpt_sign_in_refused", "chatgpt_sign_in_unavailable", "chatgpt_helper_failed"];
 
 test("the sign-in panel has the same non-empty copy in every locale", () => {
   const keys = Object.keys(chatgptCopy.en).sort();

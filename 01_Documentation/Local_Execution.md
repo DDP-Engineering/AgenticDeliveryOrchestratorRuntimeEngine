@@ -59,13 +59,18 @@ The launcher is fixed. Remove `[executor] command` and unsupported
 `[local]` fields from server TOML. Use the selected provider's project
 credential; ADORE never reads personal Pi sign-in. For an OpenAI-compatible
 endpoint, use the address as seen from the server and configure a key only
-when the endpoint needs one. ChatGPT subscription sign-in remains a
-container-only option.
+when the endpoint needs one. For a ChatGPT subscription, select `provider = "chatgpt"` and sign in under
+Settings → Agent and model. The native helper uses managed Node and Pi
+without Docker. Each stage gets only a temporary access token and has a
+maximum timeout of 3000 seconds. ADORE inside WSL2 uses the Linux setup,
+its own service account and tools, and a delegated cgroup.
 
 The operator supplies the project's tools, SDKs and libraries. Windows uses
 Pi's PowerShell tool and an owned Job Object. On Linux, set the service's
 `ADORE_LOCAL_CGROUP_ROOT` to an absolute, writable, delegated cgroup v2 root.
-The service must be able to create child cgroups and use `cgroup.kill`. There
+The service must itself run inside that delegated subtree and be able to create
+child cgroups and use `cgroup.kill`. Setting the root path alone does not grant
+permission to move processes from another subtree. There
 is no fallback to unowned PID control. Set `workflow.aegis_python` to the native
 Python executable if the default command is unavailable.
 

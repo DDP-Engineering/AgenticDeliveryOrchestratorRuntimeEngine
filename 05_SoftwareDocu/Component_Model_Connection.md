@@ -58,3 +58,16 @@ Native challenges use local_probe and the same fixed Pi argv and account environ
 See [Local execution](../01_Documentation/Local_Execution.md) and
 [Local execution component](Component_Local_Execution.md). Focused native proof:
 `04_Software/tests/test_local_execution.py`.
+
+## Native ChatGPT subscription
+
+
+Native ChatGPT projects use `chatgpt.helper_for` with verified managed
+Node/Pi. They share the ADORE-owned sign-in with container projects on that
+home. Only a temporary access token reaches the bound Pi stage or model
+probe, with explicit secret redaction. No refresh credential is placed in the
+fresh executor agent directory. Native readiness reads stored sign-in status
+without calling a model. Stage limits remain at most 3000 seconds.
+WSL2 uses the Linux backend and delegated cgroup v2. Host networking remains
+separate from the container internet switch. See
+[ChatGPT sign-in](Component_ChatGPT_Sign_In.md).

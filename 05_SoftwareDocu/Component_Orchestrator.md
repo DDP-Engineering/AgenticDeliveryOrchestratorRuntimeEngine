@@ -314,3 +314,16 @@ bounded stage-failure policy. Preparation replay rules remain unchanged.
 Contracts: REQ-FUNC-bff135e2, REQ-REL-ea593cbb, REQ-REL-d8e08cca and
 REQ-DATA-62052e16. Offline coverage is tests/test_container_timeout.py, including
 public retry persistence, plus preparation/native/conductor regressions.
+
+## Native ChatGPT subscription
+
+
+Native ChatGPT projects use `chatgpt.helper_for` with verified managed
+Node/Pi. They share the ADORE-owned sign-in with container projects on that
+home. Only a temporary access token reaches the bound Pi stage or model
+probe, with explicit secret redaction. No refresh credential is placed in the
+fresh executor agent directory. Native readiness reads stored sign-in status
+without calling a model. Stage limits remain at most 3000 seconds.
+WSL2 uses the Linux backend and delegated cgroup v2. Host networking remains
+separate from the container internet switch. See
+[ChatGPT sign-in](Component_ChatGPT_Sign_In.md).

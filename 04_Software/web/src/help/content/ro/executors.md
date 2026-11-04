@@ -31,7 +31,7 @@ Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOI
 Deschideți **Autentificare** în același grup.
 
 - **Cheia API a furnizorului.** Panoul numește variabila de care are nevoie furnizorul configurat, de exemplu OPENAI_API_KEY pentru OpenAI sau ANTHROPIC_API_KEY pentru Anthropic. Introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o păstrează privat în depozitul de credențiale al proiectului pe server, niciodată în fișierul de configurare, o transmite lui Pi doar ca acea variabilă și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Schimbarea unei chei cere monitorizarea oprită, un proiect inactiv și nicio propunere în așteptare și nu testează cheia.
-- **Proiecte pe server.** Salvați **Cheia API a furnizorului** dacă este necesară. ADORE ignoră autentificarea Pi personală. [Autentificarea ChatGPT](#chatgpt) comună este pentru proiectele în container.
+- **Proiecte pe server.** Salvați **Cheia API a furnizorului** dacă este necesară. ADORE ignoră autentificarea Pi personală. Folosiți [autentificarea ChatGPT](#chatgpt) comună pentru abonament pe Windows sau Linux, inclusiv WSL2.
 - **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE poartă eticheta **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
 - **Cheia de căutare web.** Cu accesul la internet activat și căutarea web Brave sau Tavily, panoul listează și BRAVE_API_KEY sau TAVILY_API_KEY, salvată la fel, și pentru un abonament ChatGPT.
 - **Variabile de autentificare suplimentare.** Doar nume (**Adaugă o variabilă de autentificare**) ale unor secrete suplimentare primite de Pi pe lângă cheia furnizorului; majoritatea proiectelor nu au nevoie de ele.
@@ -42,6 +42,8 @@ Valorile credențialelor nu apar niciodată în fișierul de configurare, în re
 
 Un singur cont ChatGPT Plus sau Pro servește toate proiectele de pe acest server ADORE al căror furnizor este **Abonament ChatGPT**. Administratorii se autentifică în **Autentificare** a unui astfel de proiect; ADORE rulează autentificarea OpenAI a lui Pi, deci serverul nu are nevoie de browser.
 
+Pe serverul nativ, Pi poate primi direct redirecționarea browserului, iar ADORE afișează automat finalizarea. Dacă rămâne în așteptare, folosiți pașii manuali de redirecționare de mai jos.
+
 1. Alegeți **Autentificare cu ChatGPT**.
 2. Deschideți **Deschide pagina de autentificare ChatGPT** pe calculatorul dumneavoastră și autentificați-vă cu contul ChatGPT. Linkul este valabil 15 minute.
 3. Browserul afișează apoi o pagină de eroare la `127.0.0.1:1455`. Este normal: copiați adresa completă din bara de adrese.
@@ -49,7 +51,7 @@ Un singur cont ChatGPT Plus sau Pro servește toate proiectele de pe acest serve
 
 Starea este **Autentificat**, **Neautentificat** sau **Autentifică-te din nou**. **Autentifică-te din nou** înseamnă că OpenAI nu mai acceptă autentificarea salvată; lucrările eșuează până când un administrator se autentifică din nou. O adresă de la un link mai vechi este refuzată, iar autentificarea așteaptă în continuare; **Anulează** o încheie. Când OpenAI refuză contul, de exemplu pentru că abonamentul lui nu poate fi partajat, autentificarea se încheie cu acest motiv. **Deconectează ChatGPT** șterge autentificarea salvată.
 
-Autentificarea rămâne într-un dosar privat pe serverul ADORE. Înaintea fiecărei etape, ADORE obține din ea un token de acces nou, valabil aproximativ o oră, și transmite lui Pi doar acest token; autentificarea însăși nu intră niciodată în containerul lucrării. De aceea un proiect ChatGPT rulează în container, limitele de timp ale etapelor sunt de cel mult 3000 de secunde, iar imaginea lui trebuie construită din imaginea curentă a executorului ADORE. Doar administratorii văd sau modifică autentificarea; înregistrările de audit numesc acțiunea, niciodată un token sau o adresă.
+Autentificarea rămâne într-un dosar privat pe serverul ADORE. Înaintea fiecărei etape, ADORE obține din ea un token de acces nou, valabil aproximativ o oră, și transmite lui Pi doar acest token; autentificarea însăși nu intră niciodată în containerul lucrării. Proiectele ChatGPT rulează în containere sau nativ pe Windows/Linux, inclusiv WSL2. Autentificarea nativă folosește Pi administrat de ADORE fără Docker; containerele folosesc imaginea curentă a executorului ADORE. Limitele etapelor sunt de cel mult 3000 de secunde în ambele medii. Doar administratorii văd sau modifică autentificarea; înregistrările de audit numesc acțiunea, niciodată un token sau o adresă.
 
 > ADORE este gratuit astăzi. Oferirea lui ca serviciu găzduit sau plătit cu autentificare ChatGPT ar necesita mai întâi formularul de interes al OpenAI.
 
@@ -78,7 +80,7 @@ Ambele setări se schimbă prin **Pregătește candidatul** și **Aplică**, ca 
 |---|---|---|
 | Rulează în | Un container Docker sau Podman temporar pe serverul ADORE | Chiar serverul ADORE, sub contul de sistem de operare al serviciului, într-un worktree dedicat |
 | Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
-| Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia API a furnizorului proiectului, dacă este necesară |
+| Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia furnizorului sau un token temporar din autentificarea ChatGPT a serverului |
 | Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi administrat de ADORE cu setări și extensii proprii |
 | Izolare | Container; cu accesul la internet dezactivat ajunge doar la furnizorul modelului | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
 | Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |

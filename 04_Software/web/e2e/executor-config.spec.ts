@@ -325,3 +325,54 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
   expect((await fixture("openai")).ok()).toBe(true);
  }
 });
+
+
+for (const manualRace of [false,true]) {
+ test(manualRace ? "ChatGPT manual completion waits for an in-flight callback status" : "ChatGPT callback completion appears without a pasted redirect", async ({page}) => {
+  const fixture=(value:string)=>page.request.post(`/__e2e__/provider?value=${value}`,{headers:{"X-ADORE-E2E":"local-test"}});
+  expect((await fixture("chatgpt")).ok()).toBe(true);
+  let started=false, reads=0, pasted=0;
+  let releaseStatus=()=>{}, announcePoll=()=>{};
+  const released=new Promise<void>(resolve=>{releaseStatus=resolve;});
+  const polled=new Promise<void>(resolve=>{announcePoll=resolve;});
+  await page.route("**/api/v1/projects/*/chatgpt-sign-in",async route=>{
+    started=true;
+    await route.fulfill({json:{authorize_url:"https://auth.openai.com/authorize?state=callback-test-state",expires_in:900}});
+  });
+  await page.route("**/api/v1/chatgpt-sign-in",async route=>{
+    if(route.request().method()==="PUT") {
+      pasted++; await released;
+      await route.fulfill({status:409,json:{detail:{code:"chatgpt_sign_in_not_pending"}}}); return;
+    }
+    if(route.request().method()!=="GET") { await route.continue(); return; }
+    if(started)reads++;
+    if(manualRace && started && reads===2) { announcePoll(); await released; }
+    await route.fulfill({json:{status:started&&reads>1?"signed-in":"not-signed-in",pending:started&&reads<=1}});
+  });
+  try {
+    await page.goto("/");
+    await page.getByLabel("Username",{exact:false}).fill("admin");
+    await page.getByLabel("Password",{exact:false}).fill("admin");
+    await page.getByRole("button",{name:"Sign in",exact:true}).click();
+    await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
+    const projects=await(await page.request.get("/api/v1/projects")).json();
+    const id=projects.find((p:{name:string})=>p.name==="alpha").id;
+    await page.goto(`/projects/${id}/configuration`);
+    await page.getByText(/^Agent and model \(\d+\)$/).click();
+    await page.locator('[data-setting-topic="authentication"] > summary').click();
+    const panel=page.locator("#chatgpt-sign-in"),c=chatgptCopy.en;
+    await panel.getByRole("button",{name:c.start,exact:true}).click();
+    if(manualRace) {
+      await polled;
+      await panel.getByLabel(c.field,{exact:true}).fill("http://127.0.0.1:1455/auth/callback?code=fake&state=callback-test-state");
+      await panel.getByRole("button",{name:c.complete,exact:true}).click();
+      releaseStatus();
+    }
+    await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["signed-in"]);
+    await expect(panel.getByRole("link",{name:c.link,exact:true})).toHaveCount(0);
+    await expect(panel.getByLabel(c.field,{exact:true})).toHaveCount(0);
+    expect(pasted).toBe(0);
+    await expect(panel.getByRole("alert")).toHaveCount(0);
+  } finally { releaseStatus(); expect((await fixture("openai")).ok()).toBe(true); }
+ });
+}

@@ -126,7 +126,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-REL-94e653aa` - checkpoint publication defaults to enabled and respects explicit overrides.
 
 - `REQ-DATA-eebc4f88` - stage timeout overrides accept only the five executor stages.
-- `REQ-FUNC-a5d65a57` - `chatgpt` is refused for a local run and for a stage limit above 3000 s.
+- `REQ-FUNC-a5d65a57` - `chatgpt` is accepted on native and container backends and refused for a stage limit above 3000 s.
 
 ## Files
 

@@ -982,16 +982,13 @@ def _chatgpt_issues(config: Config) -> list[str]:
     """
     @brief      Refuse what a ChatGPT subscription cannot run.
     @details    ADORE mints a ChatGPT access token before every stage through
-                the image's pinned Pi, so a local run is refused; the token
+                the trusted helper and pinned Pi; the token
                 lasts about an hour and is not refreshed during a stage, so a
                 stage limit above MAX_STAGE_SECONDS is refused too.
     @param[in]  config Loaded configuration with `provider = "chatgpt"`.
     @return     One issue per problem, naming the key.
     """
     issues: list[str] = []
-    if config.execution.backend == "local":
-        issues.append('[executor] provider "chatgpt" is unavailable with the local backend. '
-                      "ChatGPT sign-in is available only for container projects.")
     limit = config.budgets.per_gate_timeout_seconds
     if isinstance(limit, int) and not isinstance(limit, bool) and limit > CHATGPT_MAX_STAGE_SECONDS:
         issues.append(f"[budgets] per_gate_timeout_seconds must be at most "

@@ -54,7 +54,7 @@ New jobs load applied executor/model settings. Existing jobs retain their durabl
 
 Open Project → Settings → Agent and model for credentials. Prepare/apply the provider and model change, pause monitoring for credential changes, and Save API key for the variable the provider names. Test AI connection explicitly, then inspect Summary/check details.
 
-Container projects use a provider API key, the server's ChatGPT sign-in (`provider = "chatgpt"`; an Admin signs in once under Settings → Agent and model, and each stage receives only a short-lived access token as `OPENAI_API_KEY`) or an OpenAI-compatible endpoint (whose `models.json` ADORE writes into the ADORE-owned agent directory before every stage). Server projects use the configured provider's project credential, or an OpenAI-compatible endpoint reachable from the server with an optional project key. The managed Pi runtime ignores the account's personal Pi sign-in. The GUI key removal changes only the configured project variable.
+Container projects use a provider API key, the server's ChatGPT sign-in (`provider = "chatgpt"`; an Admin signs in once under Settings → Agent and model, and each stage receives only a short-lived access token as `OPENAI_API_KEY`) or an OpenAI-compatible endpoint (whose `models.json` ADORE writes into the ADORE-owned agent directory before every stage). Server projects use the provider's project credential, the server's ChatGPT subscription, or an OpenAI-compatible endpoint with an optional project key. The managed Pi runtime ignores the account's personal Pi sign-in. The GUI key removal changes only the configured project variable.
 
 Official provider reference: [Pi](https://pi.dev/docs/latest/providers).
 
@@ -64,7 +64,7 @@ Official provider reference: [Pi](https://pi.dev/docs/latest/providers).
 
 ## 10. Limitations
 
-The provider catalog is the snapshot shipped with the pinned Pi (`adore/pi_catalog.json`); executor installation remains external. Sign in with ChatGPT has no callback receiver: the administrator pastes the redirect address the browser shows. A ChatGPT subscription requires a container and limits stages to 3000 s. An OpenAI-compatible endpoint also works with server-installed Pi. New custom additional variable names require external TOML configuration; retained custom names can be selected or removed. Connectivity proves one shell call and a model response in either backend. Git publication and complete job execution require separate evidence.
+The provider catalog is the snapshot shipped with the pinned Pi (`adore/pi_catalog.json`); executor installation remains external. Native Pi can complete its own loopback callback automatically; the panel observes completion. An unreachable callback retains the pasted-redirect fallback. A ChatGPT subscription supports container and native Windows/Linux projects and limits stages to 3000 s. An OpenAI-compatible endpoint also works with server-installed Pi. New custom additional variable names require external TOML configuration; retained custom names can be selected or removed. Connectivity proves one shell call and a model response in either backend. Git publication and complete job execution require separate evidence.
 
 ## Native execution contract
 

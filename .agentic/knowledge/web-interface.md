@@ -316,12 +316,14 @@ SQLite bytes, authorization, scope and financial redaction.
   pending sign-in lives in the web server's memory under one lock.
   `GET /api/v1/chatgpt-sign-in` returns `{status, pending}` (`signed-in`,
   `not-signed-in` or `sign-in-again`); a pending sign-in older than 900 s is
-  cancelled and reported as not pending.
+  cancelled and reported as not pending. While pending, a status read observes
+  queued native callback completion or refusal, reaps the helper and audits the
+  verified outcome once. The visible panel polls once per second only while
+  pending, with a 15-minute bound; manual redirect remains the remote fallback.
   `POST /api/v1/projects/{name}/chatgpt-sign-in` cancels any previous pending
-  sign-in, starts Pi's `login` in a helper container from that project's
-  runtime and image, and returns `{authorize_url, expires_in: 900}`; it returns
-  409 `project_archived`, 503 `config_corrupt`, 409
-  `chatgpt_sign_in_container_required` for a non-container project and 409
+  sign-in, starts Pi's `login` through the selected native helper or project
+  helper container, and returns `{authorize_url, expires_in: 900}`; it returns
+  409 `project_archived`, 503 `config_corrupt` and 409
   `invalid_config`, and needs neither paused pickup nor an idle project.
   `PUT /api/v1/chatgpt-sign-in` takes exactly `{redirect_url}` (at most 8192
   characters) and returns `{status, pending}`; 400 `chatgpt_redirect_invalid`
@@ -650,7 +652,7 @@ Native control/auth route to local-execution.md. Focused proof:
 
 
 - `REQ-UX-94a97e70`: CLI validates external execution selections and previews complete image/source/commands. Web reads expose effective image and retained preparation evidence; environment mutations are refused. Host/model probes normalize image without setup; jobs project validated timestamp/exit/timeout/cancel evidence. Portable rule allowlists stay unchanged.
-- ChatGPT sign-in: `REQ-FUNC-4efa960e` status, `REQ-FUNC-09ac930a` start from a container
+- ChatGPT sign-in: `REQ-FUNC-4efa960e` status, `REQ-FUNC-09ac930a` start from a native or container
   project, `REQ-FUNC-055f8047` complete with the pasted address, `REQ-FUNC-74d90036` refuse
   another callback, `REQ-FUNC-0e27781c` localized refusal, `REQ-FUNC-f0076585` Disconnect,
   `REQ-FUNC-11308471` readiness row, `REQ-FUNC-4388b030` ChatGPT Test AI connection,

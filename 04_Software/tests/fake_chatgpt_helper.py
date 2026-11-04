@@ -69,7 +69,7 @@ def login(directory: Path, options) -> int:
     if options.hang:
         time.sleep(600)
     emit({"event": "auth_url", "url": AUTHORIZE})
-    line = sys.stdin.readline()
+    line = "automatic-callback\n" if options.auto_complete else sys.stdin.readline()
     if options.record:
         Path(options.record).write_text(line, encoding="utf-8")
     if not line:
@@ -136,6 +136,7 @@ def main() -> int:
     parser.add_argument("--hang", action="store_true")
     parser.add_argument("--hang-after", action="store_true")
     parser.add_argument("--refuse", action="store_true")
+    parser.add_argument("--auto-complete", action="store_true")
     parser.add_argument("command", choices=("login", "token"))
     parser.add_argument("--min-validity-seconds", type=int, default=0)
     options = parser.parse_args()

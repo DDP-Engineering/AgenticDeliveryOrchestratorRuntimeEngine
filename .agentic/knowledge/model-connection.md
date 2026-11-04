@@ -25,6 +25,13 @@ Admin/CSRF and idle configuration/conductor locks precede execution. Saved provi
 
 ## Key behaviors
 
+Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
+One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage
+and model targets, with native evidence redaction. Readiness reads the stored
+status without refreshing or calling a model. Missing/rejected credentials
+prevent Pi launch. Host network and owned-process scope policy stay in force.
+Offline proof: `tests/test_native_chatgpt.py` and `tests/test_web_chatgpt.py`.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native challenges use local_probe and the same managed argv and account environment as stages, with verified scope cleanup. No login or complete-job claim; container diagnostics keep the fixed RPC command line.
 - REQ-FUNC-8f369d55: a native Pi is ready only with a completed shell call printing the tool nonce and the exact reply.
 - REQ-FUNC-0b728218: missing/rejected/failed shell call -> `tool-call-failed`.

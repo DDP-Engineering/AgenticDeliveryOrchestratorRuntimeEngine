@@ -766,7 +766,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
     if config.execution.backend == "local":
         from adore.local_execution import probe_local_executor
 
-        executor_probe = probe_local_executor(config, env_file)
+        executor_probe = probe_local_executor(config, env_file, chatgpt_dir=chatgpt_dir)
         executor = executor_probe["ready"]
         aegis_root = Path(config.worktree.repo_path) / ".agentic"
         return {"local_probe": executor_probe, "checks": {"git": git.present and not git.detail,
@@ -775,6 +775,9 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                             "container_runtime": True, "executor_cli": executor,
                             "aegis_files": (aegis_root / "aegis.py").is_file()
                             and (aegis_root / "aegis.toml").is_file(),
+                            **({"executor_sign_in": chatgpt.status(
+                                chatgpt_dir or chatgpt.credential_dir()) == "signed-in"}
+                               if config.executor.provider == CHATGPT else {}),
                             **_internet_checks(config, bounded_runner, env_file)}}
     try:
         image_runtime = ContainerManager(
@@ -3286,6 +3289,17 @@ def create_app(home: str | Path | None = None,
     def chatgpt_sign_in_read(user: Annotated[dict, Depends(administrator)]) -> dict:
         """@brief Report the server's ChatGPT sign-in without starting Pi."""
         with chatgpt_lock:
+            chatgpt_view()  # Expire an abandoned attempt before reading its pipe.
+            session = chatgpt_pending["session"]
+            if session is not None:
+                try:
+                    completed = session.poll()
+                except chatgpt.ChatGptError as exc:
+                    chatgpt_pending["session"] = None
+                    chatgpt_failure(user, exc)
+                if completed:
+                    chatgpt_pending["session"] = None
+                    web.audit(user["id"], "chatgpt-sign-in-completed")
             return chatgpt_view()
 
     @app.post("/api/v1/projects/{name}/chatgpt-sign-in")
@@ -3300,15 +3314,14 @@ def create_app(home: str | Path | None = None,
                 config = _config_from_bytes(profiles.config_path(item.name).read_bytes())
             except (OSError, ValueError, TypeError) as exc:
                 raise _error(503, "config_corrupt") from exc
-            if config.execution.backend != "container":
-                raise _error(409, "chatgpt_sign_in_container_required")
             if _config_findings(config):
                 raise _error(409, "invalid_config")
-        manager = ContainerManager(
+        manager = None if config.execution.backend == "local" else ContainerManager(
             config.container.runtime, config.container.image or EXECUTOR_BASE_IMAGE,
             config.container.uv_cache_volume, config.container.npm_cache_volume,
             probe_runner, run_args=config.container.run_args,
             selinux_relabel=config.container.selinux_relabel)
+        manager = chatgpt.helper_for(config, manager, runner=probe_runner)
         with chatgpt_lock:
             previous = chatgpt_pending["session"]
             if previous is not None:

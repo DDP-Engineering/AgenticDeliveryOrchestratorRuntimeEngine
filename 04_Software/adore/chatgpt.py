@@ -18,9 +18,11 @@
 
          Pi does every OAuth step itself: ADORE's helper script
          (`/opt/adore/pi/adore-chatgpt.mjs` in the executor image) runs in a
-         one-off helper container whose only mount is this directory. `login`
-         prints the authorization link and waits for the browser's redirect
-         address; `token` returns an access token valid for a requested time,
+         one-off helper container whose only mount is this directory, or as
+         a trusted native process using ADORE-managed Node/Pi. `login`
+         prints the authorization link and waits for the native callback
+         or the pasted browser redirect address; `token` returns an access
+         token valid for a requested time,
          refreshing it under Pi's credential lock. A stage then receives only
          that access token as `OPENAI_API_KEY`; the refresh token stays here.
 
@@ -34,13 +36,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import suppress
 import json
+import math
 import os
 from pathlib import Path
 from queue import Empty, Queue
 import re
 import subprocess
 from threading import Lock, Thread, Timer
-from time import monotonic
+from time import monotonic, time
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 from uuid import uuid4
@@ -50,7 +53,7 @@ from adore.branding import (
     CONTAINER_CHATGPT_MOUNT,
     CONTAINER_PI_CHATGPT_SCRIPT,
 )
-from adore.util import run_command, strict_json_loads
+from adore.util import background_process_options, run_command, strict_json_loads
 
 # CONSTANTS
 CONTAINER_SCRIPT = CONTAINER_PI_CHATGPT_SCRIPT
@@ -103,8 +106,8 @@ SENTENCES = {
     "state-mismatch": "This address belongs to another sign-in attempt; paste the address that "
                       "follows the latest link.",
     "not-pending": "No ChatGPT sign-in is waiting; start it again.",
-    "helper-failed": "ADORE's ChatGPT helper could not run in the executor image; rebuild the "
-                     "image and try again.",
+    "helper-failed": "ADORE's ChatGPT helper could not run. For native execution check "
+                     "Node and run 'adore pi install'; for containers rebuild the executor image.",
     "failed": "The ChatGPT sign-in failed.",
 }
 _TOKEN_RE = re.compile(r"[A-Za-z0-9._~+/=-]{16,16384}")
@@ -125,7 +128,7 @@ class ChatGptError(RuntimeError):
     def __init__(self, code: str) -> None:
         """@brief Carry one cause code."""
         super().__init__(code)
-        self.code = code if code in SENTENCES else "failed"
+        self.code = code if isinstance(code, str) and code in SENTENCES else "failed"
 
     def sentence(self) -> str:
         """@brief The English sentence for evidence and logs."""
@@ -135,8 +138,71 @@ class ChatGptError(RuntimeError):
 # HELPER FUNCTIONS
 
 
+class NativeHelper:
+    """@brief Trusted native OAuth transport, with no project code or shell.
+    @details Uses only verified managed Node/Pi and the packaged helper. The
+             helper never loads project extensions and never starts children.
+    """
+
+    def __init__(self, *, runner=run_command) -> None:
+        """@brief Bind the injectable native command boundary."""
+        self.runner = runner
+
+    def command(self, directory: Path, args: list[str]) -> tuple[list[str], dict]:
+        """@brief Return verified argv and an isolated native child environment.
+        @param[in] directory ADORE-owned credential directory outside the project.
+        @param[in] args Trusted helper operation and validity limit.
+        @return Native argv and explicit cwd/environment options.
+        @exception ChatGptError Missing managed prerequisites or packaged helper.
+        """
+        from adore.pi_installation import PI_PACKAGE, PiInstallationError, verify_pi
+
+        script = Path(__file__).with_name("executor") / "adore-chatgpt.mjs"
+        try:
+            pi = verify_pi(runner=self.runner)
+            if not script.is_file() or script.is_symlink():
+                raise ChatGptError("helper-failed")
+        except TimeoutError as exc:
+            raise ChatGptError("unavailable") from exc
+        except (PiInstallationError, OSError) as exc:
+            raise ChatGptError("helper-failed") from exc
+        directory = directory.resolve()
+        keep = {"SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP", "TMPDIR",
+                "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS"}
+        env = {key: value for key, value in os.environ.items() if key.upper() in keep}
+        env.update(PI_CODING_AGENT_DIR=str(directory), PI_TELEMETRY="0",
+                   PI_SKIP_VERSION_CHECK="1", HOME=str(directory), USERPROFILE=str(directory),
+                   APPDATA=str(directory), LOCALAPPDATA=str(directory),
+                   XDG_CONFIG_HOME=str(directory), XDG_CACHE_HOME=str(directory),
+                   PATH=str(pi.node.parent),
+                   ADORE_PI_PACKAGE=str(pi.prefix / "node_modules" / PI_PACKAGE))
+        return [str(pi.node), str(script), *args], {"cwd": directory, "env": env}
+
+
+def helper_for(config, manager, *, runner=None):
+    """@brief Select trusted native OAuth or the existing project helper container.
+    @param[in] config Validated project snapshot.
+    @param[in] manager Container manager retained for container projects.
+    @param[in] runner Optional injectable native command boundary.
+    @return The helper transport for this backend.
+    """
+    if config.execution.backend == "local":
+        return NativeHelper(runner=runner or run_command)
+    return manager
+
+
+def _command(manager, name: str, directory: Path, args: list[str], *, interactive=False):
+    """@brief Build one helper operation without changing its shared protocol."""
+    if isinstance(manager, NativeHelper):
+        return manager.command(directory, args)
+    return manager.helper_command(
+        name, ["node", CONTAINER_SCRIPT, *args],
+        mount=(directory, CONTAINER_CHATGPT_MOUNT), env=HELPER_ENV,
+        interactive=interactive), {}
+
+
 def _helper_name() -> str:
-    """@brief A unique helper container name."""
+    """@brief A unique helper operation name."""
     return "adore-chatgpt-" + uuid4().hex[:16]
 
 
@@ -173,8 +239,10 @@ def _remove_helper(manager, name: str) -> None:
                 bounded runner (the web probe's) raises again once its deadline
                 is gone, so removal then runs on its own short bound.
     @param[in]  manager ContainerManager that started the helper.
-    @param[in]  name Helper container name.
+    @param[in]  name Owned helper name.
     """
+    if isinstance(manager, NativeHelper):
+        return
     try:
         manager.remove_helper(name)
     except (TimeoutError, OSError):
@@ -313,12 +381,12 @@ def bearer_token(manager, directory: Path, min_validity_seconds: int, *,
                  timeout: float = TOKEN_TIMEOUT_SECONDS) -> str:
     """
     @brief      An access token valid for at least `min_validity_seconds`.
-    @details    Runs Pi in a helper container from `manager`'s image with only
-                the credential directory mounted; Pi refreshes an expiring
+    @details    Runs Pi through the selected trusted native/container helper;
+                only the helper opens the credential store. Pi refreshes an expiring
                 credential under its own lock. A refused refresh marks the
                 status sign-in-again; a good answer clears the mark. Nothing
                 starts when the status is not signed-in.
-    @param[in]  manager ContainerManager of the project (runtime, image, runner).
+    @param[in]  manager Selected NativeHelper or project ContainerManager.
     @param[in]  directory Credential directory.
     @param[in]  min_validity_seconds Seconds the token must stay valid.
     @param[in]  timeout Wall-clock bound of the helper.
@@ -329,27 +397,30 @@ def bearer_token(manager, directory: Path, min_validity_seconds: int, *,
     if state != "signed-in":
         raise ChatGptError(state)
     name = _helper_name()
-    argv = manager.helper_command(
-        name, ["node", CONTAINER_SCRIPT, "token", "--min-validity-seconds",
-               str(int(min_validity_seconds))],
-        mount=(directory, CONTAINER_CHATGPT_MOUNT), env=HELPER_ENV)
+    argv, options = _command(manager, name, directory,
+                             ["token", "--min-validity-seconds", str(int(min_validity_seconds))])
     try:
-        result = manager.runner(argv, timeout=timeout)
+        result = manager.runner(argv, timeout=timeout, **options)
     except TimeoutError as exc:
         _remove_helper(manager, name)
         raise ChatGptError("unavailable") from exc
+    except OSError as exc:
+        raise ChatGptError("helper-failed") from exc
     if result.timed_out:
         _remove_helper(manager, name)
         raise ChatGptError("unavailable")
     answer = _answer(result.stdout)
     code = answer.get("status") if answer else None
-    if (code == "ok" and set(answer) == {"status", "token", "expires"}
-            and isinstance(answer["token"], str) and _TOKEN_RE.fullmatch(answer["token"])):
+    if (result.ok and code == "ok" and set(answer) == {"status", "token", "expires"}
+            and isinstance(answer["token"], str) and _TOKEN_RE.fullmatch(answer["token"])
+            and type(answer["expires"]) in (int, float)
+            and (type(answer["expires"]) is int or math.isfinite(answer["expires"]))
+            and answer["expires"] >= (time() + min_validity_seconds) * 1000):
         _unmark(directory)
         return answer["token"]
     if code == "sign-in-again":
         _mark(directory)
-    raise ChatGptError(code if code in HELPER_CODES else "helper-failed")
+    raise ChatGptError(code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
 
 
 class SignIn:
@@ -367,8 +438,8 @@ class SignIn:
                  popen: Callable[..., Any] = subprocess.Popen,
                  clock: Callable[[], float] = monotonic) -> None:
         """
-        @brief      Bind a sign-in to a project's runtime and image.
-        @param[in]  manager ContainerManager of the project that started it.
+        @brief      Bind a sign-in to the selected trusted helper transport.
+        @param[in]  manager NativeHelper or the project's ContainerManager.
         @param[in]  directory Credential directory.
         @param[in]  popen Process factory (tests inject a fake helper).
         @param[in]  clock Monotonic clock (tests move it).
@@ -415,7 +486,7 @@ class SignIn:
         except Empty:
             return None
 
-    def _end(self, answered: bool) -> None:
+    def _end(self, answered: bool) -> bool:
         """
         @brief      Mark finished and make sure the helper is gone.
         @details    A helper that answered exits on its own once its stdin
@@ -424,21 +495,24 @@ class SignIn:
                     stdout is never closed here (closing it would wait for a
                     blocked read).
         @param[in]  answered Whether the helper sent its final answer.
+        @return     True only for a clean helper exit before forced cleanup.
         """
         self.finished = True
         process = self.process
         if process is None:
-            return
+            return False
         with suppress(OSError, ValueError):
             process.stdin.close()
         if answered:
             try:
-                process.wait(timeout=10)
-                return
+                return process.wait(timeout=10) == 0
             except subprocess.TimeoutExpired:
                 pass
         process.kill()
         _remove_helper(self.manager, self.name)
+        with suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=10)
+        return False
 
     def start(self, timeout: float = 60.0) -> str:
         """
@@ -449,12 +523,12 @@ class SignIn:
                     or the helper's cause code.
         """
         prepare(self.directory)
-        argv = self.manager.helper_command(
-            self.name, ["node", CONTAINER_SCRIPT, "login"],
-            mount=(self.directory, CONTAINER_CHATGPT_MOUNT), env=HELPER_ENV, interactive=True)
+        argv, options = _command(self.manager, self.name, self.directory, ["login"],
+                                 interactive=True)
         try:
             self.process = self.popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                      stderr=subprocess.DEVNULL)
+                                      stderr=subprocess.DEVNULL, **options,
+                                      **background_process_options())
         except OSError as exc:
             self.finished = True
             raise ChatGptError("helper-failed") from exc
@@ -476,7 +550,48 @@ class SignIn:
         if answer is None:
             raise ChatGptError("unavailable")
         code = answer.get("code") if isinstance(answer, dict) else None
-        raise ChatGptError(code if code in HELPER_CODES else "helper-failed")
+        raise ChatGptError(
+            code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
+
+    def _finish(self, answer: object) -> None:
+        """@brief Validate and reap a manual or automatic helper completion.
+        @param[in] answer Untrusted helper protocol object or end-of-output.
+        @exception ChatGptError Refusal, corrupt store, bad output or failed exit.
+        """
+        clean_exit = self._end(isinstance(answer, dict))
+        if isinstance(answer, dict) and answer.get("event") == "signed-in":
+            if not clean_exit:
+                raise ChatGptError("helper-failed")
+            _unmark(self.directory)
+            if status(self.directory) != "signed-in":
+                raise ChatGptError("unreadable")
+            return
+        if answer is None:
+            raise ChatGptError("unavailable")
+        code = answer.get("code") if isinstance(answer, dict) else None
+        raise ChatGptError(
+            code if isinstance(code, str) and code in HELPER_CODES else "helper-failed")
+
+    def _poll(self, timeout: float = 0) -> bool:
+        """@brief Consume a queued completion without requiring a manual redirect.
+        @param[in] timeout Bounded grace for a pipe-close/completion race.
+        @return True for completed login, False if no event is queued.
+        @exception ChatGptError A queued failure or invalid completion.
+        """
+        answer = self._next(timeout)
+        if answer is None:
+            return False
+        self._finish(answer)
+        return True
+
+    def poll(self) -> bool:
+        """@brief Observe an already-running helper's automatic callback completion.
+        @return True when completed, False while still waiting or already ended.
+        @exception ChatGptError A queued refusal or invalid completion.
+        @note Starts no process and performs no new model or refresh request.
+        """
+        with self._lock:
+            return self._poll() if self.pending else False
 
     def submit(self, url: object, timeout: float = 60.0) -> None:
         """
@@ -496,21 +611,18 @@ class SignIn:
                 if exc.code not in {"redirect-invalid", "state-mismatch"}:
                     self.cancel()
                 raise
+            if self._poll():
+                return
             try:
                 self.process.stdin.write(address.encode("utf-8") + b"\n")
                 self.process.stdin.flush()
             except (OSError, ValueError) as exc:
+                # Pi may have won the race through its native loopback callback.
+                if self._poll(timeout=1):
+                    return
                 self.cancel()
                 raise ChatGptError("helper-failed") from exc
-            answer = self._next(timeout)
-            self._end(isinstance(answer, dict))
-            if isinstance(answer, dict) and answer.get("event") == "signed-in":
-                _unmark(self.directory)
-                return
-            if answer is None:
-                raise ChatGptError("unavailable")
-            code = answer.get("code") if isinstance(answer, dict) else None
-            raise ChatGptError(code if code in HELPER_CODES else "helper-failed")
+            self._finish(self._next(timeout))
 
     def cancel(self) -> None:
         """@brief End the sign-in and remove its helper container (idempotent)."""
@@ -522,6 +634,8 @@ class SignIn:
             process.kill()
         if process is not None:
             _remove_helper(self.manager, self.name)
+            with suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=10)
 
 
 # END OF FILE

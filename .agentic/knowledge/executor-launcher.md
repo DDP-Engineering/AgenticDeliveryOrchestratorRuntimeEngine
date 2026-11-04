@@ -107,22 +107,20 @@ The failure classes, matched in this order, are `subscription`
 (`subscription_sharing_user_not_eligible`), `sign-in`, `model`, `credential`,
 `rate-limit`, `network`, else `provider`.
 
-For `provider = "chatgpt"` the orchestrator's `_launch_stage` asks its
-`chatgpt_token` source for an access token valid for the stage limit plus
-`chatgpt.TOKEN_MARGIN_SECONDS` (300 s) before `run_gate`. The default source is
-`chatgpt.bearer_token(self.containers, chatgpt.credential_dir(), seconds)`: Pi's
-`token` command in a one-off helper container from the project's image whose
-only bind mount is the server's credential directory `<ADORE home>/chatgpt`.
-The run container never mounts that directory, so the refresh token never
-enters a run. The token reaches only that gate as `OPENAI_API_KEY`, through
-`ContainerBackend.bind(name, env, resource, secrets=(token,))`; the exec passes
-it as a bare `--env` name. `BoundTarget.redact` replaces it with `[REDACTED]` in
-Pi's evidence (`pi_rpc` gets it as `redact`). Pi runs with `--provider openai`.
-When no token can be had (`ChatGptError`), the attempt returns
-`GateRun(exit_code=1, stderr="ChatGPT sign-in: <sentence>")` without starting Pi,
-the conductor logs `<run id>: ChatGPT token unavailable (<code>)`, and the
-ordinary retry policy applies. The token is not refreshed during a stage, so
-config validation limits a `chatgpt` stage to 3000 s.
+For `provider = "chatgpt"`, `Orchestrator._launch_stage` requests an access
+token for the stage limit plus 300 seconds through `helper_for`. Native
+projects use `NativeHelper` with verified managed Node/Pi and the packaged
+OAuth helper; container projects retain their helper container with only the
+credential directory mounted. Pi refreshes the shared ADORE-owned store under
+its lock. No refresh credential enters a run container or fresh native agent
+directory. Native execution retains the host account's file permissions.
+
+`LocalBackend.bind` and `ContainerBackend.bind` accept explicit launch secrets.
+The temporary token reaches only the bound gate as OPENAI_API_KEY and is
+included in evidence redaction. Local targets ignore ambient subscription
+keys. A failed token request returns the existing typed ChatGPT cause without
+launching Pi, and normal bounded recovery applies. Stage limits remain 3000 s.
+
 - The file protocol decouples prompts and results from host/container argument
   quoting; the caller owns stage policy.
 

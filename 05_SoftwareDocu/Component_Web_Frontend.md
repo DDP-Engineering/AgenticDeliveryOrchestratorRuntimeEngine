@@ -907,3 +907,14 @@ Native enrollment and Settings show the current account and optional project too
 The four-locale repository connection browser journey waits for successful
 language and theme preference writes before full document navigation. This
 keeps the keyboard and narrow-layout proof independent of request timing.
+
+
+## Native ChatGPT callback completion
+
+ChatGptSignIn observes pending server sign-in once per second while the page
+is visible. It stops polling on completion, unmount or the 15-minute bound.
+A native Pi callback can complete without a pasted redirect. Verified
+completion clears the temporary link and address; failed helper completion
+shows the existing localized cause. Manual state-checked completion remains
+available when the browser cannot reach Pi's loopback listener.
+The callback Chromium journey proves completion without sending a PUT.

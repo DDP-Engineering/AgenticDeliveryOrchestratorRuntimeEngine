@@ -31,7 +31,7 @@ Une clé de point de terminaison est facultative : enregistrez-la sous Authentif
 Ouvrez **Authentification** dans le même groupe.
 
 - **Clé API du fournisseur.** Le panneau indique la variable requise par le fournisseur configuré, par exemple OPENAI_API_KEY pour OpenAI ou ANTHROPIC_API_KEY pour Anthropic. Saisissez la **Clé API** et choisissez **Enregistrer la clé API**. ADORE la conserve en privé dans le magasin d’identifiants du projet sur le serveur, jamais dans le fichier de configuration, ne la transmet à Pi que par cette variable et ne l’affiche plus jamais ; **Déconnecter la clé API du projet** la supprime. Changer une clé exige la surveillance suspendue, un projet inactif et aucune proposition en attente, et ne teste pas la clé.
-- **Projets sur le serveur.** Enregistrez la clé du fournisseur sous **Clé API du fournisseur** si nécessaire. ADORE ignore la connexion personnelle à Pi. La [connexion ChatGPT](#chatgpt) partagée est réservée aux conteneurs.
+- **Projets sur le serveur.** Enregistrez la clé du fournisseur sous **Clé API du fournisseur** si nécessaire. ADORE ignore la connexion personnelle à Pi. Utilisez la [connexion ChatGPT](#chatgpt) partagée pour un abonnement sous Windows ou Linux, y compris WSL2.
 - **Valeurs gérées par l’environnement.** Une variable déjà définie dans l’environnement du serveur ADORE porte la mention **Définie sur le serveur ADORE ; gestion externe**. L’interface web ne peut pas l’écraser.
 - **Clé de recherche web.** Avec l’accès Internet activé et la recherche web Brave ou Tavily, le panneau liste aussi BRAVE_API_KEY ou TAVILY_API_KEY, enregistrée de la même manière, aussi pour un abonnement ChatGPT.
 - **Variables d’identification supplémentaires.** Noms uniquement (**Ajouter une variable d’identification**) de secrets supplémentaires reçus par Pi en plus de la clé du fournisseur ; la plupart des projets n’en ont pas besoin.
@@ -42,6 +42,8 @@ Les valeurs d’identifiants n’apparaissent jamais dans le fichier de configur
 
 Un seul compte ChatGPT Plus ou Pro sert tous les projets de ce serveur ADORE dont le fournisseur est **Abonnement ChatGPT**. Les administrateurs se connectent dans **Authentification** d’un tel projet ; ADORE exécute la connexion OpenAI de Pi, le serveur n’a donc besoin d’aucun navigateur.
 
+Sur le serveur natif, Pi peut recevoir directement le retour du navigateur et ADORE affiche automatiquement la connexion. Sinon, suivez les étapes manuelles ci-dessous.
+
 1. Choisissez **Se connecter avec ChatGPT**.
 2. Ouvrez **Ouvrir la page de connexion ChatGPT** sur votre ordinateur et connectez-vous avec le compte ChatGPT. Le lien est valable 15 minutes.
 3. Le navigateur affiche ensuite une page d’erreur sur `127.0.0.1:1455`. C’est normal : copiez l’adresse complète de sa barre d’adresse.
@@ -49,7 +51,7 @@ Un seul compte ChatGPT Plus ou Pro sert tous les projets de ce serveur ADORE don
 
 L’état est **Connecté**, **Non connecté** ou **Reconnectez-vous**. **Reconnectez-vous** signifie qu’OpenAI n’accepte plus la connexion enregistrée ; les tâches échouent jusqu’à ce qu’un administrateur se reconnecte. Une adresse issue d’un lien plus ancien est refusée et la connexion reste en attente ; **Annuler** y met fin. Quand OpenAI refuse le compte, par exemple parce que son abonnement ne peut pas être partagé, la connexion se termine avec ce motif. **Déconnecter ChatGPT** supprime la connexion enregistrée.
 
-La connexion reste dans un dossier privé du serveur ADORE. Avant chaque étape, ADORE en tire un jeton d’accès récent, valable environ une heure, et ne transmet que ce jeton à Pi ; la connexion elle-même n’entre jamais dans le conteneur de la tâche. Un projet ChatGPT s’exécute donc en conteneur, ses limites de durée par étape sont d’au plus 3000 secondes, et son image doit être construite à partir de l’image d’exécuteur ADORE actuelle. Seuls les administrateurs voient ou modifient la connexion ; le journal d’audit nomme l’action, jamais un jeton ni une adresse.
+La connexion reste dans un dossier privé du serveur ADORE. Avant chaque étape, ADORE en tire un jeton d’accès récent, valable environ une heure, et ne transmet que ce jeton à Pi ; la connexion elle-même n’entre jamais dans le conteneur de la tâche. Les projets ChatGPT s’exécutent en conteneur ou nativement sous Windows/Linux, y compris WSL2. La connexion native utilise Pi géré par ADORE sans Docker ; les conteneurs utilisent l’image actuelle d’ADORE. La durée par étape est limitée à 3000 secondes dans les deux modes. Seuls les administrateurs voient ou modifient la connexion ; le journal d’audit nomme l’action, jamais un jeton ni une adresse.
 
 > ADORE est gratuit aujourd’hui. Le proposer comme service hébergé ou payant avec la connexion ChatGPT exigerait d’abord le formulaire d’intérêt d’OpenAI.
 
@@ -78,7 +80,7 @@ Les deux paramètres changent par **Préparer le candidat** et **Appliquer** com
 |---|---|---|
 | S’exécute dans | Un conteneur Docker ou Podman temporaire sur le serveur ADORE | Le serveur ADORE lui-même, sous le compte du système d’exploitation du service, dans un worktree dédié |
 | Environnement | Une image de projet préparée par l’administrateur | Les outils, versions et bibliothèques que vous installez vous-même sur ce serveur |
-| Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé API du fournisseur du projet, si nécessaire |
+| Connexion | La clé API du fournisseur ou, pour un abonnement ChatGPT, un jeton d’accès de courte durée issu de la connexion ChatGPT du serveur | La clé du fournisseur ou un jeton temporaire de la connexion ChatGPT du serveur |
 | Réglages de l’agent | Le Pi intégré à l’image, avec des réglages fixés par ADORE ; les réglages et compétences Pi personnels ne sont pas lus | Pi géré par ADORE, avec ses propres réglages et extensions |
 | Isolation | Conteneur ; avec l’accès Internet désactivé, il n’atteint que le fournisseur du modèle | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |

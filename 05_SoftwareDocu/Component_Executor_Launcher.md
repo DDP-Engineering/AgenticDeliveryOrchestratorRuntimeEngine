@@ -172,12 +172,14 @@ which verifies the pinned container identity, then calls
 
 **ChatGPT subscription stages.** For `provider = "chatgpt"` the orchestrator's
 `_launch_stage` first asks its `chatgpt_token` source (by default
-`chatgpt.bearer_token` with the project's `ContainerManager` and the server's
+`chatgpt.bearer_token` with `helper_for` selecting the native helper or the
+project's `ContainerManager`, and the server's
 credential directory `<ADORE home>/chatgpt`) for an access token valid for the
 stage limit plus `chatgpt.TOKEN_MARGIN_SECONDS` (300 s). That runs ADORE's helper
 script `/opt/adore/pi/adore-chatgpt.mjs` in a one-off helper container
 (`ContainerManager.helper_command`: `<runtime> run --rm` with exactly one bind
-mount, the credential directory at `/adore/chatgpt`); the run container never
+mount, the credential directory at `/adore/chatgpt`). Native projects use
+verified managed Node/Pi with the packaged helper instead. The run container never
 mounts it, so the refresh token never enters a run. The token then joins only
 this gate's target: `ContainerBackend.bind(name, {..., OPENAI_API_KEY: <access
 token>}, ..., secrets=(token,))`, and `BoundTarget.redact` replaces the token with

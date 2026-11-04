@@ -1,0 +1,30 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-a1b69eda"
+
+title = "Use the managed native Pi helper for the server ChatGPT sign-in"
+
+status = "active"
+
+requirement = """When the local backend needs a ChatGPT sign-in or stage token, ADORE shall invoke the packaged helper with the verified absolute managed Node and Pi paths under the service account in a filtered environment outside the project, with bounded execution and typed failure on missing prerequisites, invalid output or helper failure."""
+
+verification = "Injected native runner and Popen tests cover login, token, replacement/cancellation and timeout; reject missing Node/Pi, corrupt helper output and unsuccessful exits; prove personal Node/Pi settings and forge secrets are excluded."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/pi_installation.py", "04_Software/adore/executor/adore-chatgpt.mjs"]
+
+linked_tests = ["04_Software/tests/test_native_chatgpt.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

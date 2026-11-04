@@ -144,8 +144,11 @@ every sign-in route, and every change needs the CSRF token.
 
 - **Pi's official flow.** ADORE runs Pi's own "Sign in with ChatGPT" (Pi
   provider `openai` with OAuth) through `/opt/adore/pi/adore-chatgpt.mjs` in a
-  one-off helper container started from the project's executor image. The
-  administrator opens the shown OpenAI link on their own computer and pastes
+  one-off helper container started from the project's executor image, or through
+  the packaged native helper with verified managed Node/Pi for local projects. The
+  administrator opens the shown OpenAI link on their own computer. Native Pi
+  may complete the loopback callback automatically; ADORE observes its verified
+  result. If the browser cannot reach Pi, the administrator pastes
   the browser's redirect address (`http://127.0.0.1:1455/auth/callback?...`)
   back; the server needs no browser. ADORE checks the address and its `state`
   before passing it on. A started sign-in waits at most 15 minutes.
@@ -164,7 +167,10 @@ every sign-in route, and every change needs the CSRF token.
   in argv, the container's creation environment or a file), and the token is
   masked in the stage evidence. The refresh token never enters a run
   container. Because an access token lasts about an hour, a ChatGPT project
-  refuses stage time limits above 3000 seconds and refuses local execution.
+  refuses stage time limits above 3000 seconds on either backend. Native
+  stages receive only the access token in their launch environment; their fresh
+  Pi agent directory contains no OAuth store. Native execution uses the service
+  account permissions and is not a host sandbox.
 - **Concurrent stages.** Several stages may ask for a token at once; the
   helpers share the credential directory. Pi's `auth.json.lock` serializes
   access when they refresh the stored credential.

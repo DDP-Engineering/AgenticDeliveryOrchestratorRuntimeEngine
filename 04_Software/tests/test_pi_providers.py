@@ -209,15 +209,13 @@ def test_custom_endpoint_can_use_the_managed_local_backend(tmp_path: Path) -> No
     assert not any("[executor] provider" in issue for issue in _issues(tmp_path, endpoint))
 
 
-def test_chatgpt_is_refused_for_a_local_run_and_stage_limits_beyond_the_token(
+def test_chatgpt_supports_both_backends_with_bounded_stage_limits(
         tmp_path: Path) -> None:
-    """@brief A ChatGPT access token lasts about an hour and needs the image's Pi."""
+    """@brief A ChatGPT access token has the same lifetime ceiling on both backends."""
     chatgpt = 'provider = "chatgpt"\nmodel = "gpt-5.6-luna"\n'
     assert not _issues(tmp_path, chatgpt, "\n[budgets]\nper_gate_timeout_seconds = 3000\n")
     local = _issues(tmp_path, chatgpt, "\n[execution]\nbackend = \"local\"\n")
-    assert any("[executor] provider" in issue and "local" in issue for issue in local), local
-    assert any("ChatGPT sign-in is available only for container projects" in issue
-               for issue in local), local
+    assert local == []
     gate = _issues(tmp_path, chatgpt, "\n[budgets]\nper_gate_timeout_seconds = 3001\n")
     assert any("[budgets] per_gate_timeout_seconds" in issue and "3000" in issue
                for issue in gate), gate

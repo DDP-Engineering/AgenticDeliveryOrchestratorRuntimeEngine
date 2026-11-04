@@ -1,0 +1,30 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-5607e5cb"
+
+title = "Observe native ChatGPT callback completion without manual submission"
+
+status = "active"
+
+requirement = """When a pending Pi ChatGPT login completes through its native loopback callback, ADORE shall observe and finalize the helper result on the authenticated status read and show the resulting sign-in state without a manual redirect submission, retaining the state-checked manual fallback."""
+
+verification = "Native API tests cover automatic success and provider refusal without PUT and with one sanitized audit result; helper tests retain clean-exit/store validation and manual state checks. A Chromium test observes Signed in and removal of temporary URL/address without a PUT request."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py", "04_Software/web/src/ChatGptSignIn.tsx", "04_Software/web/src/chatgptCopy.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+
+linked_tests = ["04_Software/tests/test_web_chatgpt.py::test_native_callback_completion_is_observed_without_manual_submit", "04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

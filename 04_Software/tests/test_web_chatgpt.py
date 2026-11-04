@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import sqlite3
 
 from adore import chatgpt
@@ -32,20 +33,22 @@ STATE = "fake-state-0123456789"
 REDIRECT = f"{CALLBACK}?code=fake-code-77&state={STATE}&client_id=x"
 
 
-def app_for(tmp_path, *options: str, local: bool = False):
+def app_for(tmp_path, *options: str, local: bool = False, popen=None):
     """@brief A web app with a ChatGPT project and the fake helper."""
     profiles = project(tmp_path)
     set_executor(profiles, "chatgpt", "gpt-5.6-luna")
     if local:
-        # ChatGPT itself is refused for a local run; an API-key project reaches the guard.
+        # Native projects use the same server subscription.
         path = profiles.config_path("alpha")
-        path.write_text(path.read_text(encoding="utf-8").replace(
+        raw = re.sub(r"required_tool_checks = \[.*?\]", "required_tool_checks = []",
+                     path.read_text(encoding="utf-8"), flags=re.S)
+        path.write_text(raw.replace(
             'backend = "container"', 'backend = "local"').replace(
-            'provider = "chatgpt"', 'provider = "openai"'), encoding="utf-8")
+            'selinux_relabel = "auto"', 'selinux_relabel = "off"'), encoding="utf-8")
     runtime = FakeRuntime("--record", str(tmp_path / "pasted.txt"), *options)
     module = importlib.import_module("adore.web.app")
     app = module.create_app(profiles.home, probe_runner=runtime.runner,
-                            chatgpt_popen=runtime.popen)
+                            chatgpt_popen=popen or runtime.popen)
     return app, profiles, runtime
 
 
@@ -124,7 +127,7 @@ def test_an_openai_refusal_ends_the_sign_in_with_its_code(tmp_path, address, opt
     assert STATE not in rows and "fake-code" not in rows
 
 
-def test_cancel_nothing_pending_and_a_local_project(tmp_path):
+def test_cancel_and_paste_without_pending_sign_in(tmp_path):
     """@brief Cancel ends the helper; a paste without a sign-in and a local run are refused."""
     app, _, runtime = app_for(tmp_path)
     with TestClient(app) as client:
@@ -137,12 +140,6 @@ def test_cancel_nothing_pending_and_a_local_project(tmp_path):
         cancelled = client.delete("/api/v1/chatgpt-sign-in/pending", headers=headers)
         assert cancelled.json() == {"status": "not-signed-in", "pending": False}
         assert any(argv[1:3] == ["rm", "--force"] for argv in runtime.calls)
-    app, _, runtime = app_for(tmp_path / "local", local=True)
-    with TestClient(app) as client:
-        result = client.post("/api/v1/projects/alpha/chatgpt-sign-in", headers=sign_in(client))
-        assert result.status_code == 409
-        assert result.json()["detail"]["code"] == "chatgpt_sign_in_container_required"
-        assert runtime.calls == []
 
 
 def test_a_helper_that_cannot_start_is_unavailable(tmp_path, monkeypatch):
@@ -292,3 +289,122 @@ def test_a_second_start_replaces_the_pending_sign_in(tmp_path):
 
 
 # END OF FILE
+
+
+def test_native_admin_uses_managed_helper_without_container(tmp_path, monkeypatch):
+    """@brief Native projects can complete the same admin/CSRF-bound OAuth flow."""
+    from pathlib import Path
+    import subprocess
+    import sys
+
+    from adore.pi_installation import ManagedPi
+
+    pi = ManagedPi(tmp_path / "node.exe", tmp_path / "pi")
+    monkeypatch.setattr("adore.pi_installation.verify_pi", lambda **_: pi)
+    calls = []
+
+    def popen(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.Popen(
+            [
+                sys.executable,
+                "-I",
+                str(Path(__file__).with_name("fake_chatgpt_helper.py")),
+                "--dir",
+                kwargs["env"]["PI_CODING_AGENT_DIR"],
+                "login",
+            ],
+            **kwargs,
+        )
+
+    app, profiles, runtime = app_for(tmp_path, local=True, popen=popen)
+    with TestClient(app) as client:
+        headers = sign_in(client)
+        assert client.post("/api/v1/projects/alpha/chatgpt-sign-in").status_code == 403
+        start = client.post("/api/v1/projects/alpha/chatgpt-sign-in", headers=headers)
+        assert start.status_code == 200, start.json()
+        assert (
+            client.put(
+                "/api/v1/chatgpt-sign-in",
+                headers=headers,
+                json={"redirect_url": REDIRECT},
+            ).json()["status"]
+            == "signed-in"
+        )
+        assert (
+            client.delete("/api/v1/chatgpt-sign-in", headers=headers).json()["status"]
+            == "not-signed-in"
+        )
+    assert calls[0][0][0] == str(pi.node)
+    assert runtime.calls == []
+    assert "fake-access" not in audit_text(profiles)
+
+@pytest.mark.parametrize(
+    "answer,status,code",
+    [("signed-in", 200, None), ("not-eligible", 502, "chatgpt_not_eligible")],
+)
+def test_native_callback_completion_is_observed_without_manual_submit(
+    tmp_path, monkeypatch, answer, status, code
+):
+    """@brief Status observes and audits Pi callback completion or a closed refusal."""
+    from pathlib import Path
+    import subprocess
+    import sys
+    import time
+
+    from adore.pi_installation import ManagedPi
+
+    pi = ManagedPi(tmp_path / "node.exe", tmp_path / "pi")
+    monkeypatch.setattr("adore.pi_installation.verify_pi", lambda **_: pi)
+
+    def popen(argv, **kwargs):
+        return subprocess.Popen(
+            [
+                sys.executable,
+                "-I",
+                str(Path(__file__).with_name("fake_chatgpt_helper.py")),
+                "--dir",
+                kwargs["env"]["PI_CODING_AGENT_DIR"],
+                "--auto-complete",
+                "--answer",
+                answer,
+                "login",
+            ],
+            **kwargs,
+        )
+
+    app, profiles, runtime = app_for(tmp_path, local=True, popen=popen)
+    with TestClient(app) as client:
+        headers = sign_in(client)
+        assert (
+            client.post(
+                "/api/v1/projects/alpha/chatgpt-sign-in", headers=headers
+            ).status_code
+            == 200
+        )
+        deadline = time.monotonic() + 2
+        while True:
+            view = client.get("/api/v1/chatgpt-sign-in")
+            if (
+                view.status_code != 200
+                or not view.json()["pending"]
+                or time.monotonic() > deadline
+            ):
+                break
+            time.sleep(0.02)
+        assert view.status_code == status
+        if code:
+            assert view.json()["detail"]["code"] == code
+        else:
+            assert view.json() == {"status": "signed-in", "pending": False}
+        again = client.get("/api/v1/chatgpt-sign-in")
+        assert again.json()["pending"] is False
+    rows = audit_text(profiles)
+    assert (
+        rows.count(
+            "chatgpt-sign-in-completed" if code is None else "chatgpt-sign-in-failed"
+        )
+        == 1
+    )
+    assert "fake-access" not in rows and "fake-code" not in rows
+    assert runtime.calls == []

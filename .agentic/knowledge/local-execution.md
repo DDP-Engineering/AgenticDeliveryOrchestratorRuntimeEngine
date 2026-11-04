@@ -44,6 +44,13 @@ AEGIS file transport. `probe_local_executor` reports closed readiness causes.
 
 ## Key behaviors
 
+Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
+One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage
+and model targets, with native evidence redaction. Readiness reads the stored
+status without refreshing or calling a model. Missing/rejected credentials
+prevent Pi launch. Host network and owned-process scope policy stay in force.
+Offline proof: `tests/test_native_chatgpt.py` and `tests/test_web_chatgpt.py`.
+
 The shared Pi RPC client sends prompts via stdin, aborts on time limits or cancel
 and retains bounded usage and output. Windows selects PowerShell and forwards the
 three owned standard handles through the Job supervisor. The readiness probe

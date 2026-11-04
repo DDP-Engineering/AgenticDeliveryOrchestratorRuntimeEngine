@@ -130,10 +130,8 @@ readiness probe use `egress_policy`; a local run is not restricted by it.
 
 `_chatgpt_issues` refuses what a ChatGPT subscription (`provider = "chatgpt"`)
 cannot run, because ADORE mints a short-lived ChatGPT access token before every
-stage through the image's pinned Pi and does not refresh it during a stage:
+stage through the selected trusted helper and does not refresh it during a stage:
 
-- `[execution] backend = "local"` is refused with an explanation that ChatGPT
-  sign-in is available only for container projects;
 - `[budgets] per_gate_timeout_seconds` above 3000 is refused;
 - each `[workflow] stage_timeout_overrides.<stage>` above 3000 is refused.
 
@@ -147,7 +145,7 @@ provider = "openai"
 model = "gpt-5.5"
 ```
 
-A ChatGPT subscription (container run only; the server signs in once in the
+A ChatGPT subscription (container or native run; the server signs in once in the
 web interface):
 
 ```toml
