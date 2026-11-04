@@ -39,7 +39,7 @@ text = { en = "Projects reuse local Gitea sign-in and explain how to connect whe
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Git targets the right repository in new jobs; commands avoid pagers and Windows console pop-ups.", fr = "Git cible le bon dépôt dans les nouvelles tâches ; commandes sans pagineurs ni consoles Windows.", de = "Git nutzt bei neuen Aufträgen das richtige Repository; Befehle ohne Pager und Windows-Konsolen.", ro = "Git folosește repository-ul corect în lucrări noi; comenzile evită paginarea și consolele Windows." }
+text = { en = "Jobs keep Git in the right repo and non-Latin text intact, without pagers or Windows pop-ups.", fr = "Git vise le bon dépôt ; textes multilingues préservés, sans pagineurs ni consoles Windows.", de = "Git nutzt das richtige Repository; native Texte bleiben korrekt, ohne Pager oder Windows-Konsolen.", ro = "Git folosește repo-ul corect și păstrează diacriticele, fără paginare sau console Windows." }
 
 [[release.entry]]
 category = "fixed"

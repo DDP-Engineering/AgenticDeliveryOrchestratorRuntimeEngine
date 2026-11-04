@@ -164,6 +164,7 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
     @param[in] context Actual native account/machine defaults.
     @param[in] secrets Approved executor values supplied in memory only.
     @return Controlled environment shared by probes and gates.
+    @note Python standard streams use UTF-8 to match native evidence.
     @exception LocalExecutionError Account assertion, home or platform is unsupported.
     """
     if context["system"] not in {"Windows", "Linux"}:
@@ -185,6 +186,7 @@ def local_environment(config, context: dict, secrets: dict | None = None) -> dic
         USER=context["account"],
         LOGNAME=context["account"],
         USERNAME=context["account"],
+        PYTHONIOENCODING="utf-8",
     )
     approved = set(secret_names(config.executor, "local"))
     env.update({key: value for key, value in (secrets or {}).items() if key in approved

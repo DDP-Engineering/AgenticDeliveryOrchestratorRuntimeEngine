@@ -21,6 +21,13 @@ async function signIn(page: Page, user = "admin") {
 test.beforeEach(async ({ request }) => { expect((await request.post("/__e2e__/jobs", { headers: { "X-ADORE-E2E": "local-test" } })).ok()).toBe(true); });
 test.afterEach(async ({ page, request }) => {
   await page.unrouteAll({ behavior: "wait" });
+  const response = await page.request.get("/api/v1/me");
+  if (response.ok()) {
+    const me = await response.json();
+    expect((await page.request.patch("/api/v1/me/preferences", {
+      headers: { "X-CSRF-Token": me.csrf }, data: { language: "en", theme: "light" },
+    })).ok()).toBe(true);
+  }
   await page.goto("about:blank");
   expect((await request.post("/__e2e__/jobs?mode=reset", { headers: { "X-ADORE-E2E": "local-test" } })).ok()).toBe(true);
 });
@@ -269,6 +276,7 @@ test("corrupt and aborted responses expose error without false zero or stale exp
 });
 
 test("known zero, partial coverage, job duration and trend table bars work in four locales and themes at 390px", async ({ page }) => {
+  test.setTimeout(60_000);
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await signIn(page);
   await page.route("**/api/v1/metrics?*", async route => {

@@ -31,6 +31,11 @@ the installed web runtime serves local assets without Node.js.
 
 ## Setup
 
+Native Python children receive managed UTF-8 standard-stream settings, independent
+of ambient Python flags or the Windows account code page. Native evidence
+decoding remains strict. Explicit Retry revalidates the effective environment
+fingerprint and existing process ownership.
+
 Run `python 02_Tools/setup_environment.py` to prepare the source environment
 without tests or service installation. From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator

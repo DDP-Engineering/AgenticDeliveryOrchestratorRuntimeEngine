@@ -30,6 +30,8 @@ ADORE's only coding agent.
 
 - `adore/aegis.py` speaks the AEGIS companion CLI over JSON schema 1 and fails
   closed on any contract violation.
+- Native Python children use ADORE-owned UTF-8 standard-stream settings; localized
+  evidence does not depend on the Windows code page, and corrupt bytes remain refused.
 - `adore/orchestrator.py` claims tickets, provisions isolation, supervises
   stages, bounds failures, parks clarifications, replays notifications,
   verifies strictly and publishes drafts; `adore/state.py` persists schema-1

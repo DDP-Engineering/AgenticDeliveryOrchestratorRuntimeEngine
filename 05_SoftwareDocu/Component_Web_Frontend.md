@@ -657,6 +657,12 @@ cost and account/config screens.
 
 ## 9. Validation And Tests
 
+The statistics browser journey covering four locales and both themes has a
+60-second case budget; its existing assertions remain unchanged. The file's
+afterEach hook restores the authenticated account's English/light preferences,
+including after a failed or timed-out assertion, before subsequent journeys.
+The suite-wide and ordinary case budgets remain unchanged.
+
 `tests/statistics.test.mjs`, `tests/metrics.test.mjs`, `tests/routes.test.mjs` and
 `e2e/statistics.spec.ts` cover strict analytical transport, scope/exports/stale
 responses and grant revocation, per-job collision/null/zero/partial values,
@@ -708,7 +714,8 @@ acceptance. API and external command boundaries remain simulated offline.
 `npm run validate` runs the Node helper suite, UI/E2E TypeScript checks,
 an isolated Vite build in `.e2e-dist` and the Playwright Chromium journeys.
 `playwright.config.ts` bounds the complete browser suite to 1800 seconds, with
-30-second test and 10-second assertion limits, one worker and no retries.
+default 30-second test and 10-second assertion limits, one worker and no retries;
+the eight-way statistics locale/theme journey has a 60-second test budget.
 Locale journeys await the successful preference-save response so their final
 English restore persists before the disposable browser context closes.
 It owns failure
