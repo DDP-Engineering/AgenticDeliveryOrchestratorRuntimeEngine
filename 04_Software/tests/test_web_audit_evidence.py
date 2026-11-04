@@ -112,7 +112,7 @@ def test_audit_row_without_evidence_is_corrupt(tmp_path):
     """@brief Every audit row the current build writes has evidence; one without it fails closed."""
     web = WebStore(tmp_path / "web.db")
     with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 15
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 16
         connection.execute(
             "INSERT INTO audit(actor_id,action,project,detail,created_at) "
             "VALUES (1,'old','alpha','historic','2020-01-01T00:00:00+00:00')"

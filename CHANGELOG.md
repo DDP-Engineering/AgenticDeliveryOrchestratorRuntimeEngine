@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Web preference storage changed: delete `web.db` and `web.db.initialized` in the ADORE home before starting the new build.
+
 - Project Settings saves all edited values with one Save action, confirms important effects, preserves failed drafts and uses the full row width for descriptions and controls.
 
 

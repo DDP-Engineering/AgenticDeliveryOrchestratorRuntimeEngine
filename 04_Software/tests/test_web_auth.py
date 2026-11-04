@@ -44,17 +44,18 @@ def test_account_preferences_follow_the_user(tmp_path):
     store = WebStore(path)
     admin = store.authenticate("admin", "admin")
     dev = store.create_user("dev", "longer-password", "developer")
-    assert store.preferences(admin["id"]) == {"language": None, "theme": None}
+    assert store.preferences(admin["id"]) == {
+        "language": None, "theme": None, "ticket_body_mode": None}
     assert store.set_preferences(admin["id"], {"language": "ro"}) == {
-        "language": "ro",
-        "theme": None,
+        "language": "ro", "theme": None, "ticket_body_mode": None,
     }
     assert store.set_preferences(admin["id"], {"theme": "dark"}) == {
-        "language": "ro",
-        "theme": "dark",
+        "language": "ro", "theme": "dark", "ticket_body_mode": None,
     }
-    assert WebStore(path).preferences(admin["id"]) == {"language": "ro", "theme": "dark"}
-    assert WebStore(path).preferences(dev["id"]) == {"language": None, "theme": None}
+    assert WebStore(path).preferences(admin["id"]) == {
+        "language": "ro", "theme": "dark", "ticket_body_mode": None}
+    assert WebStore(path).preferences(dev["id"]) == {
+        "language": None, "theme": None, "ticket_body_mode": None}
     assert WebStore(path).authenticate("admin", "admin")
 
 
@@ -72,6 +73,74 @@ def test_account_preferences_reject_corrupt_or_unsupported_values(tmp_path):
         connection.execute("UPDATE user_preferences SET language='invalid'")
     with pytest.raises(WebStoreError, match="preferences"):
         store.preferences(admin["id"])
+
+
+def test_ticket_body_mode_round_trip_and_partial_updates(tmp_path):
+    """@brief Ticket modes persist per account without overwriting other fields."""
+    path = tmp_path / "web.db"
+    store = WebStore(path)
+    admin = store.authenticate("admin", "admin")
+    dev = store.create_user("dev", "longer-password", "developer")
+    assert store.preferences(admin["id"])["ticket_body_mode"] is None
+    for mode in ("source", "rendered"):
+        saved = store.set_preferences(admin["id"], {"ticket_body_mode": mode})
+        assert saved["ticket_body_mode"] == mode
+        store.set_preferences(admin["id"], {"language": "ro", "theme": "dark"})
+        assert WebStore(path).preferences(admin["id"]) == {
+            "language": "ro", "theme": "dark", "ticket_body_mode": mode,
+        }
+        assert WebStore(path).preferences(dev["id"])["ticket_body_mode"] is None
+
+
+@pytest.mark.parametrize("mode", ["invalid", "", None, 1, True, [], {}])
+def test_ticket_body_mode_store_rejects_invalid_update(tmp_path, mode):
+    """@brief Invalid direct writes preserve the last confirmed mode."""
+    store = WebStore(tmp_path / "web.db")
+    admin = store.authenticate("admin", "admin")
+    before = store.set_preferences(admin["id"], {"ticket_body_mode": "source"})
+    with pytest.raises(WebStoreError, match="invalid account preferences"):
+        store.set_preferences(admin["id"], {"ticket_body_mode": mode})
+    assert store.preferences(admin["id"]) == before
+
+
+@pytest.mark.parametrize("mode", ["invalid", "", 1])
+def test_ticket_body_mode_corrupt_read_and_partial_write_refused(tmp_path, mode):
+    """@brief Corrupt saved modes fail typed without partial-write repair."""
+    path = tmp_path / "web.db"
+    store = WebStore(path)
+    admin = store.authenticate("admin", "admin")
+    store.set_preferences(admin["id"], {"ticket_body_mode": "source", "theme": "dark"})
+    with sqlite3.connect(path) as connection:
+        connection.execute("UPDATE user_preferences SET ticket_body_mode=?", (mode,))
+        before = connection.execute("SELECT * FROM user_preferences").fetchall()
+    raw = path.read_bytes()
+    with pytest.raises(WebStoreError, match="preferences"):
+        store.preferences(admin["id"])
+    assert path.read_bytes() == raw
+    with pytest.raises(WebStoreError, match="preferences"):
+        store.set_preferences(admin["id"], {"theme": "light"})
+    with pytest.raises(WebStoreError, match="preferences"):
+        store.set_preferences(admin["id"], {"ticket_body_mode": "rendered"})
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT * FROM user_preferences").fetchall() == before
+
+
+@pytest.mark.parametrize("damage", ["old_version", "missing_column"])
+def test_ticket_mode_schema_refusal_preserves_store(tmp_path, damage):
+    """@brief Old or incomplete stores are refused, never upgraded or recreated."""
+    path = tmp_path / "web.db"
+    WebStore(path)
+    with sqlite3.connect(path) as connection:
+        if damage == "old_version":
+            connection.execute("PRAGMA user_version=15")
+        else:
+            connection.execute("ALTER TABLE user_preferences DROP COLUMN ticket_body_mode")
+    before = path.read_bytes()
+    with pytest.raises(WebStoreError, match=(
+            r"delete .*web\.db.*web\.db\.initialized" if damage == "old_version"
+            else "missing account preferences")):
+        WebStore(path)
+    assert path.read_bytes() == before
 
 
 def test_project_grant_follows_immutable_id_after_rename(tmp_path):

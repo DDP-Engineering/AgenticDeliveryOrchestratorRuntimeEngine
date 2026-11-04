@@ -9,7 +9,7 @@ id = "REQ-DATA-a493390d"
 
 title = "Refuse corrupt saved ticket body modes"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a persisted account ticket body mode is neither absent nor a supported Rendered or Markdown source value, ADORE shall refuse the preference read with a typed storage error exposed as a non-success API response without replacing or rewriting the corrupt value.
@@ -19,7 +19,7 @@ verification = "Automated: seed an unknown stored mode, read via WebStore and th
 
 affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py", "04_Software/tests/test_web_audit_evidence.py"]
 
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_auth.py::test_ticket_body_mode_corrupt_read_and_partial_write_refused", "04_Software/tests/test_web_auth.py::test_ticket_mode_schema_refusal_preserves_store", "04_Software/tests/test_web_rbac.py::test_ticket_body_mode_api_refuses_corrupt_preferences"]
 
 
 spec = ""

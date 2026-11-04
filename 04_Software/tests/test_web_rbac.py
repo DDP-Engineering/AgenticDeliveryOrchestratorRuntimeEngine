@@ -70,16 +70,19 @@ def test_account_preferences_require_session_csrf_and_allowed_values(tmp_path):
         changed = client.patch("/api/v1/me/preferences", headers={
             "X-CSRF-Token": csrf}, json={"language": "de"})
         assert changed.status_code == 200
-        assert changed.json() == {"language": "de", "theme": None}
+        assert changed.json() == {
+            "language": "de", "theme": None, "ticket_body_mode": None}
         changed = client.patch("/api/v1/me/preferences", headers={
             "X-CSRF-Token": csrf}, json={"theme": "dark"})
-        assert changed.json() == {"language": "de", "theme": "dark"}
+        assert changed.json() == {
+            "language": "de", "theme": "dark", "ticket_body_mode": None}
         client.delete("/api/v1/session", headers={"X-CSRF-Token": csrf})
         client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"})
         assert client.get("/api/v1/me/preferences").json() == {
-            "language": None, "theme": None}
-        assert web.preferences(dev["id"]) == {"language": "de", "theme": "dark"}
+            "language": None, "theme": None, "ticket_body_mode": None}
+        assert web.preferences(dev["id"]) == {
+            "language": "de", "theme": "dark", "ticket_body_mode": None}
         with sqlite3.connect(web.path) as connection:
             connection.execute("UPDATE user_preferences SET theme='invalid' WHERE user_id=?",
                                (dev["id"],))
@@ -90,6 +93,74 @@ def test_account_preferences_require_session_csrf_and_allowed_values(tmp_path):
         corrupt = client.get("/api/v1/me/preferences")
         assert corrupt.status_code == 503
         assert corrupt.json()["detail"]["code"] == "preferences_corrupt"
+
+
+def test_ticket_body_mode_api_round_trip_is_account_scoped(tmp_path):
+    """@brief Saved modes survive fresh sessions and cannot target another account."""
+    home = tmp_path / "home"
+    app = create_app(home)
+    dev = app.state.web_store.create_user("dev", "longer-password", "developer")
+    with TestClient(app) as client:
+        assert client.get("/api/v1/me/preferences").status_code == 401
+        for mode in ("source", "rendered"):
+            login = client.post("/api/v1/session", json={
+                "username": "admin", "password": "admin"})
+            headers = {"X-CSRF-Token": login.json()["csrf"]}
+            assert client.patch("/api/v1/me/preferences", json={
+                "ticket_body_mode": mode}).status_code == 403
+            assert client.patch("/api/v1/me/preferences", headers=headers, json={
+                "ticket_body_mode": mode, "user_id": dev["id"]}).status_code == 422
+            saved = client.patch("/api/v1/me/preferences", headers=headers, json={
+                "ticket_body_mode": mode})
+            assert saved.status_code == 200
+            assert saved.json()["ticket_body_mode"] == mode
+            client.delete("/api/v1/session", headers=headers)
+            with TestClient(create_app(home)) as fresh:
+                fresh.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+                assert fresh.get("/api/v1/me/preferences").json()["ticket_body_mode"] == mode
+            client.post("/api/v1/session", json={
+                "username": "dev", "password": "longer-password"})
+            assert client.get("/api/v1/me/preferences").json()["ticket_body_mode"] is None
+            client.delete("/api/v1/session", headers={
+                "X-CSRF-Token": client.get("/api/v1/me").json()["csrf"]})
+
+
+@pytest.mark.parametrize("mode", ["invalid", "", None, 1, True, [], {}])
+def test_ticket_body_mode_api_rejects_invalid_values_without_writes(tmp_path, mode):
+    """@brief Closed mode validation rejects bad input before even a partial write."""
+    app = create_app(tmp_path / "home")
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        valid = client.patch("/api/v1/me/preferences", headers=headers, json={
+            "ticket_body_mode": "source", "theme": "dark"})
+        assert valid.status_code == 200
+        bad = client.patch("/api/v1/me/preferences", headers=headers, json={
+            "ticket_body_mode": mode, "theme": "light"})
+        assert bad.status_code == 422
+        assert bad.json()["detail"]["code"] == "invalid_request"
+        assert client.get("/api/v1/me/preferences").json() == valid.json()
+
+
+def test_ticket_body_mode_api_refuses_corrupt_preferences(tmp_path):
+    """@brief Corrupt saved content produces a value-free error without repair."""
+    app = create_app(tmp_path / "home")
+    web = app.state.web_store
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        assert client.patch("/api/v1/me/preferences", headers=headers, json={
+            "ticket_body_mode": "source"}).status_code == 200
+        with sqlite3.connect(web.path) as connection:
+            connection.execute("UPDATE user_preferences SET ticket_body_mode='invalid'")
+            before = connection.execute("SELECT * FROM user_preferences").fetchall()
+        for response in (client.get("/api/v1/me/preferences"),
+                         client.patch("/api/v1/me/preferences", headers=headers, json={
+                             "language": "fr"})):
+            assert response.status_code == 503
+            assert response.json()["detail"]["code"] == "preferences_corrupt"
+        with sqlite3.connect(web.path) as connection:
+            assert connection.execute("SELECT * FROM user_preferences").fetchall() == before
 
 
 def test_untrusted_mr_link_is_not_sent_to_browser(tmp_path):

@@ -326,10 +326,16 @@ The project
 runs page accepts `lifecycle` more than once and returns runs in any listed
 lifecycle.
 Authenticated `GET /api/v1/me/preferences` returns the current account's
-nullable language and theme. CSRF-protected `PATCH` updates only the supplied
-allowed values; malformed or unknown fields return 422, and corrupt persisted
-preferences return 503. A different account's preferences are never addressed
-through this route.
+nullable `language`, `theme` and `ticket_body_mode`. Ticket mode values are
+`rendered` or `source`; null on read means no saved selection. CSRF-protected
+`PATCH` updates only supplied fields, preserving every omitted preference.
+An explicitly null or non-enum ticket mode, malformed input or unknown field
+returns 422 `invalid_request` before writes. Existing language/theme semantics
+are unchanged. Corrupt persisted preferences return 503 `preferences_corrupt`,
+including on partial writes; no corrupt value is repaired. A different account's
+preferences are never addressed through this route. Store/API round-trip,
+CSRF, account-isolation and corrupt-row tests are in `test_web_auth.py` and
+`test_web_rbac.py`.
 `POST /api/v1/projects/{name}/archive` requires administrator CSRF and rejects
 projects with a nonterminal or corrupt run, or queued/running web operation.
 It takes the project conductor lock while checking and saving, so an active
@@ -705,7 +711,7 @@ redacted (`jobs.redact_text`) before the cut, and a refused start stores the
 code of the CLI's `error: ticket #N not started: <code>` line for its own
 ticket in `reason` (`pickup_paused`, `at_capacity`, `aegis_probe_failed`,
 `not_eligible`, `conductor_busy`). Both live only on the operation row, never in
-the audit evidence. The web database has one schema (15); a database in any
+the audit evidence. The web database has one schema (16); a database in any
 other version is refused with a message naming the files to delete, never
 migrated.
 `GET /api/v1/projects/{name}/tickets/{iid}/comments` returns human comments

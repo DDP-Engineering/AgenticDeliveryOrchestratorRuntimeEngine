@@ -19,7 +19,7 @@ verification = "Automated: save source as account A through the authenticated pr
 
 affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py", "04_Software/web/e2e/tickets.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_auth.py::test_ticket_body_mode_round_trip_and_partial_updates", "04_Software/tests/test_web_rbac.py::test_ticket_body_mode_api_round_trip_is_account_scoped"]
 
 
 spec = ""

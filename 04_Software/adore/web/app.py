@@ -42,7 +42,7 @@ from urllib.parse import parse_qsl, urlsplit
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from adore import __version__, chatgpt, doctor, metrics
@@ -296,11 +296,22 @@ class RepositoryConnectionInput(BaseModel):
 
 
 class PreferenceInput(BaseModel):
-    """@brief One or both account-scoped presentation preferences."""
+    """@brief Partial account-scoped presentation preferences.
+    @details Omission preserves a field. Explicit null is not a ticket mode.
+    """
 
     model_config = ConfigDict(extra="forbid")
     language: Literal["en", "fr", "de", "ro"] | None = None
     theme: Literal["light", "dark", "system"] | None = None
+    ticket_body_mode: Literal["rendered", "source"] | None = None
+
+    @field_validator("ticket_body_mode")
+    @classmethod
+    def supplied_ticket_body_mode(cls, value: str | None) -> str:
+        """@brief Reject explicit null; omitted defaults are not validated."""
+        if value is None:
+            raise ValueError("ticket body mode must be rendered or source")
+        return value
 
 
 class Memberships(BaseModel):
@@ -2548,7 +2559,7 @@ def create_app(home: str | Path | None = None,
     @app.patch("/api/v1/me/preferences")
     def update_preferences(body: PreferenceInput,
                            user: Annotated[dict, Depends(account_mutation)]) -> dict:
-        """@brief Save a validated language or theme for the current account."""
+        """@brief Save supplied presentation preferences for the current account."""
         try:
             return web.set_preferences(user["id"], body.model_dump(exclude_unset=True))
         except WebStoreError as exc:

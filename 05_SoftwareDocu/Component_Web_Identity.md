@@ -27,7 +27,7 @@ both check current membership.
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 15): a new
+second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 16): a new
 file gets it, and a database in any other version is refused with a message
 naming `web.db` and `web.db.initialized` to delete. There are no migrations
 while ADORE is in development (AGENTS.md "Stored data during development").
@@ -92,7 +92,7 @@ Renames retain bound rates, and replacement profiles cannot inherit them.
 Queued commands are bound to immutable profile IDs. Developer grants are bound
 to immutable profile IDs and stamped with the profile's creation time, so a
 profile replaced under the same name does not inherit them; renames retain
-them. Each account stores optional language and theme preferences, the single
+them. Each account stores optional language, theme and ticket body mode preferences, the single
 control worker records a heartbeat, prices are immutable dated rows and login
 failures are counted in windows. A finished operation keeps a stable refusal
 `reason` and a bounded, redacted `detail` of the engine's last output lines.
@@ -156,9 +156,13 @@ versions as bounded decimal strings with an effective date and actor.
 `touch_worker`, `clear_worker`, and `worker_ready` maintain readiness. A
 missing or old heartbeat is unavailable; malformed persisted timestamps raise
 `WebStoreError` rather than claiming readiness.
-`preferences` returns nullable language/theme values for browser fallback;
-`set_preferences` validates and updates supplied fields atomically. Unsupported
-or corrupt persisted values fail closed.
+`preferences` returns nullable `language`, `theme` and `ticket_body_mode` values.
+Ticket body mode is `rendered` or `source`, with null meaning no saved selection.
+`set_preferences` validates supplied fields and updates them atomically, preserving
+omitted preferences. Explicit null is not a valid write value. Reads and partial
+writes validate all saved preferences first; a corrupt mode raises `WebStoreError`
+without repair, even when the caller supplies a valid replacement. Values are
+account-scoped and survive reopening the store.
 
 ## 6. Data Contracts
 
@@ -185,7 +189,11 @@ replay, corrupt schema/JSON, authorized filters/counts/pages,
 periods, administrative exclusions and retention/receipt separation.
 `tests/test_web_auth.py` covers bootstrap, hashing, restart, corruption,
 deletion, rate limit, password reset, session revocation, disablement, and
-manual stopped-service restore of the default home.
+manual stopped-service restore of the default home. Ticket mode tests cover
+absent/valid account round trips, partial-update preservation, invalid writes,
+unchanged corrupt rows and schema/column refusal without rewriting the database.
+`tests/test_web_rbac.py` proves the same API boundaries with session/CSRF checks
+and isolated accounts.
 
 ## 10. Limitations And Future Work
 

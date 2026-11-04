@@ -39,7 +39,7 @@ from adore.web import audit as audit_contract
 # CONSTANTS
 _HASHER = PasswordHasher()
 # The only schema this build reads or writes; there are no migrations (AGENTS.md).
-_SCHEMA_VERSION = 15
+_SCHEMA_VERSION = 16
 _SCHEMA = """
 CREATE TABLE users (
     id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
@@ -102,7 +102,7 @@ CREATE TABLE worker_heartbeat (
 );
 CREATE TABLE user_preferences (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    language TEXT, theme TEXT
+    language TEXT, theme TEXT, ticket_body_mode TEXT
 );
 CREATE TABLE usage_projection (
     project_id TEXT NOT NULL, run_id TEXT NOT NULL,
@@ -146,9 +146,11 @@ def _user(row: sqlite3.Row) -> dict[str, Any]:
 
 def _preferences(row: sqlite3.Row) -> dict[str, str | None]:
     """@brief Validate persisted account preferences before returning them."""
-    result = {"language": row["language"], "theme": row["theme"]}
+    result = {"language": row["language"], "theme": row["theme"],
+              "ticket_body_mode": row["ticket_body_mode"]}
     if (result["language"] not in (None, "en", "fr", "de", "ro")
-            or result["theme"] not in (None, "light", "dark", "system")):
+            or result["theme"] not in (None, "light", "dark", "system")
+            or result["ticket_body_mode"] not in (None, "rendered", "source")):
         raise WebStoreError("account preferences are corrupt")
     return result
 
@@ -270,7 +272,7 @@ class WebStore:
                     ).fetchall()
                 }:
                     raise WebStoreError("web database missing price identity")
-                if not {"user_id", "language", "theme"}.issubset({
+                if not {"user_id", "language", "theme", "ticket_body_mode"}.issubset({
                     row[1] for row in connection.execute(
                         "PRAGMA table_info(user_preferences)"
                     ).fetchall()
@@ -879,11 +881,15 @@ class WebStore:
             connection.execute("DELETE FROM sessions WHERE token_hash=?", (_digest(token),))
 
     def preferences(self, user_id: int) -> dict[str, str | None]:
-        """@brief Read one user's language and theme, or nullable fallbacks."""
+        """@brief Read one user's presentation preferences, or nullable fallbacks.
+        @param[in] user_id Authenticated account identity.
+        @return Validated language, theme and ticket body mode; null means unset.
+        @exception WebStoreError Missing account or corrupt saved preferences.
+        """
         try:
             with self._connect() as connection:
                 row = connection.execute(
-                    "SELECT p.language,p.theme FROM users u LEFT JOIN "
+                    "SELECT p.language,p.theme,p.ticket_body_mode FROM users u LEFT JOIN "
                     "user_preferences p ON p.user_id=u.id WHERE u.id=?",
                     (user_id,),
                 ).fetchone()
@@ -896,16 +902,17 @@ class WebStore:
     def set_preferences(self, user_id: int,
                         updates: dict[str, str]) -> dict[str, str | None]:
         """@brief Update only supplied preference fields in one transaction."""
-        if (not updates or set(updates) - {"language", "theme"}
+        if (not updates or set(updates) - {"language", "theme", "ticket_body_mode"}
                 or any(key == "language" and value not in ("en", "fr", "de", "ro")
                        or key == "theme" and value not in ("light", "dark", "system")
+                       or key == "ticket_body_mode" and value not in ("rendered", "source")
                        for key, value in updates.items())):
             raise WebStoreError("invalid account preferences")
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
                 row = connection.execute(
-                    "SELECT p.language,p.theme FROM users u LEFT JOIN "
+                    "SELECT p.language,p.theme,p.ticket_body_mode FROM users u LEFT JOIN "
                     "user_preferences p ON p.user_id=u.id WHERE u.id=?",
                     (user_id,),
                 ).fetchone()
@@ -913,10 +920,11 @@ class WebStore:
                     raise WebStoreError("user not found")
                 values = {**_preferences(row), **updates}
                 connection.execute(
-                    "INSERT INTO user_preferences(user_id,language,theme) VALUES(?,?,?) "
-                    "ON CONFLICT(user_id) DO UPDATE SET "
-                    "language=excluded.language,theme=excluded.theme",
-                    (user_id, values["language"], values["theme"]),
+                    "INSERT INTO user_preferences(user_id,language,theme,ticket_body_mode) "
+                    "VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET "
+                    "language=excluded.language,theme=excluded.theme,"
+                    "ticket_body_mode=excluded.ticket_body_mode",
+                    (user_id, values["language"], values["theme"], values["ticket_body_mode"]),
                 )
         except sqlite3.DatabaseError as exc:
             raise WebStoreError("account preferences storage is corrupt") from exc
