@@ -15,7 +15,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 - AEGIS task journals, not executor sessions, decide resume stage/path.
 - Failed runs stop their container, release capacity, preserve worktree/state,
   and require explicit `adore retry`.
-- Retry resets the active stage counter and active-work clock, but preserves
+- Retry resets the active stage counter, but preserves cumulative active-work time,
   failure history, task history and audit events.
 - Retry is refused while a required notification is pending.
 - ADORE never edits an AEGIS journal to recover it and never merges.

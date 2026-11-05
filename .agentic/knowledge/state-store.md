@@ -57,6 +57,8 @@ file/directory deletion at open without retries or automatic recreation.
 
 ## Key behaviors
 
+- REQ-DATA-0c65db9f: `RunState.active_work_seconds(now)` computes working time from the durable effective active-start anchor; inactive rows freeze at updated_at. `StateStore.save` shifts the anchor over each inactive interval, including repeated saves and resume, preserving consumed work. Disk load requires a nonempty aware active timestamp; invalid clocks/iteration counters raise StateError without reinitialization. Stored fields and schema remain unchanged. Proof: test_state.py and public conductor resume/retry/review tests.
+
 - REQ-REL-6922cfe5: not-required recipe evidence may contain exact resource IDs for an explicitly package-enabled plan; it does not assert installed dependencies. Corrupt identity and unexpected resource authority remain errors.
 
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Schema-1 execution state accepts the closed native resource with not-required status, zero attempts and empty preparation evidence. PIDs/scopes remain separate authoritative control records. Corrupt/unknown native fields fail closed; container-mode records stay valid.

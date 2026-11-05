@@ -324,3 +324,88 @@ def test_bound_replacement_refuses_corrupt_active_bytes(project):
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("extra", [None, "polling.poll_interval_seconds", "executor.internet"])
+def test_parked_job_allows_only_reviewed_budget_batch(project, extra):
+    """@brief Parked jobs keep exact state while only reviewed budgets may change."""
+    from adore.state import RunState
+
+    _, path, state, _, _ = project
+    state.save(RunState(run_id="parked", ticket_iid=1,
+                        lifecycle="parked-clarification", iterations=9, stage="build"))
+    before = (state.run_dir("parked") / "state.json").read_bytes()
+    original = path.read_bytes()
+    edits = [{"key": "budgets.max_iterations", "value": "30"},
+             {"key": "budgets.max_wall_clock_seconds", "value": "9000"}]
+    if extra:
+        edits.append({"key": extra, "value": "30" if extra.startswith("polling") else "true"})
+    staged = stage(project, edits)
+    assert staged.status_code == 200, staged.text
+    result = apply(project, staged.json())
+    assert result.status_code == (409 if extra else 200), result.text
+    assert (state.run_dir("parked") / "state.json").read_bytes() == before
+    if extra:
+        assert path.read_bytes() == original
+    else:
+        assert load_config(path).budgets.max_iterations == 30
+        assert load_config(path).budgets.max_wall_clock_seconds == 9000
+
+
+@pytest.mark.parametrize("boundary", [
+    "working", "awaiting-approval", "in-review", "handoff-pending", "corrupt", "lock", "stale",
+])
+def test_parked_budget_edit_retains_all_other_apply_boundaries(project, boundary):
+    """@brief A parked-budget exception cannot bypass nonquiescent or stale evidence."""
+    from adore.state import RunState
+
+    _, path, state, _, _ = project
+    state.save(RunState(run_id="parked", ticket_iid=1,
+                        lifecycle="parked-clarification", iterations=9))
+    staged = stage(project, [{"key":"budgets.max_iterations", "value":"30"}])
+    assert staged.status_code == 200, staged.text
+    held = False
+    if boundary in {"working", "awaiting-approval", "in-review", "handoff-pending"}:
+        state.save(RunState(run_id="other", ticket_iid=2, lifecycle=boundary))
+    elif boundary == "corrupt":
+        (state.run_dir("parked") / "state.json").write_text("{}")
+    elif boundary == "lock":
+        held = state.acquire_lock()
+        assert held
+    else:
+        path.write_bytes(path.read_bytes() + b"\n# external edit\n")
+    before = path.read_bytes()
+    try:
+        result = apply(project, staged.json())
+        assert result.status_code == 409, result.text
+        assert path.read_bytes() == before
+    finally:
+        if held:
+            state.release_lock()
+
+
+@pytest.mark.parametrize("key", ["budgets.max_iterations", BATCH])
+def test_parked_budget_candidate_cannot_smuggle_unreviewed_configuration(project, key):
+    """@brief Recomputed hashes do not authorize unrelated scalar or batch changes."""
+    from adore.state import RunState
+
+    _, path, state, client, headers = project
+    state.save(RunState(run_id="parked", ticket_iid=1, lifecycle="parked-clarification"))
+    revision = client.get(CONFIG).json()["revision"]
+    staged = client.post(PENDING, headers=headers, json={
+        "key":key, "revision":revision,
+        "value": "30" if key != BATCH else json.dumps([
+            {"key": "budgets.max_iterations", "value": "30"}]),
+    })
+    assert staged.status_code == 200, staged.text
+    pending = path.parent / "pending_config.json"
+    value = json.loads(pending.read_text())
+    value["candidate_text"] = value["candidate_text"].replace('target_branch = "develop"',
+                                                             'target_branch = "foreign"')
+    value["candidate_revision"] = sha256(value["candidate_text"].encode()).hexdigest()
+    pending.write_text(json.dumps(value))
+    original = path.read_bytes()
+    result = client.post(APPLY, headers=headers, json={
+        key: value[key] for key in ("base_revision", "candidate_revision")})
+    assert result.status_code == 503, result.text
+    assert path.read_bytes() == original

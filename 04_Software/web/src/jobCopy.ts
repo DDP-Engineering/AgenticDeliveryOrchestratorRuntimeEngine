@@ -159,3 +159,20 @@ const explanations: Record<Locale, Record<Lifecycle, string>> = {
   },
 };
 export const lifecycleExplanation = (locale: Locale, lifecycle: Lifecycle) => explanations[locale][lifecycle];
+
+
+/** Runtime budgets are independent of token and financial statistics. */
+export const budgetCopy = {
+  en: {unavailable:"Current limits are unavailable. Saved consumption and recovery remain available. Check project settings.",title:"Job budgets",launches:"Executor launches",active:"Active work (seconds)",
+    timing:"Current project limits apply before the next attempt, including resume. Waiting time is excluded; consumed work is retained. A running attempt keeps its timeout.",
+    near:"Approaching a budget limit (90% used).",reached:"A budget limit has been reached. Raise it before resuming.",settings:"Adjust budgets in project Settings"},
+  fr: {unavailable:"Les limites actuelles sont indisponibles. Consommation et reprise restent accessibles. Vérifiez les paramètres du projet.",title:"Budgets du travail",launches:"Lancements de l’exécuteur",active:"Travail actif (secondes)",
+    timing:"Les limites actuelles du projet s’appliquent avant la prochaine tentative, y compris la reprise. L’attente est exclue ; le travail consommé est conservé. Une tentative en cours garde son délai.",
+    near:"Une limite de budget approche (90 % utilisés).",reached:"Une limite de budget est atteinte. Augmentez-la avant de reprendre.",settings:"Ajuster les budgets dans les paramètres du projet"},
+  de: {unavailable:"Aktuelle Grenzen sind nicht verfügbar. Verbrauch und Wiederherstellung bleiben sichtbar. Projekteinstellungen prüfen.",title:"Jobbudgets",launches:"Executorstarts",active:"Aktive Arbeit (Sekunden)",
+    timing:"Aktuelle Projektgrenzen gelten vor dem nächsten Versuch, auch beim Fortsetzen. Wartezeit zählt nicht; verbrauchte Arbeit bleibt erhalten. Ein laufender Versuch behält sein Zeitlimit.",
+    near:"Eine Budgetgrenze nähert sich (90 % verbraucht).",reached:"Eine Budgetgrenze ist erreicht. Vor dem Fortsetzen erhöhen.",settings:"Budgets in den Projekteinstellungen anpassen"},
+  ro: {unavailable:"Limitele actuale nu sunt disponibile. Consumul salvat și recuperarea rămân accesibile. Verifică setările proiectului.",title:"Bugetele jobului",launches:"Lansări executor",active:"Lucru activ (secunde)",
+    timing:"Limitele actuale ale proiectului se aplică înaintea următoarei încercări, inclusiv la reluare. Așteptarea este exclusă; consumul acumulat se păstrează. Încercarea în curs își păstrează limita de timp.",
+    near:"Se apropie o limită de buget (90% consumat).",reached:"O limită de buget a fost atinsă. Majoreaz-o înainte de reluare.",settings:"Ajustează bugetele în Setările proiectului"},
+} satisfies Record<Locale, Record<string,string>>;

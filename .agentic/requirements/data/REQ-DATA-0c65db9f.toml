@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-0c65db9f"
+title = "Retain cumulative active work across parked resumes"
+status = "active"
+requirement = "When a job resumes after clarification, retry or review, ADORE shall retain cumulative active-work consumption preserved in its durable active-clock anchor while excluding waiting intervals."
+verification = "Save known working time, park, repeatedly save while waiting, resume and retry; assert cumulative work with waiting excluded and typed refusal of malformed active-clock evidence."
+affected_paths = ["04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_state.py", "04_Software/tests/test_orchestrator.py::test_clarification_resume_preserves_active_work_consumed", "04_Software/tests/test_orchestrator.py::test_approval_invalidation_preserves_work_and_resets_stage_failures", "04_Software/tests/test_orchestrator.py::test_review_revision_preserves_active_work_consumed"]
+priority = "normal"
+created = 2026-11-05
+updated = 2026-11-05

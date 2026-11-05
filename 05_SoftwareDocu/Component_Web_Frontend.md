@@ -77,7 +77,7 @@ Project Settings follows **Repository → Tickets → Implementation → PR/MR a
 
 `settingPurpose` routes exact effect overrides before section fallbacks; `settingVisible` suppresses inactive/external fields and admits only four known informational worktree fields; `settingSubgroup` owns native topic disclosures. Technical/unknown and worktree rows cannot acquire editors from catalog metadata. The target reference opens its containing disclosure and focuses the single row.
 
-Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, resettable active periods and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
+Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, cumulative active time excluding waits and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
 
 `review.max_review_rounds` and other review policies map to PR/MR and review; pickup gates map to Tickets. Localized help explains the shared additional-round budget and distinct exhaustion outcomes. Portable mapping validation derives its exact size from `portableFields`, whose readiness map contains two booleans.
 
@@ -990,3 +990,23 @@ A valid pending candidate containing an API-only or hidden setting remains read-
 JobWorkspace uses `recoveryCopy.ts` in English, French, German and Romanian for confirmed Abandon and start again, stable-settings drift guidance and operation failures. Browser confirmation names the ticket and irreversible local/worktree/remote deletion. Cancellation submits nothing. The request carries the captured state revision; stale refusal keeps details visible. `jobModel.stableExecutionDrift` suppresses guaranteed-failing Retry for stable profile/settings drift while preserving native volatile identity revalidation. Proof: `web/tests/jobs.test.mjs`, `web/e2e/driftRecovery.spec.ts`.
 
 `restart:retained` is a localized success warning, explaining that an older branch without ownership evidence was preserved while a fresh branch was used. Browser proof: driftRecovery.spec.ts retained-branch success journey.
+
+## Job budget presentation
+
+Job details displays Executor launches and cumulative Active work (seconds) as
+consumed/current-limit pairs, independently of token/cost measurement coverage.
+At 90% of either limit it shows a localized status notice; at exhaustion it shows
+adjustment guidance. Administrators have a project Settings link; developers see
+counters without financial limits or editing authority. Current limits apply at
+the next attempt/resume; in-flight attempts retain their timeout. `jobModel.ts`
+refuses malformed counters, limits, durations and revision hashes. `jobCopy.ts`,
+Settings confirmation and setting help share four-locale timing guidance.
+
+Offline proof: `web/tests/jobs.test.mjs`, public HTTP contracts and the four-locale
+budget journey in `web/e2e/jobs.spec.ts`.
+
+Current limit faults preserve valid Job details and recovery. The budget observation
+uses `availability=unavailable`, a closed missing/corrupt reason and null limit/revision
+fields, while keeping trustworthy consumed launches and active seconds. The interface
+shows — for limits and a localized notice. Corrupt saved job evidence still rejects
+the detail read. Metadata-only profile history retains its existing recovery behavior.

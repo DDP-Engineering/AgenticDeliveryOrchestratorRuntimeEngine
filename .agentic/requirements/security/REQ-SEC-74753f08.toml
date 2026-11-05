@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-74753f08"
+title = "Keep unrelated settings behind existing idle guards"
+status = "active"
+requirement = "If a parked-project settings edit includes any non-budget member or fails authorization, revision, state-root, lock or operation checks, the web API shall refuse the edit without changing live settings or job state."
+verification = "Exercise mixed and unrelated edits, developer/CSRF/stale requests, active or corrupt jobs, locks and unfinished operations; assert rejection and unchanged bytes."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_settings_batch.py"]
+priority = "normal"
+created = 2026-11-05
+updated = 2026-11-05

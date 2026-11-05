@@ -12,13 +12,18 @@
 @brief Tests for the `adore init` wizard - driven offline with a scripted asker
        and a fake command runner; the golden assertion is that every profile it
        writes passes validate_config.
+@details Known branch-rule fixture evaluation is injected; real matcher and
+         process-protocol verification remains in test_branch_naming.py.
 """
 
 from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Sequence
+import json
 from pathlib import Path
+import re
+import subprocess
 import tomllib
 
 from adore.config import load_config, validate_config
@@ -40,6 +45,24 @@ import pytest
 FIXED_NOW = "2026-07-05T00:00:00Z"
 
 # HELPER FUNCTIONS
+
+
+@pytest.fixture(autouse=True)
+def isolated_branch_rule_process(monkeypatch):
+    """
+    @brief Keep wizard assembly tests independent of host Python startup latency.
+    @details Trusted fixture rules still match the actual generated branch; the
+             real bounded process and corrupt-output contract are exercised by
+             test_branch_naming.py, with the product's one-second limit intact.
+    """
+    def evaluate(argv, **kwargs):
+        """@brief Simulate only the known JSON-in/boolean-out regex boundary."""
+        assert argv[1:3] == ["-I", "-c"]
+        assert kwargs["timeout"] == 1 and kwargs["capture_output"]
+        rule, name = json.loads(kwargs["input"])
+        return subprocess.CompletedProcess(
+            argv, 0, json.dumps(re.match(rule, name) is not None), "")
+    monkeypatch.setattr("adore.config.subprocess.run", evaluate)
 
 
 class FakeRunner:
@@ -131,6 +154,7 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert config.delivery.approval_label == "agent-approved"
     assert config.recovery.max_stage_failures == 3
     assert config.recovery.retry_backoff_seconds == [5, 30, 120]
+    assert config.budgets.max_iterations == 20
     assert config.budgets.max_files_touched == 120
     assert config.state.store_root.endswith("state")         # profile-owned (D2)
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"

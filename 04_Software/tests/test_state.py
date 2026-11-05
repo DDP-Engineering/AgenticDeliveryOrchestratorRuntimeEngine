@@ -10,6 +10,7 @@
 """
 @file test_state.py
 @brief Tests for the local authoritative run-state store.
+@details Offline state, locking, cumulative clock and corruption-boundary proof.
 """
 
 from __future__ import annotations
@@ -537,3 +538,58 @@ def test_wrong_shape_lock_is_unknown_and_not_reclaimed(tmp_path: Path) -> None:
 
 
 # END OF FILE
+
+
+def test_active_clock_preserves_consumption_across_wait_and_retry(tmp_path, monkeypatch):
+    """@brief Waiting, repeated inactive saves and resume retain accumulated work."""
+    store = _store(tmp_path)
+    clock = ["2026-11-05T10:00:00+00:00"]
+    monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
+    run = RunState(run_id="clock", ticket_iid=1)
+    store.save(run)
+    clock[0] = "2026-11-05T10:01:00+00:00"
+    run.lifecycle = "parked-clarification"
+    run.parked_at = clock[0]
+    store.save(run)
+    assert run.active_work_seconds("2026-11-06T10:00:00+00:00") == 60
+    clock[0] = "2026-11-05T12:00:00+00:00"
+    store.save(run)
+    assert store.load(run.run_id).active_work_seconds(clock[0]) == 60
+    clock[0] = "2026-11-05T13:00:00+00:00"
+    run.lifecycle = "working"
+    store.save(run)
+    assert run.active_work_seconds("2026-11-05T13:00:30+00:00") == 90
+    clock[0] = "2026-11-05T13:01:00+00:00"
+    run.lifecycle = "failed"
+    store.save(run)
+    clock[0] = "2026-11-06T13:01:00+00:00"
+    run.lifecycle = "working"
+    store.save(run)
+    assert run.active_work_seconds(clock[0]) == 120
+
+
+@pytest.mark.parametrize("value", ["wrong", "2026-11-05T10:00:00", 12, None])
+def test_active_clock_rejects_corrupt_saved_timestamp(tmp_path, value):
+    """@brief Untrusted clock values cannot silently disable the time budget."""
+    store = _store(tmp_path)
+    run = RunState(run_id="clock", ticket_iid=1)
+    store.save(run)
+    data = run.to_dict()
+    data["active_started_at"] = value
+    with pytest.raises(StateError):
+        RunState.from_dict(data)
+
+
+def test_saved_empty_clock_is_refused_without_reinitializing_work(tmp_path):
+    """@brief An empty persisted clock cannot become a new active period on save."""
+    store = _store(tmp_path)
+    run = RunState(run_id="clock", ticket_iid=1)
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    value = run.to_dict()
+    value.update(active_started_at="", created_at="", updated_at="")
+    path.write_text(json.dumps(value), encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(StateError):
+        store.load(run.run_id)
+    assert path.read_bytes() == before

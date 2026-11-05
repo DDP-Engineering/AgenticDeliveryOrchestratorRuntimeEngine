@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-f206c815"
+title = "Preserve job evidence when budget limits are unavailable"
+status = "active"
+requirement = "If current project budget limits cannot be read or validated, Job details shall retain valid persisted evidence, recovery controls and consumed launches/time with explicitly unavailable limits."
+verification = "Read a failed job with missing, malformed, derivation-type-corrupt or invalid-budget configuration; assert HTTP 200, unchanged recovery revision and saved launch/time values, unavailable limits and no invented defaults; corrupt persisted run evidence still returns 503."
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/tests/test_drift_recovery.py::test_web_restart_requires_confirmation_revision_and_rechecks_worker", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+created = 2026-11-05
+updated = 2026-11-05

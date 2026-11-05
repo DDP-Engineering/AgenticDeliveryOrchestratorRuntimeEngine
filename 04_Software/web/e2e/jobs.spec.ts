@@ -968,3 +968,65 @@ test("project hub shows jobs and statistics as tabs without duplicated scope", a
   await expect(page.locator("#metrics-tab-usage")).toHaveAttribute("aria-selected", "true");
   await expect(hub.getByRole("tab", { name: "Statistics", exact: true })).toHaveAttribute("aria-selected", "true");
 });
+
+
+test("job budgets show retained consumption and boundary timing in four locales", async ({ page }) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  await page.route("**/api/v1/jobs/*/ux-clarification", async route => {
+    const response = await route.fetch(), data = await response.json();
+    data.job.budget = {availability:"observed",reason:null,launches:18,max_launches:20,active_seconds:90,max_active_seconds:5400,
+      config_revision:"b".repeat(64)};
+    await route.fulfill({response,json:data});
+  });
+  try {
+    for (const [locale,title,warning] of [
+      ["fr","Budgets du travail","Une limite de budget approche"],
+      ["de","Jobbudgets","Eine Budgetgrenze nähert sich"],
+      ["ro","Bugetele jobului","Se apropie o limită de buget"],
+      ["en","Job budgets","Approaching a budget limit"],
+    ]) {
+      await page.goto("/account");
+      await Promise.all([page.waitForResponse(r=>r.url().endsWith("/api/v1/me/preferences") && r.request().method()==="PATCH"),
+        page.getByLabel(/Language|Langue|Sprache|Limbă/).selectOption(locale)]);
+      await page.goto("/jobs?project=alpha&run=ux-clarification");
+      const budgets = page.getByRole("region",{name:title,exact:true});
+      await expect(budgets).toContainText("18 / 20");
+      await expect(budgets).toContainText("90 / 5400");
+      await expect(budgets.getByRole("status")).toContainText(warning);
+      await expect(budgets.getByRole("link")).toHaveAttribute("href",/\/projects\/[a-f0-9]{32}\/configuration$/);
+    }
+    await page.route("**/api/v1/jobs/*/ux-failed", async route => {
+      const response = await route.fetch(), data = await response.json();
+      data.job.budget = {availability:"unavailable",reason:"config_corrupt",launches:18,
+        active_seconds:90,max_launches:null,max_active_seconds:null,config_revision:null};
+      await route.fulfill({response,json:data});
+    });
+    await page.goto("/jobs?project=alpha&run=ux-failed");
+    const unavailable = page.getByRole("region",{name:"Job budgets",exact:true});
+    await expect(unavailable).toContainText("18 / —");
+    await expect(unavailable).toContainText("90 / —");
+    await expect(unavailable.getByRole("status")).toContainText("Current limits are unavailable");
+    await expect(page.locator(".detail-panel").getByRole("button",{name:"Retry",exact:true})).toBeVisible();
+    await page.route("**/api/v1/jobs/*/ux-clarification", async route => {
+      const response = await route.fetch(), data = await response.json();
+      data.job.budget.active_seconds = -1;
+      await route.fulfill({response,json:data});
+    });
+    await page.goto("/jobs?project=alpha&run=ux-clarification");
+    await expect(page.getByText("The server sent an unexpected response.",{exact:true})).toBeVisible();
+    await expect(page.locator(".job-budgets")).toHaveCount(0);
+  } finally {
+    await page.goto("/account");
+    const language = page.getByLabel(/Language|Langue|Sprache|Limbă/);
+    if (await language.inputValue() !== "en") await Promise.all([
+      page.waitForResponse(r=>r.url().endsWith("/api/v1/me/preferences") && r.request().method()==="PATCH"),
+      language.selectOption("en"),
+    ]);
+    const theme = page.getByLabel("Theme",{exact:true});
+    if (await theme.inputValue() !== "light") await Promise.all([
+      page.waitForResponse(r=>r.url().endsWith("/api/v1/me/preferences") && r.request().method()==="PATCH"),
+      theme.selectOption("light"),
+    ]);
+  }
+});

@@ -276,14 +276,14 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `20` |
-| `max_wall_clock_seconds` | Active-work time; re-armed by retry, clarification resume, revision, or approval invalidation. | `3600` |
+| `max_wall_clock_seconds` | Cumulative active-work time across retries, clarification resume and revisions; waiting is excluded. | `3600` |
 | `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts only. With `provider = "chatgpt"` this value and every stage override must be at most 3000, because a ChatGPT access token lasts about an hour. | `1800` |
 | `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `5.0` |
 | `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `120` |
 
 The GUI names `max_iterations` **Maximum executor launches per job** and
 `max_wall_clock_seconds` **Active work time limit (seconds)**. The active clock
-restarts on retry, clarification resume, revision or approval invalidation.
+preserves consumed work on retry, clarification resume, revision and approval invalidation.
 Time and cost are checked between attempts; an attempt may exceed either cap
 before the next check. Its own timeout bounds that executor launch.
 
@@ -402,3 +402,31 @@ authentication, process ownership and acceptance coverage.
 ## Agent system packages
 
 `container.system_packages` is a strict boolean, false by default, for direct agent installation with noninteractive sudo in a compatible container image. It is independent of `container.egress` and rejected for native execution. See [Agent dependency installation](Agent_Dependency_Installation.md) for image prerequisites, supported package managers, runtime argument restrictions and recovery.
+
+
+### Budget changes and observations
+
+The CLI and web enrollment default to 20 executor launches. The recommended wizard
+profile allows 5400 active seconds; the base configuration default is 3600.
+Job details shows launches and cumulative active seconds against current project
+limits, separately from token/cost statistics. A 90% warning covers either displayed
+limit; reaching it shows adjustment guidance.
+
+The conductor rereads the selected configuration before provision and between
+executor attempts, including retry/resume. Only `[budgets]` is rebound. Unchanged non-budget settings retain startup validation;
+the branch-rule matcher and other probes are not rerun at this boundary. Invalid,
+missing or non-budget semantic drift fails the job as `BUDGET_CONFIG_INVALID`
+before another launch; restore the configuration and Retry. An in-flight attempt
+retains its timeout. Stage-specific timeout overrides remain authoritative and
+require the normal idle edit boundary. Preparation checks the current run limits
+before each step and uses the next reread at an executor boundary.
+
+In web Settings, administrators may apply an exact reviewed candidate containing
+only the five `[budgets]` settings while jobs are parked for clarification. The
+conductor lock, state-root binding, valid state, no unfinished operations and
+base/candidate revision checks still apply. Direct API edits keep their idle
+restriction. A mixed batch gets no parked-job exception. Limits remain project-wide,
+not per-job overrides, and changing them writes no job state, resets no consumption
+and grants no approval. An exhausted failed job still requires Retry.
+
+Non-budget binding preserves scalar types as well as values: boolean false and numeric zero are distinct. Canonical typed JSON comparison launches no probes.

@@ -55,7 +55,7 @@ line may be skipped because `state.json`, not the log, drives decisions.
 
 The conductor saves before every remote notification, after every counter or
 lifecycle change, and at every stage boundary. Explicit retry resets only the
-active counter/clock; history remains.
+active failure counter; active work and history remain cumulative.
 
 The ticket snapshot and its `content_hash` are refreshed together when a fresh
 clarification-resume or approval observation detects title/body drift. The
@@ -105,3 +105,18 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 ## Agent-controlled system packages
 
 A container execution record with not-required recipe status may bind exact container/image IDs when its plan explicitly carries system_packages=true. It records authority and resource identity, not installed-package success; malformed identities and unauthorized resource fields fail closed. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+
+## Cumulative active-work contract
+
+`RunState.active_work_seconds(now)` returns cumulative working seconds from the
+effective `active_started_at` anchor: working jobs use the supplied aware timestamp,
+inactive jobs use `updated_at`. `StateStore.save` rereads existing state and moves
+the anchor forward by the inactive interval before subsequent inactive saves or
+resume. Thus retries, answers and revisions retain consumed work while excluding
+waiting; notification and polling saves do not accumulate inactive time. No stored
+field or schema changes. Iterations must be a nonnegative integer; saved clock
+fields must be aware ISO timestamps, or `StateError` refuses the state.
+
+Proof: `test_state.py` covers working/parked/repeated-save/retry time and corrupt
+clock evidence; conductor tests cover clarification, approval invalidation and
+review resumption without resetting consumed time.

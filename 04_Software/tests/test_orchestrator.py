@@ -1332,18 +1332,24 @@ def test_clarification_resume_refreshes_changed_ticket_snapshot(
     assert refresh[-1]["context"] == "clarification-resume"
 
 
-def test_clarification_resume_rearms_only_the_active_wall_clock(
+def test_clarification_resume_preserves_active_work_consumed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief An answer after a long human wait starts a fresh active phase."""
+    """@brief An answer after a long human wait retains all earlier active work."""
+    import adore.state as state_module
+
+    clock = ["2026-08-15T00:00:00Z"]
+    monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
+    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: clock[0])
     engine, forge, _, _, _ = make_engine(tmp_path)
     engine.config.budgets.max_wall_clock_seconds = 60
     run = make_run(engine)
     run.lifecycle = "parked-clarification"
-    run.parked_at = "2026-08-15T11:59:00Z"
+    run.parked_at = "2026-08-15T00:00:30Z"
     run.active_started_at = "2026-08-15T00:00:00Z"
     run.iterations = 2
     run.stage_failures = 1
+    clock[0] = "2026-08-15T00:00:30Z"
     engine.store.save(run)
     forge.ticket.labels.append("agent-answered")
     forge.ticket_comments[200] = "Resume with the documented default."
@@ -1352,7 +1358,7 @@ def test_clarification_resume_rearms_only_the_active_wall_clock(
     def conduct(state: RunState, ticket: Ticket, thread: str = "") -> None:
         observed.append((engine._budget_exceeded(state), state.iterations, state.stage_failures))
 
-    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: "2026-08-15T12:00:00Z")
+    clock[0] = "2026-08-15T12:00:00Z"
     monkeypatch.setattr(engine, "_conduct", conduct)
 
     summary = engine.poll_once()
@@ -1360,7 +1366,8 @@ def test_clarification_resume_rearms_only_the_active_wall_clock(
     saved = engine.store.load(run.run_id)
     assert summary["resumed"] == 1
     assert observed == [("", 2, 1)]
-    assert saved.active_started_at == "2026-08-15T12:00:00Z"
+    assert saved.active_work_seconds(clock[0]) == 30
+    assert saved.active_started_at == "2026-08-15T11:59:30+00:00"
 
 
 def test_approval_observation_refreshes_ticket_without_invalidating(
@@ -1524,10 +1531,15 @@ def test_approval_rejects_stale_label_and_invalidates_on_target_drift(tmp_path: 
     assert "agent-approved" not in forge.ticket.labels
 
 
-def test_approval_invalidation_rearms_clock_and_stage_failures(
+def test_approval_invalidation_preserves_work_and_resets_stage_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """@brief Candidate drift begins clean re-conduction after a long approval wait."""
+    """@brief Candidate drift retains active work and clears obsolete stage failures."""
+    import adore.state as state_module
+
+    clock = ["2026-08-15T00:00:00Z"]
+    monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
+    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: clock[0])
     engine, forge, worktrees, _, _ = make_engine(tmp_path)
     engine.config.budgets.max_wall_clock_seconds = 60
     run = make_run(engine)
@@ -1541,6 +1553,7 @@ def test_approval_invalidation_rearms_clock_and_stage_failures(
     run.active_started_at = "2026-08-15T00:00:00Z"
     run.iterations = 2
     run.stage_failures = 3
+    clock[0] = "2026-08-15T00:00:30Z"
     engine.store.save(run)
     forge.ticket.labels.append("agent-approved")
     worktrees.target = "d" * 40
@@ -1549,7 +1562,7 @@ def test_approval_invalidation_rearms_clock_and_stage_failures(
     def conduct(state: RunState, ticket: Ticket, thread: str = "") -> None:
         observed.append((engine._budget_exceeded(state), state.iterations, state.stage_failures))
 
-    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: "2026-08-15T12:00:00Z")
+    clock[0] = "2026-08-15T12:00:00Z"
     monkeypatch.setattr(engine, "_conduct", conduct)
 
     summary = engine.poll_once()
@@ -1557,7 +1570,8 @@ def test_approval_invalidation_rearms_clock_and_stage_failures(
     saved = engine.store.load(run.run_id)
     assert summary["approved"] == 0
     assert observed == [("", 2, 0)]
-    assert saved.active_started_at == "2026-08-15T12:00:00Z"
+    assert saved.active_work_seconds(clock[0]) == 30
+    assert saved.active_started_at == "2026-08-15T11:59:30+00:00"
     assert "agent-approved" not in forge.ticket.labels
 
 
@@ -2608,10 +2622,15 @@ def test_ignore_mode_never_reads_the_pipeline(
     assert engine.store.load(run.run_id).lifecycle == "in-review"
 
 
-def test_review_revision_rearms_only_the_active_wall_clock(
+def test_review_revision_preserves_active_work_consumed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """@brief A late review request starts a fresh bounded revision phase."""
+    """@brief A late review request retains earlier active time and lifetime counters."""
+    import adore.state as state_module
+
+    clock = ["2026-08-15T00:00:00Z"]
+    monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
+    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: clock[0])
     engine, forge, _, _, _ = make_engine(tmp_path)
     engine.config.budgets.max_wall_clock_seconds = 60
     run = make_run(engine)
@@ -2623,6 +2642,7 @@ def test_review_revision_rearms_only_the_active_wall_clock(
     run.iterations = 2
     run.stage_failures = 2
     forge.mr.labels = ["agent-revise"]
+    clock[0] = "2026-08-15T00:00:30Z"
     engine.store.save(run)
     observed: list[tuple[str, int, int]] = []
 
@@ -2642,7 +2662,7 @@ def test_review_revision_rearms_only_the_active_wall_clock(
         observed.append((engine._budget_exceeded(state), state.iterations, state.stage_failures))
 
     monkeypatch.setattr(orchestrator_module, "AegisClient", ReviewClient)
-    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: "2026-08-15T12:00:00Z")
+    clock[0] = "2026-08-15T12:00:00Z"
     monkeypatch.setattr(engine, "_conduct", conduct)
 
     summary = engine.poll_once()
@@ -2650,7 +2670,8 @@ def test_review_revision_rearms_only_the_active_wall_clock(
     saved = engine.store.load(run.run_id)
     assert summary["revised"] == 1
     assert observed == [("", 2, 0)]
-    assert saved.active_started_at == "2026-08-15T12:00:00Z"
+    assert saved.active_work_seconds(clock[0]) == 30
+    assert saved.active_started_at == "2026-08-15T11:59:30+00:00"
 
 
 def test_revision_task_failure_preserves_revise_label(
@@ -3497,3 +3518,136 @@ def test_stage_prompt_preserves_aegis_journal_authoring_contract(tmp_path, stage
     assert "legal prologue" in prompt and "authoring-guide link" in prompt
     assert "same task ID" in prompt and "append-only" in prompt
     assert "Do exactly ONE stage" in prompt and "Never commit, push" in prompt
+
+
+@pytest.mark.parametrize("change", [
+    "raise", "lower", "corrupt", "missing", "identity", "unknown-budget",
+    "unknown-section", "bool", "zero", "bad-value", "bad-table", "chatgpt-timeout",
+    "non-budget-type",
+])
+def test_retry_rereads_only_budgets_between_attempts(tmp_path, monkeypatch, change):
+    """@brief A source edit affects the next attempt, never resets usage or identity."""
+    from adore.config import load_config
+
+    from tests.test_web_pending_config import _project
+
+    _, source, _ = _project(tmp_path)
+    initial_limit = 1 if change == "raise" else 3
+    text = source.read_text(encoding="utf-8").replace(
+        "max_iterations           = 20", f"max_iterations           = {initial_limit}").replace(
+        "# internet = false", "internet = false")
+    if change == "chatgpt-timeout":
+        text = text.replace('provider = "openai"', 'provider = "chatgpt"')
+    source.write_text(text)
+    engine, _, _, _, executor = make_engine(tmp_path)
+    engine.config = load_config(source)
+    engine.config.metrics.enabled = False
+    # Keep source semantics equal to the running configuration.
+    text = text.replace("enabled = true", "enabled = false").replace(
+        "publish_checkpoints = true", "publish_checkpoints = false")
+    source.write_text(text)
+    engine.config = load_config(source)
+    run = make_run(engine)
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    client = FakeAegis(sequence("frame", "specify", "design"))
+    client.probe = lambda: None
+    monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
+    engine.chatgpt_token = lambda _: "fixture-token"
+    def forbidden_matcher(*args, **kwargs):
+        pytest.fail("budget refresh reran the validated branch matcher")
+    monkeypatch.setattr("adore.config.branch_naming_preview", forbidden_matcher)
+    original = executor.run_gate
+
+    def edited(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if change == "missing":
+            source.unlink()
+        elif change == "corrupt":
+            source.write_text("[budgets\ninvalid")
+        elif change == "identity":
+            source.write_text(text.replace('target_branch = "develop"', 'target_branch = "other"'))
+        elif change == "non-budget-type":
+            source.write_text(text.replace("internet = false", "internet = 0"))
+        elif change == "unknown-section":
+            source.write_text(text + "\n[unknown_section]\nvalue = true\n")
+        elif change == "chatgpt-timeout":
+            source.write_text(text.replace("per_gate_timeout_seconds = 1800",
+                                           "per_gate_timeout_seconds = 3001"))
+        elif change == "bad-table":
+            source.write_text(text.replace("[budgets]", "[[budgets]]"))
+        elif change in {"unknown-budget", "bool", "zero", "bad-value"}:
+            replacement = {"unknown-budget": f"{initial_limit}\nunknown_limit = 9",
+                           "bool": "true", "zero": "0", "bad-value": '\"many\"'}[change]
+            source.write_text(text.replace(f"max_iterations           = {initial_limit}",
+                                           f"max_iterations           = {replacement}"))
+        else:
+            limit = 2 if change == "raise" else 1
+            source.write_text(text.replace(
+                f"max_iterations           = {initial_limit}",
+                f"max_iterations           = {limit}"))
+        return result
+
+    executor.run_gate = edited
+    assert engine.retry(run.run_id)
+    saved = engine.store.load(run.run_id)
+    assert saved.active_task_id == run.active_task_id
+    assert len(executor.prompts) == (2 if change == "raise" else 1)
+    assert saved.iterations == len(executor.prompts)
+    assert saved.outcome.startswith("BUDGET_EXHAUSTED:" if change in {"raise", "lower"}
+                                    else "BUDGET_CONFIG_INVALID:")
+
+
+def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path, monkeypatch):
+    """@brief HTTP budget apply resumes the same task with cumulative sessions and time."""
+    from adore.config import load_config
+    import adore.state as state_module
+    from adore.web.app import create_app
+    from fastapi.testclient import TestClient
+
+    from tests.test_web_pending_config import _headers, _project
+
+    profiles, source, store = _project(tmp_path)
+    text = source.read_text(encoding="utf-8").replace(
+        "max_iterations           = 20", "max_iterations           = 1").replace(
+        "enabled = true", "enabled = false").replace(
+        "publish_checkpoints = true", "publish_checkpoints = false")
+    source.write_text(text, encoding="utf-8")
+    engine, forge, _, _, executor = make_engine(tmp_path, executor=FakeExecutor(
+        GateRun(exit_code=0, has_questions=True, questions="Next clarification")))
+    engine.store, engine.config = store, load_config(source)
+    clock = ["2026-11-05T10:00:00Z"]
+    monkeypatch.setattr(state_module, "utc_now_iso", lambda: clock[0])
+    monkeypatch.setattr(orchestrator_module, "utc_now_iso", lambda: clock[0])
+    run = make_run(engine)
+    run.active_started_at = clock[0]
+    clock[0] = "2026-11-05T10:00:30Z"
+    run.lifecycle, run.parked_at, run.iterations = "parked-clarification", clock[0], 1
+    engine.store.save(run)
+    state_path = store.run_dir(run.run_id) / "state.json"
+    original = state_path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        base = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        staged = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
+            "key": "budgets.max_iterations", "value": "3", "revision": base,
+        })
+        assert staged.status_code == 200, staged.text
+        binding = {key: staged.json()[key] for key in ("base_revision", "candidate_revision")}
+        applied = client.post("/api/v1/projects/alpha/config/apply", headers=headers, json=binding)
+        assert applied.status_code == 200, applied.text
+    assert state_path.read_bytes() == original
+    clock[0] = "2026-11-05T11:00:00Z"
+    forge.ticket.labels.append("agent-answered")
+    forge.ticket_comments[200] = "Use the clarified default."
+    client = FakeAegis([task("frame")])
+    client.probe = lambda: None
+    monkeypatch.setattr(orchestrator_module, "AegisClient", lambda *args: client)
+    summary = engine.poll_once()
+    saved = store.load(run.run_id)
+    assert summary["resumed"] == 1 and len(executor.prompts) == 1
+    assert saved.lifecycle == "parked-clarification" and saved.iterations == 2
+    assert saved.active_work_seconds(clock[0]) == 30
+    assert (saved.active_task_id, saved.branch) == (run.active_task_id, run.branch)
+    assert Path(saved.worktree) == Path(run.worktree)
+    assert engine.config.budgets.max_iterations == 3

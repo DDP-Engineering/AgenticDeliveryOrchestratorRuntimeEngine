@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-bf8a9a47"
+title = "Use twenty default executor launches"
+status = "active"
+requirement = "When a profile is initialized with default budgets, ADORE shall use twenty executor launches in both CLI and web enrollment."
+verification = "Initialize default CLI and web drafts and assert twenty; explicit customized limits remain unchanged."
+affected_paths = ["04_Software/adore/wizard.py", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/e2e/enrollment.spec.ts"]
+linked_tests = ["04_Software/tests/test_wizard.py", "04_Software/web/e2e/enrollment.spec.ts"]
+priority = "normal"
+created = 2026-11-05
+updated = 2026-11-05

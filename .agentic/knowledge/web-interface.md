@@ -17,7 +17,7 @@ Technical details displays Durable job state folder (`state.store_root`), Workfl
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Agent and model groups executor settings in Settings. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
 
-Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, resettable active periods and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
+Implementation uses shared four-locale names for reviewed settings, including **Active job limit**, **Maximum executor launches per job** and **Active work time limit (seconds)** names in rows, editors and candidate review. Help describes serial capacity with parked jobs excluded, lifetime launch counts, cumulative active time excluding waits and between-attempt time/cost checks. Reported USD accounting depends on captured token usage; cost-only reports do not count. File guidance describes distinct committed/pending/new product and AEGIS paths, the unfinished-merge exception and continuation when Git counting is unavailable. Per-attempt timeout help preserves configured recovery and strict-check semantics; progress publication is enabled by default with local commits retained when disabled, and the quick label is an optional framing hint. Configuration keys, runtime enforcement and role/redaction contracts retain their current behavior.
 
 The revision-round limit belongs to PR/MR and review, with shared default five and localized combined-budget/exhaustion guidance. Acceptance checking defaults false; explicit values remain authoritative. Portable enrollment validates mapping size against the fifteen recognized rule keys.
 
@@ -635,6 +635,9 @@ for Add and Import project. Primary buttons take their text colour from the
 
 ## Key behaviors
 
+- REQ-FUNC-e3cf5dfd / REQ-SEC-74753f08: reviewed scalar/batch apply permits parked-clarification jobs only for the five budget keys, with exact candidate reconstruction, Admin/CSRF, source/state-root/lock/revision and unfinished-operation checks retained. Mixed batches, direct edits and other lifecycles keep the existing idle boundary. No job state or approval is written by budget apply.
+- REQ-UX-1054b9b6: composite Job details adds non-financial `budget` counters (launches and cumulative active seconds), current limits and config_revision, bound to unchanged source bytes. The frontend rejects invalid/missing detail budget evidence, shows a 90%/exhausted status notice and an Admin project Settings link, with four-locale timing/help. Statistics remain independent. Proof: test_web_jobs.py, test_web_settings_batch.py, jobs.test.mjs and jobs/enrollment browser journeys.
+
 - `REQ-UX-95f72cce`, `REQ-UX-a393abfe`, `REQ-UX-a371d306`: descriptions and
   comments default to semantic GFM; a shared Description-side selector shows exact
   API strings in source mode. Empty descriptions retain the localized fallback.
@@ -1022,3 +1025,11 @@ Job views expose SHA-256 state_revision. JobWorkspace offers four-locale confirm
 `forget_run_usage` serializes source deletion with composite usage/observation/cursor reset in one SQLite write transaction. Production projection calls recheck the current journal prefix inside their transaction, allowing appends and refusing stale sources. The CLI binds the deletion callback to the exact registered profile/config identity. Source-removal failure rolls back projection changes; other projects/users/audit are untouched. Proof includes a deterministic reader interleaving and fresh admission after projected old usage.
 
 The worker maps successful restart summaries reporting a retained unproven older branch to four-locale success evidence. Help explains bounded fresh generations and naming-rule refusal, while known changed checkpoints continue to block cleanup.
+
+
+REQ-REL-f206c815: missing/corrupt current budget limits never erase valid job evidence,
+recovery controls or saved usage. Detail budgets report availability=unavailable,
+closed config_missing/config_corrupt reasons and null limits/revision; the UI shows
+— and localized guidance. Corrupt run evidence still fails closed. Metadata-only recovery is covered by
+test_web_restart_requires_confirmation_revision_and_rechecks_worker. Limit derivation
+AttributeError is classified without an untyped server error.

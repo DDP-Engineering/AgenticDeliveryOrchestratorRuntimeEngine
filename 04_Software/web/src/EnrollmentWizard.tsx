@@ -101,7 +101,7 @@ const initial: Draft = { clone_url: "", name: "", display_name: "", description:
   target_branch: "main", login: "", provider: "openai", model: "", endpoint_base_url: "", endpoint_api: "",
   runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
-  max_iterations: "12", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
+  max_iterations: "20", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
 const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
   ["provider", "model", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "local_account", "local_path", "auth_mode", "env_keys"],
   ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"]];
@@ -285,7 +285,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     return value;
   };
   const targetPayload = () => ({ ...payload(draft), ...(transfer ? {
-    max_iterations: 12, max_wall_clock_seconds: 5400, max_cost_usd: 5, max_files_touched: 120,
+    max_iterations: 20, max_wall_clock_seconds: 5400, max_cost_usd: 5, max_files_touched: 120,
   } : {}) });
   const requestBody = (target: unknown, revision?: string) => transfer ? {
     ...transfer.selection, source_revision: transfer.source_revision, target,

@@ -40,9 +40,9 @@ Rules that apply:
 
 - **Discard changes** clears all unsaved edits. Cancelling the confirmation keeps them without creating a saved candidate.
 - Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs; discard and refresh before editing again. Concurrent administrators get a conflict.
-- The server checks the complete configuration and saves all edits together, only when no job is active and no operation is unfinished. A failed save retains your inputs and any prepared candidate for retry.
+- The server checks the complete configuration and saves all edits together. A budget-only reviewed save also allows jobs waiting for clarification, with no active conductor or unfinished operation. Other settings require finished jobs. A failed save retains your inputs and any prepared candidate for retry.
 - Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
-- New values apply to later jobs. Existing jobs keep their configuration.
+- Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).
 
 Navigation or Refresh asks before discarding unsaved edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
 
@@ -57,3 +57,13 @@ Beside the Project settings heading, administrators have **Preview raw configura
 In Settings → Agent and model, administrators enable this permission with **Save** and confirm its effect. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
 
 Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.
+
+## Job budgets {#budgets}
+
+Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and `adore init`.
+
+Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.
+
+Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.
+
+If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.

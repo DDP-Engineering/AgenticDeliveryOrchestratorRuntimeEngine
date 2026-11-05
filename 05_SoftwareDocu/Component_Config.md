@@ -208,3 +208,19 @@ Strict boolean container.system_packages defaults false. Enabled mode is contain
 ## Actual branch-rule checks
 
 `branch_naming_preview` optionally accepts actual `run_id` and positive `iid` identities while retaining its default example response. Admission validates each actual selected name through this same bounded Python regex/Git-name check. Invalid types, timeout and rule mismatch fail closed; rules are never bypassed to allocate a generation. Proof: tests/test_drift_recovery.py and tests/test_branch_naming.py.
+
+## Budget source metadata
+
+`load_config` retains an absolute `Config.source_path` for boundary rereads. It is
+runtime metadata, excluded from `to_dict`, equality and all stored configuration.
+`budgets.max_iterations` defaults to 20; the conductor owns the validated budget-only
+reread and non-budget drift refusal. No other settings are hot-rebound.
+
+`validate_budgets(config)` is the shared pure check for the closed budget table,
+positive integer limits, finite nonnegative cost and ChatGPT stage-timeout cap.
+Startup `validate_config` includes it. Boundary refresh reuses it with exact parsed
+and resolved non-budget binding to the startup-validated configuration; it launches
+no regex matcher, host check or CLI. Unknown sections/keys outside budgets fail
+the binding; unknown budget keys fail the closed table check.
+
+Non-budget binding preserves scalar types as well as values: boolean false and numeric zero are distinct. Canonical typed JSON comparison launches no probes.

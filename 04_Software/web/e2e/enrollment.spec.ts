@@ -346,6 +346,7 @@ test("pending preview becomes stale on upstream edit; corrupt or stale readiness
   await page.route("**/setup-preview", async route => { await gate; await route.continue(); });
   await page.getByRole("button", { name: "Validate setup", exact: true }).click();
   await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByLabel("Maximum executor launches", { exact: false })).toHaveValue("20");
   await page.getByLabel("Maximum executor launches", { exact: false }).fill("8");
   release();
   await page.getByRole("button", { name: "Continue", exact: true }).click();

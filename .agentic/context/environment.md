@@ -245,3 +245,13 @@ The container internet switch does not restrict native host networking.
 Failed-job abandonment uses confirmed state revisions, verified owned native/container/worktree cleanup and leased remote-branch deletion before normal manual admission with monitoring pause preserved. Explicit native cleanup uses saved ownership without resolving current tools; ordinary execution/Retry identity checks remain strict. Proof: tests/test_drift_recovery.py and web/e2e/driftRecovery.spec.ts. No stored schema changes or live resource acceptance are required.
 
 Previously orphaned unproven refs are preserved through bounded fresh branch generations, with actual naming-rule checks and atomic initial local ref creation. Verified own branches remain reusable; known changed checkpoints refuse before cleanup.
+
+
+## Budget verification boundaries
+
+Budget rereads are pure local parsing/budget validation plus binding to already
+validated non-budget settings; no repeated branch-rule/host probe is run. The
+one-second real matcher contract remains in test_branch_naming.py; wizard assembly
+injects its trusted fixture process. Budget/state/HTTP/browser proof uses isolated
+homes and the existing 18765 browser listener, with no live model, forge, runtime
+job or user-service acceptance. See orchestrator.md and web-interface.md knowledge.

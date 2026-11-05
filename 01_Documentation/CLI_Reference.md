@@ -104,8 +104,8 @@ Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
 destructive command.
 
 These intervention commands mutate ADORE-owned state only. None edits an AEGIS
-task journal. `retry` resets the current stage counter and active-work clock but
-preserves task/failure history, and refuses to run while a required notification
+task journal. `retry` resets the current stage counter but preserves cumulative active-work time and
+task/failure history, and refuses to run while a required notification
 remains pending.
 
 Failed-run resources are released only by explicit `cancel <run-id>` (audit

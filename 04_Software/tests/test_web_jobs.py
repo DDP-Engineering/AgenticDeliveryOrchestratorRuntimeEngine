@@ -36,6 +36,10 @@ def _fixture(tmp_path):
                              display_name=f"Project {name}", platform="gitea")
              for name in ("alpha", "beta")]
     stores = [StateStore(item.store_root) for item in items]
+    example = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    for item in items:
+        profiles.config_path(item.name).write_text(example.replace(
+            'store_root = ".adore"', f'store_root = "{Path(item.store_root).as_posix()}"'))
     for index, store in enumerate(stores):
         for run_id, lifecycle in (("same", "working"), ("old", "done")):
             store.save(RunState(run_id=run_id, ticket_iid=1, lifecycle=lifecycle,
@@ -573,3 +577,97 @@ def test_redact_text_masks_url_credentials_and_forge_tokens(raw, secret):
     """@brief Credentials in remote URLs and well-known forge tokens never reach the page."""
     redacted = redact_text(raw)
     assert secret not in redacted and "[REDACTED]" in redacted
+
+
+def test_job_detail_shows_saved_launches_and_frozen_active_time(tmp_path):
+    """@brief Counters and current limits remain available independently of statistics."""
+    _, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", lifecycle="parked-clarification", iterations=9,
+           active_started_at="2026-10-05T09:58:30+00:00", updated_at="2026-10-05T10:00:00+00:00")
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert response.status_code == 200, response.text
+        budget = response.json()["job"]["budget"]
+        assert budget["launches"] == 9 and budget["max_launches"] == 20
+        assert budget["active_seconds"] == 90 and budget["max_active_seconds"] == 3600
+        assert budget["availability"] == "observed" and budget["reason"] is None
+        assert set(budget) == {"launches", "max_launches", "active_seconds",
+                               "max_active_seconds", "config_revision", "availability", "reason"}
+
+
+@pytest.mark.parametrize("corruption", ["counter", "clock"])
+def test_job_budget_detail_refuses_corrupt_evidence(tmp_path, corruption):
+    """@brief Corrupt saved work never becomes guessed zero consumption."""
+    _, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", **({"iterations": True} if corruption == "counter"
+                                else {"active_started_at": "bad"}))
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert response.status_code == 503, response.text
+
+
+@pytest.mark.parametrize("config_state", [
+    "missing", "syntax", "derived-type", "budget-value", "bytes",
+])
+def test_job_details_preserve_recovery_and_consumption_without_current_limits(
+    tmp_path, config_state,
+):
+    """@brief Unavailable limits never erase valid saved evidence or recovery revision."""
+    from hashlib import sha256
+
+    profiles, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", lifecycle="failed", iterations=9,
+           outcome="BUDGET_EXHAUSTED: iteration budget reached (9/9)",
+           active_started_at="2026-10-05T09:58:30+00:00", updated_at="2026-10-05T10:00:00+00:00")
+    path = profiles.config_path("alpha")
+    if config_state == "missing":
+        path.unlink()
+    elif config_state == "bytes":
+        path.write_bytes(b"\xff\xfe")
+    else:
+        text = {"syntax": "[broken", "derived-type": "[agent]\nname = 1\n",
+                "budget-value": "[budgets]\nmax_iterations = -1\n"}[config_state]
+        path.write_text(text, encoding="utf-8")
+    state_path = stores[0].run_dir("same") / "state.json"
+    original = state_path.read_bytes()
+    with TestClient(app, raise_server_exceptions=False) as client:
+        _login(client)
+        response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert response.status_code == 200, response.text
+        job = response.json()["job"]
+        assert job["lifecycle"] == "failed"
+        assert job["state_revision"] == sha256(original).hexdigest()
+        budget = job["budget"]
+        assert budget["launches"] == 9 and budget["active_seconds"] == 90
+        assert budget["availability"] == "unavailable"
+        expected_reason = "config_missing" if config_state == "missing" else "config_corrupt"
+        assert budget["reason"] == expected_reason
+        assert budget["max_launches"] is None and budget["max_active_seconds"] is None
+        assert budget["config_revision"] is None
+    assert state_path.read_bytes() == original
+
+
+def test_job_budget_configuration_race_refuses_an_unbound_observation(tmp_path, monkeypatch):
+    """@brief Config replacement during a detail read remains a 409, not unknown limits."""
+    profiles, items, _, app = _fixture(tmp_path)
+    selected = profiles.config_path("alpha")
+    original = Path.read_bytes
+    calls = 0
+
+    def changing(path):
+        """@brief Replace only the second selected-config byte read in this isolated fixture."""
+        nonlocal calls
+        if path == selected:
+            calls += 1
+            if calls == 2:
+                path.write_bytes(original(path) + b"\n# concurrent configuration write\n")
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", changing)
+    with TestClient(app) as client:
+        _login(client)
+        result = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert result.status_code == 409, result.text
+        assert result.json()["detail"]["code"] == "job_snapshot_changed"

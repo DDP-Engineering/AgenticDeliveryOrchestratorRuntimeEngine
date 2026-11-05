@@ -18,6 +18,7 @@ const job = () => ({ project_id: id, project_name: "alpha", project_display_name
   waiting: { availability: "unknown", reason: null, next_action: null, responsible_role: null,
     responsible_person: null, evidence_url: null, source: null },
   evidence_url: `/api/v1/jobs/${id}/one`, consumption: { availability: "unknown" },
+  budget: {availability:"observed",reason:null,launches:0,max_launches:20,active_seconds:0,max_active_seconds:3600,config_revision:snapshot},
   coverage: { ticket: "missing", journal: "missing", title: "unknown", last_activity: "unknown" } });
 const page = () => ({ items: [job()], total: 1, counts: { working: 1 }, groups: { active: 1, waiting: 0, review: 0, terminal: 0 },
   limit: 10, offset: 0, complete: true, snapshot, snapshot_semantics: "optimistic-source-revision" });
@@ -96,4 +97,28 @@ test("retained old branches are localized as successful recovery evidence", asyn
     assert.equal(operationResultText("restart:retained", locale), recoveryCopy[locale].retained);
     assert.notEqual(operationResultText("restart:retained", locale), recoveryCopy[locale].failed);
   }
+});
+
+
+test("budget observations validate counts, limits and revision before display", () => {
+  const budget = {availability:"observed",reason:null,launches:9,max_launches:20,active_seconds:90,max_active_seconds:3600,config_revision:snapshot};
+  const detail = value => readJobDetail({job:{...job(),budget:value,timeline:[]},complete:true,snapshot},id,"one");
+  assert.equal(detail(budget).budget.launches,9);
+  assert.throws(()=>detail(undefined));
+  for (const value of [{...budget,launches:-1},{...budget,launches:true},
+    {...budget,max_launches:0},{...budget,active_seconds:Infinity},
+    {...budget,max_active_seconds:1.5},{...budget,config_revision:"bad"}]) {
+    assert.throws(()=>detail(value));
+  }
+});
+
+
+test("unavailable current limits preserve trustworthy saved job consumption", () => {
+  const budget = {availability:"unavailable",reason:"config_missing",launches:9,active_seconds:90,
+    max_launches:null,max_active_seconds:null,config_revision:null};
+  const detail = value => readJobDetail({job:{...job(),budget:value,timeline:[]},complete:true,snapshot},id,"one");
+  assert.deepEqual(detail(budget).budget,budget);
+  for (const value of [{...budget,reason:"invented"},{...budget,max_launches:20},
+    {...budget,config_revision:snapshot},{...budget,launches:-1},
+    {...budget,active_seconds:NaN},{...budget,availability:"unknown"}]) assert.throws(()=>detail(value));
 });

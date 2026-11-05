@@ -774,3 +774,26 @@ reviewed environment candidate. See Component_Project_Images.md.
 ## Confirmed failed-job restart
 
 `POST /api/v1/projects/{project}/operations/restart` requires the existing mutation grant/CSRF checks plus `run_id`, `confirmed: true`, exact `state_revision` (64 lowercase hexadecimal characters) and idempotency key. It accepts only a nonarchived project's failed job at that revision. Confirmation/revision format errors are 400 `invalid_operation`; changed state is 409 `job_snapshot_changed`. Replays bind project, action and original revision even after state cleanup. No stored schema changes are required. Read and queue phases perform no resource mutation.
+
+## Reviewed budgets for parked clarification jobs
+
+The reviewed `POST config/apply` path permits `parked-clarification` alongside
+terminal states only when every scalar/batch member is one of the five `[budgets]`
+settings. Current and candidate TOML must equal the exact reviewed edit, preventing
+unrelated scalar payload changes even with recomputed hashes. Base/candidate
+revision, Admin/CSRF, managed state root, conductor/configuration locks, valid
+state and no unfinished operations remain mandatory. Working, approval, review
+and human-ownership lifecycles block apply. Mixed batches and direct config PUT
+retain their existing idle requirements. Applying writes no job state or approval;
+current limits take effect on resume through the existing conductor.
+
+`GET /api/v1/jobs/{project_id}/{run_id}` adds the non-financial `budget` observation
+from `jobs.read_job_budget`, after scoped authorization and with another profile
+recheck. Offline positive/refusal proof is in `test_web_settings_batch.py` and
+`test_web_jobs.py`.
+
+Current limit faults preserve valid Job details and recovery. The budget observation
+uses `availability=unavailable`, a closed missing/corrupt reason and null limit/revision
+fields, while keeping trustworthy consumed launches and active seconds. The interface
+shows — for limits and a localized notice. Corrupt saved job evidence still rejects
+the detail read. Metadata-only profile history retains its existing recovery behavior.

@@ -12,7 +12,7 @@ Installation settings in Technical details are informational and configured in s
 
 Shared CLI/web configuration defaults optional acceptance checking to false and additional revision rounds to five; the typed readiness and portable contracts contain supported fields only.
 
-Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins edit several settings, choose Save, confirm important effects and save only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
+Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows (frame, specify, design, build, validate) choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins edit several settings, choose Save, confirm important effects and save at the existing idle boundary, with a reviewed budget-only exception for parked-clarification jobs; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
 ## Purpose and users
 
@@ -343,3 +343,18 @@ package or state schema is required. See knowledge/execution.md and Operations_G
 Failed-job abandonment uses confirmed state revisions, verified owned native/container/worktree cleanup and leased remote-branch deletion before normal manual admission with monitoring pause preserved. Explicit native cleanup uses saved ownership without resolving current tools; ordinary execution/Retry identity checks remain strict. Proof: tests/test_drift_recovery.py and web/e2e/driftRecovery.spec.ts. No stored schema changes or live resource acceptance are required.
 
 Previously orphaned unproven refs are preserved through bounded fresh branch generations, with actual naming-rule checks and atomic initial local ref creation. Verified own branches remain reusable; known changed checkpoints refuse before cleanup.
+
+
+## Budget boundaries and accumulated work
+
+CLI/web enrollment default to 20 launches. The conductor rereads budgets before
+provision and each executor attempt, pinning parsed/resolved non-budget settings
+without rerunning startup probes; missing/corrupt/unknown/drifted source fails
+BUDGET_CONFIG_INVALID. A current launch retains its timeout. The effective active
+clock anchor shifts over inactive intervals, retaining all consumed work on retry,
+clarification resume and revisions. No new stored fields or schema are required.
+Admin reviewed budget-only saves permit parked jobs under existing lock, revision,
+state-root and operation guards. Job details shows current limits with launches,
+active seconds and 90%/exhaustion guidance independently of token statistics.
+
+Missing/corrupt budget limits retain valid job evidence and recovery with explicit unavailable limits; consumed work remains visible. Non-budget binding includes scalar types.

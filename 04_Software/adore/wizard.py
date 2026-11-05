@@ -68,7 +68,7 @@ _LICENSE_LINES = (
 _DEFAULT_PROVIDER = "openai"
 _DEFAULT_MODEL = "gpt-5.5"
 _RECOMMENDED_BUDGETS = {
-    "max_iterations": 12,
+    "max_iterations": 20,
     "max_wall_clock_seconds": 5400,
     "max_cost_usd": 5.0,
     "max_files_touched": 120,
@@ -641,19 +641,18 @@ def run_wizard(
     # -- Phase H (budgets & policy) -----------------------------------------------
     budgets_choice = ask(FieldSpec(
         "budgets_choice", "Budgets: recommended supervised, or customize?",
-        "recommended = 12 iters / 90 min / $5 / 120 files (6 crawl / 12-15 "
-        "supervised / 20 unattended)",
+        "recommended = 20 launches / 90 active min / $5 / 120 files",
         "recommended", default="recommended", choices=("recommended", "custom"),
     ), asker, out)
     budgets = dict(_RECOMMENDED_BUDGETS)
     if budgets_choice == "custom":
         budgets["max_iterations"] = int(ask(FieldSpec(
             "max_iterations", "Max executor launches per run:",
-            "6 crawl / 12-15 supervised / 20 unattended", "12",
-            default="12", validate=_positive_int), asker, out))
+            "20 recommended; customize for the task", "20",
+            default="20", validate=_positive_int), asker, out))
         budgets["max_wall_clock_seconds"] = int(ask(FieldSpec(
             "max_wall_clock_seconds", "Max active wall-clock per run (seconds):",
-            "restarts on retry/resume", "5400", default="5400",
+            "cumulative; excludes waiting and retains work on retry/resume", "5400", default="5400",
             validate=_positive_int), asker, out))
         budgets["max_cost_usd"] = float(ask(FieldSpec(
             "max_cost_usd", "Max reported model cost per run (USD):",

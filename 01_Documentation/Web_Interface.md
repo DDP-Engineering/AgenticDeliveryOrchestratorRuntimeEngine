@@ -702,9 +702,9 @@ always uses the status comment and lifecycle labels; there is no setting for it.
 
 Administrators can edit several settings across groups and use one **Save** above the groups. Save is disabled for unchanged or invalid edits. Ordinary changes save directly; identity, execution, network, package permissions, budgets and publication effects open **Confirm important changes** with the project and exact changed values. **Save changes** publishes after the server rechecks; **Keep editing** retains the inputs and creates no new stored candidate.
 
-**Discard changes** clears all local edits and the prepared candidate, if present, without changing active settings. Validation, write and stale-revision failures preserve inputs. Stale settings require explicit discard and reload. Navigation and Refresh ask before abandoning edits. Saved values apply to future execution; existing jobs keep their configuration.
+**Discard changes** clears all local edits and the prepared candidate, if present, without changing active settings. Validation, write and stale-revision failures preserve inputs. Stale settings require explicit discard and reload. Navigation and Refresh ask before abandoning edits. Budget limits apply at the next attempt or resume while retaining consumption; other settings require finished jobs.
 
-The server validates the final combined configuration and applies one exact candidate atomically, bound to both active and candidate revisions. It rechecks configuration/conductor locks, nonterminal or corrupt runs, unfinished operations and paused monitoring for identity/runtime changes. Pause monitoring and wait for active work to finish before saving those changes. Invalid or corrupt pending evidence disables editing until explicit discard. Developers retain scoped read-only access with financial and secret redaction.
+The server validates the final combined configuration and applies one exact candidate atomically, bound to both active and candidate revisions. It rechecks configuration/conductor locks, nonterminal or corrupt runs, unfinished operations and paused monitoring for identity/runtime changes. Reviewed candidates containing only the five budget settings also allow parked-clarification runs; mixed batches and direct edits retain the idle boundary. Pause monitoring and wait for active work to finish before saving those changes. Invalid or corrupt pending evidence disables editing until explicit discard. Developers retain scoped read-only access with financial and secret redaction.
 
 A model served by an OpenAI-compatible server on your network (LM Studio,
 Ollama, vLLM) is configured with the **OpenAI-compatible endpoint** provider.
@@ -1244,3 +1244,20 @@ For container projects, Settings > Agent and model includes a reviewed boolean *
 Job details offers **Abandon and start again** for a failed job, with explicit irreversible-cleanup confirmation. It binds the reviewed state version, releases verified owned resources and the unchanged owned remote branch, and starts the same ticket with current settings through normal manual admission. Monitoring pause is preserved. Stable execution-settings drift explains why Retry cannot help; volatile native environment changes can still use Retry. Foreign/corrupt resources, changed branches and incomplete cleanup stop recovery with retained evidence. Administrators and project-assigned developers retain the same command grants.
 
 Previously orphaned branches without a saved checkpoint are kept and reported while a fresh branch generation is used. The repository naming rule must admit a free name; otherwise restart stops before cleanup. A changed known checkpoint remains a refusal.
+
+## Adjusting and following job budgets
+
+Job details shows executor launches and cumulative active seconds against current
+project limits, with a warning at 90%. Administrators can follow its Settings link,
+open Implementation and Save a reviewed change containing only budget settings
+while jobs await clarification. No conductor or operation may be active; unrelated
+settings retain their idle and pause checks. Limits are project-wide and take effect
+before the next attempt or resume, with all accumulated usage and task progress
+retained. An in-flight attempt retains its timeout. Failed exhausted jobs still
+require Retry. The default launch limit is 20 in CLI and guided web enrollment.
+
+Current limit faults preserve valid Job details and recovery. The budget observation
+uses `availability=unavailable`, a closed missing/corrupt reason and null limit/revision
+fields, while keeping trustworthy consumed launches and active seconds. The interface
+shows — for limits and a localized notice. Corrupt saved job evidence still rejects
+the detail read. Metadata-only profile history retains its existing recovery behavior.

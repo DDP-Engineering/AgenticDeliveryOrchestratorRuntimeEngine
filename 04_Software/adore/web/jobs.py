@@ -25,8 +25,10 @@ from pathlib import Path
 import re
 from urllib.parse import quote, unquote, urlsplit
 
+from adore.config import load_config, validate_budgets
 from adore.profiles import Profile, ProfileStore
 from adore.state import RunState, StateError
+from adore.util import utc_now_iso
 
 # CONSTANTS
 _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}")
@@ -378,6 +380,36 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
     }
 
 
+def _current_budget_limits(path: Path) -> dict:
+    """
+    @brief Read current limits or classify their unavailability without host probes.
+    @param[in] path Selected project's configuration file.
+    @return Validated limits and an optimistic configuration revision.
+    @exception JobReadError For missing/corrupt configuration or changing bytes.
+    """
+    try:
+        if path.is_symlink():
+            raise JobReadError("config_corrupt")
+        raw = path.read_bytes()
+        config = load_config(path)
+        if validate_budgets(config):
+            raise JobReadError("config_corrupt")
+        limits = (config.budgets.max_iterations, config.budgets.max_wall_clock_seconds)
+        if any(type(value) is not int or not 1 <= value <= 2**53 - 1 for value in limits):
+            raise JobReadError("config_corrupt")
+        if path.read_bytes() != raw:
+            raise JobReadError("job_snapshot_changed", 409)
+        return {"availability": "observed", "reason": None,
+                "max_launches": limits[0], "max_active_seconds": limits[1],
+                "config_revision": sha256(raw).hexdigest()}
+    except FileNotFoundError as exc:
+        raise JobReadError("config_missing") from exc
+    except JobReadError:
+        raise
+    except (OSError, ValueError, TypeError, AttributeError, OverflowError, RecursionError) as exc:
+        raise JobReadError("config_corrupt") from exc
+
+
 # PUBLIC API
 def redact_text(value: str) -> str:
     """
@@ -448,6 +480,48 @@ def sort_jobs(rows: list[dict], key: str, descending: bool) -> list[dict]:
     known = [row for row in ordered if values(row) is not None]
     unknown = [row for row in ordered if values(row) is None]
     return sorted(known, key=values, reverse=descending) + unknown
+
+
+def read_job_budget(profiles: ProfileStore, item: Profile, run_id: str,
+                    state_revision: str) -> dict:
+    """
+    @brief Retain trustworthy consumption when current project limits are unavailable.
+    @param[in] profiles Profile owner providing the selected configuration path.
+    @param[in] item Authorized job owner.
+    @param[in] run_id Job selected by composite identity.
+    @param[in] state_revision Exact state bytes already used by the detail projection.
+    @return Saved launch/time consumption with observed or explicitly unavailable limits.
+    @exception JobReadError For corrupt/changing state or concurrently changing limits.
+    """
+    state_path = (Path(item.store_root or profiles.default_store_root(item.name))
+                  / "runs" / run_id / "state.json")
+    try:
+        if state_path.is_symlink():
+            raise JobReadError("run_state_corrupt")
+        state_raw = state_path.read_bytes()
+        if sha256(state_raw).hexdigest() != state_revision:
+            raise JobReadError("job_snapshot_changed", 409)
+        run = RunState.from_dict(_object(state_raw, "run_state_corrupt"))
+        if run.iterations > 2**53 - 1:
+            raise JobReadError("run_state_corrupt")
+        result = {"launches": run.iterations,
+                  "active_seconds": run.active_work_seconds(utc_now_iso())}
+        try:
+            result.update(_current_budget_limits(profiles.config_path(item.name)))
+        except JobReadError as exc:
+            if exc.code not in {"config_missing", "config_corrupt"}:
+                raise
+            result.update(availability="unavailable", reason=exc.code,
+                          max_launches=None, max_active_seconds=None, config_revision=None)
+        if state_path.read_bytes() != state_raw:
+            raise JobReadError("job_snapshot_changed", 409)
+        return result
+    except JobReadError:
+        raise
+    except FileNotFoundError as exc:
+        raise JobReadError("job_snapshot_changed", 409) from exc
+    except (OSError, StateError, ValueError, TypeError, OverflowError, RecursionError) as exc:
+        raise JobReadError("run_state_corrupt") from exc
 
 
 # END OF FILE

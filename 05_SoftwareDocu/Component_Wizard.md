@@ -212,3 +212,12 @@ behavior. Without this option the wizard still probes and saves a `Profile`.
 ## Native execution contract
 
 Choosing local execution omits container selection and offers a project tools PATH under the current service account. The wizard gives the managed Pi install/verify commands. It never runs npm or signs in to a personal Pi account.
+
+## Shared launch default
+
+Recommended and custom CLI prompts and web enrollment default to 20 executor
+launches, aligned with `BudgetsConfig`. Explicit operator values stay authoritative.
+The recommended profile keeps 5400 cumulative active seconds. `test_wizard.py`
+validates generated profiles with the normal configuration validator and golden
+values; its known regex fixture process is injected independently of host startup
+latency. `test_branch_naming.py` retains actual matching and process-protocol proof.

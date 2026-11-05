@@ -80,6 +80,8 @@ requests do not conduct in the HTTP process.
 
 ## Key behaviors
 
+- REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b / REQ-DATA-0c65db9f: before provision and each executor attempt, reread the selected source, validate budgets and pin parsed/resolved non-budget settings. Only budgets are rebound; no branch matcher/host probe is rerun. Missing/corrupt/unknown input or non-budget drift fails BUDGET_CONFIG_INVALID before another launch. Active time, sessions and saved task/worktree progress stay cumulative across resume/retry/revision. An in-flight launch retains its timeout. Proof includes public Retry boundaries and HTTP parked-budget save followed by same-job resume in test_orchestrator.py.
+
 Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
 One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage
 and model targets, with native evidence redaction. Readiness reads the stored
@@ -202,3 +204,5 @@ delete verifies derived names (including configured branch templates), dedicated
 Deletion removes the old terminal metrics summary and invokes the optional registered-profile deletion callback, which holds projection serialization across source removal and cursor reset. No persisted schema changes. Offline proof includes a real poll/admission after prior projected usage, plus stale-reader and summary-rebuild writer boundaries.
 
 Previously deleted jobs with unproven occupied refs use bounded fresh branch generations on restart; the old ref is retained and reported, never deleted. A known changed checkpoint still refuses before cleanup. Verified own branches can be reused under strict rules; rule refusal occurs before cleanup. Initial admission uses atomic new-branch/worktree creation; a job without established worktree ownership cannot delete an unproven local ref. Delete and merged cleanup accept only exact derived generation names. Proof includes actual orphan admission and all-forge generated-merge cleanup in tests/test_drift_recovery.py.
+
+Non-budget source binding uses type-sensitive canonical JSON; false/0 and true/1 never authorize another attempt after a configuration type change.

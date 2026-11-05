@@ -170,3 +170,22 @@ Authorized job reads validate `RunState.execution` then expose only preparation 
 Every job exposes `state_revision`, SHA-256 of its validated state bytes. Failed jobs offer Abandon and start again with destructive confirmation, including loss of unpublished work and preservation of monitoring pause. Stable execution-profile/settings drift explains why Retry cannot help and hides that button; volatile native environment changes remain eligible for explicit Retry, including processor variables after VM resizing. Restart binds confirmation to this revision; malformed/missing revision disables the action. Four-locale browser proof: `web/e2e/driftRecovery.spec.ts`; model proof: `web/tests/jobs.test.mjs`.
 
 An older occupied ref without a saved checkpoint is retained during confirmed restart, which chooses a fresh generation under the repository naming rule. Known changed checkpoints still refuse. The successful result explains retained old branches; normal owned branch reuse remains available under strict rules.
+
+## Detail budget observation
+
+`read_job_budget(profiles, item, run_id, state_revision)` adds `budget` only to the
+composite job-detail response: `launches`, `max_launches`, `active_seconds`,
+`max_active_seconds`, `config_revision`, `availability`, `reason`. It binds saved state bytes to the earlier
+projection and rechecks both configuration and state bytes after reading. Limits
+are current project settings, applied by the conductor at its next boundary.
+The budget allowlist, positive safe-integer bounds and finite cost validation run
+locally; no branch matcher, forge, model or runtime command is launched. No financial
+value is returned to either role. Corrupt saved state returns a typed read failure;
+concurrent source replacement returns 409 `job_snapshot_changed`. Missing/corrupt
+current limit configuration raises a classified internal read error, represented as
+availability=unavailable with reason=config_missing/config_corrupt and null limits
+and config_revision. Valid saved counters, history and recovery stay available;
+no default is invented. Derivation type errors are classified, including AttributeError.
+
+Public HTTP proof: `test_web_jobs.py` checks counters/frozen elapsed time, roles,
+source corruption and authorized identity. Statistics consumption remains separate.

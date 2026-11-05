@@ -499,7 +499,7 @@ class BudgetsConfig:
     @brief   [budgets] - hard bounds so a run can never thrash forever.
     @details `per_gate_timeout_seconds` bounds ONE executor launch (the
              wall-clock a single gate/fix relaunch may take);
-             `max_wall_clock_seconds` bounds the WHOLE run since pickup. They
+             `max_wall_clock_seconds` bounds cumulative active work, excluding waits. They
              are independent knobs - a generous per-gate limit no longer forces
              an equally generous total, and a tight total no longer throttles
              every individual gate.
@@ -602,6 +602,7 @@ class Config:
     reconcile: ReconcileConfig = field(default_factory=ReconcileConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     raw: dict[str, Any] = field(default_factory=dict)
+    source_path: Path | None = field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -806,7 +807,7 @@ def load_config(path: str | Path) -> Config:
                 are left out, so `adore config validate` reports every problem,
                 unknown keys included, in one pass instead of dying on the first.
     @param[in]  path Path to config.toml.
-    @return     A populated Config instance.
+    @return     Config with runtime-only absolute source_path metadata.
     @exception  FileNotFoundError When the file does not exist.
     @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
     """
@@ -833,6 +834,7 @@ def load_config(path: str | Path) -> Config:
         reconcile=_build_section(ReconcileConfig, raw.get("reconcile")),
         metrics=_build_section(MetricsConfig, raw.get("metrics")),
         raw=raw,
+        source_path=Path(path).resolve(),
     )
     _derive_names(config)
     return config
@@ -950,7 +952,7 @@ def _unknown_key_issues(raw: dict) -> list[str]:
         ("polling", PollingConfig), ("readiness", ReadinessConfig),
         ("clarification", ClarificationConfig), ("worktree", WorktreeConfig),
         ("workflow", WorkflowConfig), ("recovery", RecoveryConfig),
-        ("budgets", BudgetsConfig), ("delivery", DeliveryConfig),
+        ("delivery", DeliveryConfig),
         ("review", ReviewConfig), ("reconcile", ReconcileConfig),
         ("metrics", MetricsConfig),
     ):
@@ -993,11 +995,6 @@ def _chatgpt_issues(config: Config) -> list[str]:
     @return     One issue per problem, naming the key.
     """
     issues: list[str] = []
-    limit = config.budgets.per_gate_timeout_seconds
-    if isinstance(limit, int) and not isinstance(limit, bool) and limit > CHATGPT_MAX_STAGE_SECONDS:
-        issues.append(f"[budgets] per_gate_timeout_seconds must be at most "
-                      f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": a ChatGPT access "
-                      "token lasts about an hour")
     overrides = config.workflow.stage_timeout_overrides
     for stage, seconds in (overrides.items() if isinstance(overrides, dict) else ()):
         if isinstance(seconds, int) and not isinstance(seconds, bool) \
@@ -1088,6 +1085,38 @@ def egress_policy(config: Config) -> EgressPolicy:
     return EgressPolicy(mode="allowlist-proxy", allowlist=hosts,
                         no_proxy=list(egress.no_proxy), proxy_image=egress.proxy_image,
                         proxy_port=egress.proxy_port, network_prefix=egress.network_prefix)
+
+
+def validate_budgets(config: Config) -> list[str]:
+    """
+    @brief Validate only the closed budget table and its provider timeout bound.
+    @param[in] config Typed configuration; other settings are separately validated/pinned.
+    @return Human-readable issues, without subprocesses or host/runtime checks.
+    """
+    issues = []
+    raw = config.raw.get("budgets", {})
+    allowed = {item.name for item in fields(BudgetsConfig)}
+    if not isinstance(raw, dict):
+        issues.append("[budgets] must be a table")
+    else:
+        issues.extend(f"[budgets] unknown key {key!r}: remove it from config.toml"
+                      for key in sorted(set(raw) - allowed))
+    for key in sorted(allowed - {"max_cost_usd"}):
+        value = getattr(config.budgets, key)
+        if type(value) is not int or value < 1:
+            issues.append(f"[budgets] {key} must be an integer >= 1")
+    cap = config.budgets.max_cost_usd
+    if (type(cap) not in {int, float} or cap < 0
+            or isinstance(cap, float) and not math.isfinite(cap)):
+        issues.append("[budgets] max_cost_usd must be a finite nonnegative number "
+                      "(0 disables the cap)")
+    limit = config.budgets.per_gate_timeout_seconds
+    if (config.executor.provider == CHATGPT and type(limit) is int
+            and limit > CHATGPT_MAX_STAGE_SECONDS):
+        issues.append(f"[budgets] per_gate_timeout_seconds must be at most "
+                      f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": "
+                      "a ChatGPT access token lasts about an hour")
+    return issues
 
 
 def validate_config(config: Config) -> list[str]:
@@ -1509,23 +1538,7 @@ def validate_config(config: Config) -> list[str]:
                 isinstance(value, int) and not isinstance(value, bool) and value >= 0,
                 f"[recovery] retry_backoff_seconds entries must be >= 0: {value!r}",
             )
-    check(config.budgets.max_iterations >= 1, "[budgets] max_iterations must be >= 1")
-    check(
-        config.budgets.max_wall_clock_seconds >= 1,
-        "[budgets] max_wall_clock_seconds must be >= 1",
-    )
-    check(
-        config.budgets.per_gate_timeout_seconds >= 1,
-        "[budgets] per_gate_timeout_seconds must be >= 1",
-    )
-    cost_cap = config.budgets.max_cost_usd
-    check(
-        isinstance(cost_cap, (int, float)) and not isinstance(cost_cap, bool)
-        and cost_cap >= 0
-        and (not isinstance(cost_cap, float) or math.isfinite(cost_cap)),
-        "[budgets] max_cost_usd must be a finite nonnegative number (0 disables the cap)",
-    )
-    check(config.budgets.max_files_touched >= 1, "[budgets] max_files_touched must be >= 1")
+    issues.extend(validate_budgets(config))
 
     check(bool(config.delivery.target_branch.strip()), "[delivery] target_branch is required")
     check(

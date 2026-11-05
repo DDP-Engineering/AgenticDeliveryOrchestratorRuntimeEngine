@@ -17,6 +17,8 @@ TOML. Start at `04_Software/adore/wizard.py`; verify with
 
 ## Purpose and boundaries
 
+Candidate validation precedes profile publication; prepare-only returns the candidate without probes or writes.
+
 `04_Software/adore/wizard.py` implements `adore init`: it turns explicit
 operator answers and environment guidance into a minimal, validated
 runtime-project profile rather than asking an operator to hand-author every
@@ -65,6 +67,8 @@ unprovided runtime default. CLI mode retains probes and persistence.
 
 ## Key behaviors
 
+- REQ-FUNC-bf8a9a47: recommended/custom CLI launch defaults and web enrollment use 20; explicit values retain authority. Recommended active time is 5400 seconds, cumulative with waiting excluded. Wizard assembly tests inject only their known branch-rule process; full validation and golden assertions remain, and test_branch_naming.py exercises actual matching and process failures.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Setup asks container/local first. Local profiles skip runtime/image detection, select managed Pi and an optional tools PATH and state execution-account/tooling responsibility. Prepared profiles include execution/local sections; web enrollment keeps pickup stopped.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
@@ -80,19 +84,6 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-FUNC-7ce5b17a` - web project creation reuses guided answers and the
   same validation path.
 - `REQ-REL-94e653aa` - generated cost caps retain the DCP subscription mode.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    answers([Console or scripted answers]) --> wizard[run_wizard]
-    wizard -->|default mode| probes[Doctor probes]
-    wizard --> validate[load_config and validate_config]
-    validate -->|default mode| profiles[(ProfileStore)]
-    validate -->|prepare only| candidate[WizardSetup to web publication]
-```
-
-The wizard generates a candidate and saves it only after validation succeeds.
 
 ## Files
 

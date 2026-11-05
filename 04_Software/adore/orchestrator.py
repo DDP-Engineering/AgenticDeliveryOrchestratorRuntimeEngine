@@ -54,7 +54,7 @@ from adore.branding import (
     EXECUTOR_BASE_IMAGE,
     EXECUTOR_NAME,
 )
-from adore.config import Config, branch_naming_preview, egress_policy
+from adore.config import Config, branch_naming_preview, egress_policy, load_config, validate_budgets
 from adore.execution import (
     ContainerBackend,
     ExecutionBackend,
@@ -594,7 +594,6 @@ class Orchestrator:
         run.lifecycle = "working"
         run.outcome = ""
         run.stage_failures = 0
-        run.active_started_at = utc_now_iso()
         if not resume_publication:
             run.approval_presented_at = ""
             run.approval_label_removed = False
@@ -1073,6 +1072,8 @@ class Orchestrator:
     def _conduct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """@brief Provision and supervise the active AEGIS task to approval."""
         with self._conducting(run.run_id):
+            if not self._refresh_budgets(run):
+                return
             try:
                 self._transient(run, "provision", lambda: self._provision(run))
             except (IsolationError, ForgeError) as exc:
@@ -1155,6 +1156,8 @@ class Orchestrator:
         failure_context = ""
         while run.lifecycle == "working":
             if self._handoff_at_boundary(run) or self._cancel_if_requested(run):
+                return
+            if not self._refresh_budgets(run):
                 return
             budget = self._budget_exceeded(run)
             if budget:
@@ -2001,7 +2004,6 @@ class Orchestrator:
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.stage_failures = 0
-        run.active_started_at = utc_now_iso()
         self.store.save(run)
         self.store.journal(run.run_id, "approval-invalidated", reason=reason)
         self._required_comment(
@@ -2673,7 +2675,6 @@ class Orchestrator:
             run.lifecycle = "working"
             run.parked_at = ""
             run.parked_polls = 0
-            run.active_started_at = utc_now_iso()
             self.store.save(run)
             self.store.journal(run.run_id, "resumed")
             with contextlib.suppress(ForgeError):
@@ -2825,7 +2826,6 @@ class Orchestrator:
         run.approval_presented_at = ""
         run.approval_label_removed = False
         run.lifecycle = "working"
-        run.active_started_at = utc_now_iso()
         # Clear the surfaced verdict: this revision produces new commits and so
         # a new pipeline run, whose result must be observed afresh.
         run.pipeline_reported = ""
@@ -3219,12 +3219,7 @@ class Orchestrator:
                 if self.store.cancel_requested(run.run_id):
                     record["status"] = "cancelled"
                     raise ExecutionRecoveryError("preparation cancelled")
-                active_start = iso_to_datetime(run.active_started_at)
-                elapsed = (
-                    (iso_to_datetime(utc_now_iso()) - active_start).total_seconds()
-                    if active_start
-                    else 0
-                )
+                elapsed = run.active_work_seconds(utc_now_iso())
                 remaining = min(
                     self.config.execution.preparation_total_timeout_seconds
                     - (time.monotonic() - started),
@@ -3330,14 +3325,46 @@ class Orchestrator:
             and isinstance(event.get("cost_usd", 0), (int, float))
         )
 
+    def _refresh_budgets(self, run: RunState) -> bool:
+        """
+        @brief Reread only budgets at an execution boundary, retaining all job evidence.
+        @param[in,out] run Current job to fail closed on unavailable or changed input.
+        @return True when the selected source remains valid and only budgets changed.
+        """
+        if self.config.source_path is None:
+            return True  # Directly injected configurations have no on-disk source.
+        try:
+            current = load_config(self.config.source_path)
+            if validate_budgets(current):
+                raise ValueError("invalid budgets")
+            before, after = self.config.to_dict(), current.to_dict()
+            before.pop("budgets")
+            after.pop("budgets")
+            raw_before, raw_after = dict(self.config.raw), dict(current.raw)
+            raw_before.pop("budgets", None)
+            raw_after.pop("budgets", None)
+            # JSON preserves scalar types where Python equality conflates
+            # False with 0 or True with 1. Raw binding also rejects unknown keys.
+            if any(json.dumps(left, sort_keys=True, allow_nan=False)
+                   != json.dumps(right, sort_keys=True, allow_nan=False)
+                   for left, right in ((before, after), (raw_before, raw_after))):
+                raise ValueError("non-budget configuration changed")
+        except (OSError, ValueError, TypeError, AttributeError, OverflowError, RecursionError):
+            self._fail_immediately(
+                run, "BUDGET_CONFIG_INVALID",
+                "Cannot refresh budgets: restore a valid configuration with unchanged "
+                "non-budget settings before retrying this job.",
+            )
+            return False
+        self.config.budgets = current.budgets
+        return True
+
     def _budget_exceeded(self, run: RunState) -> str:
         """@brief Return a reason for the first exhausted global budget."""
         budgets = self.config.budgets
         if run.iterations >= budgets.max_iterations:
             return f"iteration budget reached ({run.iterations}/{budgets.max_iterations})"
-        started = iso_to_datetime(run.active_started_at)
-        now = iso_to_datetime(utc_now_iso())
-        if started and now and (now - started).total_seconds() >= budgets.max_wall_clock_seconds:
+        if run.active_work_seconds(utc_now_iso()) >= budgets.max_wall_clock_seconds:
             return f"active work clock reached {budgets.max_wall_clock_seconds}s"
         if budgets.max_cost_usd > 0:
             cost_spent = self._cost_spent(run)

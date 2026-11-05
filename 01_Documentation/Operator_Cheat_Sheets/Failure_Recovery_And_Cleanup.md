@@ -29,7 +29,7 @@ adore --profile <name> reset <run-id> --to <stage> --force
 adore --profile <name> cleanup
 ```
 
-Retry resets only the active stage counter and active-work clock. Reset changes
+Retry resets only the active stage counter; consumed active-work time is retained. Reset changes
 ADORE state but never edits an AEGIS task journal.
 
 Reach for reset rather than retry after `FORBIDDEN_STAGE_TRANSITION`. That

@@ -27,7 +27,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, fields
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import json
 import os
@@ -62,6 +62,26 @@ _LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing",
     "in-review", "failed", "done", "cancelled", "stale", "handed-off", "handoff-pending",
 }
+
+
+# LOCAL HELPERS
+def _clock_stamp(value: object) -> datetime:
+    """
+    @brief Refuse malformed durable clock evidence before budget accounting.
+    @param[in] value Untrusted saved or current timestamp.
+    @return A timezone-aware datetime.
+    @exception StateError For nontext, invalid or timezone-free evidence.
+    """
+    try:
+        if not isinstance(value, str):
+            raise ValueError
+        stamp = datetime.fromisoformat(value)
+        if stamp.tzinfo is None or stamp.utcoffset() is None:
+            raise ValueError
+        return stamp
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise StateError("run-state active clock requires aware ISO timestamps") from exc
+
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -135,9 +155,20 @@ class RunState:
     outcome: str = ""
     checkpoint_remote_commit: str = ""
     checkpoint_error: str = ""
+    #: Effective clock anchor, shifted over inactive intervals to retain consumed work.
     active_started_at: str = ""
     created_at: str = ""
     updated_at: str = ""
+
+    def active_work_seconds(self, now: str) -> float:
+        """
+        @brief Return cumulative working time; inactive lifecycles freeze at last save.
+        @param[in] now Aware current timestamp for an actively working job.
+        @return Nonnegative elapsed seconds from the effective active-clock anchor.
+        @exception StateError For malformed or timezone-free clock evidence.
+        """
+        end = _clock_stamp(now if self.lifecycle == "working" else self.updated_at)
+        return max(0.0, (end - _clock_stamp(self.active_started_at)).total_seconds())
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -176,6 +207,10 @@ class RunState:
                 "it was written by another ADORE build"
             )
         state = cls(**data)
+        if state.active_started_at != "" or state.created_at or state.updated_at:
+            _clock_stamp(state.active_started_at)
+        if type(state.iterations) is not int or state.iterations < 0:
+            raise StateError("run-state iterations must be nonnegative")
         if (
             not isinstance(state.run_id, str)
             or _RUN_ID_RE.fullmatch(state.run_id) is None
@@ -555,11 +590,22 @@ class StateStore:
 
     def save(self, state: RunState) -> None:
         """
-        @brief      Persist a run's state atomically, stamping timestamps.
+        @brief      Persist state atomically, stamping timestamps and freezing inactive work time.
         @param[in]  state The RunState to write (updated_at is refreshed;
                           created_at is set on first save).
         """
         now = utc_now_iso()
+        path = self.run_dir(state.run_id) / STATE_FILE
+        if path.exists():
+            previous = self.load(state.run_id)
+            # Move the effective anchor over waiting time, including repeated
+            # inactive saves. Resume keeps all work consumed before the wait.
+            if previous.lifecycle != "working":
+                waiting = max(0.0, (_clock_stamp(now)
+                                   - _clock_stamp(previous.updated_at)).total_seconds())
+                state.active_started_at = (
+                    _clock_stamp(previous.active_started_at) + timedelta(seconds=waiting)
+                ).isoformat()
         state.schema_version = STATE_SCHEMA_VERSION
         if not state.created_at:
             state.created_at = now
@@ -586,7 +632,9 @@ class StateStore:
         if not isinstance(data, dict):
             raise StateError(f"corrupt state.json for run {run_id!r}: not a JSON object")
         try:
-            return RunState.from_dict(data)
+            state = RunState.from_dict(data)
+            _clock_stamp(state.active_started_at)
+            return state
         except TypeError as exc:
             raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
         except StateError as exc:

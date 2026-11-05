@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
-import { jobCopy, lifecycleExplanation } from "./jobCopy";
+import { budgetCopy, jobCopy, lifecycleExplanation } from "./jobCopy";
 import { PreparationResults } from "./ExecutionPlanReview";
 import { activityAge, commandAllowed, stableExecutionDrift, IncompleteJobs, readJobDetail, readJobPage, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
@@ -264,6 +264,18 @@ export function JobWorkspace(props: Props) {
       <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
       {stableExecutionDrift(visibleDetail) && <p role="note">{recoveryCopy[locale].drift}</p>}
       {commandAllowed(visibleDetail, "restart") && <div><p className="field-hint">{recoveryCopy[locale].help}</p><button className="danger" disabled={busy} onClick={() => void command("restart", visibleDetail)}>{recoveryCopy[locale].restart}</button></div>}
+      {visibleDetail.budget && <section className="job-budgets" aria-label={budgetCopy[locale].title}>
+        <h3>{budgetCopy[locale].title}</h3>
+        <dl className="action-explanation">
+          <div><dt>{budgetCopy[locale].launches}</dt><dd>{visibleDetail.budget.launches} / {visibleDetail.budget.max_launches ?? "—"}</dd></div>
+          <div><dt>{budgetCopy[locale].active}</dt><dd>{Math.floor(visibleDetail.budget.active_seconds)} / {visibleDetail.budget.max_active_seconds ?? "—"}</dd></div>
+        </dl>
+        {visibleDetail.budget.availability === "unavailable" ? <p className="notice" role="status">{budgetCopy[locale].unavailable}</p> :
+          (visibleDetail.budget.launches / visibleDetail.budget.max_launches >= .9 || visibleDetail.budget.active_seconds / visibleDetail.budget.max_active_seconds >= .9) &&
+          <p className="notice" role="status">{visibleDetail.budget.launches >= visibleDetail.budget.max_launches || visibleDetail.budget.active_seconds >= visibleDetail.budget.max_active_seconds ? budgetCopy[locale].reached : budgetCopy[locale].near}</p>}
+        <p className="field-hint">{budgetCopy[locale].timing}</p>
+        {props.admin && !visibleDetail.project_archived && <a href={formatRoute({view:"projectDetails",project:visibleDetail.project_id,tab:"configuration"})}>{budgetCopy[locale].settings}</a>}
+      </section>}
       <h3>{copy.consumption}</h3>{consumptionView(visibleDetail, true)}
       {visibleDetail.preparation && <PreparationResults evidence={visibleDetail.preparation} locale={locale} />}
       <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}

@@ -104,6 +104,8 @@ Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
 
+- REQ-FUNC-bf8a9a47 / REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b: `load_config` retains runtime-only absolute `source_path`, excluded from resolved serialization and equality. `validate_budgets` checks the closed table, positive integer limits, finite nonnegative cost and ChatGPT attempt cap without subprocesses. Startup includes this same check; conductor rereads bind parsed/resolved non-budget values to the validated configuration without rerunning the branch matcher. Proof: test_config.py, test_chatgpt.py and public Retry cases in test_orchestrator.py.
+
 - REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: LocalConfig supplies the current account and optional tools PATH. The local backend rejects recipes, a non-empty container egress allowlist and container-only options. Reserved launch overrides and unknown local fields are refused. Container remains the default.
 
 Native ownership/auth route to `local-execution.md`; focused proof is

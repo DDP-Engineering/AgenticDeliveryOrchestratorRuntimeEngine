@@ -127,7 +127,7 @@ from adore.web.executor_settings import (
     update_credential,
 )
 from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
-from adore.web.jobs import JobReadError, read_jobs, sort_jobs
+from adore.web.jobs import JobReadError, read_job_budget, read_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.repository_source import (
     RepositorySourceError,
@@ -3919,6 +3919,17 @@ def create_app(home: str | Path | None = None,
             current_revision = sha256(raw).hexdigest()
             _public_pending_config(pending, active_text=raw.decode("utf-8"))
             already_applied = current_revision == pending["candidate_revision"]
+            budget_keys = {"budgets.max_iterations", "budgets.max_wall_clock_seconds",
+                           "budgets.per_gate_timeout_seconds", "budgets.max_cost_usd",
+                           "budgets.max_files_touched"}
+            members = (parse_batch(pending["value"]) if pending["key"] == BATCH_KEY
+                       else ((pending["key"], pending["value"]),))
+            budget_only = bool(members) and all(key in budget_keys for key, _ in members)
+            if budget_only and not already_applied:
+                expected = _set_candidate_value(
+                    raw.decode("utf-8"), pending["key"], pending["value"])
+                if tomllib.loads(expected) != tomllib.loads(pending["candidate_text"]):
+                    raise _error(503, "pending_config_corrupt")
             if current_revision != pending["base_revision"] and not already_applied:
                 raise _error(409, "stale_config_revision")
             if (
@@ -3934,7 +3945,9 @@ def create_app(home: str | Path | None = None,
                 if (
                     state.invalid_runs()
                     or any(
-                        run.lifecycle not in _TERMINAL_RUN_LIFECYCLES for run in state.list_runs()
+                        run.lifecycle not in _TERMINAL_RUN_LIFECYCLES
+                        and not (budget_only and run.lifecycle == "parked-clarification")
+                        for run in state.list_runs()
                     )
                     or web.has_unfinished_operations(item.name)
                     or pending.get("restart_required")
@@ -4137,6 +4150,11 @@ def create_app(home: str | Path | None = None,
         row = next((row for row in rows if row["run_id"] == run_id), None)
         if row is None:
             raise _error(404, "run_not_found")
+        item = next(item for item in job_projects(user, project_id)
+                    if item.project_id == project_id)
+        row["budget"] = read_job_budget(profiles, item, run_id, row["state_revision"])
+        if item not in job_projects(user, project_id):
+            raise JobReadError("job_snapshot_changed", 409)
         return {"job": row, "complete": True, "snapshot": revision}
 
     @app.get("/api/v1/projects/{name}/runs")

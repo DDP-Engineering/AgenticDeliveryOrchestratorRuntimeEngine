@@ -8,8 +8,15 @@ import { validPreparationEvidence, type PreparationEvidence } from "./executionP
 export const lifecycles = ["working", "publishing", "parked-clarification", "awaiting-approval", "in-review", "handoff-pending", "handed-off", "done", "failed", "cancelled", "stale"] as const;
 export const stages = ["frame", "specify", "design", "build", "validate", "done", "publishing"] as const;
 export type Lifecycle = typeof lifecycles[number];
+export type JobBudget = { launches: number; active_seconds: number } & (
+  { availability: "observed"; reason: null; max_launches: number;
+    max_active_seconds: number; config_revision: string } |
+  { availability: "unavailable"; reason: "config_missing" | "config_corrupt";
+    max_launches: null; max_active_seconds: null; config_revision: null }
+);
 export type Job = {
   state_revision?: string;
+  budget?: JobBudget;
   preparation?: PreparationEvidence | null;
   project_id: string; project_name: string; project_display_name: string; project_archived: boolean;
   run_id: string; ticket_iid: number; ticket_title: string | null; ticket_url: string | null; mr_url: string | null;
@@ -61,6 +68,18 @@ export function readJob(value: unknown, authorized: string[]): Job {
     ![row.created_at, row.updated_at, row.last_activity_at].every(stamp) ||
     row.evidence_url !== `/api/v1/jobs/${row.project_id}/${row.run_id}` ||
     object(row.consumption).availability !== "unknown") invalid();
+  if (row.budget !== undefined) {
+    const budget = object(row.budget);
+    if (!count(budget.launches) || typeof budget.active_seconds !== "number" ||
+      !Number.isFinite(budget.active_seconds) || budget.active_seconds < 0) invalid();
+    if (budget.availability === "observed") {
+      if (!count(budget.max_launches) || Number(budget.max_launches) < 1 ||
+        !count(budget.max_active_seconds) || Number(budget.max_active_seconds) < 1 || budget.reason !== null ||
+        !string(budget.config_revision) || !/^[a-f0-9]{64}$/.test(budget.config_revision)) invalid();
+    } else if (budget.availability !== "unavailable" ||
+      !["config_missing", "config_corrupt"].includes(String(budget.reason)) ||
+      budget.max_launches !== null || budget.max_active_seconds !== null || budget.config_revision !== null) invalid();
+  }
   if (row.preparation !== undefined && row.preparation !== null && !validPreparationEvidence(row.preparation)) invalid();
   for (const link of [row.ticket_url, row.mr_url, waiting.evidence_url]) if (link !== null && safeEvidenceLink(link) === null) invalid();
   if (!["unknown", "observed"].includes(String(waiting.availability)) ||
@@ -106,7 +125,7 @@ export function readJobDetail(value: unknown, project: string, run: string): Job
   if (response.complete === false) throw new IncompleteJobs();
   if (response.complete !== true || !string(response.snapshot) || !/^[a-f0-9]{64}$/.test(response.snapshot)) invalid();
   const job = readJob(response.job, [project]);
-  if (job.run_id !== run || !Array.isArray(job.timeline)) invalid();
+  if (job.run_id !== run || !job.budget || !Array.isArray(job.timeline)) invalid();
   for (const event of job.timeline!) if (!event || !stamp(event.ts) || !string(event.event) || !event.event ||
     event.stage !== null && !stages.includes(event.stage as typeof stages[number])) invalid();
   return job as Job & { timeline: NonNullable<Job["timeline"]> };

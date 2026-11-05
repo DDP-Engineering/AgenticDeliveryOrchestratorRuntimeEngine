@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Budget defaults use 20 launches across CLI and web enrollment. Job details shows launches and cumulative active time with limit warnings; reviewed budget-only saves allow parked jobs and apply at the next attempt or resume without resetting consumption or progress. Unavailable current limits preserve valid job evidence and recovery controls.
+
 - Confirmed web abandonment restarts failed tickets after owned resource/worktree and leased remote-branch cleanup. Stable drift has a useful Job details recovery path; CLI deletion reports clean ownership failures and web-worker lock guidance, with explicit saved-native-ownership cleanup.
 
 - Concurrent job deletion no longer interrupts project/run listings; corrupt state remains visible and unrelated read errors still propagate.

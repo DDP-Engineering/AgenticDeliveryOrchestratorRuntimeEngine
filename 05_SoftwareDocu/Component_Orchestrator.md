@@ -124,9 +124,9 @@ A stage checkpoint Git failure records `CHECKPOINT_FAILED` at the newly observed
 stage, stops execution and preserves the worktree. Remote checkpoint ownership
 failures keep their existing codes; genuinely orphaned working runs remain
 `STALE_WORKING`.
-The active wall-clock budget restarts when clarification resumes, a review
-revision begins, approval is invalidated for re-conduction, or an operator
-explicitly retries. Iteration, cost, and file budgets remain cumulative.
+Active work remains cumulative when clarification resumes, a review revision
+begins, approval is invalidated or an operator retries; waiting time is excluded.
+Iteration, cost, and file budgets also remain cumulative.
 Revision and approval invalidation reset the stage-failure counter for their
 new work phase; clarification resume preserves failures already recorded for
 the current stage.
@@ -337,3 +337,19 @@ Completed deletion also clears the old terminal summary. For registered web prof
 ## Recovery from previously orphaned branches
 
 Restart reuses its verified owned branch when the remote is absent or equals the saved checkpoint and the current naming rule admits it. A known checkpoint changed outside ADORE refuses before cleanup. If no checkpoint was ever recorded and an older occupied remote ref has unproven ownership, restart preserves it and preflights a valid fresh generation before destructive cleanup; normal delete still refuses to delete that ref. New admissions choose an empty derived base or generation and atomically create the local branch/worktree. A run without established worktree ownership never force-deletes an unproven local ref. Both delete and human-merged cleanup recognize only the configured base or one exact twelve-hex generation. The CLI result reports retention and the web result explains it in four languages. No storage schema or migration is introduced.
+
+## Budget reread boundary
+
+Before provisioning and each executor-attempt boundary, `_refresh_budgets` rereads
+`Config.source_path`, validates the closed budget table and provider stage-timeout cap, then compares
+all parsed and resolved non-budget settings with the startup-validated configuration. Only budgets are rebound. Missing/invalid source or
+non-budget drift becomes terminal `BUDGET_CONFIG_INVALID` before another launch,
+with task, counters, branch and resources retained. Injected configurations without
+a source continue to use their explicit values. An already running attempt retains
+its timeout; the next boundary checks reduced limits against accumulated usage.
+The same cumulative active-time calculation bounds preparation steps.
+
+Proof: public Retry with injected forge/executor/Aegis collaborators verifies
+between-attempt raise, exhausted limits, missing/corrupt source and identity drift.
+
+Non-budget binding preserves scalar types as well as values: boolean false and numeric zero are distinct. Canonical typed JSON comparison launches no probes.

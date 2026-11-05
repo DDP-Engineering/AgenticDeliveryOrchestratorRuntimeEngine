@@ -40,9 +40,9 @@ Reguli aplicabile:
 
 - **Renunță la modificări** elimină toate editările nesalvate. Anularea confirmării le păstrează fără să creeze un candidat salvat.
 - Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse; renunță și reîmprospătează înainte de o nouă editare. Modificările simultane produc un conflict.
-- Serverul verifică întreaga configurație și salvează toate modificările împreună, fără lucrări active sau operații neterminate. O eroare păstrează datele introduse și orice candidat pregătit pentru reîncercare.
+- Serverul verifică întreaga configurație și salvează toate modificările împreună. Salvarea revizuită doar a bugetelor permite și joburi în așteptarea clarificărilor, fără conductor activ sau operații neterminate. Alte setări cer joburi încheiate. O eroare păstrează datele introduse și candidatul pregătit.
 - Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.
-- Noile valori se aplică lucrărilor viitoare. Lucrările existente își păstrează configurația.
+- Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).
 
 Navigarea sau Reîmprospătează cere confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
 
@@ -57,3 +57,13 @@ Lângă titlul Setările proiectului, administratorii au **Previzualizare config
 În Setări → Agent și model, administratorii activează permisiunea cu **Salvează** și confirmă efectul. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
 
 Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.
+
+## Bugetele jobului {#budgets}
+
+Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și `adore init`.
+
+Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.
+
+Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
+
+Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
