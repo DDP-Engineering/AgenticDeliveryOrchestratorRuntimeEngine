@@ -788,11 +788,13 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-workspace { display: grid; gap: 18px; min-width: 0; }
 .ticket-toolbar { justify-content: flex-start; gap: 12px; }
 .ticket-table { table-layout: fixed; }
+.ticket-table th:last-child { width: 24%; }
 .ticket-table td, .ticket-table th { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
 .ticket-workspace > .panel, .ticket-workspace .table-scroll { min-width: 0; max-width: 100%; }
 .ticket-detail-row > td { white-space: normal; }
 .ticket-body-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; }
-.ticket-body-heading label { min-width: 0; max-width: 100%; }
+.ticket-detail .ticket-body-heading h3 { margin: 0; }
+.ticket-body-heading label { flex-direction: row; align-items: center; gap: 8px; margin-inline-start: auto; min-width: 0; max-width: 100%; }
 .ticket-body-heading select { width: auto; max-width: 100%; }
 .ticket-body-heading [aria-disabled="true"] { opacity: .7; }
 .ticket-detail, .ticket-comments, .ticket-comments > li, .forge-markdown { min-width: 0; max-width: 100%; }
@@ -813,13 +815,15 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .forge-markdown th, .forge-markdown td { white-space: nowrap; padding: .5rem .75rem; }
 .forge-image-placeholder { color: var(--muted); font-style: italic; }
 @media (max-width: 720px) {
+  .ticket-table th:last-child { width: 8rem; }
   .ticket-table > thead > tr > th, .ticket-table > tbody > tr > td { padding: 8px 4px; }
   .ticket-table .ticket-label { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-  .ticket-actions button { min-width: 0; max-width: 100%; padding-inline: 4px; overflow-wrap: anywhere; }
+  .ticket-actions button { min-width: 0; max-width: 100%; padding-inline: 4px; }
 }
 .ticket-labels { display: flex; flex-wrap: wrap; gap: 6px; }
 .ticket-label { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); font-size: 0.85rem; white-space: nowrap; }
-.ticket-actions { flex-wrap: nowrap; }
+.ticket-actions { flex-wrap: wrap; }
+.ticket-actions button { flex-shrink: 0; overflow-wrap: normal; word-break: normal; }
 .ticket-detail { display: grid; gap: 8px; padding: 4px 0 8px; }
 .ticket-detail h3 { margin: 8px 0 0; font-size: 1rem; }
 .ticket-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -827,7 +831,6 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-start-confirm, .ticket-stop-confirm { margin: 0 0 8px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt); }
 .ticket-confirm-row > td { padding-top: 0; }
 .operation-detail { margin: 6px 0 0; padding: 8px 10px; max-height: 16rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-alt); }
-@media (max-width: 720px) { .ticket-actions { flex-wrap: wrap; } }
 .executor-prices h3 { margin: 0 0 0.75rem; }
 .local-executor-picker { display: grid; gap: 8px; min-width: 0; width: 100%; }
 .local-executor-picker input, .local-executor-picker select { width: 100%; min-width: 0; max-width: 100%; }

@@ -54,7 +54,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Browse and start tickets; read formatted bodies or exact Markdown source, saved per account.", fr = "Parcourez et démarrez les tickets ; contenu mis en forme ou source, choix retenu par compte.", de = "Tickets lesen und starten; Inhalte formatiert oder als Quelltext, Auswahl pro Konto gespeichert.", ro = "Răsfoiți și porniți tichete; conținut formatat sau sursă Markdown, cu alegerea păstrată în cont." }
+text = { en = "Browse tickets with a compact, saved Markdown/source choice and buttons that keep words whole.", fr = "Tickets avec choix Markdown/source compact mémorisé et boutons sans mots coupés.", de = "Tickets mit kompakter, gespeicherter Markdown/Quelltext-Wahl und ungeteilten Schaltflächenwörtern.", ro = "Tichete cu selector compact Markdown/sursă, alegere salvată și butoane fără cuvinte rupte." }
 
 [[release.entry]]
 category = "new"

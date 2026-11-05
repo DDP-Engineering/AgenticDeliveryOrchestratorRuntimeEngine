@@ -64,7 +64,7 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 
 **Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**
 
-Folosiți **Afișarea conținutului** lângă **Descriere** pentru a alege **Randat** sau **Sursă Markdown** pentru toate descrierile și comentariile deschise. Sursa arată textul exact primit din repository, inclusiv spațiile și liniile noi. Contul păstrează alegerea salvată între proiecte, reîncărcări și browsere; alt browser autentificat o citește la următoarea autentificare sau reîncărcare. Dacă salvarea eșuează, apare o eroare și revine ultimul mod salvat; alegeți din nou pentru a reîncerca.
+Folosiți **Afișarea conținutului** în dreapta titlului **Descriere**, cu eticheta și selectorul pe aceeași linie pentru a alege **Randat** sau **Sursă Markdown** pentru toate descrierile și comentariile deschise. Sursa arată textul exact primit din repository, inclusiv spațiile și liniile noi. Contul păstrează alegerea salvată între proiecte, reîncărcări și browsere; alt browser autentificat o citește la următoarea autentificare sau reîncărcare. Dacă salvarea eșuează, apare o eroare și revine ultimul mod salvat; alegeți din nou pentru a reîncerca.
 
 HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute http, https și mailto sunt accesibile și se deschid separat. Imaginile nu se încarcă automat: apar **Imagine neîncărcată** și textul alternativ, dacă există. Codul, sursa și tabelele late derulează în zone proprii, accesibile cu tastatura. Bifele sarcinilor nu pot modifica tichetul.
 

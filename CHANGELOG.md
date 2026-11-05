@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Ticket details place Body display and its selector together on the right of the description heading; action buttons wrap without splitting words when details open.
+
 - Tickets render descriptions and comments as safe Markdown by default, with exact source mode saved per account, localized controls/help and keyboard-friendly themed layouts. HTML stays literal and images never load automatically.
 
 - Web preference storage changed: delete `web.db` and `web.db.initialized` in the ADORE home before starting the new build.

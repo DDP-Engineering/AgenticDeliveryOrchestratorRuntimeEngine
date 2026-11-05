@@ -26,9 +26,13 @@ separate from the help parser. Its inputs are the untouched forge `source` strin
 and localized `imageLabel`, `codeLabel` and `tableLabel` strings. The renderer
 returns semantic GFM elements through pinned `react-markdown` 10.1.0 and
 `remark-gfm` 4.0.1. It does not own acquisition, account preferences or the mode
-control. `TicketWorkspace` mounts it for descriptions and comments in Rendered
-mode; Markdown source uses a focusable `pre` containing the untouched API string.
+control. The detail header places Body display and its selector inline at the
+right edge, wrapping when space is limited. `TicketWorkspace` mounts it for
+descriptions and comments in Rendered mode; Markdown source uses a focusable
+`pre` containing the untouched API string.
 An empty description uses the existing localized fallback before rendering.
+Ticket actions reserve a bounded column width and wrap whole buttons instead
+of shrinking their labels into broken words when Details changes to Hide details.
 
 `App` owns the shared mode for both project and global Tickets workspaces.
 `ticketPreferences.ts::readPreferences` validates nullable language/theme and the
