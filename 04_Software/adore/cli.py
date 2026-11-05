@@ -39,6 +39,7 @@ from adore.clone_cleanup import clone_decision, project_clone_decision
 from adore.config import Config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
 from adore.forge import ForgeError
+from adore.isolation import IsolationError
 from adore.local_execution import LocalPrerequisiteError, local_probe_failure
 from adore.local_process import LocalExecutionError
 from adore.orchestrator import LockHeldError, Orchestrator
@@ -119,6 +120,13 @@ def _build_parser() -> argparse.ArgumentParser:
     delete = sub.add_parser("delete", help="Hard-remove a run including state")
     delete.add_argument("run_id")
     delete.add_argument("--force", action="store_true")
+    delete.add_argument("--owned-resources", action="store_true",
+                        help="Release proven owned native resources despite settings drift")
+    restart = sub.add_parser("restart", help="Abandon a confirmed failed run and start its ticket")
+    restart.add_argument("run_id")
+    restart.add_argument("--force", action="store_true")
+    restart.add_argument("--expected-revision", required=True,
+                         help="SHA-256 of the confirmed failed run state")
 
     reset = sub.add_parser("reset", help="Force a run back to a stage")
     reset.add_argument("run_id")
@@ -254,8 +262,9 @@ def _operator_lock(store: StateStore) -> Iterator[None]:
         pid = info.get("pid") if info else None
         holder = f"pid {pid}" if isinstance(pid, int) else "an unknown holder"
         raise LockHeldError(
-            f"the poller or another operator holds the lock ({holder}); "
-            "stop it or wait for it to finish before mutating run state"
+            f"the web worker, poller or another operator holds the lock ({holder}); "
+            "pause the project in web Project Summary (Pause monitoring), then wait "
+            "for the current bounded job to finish; a CLI poller must also be stopped"
         )
     try:
         yield
@@ -597,10 +606,27 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
         print(f"error: {args.config} has {len(issues)} issue(s); "
               "run `adore config validate`")
         return None
-    return config, Orchestrator.from_config(
-        config,
-        env_file=_env_file_for_config(args.config),
+    options = {"cleanup_only": True} if (
+        args.command == "delete" and getattr(args, "owned_resources", False)
+    ) else {}
+    engine = Orchestrator.from_config(
+        config, env_file=_env_file_for_config(args.config), **options,
     )
+    if args.command in {"delete", "restart"}:
+        profiles = ProfileStore()
+        database = profiles.home / "web.db"
+        if database.is_file():
+            matches = [item for item in profiles.list_profiles()
+                       if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+            if len(matches) == 1:
+                from adore.web.store import WebStore
+
+                web = WebStore(database)
+                project_id = matches[0].project_id
+                engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
+                    project_id, run_id, remove_source=remove_source,
+                )
+    return config, engine
 
 
 def _not_started_code(summary: dict) -> str:
@@ -713,6 +739,11 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     try:
         built = _engine(args)
     except (LocalExecutionError, PermissionError) as exc:
+        if args.command in {"delete", "restart"}:
+            print("error: native setup or identity changed; restore settings or use "
+                  "`adore delete <run-id> --force --owned-resources` for proven owned "
+                  "resources; no job state was deleted")
+            return EXIT_ERROR
         if args.command != "retry":
             raise
         cause = local_probe_failure(exc, "engine-setup-failed")
@@ -720,6 +751,9 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
                   else cause.replace("-", "_"))
         return finish(EXIT_ERROR, reason)
     except Exception:  # noqa: BLE001 - Retry must return a closed setup outcome
+        if args.command in {"delete", "restart"}:
+            print("error: cannot prepare cleanup; check project configuration and host access")
+            return EXIT_ERROR
         if args.command != "retry":
             raise
         return finish(EXIT_ERROR, "engine_setup_failed")
@@ -752,7 +786,7 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             print(f"{event.get('ts', '?')} {event.get('event', '?')}{suffix}")
         return EXIT_OK
     # delete: destructive - confirm via --force (design 8c guardrail)
-    if args.command == "delete":
+    if args.command in {"delete", "restart"}:
         if not store.exists(args.run_id):
             print(f"no such run: {args.run_id}")
             return EXIT_ERROR
@@ -785,23 +819,45 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
                     return finish(EXIT_ERROR, "retry_failed")
                 print("retried")
                 return finish(EXIT_OK, "retried")
-            engine.cancel(args.run_id, outcome="deleted")
-            store.delete_run(args.run_id)
+            if args.command == "restart":
+                summary = engine.restart(args.run_id, args.expected_revision)
+                print(json.dumps(summary))
+                return EXIT_OK if summary.get("picked") is not None else EXIT_ERROR
+            engine.delete(args.run_id, owned_resources=args.owned_resources)
             print(f"deleted {args.run_id}")
             return EXIT_OK
     except LockHeldError as exc:
         print(f"error: {exc}")
         return finish(EXIT_ERROR, "lock_held")
     except (StateError, OSError) as exc:
+        if args.command in {"delete", "restart"}:
+            print(f"error: cleanup incomplete ({type(exc).__name__}); inspect retained "
+                  "job state and permissions before retrying")
+            return EXIT_ERROR
         if args.command != "retry":
             raise
         print(f"retry state unavailable: {type(exc).__name__}")
         return finish(EXIT_ERROR, "state_unavailable")
     except ForgeError:
+        if args.command in {"delete", "restart"}:
+            print("error: repository access failed; check repository connection before retrying")
+            return EXIT_ERROR
         if args.command != "retry":
             raise
         return finish(EXIT_ERROR, "repository_unavailable")
+    except (LocalExecutionError, IsolationError) as exc:
+        if args.command not in {"delete", "restart"}:
+            if args.command != "retry":
+                raise
+            return finish(EXIT_ERROR, "engine_fault")
+        print(f"error: cleanup refused: {type(exc).__name__}; restore saved settings or use "
+              "`adore delete <run-id> --force --owned-resources` for proven owned resources. "
+              "Foreign resources and changed remote branches are retained; inspect Job details.")
+        return EXIT_ERROR
     except Exception:  # noqa: BLE001 - no untrusted exception text in web results
+        if args.command in {"delete", "restart"}:
+            print("error: cleanup could not be confirmed; inspect retained job evidence")
+            return EXIT_ERROR
         if args.command != "retry":
             raise
         return finish(EXIT_ERROR, "engine_fault")
@@ -819,15 +875,19 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     store = _store(config)
     if args.rebuild:
         try:
-            rebuilt = [metrics.summarize_run(store, run.run_id)
-                       for run in store.list_runs()
-                       if metrics.is_terminal(run.lifecycle)]
+            with _operator_lock(store):
+                rebuilt = [metrics.summarize_run(store, run.run_id)
+                           for run in store.list_runs()
+                           if metrics.is_terminal(run.lifecycle)]
+                for summary in rebuilt:
+                    metrics.record_summary(config.metrics.db_path, summary,
+                                           config.metrics.export_jsonl)
+        except LockHeldError as exc:
+            print(f"error: {exc}")
+            return EXIT_ERROR
         except metrics.MetricsError as exc:
             print(f"error: metrics evidence corrupt: {exc}")
             return EXIT_ERROR
-        for summary in rebuilt:
-            metrics.record_summary(config.metrics.db_path, summary,
-                                   config.metrics.export_jsonl)
         print(f"rebuilt {len(rebuilt)} run summarie(s)")
     since = None
     if args.since:
@@ -1219,7 +1279,7 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_pause(args, paused=False)
     if args.command == "run":
         return _cmd_run(args)
-    if args.command in ("cancel", "retry", "logs", "delete", "handoff"):
+    if args.command in ("cancel", "retry", "logs", "delete", "restart", "handoff"):
         return _cmd_run_op(args)
     if args.command == "stats":
         return _cmd_stats(args)

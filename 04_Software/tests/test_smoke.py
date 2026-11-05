@@ -93,6 +93,12 @@ class FakeMutationEngine:
         self.calls.append(("cancel", run_id, outcome))
         return True
 
+    def delete(self, run_id: str, *, owned_resources: bool = False) -> None:
+        """@brief Record the guarded deletion boundary and emulate state removal."""
+        self.calls.append(("delete", run_id))
+        if self.store is not None:
+            self.store.delete_run(run_id)
+
     def reset(self, run_id: str, stage: str) -> bool:
         self.calls.append(("reset", run_id, stage))
         return True
@@ -591,7 +597,7 @@ def test_cli_operator_mutations_refuse_a_live_lock(
     [
         (["retry", "run-1"], ("retry", "run-1")),
         (["cancel", "run-1"], ("cancel", "run-1", "cancelled")),
-        (["delete", "run-1", "--force"], ("cancel", "run-1", "deleted")),
+        (["delete", "run-1", "--force"], ("delete", "run-1")),
         (["reset", "run-1", "--to", "frame", "--force"],
          ("reset", "run-1", "frame")),
     ],

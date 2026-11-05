@@ -9,6 +9,7 @@ export const lifecycles = ["working", "publishing", "parked-clarification", "awa
 export const stages = ["frame", "specify", "design", "build", "validate", "done", "publishing"] as const;
 export type Lifecycle = typeof lifecycles[number];
 export type Job = {
+  state_revision?: string;
   preparation?: PreparationEvidence | null;
   project_id: string; project_name: string; project_display_name: string; project_archived: boolean;
   run_id: string; ticket_iid: number; ticket_title: string | null; ticket_url: string | null; mr_url: string | null;
@@ -47,6 +48,8 @@ export function safeEvidenceLink(value: unknown): string | null {
 
 /** Fail closed at the transport boundary before exposing an authorized job. */
 export function readJob(value: unknown, authorized: string[]): Job {
+  const revision = object(value).state_revision;
+  if (revision !== undefined && (!string(revision) || !/^[a-f0-9]{64}$/.test(revision))) invalid();
   const row = object(value), waiting = object(row.waiting), coverage = object(row.coverage);
   if (!string(row.project_id) || !/^[a-f0-9]{32}$/.test(row.project_id) || !authorized.includes(row.project_id) ||
     !string(row.run_id) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(row.run_id) ||
@@ -115,8 +118,15 @@ export function activityAge(value: string | null, now = Date.now()): "unknown" |
 }
 
 /** Mirror conservative existing operator controls; the API/worker rechecks authority. */
-export function commandAllowed(job: Job, action: "retry" | "cancel"): boolean {
+export function stableExecutionDrift(job: Job): boolean {
+  return job.lifecycle === "failed" && /^(?:INFRASTRUCTURE_EXHAUSTED|RETRY_REVALIDATION_FAILED):/.test(job.outcome) &&
+    /execution profile drift|Retry execution settings changed|Retry cannot change the job execution backend|different machine\/account\/state root/.test(job.outcome);
+}
+
+/** Mirror conservative existing operator controls; the API/worker rechecks authority. */
+export function commandAllowed(job: Job, action: "retry" | "cancel" | "restart"): boolean {
   if (job.project_archived) return false;
-  return action === "retry" ? job.lifecycle === "failed" :
+  if (action === "restart") return job.lifecycle === "failed" && /^[a-f0-9]{64}$/.test(job.state_revision ?? "");
+  return action === "retry" ? job.lifecycle === "failed" && !stableExecutionDrift(job) :
     !["done", "failed", "cancelled", "stale", "handoff-pending", "handed-off"].includes(job.lifecycle);
 }

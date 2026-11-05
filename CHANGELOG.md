@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Confirmed web abandonment restarts failed tickets after owned resource/worktree and leased remote-branch cleanup. Stable drift has a useful Job details recovery path; CLI deletion reports clean ownership failures and web-worker lock guidance, with explicit saved-native-ownership cleanup.
+
 - Concurrent job deletion no longer interrupts project/run listings; corrupt state remains visible and unrelated read errors still propagate.
 
 - A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.

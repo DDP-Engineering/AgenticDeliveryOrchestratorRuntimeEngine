@@ -337,3 +337,9 @@ restart at the next command/provision. Dependencies/files/user/egress are retain
 Unconfirmed recovery blocks active admission and becomes terminal infrastructure
 failure; cancellation and explicit owned release keep authority. No new runtime
 package or state schema is required. See knowledge/execution.md and Operations_Guide.
+
+## Confirmed recovery after drift
+
+Failed-job abandonment uses confirmed state revisions, verified owned native/container/worktree cleanup and leased remote-branch deletion before normal manual admission with monitoring pause preserved. Explicit native cleanup uses saved ownership without resolving current tools; ordinary execution/Retry identity checks remain strict. Proof: tests/test_drift_recovery.py and web/e2e/driftRecovery.spec.ts. No stored schema changes or live resource acceptance are required.
+
+Previously orphaned unproven refs are preserved through bounded fresh branch generations, with actual naming-rule checks and atomic initial local ref creation. Verified own branches remain reusable; known changed checkpoints refuse before cleanup.

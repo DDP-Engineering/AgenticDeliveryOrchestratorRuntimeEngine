@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 import os
 from pathlib import Path
 import re
@@ -40,6 +41,7 @@ from adore.util import (
     background_process_options,
     in_quiet_hours,
     output_tail,
+    strict_json_loads,
 )
 from adore.web.jobs import redact_text
 from adore.web.store import WebStore, WebStoreError
@@ -162,6 +164,21 @@ class CommandWorker:
                     "--force", "--remove-resources", *(["--remove-clone"] if target else [])]
         elif action == "start" and target.isdigit() and int(target) > 0:
             argv.extend(["run", "--once", "--ticket", target])
+        elif action == "restart":
+            match = re.fullmatch(r"([A-Za-z0-9._-]{1,160})\.([a-f0-9]{64})", target)
+            try:
+                if match is None:
+                    raise StateError("invalid confirmed restart")
+                run_id, revision = match.groups()
+                state = StateStore(profile.store_root or self.profiles.default_store_root(project))
+                raw = (state.run_dir(run_id) / "state.json").read_bytes()
+                if (state.load(run_id).lifecycle != "failed"
+                        or sha256(raw).hexdigest() != revision):
+                    raise StateError("confirmed job changed")
+            except (StateError, OSError):
+                self.web.finish(operation["id"], "failed", "restart:job_changed")
+                return 1
+            argv.extend(["restart", run_id, "--force", "--expected-revision", revision])
         elif action in ("retry", "cancel") and target:
             argv.extend([action, target])
         elif action in ("pause", "resume") and actor["role"] == "admin" and not target:
@@ -217,6 +234,15 @@ class CommandWorker:
                     result = "retry:failed:" + failed.outcome[:2200]
                 except (FileNotFoundError, StateError, OSError):
                     result = "retry:state_unavailable"
+        if action == "restart" and code != 0:
+            result = "restart:failed"
+        elif action == "restart" and output.strip():
+            try:
+                summary = strict_json_loads(output.strip().splitlines()[-1])
+                if isinstance(summary, dict) and summary.get("unproven_branch_retained") is True:
+                    result = "restart:retained"
+            except (ValueError, TypeError):
+                pass  # Optional warning evidence never grants engine success or deletion authority.
         detail = output_tail(output, redact_text) if code != 0 else ""
         reason = _refusal_reason(output, target) if status == "failed" and action == "start" else ""
         self.web.finish(operation["id"], status, result, reason=reason, detail=detail)

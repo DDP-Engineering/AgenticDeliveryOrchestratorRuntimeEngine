@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type { Locale } from "./i18n";
+import { recoveryCopy } from "./recoveryCopy.ts";
 
 const en = {
   sections: "Jobs sections", tickets: "Tickets", jobs: "Jobs",
@@ -257,6 +258,7 @@ const retryReasonCopy: Record<Locale, Record<string, string>> = {
 
 /** Render bound Start/Retry results and the job's persisted terminal cause. */
 export function operationResultText(result: string, locale: Locale): string {
+  if (result.startsWith("restart:")) return result === "restart:job_changed" ? recoveryCopy[locale].changed : result === "restart:retained" ? recoveryCopy[locale].retained : recoveryCopy[locale].failed;
   if (result.startsWith("retry:")) {
     const copy = { ...startReasonCopy[locale], ...retryReasonCopy[locale] };
     if (result.startsWith("retry:failed:")) return copy.failed + result.slice(13);

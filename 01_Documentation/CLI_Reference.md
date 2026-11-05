@@ -177,3 +177,13 @@ reason; the web worker shows the saved job cause rather than raw process logs.
 ## Direct agent dependency installation
 
 `adore --profile <name> config set container.system_packages true` opts a container project into direct agent package-manager sudo. Use false to stop granting that permission for future jobs. Network remains independently configured through `container.egress`. Existing managed jobs retain pinned authority and reject policy drift. See [Agent dependency installation](Agent_Dependency_Installation.md).
+
+## Owned recovery deletion
+
+`adore delete <run-id> --force` verifies cleanup and removes the unchanged owned remote branch with an exact commit lease before deleting local state. Errors are clean and nonzero. `--owned-resources` explicitly permits saved native ownership cleanup for failed/cancelled jobs after settings drift; immutable host/account, receipt, state/worktree paths and process leases remain mandatory. Installed tools and authentication are retained. Human-owned jobs remain protected.
+
+`adore restart <run-id> --force --expected-revision <sha256>` abandons only the confirmed failed state and manually starts its open ticket using current settings. The web interface supplies the exact state revision and confirmation. Partial cleanup prevents new admission; monitoring pause stays set. Lock guidance names the web worker and **Project Summary -> Pause monitoring**; wait for the bounded job and stop any standalone poller before a CLI mutation.
+
+`stats --rebuild` is a writer and holds the project conductor lock for its complete read/write batch. This keeps old terminal statistics from being restored after a confirmed fresh start.
+
+Confirmed `restart` may retain an older unproven branch only when no remote checkpoint was ever recorded, then uses a naming-rule-validated fresh generation. It reports that retention. Normal `delete` never deletes an unproven remote ref; a changed known checkpoint always refuses. Fresh names are bounded to the base plus three alternatives.

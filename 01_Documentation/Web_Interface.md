@@ -1238,3 +1238,9 @@ inspection before retrying.
 ## Agent system package permission
 
 For container projects, Settings > Agent and model includes a reviewed boolean **Allow agent system package installation** (false by default). Admins prepare and apply the change through existing revision/pause/idle guards; developers have read-only access. The setting changes no network option and requires a compatible image and a fresh job. See [Agent dependency installation](Agent_Dependency_Installation.md).
+
+## Failed jobs after configuration drift
+
+Job details offers **Abandon and start again** for a failed job, with explicit irreversible-cleanup confirmation. It binds the reviewed state version, releases verified owned resources and the unchanged owned remote branch, and starts the same ticket with current settings through normal manual admission. Monitoring pause is preserved. Stable execution-settings drift explains why Retry cannot help; volatile native environment changes can still use Retry. Foreign/corrupt resources, changed branches and incomplete cleanup stop recovery with retained evidence. Administrators and project-assigned developers retain the same command grants.
+
+Previously orphaned branches without a saved checkpoint are kept and reported while a fresh branch generation is used. The repository naming rule must admit a free name; otherwise restart stops before cleanup. A changed known checkpoint remains a refusal.

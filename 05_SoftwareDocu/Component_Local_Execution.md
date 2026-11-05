@@ -72,3 +72,7 @@ without calling a model. Stage limits remain at most 3000 seconds.
 WSL2 uses the Linux backend and delegated cgroup v2. Host networking remains
 separate from the container internet switch. See
 [ChatGPT sign-in](Component_ChatGPT_Sign_In.md).
+
+## Explicit cleanup after drift
+
+`LocalBackend.for_cleanup` constructs process controls without resolving current installed tools. `remove_owned` compares the exact saved resource and saved local-policy fingerprint against the runtime receipt; current host/account, state-root path and process-scope leases are still required. It interrupts and drains only verified scopes before unlinking the receipt. Missing receipts are idempotent only without an active-process record. This path is available only through explicit owned deletion/restart and grants no execution/Retry identity exception. Offline proof: `tests/test_drift_recovery.py`, with ordinary Retry covered by `tests/test_retry_revalidation.py`.

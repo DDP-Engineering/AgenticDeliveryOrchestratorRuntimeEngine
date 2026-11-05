@@ -119,7 +119,7 @@ text = { en = "Statistics is compact: one period row, each figure shown once, tr
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "The Jobs table shows ticket, project, status, activity and tokens; sort by any column.", fr = "Le tableau Tâches montre ticket, projet, statut, activité et jetons ; triez par colonne.", de = "Die Auftragstabelle zeigt Ticket, Projekt, Status, Aktivität und Tokens; nach Spalte sortierbar.", ro = "Tabelul Lucrări arată tichet, proiect, stare, activitate și tokeni; sortați după coloană." }
+text = { en = "Sort jobs by ticket, project, status, activity or tokens; confirm a safe fresh start after drift.", fr = "Triez les tâches par colonne et confirmez un redémarrage sûr après des paramètres modifiés.", de = "Aufträge nach Spalte sortieren und nach Einstellungsänderungen sicher bestätigt neu starten.", ro = "Sortează joburile pe coloane și confirmă un nou început sigur după schimbarea setărilor." }
 
 [[release.entry]]
 category = "improved"

@@ -200,3 +200,7 @@ and isolated accounts.
 This is a single-host store. There is no email password recovery or
 multi-host dispatch. The account lockout key uses the direct client address;
 a reverse proxy should preserve a stable trusted address policy.
+
+## Deleted-job usage projection boundary
+
+`forget_run_usage(project_id, run_id, remove_source=...)` acquires the SQLite write transaction, removes only the caller-verified job source, clears that composite identity's usage/observation/cursor rows and commits. Source removal failure rolls back the projection reset. Production `reconcile_usage` calls validate their captured journal against the current source prefix under the same transaction, permitting append progress while refusing stale deleted/replaced evidence. This keeps deterministic-ID fresh admissions independent of prior usage without a schema change. Proof: tests/test_drift_recovery.py interleaving, rollback and real-admission integration cases.

@@ -98,22 +98,6 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `REQ-PLAT-722173c8` - configuration edits keep the file's line endings on every OS.
 - `REQ-SEC-63767e17` - `config set` refuses secret-looking keys except ADORE's own `metrics.capture_tokens`.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    argv([adore argv]) --> parser[cli.py argparse]
-    parser --> profiles[(ProfileStore)]
-    parser --> config[(Config)]
-    parser --> engine[Orchestrator]
-    parser --> metrics[metrics.py]
-    engine --> state[(StateStore)]
-    parser --> Result[Bound Start and Retry terminal result]
-    state --> Result
-```
-
-The web worker calls the same CLI command boundary with fixed argument vectors.
-
 ## Files
 
 - `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
@@ -131,3 +115,7 @@ versioned secret-free terminal result through adore/start_result.py. The worker
 validates selected IID, exit code and allowlisted reason; see Component_CLI.md.
 
 Native Pi lifecycle: `adore pi install` and `adore pi verify` work without a project.
+
+## Confirmed destructive recovery
+
+The CLI adds delete --owned-resources for failed/cancelled jobs and restart --force --expected-revision for one confirmed failed incarnation. Both hold the conductor lock; cleanup errors are clean/nonzero and preserve remaining evidence. Native cleanup-only construction does not resolve current tools. Live-lock guidance names the web worker, Project Summary pause and waiting for the bounded job, plus stopping a standalone CLI loop. Proof: tests/test_drift_recovery.py and mutation tests in test_smoke.py.

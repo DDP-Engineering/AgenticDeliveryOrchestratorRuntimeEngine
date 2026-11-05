@@ -984,3 +984,9 @@ The callback Chromium journey proves completion without sending a PUT.
 ### Exact API-candidate recovery
 
 A valid pending candidate containing an API-only or hidden setting remains read-only in the row UI. Navigation is guarded throughout saving and confirmation, including read-only recovery with no local dirty fields. The one Save action rereads and compares the complete pending envelope, confirms its safe values and applies the exact existing candidate/base pair without preparing a replacement. Stale or corrupt evidence blocks Save and remains explicitly discardable. GUI-editable pending batches recover into visible editors and use bound replacement. Focused proof: `settings-save.spec.ts` API-only success/stale/corrupt cases and `test_web_settings_batch.py` collateral replacement preservation.
+
+## Failed-job drift recovery
+
+JobWorkspace uses `recoveryCopy.ts` in English, French, German and Romanian for confirmed Abandon and start again, stable-settings drift guidance and operation failures. Browser confirmation names the ticket and irreversible local/worktree/remote deletion. Cancellation submits nothing. The request carries the captured state revision; stale refusal keeps details visible. `jobModel.stableExecutionDrift` suppresses guaranteed-failing Retry for stable profile/settings drift while preserving native volatile identity revalidation. Proof: `web/tests/jobs.test.mjs`, `web/e2e/driftRecovery.spec.ts`.
+
+`restart:retained` is a localized success warning, explaining that an older branch without ownership evidence was preserved while a fresh branch was used. Browser proof: driftRecovery.spec.ts retained-branch success journey.

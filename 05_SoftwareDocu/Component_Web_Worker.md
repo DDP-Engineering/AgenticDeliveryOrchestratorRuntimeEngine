@@ -136,3 +136,11 @@ retry:failed feedback. Other refusals use closed retry reasons. Missing failure
 state is reported as state_unavailable; a timeout remains uncertain. Raw stdout
 logs and stderr never become user-facing diagnostic text. Focused offline proof:
 tests/test_retry_revalidation.py; existing queue authorization remains unchanged.
+
+## Revision-bound restart
+
+The durable `restart` action stores `<run-id>.<state-sha256>` in the existing operation target. The worker rechecks current actor/project grants, immutable project identity, failed lifecycle and exact state bytes before launching fixed CLI argv `restart <run-id> --force --expected-revision <sha256>`. The CLI checks again under the conductor lock. Changed incarnations are `restart:job_changed`; unsuccessful invocation is localized as incomplete/refused recovery, with bounded redacted diagnostics. In-flight worker loss remains uncertain and is never replayed automatically. Offline proof: `tests/test_drift_recovery.py`.
+
+Confirmed deletion clears the owning profile/job usage projections while holding their SQLite write transaction across source removal; old reporting readers cannot restore a discarded cursor. The CLI binds this callback only to the registered profile matching its exact resolved config path. No account, grant, audit or other project projection is reset.
+
+A successful CLI restart summary with `unproven_branch_retained: true` becomes localized `restart:retained` success evidence. This reports an older unproven ref retained while a fresh branch is used; it grants no cleanup or publication authority.

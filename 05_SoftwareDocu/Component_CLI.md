@@ -256,3 +256,7 @@ configuration, lock, repository, state and lifecycle refusals have closed reason
 The worker binds this terminal evidence to the requested job and actual exit;
 arbitrary preceding logs and stderr are not a web diagnostic channel.
 Focused proof: tests/test_retry_revalidation.py and CLI mutation-lock tests.
+
+## Confirmed drift recovery
+
+`delete <run-id> --force` uses verified resource/worktree and exact remote-branch cleanup before deleting state. Typed native, Git, storage and forge failures return nonzero with actionable guidance. `--owned-resources` explicitly authorizes release using the saved native plan/receipt despite changed executable/environment settings; it never authorizes another host/account, foreign receipt or human-owned job. `restart <run-id> --force --expected-revision <sha256>` requires the confirmed failed state under the conductor lock and then manually admits its ticket with current settings, preserving monitoring pause. A web-worker lock names Project Summary -> Pause monitoring and waiting for the bounded job; CLI loop processes must be stopped separately. Offline proof: `tests/test_drift_recovery.py`.

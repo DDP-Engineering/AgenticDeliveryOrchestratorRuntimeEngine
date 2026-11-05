@@ -170,11 +170,21 @@ class FakeWorktrees:
     def path_for(self, run_id):
         return Path("C:/work") / run_id
 
-    def create(self, run_id, branch, base_ref):
+    def create(self, run_id, branch, base_ref, *, new_branch=False):
         return self.path_for(run_id)
 
     def fetch(self):
         return None
+
+    def fresh_branch(self, base, *, validate):
+        """@brief Default fake has no occupied local/remote branch names."""
+        if not validate(base):
+            raise IsolationError("repository naming rule refused branch")
+        return base
+
+    def remote_branch_head(self, branch):
+        """@brief Default fake has no unpublished remote orphan."""
+        return ""
 
     def merge(self, run_id, ref):
         return CommandResult(exit_code=0)

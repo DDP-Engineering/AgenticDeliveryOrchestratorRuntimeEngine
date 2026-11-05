@@ -138,3 +138,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/adore/config.py`, `04_Software/adore/pi_providers.py`
 - `04_Software/adore/chatgpt.py` (`MAX_STAGE_SECONDS`)
 - `04_Software/tests/test_config.py`, `04_Software/tests/test_pi_providers.py` (the `chatgpt` refusals)
+
+## Actual branch admission names
+
+`branch_naming_preview(..., run_id=..., iid=...)` permits actual identity checks using the same bounded one-second rule evaluation, with unchanged default example output. Fresh admission validates each generated actual name and refuses invalid identity types or rules. Proof: tests/test_drift_recovery.py and test_branch_naming.py.

@@ -26,7 +26,7 @@ is mandatory once the human leaves the loop; the workflow's hooks are
 guardrails, not a sandbox.
 
 
-`WorktreeManager.remove_remote_branch(branch, expected, target)` uses host Git authentication to delete one exact merged run ref with `--force-with-lease`. It rejects the target branch, malformed identities and a changed remote commit through `IsolationError`, verifies remote absence after pushing, and treats an already absent ref as success. An empty or malformed published commit is refused like a changed one; arbitrary remote output is rejected.
+`WorktreeManager.remove_remote_branch(branch, expected, target)` uses host Git authentication to delete one exact merged run ref with `--force-with-lease`. It rejects the target branch, malformed identities and a changed remote commit through `IsolationError`, verifies remote absence after pushing, and treats an already absent ref as success. By default an empty or malformed published commit is refused like a changed one; arbitrary remote output is rejected.
 
 ## 2. Responsibilities
 
@@ -401,3 +401,11 @@ Windows command runner. Focused proof: container exec/env and WSL tests in
 ContainerManager.authorize_system_packages uses fixed code and root-owned OS Python on the exact owned container ID, measures a non-root UID and requires exact success output. It grants direct package-manager sudo without installing packages or modifying egress. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
 
 Interactive Pi RPC spawn shares exec environment filtering: inherited repository selectors are removed, automatic child pager settings apply, secrets travel only through the client environment and Windows clients suppress console allocation.
+
+## Recovery ownership checks
+
+`verify_removal` rejects aliased/missing Git ownership, another common Git directory, branch or working directory. `release_owned` verifies actual dedicated executor/proxy mounts and internal network membership independently of current egress/backend settings, and removes only immutable IDs with absence verification. Name replacements, foreign members and unproven empty orphan networks are retained. `remove_remote_branch(..., allow_absent=True)` permits an empty saved checkpoint only when the remote ref is absent; a present ref still fails closed. Known checkpoints retain exact leases and post-delete absence verification. Offline proof: `tests/test_drift_recovery.py` and `tests/test_merged_branch_cleanup.py`.
+
+## Fresh branch generations
+
+`fresh_branch` checks local and exact remote absence for the configured base and at most three random `-g` plus twelve lowercase hexadecimal alternatives. Occupied refs are preserved; malformed output, failed Git status and naming-policy refusal are typed errors. `create(..., new_branch=True)` refuses existing worktree paths and uses atomic `git worktree add -b`, preventing adoption of a local ref appearing after the checks. Saved-run recovery retains its established reattachment behavior. Remote empty/exact publication leases remain mandatory. Proof: tests/test_drift_recovery.py.

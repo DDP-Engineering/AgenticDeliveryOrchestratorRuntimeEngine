@@ -198,3 +198,7 @@ invented day.
 - Code-size lines (+/-) not captured yet (files-changed count only).
 - Time-per-gate breakdown exists in the journal but is not yet a summary
   column; add when the dashboard needs it.
+
+## Explicit deleted-job summary cleanup
+
+`delete_summary(db_path, run_id, export_jsonl)` removes exactly the verified deleted job's terminal row and refreshes its optional mirror before a fresh journal can reuse that run ID. Absent/disabled stores stay absent. CLI `stats --rebuild` holds the same conductor lock across its entire compute/write batch, preventing an old snapshot from restoring a deleted summary. Proof: `tests/test_drift_recovery.py` integration and rebuild-lock cases.

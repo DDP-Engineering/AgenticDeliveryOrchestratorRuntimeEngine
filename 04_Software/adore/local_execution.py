@@ -300,6 +300,47 @@ class LocalBackend:
 
     paths = ExecutionPaths(shell="")
 
+    @classmethod
+    def for_cleanup(cls, config):
+        """@brief Construct ownership-only cleanup without resolving installed tools.
+        @param[in] config Current state-root configuration; grants no execution authority.
+        @return Native adapter restricted to explicit saved-ownership release.
+        """
+        backend = cls.__new__(cls)
+        backend.config = config
+        backend.context = native_context()
+        backend.controller = LocalProcessController(NativeScopes(
+            backend.context["system"], os.environ.get("ADORE_LOCAL_CGROUP_ROOT", "")
+        ))
+        backend.targets = {}
+        return backend
+
+    def remove_owned(self, name: str, expected: dict, previous_policy: dict) -> None:
+        """@brief Release saved native ownership after explicit drift acknowledgement.
+        @param[in] name Persisted run resource name.
+        @param[in] expected Exact saved native resource.
+        @param[in] previous_policy Saved validated plan policy, independent of current tools.
+        @exception LocalExecutionError Foreign receipt, paths, host/account or process scope.
+        """
+        control = self._control(expected)
+        if expected["name"] != name:
+            raise LocalExecutionError("native cleanup name differs from the saved job")
+        receipt_path = control / "runtime.json"
+        if not receipt_path.exists():
+            if (control / "active-process.json").exists():
+                raise LocalExecutionError("native cleanup ownership receipt is missing")
+            return
+        receipt = read_record(receipt_path)
+        if (set(receipt) != {"schema", "resource", "policy_sha256"}
+                or type(receipt["schema"]) is not int or receipt["schema"] != 1
+                or receipt["resource"] != expected
+                or receipt["policy_sha256"] != fingerprint(previous_policy)):
+            raise LocalExecutionError("native cleanup receipt differs from the saved job")
+        self.controller.interrupt(control, expected["id"], expected["host"])
+        self.controller.recover(control, expected["id"], expected["host"])
+        receipt_path.unlink()
+        self.targets.pop(name, None)
+
     def __init__(
         self, config, *, controller=None, context=None, resolver=resolve_executable
     ) -> None:

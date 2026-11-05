@@ -150,3 +150,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 
 - `04_Software/adore/web/analytics.py` - strict scope and analytical reports.
 - `04_Software/tests/test_web_scoped_metrics.py` - DST, allocation, CSV, corrupt sources.
+
+## Deleted identity reuse
+
+`delete_summary` removes exactly a verified deleted job's summary and refreshes its optional JSONL mirror; absent/disabled stores are untouched. `stats --rebuild` serializes its whole read/write batch under the conductor lock, preventing stale summary resurrection during delete/restart. Offline integration/rebuild-lock proof: tests/test_drift_recovery.py.

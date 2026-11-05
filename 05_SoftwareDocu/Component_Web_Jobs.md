@@ -164,3 +164,9 @@ measured duration and usage contracts.
 ## Preparation projection
 
 Authorized job reads validate `RunState.execution` then expose only preparation status, attempt count, image, fingerprint and ordered timestamp/exit/timeout/cancel summaries. Jobs without a recipe selection (including the empty no-recipe record) carry null. Source scripts, policy and raw streams remain outside the job projection. Existing composite identity, authorization and optimistic snapshots are preserved.
+
+## Confirmed restart evidence
+
+Every job exposes `state_revision`, SHA-256 of its validated state bytes. Failed jobs offer Abandon and start again with destructive confirmation, including loss of unpublished work and preservation of monitoring pause. Stable execution-profile/settings drift explains why Retry cannot help and hides that button; volatile native environment changes remain eligible for explicit Retry, including processor variables after VM resizing. Restart binds confirmation to this revision; malformed/missing revision disables the action. Four-locale browser proof: `web/e2e/driftRecovery.spec.ts`; model proof: `web/tests/jobs.test.mjs`.
+
+An older occupied ref without a saved checkpoint is retained during confirmed restart, which chooses a fresh generation under the repository naming rule. Known changed checkpoints still refuse. The successful result explains retained old branches; normal owned branch reuse remains available under strict rules.

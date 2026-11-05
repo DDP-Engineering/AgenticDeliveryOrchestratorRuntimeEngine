@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 # IMPORTS
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
@@ -404,8 +406,30 @@ class WebStore:
         finally:
             connection.close()
 
+    def forget_run_usage(self, project_id: str, run_id: str, *,
+                         remove_source: Callable[[], None]) -> None:
+        """@brief Clear only a verified deleted job's replaceable usage projections.
+        @param[in] project_id Immutable owning profile identity.
+        @param[in] run_id Exact deleted job; caller holds the conductor lock.
+        @param[in] remove_source Remove that job's source while projection readers are serialized.
+        @exception WebStoreError Invalid identity or failed atomic projection cleanup.
+        """
+        if (not re.fullmatch(r"[0-9a-f]{32}", project_id)
+                or not re.fullmatch(r"[A-Za-z0-9._-]{1,160}", run_id)):
+            raise WebStoreError("invalid deleted usage identity")
+        try:
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                remove_source()
+                for table in ("usage_projection", "usage_observation_projection", "usage_cursor"):
+                    connection.execute(f"DELETE FROM {table} WHERE project_id=? AND run_id=?",
+                                       (project_id, run_id))
+        except sqlite3.Error as exc:
+            raise WebStoreError("deleted usage projection cleanup failed") from exc
+
     def reconcile_usage(self, project_id: str, run_id: str,
-                        journal: list[dict]) -> list[dict]:
+                        journal: list[dict], *,
+                        current_source: Callable[[], list[dict]] | None = None) -> list[dict]:
         """
         @brief Project identified usage into SQLite without replay inflation.
         @param[in] project_id Immutable profile identity.
@@ -461,6 +485,8 @@ class WebStore:
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
+                if current_source is not None and current_source()[:len(journal)] != journal:
+                    raise WebStoreError("usage source changed before projection")
                 cursor = connection.execute(
                     "SELECT journal_length,journal_sha256 FROM usage_cursor "
                     "WHERE project_id=? AND run_id=?", (project_id, run_id),
@@ -1126,7 +1152,7 @@ class WebStore:
     ) -> dict[str, Any]:
         """@brief Persist an idempotent operation request."""
         if (
-            action not in ("start", "retry", "cancel", "pause", "resume", "delete")
+            action not in ("start", "retry", "cancel", "restart", "pause", "resume", "delete")
             or not key
             or len(key) > 128
         ):
@@ -1364,7 +1390,8 @@ class WebStore:
         ):
             return detail
         if action in ("operation-submitted", "operation-finished") and re.fullmatch(
-            r"(?:start|retry|cancel|pause|resume|delete):(?:[A-Za-z0-9._-]{0,160})", detail
+            r"(?:(?:start|retry|cancel|pause|resume|delete):[A-Za-z0-9._-]{0,160}"
+            r"|restart:[A-Za-z0-9._-]{1,160}\.[a-f0-9]{64})", detail
         ):
             return detail
         if action in (

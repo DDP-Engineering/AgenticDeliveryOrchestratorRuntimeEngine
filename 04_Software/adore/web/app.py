@@ -489,6 +489,8 @@ class OperationInput(BaseModel):
 
     ticket_iid: int | None = None
     run_id: str = ""
+    confirmed: bool = Field(default=False, strict=True)
+    state_revision: str = ""
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
@@ -2159,7 +2161,8 @@ def _analytics_sources(profiles, profile, web, admin):
         raise _error(503, "price_storage_corrupt") from exc
     for run, events in sources:
         try:
-            web.reconcile_usage(profile.project_id, run.run_id, events)
+            web.reconcile_usage(profile.project_id, run.run_id, events,
+                                current_source=lambda run_id=run.run_id: store.read_journal(run_id))
         except (metrics.MetricsError, WebStoreError) as exc:
             raise analytics.AnalyticsError("usage_corrupt") from exc
     return store, sources, prices
@@ -4452,6 +4455,8 @@ def create_app(home: str | Path | None = None,
                     projected = web.reconcile_usage(
                         item.project_id, run.run_id,
                         state.read_journal(run.run_id),
+                        current_source=lambda state=state, run_id=run.run_id:
+                            state.read_journal(run_id),
                     )
                 except (WebStoreError, metrics.MetricsError) as exc:
                     raise _error(503, "usage_corrupt") from exc
@@ -4466,7 +4471,7 @@ def create_app(home: str | Path | None = None,
         item = project(name, user)
         if item.archived:
             raise _error(409, "project_archived")
-        if action not in ("start", "retry", "cancel", "pause", "resume"):
+        if action not in ("start", "retry", "cancel", "restart", "pause", "resume"):
             raise _error(404, "operation_not_found")
         if action in ("pause", "resume") and user["role"] != "admin":
             raise _error(403, "admin_required")
@@ -4474,9 +4479,20 @@ def create_app(home: str | Path | None = None,
             if body.ticket_iid is None or body.ticket_iid < 1 or body.run_id:
                 raise _error(400, "ticket_required")
             target = str(body.ticket_iid)
-        elif action in ("retry", "cancel"):
+        elif action in ("retry", "cancel", "restart"):
             if not re.fullmatch(r"[a-zA-Z0-9._-]{1,160}", body.run_id):
                 raise _error(400, "run_required")
+            target = body.run_id
+            if action == "restart":
+                if not body.confirmed or not re.fullmatch(r"[0-9a-f]{64}", body.state_revision):
+                    raise _error(400, "invalid_operation")
+                replayed = web.operation_for_key(user["id"], body.idempotency_key)
+                target = f"{body.run_id}.{body.state_revision}"
+                if replayed:
+                    if (replayed["project_id"] != item.project_id
+                            or replayed["action"] != "restart" or replayed["run_id"] != target):
+                        raise _error(409, "idempotency_conflict")
+                    return {"id": replayed["id"], "status": replayed["status"]}
             state = _store_for(profiles, item)
             try:
                 run = state.load(body.run_id)
@@ -4487,7 +4503,13 @@ def create_app(home: str | Path | None = None,
             if action == "cancel" and run.lifecycle in (*_TERMINAL_RUN_LIFECYCLES,
                                                          "handoff-pending"):
                 raise _error(409, "run_already_finished")
-            target = body.run_id
+            if action == "restart":
+                try:
+                    raw = (state.run_dir(body.run_id) / "state.json").read_bytes()
+                except OSError as exc:
+                    raise _error(409, "job_snapshot_changed") from exc
+                if run.lifecycle != "failed" or sha256(raw).hexdigest() != body.state_revision:
+                    raise _error(409, "job_snapshot_changed")
         else:
             if body.ticket_iid is not None or body.run_id:
                 raise _error(400, "unexpected_operation_target")

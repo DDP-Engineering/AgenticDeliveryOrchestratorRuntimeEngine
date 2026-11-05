@@ -357,6 +357,25 @@ def record_summary(db_path: str | Path, summary: RunSummary,
                 handle.write(json.dumps(asdict(row), ensure_ascii=False) + "\n")
 
 
+def delete_summary(db_path: str | Path, run_id: str, export_jsonl: str = "") -> None:
+    """@brief Remove a deleted job's terminal projection before its identity is reused.
+    @param[in] db_path Current metrics store; absent files remain absent.
+    @param[in] run_id Exactly the verified deleted job.
+    @param[in] export_jsonl Optional current summary mirror.
+    @exception MetricsError Unsupported store schema.
+    """
+    if not db_path or not Path(db_path).exists():
+        return
+    with _connect(db_path) as connection:
+        connection.execute(f"DELETE FROM {_TABLE} WHERE run_id=?", (run_id,))
+    if export_jsonl:
+        mirror = Path(export_jsonl)
+        mirror.parent.mkdir(parents=True, exist_ok=True)
+        with mirror.open("w", encoding="utf-8") as handle:
+            for row in load_summaries(db_path):
+                handle.write(json.dumps(asdict(row), ensure_ascii=False) + "\n")
+
+
 def load_summaries(db_path: str | Path,
                    since_seconds: int | None = None) -> list[RunSummary]:
     """

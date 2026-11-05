@@ -220,3 +220,15 @@ including an unavailable executable, invalid version, command exit or timeout.
 This rule applies to all supported native executors and projects, with no special
 case for a ticket or forge. It does not issue a model request; Test AI connection
 remains the explicit provider/model check.
+
+## Abandon and start again after settings drift
+
+In **Jobs**, open a failed job and choose **Abandon and start again**. Confirm only after reviewing the warning: this discards the old job state, worktree (including unpublished work) and its unchanged owned remote branch. ADORE verifies ownership, drains owned processes and deletes the remote branch using its last recorded commit as an exact lease before starting the same ticket with current settings. Monitoring stays paused if already paused. Another host/account, corrupt receipt, changed remote branch or incomplete cleanup blocks the restart and preserves remaining evidence. A job that changes after confirmation must be refreshed and reviewed again.
+
+Stable execution settings or backend drift cannot be repaired by Retry. Restore the saved settings or use confirmed abandonment. Explicit native Retry can revalidate volatile environment and executable identity, including `NUMBER_OF_PROCESSORS` and `PROCESSOR_*` after resizing a VM; it keeps existing work and limits.
+
+CLI: `adore --profile <name> delete <run-id> --force` reports a clean error on drift. For a stopped failed/cancelled job, `--owned-resources` explicitly uses the saved native receipt instead of current environment/executable identity; host/account, dedicated paths and process ownership are still verified. It never deletes foreign resources or overrides a remote lease. If the web worker owns the lock, use **Project Summary -> Pause monitoring** and wait for the current bounded job; a standalone CLI loop must also be stopped. Do not remove a live lock file.
+
+A successful fresh start clears the discarded job's terminal summary and web usage projection so its new journal begins with fresh statistics. Cleanup errors retain remaining evidence. Container cleanup uses the actual owned proxy/network identities even when current execution or internet settings changed; a foreign member or unproven leftover network is retained for operator inspection.
+
+If a previously deleted job left a branch with no recorded ownership checkpoint, confirmed restart preserves that ref and selects an empty branch generation. It checks the base and at most three alternatives against local/remote availability and the repository naming rule. If no valid name is available, it stops before cleanup. A changed known checkpoint is never bypassed. The success message explains a retained older branch. Initial local refs are created atomically, and unowned existing worktree paths are refused.

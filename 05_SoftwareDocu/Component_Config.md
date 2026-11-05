@@ -204,3 +204,7 @@ Focused proof: `tests/test_automatic_processes.py` and `tests/test_branch_naming
 ## Agent-controlled system packages
 
 Strict boolean container.system_packages defaults false. Enabled mode is container-only, rejects host-oriented runtime overrides and retains ADORE's managed package permissions. Egress remains independent. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+
+## Actual branch-rule checks
+
+`branch_naming_preview` optionally accepts actual `run_id` and positive `iid` identities while retaining its default example response. Admission validates each actual selected name through this same bounded Python regex/Git-name check. Invalid types, timeout and rule mismatch fail closed; rules are never bypassed to allocate a generation. Proof: tests/test_drift_recovery.py and tests/test_branch_naming.py.

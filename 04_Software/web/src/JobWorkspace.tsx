@@ -10,7 +10,8 @@ import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
 import { jobCopy, lifecycleExplanation } from "./jobCopy";
 import { PreparationResults } from "./ExecutionPlanReview";
-import { activityAge, commandAllowed, IncompleteJobs, readJobDetail, readJobPage, type Job, type JobPage } from "./jobModel";
+import { activityAge, commandAllowed, stableExecutionDrift, IncompleteJobs, readJobDetail, readJobPage, type Job, type JobPage } from "./jobModel";
+import { recoveryCopy } from "./recoveryCopy";
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
 import { outcomeText } from "./operationReason";
@@ -204,13 +205,15 @@ export function JobWorkspace(props: Props) {
     return () => { active = false; stop(); };
   }, [operation?.id, operation?.status]);
 
-  const command = async (action: "retry" | "cancel", job: Job) => {
+  const command = async (action: "retry" | "cancel" | "restart", job: Job) => {
     if (submitLock.current || busy || !project || project.archived || !commandAllowed(job, action)) return;
+    if (action === "restart" && !window.confirm(recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)))) return;
     submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
     const generation = commandGeneration.current;
     try {
       const current = readOperation(await request(`/projects/${encodeURIComponent(scope)}/operations/${action}`, "POST",
-        { run_id: job.run_id, idempotency_key: crypto.randomUUID() }, csrf));
+        { run_id: job.run_id, idempotency_key: crypto.randomUUID(),
+          ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision } : {}) }, csrf));
       if (mounted.current && generation === commandGeneration.current) setOperation(current);
     } catch (cause) { if (mounted.current && generation === commandGeneration.current) setOperationError(cause); }
     finally { if (mounted.current && generation === commandGeneration.current) { submitLock.current = false; setSubmitting(false); } }
@@ -259,6 +262,8 @@ export function JobWorkspace(props: Props) {
         <p className="muted">{t("lastActivity")}: {activity(visibleDetail)}</p>
       </div>
       <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
+      {stableExecutionDrift(visibleDetail) && <p role="note">{recoveryCopy[locale].drift}</p>}
+      {commandAllowed(visibleDetail, "restart") && <div><p className="field-hint">{recoveryCopy[locale].help}</p><button className="danger" disabled={busy} onClick={() => void command("restart", visibleDetail)}>{recoveryCopy[locale].restart}</button></div>}
       <h3>{copy.consumption}</h3>{consumptionView(visibleDetail, true)}
       {visibleDetail.preparation && <PreparationResults evidence={visibleDetail.preparation} locale={locale} />}
       <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}

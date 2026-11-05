@@ -41,6 +41,7 @@ import shlex
 import stat
 import subprocess
 import time
+from uuid import uuid4
 
 from adore.branding import (
     CONTAINER_HOME,
@@ -421,7 +422,8 @@ class WorktreeManager:
         """
         return (self.path_for(run_id) / ".git").exists()
 
-    def create(self, run_id: str, branch: str, base_ref: str) -> Path:
+    def create(self, run_id: str, branch: str, base_ref: str,
+               *, new_branch: bool = False) -> Path:
         """
         @brief      Create (or reuse) the run's worktree on its branch.
         @details    Idempotent, in resume order: an existing worktree is
@@ -432,10 +434,18 @@ class WorktreeManager:
         @param[in]  branch Run branch name (for example "adore/<run-id>").
         @param[in]  base_ref Base ref for a new branch (for example
                              "origin/develop").
+        @param[in]  new_branch Require an absent path and atomic new-ref creation for admission.
         @return     The worktree path.
         @exception  IsolationError When git fails.
         """
         path = self.path_for(run_id)
+        if new_branch:
+            if path.exists() or path.is_symlink():
+                raise IsolationError("fresh worktree path already exists; ownership is unproven")
+            self.root.mkdir(parents=True, exist_ok=True)
+            # Git creates the ref atomically; an appearing local branch is never reattached.
+            self._git("worktree", "add", "-b", branch, str(path), base_ref)
+            return path
         if self.exists(run_id):
             return path
         self.root.mkdir(parents=True, exist_ok=True)
@@ -638,18 +648,81 @@ class WorktreeManager:
             raise CheckpointConflictError("remote branch changed during checkpoint push")
         raise IsolationError("checkpoint push not verified", result.argv, result.stderr)
 
-    def remove_remote_branch(self, branch: str, expected: str, target: str) -> None:
+    def remote_branch_head(self, branch: str) -> str:
+        """@brief Read one exact remote ref without adopting or deleting its ownership.
+        @param[in] branch Candidate run branch.
+        @return Observed commit, or empty for an absent branch.
+        @exception IsolationError Invalid ref, transport, duplicate or malformed output.
         """
-        @brief Remove an unchanged human-merged run branch using an exact remote lease.
+        ref = f"refs/heads/{branch}"
+        self._git("check-ref-format", ref)
+        output = self._git("ls-remote", "--heads", "origin", ref).stdout.strip()
+        if not output:
+            return ""
+        match = re.fullmatch(r"([0-9a-f]{40}|[0-9a-f]{64})\t" + re.escape(ref), output)
+        if match is None:
+            raise IsolationError("invalid remote branch availability evidence")
+        return match[1]
+
+    def fresh_branch(self, base: str, *, validate: Callable[[str], bool]) -> str:
+        """@brief Select an empty local/remote branch in at most four bounded probes.
+        @param[in] base Configured derived branch; occupied refs are preserved.
+        @param[in] validate Bounded repository naming-policy check for each actual candidate.
+        @return Base or one exact derived generation with a twelve-hex suffix.
+        @exception IsolationError No valid empty name or unconfirmed Git evidence.
+        """
+        for attempt in range(4):
+            candidate = base if attempt == 0 else f"{base}-g{uuid4().hex[:12]}"
+            if not validate(candidate):
+                continue
+            self._git("check-ref-format", f"refs/heads/{candidate}")
+            local = self.runner(["git", "-C", str(self.repo_path), "show-ref", "--verify",
+                                 "--quiet", f"refs/heads/{candidate}"])
+            if local.timed_out or local.exit_code not in (0, 1):
+                raise IsolationError("local branch availability could not be verified")
+            if local.exit_code == 1 and not self.remote_branch_head(candidate):
+                return candidate
+        raise IsolationError("no empty branch satisfies the repository naming rule")
+
+    def verify_removal(self, run_id: str, branch: str) -> None:
+        """@brief Verify local Git ownership before destructive recovery.
+        @param[in] run_id State-owned run directory name.
+        @param[in] branch Exact run branch, independently checked by the conductor.
+        @exception IsolationError Aliased, foreign or unregistered worktree.
+        """
+        path = self.path_for(run_id)
+        if path.resolve() != path.absolute() or path.is_symlink():
+            raise IsolationError("cleanup worktree path is linked or aliased")
+        if not path.exists():
+            return
+        if not (path / ".git").is_file() or (path / ".git").is_symlink():
+            raise IsolationError("cleanup worktree Git ownership is missing")
+        common = self._run_wt(str(path), "rev-parse", "--path-format=absolute", "--git-common-dir")
+        owner = self._git("rev-parse", "--path-format=absolute", "--git-common-dir")
+        head = self._run_wt(str(path), "symbolic-ref", "-q", "HEAD")
+        top = self._run_wt(str(path), "rev-parse", "--show-toplevel")
+        if (not Path(common.stdout.strip()).is_absolute()
+                or not Path(owner.stdout.strip()).is_absolute()
+                or Path(common.stdout.strip()).resolve() != Path(owner.stdout.strip()).resolve()
+                or Path(top.stdout.strip()).resolve() != path.resolve()
+                or head.stdout.strip() != f"refs/heads/{branch}"):
+            raise IsolationError("cleanup worktree belongs to a different repository or branch")
+
+    def remove_remote_branch(self, branch: str, expected: str, target: str,
+                             *, allow_absent: bool = False) -> None:
+        """
+        @brief Remove an unchanged owned run branch using an exact remote lease.
         @param[in] branch Owned run branch selected by the conductor.
         @param[in] expected Last published commit, which every publication records.
         @param[in] target Protected delivery target branch.
+        @param[in] allow_absent Permit an empty checkpoint only when the remote ref is absent.
         @exception IsolationError When identity, transport or deletion cannot be verified.
         @note An already absent branch succeeds without requiring its local counterpart.
         """
         ref = f"refs/heads/{branch}"
         if (not branch or branch.startswith("-") or branch == target
-                or re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected or "") is None):
+                or (not (allow_absent and expected == "")
+                    and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected or "") is None)):
             raise IsolationError("invalid or protected branch cleanup identity")
         self._git("check-ref-format", ref)
 
@@ -1039,6 +1112,129 @@ class ContainerManager:
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise IsolationError("container identity unavailable or corrupt") from exc
         return {"container_id": cid, "image_id": image, "status": status}
+
+    def release_owned(self, name: str, repo: Path, worktree: Path, io: Path,
+                      *, expected: dict | None = None) -> None:
+        """@brief Release actual owned container/proxy/network IDs despite policy drift.
+        @param[in] name Derived run container name, never a deletion target by itself.
+        @param[in] repo Main repository clone.
+        @param[in] worktree Dedicated run worktree.
+        @param[in] io Dedicated exchange directory.
+        @param[in] expected Saved immutable executor identity when available.
+        @exception IsolationError Foreign mounts, leases, network members or unconfirmed removal.
+        """
+        def inspect_container(target: str) -> dict | None:
+            """@brief Read one strict container identity; absence grants no name deletion."""
+            result = self.runner([*self.runtime_argv, "inspect", target], timeout=30)
+            if (not result.ok and not result.timed_out
+                    and any(marker in (result.stderr + result.stdout).lower()
+                            for marker in _ABSENT_MARKERS)):
+                return None
+            try:
+                if not result.ok or result.timed_out or len(result.stdout) > 1_000_000:
+                    raise ValueError
+                records = strict_json_loads(result.stdout)
+                if not isinstance(records, list) or len(records) != 1:
+                    raise ValueError
+                record = records[0]
+                if (not isinstance(record, dict)
+                        or not re.fullmatch(r"[0-9a-f]{64}", record.get("Id", ""))
+                        or not isinstance(record.get("Name"), str)
+                        or (record["Id"] != target and record["Name"].lstrip("/") != target)):
+                    raise ValueError
+                return record
+            except (ValueError, TypeError) as exc:
+                raise IsolationError("container cleanup identity is corrupt") from exc
+
+        def mounts_match(record: dict, pairs: list[tuple[str, Path]]) -> None:
+            """@brief Verify each dedicated bind once before granting release authority."""
+            mounts = record.get("Mounts")
+            if not isinstance(mounts, list):
+                raise IsolationError("container cleanup mounts are missing")
+            for destination, source in pairs:
+                matches = [item for item in mounts if isinstance(item, dict)
+                           and item.get("Destination") == destination]
+                if (len(matches) != 1 or matches[0].get("Type") != "bind"
+                        or not isinstance(matches[0].get("Source"), str)
+                        or os.path.normcase(matches[0]["Source"].replace("\\", "/"))
+                        != os.path.normcase(self._mount_source(source).replace("\\", "/"))):
+                    raise IsolationError("container cleanup mount belongs to another job")
+
+        executor = inspect_container(name)
+        proxy_name = self._proxy_name(name)
+        proxy = inspect_container(proxy_name)
+        if executor:
+            mounts_match(executor, [(CONTAINER_REPO_MOUNT, repo),
+                                   (CONTAINER_WORKTREE_MOUNT, worktree), (CONTAINER_IO_MOUNT, io)])
+            if expected and (executor["Id"] != expected.get("container_id")
+                             or executor.get("Image") != expected.get("image_id")):
+                raise IsolationError("container cleanup differs from the saved immutable identity")
+        if proxy:
+            mounts_match(proxy, [("/etc/squid/squid.conf", io / "egress-proxy" / "squid.conf")])
+        owned = {item["Id"] for item in (executor, proxy) if item}
+        suffix = "-" + self._bounded_name(name, _NETWORK_NAME_LIMIT)
+        listing = self._run([*self.runtime_argv, "network", "ls", "--filter",
+                             f"name={suffix}", "--format", "{{.Name}}"])
+        names = listing.stdout.splitlines()
+        if (listing.timed_out or len(listing.stdout) > 1_000_000
+                or any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,255}", n) for n in names)
+                or len(set(names)) != len(names)):
+            raise IsolationError("container cleanup network listing is corrupt")
+
+        def members(network_id: str) -> set[str]:
+            """@brief Read complete runtime membership without depending on inspect dialect."""
+            result = self._run([*self.runtime_argv, "ps", "--all", "--no-trunc", "--filter",
+                                f"network={network_id}", "--format", "{{.ID}}"])
+            values = result.stdout.splitlines()
+            if (result.timed_out or len(result.stdout) > 1_000_000
+                    or any(not re.fullmatch(r"[0-9a-f]{64}", value) for value in values)
+                    or len(set(values)) != len(values)):
+                raise IsolationError("container cleanup network membership is corrupt")
+            return set(values)
+
+        networks = []
+        for network in names:
+            if not network.endswith(suffix):
+                continue
+            result = self._run([*self.runtime_argv, "network", "inspect", network])
+            try:
+                if result.timed_out or len(result.stdout) > 1_000_000:
+                    raise ValueError
+                records = strict_json_loads(result.stdout)
+                if not isinstance(records, list) or len(records) != 1:
+                    raise ValueError
+                record = records[0]
+                # Docker and Podman expose different network-inspect field casing.
+                if "Id" in record:
+                    nid, actual_name, internal = record["Id"], record["Name"], record["Internal"]
+                else:
+                    nid, actual_name, internal = record["id"], record["name"], record["internal"]
+                if (not isinstance(nid, str) or not re.fullmatch(r"[0-9a-f]{64}", nid)
+                        or actual_name != network or internal is not True):
+                    raise ValueError
+            except (ValueError, TypeError, KeyError) as exc:
+                raise IsolationError("container cleanup network identity is corrupt") from exc
+            attached = members(nid)
+            if not attached or not attached <= owned:
+                raise IsolationError("container cleanup network has unproven or foreign ownership")
+            networks.append(nid)
+        # IDs are the sole destructive targets; a replacement under an old name is never removed.
+        for record in (executor, proxy):
+            if record:
+                self._run([*self.runtime_argv, "rm", "--force", record["Id"]])
+                if inspect_container(record["Id"]) is not None:
+                    raise IsolationError("owned container deletion was not verified")
+        for nid in networks:
+            if members(nid):
+                raise IsolationError("container cleanup network gained another member")
+            self._run([*self.runtime_argv, "network", "rm", nid])
+            absent = self.runner([*self.runtime_argv, "network", "inspect", nid], timeout=30)
+            if (absent.ok or absent.timed_out
+                    or not any(marker in (absent.stdout + absent.stderr).lower()
+                               for marker in ("no such network", "no such object", "not found"))):
+                raise IsolationError("owned network deletion was not verified")
+        if inspect_container(name) is not None or inspect_container(proxy_name) is not None:
+            raise IsolationError("another container appeared during cleanup; retained")
 
     def image_identity(self, image: str) -> str:
         """

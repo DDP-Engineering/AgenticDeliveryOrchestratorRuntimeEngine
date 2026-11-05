@@ -851,21 +851,25 @@ def valid_reviewers(value: object) -> bool:
     )
 
 
-def branch_naming_preview(template: str, rule: str, slug: str) -> dict[str, Any]:
+def branch_naming_preview(template: str, rule: str, slug: str, *,
+                          run_id: str = "sample-run-1", iid: int = 1) -> dict[str, Any]:
     """
-    @brief Render a fixed job-branch example and check the optional Python regex.
+    @brief Render an example or actual job branch and check the optional Python regex.
     @param[in] template Branch template using only slug, run_id and iid fields.
     @param[in] rule Optional repository naming regex; empty disables this check.
     @param[in] slug Effective agent slug from the selected configuration.
+    @param[in] run_id Actual identity for bounded admission checks; defaults to the example.
+    @param[in] iid Actual positive ticket identity; defaults to the example.
     @return Explicit sample identity, name, match result and closed issue codes.
     @note An example proves this identity only; it creates no branch or config.
           Regex execution is isolated and bounded to one second, failing closed.
     """
     result: dict[str, Any] = {"template": template, "rule": rule, "slug": slug,
-                              "iid": 1, "run_id": "sample-run-1", "name": None,
+                              "iid": iid, "run_id": run_id, "name": None,
                               "valid": False, "rule_matches": None, "issues": []}
     issues = result["issues"]
-    if not isinstance(template, str) or not isinstance(slug, str):
+    if (not isinstance(template, str) or not isinstance(slug, str)
+            or not isinstance(run_id, str) or type(iid) is not int or iid < 1):
         issues.append("invalid_template")
         return result
     if not isinstance(rule, str):

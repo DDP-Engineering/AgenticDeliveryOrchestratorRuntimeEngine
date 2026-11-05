@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { safeEvidenceLink, readJobPage, readJobDetail, activityAge, commandAllowed } from "../src/jobModel.ts";
+import { safeEvidenceLink, readJobPage, readJobDetail, activityAge, commandAllowed, stableExecutionDrift } from "../src/jobModel.ts";
 import { parseRoute, formatRoute } from "../src/routes.ts";
 import { messages } from "../src/i18n.ts";
 
@@ -71,5 +71,29 @@ test("command contracts protect final or human owned jobs and old routes survive
   for (const tab of ["overview", "configuration", "access", "jobs", "statistics", "history"]) {
     const route = { view: "projectDetails", project: id, tab };
     assert.deepEqual(parseRoute(formatRoute(route)), route);
+  }
+});
+
+
+test("stable execution drift routes to confirmed restart and keeps volatile Retry", () => {
+  const failed = { ...job(), lifecycle: "failed", state_revision: "a".repeat(64),
+    outcome: "INFRASTRUCTURE_EXHAUSTED: execution profile drift; restore pinned settings or start a fresh run" };
+  assert.equal(stableExecutionDrift(failed), true);
+  assert.equal(commandAllowed(failed, "retry"), false);
+  assert.equal(commandAllowed(failed, "restart"), true);
+  assert.equal(commandAllowed({ ...failed, project_archived: true }, "restart"), false);
+  assert.equal(commandAllowed({ ...failed, state_revision: undefined }, "restart"), false);
+  assert.equal(commandAllowed({ ...failed, lifecycle: "working" }, "restart"), false);
+  assert.equal(commandAllowed({ ...failed, outcome: "RETRY_REVALIDATION_FAILED: local environment drifted" }, "retry"), true);
+  assert.throws(() => readJobPage({ ...page(), items: [{ ...job(), state_revision: "wrong" }] }, [id]));
+});
+
+
+test("retained old branches are localized as successful recovery evidence", async () => {
+  const { operationResultText } = await import("../src/ticketCopy.ts");
+  const { recoveryCopy } = await import("../src/recoveryCopy.ts");
+  for (const locale of ["en", "fr", "de", "ro"]) {
+    assert.equal(operationResultText("restart:retained", locale), recoveryCopy[locale].retained);
+    assert.notEqual(operationResultText("restart:retained", locale), recoveryCopy[locale].failed);
   }
 });

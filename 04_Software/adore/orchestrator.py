@@ -54,7 +54,7 @@ from adore.branding import (
     EXECUTOR_BASE_IMAGE,
     EXECUTOR_NAME,
 )
-from adore.config import Config, egress_policy
+from adore.config import Config, branch_naming_preview, egress_policy
 from adore.execution import (
     ContainerBackend,
     ExecutionBackend,
@@ -211,12 +211,14 @@ class Orchestrator:
         log: Callable[[str], None] = print,
         backend: ExecutionBackend | None = None,
         chatgpt_token: Callable[[int], str] | None = None,
+        on_delete: Callable[[str, Callable[[], None]], None] | None = None,
     ) -> None:
         """
         @brief Wire the conductor from production or fake collaborators.
         @param[in] chatgpt_token Source of a ChatGPT access token valid for the
                    given seconds; by default Pi in a helper container of this
                    project's image refreshes the server's sign-in.
+        @param[in] on_delete Optional serialized projection/source deletion boundary.
         """
         self.config = config
         self.forge = forge
@@ -233,6 +235,8 @@ class Orchestrator:
         self.sleep = sleep
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
+        self.on_delete = on_delete
+        self._admission_branches: dict[int, str] = {}
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
         self._in_flight_run_id = ""
         self.chatgpt_token = chatgpt_token or (
@@ -245,16 +249,23 @@ class Orchestrator:
         cls,
         config: Config,
         env_file: str | Path = ".env",
+        *, cleanup_only: bool = False,
     ) -> Orchestrator:
         """
         @brief      Build the conductor with configured production collaborators.
         @param[in]  config Validated runtime configuration.
         @param[in]  env_file Secret file; direct callers default to cwd `.env`.
+        @param[in]  cleanup_only Native controls without current execution/tool identity.
         @return     Production-wired orchestrator.
         """
         env = {**load_env_file(env_file), **os.environ}
         secrets = {key: env[key] for key in secret_names(config.executor, config.execution.backend)
                    if env.get(key)}
+        backend = None
+        if cleanup_only and config.execution.backend == "local":
+            from adore.local_execution import LocalBackend
+
+            backend = LocalBackend.for_cleanup(config)
         return cls(
             config=config,
             forge=build_forge(
@@ -285,6 +296,7 @@ class Orchestrator:
                 web_search=config.executor.web.search,
             ),
             secrets=secrets,
+            backend=backend,
         )
 
     # Main entries
@@ -410,6 +422,113 @@ class Orchestrator:
         self._status(run)
         self._record_metrics(run)
         return True
+
+    def delete(self, run_id: str, *, owned_resources: bool = False,
+               retain_unpublished: bool = False) -> bool:
+        """@brief Delete verified run resources and state; caller holds conductor lock.
+        @param[in] run_id Selected stored run.
+        @param[in] owned_resources Explicit cleanup authority despite native policy drift.
+        @param[in] retain_unpublished Restart-only retention of an unproven occupied old ref.
+        @return Whether an unproven remote ref was retained for a fresh generation.
+        @exception IsolationError Ownership or cleanup cannot be confirmed; state is retained.
+        """
+        run = self.store.load(run_id)
+        directory = self.store.run_dir(run_id)
+        worktree = self.worktrees.path_for(run_id)
+        if (run.run_id != run_id or run.lifecycle in {"handed-off", "handoff-pending"}
+                or not self._owned_branch(run)
+                or run.container != self.identity.container_name(run_id)
+                or directory.resolve() != directory.absolute()
+                or (run.worktree and Path(run.worktree).resolve() != worktree.resolve())
+                or (not run.worktree and worktree.exists())
+                or (owned_resources and run.lifecycle not in {"failed", "cancelled"})):
+            raise IsolationError("cleanup requires the job's own resources and stopped ownership")
+        self.worktrees.verify_removal(run_id, run.branch)
+        native = run.execution.get("plan", {}).get("backend") == "local"
+        if native:
+            resource = run.execution["resource"]
+            if not resource:
+                control = directory / "local-control"
+                if control.exists() or control.is_symlink():
+                    raise IsolationError("unrecorded native ownership must be inspected")
+            elif (resource["worktree"] != run.worktree
+                    or Path(resource["io"]) != self.store.run_dir(run_id) / "io"):
+                raise IsolationError("native cleanup paths differ from the saved job")
+            elif owned_resources:
+                from adore.local_execution import LocalBackend
+
+                backend = (self.backend if isinstance(self.backend, LocalBackend)
+                           else LocalBackend.for_cleanup(self.config))
+                plan = validate_plan(run.execution["plan"])
+                backend.remove_owned(run.container, resource, plan["policy"]["local"])
+            else:
+                self.backend.remove(run.container, expected=resource)
+        else:
+            self.containers.release_owned(
+                run.container, self.worktrees.repo_path, worktree, directory / "io",
+                expected=run.execution.get("resource") or None,
+            )
+        # No checkpoint is authority to delete a present remote branch.
+        retained = False
+        if run.checkpoint_remote_commit:
+            self.worktrees.remove_remote_branch(
+                run.branch, run.checkpoint_remote_commit, self.config.delivery.target_branch
+            )
+        elif retain_unpublished and self.worktrees.remote_branch_head(run.branch):
+            retained = True
+        else:
+            self.worktrees.remove_remote_branch(
+                run.branch, "", self.config.delivery.target_branch, allow_absent=True
+            )
+        self.worktrees.remove(run_id, delete_branch=run.branch if run.worktree else None)
+        metrics.delete_summary(self.config.metrics.db_path, run_id,
+                               self.config.metrics.export_jsonl)
+        if self.on_delete is not None:
+            self.on_delete(run_id, lambda: self.store.delete_run(run_id))
+        else:
+            self.store.delete_run(run_id)
+        return retained
+
+    def restart(self, run_id: str, expected_revision: str) -> dict[str, Any]:
+        """@brief Abandon a confirmed failed incarnation and manually admit its ticket.
+        @param[in] run_id Stored failed job.
+        @param[in] expected_revision SHA-256 of the exact confirmed state bytes.
+        @return Normal selected-ticket poll result; caller holds conductor lock.
+        @exception IsolationError Changed/nonfailed state or unconfirmed cleanup.
+        """
+        from hashlib import sha256
+
+        raw = (self.store.run_dir(run_id) / "state.json").read_bytes()
+        run = self.store.load(run_id)
+        if (not expected_revision or sha256(raw).hexdigest() != expected_revision
+                or run.lifecycle != "failed"):
+            raise IsolationError("confirmed job changed; refresh Job details before restarting")
+        ticket = self.forge.get_ticket(run.ticket_iid)
+        if ticket is None or ticket.state != "opened":
+            raise IsolationError("restart requires an open ticket")
+        base = self._branch_name(run_id, run.ticket_iid)
+        if not self._owned_branch(run):
+            raise IsolationError("run branch ownership changed")
+        head = self.worktrees.remote_branch_head(run.branch)
+        if head and run.checkpoint_remote_commit and head != run.checkpoint_remote_commit:
+            raise IsolationError("remote run branch changed outside ADORE")
+        if (run.worktree and (not head or run.checkpoint_remote_commit)
+                and self._valid_admission_branch(run.branch)):
+            selected = run.branch
+        else:
+            selected = self.worktrees.fresh_branch(base, validate=self._valid_admission_branch)
+        retained = self.delete(run_id, owned_resources=True, retain_unpublished=True)
+        lifecycle = self.config.labels.lifecycle
+        self.forge.remove_labels(run.ticket_iid, [lifecycle.failed, lifecycle.working])
+        self.forge.add_labels(run.ticket_iid, [lifecycle.ready])
+        self._admission_branches[run.ticket_iid] = selected
+        try:
+            result = self.poll_once(locked=True, ticket_iid=run.ticket_iid)
+            if retained:
+                result["unproven_branch_retained"] = True
+            return result
+        finally:
+            self._admission_branches.pop(run.ticket_iid, None)
 
     def retry(self, run_id: str, *, reprepare: bool = False) -> bool:
         """@brief Explicitly re-arm a failed run without erasing history."""
@@ -912,6 +1031,11 @@ class Orchestrator:
     def _claim_and_conduct(self, ticket: Ticket) -> None:
         """@brief Persist ticket identity before any isolated code work starts."""
         run_id = self._run_id(ticket.iid)
+        branch = self._admission_branches.pop(ticket.iid, None)
+        if branch is None:
+            branch = self.worktrees.fresh_branch(
+                self._branch_name(run_id, ticket.iid), validate=self._valid_admission_branch,
+            )
         run = RunState(
             run_id=run_id,
             ticket_iid=ticket.iid,
@@ -919,7 +1043,7 @@ class Orchestrator:
             lifecycle="working",
             content_hash=content_hash(ticket.title, ticket.description),
             aegis_type=_task_type(ticket, self.config),
-            branch=self._branch_name(run_id, ticket.iid),
+            branch=branch,
             base_ref=f"origin/{self.config.delivery.target_branch}",
             container=self.identity.container_name(run_id),
         )
@@ -2596,7 +2720,7 @@ class Orchestrator:
             if self.config.delivery.remove_source_branch:
                 try:
                     if (mr.iid != run.mr_iid
-                            or run.branch != self._branch_name(run.run_id, run.ticket_iid)):
+                            or not self._owned_branch(run)):
                         raise IsolationError("run branch or review ownership changed")
                     self._transient(run, "remove-source-branch", lambda: (
                         self.worktrees.remove_remote_branch(
@@ -2860,6 +2984,17 @@ class Orchestrator:
             slug=self.identity.slug, run_id=run_id, iid=iid
         )
 
+    def _valid_admission_branch(self, name: str) -> bool:
+        """@brief Apply bounded existing Git-name and Python-rule validation to actual names."""
+        return branch_naming_preview(
+            "{run_id}", self.config.worktree.branch_rule, self.identity.slug, run_id=name,
+        )["valid"]
+
+    def _owned_branch(self, run: RunState) -> bool:
+        """@brief Recognize only the configured base or one exact derived generation."""
+        base = self._branch_name(run.run_id, run.ticket_iid)
+        return re.fullmatch(re.escape(base) + r"(?:-g[0-9a-f]{12})?", run.branch) is not None
+
     def _io_dir(self, run_id: str) -> Path:
         """@brief Return the host-side executor exchange directory."""
         return self.store.run_dir(run_id) / "io"
@@ -3008,7 +3143,8 @@ class Orchestrator:
         if not recipe and not self.worktrees.exists(run.run_id):
             self.worktrees.fetch()
         worktree = self.worktrees.create(
-            run.run_id, run.branch, run.base_ref or "HEAD"
+            run.run_id, run.branch, run.base_ref or "HEAD",
+            **({"new_branch": True} if not run.worktree else {}),
         )
         run.worktree = str(worktree)
         env = self._container_env(run)

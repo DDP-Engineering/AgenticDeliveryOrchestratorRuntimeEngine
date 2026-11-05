@@ -46,7 +46,7 @@ docs = [
 [interaction]
 # false stops at every completed stage and presents the next choices.
 # true flows between stages, but never bypasses publication approval.
-autopilot = false
+autopilot = true
 
 [review]
 # Explicit verdicts are on: validate records an independent

@@ -239,3 +239,9 @@ using the ADORE-owned credential directory and filtered service environment.
 Windows requires owned Jobs. Linux/WSL2 requires a delegated cgroup v2
 subtree containing the service process, with writable process and kill controls.
 The container internet switch does not restrict native host networking.
+
+## Confirmed recovery after drift
+
+Failed-job abandonment uses confirmed state revisions, verified owned native/container/worktree cleanup and leased remote-branch deletion before normal manual admission with monitoring pause preserved. Explicit native cleanup uses saved ownership without resolving current tools; ordinary execution/Retry identity checks remain strict. Proof: tests/test_drift_recovery.py and web/e2e/driftRecovery.spec.ts. No stored schema changes or live resource acceptance are required.
+
+Previously orphaned unproven refs are preserved through bounded fresh branch generations, with actual naming-rule checks and atomic initial local ref creation. Verified own branches remain reusable; known changed checkpoints refuse before cleanup.

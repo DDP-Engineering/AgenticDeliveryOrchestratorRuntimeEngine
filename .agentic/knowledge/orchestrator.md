@@ -194,3 +194,11 @@ bounded stage-failure policy. Preparation replay rules remain unchanged.
 Contracts: REQ-FUNC-bff135e2, REQ-REL-ea593cbb, REQ-REL-d8e08cca and
 REQ-DATA-62052e16. Offline coverage is tests/test_container_timeout.py, including
 public retry persistence, plus preparation/native/conductor regressions.
+
+## Owned abandonment and restart
+
+delete verifies derived names (including configured branch templates), dedicated paths, Git worktree ownership and saved native receipts or actual container bind mounts. Remote deletion requires the recorded checkpoint commit and exact lease; unpublished refs must already be absent. State deletion follows verified cleanup; partial failures prevent fresh admission and retain remaining evidence. restart accepts only a failed state at the confirmed SHA-256 revision and an open ticket, then restores ready eligibility and invokes ordinary locked manual admission with monitoring pause preserved. Human ownership is refused. Proof: tests/test_drift_recovery.py.
+
+Deletion removes the old terminal metrics summary and invokes the optional registered-profile deletion callback, which holds projection serialization across source removal and cursor reset. No persisted schema changes. Offline proof includes a real poll/admission after prior projected usage, plus stale-reader and summary-rebuild writer boundaries.
+
+Previously deleted jobs with unproven occupied refs use bounded fresh branch generations on restart; the old ref is retained and reported, never deleted. A known changed checkpoint still refuses before cleanup. Verified own branches can be reused under strict rules; rule refusal occurs before cleanup. Initial admission uses atomic new-branch/worktree creation; a job without established worktree ownership cannot delete an unproven local ref. Delete and merged cleanup accept only exact derived generation names. Proof includes actual orphan admission and all-forge generated-merge cleanup in tests/test_drift_recovery.py.
