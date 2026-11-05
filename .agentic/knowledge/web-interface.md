@@ -866,6 +866,11 @@ buttons live in the information panel. Explicit host-check results appear there.
 scoped response validation and performed-check classification. Focused proof is
 `web/tests/readiness.test.mjs` and `web/e2e/jobs.spec.ts` readiness journeys.
 Explicit host checks retain internally validated check time and configuration revision.
+A validated current host-check completion supersedes in-flight project-list reads
+before publishing its result (`App::checkProjectReadiness`, `projectsRequest`).
+Older snapshots cannot overwrite that result; subsequent fresh polls retain update
+authority. The held-snapshot/fresh-poll journey in `web/e2e/jobs.spec.ts` proves
+both sides of this response-order boundary under `REQ-UX-78923e00`.
 Check host prerequisites opens the details panel immediately and shows Checking while the request runs. Duplicate checks are blocked. Results or localized failure guidance appear inside the panel; Close details hides it without cancelling a running check, and completion respects the closed state. The check button exposes the disclosure state and regains focus on close. Project/account/page changes discard stale responses; project-tab navigation retains current evidence. Model/executor
 access evidence appears only inside these details on Summary. There is no separate
 connected-model output or overall performed-check banner, keeping the following jobs panel visible. Configuration/time metadata remains internal; configuration changes require fresh evidence. An Admin can configure repository sign-in through Connect repository in Summary,

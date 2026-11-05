@@ -599,14 +599,15 @@ class StateStore:
         @brief   Load every readable run, sorted by run-id.
         @details Corrupt runs are skipped here so operational commands keep
                  working; they stay visible through invalid_runs() and are
-                 never silently deleted or reinitialized.
+                 never silently deleted or reinitialized. State removed after
+                 enumeration is omitted; unrelated I/O errors still propagate.
         @return  All loadable runs found under `<root>/runs`.
         """
         runs: list[RunState] = []
         for entry in self._run_dirs():
             try:
                 runs.append(self.load(entry.name))
-            except StateError:
+            except (StateError, FileNotFoundError):
                 continue
         return runs
 
@@ -615,12 +616,16 @@ class StateStore:
         @brief   Run-ids whose state exists on disk but fails to load.
         @details The fail-closed counterpart of list_runs(): these runs need a
                  human (or `adore cleanup`); the poller must not touch them.
+                 State removed after enumeration is not corrupt and is omitted;
+                 unrelated I/O errors still propagate.
         @return  Sorted run-ids with corrupt state.json.
         """
         invalid: list[str] = []
         for entry in self._run_dirs():
             try:
                 self.load(entry.name)
+            except FileNotFoundError:
+                continue
             except StateError:
                 invalid.append(entry.name)
         return invalid

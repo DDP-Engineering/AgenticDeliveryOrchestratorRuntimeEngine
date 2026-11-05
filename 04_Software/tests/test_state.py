@@ -243,6 +243,74 @@ def test_list_runs_and_delete(tmp_path: Path) -> None:
     assert not store.exists("a-run")
 
 
+@pytest.mark.parametrize("listing", ["list_runs", "invalid_runs"])
+@pytest.mark.parametrize("remove_directory", [False, True])
+def test_run_listing_tolerates_concurrent_disappearance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, listing: str,
+    remove_directory: bool,
+) -> None:
+    """
+    @brief Listing skips state deleted after enumeration without hiding corruption.
+    @details Delete at the file-open boundary, after is_file has selected the run;
+             no threads, sleeps, retries or private enumeration hooks are needed.
+    """
+    store = _store(tmp_path)
+    for iid, run_id in enumerate(("a-gone", "b-good", "c-corrupt"), start=1):
+        store.save(RunState(run_id=run_id, ticket_iid=iid))
+    vanished = store.run_dir("a-gone") / "state.json"
+    corrupt = store.run_dir("c-corrupt") / "state.json"
+    corrupt.write_text("{broken", encoding="utf-8")
+    original_open = Path.open
+    deleted = False
+
+    def open_after_deletion(path: Path, *args, **kwargs):
+        """@brief Inject legitimate deletion immediately before the real open."""
+        nonlocal deleted
+        if path == vanished and not deleted:
+            deleted = True
+            if remove_directory:
+                store.delete_run("a-gone")
+            else:
+                vanished.unlink()
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", open_after_deletion)
+    result = getattr(store, listing)()
+    assert deleted, "the race must occur after enumeration, at state-file open"
+    if listing == "list_runs":
+        assert [run.run_id for run in result] == ["b-good"]
+    else:
+        assert result == ["c-corrupt"]
+    assert not vanished.exists()  # no automatic recreation
+    assert corrupt.read_bytes() == b"{broken"  # no repair or deletion
+    with pytest.raises(StateError):
+        store.load("c-corrupt")
+    with pytest.raises(FileNotFoundError):
+        store.load("a-gone")  # direct loading keeps its missing-run contract
+
+
+@pytest.mark.parametrize("listing", ["list_runs", "invalid_runs"])
+def test_run_listing_propagates_unrelated_io_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, listing: str,
+) -> None:
+    """@brief Permission failures are not mistaken for concurrent deletion."""
+    store = _store(tmp_path)
+    store.save(RunState(run_id="denied", ticket_iid=1))
+    denied = store.run_dir("denied") / "state.json"
+    original_open = Path.open
+
+    def denied_open(path: Path, *args, **kwargs):
+        """@brief Refuse only the enumerated state-file read."""
+        if path == denied:
+            raise PermissionError("state read denied")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", denied_open)
+    with pytest.raises(PermissionError, match="state read denied"):
+        getattr(store, listing)()
+    assert denied.exists()
+
+
 def test_load_missing_run_raises(tmp_path: Path) -> None:
     """
     @brief   Loading an unknown run raises FileNotFoundError.

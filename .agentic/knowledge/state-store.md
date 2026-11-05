@@ -49,7 +49,11 @@ included, fails closed as an unknown stage. `published_fingerprint` records the
 candidate fingerprint of the last publication that reached review.
 
 The durable store preserves recovery evidence and refuses corrupt or uncertain
-ownership instead of resetting it.
+ownership instead of resetting it. `list_runs()` and `invalid_runs()` omit state
+removed between enumeration and file open. Corrupt state remains visible through
+`invalid_runs()`, unrelated I/O errors propagate, and direct `load()` still raises
+`FileNotFoundError` for missing state. Deterministic public listing tests inject
+file/directory deletion at open without retries or automatic recreation.
 
 ## Key behaviors
 

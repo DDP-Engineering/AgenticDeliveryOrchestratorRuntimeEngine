@@ -26,7 +26,9 @@ audit log. The closed run-state schema is `1`.
   part) so cleanup can tell its own resources from other projects';
 - preserve active/historical task ids, stage/path/type, counters, incidents,
   outbox, validation evidence, candidate fingerprint, approval and MR state;
-- report corrupt runs without silently reinitializing them.
+- report corrupt runs without silently reinitializing them;
+- omit state removed between listing enumeration and file open, without
+  suppressing unrelated I/O failures or changing direct-load errors.
 
 ## 3. Data Contract
 
@@ -81,6 +83,12 @@ conduct (`test_run_at_a_stage_this_build_does_not_conduct_is_refused`) and of
 state missing a current key (`test_state_missing_a_current_key_is_refused`),
 snapshots, JSONL, locking, public stale reclamation,
 unknown-lock fail-closed behavior, pause and cleanup support.
+`test_run_listing_tolerates_concurrent_disappearance` deletes an enumerated
+state file or run directory at open for both `list_runs()` and `invalid_runs()`:
+remaining valid runs stay readable, corrupt runs remain reported and unchanged,
+and direct `load()` still raises `FileNotFoundError` for missing state.
+`test_run_listing_propagates_unrelated_io_errors` preserves permission errors;
+listings do not retry, repair state or treat missing files as corrupt runs.
 
 ## Preparation evidence
 

@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Concurrent job deletion no longer interrupts project/run listings; corrupt state remains visible and unrelated read errors still propagate.
+
 - A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
 
 ### Changed

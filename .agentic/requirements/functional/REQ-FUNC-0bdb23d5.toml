@@ -49,14 +49,14 @@ When persisted run state is corrupt or has an unknown schema or field, the runti
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated state tests reject unknown fields, state carrying any schema version other than the current one, and corrupt JSON, while reporting invalid runs."
+verification = "Automated state tests reject unknown fields, noncurrent schemas and corrupt JSON while reporting invalid runs unchanged. Deterministic public listing tests delete state files/run directories after enumeration: surviving valid runs remain readable and corrupt runs visible, missing direct loads still fail, and unrelated permission errors propagate."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/state.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_state.py::test_from_dict_rejects_unknown_keys", "04_Software/tests/test_state.py::test_adore_3_state_is_rejected_with_hard_break_diagnostic", "04_Software/tests/test_state.py::test_corrupt_state_json_fails_closed"]
+linked_tests = ["04_Software/tests/test_state.py::test_from_dict_rejects_unknown_keys", "04_Software/tests/test_state.py::test_adore_3_state_is_rejected_with_hard_break_diagnostic", "04_Software/tests/test_state.py::test_corrupt_state_json_fails_closed", "04_Software/tests/test_state.py::test_list_runs_skips_corrupt_and_invalid_runs_reports_them", "04_Software/tests/test_state.py::test_run_listing_tolerates_concurrent_disappearance", "04_Software/tests/test_state.py::test_run_listing_propagates_unrelated_io_errors", "04_Software/tests/test_state.py::test_load_missing_run_raises"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Durable recovery decisions require trustworthy state."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-05
