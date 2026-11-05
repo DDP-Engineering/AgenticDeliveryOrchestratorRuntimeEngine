@@ -1033,3 +1033,9 @@ closed config_missing/config_corrupt reasons and null limits/revision; the UI sh
 — and localized guidance. Corrupt run evidence still fails closed. Metadata-only recovery is covered by
 test_web_restart_requires_confirmation_revision_and_rechecks_worker. Limit derivation
 AttributeError is classified without an untyped server error.
+
+## Job operational evidence
+
+JobWorkspace explains Working, parked-clarification and Failed states in all four locales, shows saved current-stage failures, and uses seconds in job times. Event stage projection reads explicit stage, stage context on usage/artifact events, or current destination on stage transitions. Unrelated events stay unassigned. Observed questions use ForgeMarkdown and shared local code/table scrolling.
+
+The lazy authorized executor-output endpoint reads the last executor-artifacts host capture reference, never raw IO. executor_evidence.py validates exact run/attempt/context/digest/schema, bounded regular unlinked stable files and canonical diagnostics. Missing provenance/files are explicit; corrupt data is refused. No private/financial transcript content is returned to either role. Consumption errors offer an actual refresh action. Strict selected-run rereads avoid rescanning project history inside each projection transaction. Out-of-order usage projection snapshots are accepted only against verified fresh source/cursor prefixes without rolling back durable cursors. Relevant proof: test_web_jobs.py, test_web_metrics.py, test_pi_rpc.py, web/tests/jobs.test.mjs and focused issue35 browser journeys.

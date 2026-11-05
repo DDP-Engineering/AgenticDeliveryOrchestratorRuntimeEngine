@@ -1261,3 +1261,11 @@ uses `availability=unavailable`, a closed missing/corrupt reason and null limit/
 fields, while keeping trustworthy consumed launches and active seconds. The interface
 shows — for limits and a localized notice. Corrupt saved job evidence still rejects
 the detail read. Metadata-only profile history retains its existing recovery behavior.
+
+## Reading job diagnostics
+
+Job details explains normal Working, Waiting for clarification and Failed states and shows failed attempts in the current stage in the status card. Timeline events retain their recorded stage/context/transition destination and times include seconds. Questions use safe Markdown with local scrolling; HTML remains literal and images do not load automatically.
+
+Evidence and artifacts → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
+
+Consumption failures have a Refresh consumption button. A corrected out-of-order projection race preserves verified journal prefixes without rolling back cursors. This controlled reproducer does not establish the cause of every historical 503; malformed sources continue to be rejected and need operator investigation.

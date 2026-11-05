@@ -254,6 +254,25 @@ def _journal(raw: bytes | None) -> list[dict]:
     return events
 
 
+def _event_stage(event: dict) -> str | None:
+    """@brief Read stage evidence from the event's declared semantic field."""
+    stage = event.get("stage")
+    if stage is None and event["event"] in {"usage", "executor-artifacts"}:
+        stage = event.get("context")
+        if stage is not None and not isinstance(stage, str):
+            raise JobReadError("run_journal_corrupt")
+        # Validation/revision sessions have their own operational contexts.
+        if stage in {"revision", "validation-remediation", "delivery-fix"}:
+            return None
+    if stage is None and event["event"] in {"stage-advanced", "stages-run-ahead"}:
+        stage = event.get("current")
+    if stage is not None and (not isinstance(stage, str) or stage not in {
+        "frame", "specify", "design", "build", "validate", "done", "publishing",
+    }):
+        raise JobReadError("run_journal_corrupt")
+    return stage
+
+
 def _waiting(run: RunState, events: list[dict], ticket_url: str | None,
              mr_url: str | None, platform: str) -> dict:
     """
@@ -372,7 +391,7 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
                         if run.execution and run.execution["plan"]["selection"] else None),
         "timeline": [{"ts": _stamp(event["ts"], "run_journal_corrupt"),
                       "event": _text(event["event"], "run_journal_corrupt"),
-                      "stage": event.get("stage")} for event in events],
+                      "stage": _event_stage(event)} for event in events],
         "coverage": {"ticket": "missing" if raw_ticket is None else "present",
                      "journal": "missing" if raw_journal is None else "present",
                      "title": "unknown" if title is None else "observed",

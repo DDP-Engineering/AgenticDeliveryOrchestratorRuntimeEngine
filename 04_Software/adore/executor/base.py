@@ -66,7 +66,8 @@ class GateRun:
              (also persisted in the run's io dir for audit). `artifact_dirs`
              names immutable per-launch archive directories created by the file
              protocol. There is deliberately no session id: every stage gets a
-             FRESH executor session, so nothing is ever continued.
+             FRESH executor session, so nothing is ever continued. `diagnostics`
+             optionally carries host-normalized operational streams for safe viewing.
     """
 
     exit_code: int
@@ -83,6 +84,7 @@ class GateRun:
     cost_usd: float = 0.0
     cost_reported: bool = False
     artifact_dirs: list[str] = field(default_factory=list)
+    diagnostics: dict[str, str] | None = None
 
     @property
     def ok(self) -> bool:

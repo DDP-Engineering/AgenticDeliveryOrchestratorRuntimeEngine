@@ -46,6 +46,8 @@ import threading
 import time
 from typing import IO, Any
 
+from adore.executor.diagnostics import normalize_diagnostics, protocol_diagnostics
+
 # CONSTANTS
 
 ABORT_GRACE_SECONDS = 10.0
@@ -148,6 +150,7 @@ class PiRpcResult:
     records_skipped: int = 0
     output: str = ""
     stderr: str = ""
+    diagnostics: dict[str, str] = field(default_factory=lambda: {"stdout": "", "stderr": ""})
     process_exit: int | None = None
     notes: list[str] = field(default_factory=list)
 
@@ -290,10 +293,26 @@ class _Evidence:
         self.handle = path.open("wb") if path is not None else None
         self.limit, self.written, self.clean = limit, 0, clean
         self.tail_limit, self.record_limit = tail_limit, record_limit
+        self.diagnostics: deque[str] = deque()
+        self.diagnostic_bytes = 0
         self.truncated = False
         self.tail: deque[str] = deque()
         self.tail_bytes = 0
         self.lock = threading.Lock()
+
+    def add_diagnostics(self, text: str) -> None:
+        """@brief Retain at most 500 canonical lines within the existing 64 KiB tail cap."""
+        with self.lock:
+            for line in text.splitlines():
+                self.diagnostics.append(line)
+                self.diagnostic_bytes += len(line.encode("utf-8")) + 1
+                while self.diagnostic_bytes > TAIL_BYTES or len(self.diagnostics) > 500:
+                    self.diagnostic_bytes -= len(self.diagnostics.popleft().encode("utf-8")) + 1
+
+    def diagnostic_text(self) -> str:
+        """@brief Snapshot diagnostics even if a delayed reader outlives its bounded join."""
+        with self.lock:
+            return "\n".join(self.diagnostics)
 
     def add(self, line: str) -> None:
         """
@@ -376,6 +395,7 @@ def _read_stdout(stream: IO[bytes], sink: queue.Queue, evidence: _Evidence, limi
                                          "head": head}))
                 sink.put({"kind": "malformed"})
                 continue
+            evidence.add_diagnostics(protocol_diagnostics(record, evidence.clean))
             kind = record.get("type")
             if kind != "message_update":
                 evidence.add(_stub(str(kind), size) if size > evidence.record_limit
@@ -399,6 +419,7 @@ def _read_stderr(stream: IO[bytes], evidence: _Evidence) -> None:
         for line, size, _prefix in _records(stream, TAIL_BYTES):
             text = (f"[{size} bytes omitted]" if line is None
                     else line.decode("utf-8", errors="replace"))
+            evidence.add_diagnostics(normalize_diagnostics(evidence.clean(text)))
             evidence.add(evidence.clean(text))
     except (OSError, ValueError):
         pass
@@ -655,6 +676,10 @@ def run_pi_rpc(
         launch.join()
     result.output, result.stderr = stdout.text(), stderr.text()
     _conclude(result, stop, protocol, rejected, settled, last, clean)
+    result.diagnostics = {
+        "stdout": normalize_diagnostics(stdout.diagnostic_text() + "\nRPC " + result.outcome),
+        "stderr": normalize_diagnostics(stderr.diagnostic_text()),
+    }
     return result
 
 

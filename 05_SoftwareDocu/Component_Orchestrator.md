@@ -353,3 +353,9 @@ Proof: public Retry with injected forge/executor/Aegis collaborators verifies
 between-attempt raise, exhausted limits, missing/corrupt source and identity drift.
 
 Non-budget binding preserves scalar types as well as values: boolean false and numeric zero are distinct. Canonical typed JSON comparison launches no probes.
+
+## Journal-bound executor diagnostics
+
+When a gate returns archives and host-normalized diagnostics, the conductor writes a unique schema-1 executor-diagnostics snapshot outside writable executor IO and records its exact SHA-256, cumulative launch number and filename on executor-artifacts. The snapshot binds run identity, launch context, exit/timeout and canonical streams. Gates without captured diagnostics retain explicit unavailability. This evidence adds no execution, retry or publication authority and changes no run-state schema. Invalid diagnostics or linked snapshot locations fail closed. A public Retry regression proves capture persistence and journal binding without live resources.
+
+Every completed executor attempt records the latest evidence marker, including attempts with no archive or captured diagnostics, so earlier output is never substituted as the latest attempt.

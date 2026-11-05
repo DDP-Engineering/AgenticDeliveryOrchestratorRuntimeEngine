@@ -119,7 +119,7 @@ text = { en = "Statistics is compact: one period row, each figure shown once, tr
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Sort jobs, restart safely after drift; track launches and active time, adjust waiting budgets.", fr = "Triez les tâches, repartez après dérive ; suivez le budget et ajustez-le en attente.", de = "Aufträge sortieren, nach Drift neu starten; Budgetverbrauch sehen und beim Warten anpassen.", ro = "Sortează lucrările, repornește după schimbări; vezi consumul și ajustează bugetele în așteptare." }
+text = { en = "Inspect job failures and safe output; recover after drift, track budgets and edit waiting jobs.", fr = "Échecs et sorties sûres ; reprenez après dérive et ajustez les budgets des travaux en attente.", de = "Jobfehler und sichere Ausgaben prüfen; nach Drift wiederherstellen und Wartebudgets anpassen.", ro = "Vezi eșecurile și ieșirile sigure; recuperează după derivă și ajustează bugetele în așteptare." }
 
 [[release.entry]]
 category = "improved"

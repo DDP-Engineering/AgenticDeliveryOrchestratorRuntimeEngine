@@ -63,6 +63,7 @@ from adore.execution import (
     run_preparation_step,
 )
 from adore.executor.base import Executor, GateRun
+from adore.executor.diagnostics import record_diagnostics
 from adore.executor.launcher import build_executor
 from adore.forge import Comment, Forge, ForgeError, Ticket, build_forge
 from adore.identity import AgentIdentity
@@ -3535,13 +3536,15 @@ class Orchestrator:
 
     def _journal_artifacts(self, run: RunState, context: str, result: GateRun) -> None:
         """@brief Link immutable per-launch executor evidence into the audit log."""
-        if result.artifact_dirs:
-            self.store.journal(
-                run.run_id,
-                "executor-artifacts",
-                context=context,
-                artifacts=result.artifact_dirs,
-            )
+        # Every completed attempt supersedes earlier output, including unavailable capture.
+        self.store.journal(
+            run.run_id,
+            "executor-artifacts",
+            context=context,
+            artifacts=result.artifact_dirs,
+            diagnostics=record_diagnostics(self.store.run_dir(run.run_id), run.run_id,
+                                           run.iterations, context, result),
+        )
 
     def _record_metrics(self, run: RunState) -> None:
         """@brief Record terminal metrics without letting metrics break a run."""

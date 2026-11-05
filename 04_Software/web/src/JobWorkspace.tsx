@@ -8,9 +8,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
-import { budgetCopy, jobCopy, lifecycleExplanation } from "./jobCopy";
+import { budgetCopy, jobCopy, jobGuidance, lifecycleExplanation } from "./jobCopy";
+import { ForgeMarkdown } from "./forgeMarkdown";
+import { ticketCopy } from "./ticketCopy";
 import { PreparationResults } from "./ExecutionPlanReview";
-import { activityAge, commandAllowed, stableExecutionDrift, IncompleteJobs, readJobDetail, readJobPage, type Job, type JobPage } from "./jobModel";
+import { activityAge, commandAllowed, stableExecutionDrift, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
@@ -91,11 +93,15 @@ export function JobWorkspace(props: Props) {
   const [consumption, setConsumption] = useState<{ key: string; state: "loading" | "ready" | "error"; jobs: JobConsumption[] }>({ key: "", state: "loading", jobs: [] });
   const statisticsText = statisticsCopy[locale];
   const consumptionView = (job: Job, full = false) => {
-    if (consumption.key !== consumptionKey || consumption.state !== "ready") return <DataFeedback state={consumption.key === consumptionKey ? consumption.state : "loading"} t={t} />;
+    if (consumption.key !== consumptionKey || consumption.state !== "ready") return <>
+      <DataFeedback state={consumption.key === consumptionKey ? consumption.state : "loading"} t={t} />
+      {consumption.key === consumptionKey && consumption.state === "error" &&
+        <button className="ghost" onClick={() => setReload(value => value + 1)}>{copy.refreshConsumption}</button>}
+    </>;
     const usage = consumption.jobs.find(row => consumptionIdentity(row) === consumptionIdentity(job));
     return usage ? <JobAmounts job={usage} locale={locale} admin={props.admin} t={t} compact={!full} /> : <span>{statisticsText.unavailable}</span>;
   };
-  const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : copy.unknown;
+  const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium" }).format(new Date(value)) : copy.unknown;
   const change = (key: keyof Filters, value: string | number) => setFilters(current => ({ ...current, [key]: value, offset: 0 }));
   const busy = submitting || operation !== null && ["pending", "running"].includes(operation.status);
 
@@ -221,10 +227,10 @@ export function JobWorkspace(props: Props) {
   const feedback = (status: ReadState, cause: unknown) => status === "incomplete" || status === "changed" ?
     <section className="panel data-feedback" role="alert"><div><h2>{status === "incomplete" ? copy.incomplete : copy.changed}</h2><p>{status === "incomplete" ? copy.incompleteHelp : copy.changedHelp}</p><button className="ghost" onClick={() => { revision.current = { key: "", snapshot: "" }; setFilters(current => ({ ...current, offset: 0 })); setReload(value => value + 1); }}>{copy.reload}</button></div></section> :
     <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause)}</p> : null}</>;
-  const reason = (job: Job) => job.waiting.reason === "candidate_approval_requested" ? copy.approvalReason : job.waiting.reason === "draft_review_open" ? copy.reviewReason : job.waiting.reason || job.outcome || copy.reasonUnknown;
+  const reason = (job: Job) => job.waiting.reason === "candidate_approval_requested" ? copy.approvalReason : job.waiting.reason === "draft_review_open" ? copy.reviewReason : job.waiting.reason || job.outcome || jobGuidance(locale, job.lifecycle).reason;
   const actionText = (job: Job) => job.waiting.next_action === "answer_question_on_ticket" ? copy.openQuestion : job.waiting.next_action === "review_candidate_on_ticket" ? copy.openApproval : copy.openReview;
   const actor = (job: Job) => ({ human_responder: copy.responder, human_approver: copy.approver, human_reviewer: copy.reviewer }[job.waiting.responsible_role || ""] ||
-    (["working", "publishing"].includes(job.lifecycle) ? copy.system : ["failed", "stale", "handoff-pending"].includes(job.lifecycle) ? copy.operator : copy.unknown));
+    (job.lifecycle === "parked-clarification" ? copy.responder : ["working", "publishing"].includes(job.lifecycle) ? copy.system : ["failed", "stale", "handoff-pending"].includes(job.lifecycle) ? copy.operator : copy.unknown));
   const activity = (job: Job) => <><time dateTime={job.last_activity_at || undefined}>{date(job.last_activity_at)}</time>{activityAge(job.last_activity_at) !== "recent" && <small className="field-hint">{job.last_activity_at ? copy.oldActivity : copy.missingActivity}</small>}</>;
   // Inside a project hub, job links address the hub's Jobs tab so new tabs and copied links stay there.
   const jobHref = (job: Job) => fixedScope ? formatRoute({ view: "projectDetails", project: job.project_id, tab: "jobs", run: job.run_id }) :
@@ -257,8 +263,10 @@ export function JobWorkspace(props: Props) {
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
     {visibleDetail && <section className="panel detail-panel" aria-label={`${t("ticket")} #${visibleDetail.ticket_iid}`}>
       <div className="panel-heading"><div><p className="eyebrow">{visibleDetail.project_display_name} · #{visibleDetail.ticket_iid}</p><h2>{visibleDetail.ticket_title || copy.titleUnknown}</h2></div><button className="ghost" onClick={onClose}>{t("close")}</button></div>
-      <div className="next-action-panel"><h3>{copy.now}</h3><StatusBadge code={visibleDetail.lifecycle}>{visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}</StatusBadge><p>{lifecycleExplanation(locale, visibleDetail.lifecycle)}</p><p>{t("stage")}: <strong>{label(visibleDetail.stage, stageKeys, t)}</strong></p><p>{reason(visibleDetail)}</p>
-        <dl className="action-explanation"><div><dt>{copy.who}</dt><dd>{actor(visibleDetail)} · {visibleDetail.waiting.responsible_person || copy.personUnknown}</dd></div><div><dt>{copy.where}</dt><dd>{visibleDetail.waiting.evidence_url && visibleDetail.waiting.next_action ? <a className="primary link-button" href={visibleDetail.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(visibleDetail)} ↗</a> : copy.evidenceMissing}</dd></div><div><dt>{copy.follows}</dt><dd>{visibleDetail.waiting.next_action ? visibleDetail.lifecycle === "awaiting-approval" ? copy.afterApproval : visibleDetail.lifecycle === "parked-clarification" ? copy.afterClarification : copy.afterReview : copy.unknown}</dd></div></dl>
+      <div className="next-action-panel"><h3>{copy.now}</h3><StatusBadge code={visibleDetail.lifecycle}>{visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}</StatusBadge><p>{lifecycleExplanation(locale, visibleDetail.lifecycle)}</p><p>{t("stage")}: <strong>{label(visibleDetail.stage, stageKeys, t)}</strong></p>{visibleDetail.lifecycle === "parked-clarification" && visibleDetail.waiting.reason ?
+          <ForgeMarkdown source={visibleDetail.waiting.reason} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table} /> : <p>{reason(visibleDetail)}</p>}
+        {visibleDetail.stage_failures > 0 && <p className="notice" role="status">{copy.stageFailures.replace("{count}", String(visibleDetail.stage_failures))}</p>}
+        <dl className="action-explanation"><div><dt>{copy.who}</dt><dd>{actor(visibleDetail)}{visibleDetail.waiting.responsible_person ? ` · ${visibleDetail.waiting.responsible_person}` : visibleDetail.waiting.responsible_role ? ` · ${copy.personUnknown}` : ""}</dd></div><div><dt>{copy.where}</dt><dd>{visibleDetail.waiting.evidence_url && visibleDetail.waiting.next_action ? <a className="primary link-button" href={visibleDetail.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(visibleDetail)} ↗</a> : jobGuidance(locale, visibleDetail.lifecycle).where}</dd></div><div><dt>{copy.follows}</dt><dd>{visibleDetail.waiting.next_action ? visibleDetail.lifecycle === "awaiting-approval" ? copy.afterApproval : visibleDetail.lifecycle === "parked-clarification" ? copy.afterClarification : copy.afterReview : jobGuidance(locale, visibleDetail.lifecycle).follows}</dd></div></dl>
         <p className="muted">{t("lastActivity")}: {activity(visibleDetail)}</p>
       </div>
       <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
@@ -280,6 +288,7 @@ export function JobWorkspace(props: Props) {
       {visibleDetail.preparation && <PreparationResults evidence={visibleDetail.preparation} locale={locale} />}
       <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}
       <h3>{copy.artifacts}</h3><div className="button-row">{visibleDetail.ticket_url && <a className="ghost link-button" href={visibleDetail.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}{visibleDetail.mr_url && <a className="ghost link-button" href={visibleDetail.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>{!visibleDetail.ticket_url && !visibleDetail.mr_url && <p>{copy.unknown}</p>}
+      <ExecutorOutputView key={`${detailKey}/${visibleDetail.state_revision}`} job={visibleDetail} locale={locale} request={request} t={t} />
       <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
     </section>}
     <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
@@ -305,4 +314,34 @@ function ObservedTimeline({ events, date, t, unknown }: { events: NonNullable<Jo
   return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? label(event.stage, stageKeys, t) : unknown}</td></tr>)}</tbody></table></div>
     {rows.length > 10 && <div className="table-pagination timeline-pagination"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t("all")}</option></select></label><span>{start + 1}–{start + shown.length} / {rows.length}</span><div className="button-row"><button className="ghost" disabled={!start || size === "all"} onClick={() => setOffset(start - Number(size))}>{t("previous")}</button><button className="ghost" disabled={size === "all" || start + shown.length >= rows.length} onClick={() => setOffset(start + Number(size))}>{t("next")}</button></div></div>}
   </>;
+}
+
+
+/** Fetch on demand, discarding completions after the selected job is unmounted. */
+function ExecutorOutputView({job, locale, request, t}: {job:Job;locale:Locale;request:Request;t:Props["t"]}) {
+  const [state,setState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [output,setOutput]=useState<ExecutorOutput|null>(null);
+  const generation=useRef(0);
+  useEffect(()=>()=>{generation.current++;},[]);
+  const load=async()=>{
+    const current=++generation.current;
+    setState("loading");setOutput(null);
+    try {
+      const value=readExecutorOutput(await request(`/jobs/${encodeURIComponent(job.project_id)}/${encodeURIComponent(job.run_id)}/executor-output`),job.project_id,job.run_id);
+      if(current===generation.current){setOutput(value);setState("ready");}
+    }catch{if(current===generation.current)setState("error");}
+  };
+  const copy=jobCopy[locale];
+  return <section className="executor-output">
+    <button className="ghost" disabled={state==="loading"} onClick={()=>void load()}>{copy.executorOutput}</button>
+    {state!=="idle" && <p className="field-hint">{copy.outputHelp}</p>}
+    {state==="loading" && <p role="status">{t("loadingData")}</p>}
+    {state==="error" && <p role="alert">{copy.outputFailed}</p>}
+    {output?.availability==="missing" && <p role="status">{copy.outputMissing}</p>}
+    {output?.availability==="observed" && <>
+      <p>{copy.exitCode}: {output.exit_code}{output.timed_out && ` · ${copy.timedOut}`}</p>
+      <h4>stdout</h4><pre className="operation-detail" tabIndex={0}>{output.stdout || copy.outputEmpty}</pre>
+      <h4>stderr</h4><pre className="operation-detail" tabIndex={0}>{output.stderr || copy.outputEmpty}</pre>
+    </>}
+  </section>;
 }

@@ -797,3 +797,9 @@ uses `availability=unavailable`, a closed missing/corrupt reason and null limit/
 fields, while keeping trustworthy consumed launches and active seconds. The interface
 shows — for limits and a localized notice. Corrupt saved job evidence still rejects
 the detail read. Metadata-only profile history retains its existing recovery behavior.
+
+## Job diagnostics and concurrent usage
+
+The scoped executor-output GET delegates to the strict job snapshot and host-captured evidence reader. It returns only project/run identity, availability, normalized stdout/stderr and exit/timeout facts; source paths, argv and raw IO are never returned. Latest entries without a capture reference return missing, not an older output.
+
+Usage projection accepts an older request snapshot after another request advanced the cursor only when a fresh strict selected-run journal confirms both the incoming prefix and the saved cursor digest. It validates every returned projected event, retains the newer cursor and preserves the older request's real snapshot. Changed or truncated sources still fail closed; no automatic retry or fabricated totals are used. `test_web_metrics.py` includes a controlled HTTP interleaving and persistent-cursor checks.

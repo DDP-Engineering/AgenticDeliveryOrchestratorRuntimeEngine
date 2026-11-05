@@ -149,3 +149,33 @@ export function commandAllowed(job: Job, action: "retry" | "cancel" | "restart")
   return action === "retry" ? job.lifecycle === "failed" && !stableExecutionDrift(job) :
     !["done", "failed", "cancelled", "stale", "handoff-pending", "handed-off"].includes(job.lifecycle);
 }
+
+
+export type ExecutorOutput = {project_id:string;run_id:string} & (
+  {availability:"observed";stdout:string;stderr:string;exit_code:number;timed_out:boolean} |
+  {availability:"missing";stdout:null;stderr:null;exit_code:null;timed_out:null}
+);
+/** Closed operational evidence transport; raw transcript bytes are never displayable. */
+export function readExecutorOutput(value: unknown, project: string, run: string): ExecutorOutput {
+  const row = object(value);
+  if (Object.keys(row).sort().join(",") !== "availability,exit_code,project_id,run_id,stderr,stdout,timed_out" ||
+    row.project_id !== project || row.run_id !== run) invalid();
+  if (row.availability === "missing") {
+    if ([row.stdout,row.stderr,row.exit_code,row.timed_out].some(value=>value!==null)) invalid();
+  } else if (row.availability === "observed") {
+    if (!string(row.stdout) || !string(row.stderr) || row.stdout.length>65536 || row.stderr.length>65536 ||
+      !Number.isInteger(row.exit_code) || Number(row.exit_code)<-(2**31) || Number(row.exit_code)>=2**31 ||
+      typeof row.timed_out!=="boolean") invalid();
+    const credential = /(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|[a-fA-F0-9]{32,})/;
+    const module = /^ModuleNotFoundError: No module named '[A-Za-z_][A-Za-z0-9_.]{0,79}'$/;
+    const counts = /^pytest: [0-9]{1,7} (?:failed|passed|skipped|errors?|deselected|xfailed|xpassed)(?:, [0-9]{1,7} (?:failed|passed|skipped|errors?|deselected|xfailed|xpassed))*$/;
+    const status = /^(?:RPC (?:completed|failed|timed-out|cancelled|protocol-error)|diagnostic: (?:not-found|permission|credential|rate-limit|network|model|timeout|protocol)|AssertionError|SyntaxError|TypeError|ImportError)$/;
+    const canonical = (text: string) => {
+      const lines = text ? text.split("\n") : [];
+      return lines.length <= 500 && lines.every(line => line === "[other output withheld]" ||
+        !credential.test(line) && (module.test(line) || counts.test(line) || status.test(line)));
+    };
+    if (!canonical(String(row.stdout)) || !canonical(String(row.stderr))) invalid();
+  } else invalid();
+  return row as ExecutorOutput;
+}

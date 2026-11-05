@@ -677,6 +677,7 @@ class PiExecutor(FileProtocolExecutor):
             cost_usd=0.0,
             cost_reported=False,
             artifact_dirs=artifacts,
+            diagnostics=result.diagnostics,
         )
 
     def _place_file(self, execute: ExecTarget, io_dir: Path, source: str, target: str,

@@ -245,21 +245,29 @@ def _historical_sources(sources: list[tuple], summaries: list) -> list[tuple]:
 
 
 # PUBLIC API
-def read_sources(store: StateStore) -> list[tuple[RunState, list[dict]]]:
+def read_sources(store: StateStore, *,
+                 run_id: str | None = None) -> list[tuple[RunState, list[dict]]]:
     """
     @brief Read complete state and JSONL without the tolerant operational reader.
     @param[in] store Runtime store to inspect without mutation.
+    @param[in] run_id Optional exact run for a strict reread without rescanning other jobs.
     @return Run and validated journal pairs in stable order.
     @exception AnalyticsError Unsupported schema, corrupt/unreadable or linked source.
     """
+    if run_id is not None and (not isinstance(run_id, str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", run_id)):
+        raise AnalyticsError("run_state_corrupt")
     root = store.runs_root
     if not root.exists():
+        if run_id is not None:
+            raise AnalyticsError("run_state_corrupt")
         return []
     result = []
     try:
         if not root.is_dir() or root.is_symlink():
             raise AnalyticsError("run_state_corrupt")
-        for entry in sorted(root.iterdir()):
+        entries = sorted(root.iterdir()) if run_id is None else [root / run_id]
+        for entry in entries:
             if (
                 not entry.is_dir()
                 or entry.is_symlink()

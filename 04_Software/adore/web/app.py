@@ -117,6 +117,7 @@ from adore.web.executor_configuration import (
     set_connection,
     valid_connection,
 )
+from adore.web.executor_evidence import read_executor_output
 from adore.web.executor_settings import (
     PROVIDER_KEYS,
     ExecutorSettingsError,
@@ -2162,7 +2163,8 @@ def _analytics_sources(profiles, profile, web, admin):
     for run, events in sources:
         try:
             web.reconcile_usage(profile.project_id, run.run_id, events,
-                                current_source=lambda run_id=run.run_id: store.read_journal(run_id))
+                                current_source=lambda run_id=run.run_id:
+                                    analytics.read_sources(store, run_id=run_id)[0][1])
         except (metrics.MetricsError, WebStoreError) as exc:
             raise analytics.AnalyticsError("usage_corrupt") from exc
     return store, sources, prices
@@ -4156,6 +4158,23 @@ def create_app(home: str | Path | None = None,
         if item not in job_projects(user, project_id):
             raise JobReadError("job_snapshot_changed", 409)
         return {"job": row, "complete": True, "snapshot": revision}
+
+    @app.get("/api/v1/jobs/{project_id}/{run_id}/executor-output")
+    def job_executor_output(project_id: str, run_id: str,
+                            user: Annotated[dict, Depends(principal)]) -> dict:
+        """@brief Read only authorized journal-bound operational executor evidence."""
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
+            raise _error(404, "run_not_found")
+        rows, revision = job_snapshot(user, project_id)
+        row = next((row for row in rows if row["run_id"] == run_id), None)
+        if row is None:
+            raise _error(404, "run_not_found")
+        item = next(item for item in job_projects(user, project_id)
+                    if item.project_id == project_id)
+        result = read_executor_output(profiles, item, run_id, row["state_revision"])
+        if item not in job_projects(user, project_id):
+            raise JobReadError("job_snapshot_changed", 409)
+        return result
 
     @app.get("/api/v1/projects/{name}/runs")
     def runs(name: str, user: Annotated[dict, Depends(principal)]) -> list[dict]:

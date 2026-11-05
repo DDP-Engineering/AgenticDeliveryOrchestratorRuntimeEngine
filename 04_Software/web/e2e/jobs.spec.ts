@@ -292,7 +292,7 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
   await expect(detail.getByRole("heading", { name: "Ticket title not recorded" })).toBeVisible();
-  await expect(detail).toContainText("saved evidence does not identify an action location");
+  await expect(detail).toContainText("no human intervention is currently requested");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
   await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");
   await expect(detail.locator(".job-consumption").first()).not.toContainText("Not available");
@@ -1029,4 +1029,96 @@ test("job budgets show retained consumption and boundary timing in four locales"
       theme.selectOption("light"),
     ]);
   }
+});
+
+
+test("issue35 job diagnostics clarify status, safe questions, seconds and consumption reload", async ({page}) => {
+  await signIn(page);
+  await page.route("**/api/v1/jobs/*/ux-working", async route => {
+    const response=await route.fetch(), data=await response.json();
+    data.job.stage_failures=1;
+    data.job.timeline=[{ts:"2026-11-05T10:12:34Z",event:"stage-failed",stage:"build"}];
+    await route.fulfill({response,json:data});
+  });
+  await page.route("**/api/v1/projects/*/usage?*",route=>route.fulfill({status:503,json:{detail:{code:"usage_corrupt"}}}));
+  await page.route("**/api/v1/jobs/*/ux-working/executor-output",route=>route.fulfill({json:{
+    project_id:new URL(route.request().url()).pathname.split("/")[4],run_id:"ux-working",availability:"observed",
+    stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",stderr:"diagnostic: credential",exit_code:1,timed_out:false}}));
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  const card=page.locator(".next-action-panel"),detail=page.locator(".detail-panel");
+  await expect(card).toContainText("Failed attempts in this stage: 1");
+  await expect(card).not.toContainText(/Reason not recorded|Unknown — no recorded evidence|does not identify/);
+  await expect(detail.getByRole("table",{name:"Timeline"})).toContainText(/:34/);
+  await expect(detail.getByRole("table",{name:"Timeline"})).toContainText("Build");
+  await expect(detail.getByRole("button",{name:"Refresh consumption",exact:true})).toBeVisible();
+  await page.unroute("**/api/v1/projects/*/usage?*");
+  await detail.getByRole("button",{name:"Refresh consumption",exact:true}).click();
+  await expect(detail.locator(".job-consumption")).toBeVisible();
+  await detail.getByRole("button",{name:"View latest executor output",exact:true}).click();
+  await expect(detail.locator(".executor-output")).toContainText("credential");
+  await expect(detail.locator(".executor-output")).toContainText("ModuleNotFoundError: No module named 'yaml'");
+  await expect(detail.locator(".executor-output")).toContainText("pytest: 1 failed, 2 passed");
+  await page.route("**/api/v1/jobs/*/ux-clarification",async route=>{
+    const response=await route.fetch(),data=await response.json();
+    data.job.waiting.responsible_role=null;
+    data.job.waiting.evidence_url=null;
+    data.job.waiting.next_action=null;
+    data.job.waiting.reason="## Choose a format\n\n- **JSON**\n- CSV\n\n`code`\n\n<script>window.issue35=true</script>\n\n[unsafe](javascript:alert(1))\n\n![image](https://invalid.example/private.png)";
+    await route.fulfill({response,json:data});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-clarification");
+  await expect(card.getByRole("heading",{name:"Choose a format"})).toBeVisible();
+  await expect(card).toContainText("Human responder");
+  await expect(card).not.toContainText("Unknown — no recorded evidence");
+  await expect(card.locator("ul li")).toHaveCount(2);
+  await expect(card.locator("code")).toHaveText("code");
+  await expect(card).toContainText("<script>window.issue35=true</script>");
+  await expect(card.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
+  expect(await page.evaluate(()=>Object.hasOwn(window,"issue35"))).toBe(false);
+});
+
+
+test("issue35 normal lifecycle copy in four locales and safe Markdown scroll on dark mobile", async ({page}, info) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const me=await (await page.request.get("/api/v1/me")).json();
+  const preferences=async(language:string,theme:string)=>{
+    expect((await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language,theme}})).ok()).toBe(true);
+  };
+  try {
+    for (const [locale,working,failed,parked] of [
+      ["en","no human intervention is currently requested","Autonomous work has stopped","After an accepted answer"],
+      ["fr","aucune intervention humaine","Le travail autonome est arrêté","Après une réponse acceptée"],
+      ["de","kein menschlicher Eingriff","Autonome Arbeit wurde angehalten","Nach einer angenommenen Antwort"],
+      ["ro","nu se cere intervenția unui om","Lucrul autonom s-a oprit","După un răspuns acceptat"],
+    ]) {
+      await preferences(locale,"dark");
+      for (const [suffix,text] of [["working",working],["failed",failed],["clarification",parked]]) {
+        await page.goto(`/jobs?project=alpha&run=ux-${suffix}`);
+        const card=page.locator(".next-action-panel");
+        // Saved failed outcomes remain visible; the lifecycle explanation is separately localized.
+        if(suffix==="failed") await expect(card).toContainText(/failed|échoué|fehlgeschlagen|eșuat/);
+        else if(suffix==="clarification") await expect(card).toContainText(/clarification|Klärung|clarificare/);
+        else await expect(card).toContainText(text);
+      }
+    }
+    await preferences("en","dark");
+    await page.route("**/api/v1/jobs/*/ux-clarification",async route=>{
+      const response=await route.fetch(),data=await response.json();
+      data.job.waiting.reason="## Long question\n\n| Header | Other |\n|---|---|\n| "+"a".repeat(600)+" | value |\n\n```\n"+"long_code ".repeat(120)+"\n```";
+      await route.fulfill({response,json:data});
+    });
+    await page.setViewportSize({width:390,height:900});
+    await page.goto("/jobs?project=alpha&run=ux-clarification");
+    await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
+    const regions=page.locator(".next-action-panel .forge-scroll");
+    await expect(regions).toHaveCount(2);
+    // Detail reads can replace the card; query both current regions atomically on each poll.
+    await expect.poll(()=>regions.evaluateAll(elements=>elements.map(element=>({
+      scrolls:element.scrollWidth>element.clientWidth,
+      overflow:getComputedStyle(element).overflowX,
+    })))).toEqual([{scrolls:true,overflow:"auto"},{scrolls:true,overflow:"auto"}]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({path:info.outputPath("issue35-question-dark-mobile.png"),fullPage:true});
+  } finally {await preferences("en","light");}
 });

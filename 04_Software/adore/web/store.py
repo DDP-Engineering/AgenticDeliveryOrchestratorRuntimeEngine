@@ -485,8 +485,10 @@ class WebStore:
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                if current_source is not None and current_source()[:len(journal)] != journal:
+                fresh = current_source() if current_source is not None else None
+                if fresh is not None and fresh[:len(journal)] != journal:
                     raise WebStoreError("usage source changed before projection")
+                stale_snapshot = False
                 cursor = connection.execute(
                     "SELECT journal_length,journal_sha256 FROM usage_cursor "
                     "WHERE project_id=? AND run_id=?", (project_id, run_id),
@@ -499,8 +501,11 @@ class WebStore:
                             or not re.fullmatch(r"[0-9a-f]{64}", prior_digest)):
                         raise WebStoreError("usage cursor is corrupt")
                     if prior_length > len(journal):
-                        raise WebStoreError("projected usage is absent from journal")
-                    prefix = json.dumps(journal[:prior_length], sort_keys=True,
+                        if fresh is None or len(fresh) < prior_length:
+                            raise WebStoreError("projected usage is absent from journal")
+                        stale_snapshot = True
+                    prefix_source = fresh if stale_snapshot else journal
+                    prefix = json.dumps(prefix_source[:prior_length], sort_keys=True,
                                         separators=(",", ":"), allow_nan=False)
                     if hashlib.sha256(prefix.encode()).hexdigest() != prior_digest:
                         raise WebStoreError("usage journal changed before cursor")
@@ -510,11 +515,13 @@ class WebStore:
                              "WHERE project_id=? AND run_id=?",
                              (project_id, run_id),
                          ).fetchall()}
-                if set(prior) - {key for key, _payload, _event in usage}:
+                if not stale_snapshot and set(prior) - {key for key, _payload, _event in usage}:
                     raise WebStoreError("projected usage is absent from journal")
                 for key, payload, _event in usage:
                     if key in prior and prior[key] != payload:
                         raise WebStoreError("conflicting projected usage")
+                    if key not in prior and stale_snapshot:
+                        raise WebStoreError("stale usage snapshot is absent from projection")
                     if key not in prior:
                         connection.execute(
                             "INSERT INTO usage_projection"
@@ -528,25 +535,28 @@ class WebStore:
                         "WHERE project_id=? AND run_id=?", (project_id, run_id),
                     ).fetchall()
                 }
-                if set(prior_observations) - set(observations):
+                if not stale_snapshot and set(prior_observations) - set(observations):
                     raise WebStoreError("projected observation is absent from journal")
                 for key, (_value, payload) in observations.items():
                     if key in prior_observations and prior_observations[key] != payload:
                         raise WebStoreError("conflicting projected observation")
+                    if key not in prior_observations and stale_snapshot:
+                        raise WebStoreError("stale observation is absent from projection")
                     if key not in prior_observations:
                         connection.execute(
                             "INSERT INTO usage_observation_projection"
                             "(project_id,run_id,source_id,event_json) VALUES(?,?,?,?)",
                             (project_id, run_id, key, payload),
                         )
-                connection.execute(
-                    "INSERT INTO usage_cursor"
-                    "(project_id,run_id,journal_length,journal_sha256) VALUES(?,?,?,?) "
-                    "ON CONFLICT(project_id,run_id) DO UPDATE SET "
-                    "journal_length=excluded.journal_length, "
-                    "journal_sha256=excluded.journal_sha256",
-                    (project_id, run_id, len(journal), journal_digest),
-                )
+                if not stale_snapshot:
+                    connection.execute(
+                        "INSERT INTO usage_cursor"
+                        "(project_id,run_id,journal_length,journal_sha256) VALUES(?,?,?,?) "
+                        "ON CONFLICT(project_id,run_id) DO UPDATE SET "
+                        "journal_length=excluded.journal_length, "
+                        "journal_sha256=excluded.journal_sha256",
+                        (project_id, run_id, len(journal), journal_digest),
+                    )
                 stored = {row["source_id"]: row["event_json"] for row in
                           connection.execute(
                               "SELECT source_id,event_json FROM usage_projection "

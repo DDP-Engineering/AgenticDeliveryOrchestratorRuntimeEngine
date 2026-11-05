@@ -181,3 +181,9 @@ Retained stdout/stderr archives encode the returned text directly as UTF-8 bytes
 Package-enabled Pi gates combine cancellation with `package_secrets`: the complete RPC turn usage is kept, then live/archive stdout and stderr are redacted and capped at 64 KiB in UTF-8 bytes. Ordinary RPC gates keep their full event archive. A timed-out RPC gate settles the bound container before another command; unconfirmed interruption raises `ExecutionRecoveryError`. Native Pi uses the same bounded file-protocol retention.
 
 RPC clarification questions apply the binding credential redactor before publication. Package-enabled questions also use the shared regular-file/identity checks, known-secret redaction and 64 KiB UTF-8 retention cap; linked question files fail closed.
+
+## Operational diagnostics
+
+Pi RPC captures bounded canonical diagnostics from protocol error fields, failed tool-result text and stderr after the binding credential redactor. Assistant content, reasoning, prompts and tool arguments are excluded. Concrete ModuleNotFoundError module identifiers and pytest numeric result counts survive; other known failures use categories and arbitrary content is withheld. The diagnostic ring retains at most 500 rows within 64 KiB per stream. GateRun carries the optional streams without changing lifecycle, timeout or usage decisions. executor/diagnostics.py owns normalization, canonical validation and unique host-owned snapshot persistence. Public fake-RPC and Retry tests exercise capture and journal binding without a model.
+
+Recognized token-shaped module identifiers are withheld even when they satisfy Python identifier syntax. Diagnostic ring mutation and result snapshots share the evidence lock, including readers that outlive a bounded join.

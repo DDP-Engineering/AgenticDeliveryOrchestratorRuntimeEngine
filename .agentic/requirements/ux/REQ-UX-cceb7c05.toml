@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-cceb7c05"
+title = "Explain normal job lifecycle states"
+status = "active"
+requirement = "While a job is working, parked for clarification or failed, the job detail shall explain its actor, location and conditional next step in English, French, German and Romanian without presenting normal activity as missing evidence."
+verification = "Browser fixtures inspect normal working, parked and failed cards in four locales, including missing parked question evidence."
+affected_paths = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/adore/release_notes.toml"]
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+created = 2026-11-05
+updated = 2026-11-05

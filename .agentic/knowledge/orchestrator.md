@@ -206,3 +206,9 @@ Deletion removes the old terminal metrics summary and invokes the optional regis
 Previously deleted jobs with unproven occupied refs use bounded fresh branch generations on restart; the old ref is retained and reported, never deleted. A known changed checkpoint still refuses before cleanup. Verified own branches can be reused under strict rules; rule refusal occurs before cleanup. Initial admission uses atomic new-branch/worktree creation; a job without established worktree ownership cannot delete an unproven local ref. Delete and merged cleanup accept only exact derived generation names. Proof includes actual orphan admission and all-forge generated-merge cleanup in tests/test_drift_recovery.py.
 
 Non-budget source binding uses type-sensitive canonical JSON; false/0 and true/1 never authorize another attempt after a configuration type change.
+
+## Host diagnostic snapshots
+
+Each executor-artifacts journal event may bind the host-normalized GateRun diagnostics to a unique schema-1 file under the run-owned executor-diagnostics directory outside executor IO. The reference includes the cumulative launch number and exact SHA-256; the snapshot binds run, attempt, context, exit/timeout and bounded canonical streams. Missing capture stays unavailable; unsafe locations/content fail closed. No run-state schema or execution/recovery/publication authority changes. The public Retry diagnostic test proves this seam through the injected executor/backend.
+
+Every completed executor attempt records the latest evidence marker, including attempts with no archive or captured diagnostics, so earlier output is never substituted as the latest attempt.

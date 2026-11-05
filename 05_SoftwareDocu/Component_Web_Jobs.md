@@ -189,3 +189,11 @@ no default is invented. Derivation type errors are classified, including Attribu
 
 Public HTTP proof: `test_web_jobs.py` checks counters/frozen elapsed time, roles,
 source corruption and authorized identity. Statistics consumption remains separate.
+
+## Operational executor evidence
+
+Job cards explain normal Working, parked-clarification and Failed lifecycles in four locales and surface current-stage failed-attempt counts. Clarification reasons use the shared safe ForgeMarkdown renderer. Times include seconds; the event projection uses explicit stage, usage/artifact stage context and stage-transition current destination, never today's run stage for unrelated past events.
+
+`GET /api/v1/jobs/{project_id}/{run_id}/executor-output` authorizes before reads and rechecks grants after them. The last executor-artifacts event must carry a host-generated diagnostics reference (`file`, SHA-256, cumulative `attempt`). `executor_evidence.read_executor_output` reads only the run-owned executor-diagnostics snapshot, checks stable regular unlinked files, exact schema/identity/context/digest and normalized stream content. It never opens raw executor archives. Missing provenance/files return availability missing; corruption is a typed 503 and a changing snapshot is 409. Both roles get the same operational facts, without financial text.
+
+Snapshots are capped at 150 KiB JSON, with at most 500 diagnostic records and 64 KiB per stream. Run/journal reads are bounded. Public HTTP tests cover concrete missing-module/test-count diagnostics, scoped/revoked grants, unsafe references, malformed/oversized/linked files and explicit missing provenance.

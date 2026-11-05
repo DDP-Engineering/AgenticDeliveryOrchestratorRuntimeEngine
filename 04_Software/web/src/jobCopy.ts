@@ -4,10 +4,20 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import type { Locale } from "./i18n";
-import type { Lifecycle } from "./jobModel";
+import type { Locale } from "./i18n.ts";
+import type { Lifecycle } from "./jobModel.ts";
 
 const en = {
+  stageFailures: "Failed attempts in this stage: {count}",
+  executorOutput: "View latest executor output",
+  outputHelp: "Host-captured operational stdout/stderr. Missing modules and test totals are kept; private content is withheld.",
+  outputMissing: "No proven operational output is available for the latest recorded launch.",
+  outputEmpty: "No operational records.",
+  outputFailed: "Executor output could not be read. Reload to inspect current evidence.",
+  refreshConsumption: "Refresh consumption",
+  exitCode: "Exit code",
+  timedOut: "Timed out",
+
   details: "Details", allProjects: "All projects", allJobs: "View all jobs", noActive: "No active jobs",
   completed: "Completed", afterClarification: "After a correlated answer is accepted, the executor can resume through the existing gates.", afterApproval: "After fresh approval of this exact candidate, ADORE can publish an MR/PR through the existing gates.", afterReview: "The MR/PR stays in human review; humans decide whether to merge.",
   waiting: "Waiting", terminal: "Finished jobs", staleJob: "Stale", attention: "Needs attention", noAttention: "No jobs need attention in this scope.", scope: "Job scope", all: "All authorized projects",
@@ -36,6 +46,16 @@ export type JobCopy = typeof en;
 export const jobCopy: Record<Locale, JobCopy> = {
   en,
   fr: {
+  stageFailures: "Tentatives échouées dans cette étape : {count}",
+  executorOutput: "Voir la dernière sortie de l’exécuteur",
+  outputHelp: "Sorties opérationnelles capturées sur l’hôte. Modules absents et totaux des tests conservés ; contenu privé masqué.",
+  outputMissing: "Aucune sortie terminée disponible pour le dernier lancement enregistré.",
+  outputEmpty: "Aucun événement opérationnel.",
+  outputFailed: "Sortie de l’exécuteur illisible. Rechargez pour consulter les preuves actuelles.",
+  refreshConsumption: "Actualiser la consommation",
+  exitCode: "Code de sortie",
+  timedOut: "Délai dépassé",
+
   details: "Détails", allProjects: "Tous les projets", allJobs: "Voir tous les travaux", noActive: "Aucun travail actif",
   completed: "Terminé", afterClarification: "Après acceptation d’une réponse corrélée, l’exécuteur peut reprendre en respectant les contrôles existants.", afterApproval: "Après approbation actuelle de ce candidat exact, ADORE peut publier une MR/PR avec les contrôles existants.", afterReview: "La MR/PR reste en revue humaine ; les humains décident de la fusion.",
     waiting: "En attente", terminal: "Travaux terminés", staleJob: "Périmé", attention: "À traiter", noAttention: "Aucun travail ne demande une intervention dans ce périmètre.", scope: "Périmètre des travaux", all: "Tous les projets autorisés",
@@ -60,6 +80,16 @@ export const jobCopy: Record<Locale, JobCopy> = {
     verificationHelp: "La vérification est explicite et liée à la révision sauvegardée et à l’heure du contrôle.", summary: "Résumé", settings: "Paramètres", history: "Historique", historyHelp: "Travaux terminés, échoués, annulés, périmés et confiés à un humain dans ce projet.",
   },
   de: {
+  stageFailures: "Fehlversuche in dieser Phase: {count}",
+  executorOutput: "Letzte Executor-Ausgabe anzeigen",
+  outputHelp: "Vom Host erfasste operative Ausgaben. Fehlende Module und Testsummen bleiben sichtbar; private Inhalte verborgen.",
+  outputMissing: "Für den letzten gespeicherten Start liegt keine abgeschlossene Ausgabe vor.",
+  outputEmpty: "Keine operativen Einträge.",
+  outputFailed: "Executor-Ausgabe nicht lesbar. Für aktuelle Nachweise neu laden.",
+  refreshConsumption: "Verbrauch aktualisieren",
+  exitCode: "Exitcode",
+  timedOut: "Zeitlimit überschritten",
+
   details: "Details", allProjects: "Alle Projekte", allJobs: "Alle Jobs anzeigen", noActive: "Keine aktiven Jobs",
   completed: "Abgeschlossen", afterClarification: "Nach Annahme einer zugeordneten Antwort kann der Executor unter den bestehenden Prüfungen fortfahren.", afterApproval: "Nach aktueller Freigabe genau dieses Kandidaten kann ADORE unter den bestehenden Prüfungen einen MR/PR veröffentlichen.", afterReview: "Der MR/PR bleibt in menschlicher Prüfung; Menschen entscheiden über das Zusammenführen.",
     waiting: "Wartend", terminal: "Beendete Jobs", staleJob: "Veraltet", attention: "Handlungsbedarf", noAttention: "Keine Jobs in diesem Bereich benötigen einen Eingriff.", scope: "Jobbereich", all: "Alle berechtigten Projekte",
@@ -84,6 +114,16 @@ export const jobCopy: Record<Locale, JobCopy> = {
     verificationHelp: "Die ausdrückliche Prüfung ist an die gespeicherte Konfigurationsrevision und Prüfzeit gebunden.", summary: "Zusammenfassung", settings: "Einstellungen", history: "Verlauf", historyHelp: "Abgeschlossene, fehlgeschlagene, abgebrochene, veraltete und an Menschen übergebene Jobs dieses Projekts.",
   },
   ro: {
+  stageFailures: "Încercări eșuate în această etapă: {count}",
+  executorOutput: "Vezi ultima ieșire a executorului",
+  outputHelp: "Ieșiri operaționale capturate de host. Modulele lipsă și totalurile testelor se păstrează; conținutul privat este ascuns.",
+  outputMissing: "Nu există o ieșire încheiată pentru ultima lansare înregistrată.",
+  outputEmpty: "Nicio înregistrare operațională.",
+  outputFailed: "Ieșirea executorului nu poate fi citită. Reîncarcă pentru dovezile actuale.",
+  refreshConsumption: "Actualizează consumul",
+  exitCode: "Cod de ieșire",
+  timedOut: "Timp expirat",
+
   details: "Detalii", allProjects: "Toate proiectele", allJobs: "Vezi toate lucrările", noActive: "Nicio lucrare activă",
   completed: "Finalizat", afterClarification: "După acceptarea unui răspuns corelat, executorul poate continua prin verificările existente.", afterApproval: "După aprobarea curentă a acestui candidat exact, ADORE poate publica un MR/PR prin verificările existente.", afterReview: "MR/PR-ul rămâne în revizuire umană; oamenii decid integrarea.",
     waiting: "În așteptare", terminal: "Joburi încheiate", staleJob: "Învechit", attention: "Necesită intervenție", noAttention: "Niciun job nu necesită intervenție în acest domeniu.", scope: "Domeniul joburilor", all: "Toate proiectele autorizate",
@@ -176,3 +216,79 @@ export const budgetCopy = {
     timing:"Limitele actuale ale proiectului se aplică înaintea următoarei încercări, inclusiv la reluare. Așteptarea este exclusă; consumul acumulat se păstrează. Încercarea în curs își păstrează limita de timp.",
     near:"Se apropie o limită de buget (90% consumat).",reached:"O limită de buget a fost atinsă. Majoreaz-o înainte de reluare.",settings:"Ajustează bugetele în Setările proiectului"},
 } satisfies Record<Locale, Record<string,string>>;
+
+/** Normal lifecycle guidance is conditional, never inferred telemetry. */
+const guidance: Record<Locale, Record<string, [string, string, string]>> = {
+  "en": {
+    "working": [
+      "This stage is being conducted; no human intervention is currently requested.",
+      "ADORE manages this job’s working environment.",
+      "ADORE checks the recorded result before advancing or attempting recovery."
+    ],
+    "parked-clarification": [
+      "Waiting for a human answer to the agent’s question.",
+      "The question location is not recorded; inspect the ticket with the operator.",
+      "After an accepted answer, ADORE rechecks the job before continuing."
+    ],
+    "failed": [
+      "Autonomous work has stopped. Inspect the retained failure evidence.",
+      "Inspect this job’s evidence and project settings with the operator.",
+      "An authorized operator can remediate the cause and request recovery."
+    ]
+  },
+  "fr": {
+    "working": [
+      "Cette étape est en cours ; aucune intervention humaine n’est actuellement demandée.",
+      "ADORE gère l’environnement de ce travail.",
+      "ADORE vérifie le résultat enregistré avant de poursuivre ou de tenter une récupération."
+    ],
+    "parked-clarification": [
+      "En attente d’une réponse humaine à la question de l’agent.",
+      "L’emplacement de la question est absent ; consultez le ticket avec l’opérateur.",
+      "Après une réponse acceptée, ADORE revérifie le travail avant de poursuivre."
+    ],
+    "failed": [
+      "Le travail autonome est arrêté. Consultez les preuves d’échec conservées.",
+      "Consultez les preuves du travail et les paramètres du projet avec l’opérateur.",
+      "Un opérateur autorisé peut corriger la cause et demander une récupération."
+    ]
+  },
+  "de": {
+    "working": [
+      "Diese Phase wird bearbeitet; derzeit ist kein menschlicher Eingriff angefordert.",
+      "ADORE verwaltet die Arbeitsumgebung dieses Jobs.",
+      "ADORE prüft das gespeicherte Ergebnis vor dem Fortsetzen oder einem Wiederherstellungsversuch."
+    ],
+    "parked-clarification": [
+      "Eine menschliche Antwort auf die Frage des Agenten steht aus.",
+      "Der Frageort ist nicht gespeichert; das Ticket mit dem Betreiber prüfen.",
+      "Nach einer angenommenen Antwort prüft ADORE den Job vor dem Fortsetzen erneut."
+    ],
+    "failed": [
+      "Autonome Arbeit wurde angehalten. Gespeicherte Fehlernachweise prüfen.",
+      "Jobnachweise und Projekteinstellungen mit dem Betreiber prüfen.",
+      "Ein berechtigter Betreiber kann die Ursache beheben und Wiederherstellung anfordern."
+    ]
+  },
+  "ro": {
+    "working": [
+      "Această etapă este în lucru; momentan nu se cere intervenția unui om.",
+      "ADORE gestionează mediul de lucru al acestui job.",
+      "ADORE verifică rezultatul salvat înainte de avansare sau de o încercare de recuperare."
+    ],
+    "parked-clarification": [
+      "Se așteaptă răspunsul unui om la întrebarea agentului.",
+      "Locul întrebării nu este înregistrat; consultă tichetul împreună cu operatorul.",
+      "După un răspuns acceptat, ADORE verifică din nou jobul înainte de continuare."
+    ],
+    "failed": [
+      "Lucrul autonom s-a oprit. Consultă dovezile păstrate ale eșecului.",
+      "Consultă dovezile jobului și setările proiectului împreună cu operatorul.",
+      "Un operator autorizat poate remedia cauza și cere recuperarea."
+    ]
+  }
+};
+export function jobGuidance(locale: Locale, lifecycle: Lifecycle) {
+  const [reason, where, follows] = guidance[locale][lifecycle] ?? [jobCopy[locale].reasonUnknown, jobCopy[locale].evidenceMissing, jobCopy[locale].unknown];
+  return { reason, where, follows };
+}

@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e4bc1830"
+title = "Project recorded event stages"
+status = "active"
+requirement = "When displaying a job timeline, the interface shall show second-precision timestamps and the stage explicitly recorded by that event in stage, stage context or current transition destination, leaving unrelated events unassigned."
+verification = "API fixtures exercise stage/context/current and corrupt stage values; browser checks seconds and unassigned events."
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/JobWorkspace.tsx"]
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+created = 2026-11-05
+updated = 2026-11-05

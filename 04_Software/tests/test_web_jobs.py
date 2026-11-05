@@ -20,6 +20,8 @@ from pathlib import Path
 import subprocess
 import time
 
+from adore.executor.base import GateRun
+from adore.executor.diagnostics import record_diagnostics
 from adore.profiles import ProfileStore
 from adore.state import RunState, StateStore
 from adore.web.app import create_app
@@ -671,3 +673,147 @@ def test_job_budget_configuration_race_refuses_an_unbound_observation(tmp_path, 
         result = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
         assert result.status_code == 409, result.text
         assert result.json()["detail"]["code"] == "job_snapshot_changed"
+
+
+def _executor_archive(store, run_id="same"):
+    """@brief Create a realistic immutable archive with hostile transcript fields."""
+    archive = store.run_dir(run_id) / "io" / "archive" / "build-attempt-1-attempt1"
+    archive.mkdir(parents=True)
+    (archive / "meta.json").write_text(json.dumps({
+        "created_at": "2026-11-05T10:12:34+00:00", "archive_stem": "build-attempt-1",
+        "exit_code": 1, "timed_out": False, "argv": ["PRIVATE_CONFIG"],
+        "timeout": 300, "output_file_present": True, "stderr_file_present": True}))
+    records = [{"type": "response", "command": "prompt", "success": False,
+                "error": "401 invalid_api_key PRIVATE_KEY"},
+               {"type": "message_end", "message": {"role": "assistant",
+                "content": [{"type": "thinking", "thinking": "PRIVATE_REASONING"},
+                            {"type": "text", "text": "PRIVATE_CONFIG"}],
+                "usage": {"cost": 12.34}}},
+               {"type": "agent_settled", "aborted": False}]
+    (archive / "output.jsonl").write_text("".join(json.dumps(row)+"\n" for row in records))
+    (archive / "stderr.log").write_text("Error: ENOENT PRIVATE_PATH\nBearer PRIVATE_KEY\n")
+    _state(store, run_id, iterations=1)
+    reference = record_diagnostics(store.run_dir(run_id), run_id, 1, "build", GateRun(
+        exit_code=1, diagnostics={"stdout": "ModuleNotFoundError: No module named 'yaml'\n"
+                                 "pytest: 1 failed, 2 passed\ndiagnostic: credential",
+                                 "stderr": "ModuleNotFoundError: No module named 'yaml'"}))
+    store.journal(run_id, "executor-artifacts", context="build", artifacts=[str(archive)],
+                  diagnostics=reference)
+    return archive
+
+
+def test_executor_output_is_scoped_operational_and_never_a_transcript(tmp_path):
+    """@brief Latest archive projects safe facts equally for Admin and scoped Developer."""
+    _, items, stores, app = _fixture(tmp_path)
+    _executor_archive(stores[0])
+    web = app.state.web_store
+    developer = web.create_user("reader", "test-password", "developer")
+    web.set_memberships(developer["id"], ["alpha"])
+    with TestClient(app) as client:
+        for user, password in (("admin", "admin"), ("reader", "test-password")):
+            _login(client, user, password)
+            response = client.get(f"/api/v1/jobs/{items[0].project_id}/same/executor-output")
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert body["availability"] == "observed"
+            assert body["exit_code"] == 1 and body["timed_out"] is False
+            assert "ModuleNotFoundError: No module named 'yaml'" in body["stdout"]
+            assert "pytest: 1 failed, 2 passed" in body["stdout"]
+            assert "ModuleNotFoundError" in body["stderr"]
+            assert "PRIVATE_" not in response.text and "12.34" not in response.text
+        url = f"/api/v1/jobs/{items[1].project_id}/same/executor-output"
+        assert client.get(url).status_code == 404
+        web.set_memberships(developer["id"], [])
+        url = f"/api/v1/jobs/{items[0].project_id}/same/executor-output"
+        assert client.get(url).status_code == 404
+
+
+@pytest.mark.parametrize("mutation", ["path", "json", "utf8", "oversize", "meta", "link",
+                                      "identity", "context", "schema", "content", "attempt"])
+def test_executor_output_refuses_corrupt_and_foreign_sources(tmp_path, mutation):
+    """@brief Untrusted IO cannot select foreign paths or leak malformed source bytes."""
+    _, items, stores, app = _fixture(tmp_path)
+    archive = _executor_archive(stores[0])
+    event = stores[0].read_journal("same")[-1]
+    reference = event["diagnostics"]
+    path = stores[0].run_dir("same") / "executor-diagnostics" / reference["file"]
+    if mutation == "path":
+        reference["file"] = "../state.json"
+        stores[0].journal("same", "executor-artifacts", context="build", artifacts=[str(archive)],
+                          diagnostics=reference)
+    elif mutation == "json":
+        path.write_text('{"PRIVATE_SECRET":')
+    elif mutation == "utf8":
+        path.write_bytes(b"\xffPRIVATE_SECRET")
+    elif mutation == "oversize":
+        path.write_bytes(b"x" * (150 * 1024 + 1))
+    elif mutation in {"meta", "identity", "context", "schema", "content", "attempt"}:
+        value = json.loads(path.read_text())
+        key, invalid = {"meta": ("exit_code", True), "identity": ("run_id", "foreign"),
+                        "context": ("context", "frame"), "schema": ("schema", 2),
+                        "content": ("stdout", "ModuleNotFoundError: No module named "
+                                    "'ghp_ABCDEFGHIJKLMNOPQRST'"),
+                        "attempt": ("attempt", 2)}[mutation]
+        value[key] = invalid
+        path.write_text(json.dumps(value))
+        from hashlib import sha256
+        reference["sha256"] = sha256(path.read_bytes()).hexdigest()
+        stores[0].journal("same", "executor-artifacts", context="build", artifacts=[str(archive)],
+                          diagnostics=reference)
+    else:
+        path.unlink()
+        path.hardlink_to(archive / "output.jsonl")
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get(f"/api/v1/jobs/{items[0].project_id}/same/executor-output")
+        assert response.status_code == 503
+        assert response.json() == {"detail": {"code": "job_evidence_corrupt"}}
+
+
+def test_executor_output_missing_and_latest_only(tmp_path):
+    """@brief No archive is explicit and a missing latest archive never shows an older one."""
+    _, items, stores, app = _fixture(tmp_path)
+    with TestClient(app) as client:
+        _login(client)
+        url = f"/api/v1/jobs/{items[0].project_id}/same/executor-output"
+        assert client.get(url).json()["availability"] == "missing"
+        archive = _executor_archive(stores[0])
+        reference = stores[0].read_journal("same")[-1]["diagnostics"]
+        snapshot = stores[0].run_dir("same") / "executor-diagnostics" / reference["file"]
+        snapshot.unlink()
+        assert client.get(url).json()["availability"] == "missing"
+        # Old archives do not prove safe capture, even with plausible redacted filenames.
+        stores[0].journal("same", "executor-artifacts", context="build", artifacts=[str(archive)])
+        assert client.get(url).json()["availability"] == "missing"
+        (archive / "output.jsonl").write_bytes(b"PRIVATE_CORRUPT_RAW\xff")
+        assert client.get(url).json()["availability"] == "missing"
+
+
+def test_event_stage_comes_from_recorded_context_and_transition_only(tmp_path):
+    """@brief Do not infer historical stage from current job state or unrelated context."""
+    _, items, stores, app = _fixture(tmp_path)
+    store = stores[0]
+    for name, detail in [("usage", {"context": "build"}),
+                         ("executor-artifacts", {"context": "validate"}),
+                         ("stage-advanced", {"previous": "frame", "current": "build"}),
+                         ("ticket-content-refreshed", {"context": "approval"})]:
+        store.journal("same", name, **detail)
+    with TestClient(app) as client:
+        _login(client)
+        job = client.get(f"/api/v1/jobs/{items[0].project_id}/same").json()["job"]
+        assert [row["stage"] for row in job["timeline"]] == ["build", "validate", "build", None]
+
+
+@pytest.mark.parametrize("name,detail", [
+    ("usage", {"context": []}), ("usage", {"context": "invalid-stage"}),
+    ("stage-advanced", {"current": {}}),
+])
+def test_event_stage_context_corruption_fails_closed(tmp_path, name, detail):
+    """@brief Stage aliases remain untrusted persisted input with typed refusal."""
+    _, _, stores, app = _fixture(tmp_path)
+    stores[0].journal("same", name, **detail)
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get("/api/v1/jobs-page")
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "run_journal_corrupt"

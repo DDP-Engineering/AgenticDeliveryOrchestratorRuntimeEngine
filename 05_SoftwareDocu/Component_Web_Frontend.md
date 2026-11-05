@@ -1010,3 +1010,9 @@ uses `availability=unavailable`, a closed missing/corrupt reason and null limit/
 fields, while keeping trustworthy consumed launches and active seconds. The interface
 shows — for limits and a localized notice. Corrupt saved job evidence still rejects
 the detail read. Metadata-only profile history retains its existing recovery behavior.
+
+## Operational Job details
+
+JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
+
+ExecutorOutputView fetches only on demand and rejects stale/unmounted or identity-mismatched responses. The viewer displays host-normalized diagnostics and explains omitted private content and unavailable provenance. Browser regressions exercise four locales, safe Markdown, concrete output, refresh and 390px dark-theme local scrolling.

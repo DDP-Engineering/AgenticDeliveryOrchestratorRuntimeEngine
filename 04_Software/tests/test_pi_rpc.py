@@ -651,3 +651,141 @@ def test_package_rpc_questions_redact_credentials_across_binding_cap(tmp_path, m
 
 
 # END OF FILE
+
+
+def test_rpc_retains_concrete_operational_diagnostics_without_private_content(tmp_path):
+    """@brief Host normalization keeps concrete failures and test counts, never transcripts."""
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    fixture = tmp_path / "diagnostics.jsonl"
+    records = [
+        ("stdin", {"type": "prompt"}),
+        ("stdout", {"type": "response", "command": "prompt", "success": True,
+                    "data": {"disposition": "started"}}),
+        ("stdout", {"type": "tool_execution_end", "isError": True,
+                    "result": {"content": [{"type": "text", "text":
+                    "ModuleNotFoundError: No module named 'yaml'\n1 failed, 2 passed\n"
+                    "ModuleNotFoundError: No module named 'ghp_ABCDEFGHIJKLMNOPQRST'\n"
+                    "ModuleNotFoundError: No module named 'configured_secret'\n"
+                    "api_key=PRIVATE_KEY\nPRIVATE_CONFIG\nPRIVATE_SCRIPT\n"
+                    "private_price = '31 passed'"}]}}),
+        ("stderr", "ModuleNotFoundError: No module named 'yaml'\nPRIVATE_KEY"),
+        ("stdout", {"type": "message_end", "message": {"role": "assistant",
+                    "content": [{"type": "thinking", "thinking": "PRIVATE_REASONING"},
+                                {"type": "text", "text": "PRIVATE_PROMPT"}],
+                    "stopReason": "error", "errorMessage": "401 invalid_api_key PRIVATE_KEY"}}),
+        ("stdout", {"type": "agent_settled", "aborted": False}),
+    ]
+    fixture.write_text("".join(json.dumps({"dir": direction, "record": record})+"\n"
+                               for direction, record in records), encoding="utf-8")
+    fake.command[3] = str(fixture)
+    result = run_pi_rpc(fake, ["pi", "--mode", "rpc"], {}, PROMPT, timeout=10,
+                        redact=lambda text: text.replace("configured_secret", "[REDACTED]"), **FAST)
+    assert "ModuleNotFoundError: No module named 'yaml'" in result.diagnostics["stdout"]
+    assert "pytest: 1 failed, 2 passed" in result.diagnostics["stdout"]
+    assert "ModuleNotFoundError" in result.diagnostics["stderr"]
+    assert "PRIVATE_" not in str(result.diagnostics)
+    assert "ghp_" not in str(result.diagnostics)
+    assert "configured_secret" not in str(result.diagnostics)
+    assert "31 passed" not in str(result.diagnostics)
+
+
+def test_public_retry_binds_host_diagnostics_to_launch_journal(tmp_path, monkeypatch):
+    """@brief Public recovery binds an immutable host snapshot to its launch digest."""
+    from hashlib import sha256
+
+    gate = GateRun(exit_code=0, has_questions=True, questions="Need input",
+                   artifact_dirs=[str(tmp_path / "archive")],
+                   diagnostics={"stdout": "ModuleNotFoundError: No module named 'yaml'",
+                                "stderr": "pytest: 1 failed, 2 passed"})
+    engine, *_ = make_engine(tmp_path, executor=FakeExecutor(gate))
+    run = make_run(engine)
+    run.lifecycle = "failed"
+    engine.store.save(run)
+    client = FakeAegis([task("frame")])
+    client.probe = lambda: None
+    monkeypatch.setattr("adore.orchestrator.AegisClient", lambda *args: client)
+    assert engine.retry(run.run_id)
+    events = engine.store.read_journal(run.run_id)
+    event = next(row for row in events if row["event"] == "executor-artifacts")
+    reference = event["diagnostics"]
+    snapshot_path = engine.store.run_dir(run.run_id) / "executor-diagnostics" / reference["file"]
+    raw = snapshot_path.read_bytes()
+    assert sha256(raw).hexdigest() == reference["sha256"]
+    snapshot = json.loads(raw)
+    assert snapshot["attempt"] == reference["attempt"] == 1
+    assert snapshot["run_id"] == run.run_id and snapshot["context"] == "frame"
+    assert snapshot["stdout"] == gate.diagnostics["stdout"]
+    assert engine.store.load(run.run_id).lifecycle == "parked-clarification"
+
+    # A completed later attempt without archive/capture must supersede the older snapshot.
+    saved = engine.store.load(run.run_id)
+    saved.lifecycle = "failed"
+    engine.store.save(saved)
+    engine.executor.results.append(GateRun(exit_code=1, has_questions=True, questions="Need input"))
+    assert engine.retry(run.run_id)
+    latest = [event for event in engine.store.read_journal(run.run_id)
+              if event["event"] == "executor-artifacts"][-1]
+    assert latest["diagnostics"] is None and latest["artifacts"] == []
+
+
+def test_rpc_snapshots_diagnostics_while_a_delayed_reader_outlives_join(tmp_path, monkeypatch):
+    """@brief A bounded delayed pipe cannot race or stall the public diagnostic snapshot."""
+    from threading import Event
+
+    from adore.executor import pi_rpc
+
+    release, finished = Event(), Event()
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
+    original_pipe = None
+
+    class DelayedPipe:
+        """@brief Inject a reader that remains alive after the child's bounded join."""
+        first = True
+
+        def read(self, _limit):
+            if self.first:
+                self.first = False
+                release.wait(2)
+                return b"ModuleNotFoundError: No module named 'yaml'\nPRIVATE_KEY\n"
+            finished.set()
+            return b""
+
+        read1 = read
+
+        def close(self):
+            original_pipe.close()
+
+    def spawn(argv, env):
+        nonlocal original_pipe
+        process = fake(argv, env)
+        original_pipe = process.stderr
+        process.stderr = DelayedPipe()
+        return process
+
+    monkeypatch.setattr(pi_rpc, "KILL_GRACE_SECONDS", 0.02)
+    try:
+        result = run_pi_rpc(spawn, ["pi", "--mode", "rpc"], {}, PROMPT, timeout=10, **FAST)
+        assert result.outcome == "completed"
+        assert result.diagnostics["stdout"].endswith("RPC completed")
+        assert "PRIVATE_" not in str(result.diagnostics)
+        assert not finished.is_set()  # the snapshot was taken with a reader still pending
+    finally:
+        release.set()
+        assert finished.wait(2)
+        if original_pipe is not None:
+            original_pipe.close()
+
+
+def test_public_diagnostic_normalizer_bounds_canonical_records():
+    """@brief Long operational results keep complete records inside the declared limits."""
+    from adore.executor.diagnostics import normalize_diagnostics, validate_diagnostics
+    from adore.state import StateError
+
+    text = normalize_diagnostics("ModuleNotFoundError: No module named 'yaml'\n" * 2000)
+    assert len(text.splitlines()) == 500 and len(text.encode("utf-8")) <= 65536
+    assert validate_diagnostics({"stdout": text, "stderr": ""})["stdout"] == text
+    for invalid in ({"stdout": text + "\nraw_private_value", "stderr": ""},
+                    {"stdout": 1, "stderr": ""},
+                    {"stdout": text + "\n" + text, "stderr": ""}):
+        with pytest.raises(StateError):
+            validate_diagnostics(invalid)

@@ -122,3 +122,31 @@ test("unavailable current limits preserve trustworthy saved job consumption", ()
     {...budget,config_revision:snapshot},{...budget,launches:-1},
     {...budget,active_seconds:NaN},{...budget,availability:"unknown"}]) assert.throws(()=>detail(value));
 });
+
+
+test("normal lifecycle guidance and failure labels exist in all four locales", async () => {
+  const { jobGuidance, jobCopy } = await import("../src/jobCopy.ts");
+  for (const locale of ["en", "fr", "de", "ro"]) {
+    for (const lifecycle of ["working", "parked-clarification", "failed"]) {
+      const guidance = jobGuidance(locale, lifecycle);
+      assert.ok(guidance.reason && guidance.where && guidance.follows);
+      assert.notEqual(guidance.reason, jobCopy[locale].reasonUnknown);
+      assert.notEqual(guidance.where, jobCopy[locale].evidenceMissing);
+      assert.notEqual(guidance.follows, jobCopy[locale].unknown);
+    }
+    assert.ok(jobCopy[locale].stageFailures.includes("{count}"));
+  }
+});
+
+test("executor output transport is identity bound and closed to arbitrary transcripts", async () => {
+  const { readExecutorOutput } = await import("../src/jobModel.ts");
+  const evidence = {project_id:id,run_id:"one",availability:"observed",stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",
+    stderr:"diagnostic: credential\n[other output withheld]",exit_code:1,timed_out:false};
+  assert.equal(readExecutorOutput(evidence,id,"one").exit_code,1);
+  assert.equal(readExecutorOutput({...evidence,availability:"missing",stdout:null,stderr:null,exit_code:null,timed_out:null},id,"one").availability,"missing");
+  for (const change of [{project_id:"c".repeat(32)},{run_id:"foreign"},{stdout:"PRIVATE_REASONING"},
+    {stderr:"api_key=PRIVATE_KEY"},{stdout:"ModuleNotFoundError: No module named 'ghp_ABCDEFGHIJKLMNOPQRST'"},{exit_code:true},{timed_out:0},{stdout:"response\n".repeat(10000)},
+    {availability:"missing"},{extra:"PRIVATE_CONFIG"}]) {
+    assert.throws(()=>readExecutorOutput({...evidence,...change},id,"one"));
+  }
+});

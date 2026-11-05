@@ -1149,3 +1149,91 @@ def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(t
         response = client.get("/api/v1/projects/alpha/metrics")
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "metrics_corrupt"
+
+
+def test_usage_stale_snapshot_preserves_verified_cursor_and_refuses_truncation(tmp_path):
+    """@brief Older concurrent reads preserve verified evidence and the newer cursor."""
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    state = StateStore(profile.store_root)
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.journal("run-1", "stage-launch", stage="build")
+    old = state.read_journal("run-1")
+    state.journal("run-1", "usage", event_id="run-1:1", attempt=1,
+                  context="build", executor="pi", model="local/qwen",
+                  review_round=0, tokens_in=5, tokens_out=1,
+                  cost_usd=0, cost_reported=False)
+    current = state.read_journal("run-1")
+    web = create_app(profiles.home).state.web_store
+    assert len(web.reconcile_usage(profile.project_id, "run-1", current)) == 1
+    assert web.reconcile_usage(profile.project_id, "run-1", old,
+                               current_source=lambda: current) == []
+    with sqlite3.connect(web.path) as connection:
+        assert connection.execute("SELECT journal_length FROM usage_cursor").fetchone()[0] == 2
+    assert len(web.reconcile_usage(profile.project_id, "run-1", current)) == 1
+    for changed in (old, [dict(current[0], stage="design"), current[1]]):
+        with pytest.raises(WebStoreError):
+            web.reconcile_usage(profile.project_id, "run-1", old,
+                                current_source=lambda changed=changed: changed)
+
+
+def test_usage_http_out_of_order_projection_retains_actual_snapshot(tmp_path, monkeypatch):
+    """@brief A controlled concurrent append/projection no longer returns false corruption."""
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    state = StateStore(profile.store_root)
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    state.journal("run-1", "stage-launch", stage="build")
+    app = create_app(profiles.home)
+    web = app.state.web_store
+    original = web.reconcile_usage
+    raced = False
+
+    def concurrent(project_id, run_id, journal, **options):
+        """@brief Advance the cursor after the HTTP request captured its older source."""
+        nonlocal raced
+        if not raced:
+            raced = True
+            state.journal("run-1", "usage", event_id="run-1:1", attempt=1, context="build",
+                          executor="pi", model="local/qwen", review_round=0,
+                          tokens_in=5, tokens_out=1, cost_usd=0, cost_reported=False)
+            original(project_id, run_id, state.read_journal(run_id))
+        return original(project_id, run_id, journal, **options)
+
+    monkeypatch.setattr(web, "reconcile_usage", concurrent)
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get("/api/v1/projects/alpha/usage")
+        assert response.status_code == 200, response.text
+        response = client.get("/api/v1/projects/alpha/usage")
+        assert response.status_code == 200, response.text
+        assert response.json()["totals"]["tokens_in"] == 5
+
+
+def test_usage_rereads_only_each_selected_run_inside_projection(tmp_path, monkeypatch):
+    """@brief Public reporting performs one strict selected-run reread per projected job."""
+    from pathlib import Path
+
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
+    state = StateStore(profile.store_root)
+    paths = set()
+    for name in ("one", "two"):
+        state.save(RunState(run_id=name, ticket_iid=1, lifecycle="working"))
+        paths.add(state.run_dir(name) / "state.json")
+    app = create_app(profiles.home)
+    original = Path.read_bytes
+    reads = []
+
+    def observed(path):
+        """@brief Count actual selected state-file reads, preserving real strict parsing."""
+        if path in paths:
+            reads.append(path)
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", observed)
+    with TestClient(app) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get("/api/v1/projects/alpha/usage")
+        assert response.status_code == 200, response.text
+        assert len(reads) == 4  # two initial source reads plus one reread per run
