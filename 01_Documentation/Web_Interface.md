@@ -141,6 +141,8 @@ delete is available for an archived idle project after exact-name confirmation.
 Environment verification records explicit checks against the saved configuration
 revision; Unverified means no current evidence, not an observed failure. Use
 Project details → Summary → Check host prerequisites for the administrator check.
+A completed check is not replaced by an older background refresh; later refreshes
+can still show updated verification, including stale evidence after a config edit.
 Pause semantics are available in header help instead of repeated row guidance.
 
 ### Editing clarification, recovery and stage limits

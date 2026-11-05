@@ -977,6 +977,9 @@ export default function App() {
     try {
       const result = readReadiness(await request<unknown>(`/projects/${encodeURIComponent(selected)}/readiness-check`, "POST", {}, session?.csrf), selected);
       if (generation === viewGeneration.current && revision === readinessRequest.current) {
+        // A project-list read already in flight may predate this saved check.
+        // Supersede it before publishing the newer evidence; later polls still apply.
+        projectsRequest.current += 1;
         setProjectReadiness(result);
         setProjects(items => items.map(item => item.id === selected ? { ...item, verification: { status: result.status, checked_at: result.checked_at, revision: result.revision } } : item));
       }

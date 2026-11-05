@@ -7,6 +7,18 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+## Host-check response ordering
+
+After a validated explicit host-check result passes the current view/request
+identity guards, `App::checkProjectReadiness` increments `projectsRequest` before
+updating the verification fact. Every project-list read already in flight is
+therefore superseded: an older snapshot cannot replace the newly saved result.
+Subsequent polls receive a new request identity and can still update the list,
+including verification made stale by later configuration changes. No retry or
+backend probe policy changes. The held-snapshot/fresh-poll browser regression in
+`e2e/jobs.spec.ts` proves both sides of this ordering boundary; the real offline
+API journey retains its failed-verification assertion.
+
 ## Forge Markdown rendering primitive
 
 `src/forgeMarkdown.ts` exports `ForgeMarkdown`, a synchronous React-only renderer

@@ -34,7 +34,7 @@ text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, inc
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Projects reuse local Gitea sign-in and explain how to connect when it is missing.", fr = "Les projets réutilisent la connexion Gitea locale et expliquent comment la configurer.", de = "Projekte nutzen lokale Gitea-Anmeldungen und erklären bei Bedarf die Verbindung.", ro = "Proiectele reutilizează autentificarea Gitea locală și explică pașii de conectare dacă lipsește." }
+text = { en = "Projects reuse local Gitea sign-in; older refreshes no longer replace host-check results.", fr = "Connexion Gitea locale réutilisée ; les anciens rafraîchissements ne remplacent plus les résultats.", de = "Lokale Gitea-Anmeldung genutzt; ältere Aktualisierungen überschreiben keine Host-Prüfergebnisse.", ro = "Autentificare Gitea locală reutilizată; actualizările vechi nu mai înlocuiesc verificările gazdei." }
 
 [[release.entry]]
 category = "fixed"

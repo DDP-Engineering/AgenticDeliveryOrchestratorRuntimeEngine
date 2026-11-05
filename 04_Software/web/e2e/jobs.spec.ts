@@ -760,6 +760,39 @@ test("host prerequisite explanation accepts the real offline API contract", asyn
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
 });
 
+test("host check result survives an older project snapshot but accepts a fresh poll", async ({ page }) => {
+  await signIn(page); await page.goto("/projects/alpha");
+  const fact = page.locator(".summary-fact").filter({ hasText: "Environment verification" });
+  await expect(fact).toBeVisible();
+  let snapshotReady!: () => void;
+  const captured = new Promise<void>(resolve => { snapshotReady = resolve; });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let hold = true;
+  await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
+    const response = await route.fetch();
+    const rows = await response.json();
+    for (const row of rows) if (row.name === "alpha") row.verification = { status: hold ? "unverified" : "verified" };
+    if (hold) { snapshotReady(); await gate; }
+    await route.fulfill({ response, json: rows });
+  });
+  await page.route("**/readiness-check", route => route.fulfill({ status: 200,
+    json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { forge_auth: false }) }));
+  // Visibility resumes the real project poll; hold its older snapshot across the mutation.
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await captured;
+  await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
+  await expect(fact).toContainText("Verification failed");
+  const oldResponse = page.waitForResponse(response => /\/api\/v1\/projects$/.test(response.url()));
+  release();
+  await (await oldResponse).finished();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(fact).toContainText("Verification failed");
+  hold = false;
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(fact).toContainText("Verified");
+});
+
 test("host check opens immediately with internal close and preserves user collapse", async ({ page }) => {
   await signIn(page); await page.goto("/projects/alpha");
   const check = page.getByRole("button", { name: "Check host prerequisites", exact: true });

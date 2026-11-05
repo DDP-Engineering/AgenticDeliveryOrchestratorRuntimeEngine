@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
+
 ### Changed
 
 - Tickets render descriptions and comments as safe Markdown by default, with exact source mode saved per account, localized controls/help and keyboard-friendly themed layouts. HTML stays literal and images never load automatically.
