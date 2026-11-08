@@ -2,6 +2,12 @@
 
 Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.
 
+
+O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou.
+
+
+O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.
+
 ## Înainte de a începe {#before-you-start}
 
 Pregătiți următoarele:
@@ -44,7 +50,7 @@ Alegeți **Clonează configurația proiectului** în [Proiecte](/projects) pentr
 
 Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:
 
-1. Alegeți **Conectează depozitul**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.
+1. Alegeți **Acces la repository**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.
 2. Alegeți **Verifică cerințele gazdei**. Detaliile acoperă Git, instrumentul de linie de comandă al repository-ului, autentificarea în repository, motorul de containere, Pi din imagine și fișierele AEGIS, plus autentificarea ChatGPT a serverului pentru un abonament ChatGPT, imaginea proxyului de rețea când [accesul la internet](/help/executors#internet) este dezactivat și cheia de căutare web când Brave sau Tavily are nevoie de una. Pentru un proiect care rulează direct pe server, **Execuție locală** înlocuiește rândurile pentru motorul de containere și imagine: verifică versiunea compatibilă de Node, Pi administrat de ADORE și credențialele furnizorului. Aceasta nu este o lucrare completă și nu dovedește permisiunea de push.
 3. Rulați **Testează conexiunea AI** în Setări, așa cum este descris în [Executori și modele](/help/executors#test-connection).
 4. Alegeți **Activează monitorizarea**. Cardul Monitorizare trece din În pauză în Activă, iar ADORE începe să preia tichetele care poartă eticheta ready. **Pune monitorizarea în pauză** oprește preluările noi, dar nu întrerupe o lucrare în curs.
@@ -64,7 +70,7 @@ ADORE folosește mai întâi conexiunea salvată a proiectului. Altfel reutilize
 
 Detectarea respectă `XDG_CONFIG_HOME`. Pe Windows verifică și directoarele Local AppData, Roaming AppData și `.config` din home-ul contului; pe Linux verifică directorul `.config` din home. Nu caută în cache-urile private ale aplicațiilor și nu copiază credențiale între calculatoare.
 
-1. Deschide fila **Rezumat** a proiectului și alege **Conectează depozitul**.
+1. Deschide fila **Rezumat** a proiectului și alege **Acces la repository**.
 2. Completează **Serverul depozitului** cu adresa de bază Gitea, inclusiv portul dacă este necesar.
 3. Creează pe serverul Gitea un token pentru contul cu drept de citire/actualizare a tichetelor și creare de cereri de revizuire în draft și introdu-l în **Token de acces**.
 4. Apasă **Verifică și conectează**. Un server HTTP necesită confirmarea afișată. O verificare eșuată păstrează conexiunea salvată.

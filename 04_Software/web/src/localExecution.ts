@@ -60,6 +60,6 @@ export const localCopy = {
 };
 
 export const localSettingHelp = Object.fromEntries(Object.entries(localCopy).map(([locale, copy]) => [locale, {
-  "local.account": copy.account + ". " + copy.notice,
-  "local.path": copy.path + ". " + copy.notice,
+  "local.account": copy.account,
+  "local.path": copy.path,
 }])) as unknown as Record<keyof typeof localCopy, Record<string, string>>;

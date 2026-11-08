@@ -7,8 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { Locale } from "./i18n";
 
 /** The reviewed provider/model/endpoint selection (`executor.connection`). */
-export type Connection = { provider: string; model: string; base_url: string; api: string };
-export type CatalogProvider = { id: string; name: string; variable: string; models: string[] };
+export type Connection = { provider: string; model: string; thinking: string; base_url: string; api: string };
+export type CatalogProvider = { id: string; name: string; variable: string; models: string[]; thinking: Record<string, string[]> };
 /** Pi's API-key providers and models from the pinned Pi, plus the two ADORE choices. */
 export type ProviderCatalog = {
   pi_version: string; providers: CatalogProvider[];
@@ -74,9 +74,10 @@ export function validEndpointUrl(value: string): boolean {
 export function validConnection(value: unknown): value is Connection {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Connection;
-  if (Object.keys(item).sort().join() !== "api,base_url,model,provider") return false;
-  if (![item.provider, item.model, item.base_url, item.api].every(part => typeof part === "string")) return false;
-  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(item.provider) || !MODEL_ID.test(item.model)) return false;
+  if (Object.keys(item).sort().join() !== "api,base_url,model,provider,thinking") return false;
+  if (![item.provider, item.model, item.thinking, item.base_url, item.api].every(part => typeof part === "string")) return false;
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(item.provider) || !MODEL_ID.test(item.model)
+      || !["", "off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(item.thinking)) return false;
   return item.provider === CUSTOM ? validEndpointUrl(item.base_url) && ENDPOINT_APIS.includes(item.api)
     : item.base_url === "" && item.api === "";
 }
@@ -86,7 +87,7 @@ export function connectionOf(config: Record<string, unknown>): Connection {
   const executor = (config.executor ?? {}) as Record<string, unknown>;
   const endpoint = (executor.endpoint ?? {}) as Record<string, unknown>;
   const custom = executor.provider === CUSTOM;
-  return { provider: String(executor.provider ?? ""), model: String(executor.model ?? ""),
+  return { provider: String(executor.provider ?? ""), model: String(executor.model ?? ""), thinking: String(executor.thinking ?? ""),
     base_url: custom ? String(endpoint.base_url ?? "") : "", api: custom ? String(endpoint.api ?? ENDPOINT_APIS[0]) : "" };
 }
 
@@ -95,7 +96,11 @@ export function validProviderCatalog(value: unknown): value is ProviderCatalog {
   const item = value as ProviderCatalog;
   return !!item && typeof item.pi_version === "string" && Array.isArray(item.providers)
     && item.providers.every(entry => !!entry && typeof entry.id === "string" && typeof entry.name === "string"
-      && VARIABLE.test(entry.variable) && Array.isArray(entry.models) && entry.models.every(model => typeof model === "string"))
+      && VARIABLE.test(entry.variable) && Array.isArray(entry.models) && entry.models.every(model => typeof model === "string")
+      && !!entry.thinking && typeof entry.thinking === "object" && !Array.isArray(entry.thinking)
+      && Object.entries(entry.thinking).every(([model, levels]) => entry.models.includes(model)
+        && Array.isArray(levels) && levels.length > 0 && new Set(levels).size === levels.length
+        && levels.every(level => ["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(level))))
     && item.chatgpt?.id === CHATGPT && Array.isArray(item.chatgpt.models)
     && item.chatgpt.models.every(model => typeof model === "string") && item.custom?.id === CUSTOM && VARIABLE.test(item.custom.variable)
     && Array.isArray(item.custom.apis);
@@ -117,6 +122,19 @@ export function providerModels(id: string, catalog: ProviderCatalog | null): str
   if (id === CHATGPT) return catalog?.chatgpt.models ?? [];
   return catalog?.providers.find(item => item.id === id)?.models ?? [];
 }
+
+/** Pi's pinned capabilities; unlisted models have no proven explicit level. */
+export function providerThinking(id: string, model: string, catalog: ProviderCatalog | null): string[] {
+  if (id === CUSTOM) return ["off"];
+  if (id === CHATGPT && !catalog?.chatgpt.models.includes(model)) return [];
+  return catalog?.providers.find(item => item.id === (id === CHATGPT ? "openai" : id))?.thinking?.[model] ?? [];
+}
+export const thinkingCopy = {
+  en: { label: "Reasoning effort", default: "Pi default" },
+  fr: { label: "Effort de raisonnement", default: "Valeur par défaut de Pi" },
+  de: { label: "Denkaufwand", default: "Pi-Standard" },
+  ro: { label: "Efort de raționament", default: "Implicit Pi" },
+};
 
 /** The name a provider has in the interface. */
 export function providerName(id: string, catalog: ProviderCatalog | null, locale: Locale): string {

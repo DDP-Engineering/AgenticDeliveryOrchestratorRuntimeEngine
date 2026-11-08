@@ -94,6 +94,7 @@ from adore.release_notes import ReleaseNotesError, load_release_notes
 from adore.repository_auth import (
     RepositoryAuthError,
     connection_view,
+    load_connection,
     project_runner,
     save_connection,
     verify_connection,
@@ -350,6 +351,7 @@ class ProjectInput(BaseModel):
     local_path: str = ""
     provider: str = ""
     model: str = ""
+    thinking: str = ""
     endpoint_base_url: str = Field(default="", max_length=512)
     endpoint_api: str = ""
     runtime: str = "docker"
@@ -379,6 +381,7 @@ class ReviewedProjectInput(ProjectInput):
     """@brief Exact reviewed draft revision for explicit probe or guarded creation."""
 
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evidence_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class TransferSourceInput(BaseModel):
@@ -402,6 +405,7 @@ class ReviewedTransferInput(TransferInput):
     """@brief Exact reviewed portable target candidate for probe or publication."""
 
     revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evidence_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class ProfileIDInput(BaseModel):
@@ -593,6 +597,141 @@ def _config_findings(config) -> list[dict]:
     return findings
 
 
+def _readiness_host() -> str:
+    """@brief Bind evidence to the actual machine and service account, without exposing it."""
+    from adore.local_process import LocalExecutionError, native_context
+
+    try:
+        host = native_context()["host"]
+        if not isinstance(host, str) or not re.fullmatch(r"[0-9a-f]{64}", host):
+            raise ValueError("invalid host identity")
+        return host
+    except (LocalExecutionError, KeyError, ValueError, TypeError) as exc:
+        raise _error(503, "readiness_probe_failed") from exc
+
+
+def _readiness_binding(profiles: ProfileStore, name: str, config) -> str:
+    """@brief Privately fingerprint effective auth inputs without returning their contents.
+
+    @details Owned credentials and the ChatGPT credential are hashed as bytes.
+             External CLI configuration and relevant environment values are hashed,
+             never returned or logged.
+    @param[in] profiles Server profile store.
+    @param[in] name Project profile name, including a not-yet-published draft.
+    @param[in] config Exact candidate configuration.
+    @return SHA-256 context fingerprint.
+    @exception HTTPException When a relevant source cannot be inspected safely.
+    """
+    env_names = (
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_ENTERPRISE_TOKEN",
+        "GITHUB_ENTERPRISE_TOKEN",
+        "GITLAB_TOKEN",
+        "GITLAB_ACCESS_TOKEN",
+        "OAUTH_TOKEN",
+        "GH_HOST",
+        "GITLAB_HOST",
+        "GH_CONFIG_DIR",
+        "GLAB_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "HOME",
+        "USERPROFILE",
+    )
+    environment = {key: os.environ.get(key) for key in env_names}
+    directory = profiles.profile_dir(name)
+    try:
+        values = {
+            "host": _readiness_host(),
+            "environment": environment,
+            "executor": credential_binding(directory, config),
+        }
+        paths = [directory / "repository-auth.json"]
+        if config.executor.provider == CHATGPT:
+            paths.append(chatgpt.credential_dir(profiles.home) / chatgpt.AUTH_FILE)
+        for index, path in enumerate(paths):
+            try:
+                with path.open("rb") as source:
+                    raw = source.read(1048577)
+            except FileNotFoundError:
+                raw = b""
+            if len(raw) > 1048576:
+                raise ValueError("oversized credential source")
+            values[f"owned-{index}"] = sha256(raw).hexdigest()
+        roots = [os.environ.get(key) for key in ("XDG_CONFIG_HOME", "LOCALAPPDATA", "APPDATA")]
+        home = os.environ.get("USERPROFILE") or os.environ.get("HOME")
+        if home:
+            roots.append(str(Path(home) / ".config"))
+        candidates = [
+            Path(root) / suffix
+            for root in roots
+            if root and Path(root).is_absolute()
+            for suffix in ("tea/config.yml", "gh/hosts.yml", "glab-cli/config.yml")
+        ]
+        for key, suffix in (("GH_CONFIG_DIR", "hosts.yml"), ("GLAB_CONFIG_DIR", "config.yml")):
+            root = os.environ.get(key)
+            if root and Path(root).is_absolute():
+                candidates.append(Path(root) / suffix)
+        if home and Path(home).is_absolute():
+            candidates.append(Path(home) / ".tea/tea.yml")
+        for path in sorted(set(candidates), key=str):
+            try:
+                with path.open("rb") as source:
+                    raw = source.read(1048577)
+                if len(raw) > 1048576:
+                    raise ValueError("oversized CLI authentication source")
+                values[str(path)] = sha256(raw).hexdigest()
+            except FileNotFoundError:
+                values[str(path)] = None
+        return sha256(json.dumps(values, sort_keys=True).encode("utf-8")).hexdigest()
+    except (OSError, ValueError, TypeError, ExecutorSettingsError) as exc:
+        raise _error(503, "readiness_probe_failed") from exc
+
+
+def _required_readiness_checks(config) -> set[str]:
+    """@brief Return exactly the prerequisite checks required by this configuration."""
+    required = {
+        "git",
+        "forge_cli",
+        "forge_auth",
+        "container_runtime",
+        "executor_cli",
+        "aegis_files",
+    }
+    if config.executor.provider == CHATGPT:
+        required.add("executor_sign_in")
+    if config.execution.backend == "container" and egress_policy(config).mode == "allowlist-proxy":
+        required.add("egress_proxy")
+    if search_key_variable(config.executor, config.execution.backend):
+        required.add("web_search_key")
+    return required
+
+
+def _readiness_auth_bound(profiles: ProfileStore, name: str, config) -> bool:
+    """@brief Only a project-scoped credential gives an observable forge identity source."""
+    try:
+        return load_connection(profiles.profile_dir(name), config) is not None
+    except RepositoryAuthError as exc:
+        raise _error(503, exc.code) from exc
+
+
+def _valid_readiness_checks(checks: object, config, *, pending_clone: bool = False) -> bool:
+    """@brief Fail closed on malformed probe results before any evidence publication."""
+    if not isinstance(checks, dict) or set(checks) != _required_readiness_checks(config):
+        return False
+    return all(
+        type(value) is bool
+        or key == "container_runtime"
+        and value is None
+        or key == "aegis_files"
+        and pending_clone
+        and value == "not-checked"
+        for key, value in checks.items()
+    )
+
+
 def _verification_view(profiles: ProfileStore, profile, revision: str | None) -> dict:
     """@brief Strictly load revision-bound evidence; absent and stale remain distinct."""
     path = profiles.profile_dir(profile.name) / "readiness.json"
@@ -602,39 +741,101 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
         if path.stat().st_size > 16384:
             raise ValueError("oversized readiness")
         value = strict_json_loads(path.read_text(encoding="utf-8"))
-        keys = {"schema", "project_id", "revision", "checked_at", "context", "checks"}
-        if (not isinstance(value, dict) or set(value) != keys
-                or type(value["schema"]) is not int or value["schema"] != 1
-                or value["project_id"] != profile.project_id
-                or not isinstance(value["revision"], str)
-                or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
-                or value["context"] != "api-host"
-                or not isinstance(value["checked_at"], str)):
+        keys = {
+            "schema",
+            "project_id",
+            "revision",
+            "checked_at",
+            "context",
+            "checks",
+            "host",
+            "binding",
+            "auth_bound",
+        }
+        if (
+            not isinstance(value, dict)
+            or set(value) != keys
+            or type(value["schema"]) is not int
+            or value["schema"] != 2
+            or value["project_id"] != profile.project_id
+            or not isinstance(value["revision"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
+            or value["context"] != "api-host"
+            or not isinstance(value["host"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", value["host"])
+            or type(value["auth_bound"]) is not bool
+            or not isinstance(value["binding"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", value["binding"])
+            or not isinstance(value["checked_at"], str)
+        ):
             raise ValueError("invalid readiness identity")
         stamp = datetime.fromisoformat(value["checked_at"])
-        if (stamp.tzinfo is None or stamp.utcoffset() != timedelta(0)
-                or stamp > datetime.now(UTC) + timedelta(seconds=5)):
+        if (
+            stamp.tzinfo is None
+            or stamp.utcoffset() != timedelta(0)
+            or stamp > datetime.now(UTC) + timedelta(seconds=5)
+        ):
             raise ValueError("invalid readiness time")
         checks = value["checks"]
-        check_keys = {"git", "forge_cli", "forge_auth", "container_runtime", "executor_cli",
-                      "aegis_files"}
+        check_keys = {
+            "git",
+            "forge_cli",
+            "forge_auth",
+            "container_runtime",
+            "executor_cli",
+            "aegis_files",
+        }
         # Optional checks: the server's ChatGPT sign-in, the egress proxy
         # image (internet off) and the web search key (internet on).
-        if (not isinstance(checks, dict)
-                or set(checks) - {"executor_sign_in", *_INTERNET_CHECKS} != check_keys):
+        if (
+            not isinstance(checks, dict)
+            or set(checks) - {"executor_sign_in", *_INTERNET_CHECKS} != check_keys
+        ):
             raise ValueError("invalid readiness checks")
+        if revision == value["revision"]:
+            config = _config_from_bytes(profiles.config_path(profile.name).read_bytes())
+            required = _required_readiness_checks(config)
+            if set(checks) != required:
+                raise ValueError("missing or unexpected configured checks")
         for key, result in checks.items():
             if type(result) is not bool and not (
-                key == "container_runtime" and result is None
+                key == "container_runtime"
+                and result is None
+                or key == "aegis_files"
+                and result == "not-checked"
             ):
                 raise ValueError("invalid readiness check value")
     except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
-        raise _contract_rejection("readiness_corrupt", "readiness",
-                              "Inspect the stored readiness record on the ADORE host.") from exc
-    status = ("stale" if revision != value["revision"] else
-              "failed" if any(result is False for result in checks.values()) else
-              "partial" if checks["container_runtime"] is None else "verified")
-    return {**{key: item for key, item in value.items() if key != "schema"}, "status": status}
+        raise _contract_rejection(
+            "readiness_corrupt",
+            "readiness",
+            "Delete readiness.json in the affected project profile and check prerequisites again.",
+        ) from exc
+    stale = (
+        revision != value["revision"]
+        or value["host"] != _readiness_host()
+        or value["binding"] != _readiness_binding(profiles, profile.name, config)
+    )
+    if not stale and value["auth_bound"] != _readiness_auth_bound(profiles, profile.name, config):
+        raise _contract_rejection(
+            "readiness_corrupt",
+            "readiness",
+            "Delete readiness.json in the affected project profile and check prerequisites again.",
+        )
+    status = (
+        "stale"
+        if stale
+        else "failed"
+        if any(result is False for result in checks.values())
+        else "partial"
+        if not value["auth_bound"] or any(type(result) is not bool for result in checks.values())
+        else "verified"
+    )
+    return {
+        **{key: item for key, item in value.items() if key not in {"schema", "host", "binding"}},
+        "status": status,
+        "required_checks": sorted(checks),
+    }
 
 
 def _internet_checks(config, runner: CommandRunner, env_file: Path | None) -> dict:
@@ -841,9 +1042,20 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         display = _setup_display(body)
     except ProfileError as exc:
         raise _identity_error(exc) from exc
-    issues = [] if available else [
-        _finding("project_exists", "name", "Choose another available ID.")]
-    answers = body.model_dump(exclude={"name", "display_name", "env_keys", "revision", "clone_url"})
+    issues = (
+        [] if available else [_finding("project_exists", "name", "Choose another available ID.")]
+    )
+    answers = body.model_dump(
+        exclude={
+            "name",
+            "display_name",
+            "env_keys",
+            "revision",
+            "clone_url",
+            "evidence_token",
+            "thinking",
+        }
+    )
     answers["budgets_choice"] = "custom"
     # Reviewers are optional: an empty list requests no review on the MR/PR.
     for field in ("ready_label", "approval_label", "kind", "repo", "repo_path",
@@ -938,6 +1150,9 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
                 else:
                     candidate.document = candidate.document.replace(
                         "[executor]\n", "[executor]\n" + env_line + "\n", 1)
+            if body.thinking:
+                candidate.document = candidate.document.replace(
+                    "[executor]\n", "[executor]\nthinking = " + json.dumps(body.thinking) + "\n", 1)
             issues.extend(_config_findings(_config_from_bytes(candidate.document.encode("utf-8"))))
         except WizardError as exc:
             issues.append(_finding("setup_field_invalid", exc.field,
@@ -958,23 +1173,33 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
                                                ensure_ascii=False).encode("utf-8")).hexdigest()
         preview["config_revision"] = sha256(candidate.document.encode("utf-8")).hexdigest()
         preview["defaults"] = _preview_defaults(candidate.document)
+        # Normalize the Windows spelling for display only; preserve POSIX path case and identity.
+        def shown_path(value: str) -> str:
+            """@brief Present one host path consistently without changing the configuration."""
+            return str(Path(value).resolve()) if os.name == "nt" else value
+
         preview["review"] = {
-            **body.model_dump(exclude={"revision", "env_keys"}),
+            **body.model_dump(exclude={"revision", "env_keys", "evidence_token"}),
             "display_name": display,
             "provider": config.executor.provider,
             "model": config.executor.model,
-            "endpoint_base_url": (config.executor.endpoint.base_url
-                                  if config.executor.provider == "custom" else ""),
-            "endpoint_api": (config.executor.endpoint.api
-                             if config.executor.provider == "custom" else ""),
+            "endpoint_base_url": (
+                config.executor.endpoint.base_url if config.executor.provider == "custom" else ""
+            ),
+            "endpoint_api": (
+                config.executor.endpoint.api if config.executor.provider == "custom" else ""
+            ),
             "credential_variable": credential_variable(config.executor.provider),
-            "image": config.container.image, "env_keys": config.executor.env_keys,
+            "image": config.container.image,
+            "env_keys": config.executor.env_keys,
+            "repo_path": shown_path(config.worktree.repo_path),
             "hold_label": config.labels.control.hold,
             "exclude_label": config.labels.control.exclude,
             "egress_mode": egress_policy(config).mode,
             "branch_template": config.worktree.branch_template,
             "config_path": str(profiles.config_path(body.name).resolve()),
-            "store_root": config.state.store_root, "worktree_root": config.worktree.root,
+            "store_root": shown_path(config.state.store_root),
+            "worktree_root": shown_path(config.worktree.root),
             "clone": ("new" if pending_clone else "existing") if body.clone_url else None,
         }
         if config.execution.backend == "local":
@@ -1222,20 +1447,41 @@ def _publish_with_clone(body: ProjectInput, runner: CommandRunner, home: Path,
         marker.unlink(missing_ok=True)
 
 
-def _publish_paused(profiles: ProfileStore, web: WebStore, actor: int, name: str,
-                    raw: bytes, metadata: dict, *, imported: bool = False,
-                    import_body: ProjectImportInput | None = None,
-                    recheck: Callable[[], None] | None = None,
-                    origin: str | None = None,
-                    base_revision: str | None = None) -> dict:
+def _publish_paused(
+    profiles: ProfileStore,
+    web: WebStore,
+    actor: int,
+    name: str,
+    raw: bytes,
+    metadata: dict,
+    *,
+    imported: bool = False,
+    import_body: ProjectImportInput | None = None,
+    recheck: Callable[[], None] | None = None,
+    origin: str | None = None,
+    base_revision: str | None = None,
+    readiness: dict | None = None,
+) -> dict:
     """@brief Keep lock, filesystem and parsing failures typed at the enrollment boundary."""
     try:
-        return _publish_paused_locked(profiles, web, actor, name, raw, metadata,
-                                      imported=imported, import_body=import_body,
-                                      recheck=recheck, origin=origin, base_revision=base_revision)
+        return _publish_paused_locked(
+            profiles,
+            web,
+            actor,
+            name,
+            raw,
+            metadata,
+            imported=imported,
+            import_body=import_body,
+            recheck=recheck,
+            origin=origin,
+            base_revision=base_revision,
+            readiness=readiness,
+        )
     except (OSError, StateError, ProfileError, UnicodeError, ValueError, TypeError) as exc:
-        raise _contract_rejection("project_creation_failed", "config",
-                              "Check local enrollment storage before retrying.") from exc
+        raise _contract_rejection(
+            "project_creation_failed", "config", "Check local enrollment storage before retrying."
+        ) from exc
 
 
 def _publish_paused_locked(
@@ -1251,6 +1497,7 @@ def _publish_paused_locked(
     recheck: Callable[[], None] | None = None,
     origin: str | None = None,
     base_revision: str | None = None,
+    readiness: dict | None = None,
 ) -> dict:
     """@brief Publish metadata after pause, holding ownership and conductor locks."""
     with _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
@@ -1309,6 +1556,24 @@ def _publish_paused_locked(
             profiles.config_path(name).write_bytes(raw)
             state.pause()
             item = profiles.create(name, **metadata)
+            if readiness is not None and readiness["binding"] != _readiness_binding(
+                profiles, name, config
+            ):
+                raise _error(409, "stale_config_revision")
+            if readiness is not None:
+                _write_pending_config(
+                    directory / "readiness.json",
+                    {
+                        "schema": 2,
+                        "project_id": item.project_id,
+                        "host": readiness["host"],
+                        "binding": readiness["binding"], "auth_bound": readiness["auth_bound"],
+                        "revision": sha256(raw).hexdigest(),
+                        "context": "api-host",
+                        "checked_at": readiness["checked_at"],
+                        "checks": readiness["checks"],
+                    },
+                )
             if recheck is not None:
                 recheck()
             result = _profile_view(profiles, item)
@@ -1450,10 +1715,15 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
                              "Supply a valid project TOML configuration.")]
     paused = store.is_paused()
     readiness = (
-        "archived" if profile.archived else
-        "invalid-state" if invalid_runs else
-        "paused" if paused else
-        "needs-config" if not config_valid else "configured"
+        "archived"
+        if profile.archived
+        else "invalid-state"
+        if invalid_runs
+        else "paused"
+        if paused
+        else "needs-config"
+        if not config_valid
+        else "configured"
     )
     return {
         "id": profile.project_id,
@@ -1461,12 +1731,16 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
         "display_name": profile.display_name,
         "validation": {"structural_valid": config_valid, "issues": findings},
         "pickup_state": "archived" if profile.archived else "stopped" if paused else "active",
-        "verification": _verification_view(profiles, profile, revision),
+        "verification": _verification_view(profiles, profile, revision if config_valid else None),
+        "verification_requirements": sorted(_required_readiness_checks(config))
+        if config_valid
+        else [],
         "description": profile.description,
         "platform": config.platform.kind if config_valid and config else profile.platform,
         "repo": config.platform.repo if config_valid and config else profile.repo,
         "runtime": ("local" if config.execution.backend == "local" else config.container.runtime)
-        if config_valid and config else profile.runtime,
+        if config_valid and config
+        else profile.runtime,
         "executor": EXECUTOR_NAME if config_valid and config else "",
         "config_valid": config_valid,
         "readiness": readiness,
@@ -2337,6 +2611,48 @@ def create_app(home: str | Path | None = None,
     profiles = ProfileStore(home)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
+    enrollment_evidence: dict[str, tuple[int, str, str, float, dict]] = {}
+    enrollment_lock = Lock()
+
+    def issue_evidence(
+        actor: int, draft_revision: str, config_revision: str, evidence: dict
+    ) -> str:
+        """@brief Retain bounded, expiring server-owned evidence for one creation."""
+        with enrollment_lock:
+            now = monotonic()
+            for key in [key for key, value in enrollment_evidence.items() if value[3] < now]:
+                del enrollment_evidence[key]
+            if len(enrollment_evidence) >= 256:
+                raise _error(503, "readiness_probe_failed")
+            token = secrets.token_hex(32)
+            enrollment_evidence[token] = (
+                actor,
+                draft_revision,
+                config_revision,
+                now + 900,
+                evidence,
+            )
+            return token
+
+    def consume_evidence(
+        token: str | None, actor: int, draft_revision: str, config_revision: str,
+        name: str, config,
+    ) -> dict | None:
+        """@brief Refuse unissued, expired, replayed or differently bound evidence."""
+        if token is None:
+            return None
+        with enrollment_lock:
+            stored = enrollment_evidence.pop(token, None)
+        if (
+            stored is None
+            or stored[:3] != (actor, draft_revision, config_revision)
+            or stored[3] < monotonic()
+            or stored[4]["host"] != _readiness_host()
+            or stored[4]["binding"] != _readiness_binding(profiles, name, config)
+        ):
+            raise _error(409, "stale_config_revision")
+        return stored[4]
+
     # The server's one ChatGPT sign-in and at most one sign-in waiting for its
     # redirect address (memory only: a restart ends a pending sign-in).
     chatgpt_dir = chatgpt.credential_dir(profiles.home)
@@ -2985,8 +3301,9 @@ def create_app(home: str | Path | None = None,
         return {"source_revision": revision, "settings": settings}
 
     @app.post("/api/v1/projects/transfer-source")
-    def preview_transfer_source(body: TransferSourceInput, request: Request,
-                                _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def preview_transfer_source(
+        body: TransferSourceInput, request: Request, _user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Review only recognized portable rules without target writes or probes."""
         return transfer_source(body, request)
 
@@ -3020,37 +3337,93 @@ def create_app(home: str | Path | None = None,
         preview, candidate = prepare_transfer(body, request)
         if not preview["structural_valid"] or candidate is None:
             duplicate = any(issue["code"] == "project_exists" for issue in preview["issues"])
-            raise HTTPException(status_code=409 if duplicate else 400, detail={
-                "code": "project_exists" if duplicate else "project_setup_invalid",
-                "issues": preview["issues"]})
+            raise HTTPException(
+                status_code=409 if duplicate else 400,
+                detail={
+                    "code": "project_exists" if duplicate else "project_setup_invalid",
+                    "issues": preview["issues"],
+                },
+            )
         if not secrets.compare_digest(body.revision, preview["revision"]):
             raise _error(409, "portable_settings_changed")
         return preview, candidate
 
     @app.post("/api/v1/projects/transfer-check")
-    def check_transfer(body: ReviewedTransferInput, request: Request,
-                       _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def check_transfer(
+        body: ReviewedTransferInput,
+        request: Request,
+        _user: Annotated[dict, Depends(admin_mutation)],
+    ) -> dict:
         """@brief Explicitly probe exact target; reread authorization/source after probes."""
         preview, candidate = reviewed_transfer(body, request)
-        evidence = _probe_setup(_config_from_bytes(candidate.document.encode()), probe_runner,
-                                chatgpt_dir=chatgpt_dir)
+        host = _readiness_host()
+        config = _config_from_bytes(candidate.document.encode())
+        binding = _readiness_binding(profiles, body.target.name, config)
+        auth_bound = _readiness_auth_bound(profiles, body.target.name, config)
+        evidence = _probe_setup(config, probe_runner, chatgpt_dir=chatgpt_dir)
         reviewed_transfer(body, request)
-        checks = evidence["checks"]
+        if (
+            host != _readiness_host()
+            or binding != _readiness_binding(profiles, body.target.name, config)
+            or auth_bound != _readiness_auth_bound(profiles, body.target.name, config)
+        ):
+            raise _error(409, "stale_config_revision")
+        if not isinstance(evidence, dict):
+            raise _error(503, "readiness_probe_failed")
+        checks = evidence.get("checks")
+        if not _valid_readiness_checks(checks, config):
+            raise _error(503, "readiness_probe_failed")
         if _pending_clone(body.target):
             checks["aegis_files"] = "not-checked"  # The clone is made at creation.
-        status = ("failed" if any(value is False for value in checks.values()) else
-                  "partial" if any(type(value) is not bool for value in checks.values())
-                  else "verified")
-        return {**evidence, "status": status, "revision": preview["config_revision"],
-                "draft_revision": preview["revision"], "context": "api-host",
-                "checked_at": datetime.now(UTC).isoformat()}
+        status = (
+            "failed"
+            if any(value is False for value in checks.values())
+            else "partial"
+            if not auth_bound or any(type(value) is not bool for value in checks.values())
+            else "verified"
+        )
+        checked_at = datetime.now(UTC).isoformat()
+        token = issue_evidence(
+            _user["id"],
+            preview["revision"],
+            preview["config_revision"],
+            {
+                "checked_at": checked_at,
+                "checks": dict(checks),
+                "host": host,
+                "binding": binding,
+                "auth_bound": auth_bound,
+            },
+        )
+        return {
+            **evidence,
+            "status": status,
+            "revision": preview["config_revision"],
+            "draft_revision": preview["revision"],
+            "context": "api-host",
+            "checked_at": checked_at,
+            "evidence_token": token,
+            "required_checks": sorted(checks),
+            "auth_bound": auth_bound,
+        }
 
     @app.post("/api/v1/projects/transfer-create")
-    def create_transfer(body: ReviewedTransferInput, request: Request,
-                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def create_transfer(
+        body: ReviewedTransferInput,
+        request: Request,
+        user: Annotated[dict, Depends(admin_mutation)],
+    ) -> dict:
         """@brief Atomically publish fresh stopped target with source/role rechecks."""
         _preview, candidate = reviewed_transfer(body, request)
         config = _config_from_bytes(candidate.document.encode())
+        readiness = consume_evidence(
+            body.evidence_token,
+            user["id"],
+            _preview["revision"],
+            _preview["config_revision"],
+            body.target.name,
+            config,
+        )
 
         def recheck() -> None:
             """@brief Reauthorize/reinspect source and independent ownership before visibility."""
@@ -3060,10 +3433,18 @@ def create_app(home: str | Path | None = None,
             _transfer_paths(profiles, config, body.target.name, own_target=True)
 
         def publish() -> dict:
-            return _publish_paused(profiles, web, user["id"], body.target.name,
-                                   candidate.document.encode(), candidate.metadata, recheck=recheck,
-                                   origin="project-cloned" if body.method == "project"
-                                   else "settings-imported", base_revision=body.source_revision)
+            return _publish_paused(
+                profiles,
+                web,
+                user["id"],
+                body.target.name,
+                candidate.document.encode(),
+                candidate.metadata,
+                recheck=recheck,
+                origin="project-cloned" if body.method == "project" else "settings-imported",
+                base_revision=body.source_revision,
+                readiness=readiness,
+            )
 
         def locked() -> dict:
             if body.method == "project":
@@ -3084,17 +3465,21 @@ def create_app(home: str | Path | None = None,
         preview, candidate = _prepare_project(profiles, body)
         if not preview["structural_valid"] or candidate is None:
             duplicate = any(issue["code"] == "project_exists" for issue in preview["issues"])
-            raise HTTPException(status_code=409 if duplicate else 400,
-                                detail={"code": ("project_exists" if duplicate else
-                                                 "project_setup_invalid"),
-                                        "issues": preview["issues"]})
+            raise HTTPException(
+                status_code=409 if duplicate else 400,
+                detail={
+                    "code": ("project_exists" if duplicate else "project_setup_invalid"),
+                    "issues": preview["issues"],
+                },
+            )
         if not secrets.compare_digest(body.revision, preview["revision"]):
             raise _error(409, "stale_config_revision")
         return preview, candidate
 
     @app.post("/api/v1/projects/setup-check")
-    def check_project_setup(body: ReviewedProjectInput,
-                            _user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def check_project_setup(
+        body: ReviewedProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Explicitly probe a reviewed draft without storing or publishing it.
 
         @param[in] body Reviewed answers and candidate revision.
@@ -3104,20 +3489,60 @@ def create_app(home: str | Path | None = None,
         """
         preview, candidate = reviewed_setup(body)
         config = _config_from_bytes(candidate.document.encode("utf-8"))
+        host = _readiness_host()
+        binding = _readiness_binding(profiles, body.name, config)
+        auth_bound = _readiness_auth_bound(profiles, body.name, config)
         evidence = _probe_setup(config, probe_runner, chatgpt_dir=chatgpt_dir)
-        checks = evidence["checks"]
+        reviewed_setup(body)
+        if (
+            host != _readiness_host()
+            or binding != _readiness_binding(profiles, body.name, config)
+            or auth_bound != _readiness_auth_bound(profiles, body.name, config)
+        ):
+            raise _error(409, "stale_config_revision")
+        if not isinstance(evidence, dict):
+            raise _error(503, "readiness_probe_failed")
+        checks = evidence.get("checks")
+        if not _valid_readiness_checks(checks, config):
+            raise _error(503, "readiness_probe_failed")
         if _pending_clone(body):
             checks["aegis_files"] = "not-checked"  # The clone is made at creation.
-        status = ("failed" if any(value is False for value in checks.values()) else
-                  "partial" if any(type(value) is not bool for value in checks.values())
-                  else "verified")
-        return {**evidence, "status": status, "revision": preview["config_revision"],
-                "draft_revision": preview["revision"], "context": "api-host",
-                "checked_at": datetime.now(UTC).isoformat()}
+        status = (
+            "failed"
+            if any(value is False for value in checks.values())
+            else "partial"
+            if not auth_bound or any(type(value) is not bool for value in checks.values())
+            else "verified"
+        )
+        checked_at = datetime.now(UTC).isoformat()
+        token = issue_evidence(
+            _user["id"],
+            preview["revision"],
+            preview["config_revision"],
+            {
+                "checked_at": checked_at,
+                "checks": dict(checks),
+                "host": host,
+                "binding": binding,
+                "auth_bound": auth_bound,
+            },
+        )
+        return {
+            **evidence,
+            "status": status,
+            "revision": preview["config_revision"],
+            "draft_revision": preview["revision"],
+            "context": "api-host",
+            "checked_at": checked_at,
+            "evidence_token": token,
+            "required_checks": sorted(checks),
+            "auth_bound": auth_bound,
+        }
 
     @app.post("/api/v1/projects/setup-create")
-    def create_reviewed_project(body: ReviewedProjectInput,
-                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def create_reviewed_project(
+        body: ReviewedProjectInput, user: Annotated[dict, Depends(admin_mutation)]
+    ) -> dict:
         """@brief Publish only the exact reviewed configuration with pickup stopped.
 
         @param[in] body Reviewed answers and candidate revision.
@@ -3126,9 +3551,12 @@ def create_app(home: str | Path | None = None,
         @exception HTTPException Invalid, stale or conflicting setup is rejected.
         """
         _preview, candidate = reviewed_setup(body)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        readiness = consume_evidence(body.evidence_token, user["id"], _preview["revision"],
+                                     _preview["config_revision"], body.name, config)
         return _publish_with_clone(body, probe_runner, profiles.home, lambda: _publish_paused(
             profiles, web, user["id"], body.name, candidate.document.encode("utf-8"),
-            candidate.metadata))
+            candidate.metadata, readiness=readiness))
 
     @app.post("/api/v1/projects")
     def add_project(body: ProjectInput,
@@ -3277,6 +3705,7 @@ def create_app(home: str | Path | None = None,
                         raise _error(409, "stale_config_revision")
                     confirmation = web.begin_change(
                         user["id"], "repository-connected", item.name)
+                    _verification_view(profiles, item, revision)
                     save_connection(profiles.profile_dir(item.name), verified)
                     web.audit(user["id"], "repository-connected", item.name,
                               confirmation_key=confirmation)
@@ -3332,6 +3761,7 @@ def create_app(home: str | Path | None = None,
                     action = ("executor-credential-removed" if deleting
                               else "executor-credential-saved")
                     confirmation = web.begin_change(user["id"], action, item.name)
+                    _verification_view(profiles, item, revision)
                     update_credential(directory, config, body.variable, body.token)
                     (directory / "model-connection.json").unlink(missing_ok=True)
                     web.audit(user["id"], action, item.name, confirmation_key=confirmation)
@@ -3461,8 +3891,7 @@ def create_app(home: str | Path | None = None,
             return chatgpt_view()
 
     @app.post("/api/v1/projects/{name}/model-connection-test")
-    def model_connection_test(name: str,
-                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def model_connection_test(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Test the configured model explicitly and persist scoped access evidence."""
         with config_lock:
             item = project(name, user)
@@ -3475,26 +3904,39 @@ def create_app(home: str | Path | None = None,
                 config = _config_from_bytes(raw)
                 if _config_findings(config):
                     raise _error(409, "invalid_config")
-                with (_web_config_edit_lock(path),
-                      guard_direct_config_apply(item, path, "model.connection-test")):
+                with (
+                    _web_config_edit_lock(path),
+                    guard_direct_config_apply(item, path, "model.connection-test"),
+                ):
                     if sha256(path.read_bytes()).hexdigest() != revision:
                         raise _error(409, "stale_config_revision")
                     directory = profiles.profile_dir(item.name)
                     binding = credential_binding(directory, config)
                     model_evidence(directory, config, item.project_id, revision)
                     result = probe_model_connection(
-                        config, probe_runner, profiles.profile_dir(item.name) / ".env",
-                        chatgpt_dir=chatgpt_dir)
-                    if (project(name, user).project_id != item.project_id
-                            or sha256(path.read_bytes()).hexdigest() != revision):
+                        config,
+                        probe_runner,
+                        profiles.profile_dir(item.name) / ".env",
+                        chatgpt_dir=chatgpt_dir,
+                    )
+                    if (
+                        project(name, user).project_id != item.project_id
+                        or sha256(path.read_bytes()).hexdigest() != revision
+                    ):
                         raise _error(409, "stale_config_revision")
                     if credential_binding(directory, config) != binding:
                         raise _error(409, "stale_config_revision")
-                    if (result.get("executor") != EXECUTOR_NAME
-                            or result.get("model") != config.executor.model):
+                    if (
+                        result.get("executor") != EXECUTOR_NAME
+                        or result.get("model") != config.executor.model
+                    ):
                         raise ExecutorSettingsError("executor_evidence_corrupt")
-                    result = {**result, "project_id": item.project_id, "revision": revision,
-                              "checked_at": datetime.now(UTC).isoformat()}
+                    result = {
+                        **result,
+                        "project_id": item.project_id,
+                        "revision": revision,
+                        "checked_at": datetime.now(UTC).isoformat(),
+                    }
                     save_model_evidence(directory, result, binding)
                     web.audit(user["id"], "model-connection-tested", item.name)
                     return result
@@ -3502,8 +3944,7 @@ def create_app(home: str | Path | None = None,
                 raise _error(503, "model_test_failed") from exc
 
     @app.post("/api/v1/projects/{name}/readiness-check")
-    def readiness_check(name: str,
-                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def readiness_check(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Probe selected host prerequisites on explicit admin request."""
         with config_lock:
             item = project(name, user)
@@ -3513,26 +3954,59 @@ def create_app(home: str | Path | None = None,
                 config = _config_from_bytes(raw)
                 if _config_findings(config):
                     raise _error(409, "invalid_config")
-            except (OSError, AttributeError, UnicodeError, TypeError, ValueError,
-                    tomllib.TOMLDecodeError) as exc:
+            except (
+                OSError,
+                AttributeError,
+                UnicodeError,
+                TypeError,
+                ValueError,
+                tomllib.TOMLDecodeError,
+            ) as exc:
                 raise _error(503, "config_corrupt") from exc
+            _verification_view(profiles, item, revision)
+            host = _readiness_host()
+            binding = _readiness_binding(profiles, item.name, config)
+            auth_bound = _readiness_auth_bound(profiles, item.name, config)
             try:
                 evidence = _probe_setup(
-                    config, project_runner(profiles.profile_dir(item.name), config, probe_runner),
-                    profiles.config_path(item.name).parent / ".env", chatgpt_dir,
-                    external_auth=False)
+                    config,
+                    project_runner(profiles.profile_dir(item.name), config, probe_runner),
+                    profiles.config_path(item.name).parent / ".env",
+                    chatgpt_dir,
+                    external_auth=False,
+                )
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
-            value = {"schema": 1, "project_id": item.project_id, "revision": revision,
-                     "context": "api-host", "checked_at": datetime.now(UTC).isoformat(),
-                     "checks": evidence["checks"]}
+            if not isinstance(evidence, dict) or not _valid_readiness_checks(
+                evidence.get("checks"), config
+            ):
+                raise _error(503, "readiness_probe_failed")
+            value = {
+                "schema": 2,
+                "project_id": item.project_id,
+                "revision": revision,
+                "host": host,
+                "binding": binding,
+                "auth_bound": auth_bound,
+                "context": "api-host",
+                "checked_at": datetime.now(UTC).isoformat(),
+                "checks": evidence["checks"],
+            }
             try:
                 with _web_config_edit_lock(profiles.config_path(item.name)):
                     current = project(name, user)
                     current_revision = sha256(
-                        profiles.config_path(item.name).read_bytes()).hexdigest()
-                    if current.project_id != item.project_id or current_revision != revision:
+                        profiles.config_path(item.name).read_bytes()
+                    ).hexdigest()
+                    if (
+                        current.project_id != item.project_id
+                        or current_revision != revision
+                        or host != _readiness_host()
+                        or binding != _readiness_binding(profiles, item.name, config)
+                        or auth_bound != _readiness_auth_bound(profiles, item.name, config)
+                    ):
                         raise _error(409, "stale_config_revision")
+                    _verification_view(profiles, current, current_revision)
                     _write_pending_config(profiles.profile_dir(item.name) / "readiness.json", value)
                     web.audit(user["id"], "readiness-checked", item.name)
                     view = _verification_view(profiles, current, revision)
@@ -3540,12 +4014,14 @@ def create_app(home: str | Path | None = None,
                         view["local_probe"] = evidence["local_probe"]
                     return view
             except OSError as exc:
-                raise _contract_rejection("readiness_store_failed", "readiness",
-                                          "Check local evidence storage before retrying.") from exc
+                raise _contract_rejection(
+                    "readiness_store_failed",
+                    "readiness",
+                    "Check local evidence storage before retrying.",
+                ) from exc
 
     @app.post("/api/v1/projects/{name}/archive")
-    def archive_project(name: str,
-                        user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+    def archive_project(name: str, user: Annotated[dict, Depends(admin_mutation)]) -> dict:
         """@brief Stop pickup while retaining project configuration and history."""
         with config_lock:
             item = project(name, user)

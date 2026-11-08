@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-b781c764"
+
+title = "Present measured project summary clearly"
+
+status = "active"
+
+requirement = """
+The project Summary shall show the measured readiness verdict and descriptive execution and repository access actions.
+"""
+
+verification = "Offline browser tests inspect Summary and repository access with transferred, failed and malformed evidence."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/RepositoryConnection.tsx"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/readiness.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

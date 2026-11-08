@@ -432,3 +432,6 @@ not per-job overrides, and changing them writes no job state, resets no consumpt
 and grants no approval. An exhausted failed job still requires Retry.
 
 Non-budget binding preserves scalar types as well as values: boolean false and numeric zero are distinct. Canonical typed JSON comparison launches no probes.
+
+
+`executor.thinking` is optional: omit it or use an empty string for Pi default. An explicit level must be supported by the selected exact provider and model in the pinned Pi catalog; unknown models have no explicit levels, and custom endpoints support only `off`. The selected level reaches both jobs and Test AI connection.

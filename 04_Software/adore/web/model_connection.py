@@ -223,12 +223,17 @@ def probe_model_connection(config, runner, env_file: Path, *,
                         reason = _TOKEN_REASONS.get(exc.code, "runtime-error")
                         return {**result, "reason": reason}
                     target = backend.bind(
-                        target.name, {**target.env, chatgpt.TOKEN_VARIABLE: token},
-                        target.resource, secrets=(token,))
+                        target.name,
+                        {**target.env, chatgpt.TOKEN_VARIABLE: token},
+                        target.resource,
+                        secrets=(token,),
+                    )
                 if not target.auth_available():
                     return {**result, "reason": "credential-missing"}
                 backend.verify_required_tools("probe", [], env=target.env)
-                argv = target.pi_argv(model, pi_provider(executor.provider))
+                argv = target.pi_argv(
+                    model, pi_provider(executor.provider), thinking=executor.thinking
+                )
                 models = models_json(executor, bool(target.env.get(ENDPOINT_KEY_VARIABLE)))
                 placements = [("", "models.json", models, "")] if models else []
 
@@ -326,8 +331,9 @@ def probe_model_connection(config, runner, env_file: Path, *,
             from adore.executor.launcher import PI_RPC_ENV, pi_rpc_argv
 
             prompt, tool_nonce, nonce = _challenge()
-            values = [value for value in [*secrets.values(), *launch_env.values()]
-                      if len(value) >= 4]
+            values = [
+                value for value in [*secrets.values(), *launch_env.values()] if len(value) >= 4
+            ]
 
             def redact(text: str) -> str:
                 for value in values:
@@ -336,11 +342,17 @@ def probe_model_connection(config, runner, env_file: Path, *,
 
             remaining = max(1.0, min(CONTAINER_TIMEOUT_SECONDS, deadline - monotonic() - 10))
             launched = pi_rpc.run_pi_rpc(
-                lambda argv, extra: runtime.spawn(name, argv, env={**extra, **launch_env},
-                                                  popen=popen),
-                pi_rpc_argv(model, pi_provider(executor.provider)), dict(PI_RPC_ENV), prompt,
-                timeout=remaining, output_path=root / "io" / "output.jsonl",
-                stderr_path=root / "io" / "stderr.log", redact=redact)
+                lambda argv, extra: runtime.spawn(
+                    name, argv, env={**extra, **launch_env}, popen=popen
+                ),
+                pi_rpc_argv(model, pi_provider(executor.provider), thinking=executor.thinking),
+                dict(PI_RPC_ENV),
+                prompt,
+                timeout=remaining,
+                output_path=root / "io" / "output.jsonl",
+                stderr_path=root / "io" / "stderr.log",
+                redact=redact,
+            )
             reason = _rpc_reason(launched, tool_nonce, nonce, subscription=subscription)
             result.update(ready=reason == "ready", reason=reason)
         except TimeoutError:

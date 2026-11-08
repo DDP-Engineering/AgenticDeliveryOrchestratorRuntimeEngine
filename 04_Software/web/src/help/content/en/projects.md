@@ -2,6 +2,12 @@
 
 Add a repository as a project so ADORE can pick up its ready tickets, run a coding agent on them and publish draft merge or pull requests for people to review. Only administrators add projects, and ADORE never merges.
 
+
+A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again.
+
+
+A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.
+
 ## Before you start {#before-you-start}
 
 Have these ready:
@@ -44,7 +50,7 @@ Choose **Clone project config** on [Projects](/projects) to start a new project 
 
 A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
 
-1. Choose **Connect repository**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
+1. Choose **Repository access**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
 2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, Pi in the image and the AEGIS files, plus the server's ChatGPT sign-in for a ChatGPT subscription, the network proxy image while [internet access](/help/executors#internet) is Off and the web search key when Brave or Tavily needs one. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks compatible Node, ADORE-managed Pi and the selected provider credential. This is not a full job and does not prove push permission.
 3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).
 4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.
@@ -64,7 +70,7 @@ ADORE uses the saved project connection first. Otherwise it reuses the current a
 
 Discovery respects `XDG_CONFIG_HOME`. On Windows it also checks the account’s Local AppData, Roaming AppData and home `.config` directories; on Linux it checks the home `.config` directory. It does not search private application caches or copy credentials between computers.
 
-1. Open the project’s **Summary** tab and choose **Connect repository**.
+1. Open the project’s **Summary** tab and choose **Repository access**.
 2. Enter the Gitea origin, including its port when needed, in **Repository server**.
 3. Create a token on that Gitea server for the account allowed to read/update issues and create draft reviews, and enter it in **Access token**.
 4. Choose **Verify and connect**. An HTTP server requires the displayed acknowledgement. A failed check preserves the saved connection.

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-d434c9f0"
+
+title = "Apply Pi thinking to connection diagnostics"
+
+status = "active"
+
+requirement = """
+When an administrator tests the configured model connection, ADORE shall pass the configured supported Pi thinking level to the diagnostic process.
+"""
+
+verification = "Offline native and container fake-Pi diagnostics assert the exact thinking argument."
+
+affected_paths = ["04_Software/adore/web/model_connection.py"]
+
+linked_tests = ["04_Software/tests/test_model_connection.py::test_connection_probe_passes_thinking_to_pi", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_the_managed_rpc_installation"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

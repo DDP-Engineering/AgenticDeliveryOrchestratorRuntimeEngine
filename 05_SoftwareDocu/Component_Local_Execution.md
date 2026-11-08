@@ -76,3 +76,6 @@ separate from the container internet switch. See
 ## Explicit cleanup after drift
 
 `LocalBackend.for_cleanup` constructs process controls without resolving current installed tools. `remove_owned` compares the exact saved resource and saved local-policy fingerprint against the runtime receipt; current host/account, state-root path and process-scope leases are still required. It interrupts and drains only verified scopes before unlinking the receipt. Missing receipts are idempotent only without an active-process record. This path is available only through explicit owned deletion/restart and grants no execution/Retry identity exception. Offline proof: `tests/test_drift_recovery.py`, with ordinary Retry covered by `tests/test_retry_revalidation.py`.
+
+
+The managed native Pi argv carries the selected thinking level to stages and model diagnostics.

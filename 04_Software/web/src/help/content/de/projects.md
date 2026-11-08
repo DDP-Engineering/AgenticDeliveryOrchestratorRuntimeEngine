@@ -2,6 +2,12 @@
 
 Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets aufnehmen, einen Coding-Agenten darauf ansetzen und Entwürfe für Merge Requests oder Pull Requests zur menschlichen Prüfung veröffentlichen kann. Nur Administratoren fügen Projekte hinzu, und ADORE führt nie einen Merge aus.
 
+
+Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung.
+
+
+Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.
+
 ## Bevor Sie beginnen {#before-you-start}
 
 Halten Sie Folgendes bereit:
@@ -44,7 +50,7 @@ Wählen Sie unter [Projekte](/projects) **Projektkonfiguration klonen**, um ein 
 
 Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:
 
-1. Wählen Sie **Repository verbinden**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.
+1. Wählen Sie **Repository-Zugang**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.
 2. Wählen Sie **Host-Voraussetzungen prüfen**. Die Details betreffen Git, das Repository-Befehlswerkzeug, die Repository-Anmeldung, die Container-Engine, Pi im Image und die AEGIS-Dateien, bei einem ChatGPT-Abonnement außerdem die ChatGPT-Anmeldung des Servers, bei ausgeschaltetem [Internetzugang](/help/executors#internet) das Netzwerk-Proxy-Image und den Websuche-Schlüssel, wenn Brave oder Tavily einen braucht. Für ein Projekt, das direkt auf dem Server läuft, ersetzt **Lokale Ausführung** die Zeilen zu Container-Engine und Image: Sie prüft kompatibles Node, das von ADORE verwaltete Pi und die Zugangsdaten des Anbieters. Das ist kein vollständiger Auftrag und belegt keine Push-Berechtigung.
 3. Führen Sie **KI-Verbindung testen** in den Einstellungen aus, wie unter [Executor und Modelle](/help/executors#test-connection) beschrieben.
 4. Wählen Sie **Überwachung aktivieren**. Die Kachel Überwachung wechselt von Pausiert auf Aktiv, und ADORE beginnt, Tickets mit dem Bereitschaftslabel aufzunehmen. **Überwachung pausieren** stoppt neue Aufnahmen, unterbricht aber keinen laufenden Auftrag.
@@ -64,7 +70,7 @@ ADORE nutzt zuerst die gespeicherte Projektverbindung. Andernfalls verwendet es 
 
 Die Erkennung beachtet `XDG_CONFIG_HOME`. Unter Windows prüft sie außerdem Local AppData, Roaming AppData und `.config` im Benutzerverzeichnis; unter Linux `.config` im Benutzerverzeichnis. Private Anwendungscaches werden nicht durchsucht und Zugangsdaten nicht zwischen Rechnern kopiert.
 
-1. Öffnen Sie die **Übersicht** des Projekts und wählen Sie **Repository verbinden**.
+1. Öffnen Sie die **Übersicht** des Projekts und wählen Sie **Repository-Zugang**.
 2. Geben Sie den Gitea-Ursprung bei Bedarf mit Port unter **Repository-Server** ein.
 3. Erstellen Sie dort ein Token für das Konto mit Lese-/Änderungsrechten für Tickets und Entwurfsreviews und tragen Sie es unter **Zugriffstoken** ein.
 4. Wählen Sie **Prüfen und verbinden**. Ein HTTP-Server erfordert die angezeigte Bestätigung. Ein Fehler erhält die gespeicherte Verbindung.

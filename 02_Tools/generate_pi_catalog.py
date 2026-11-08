@@ -163,6 +163,30 @@ def provider_hosts(data: Path, provider: str) -> list[str]:
     return sorted(hosts)
 
 
+def model_thinking(data: Path, provider: str, models: list[str]) -> dict[str, list[str]]:
+    """@brief Derive conservative supported levels from pinned Pi model data."""
+    levels = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
+    source = json.loads((data / f"{provider}.json").read_text(encoding="utf-8"))
+    found: dict[str, list[set[str]]] = {}
+    for group in source.values():
+        if not isinstance(group, dict):
+            continue
+        for item in group.values():
+            if not isinstance(item, dict) or item.get("type") != "chat":
+                continue
+            model = item.get("id")
+            if model not in models:
+                continue
+            mapping = item.get("thinkingLevelMap", {})
+            supported = {level for level in levels if (
+                level == "off" and not item.get("reasoning") or item.get("reasoning")
+                and mapping.get(level, True) is not None
+                and (level not in ("xhigh", "max") or level in mapping))}
+            found.setdefault(model, []).append(supported)
+    return {model: [level for level in levels if all(level in group for group in found[model])]
+            for model in models if model in found}
+
+
 def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
     """
     @brief      The models a ChatGPT subscription serves, from Pi's own catalog.
@@ -215,7 +239,8 @@ def main() -> int:
                 raise SystemExit(f"name the provider {provider} in SPLIT_NAMES")
             providers[provider] = {"id": provider, "name": SPLIT_NAMES.get(provider, name),
                                    "variable": variable, "models": models,
-                                   "hosts": provider_hosts(pi_ai_data(package), provider)}
+                                   "hosts": provider_hosts(pi_ai_data(package), provider),
+                                   "thinking": model_thinking(pi_ai_data(package), provider, models)}
     catalog = {"pi_version": version,
                "providers": sorted(providers.values(), key=lambda item: item["name"].casefold()),
                "chatgpt_models": chatgpt_models(package, providers["openai"]["models"])}

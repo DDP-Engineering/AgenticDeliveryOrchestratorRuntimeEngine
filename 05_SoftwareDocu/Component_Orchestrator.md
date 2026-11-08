@@ -365,3 +365,6 @@ Every completed executor attempt records the latest evidence marker, including a
 Status comments identify the pinned execution backend, or configured backend before a plan exists. Terminal failure comments name the backend and offer web Retry and the CLI retry command. A status outbox replay edits the current lifecycle status and reconciles its labels before it acknowledges delivery; a failed comment or label operation remains pending, with notification markers preserving comment identity across replay.
 
 On parked recovery the conductor verifies a backend stop and removes the question handoff again; failure becomes `PARK_CLEANUP_FAILED` rather than resuming work. Quoted notification markers never authorize adoption or editing of a human comment.
+
+
+The orchestrator passes the configured Pi thinking level into the executor factory for each stage.

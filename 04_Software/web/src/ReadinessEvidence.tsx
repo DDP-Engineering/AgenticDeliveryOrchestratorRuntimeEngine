@@ -90,6 +90,16 @@ const copy = {
   },
 };
 
+/** Localized check names shared with enrollment. */
+export function readinessCheckLabel(locale: Locale, key: string): string {
+  const index = readinessKeys.findIndex(item => item === key);
+  if (index >= 0) return copy[locale].rows[index][0];
+  if (key === "executor_sign_in") return copy[locale].signIn[0];
+  if (key === "egress_proxy") return copy[locale].egressProxy[0];
+  if (key === "web_search_key") return copy[locale].webSearchKey[0];
+  return key;
+}
+
 /** Localized accessible name for the Summary disclosure control. */
 export function readinessDetailsLabel(locale: Locale): string { return copy[locale].details; }
 
@@ -104,6 +114,7 @@ export function ReadinessEvidence({ evidence, locale, local, modelEvidence }: { 
   const modelStatus = !modelEvidence ? "skipped" : modelEvidence.ready ? "passed" : "failed";
   return <div className="readiness-evidence">
     <p className="muted">{local ? localCopy[locale].notice : c.coverage}</p>
+    {!evidence.auth_bound && <p>{({ en: "External CLI sign-in can change outside ADORE; connect repository access and check again to bind it.", fr: "La connexion CLI externe peut changer hors d’ADORE ; connectez l’accès au dépôt puis vérifiez à nouveau.", de: "Die externe CLI-Anmeldung kann sich außerhalb von ADORE ändern; verbinden Sie den Repository-Zugang und prüfen Sie erneut.", ro: "Autentificarea CLI externă se poate schimba în afara ADORE; conectați accesul la repository și verificați din nou." })[locale]}</p>}
     <div className="readiness-details">
     <div className="readiness-checks">{readinessKeys.map((key, index) => {
       if (local && key === "container_runtime") return null;

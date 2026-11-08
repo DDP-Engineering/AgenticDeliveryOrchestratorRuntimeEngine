@@ -158,6 +158,245 @@ def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
         assert not list((tmp_path / "home").glob("**/readiness.json"))
 
 
+def test_guided_setup_accepts_supported_thinking_and_rejects_unsupported(tmp_path):
+    """@brief Review and creation preserve valid Pi effort and reject invalid levels."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path, model="gpt-5", thinking="medium")
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        assert preview["structural_valid"], preview
+        assert preview["review"]["thinking"] == "medium"
+        invalid = client.post(
+            "/api/v1/projects/setup-preview", json={**body, "model": "gpt-4"}, headers=headers
+        ).json()
+        assert not invalid["structural_valid"]
+        created = client.post(
+            "/api/v1/projects/setup-create",
+            json={**body, "revision": preview["revision"]},
+            headers=headers,
+        )
+        assert created.status_code == 200, created.text
+        assert load_config(app.state.profiles.config_path("alpha")).executor.thinking == "medium"
+
+
+def test_checked_enrollment_transfers_only_server_evidence(tmp_path):
+    """@brief Server evidence binds creation; forged evidence is refused."""
+
+    def fake(argv, **kwargs):
+        return CommandResult(argv=argv, exit_code=127)
+
+    app = create_app(tmp_path / "home", probe_runner=fake)
+    body = _body(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        reviewed = {**body, "revision": preview["revision"]}
+        checked = client.post("/api/v1/projects/setup-check", json=reviewed, headers=headers).json()
+        bad = client.post(
+            "/api/v1/projects/setup-create",
+            json={**reviewed, "evidence_token": "0" * 64},
+            headers=headers,
+        )
+        assert bad.status_code == 409
+        created = client.post(
+            "/api/v1/projects/setup-create",
+            json={**reviewed, "evidence_token": checked["evidence_token"]},
+            headers=headers,
+        )
+        assert created.status_code == 200, created.text
+        assert created.json()["verification"]["status"] == checked["status"] == "failed"
+        assert created.json()["verification"]["checks"] == checked["checks"]
+
+
+def test_partial_enrollment_evidence_remains_partial_and_goes_stale(tmp_path, monkeypatch):
+    """@brief Unchecked repository evidence is neither promoted nor retained after edits."""
+    import adore.web.app as web_app
+
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": False,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs: {"checks": dict(checks)})
+    monkeypatch.setattr(web_app, "_pending_clone", lambda _body: True)
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        reviewed = {**body, "revision": preview["revision"]}
+        checked = client.post("/api/v1/projects/setup-check", json=reviewed, headers=headers).json()
+        assert checked["status"] == "partial" and checked["checks"]["aegis_files"] == "not-checked"
+        monkeypatch.setattr(web_app, "_pending_clone", lambda _body: False)
+        changed = client.post(
+            "/api/v1/projects/setup-create",
+            json={**reviewed, "display_name": "Other", "evidence_token": checked["evidence_token"]},
+            headers=headers,
+        )
+        assert changed.status_code == 409
+        created = client.post(
+            "/api/v1/projects/setup-create",
+            json={**reviewed, "evidence_token": checked["evidence_token"]},
+            headers=headers,
+        )
+        assert created.status_code == 200, created.text
+        assert created.json()["verification"]["status"] == "partial"
+        path = app.state.profiles.config_path("alpha")
+        path.write_text(path.read_text(encoding="utf-8") + "\n# edited\n", encoding="utf-8")
+        result = client.get("/api/v1/projects").json()[0]
+        assert result["verification"]["status"] == "stale"
+
+
+def test_expired_enrollment_check_is_rejected(tmp_path, monkeypatch):
+    """@brief A server check token cannot outlive its bounded in-memory lifetime."""
+    import adore.web.app as web_app
+
+    tick = [100.0]
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(web_app, "monotonic", lambda: tick[0])
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs: {"checks": dict(checks)})
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        reviewed = {**body, "revision": preview["revision"]}
+        checked = client.post("/api/v1/projects/setup-check", json=reviewed, headers=headers).json()
+        tick[0] += 901
+        response = client.post(
+            "/api/v1/projects/setup-create",
+            json={**reviewed, "evidence_token": checked["evidence_token"]},
+            headers=headers,
+        )
+        assert response.status_code == 409
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+def test_readiness_is_host_bound_and_requires_applicable_checks(tmp_path, monkeypatch):
+    """@brief Evidence is stale on another host; missing configured checks fail closed."""
+    import adore.local_process as local_process
+    import adore.web.app as web_app
+
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs: {"checks": dict(checks)})
+    host = ["a" * 64]
+    monkeypatch.setattr(local_process, "native_context", lambda: {"host": host[0]})
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client)
+        created = client.post("/api/v1/projects", json=body, headers=headers)
+        assert created.status_code == 200, created.text
+        result = client.post("/api/v1/projects/alpha/readiness-check", json={}, headers=headers)
+        assert result.json()["status"] == "partial", result.text
+        host[0] = "b" * 64
+        assert client.get("/api/v1/projects/alpha").json()["verification"]["status"] == "stale"
+        host[0] = "a" * 64
+        path = app.state.profiles.profile_dir("alpha") / "readiness.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        del record["checks"]["egress_proxy"]
+        path.write_text(json.dumps(record), encoding="utf-8")
+        assert client.get("/api/v1/projects/alpha").status_code == 503
+
+
+@pytest.mark.parametrize("kind", ["executor_sign_in", "web_search_key"])
+def test_configured_optional_readiness_check_cannot_be_omitted(tmp_path, monkeypatch, kind):
+    """@brief Evidence cannot claim verification without configuration-required checks."""
+    import adore.web.app as web_app
+
+    body = _body(
+        tmp_path,
+        **({"provider": "chatgpt", "model": "gpt-5.6-luna"} if kind == "executor_sign_in" else {}),
+    )
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        headers = _login(client)
+        response = client.post("/api/v1/projects", json=body, headers=headers)
+        assert response.status_code == 200, response.text
+        path = app.state.profiles.config_path("alpha")
+        if kind == "web_search_key":
+            text = path.read_text(encoding="utf-8").replace(
+                "[executor]\n", "[executor]\ninternet = true\n"
+            )
+            path.write_text(text + '\n[executor.web]\nsearch = "brave"\n', encoding="utf-8")
+        checks = {
+            "git": True,
+            "forge_cli": True,
+            "forge_auth": True,
+            "container_runtime": True,
+            "executor_cli": True,
+            "aegis_files": True,
+        }
+        if kind == "executor_sign_in":
+            checks.update(executor_sign_in=True, egress_proxy=True)
+        else:
+            checks["web_search_key"] = True
+        monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **k: {"checks": dict(checks)})
+        checked = client.post("/api/v1/projects/alpha/readiness-check", headers=headers)
+        assert checked.status_code == 200, checked.text
+        stored = app.state.profiles.profile_dir("alpha") / "readiness.json"
+        record = json.loads(stored.read_text(encoding="utf-8"))
+        del record["checks"][kind]
+        stored.write_text(json.dumps(record), encoding="utf-8")
+        assert client.get("/api/v1/projects/alpha").status_code == 503
+
+
+def test_chatgpt_draft_check_rejects_auth_drift(tmp_path, monkeypatch):
+    """@brief A draft checked before subscription credentials change cannot transfer evidence."""
+    import adore.web.app as web_app
+
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+        "executor_sign_in": True,
+    }
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    auth = app.state.profiles.home / "chatgpt" / "auth.json"
+    auth.parent.mkdir(parents=True)
+    auth.write_text("fixture-auth", encoding="utf-8")
+    body = _body(tmp_path, provider="chatgpt", model="gpt-5.6-luna")
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        reviewed = {**body, "revision": preview["revision"]}
+        checked = client.post("/api/v1/projects/setup-check", json=reviewed, headers=headers).json()
+        auth.unlink()
+        result = client.post(
+            "/api/v1/projects/setup-create",
+            headers=headers,
+            json={**reviewed, "evidence_token": checked["evidence_token"]},
+        )
+        assert result.status_code == 409
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
 def test_draft_probe_reports_verified_and_honors_selected_gitea_login(tmp_path):
     """@brief Successful host checks verify the prerequisites; no model check is claimed."""
     calls = []
@@ -182,7 +421,7 @@ def test_draft_probe_reports_verified_and_honors_selected_gitea_login(tmp_path):
         result = client.post("/api/v1/projects/setup-check", json={
             **body, "revision": preview["revision"]}, headers=headers)
         assert result.status_code == 200, result.text
-        assert result.json()["status"] == "verified"
+        assert result.json()["status"] == "partial"
         assert result.json()["checks"]["git"]
         assert "model_endpoint" not in result.json()["checks"]
         assert ["tea", "api", "-i", "--method", "GET", "--login", "ddp", "user"] in calls

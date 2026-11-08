@@ -114,6 +114,52 @@ def test_connect_verifies_then_saves_scoped_account(tmp_path, provider):
         )
 
 
+def test_repository_connection_invalidates_previous_readiness(tmp_path, monkeypatch):
+    """@brief A new scoped account never inherits the previous forge-auth result."""
+    import adore.web.app as web_app
+
+    profiles = project(tmp_path)
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+
+    def runner(argv, **kwargs):
+        output = (
+            {"username": "alice"}
+            if argv[-1] == "user"
+            else {"path_with_namespace": "mygroup/myproject"}
+        )
+        return CommandResult(argv=list(argv), stdout=json.dumps(output))
+
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).json()["status"]
+            == "partial"
+        )
+        response = client.post(
+            "/api/v1/projects/alpha/repository-connection",
+            headers=headers,
+            json={"server": "https://forge.example", "token": "test-only", "allow_http": False},
+        )
+        assert response.status_code == 200, response.text
+        assert client.get("/api/v1/projects/alpha").json()["verification"]["status"] == "stale"
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).json()["status"]
+            == "verified"
+        )
+
+
 @pytest.mark.parametrize(
     "server,token,allow",
     [
@@ -480,8 +526,17 @@ def test_http_requires_acknowledgement_and_keeps_other_projects_unchanged(tmp_pa
             headers={"X-CSRF-Token": csrf},
             json={"server": "http://192.168.1.15:3001", "token": "PRIVATE", "allow_http": True},
         )
+        assert response.status_code == 503, response.text
+        assert (directory / "readiness.json").read_text(encoding="utf-8") == "old-check"
+        (
+            directory / "readiness.json"
+        ).unlink()  # Operator removes invalid evidence in this fixture.
+        response = client.post(
+            "/api/v1/projects/alpha/repository-connection",
+            headers={"X-CSRF-Token": csrf},
+            json={"server": "http://192.168.1.15:3001", "token": "PRIVATE", "allow_http": True},
+        )
         assert response.status_code == 200, response.text
-        assert not (directory / "readiness.json").exists()
         assert (profiles.profile_dir("beta") / "profile.json").read_bytes() == beta_before
         assert not (profiles.profile_dir("beta") / "repository-auth.json").exists()
         assert "PRIVATE" not in client.get("/api/v1/projects/alpha/config").text

@@ -19,7 +19,7 @@ import { AgentConnectionEditor } from "./AgentConnectionEditor";
 import { CHATGPT, CONNECTION_KEY, connectionCopy, connectionOf } from "./agentConnection";
 import { RepositoryConnection } from "./RepositoryConnection";
 import { ReadinessEvidence, readinessDetailsLabel, readinessCloseLabel } from "./ReadinessEvidence";
-import { readReadiness, type ProjectReadiness } from "./readiness";
+import { readReadiness, validProjectVerification, type ProjectReadiness } from "./readiness";
 import { AuditHistory } from "./AuditHistory";
 import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
@@ -61,7 +61,7 @@ import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
 type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
 type AccountUser = User & Account;
 type Session = { user: User; csrf: string };
-type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
+type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null; checks?: { forge_auth?: boolean } }; validation: { structural_valid: boolean }; verification_requirements: string[]; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; reason?: string; detail?: string; action?: string };
 /** Refuse malformed or mismatched operation evidence at the API boundary. */
@@ -446,7 +446,7 @@ export default function App() {
       if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
         typeof item.repo !== "string" || typeof item.display_name !== "string" || !/^[a-f0-9]{32}$/.test(item.id) ||
         typeof item.readiness !== "string" || typeof item.paused !== "boolean" || typeof item.archived !== "boolean" ||
-        !item.verification || !["unverified", "stale", "failed", "partial", "verified"].includes(item.verification.status) ||
+        !validProjectVerification(item.verification, item.id, item.verification_requirements) ||
         !item.validation || typeof item.validation.structural_valid !== "boolean" ||
         item.verification.checked_at != null && (typeof item.verification.checked_at !== "string" || !Number.isFinite(Date.parse(item.verification.checked_at))) ||
         item.verification.revision != null && (typeof item.verification.revision !== "string" || !/^[a-f0-9]{64}$/.test(item.verification.revision)) ||
@@ -1003,6 +1003,8 @@ export default function App() {
     setProjectReadiness(null); setReadinessExpanded(true); setReadinessBusy(true); setReadinessError(null);
     try {
       const result = readReadiness(await request<unknown>(`/projects/${encodeURIComponent(selected)}/readiness-check`, "POST", {}, session?.csrf), selected);
+      if (!selectedProject || [...result.required_checks].sort().join() !== [...selectedProject.verification_requirements].sort().join())
+        throw new ApiError("readiness_corrupt");
       if (generation === viewGeneration.current && revision === readinessRequest.current) {
         // A project-list read already in flight may predate this saved check.
         // Supersede it before publishing the newer evidence; later polls still apply.
@@ -1272,7 +1274,7 @@ export default function App() {
           {projectTab === "overview" && <>
           <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">
-              <div className="summary-fact"><dt>{t("containerType")}</dt><dd>{({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
+              <div className="summary-fact"><dt>{selectedProject.runtime === "local" ? enrollmentCopy[locale].runsIn : t("containerType")}</dt><dd>{selectedProject.runtime === "local" ? enrollmentCopy[locale].installed : ({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
               <div className="summary-fact"><dt>{t("executor")}</dt><dd>{selectedProject.executor === "pi" ? "Pi" : selectedProject.executor || "—"}</dd></div>
               <div className="summary-fact"><dt>{jc.pickup}</dt><dd><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></dd></div>
               <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
@@ -1285,7 +1287,7 @@ export default function App() {
 
             {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
               connect={body => request(`/projects/${encodeURIComponent(selectedProject.id)}/repository-connection`, "POST", body, session.csrf)}
-              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id ? { ...item, verification: { status: "unverified" } } : item)); }} />}
+              onConnected={() => { setProjectReadiness(null); setProjects(items => items.map(item => item.id === selectedProject.id && item.verification.status !== "unverified" ? { ...item, verification: { ...item.verification, status: "stale" } } : item)); void refreshProjects(); }} />}
             </div>}
             <section id="host-check-details" hidden={!readinessExpanded} aria-busy={readinessBusy} aria-labelledby="host-check-title">
               <div className="panel-heading"><h3 id="host-check-title">{readinessDetailsLabel(locale)}</h3><button type="button" className="ghost" onClick={() => { setReadinessExpanded(false); readinessTrigger.current?.focus(); }}>{readinessCloseLabel(locale)}</button></div>
@@ -1489,7 +1491,7 @@ function SettingsImpactDialog({config, candidate, edits, project, paused, locale
   const changed = edits.flatMap(({key}) => {
     if (key === CONNECTION_KEY) {
       const before = connectionOf(config.config), after = proposed[key] as typeof before;
-      return ([["executor.provider", "provider"], ["executor.model", "model"], ["executor.endpoint.base_url", "base_url"], ["executor.endpoint.api", "api"]] as const)
+      return ([["executor.provider", "provider"], ["executor.model", "model"], ["executor.thinking", "thinking"], ["executor.endpoint.base_url", "base_url"], ["executor.endpoint.api", "api"]] as const)
         .filter(([,field])=>!sameSettingValue(before[field],after[field]))
         .map(([key,field])=>({key,before:before[field],after:after[field]}));
     }

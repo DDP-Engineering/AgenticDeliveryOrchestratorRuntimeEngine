@@ -96,3 +96,5 @@ profile, answer failures, overwrite/confirmation safeguards, deterministic
 non-interactive output, branch checks, and the no-invalid-save guarantee.
 
 The wizard gives install and verify instructions for managed Pi; it never runs npm.
+
+Guided web setup records an optional validated thinking level; CLI setup keeps the Pi default.

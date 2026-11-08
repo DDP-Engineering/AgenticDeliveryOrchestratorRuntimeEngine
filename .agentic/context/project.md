@@ -78,9 +78,7 @@ ADORE's only coding agent.
   complete profiles with pickup stopped, keeps human labels separate from stable
   identity, validates setup offline and records explicit revision-bound readiness.
   Guided enrollment presents six localized steps, keeps corrections only in browser
-  memory, returns canonical revision-bound review and runs explicit ephemeral draft
-  checks. Guarded creation publishes the exact reviewed configuration with pickup
-  stopped; activation and persisted project verification are separate actions.
+  memory, returns canonical revision-bound review and runs explicit draft checks. Guarded creation publishes the exact reviewed configuration with pickup stopped and transfers current server-bound check evidence; activation remains separate.
   Exact server TOML enrollment reviews all declared locations and recognized
   agent/runtime settings, keeps corrected drafts in memory and verifies explicitly
   through ephemeral bounded probes. Publication binds unchanged file bytes,

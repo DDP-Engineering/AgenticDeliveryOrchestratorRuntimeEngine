@@ -352,8 +352,7 @@ checks remain explicitly unverified. Review is the canonical response paired wit
 the unchanged draft. setup-create submits its frozen revision and uses an immediate
 ref lock to prevent double clicks; failure requires a deliberate new review.
 Completion displays stopped pickup and separate activation guidance, then offers
-Open project. Draft probe evidence is ephemeral; persisted project readiness
-starts unverified and is checked separately.
+Open project. A current server-issued check token transfers the measured checks to the created project; absent or expired evidence requires a fresh host check.
 About displays, on request, the project license text and the bundled third-party notices.
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
@@ -1031,3 +1030,8 @@ The checker also compares against an isolated fresh build, using the installed f
 
 
 History renders localized ticket/job identities, a CLI actor for CLI deletion, and failed separately from rejected and uncertain. The interface validates the closed response before rendering.
+
+
+Enrollment and Agent and model expose supported Pi thinking levels. Enrollment displays localized check names and times and transfers only server-issued current evidence; incomplete checks stay partial. Local execution and repository reconnect actions use descriptive labels.
+
+Project-list readiness is parsed as a closed identity/revision/checks verdict before display. The Repository access action does not infer repository access from CLI authentication.

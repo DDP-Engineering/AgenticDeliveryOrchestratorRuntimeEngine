@@ -449,7 +449,7 @@ def test_config_view_reports_each_settings_source_and_editability(tmp_path):
         target = "/api/v1/projects/alpha/config/pending"
         for key, value in (("budgets.max_wall_clock_seconds", "7200"),
                            ("executor.connection", '{"provider":"openai","model":"gpt-5.4",'
-                                                   '"base_url":"","api":""}'),
+                                                   '"thinking":"","base_url":"","api":""}'),
                            ("polling.poll_interval_seconds", "60")):
             staged = client.post(target, json={"key": key, "value": value,
                                                "revision": revision}, headers=csrf)

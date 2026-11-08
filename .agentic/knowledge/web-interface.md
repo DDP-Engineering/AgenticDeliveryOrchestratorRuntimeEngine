@@ -195,14 +195,13 @@ SQLite bytes, authorization, scope and financial redaction.
   assets. The runner is injectable for explicit host-readiness and image runtime commands.
 - Guided `setup-preview` returns canonical secret-free setup/paths and a digest
   binding exact deterministic config, ID, display and description. Additive
-  `setup-check` returns ephemeral revision/time-bound evidence; `setup-create`
-  compares the reviewed revision before existing atomic stopped publication.
+  `setup-check` retains bounded, administrator and revision-bound evidence and returns a one-use token; `setup-create` validates it and publishes measured checks with the exact stopped configuration.
   All require Admin/CSRF. Setup includes supported labels, run limits and credential
   environment names. Gitea probes honor the selected tea login.
 - `EnrollmentWizard` owns five-step memory state (starting at repository/identity), localized visible guidance,
   corrective findings/focus, generation invalidation, loss guards and frozen review.
   The immediate creation ref lock prevents double submit. Completion explains
-  stopped pickup and separate activation; persistent project readiness is checked
+  stopped pickup and separate activation; persistent readiness retains current server-issued draft evidence or is checked
   separately. `enrollmentCopy.ts` preserves EN/FR/DE/RO and existing themes/branding.
 - `adore-web --home ...` binds loopback; remote traffic uses a TLS proxy.
   Uvicorn accepts forwarded context only from loopback proxy peers, and HTTPS
@@ -707,7 +706,7 @@ Native control/auth route to local-execution.md. Focused proof:
 - `REQ-UX-3b5b2257`, `REQ-FUNC-c987bc4a`, `REQ-REL-39c1b197`, `REQ-DATA-71853fbc` - explanatory exact enrollment, explicit ephemeral checks, locked candidate publication and memory correction/loss guards.
 
 - `REQ-UX-072cf049`, `REQ-UX-3609c9ed`, `REQ-UX-002cbd25`, `REQ-UX-7f8fde2c` - guided supported steps, memory correction/loss protection, field focus and stopped completion.
-- `REQ-FUNC-702b0fce`, `REQ-FUNC-49e89542`, `REQ-DATA-e1eaf583`, `REQ-SEC-dc4bd0c3` - complete canonical preview, explicit ephemeral probe, exact guarded creation and reference-only Admin/CSRF draft boundaries.
+- `REQ-FUNC-702b0fce`, `REQ-FUNC-49e89542`, `REQ-DATA-e1eaf583`, `REQ-SEC-dc4bd0c3` - complete canonical preview, explicit bound probe, exact guarded creation and reference-only Admin/CSRF draft boundaries.
 
 - `REQ-DATA-d893df33`, `REQ-FUNC-e8e0e304` - stable display identity and portable advisory ID checks.
 - `REQ-REL-c598b075`, `REQ-FUNC-3d8f6f5e` - metadata-last stopped enrollment and offline findings.
@@ -1046,3 +1045,11 @@ The lazy authorized executor-output endpoint reads the last executor-artifacts h
 
 
 History projects ticket/job targets separately from queue IDs and reports actual terminal outcomes. Local CLI deletion receipts import once into the authorized audit view with crash uncertainty, immutable identity validation and explicit SQLite journal-mode checks. Completed import receipts retain only opaque keys.
+
+Guided and portable enrollment check tokens expire after 15 minutes, are single-use and bind administrator, draft and configuration; a pending clone keeps AEGIS files not checked. Pi thinking choices are validated against the bundled pinned-model capabilities and applied to stages and model checks.
+
+Readiness schema 2 includes a private machine/account binding and configuration-specific check set; invalid schema instructs the operator to delete the profile readiness.json. Managed credential changes invalidate prior evidence. The project list validates evidence before showing its verdict, and Repository access is neutral because CLI sign-in alone does not establish repository access.
+
+A private authentication-context fingerprint binds managed, environment and CLI credential inputs; changes stale previous evidence. Probes recheck it under publication locks and reject old or corrupt readiness before replacing records. Public check sets declare required keys and the browser validates them.
+
+Unobservable external CLI identity remains partial even if its probe passed; a validated project-scoped credential is required for verified. Probe values are validated before writes; list requirements are independently derived from active config.

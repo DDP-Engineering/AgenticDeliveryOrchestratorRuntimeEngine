@@ -72,3 +72,5 @@ explicit Retry refreshes this volatile fingerprint under existing ownership chec
 ## Explicit saved-ownership cleanup
 
 LocalBackend.for_cleanup avoids current executable/environment resolution and grants no execution authority. remove_owned validates exact saved resource, saved policy fingerprint, current host/account, dedicated state/IO paths and durable process leases before interruption/drain and receipt removal. Normal execution and Retry identity checks remain unchanged. NUMBER_OF_PROCESSORS/PROCESSOR_* participate in volatile native environment identity. Proof: tests/test_drift_recovery.py and test_retry_revalidation.py.
+
+Native Pi argv forwards the selected thinking level for stages and connection checks.

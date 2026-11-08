@@ -399,6 +399,7 @@ test(`purpose guidance and single-setting flow preserve locale ${locale}`, async
     await expect(agent.locator('[id="setting-executor.default"]')).toHaveCount(0);
     await expect(agent.locator('[id="setting-executor.command"] strong')).toHaveText(agentSettingsCopy[locale].command);
     await expect(agent.locator('[id="setting-executor.model"] strong')).toHaveText(agentSettingsCopy[locale].model);
+    await expect(agent.locator('[id="setting-executor.thinking"] strong')).toHaveText(({ en: "Reasoning effort", fr: "Effort de raisonnement", de: "Denkaufwand", ro: "Efort de raționament" })[locale]);
     await agent.locator('[data-setting-topic="authentication"] > summary').click();
     await expect(agent.locator('[id="setting-executor.env_keys"] strong')).toHaveText(agentSettingsCopy[locale].variables);
     const ci = page.locator('[id="setting-review.on_pipeline_failure"]');

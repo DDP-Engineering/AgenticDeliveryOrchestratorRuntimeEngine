@@ -49,6 +49,9 @@ test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the
   await expect(help).toContainText("OPENAI_API_KEY");
   await expect(help).toContainText(enrollmentCopy.en.keyAfterCreate);
   await expect(page.locator('#enroll-model-options option[value="gpt-5.5"]')).toHaveCount(1);
+  await page.getByLabel(/^Model \*/).fill("gpt-5.5");
+  await expect(page.getByLabel("Reasoning effort")).toContainText("medium");
+  await page.getByLabel("Reasoning effort").selectOption("medium");
   await expect(page.getByLabel(/^Endpoint base URL/)).toHaveCount(0);
   await provider.selectOption("chatgpt");
   await expect(help).toContainText(connectionCopy.en.chatgptNote);
@@ -87,6 +90,7 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   await expect(proceed).toBeDisabled();
   await page.getByRole("button", { name: "Read repository", exact: true }).click();
   await expect(proceed).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Detected from the repository", exact: true })).toHaveCount(1);
   const detected = page.getByRole("region", { name: "Detected from the repository" });
   await expect(detected).toContainText("team/url-service");
   await expect(detected).toContainText("url-service");
@@ -240,7 +244,7 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
   await fixture(page, "partial");
   await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
-  await expect(page.getByText("git", {exact:true}).locator("..")).toContainText("Passed");
+  await expect(page.getByText("Git", {exact:true}).locator("..")).toContainText("Passed");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review and create", exact: true })).toBeFocused();
   await expect(page.locator(".enrollment-review")).toContainText(["Offline service", "LOCAL_API_KEY"]);
@@ -251,13 +255,15 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
   });
   await expect(page.getByRole("heading", { name: "Enrollment complete", exact: true })).toBeFocused();
   expect(creates).toBe(1);
-  const { revision, ...submittedDraft } = submitted;
+  const { revision, evidence_token, ...submittedDraft } = submitted;
+  expect(evidence_token).toMatch(/^[0-9a-f]{64}$/);
   expect(revision).toMatch(/^[0-9a-f]{64}$/);
   expect(submittedDraft).toEqual(previewBody);
   await expect(page.getByText(/Activation is a separate administrator action/)).toBeVisible();
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const created = projects.find((item: { name: string }) => item.name === "e2e-valid");
   expect(created.paused).toBe(true); expect(created.pickup_state).toBe("stopped");
+  expect(created.verification.status).toBe("failed");
 });
 
 test("field summary focus, malformed fields, collision and invalid server clone recover", async ({ page }) => {

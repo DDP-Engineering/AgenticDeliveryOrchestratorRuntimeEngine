@@ -1017,9 +1017,7 @@ checks and a redacted model reason. No profile or draft is stored. A changed rev
 returns 409 before probing. Gitea authentication uses the selected tea login.
 `POST /api/v1/projects/setup-create` rebuilds and compares the reviewed revision,
 then uses the existing atomic stopped-publication boundary. Duplicate IDs fail closed.
-Both routes require administrator mutation CSRF. Existing guided and TOML API callers
-retain their contracts. Draft verification is ephemeral: newly published profiles
-still have unverified persisted readiness until their explicit project check.
+Both routes require administrator mutation CSRF. The guided check returns a short-lived server-issued token; creation transfers only its bound measured checks. Missing evidence leaves the project unverified, and unchecked AEGIS files remain partial. TOML import checks remain separate.
 
 Project reads report structural `validation`, `pickup_state` and `verification`
 independently. Explicit `readiness-check` stores revision/time-bound evidence:
@@ -1289,3 +1287,10 @@ History identifies ticket and job targets separately from operation numbers. A p
 CLI deletion records a local receipt in the ADORE home before cleanup, even when the web interface has never been initialized. History imports it when the web database is available; this does not initialize web accounts during CLI deletion. An unreadable or unsupported receipt store refuses deletion. For an unsupported receipt schema, delete the named `deletion-audit.db` manually only to start fresh. A failed confirmation after cleanup reports that the job was deleted and the audit outcome remains uncertain. Audit retention applies to imported events; completed import receipts retain only an opaque key.
 
 The History import requires durable SQLite rollback journal modes for both databases; a WAL, memory or disabled journal mode is refused rather than risking a partially committed import. Restore a durable rollback mode under your database maintenance procedure and retry History.
+
+
+Enrollment can select the Pi reasoning effort supported by its provider and model. An unchanged, current server check transfers its measured status to the created project; unchecked repository files remain partial and configuration changes make evidence stale. Run Check host prerequisites after creation for fresh results.
+
+Readiness evidence is bound to the server machine and account. Changes to relevant credential inputs make it stale. When using this build, delete `readiness.json` in each affected project profile before checking prerequisites again.
+
+An external CLI sign-in cannot be continuously bound to a project identity when a keyring or helper may change it invisibly. Its successful prerequisite check remains partial; connect project repository access and recheck for a bound verification.

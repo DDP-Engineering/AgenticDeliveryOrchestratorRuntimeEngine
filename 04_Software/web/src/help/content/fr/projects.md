@@ -2,6 +2,12 @@
 
 Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
 
+
+Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le.
+
+
+Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.
+
 ## Avant de commencer {#before-you-start}
 
 Préparez ces éléments :
@@ -44,7 +50,7 @@ Choisissez **Cloner une configuration de projet** dans [Projets](/projects) pour
 
 Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :
 
-1. Choisissez **Connecter le dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
+1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
 2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image et les fichiers AEGIS, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
 3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).
 4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.
@@ -64,7 +70,7 @@ ADORE utilise d’abord la connexion enregistrée du projet. Sinon, il réutilis
 
 La détection respecte `XDG_CONFIG_HOME`. Sous Windows, elle vérifie aussi Local AppData, Roaming AppData et le répertoire personnel `.config` ; sous Linux, le répertoire personnel `.config`. Elle ne parcourt pas les caches privés des applications et ne copie pas les identifiants entre ordinateurs.
 
-1. Ouvrez l’onglet **Résumé** du projet et choisissez **Connecter le dépôt**.
+1. Ouvrez l’onglet **Résumé** du projet et choisissez **Accès au dépôt**.
 2. Indiquez l’origine Gitea, avec son port si nécessaire, dans **Serveur du dépôt**.
 3. Créez sur ce serveur un jeton pour le compte autorisé à lire/modifier les tickets et créer des demandes de revue en brouillon, puis saisissez-le dans **Jeton d’accès**.
 4. Choisissez **Vérifier et connecter**. Un serveur HTTP exige la confirmation affichée. Un échec préserve la connexion enregistrée.

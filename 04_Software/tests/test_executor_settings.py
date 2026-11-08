@@ -65,6 +65,76 @@ def test_provider_credentials_are_private_scoped_and_reversible(tmp_path, monkey
         assert "private-provider-key" not in client.get("/api/v1/projects/alpha/config").text
 
 
+def test_credential_update_invalidates_readiness(tmp_path, monkeypatch):
+    """@brief Updating credentials invalidates prior host evidence before refresh."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    module = importlib.import_module("adore.web.app")
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).json()["status"]
+            == "partial"
+        )
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        response = client.put(
+            "/api/v1/projects/alpha/executor-credentials",
+            headers=headers,
+            json={"variable": "OPENAI_API_KEY", "token": "test-only", "revision": revision},
+        )
+        assert response.status_code == 200, response.text
+        assert client.get("/api/v1/projects/alpha").json()["verification"]["status"] == "stale"
+
+
+def test_invalid_credential_does_not_discard_readiness(tmp_path, monkeypatch):
+    """@brief Refused credential input leaves existing readiness bytes intact."""
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    module = importlib.import_module("adore.web.app")
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).status_code
+            == 200
+        )
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        original = path.read_bytes()
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        result = client.put(
+            "/api/v1/projects/alpha/executor-credentials",
+            headers=headers,
+            json={"variable": "BAD_KEY", "token": "fixture", "revision": revision},
+        )
+        assert result.status_code == 400 and path.read_bytes() == original
+
+
 @pytest.mark.parametrize(
     "mode",
     [
@@ -433,7 +503,7 @@ def test_provider_key_never_leaves_the_credential_store(tmp_path, monkeypatch):
         view = client.get("/api/v1/projects/alpha/config").json()
         staged = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json={
             "key": "executor.connection", "revision": view["revision"],
-            "value": json.dumps({"provider": "openai", "model": "gpt-5.4",
+            "value": json.dumps({"provider": "openai", "model": "gpt-5.4", "thinking": "",
                                  "base_url": "", "api": ""})})
         responses.append(staged)
         responses.append(client.post("/api/v1/projects/alpha/config/apply", headers=headers,

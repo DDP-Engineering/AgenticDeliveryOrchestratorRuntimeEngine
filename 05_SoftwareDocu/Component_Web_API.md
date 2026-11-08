@@ -632,8 +632,7 @@ description. Review includes complete setup, resolved env-key names, `provider`,
   rechecked under its lock; stale drafts return 409 before publication.
 
 Existing `POST projects` retains its request/publication contract; exact import revisions bind complete identity and inspected ownership/state.
-Newly created profiles have absent persisted readiness evidence, even if their memory
-draft was probed. The shared probe helper also serves the persisted project readiness
+A current, server-issued one-use check token transfers its measured checks to the created profile. Tokens are bound to the administrator, exact draft and config revisions, expire after 15 minutes, and cannot be replayed; absent tokens leave the profile unverified. A pending clone keeps AEGIS files not checked, so partial evidence is not promoted. The shared probe helper also serves the persisted project readiness
 route, whose storage/schema and mid-probe revision protection remain intact.
 `test_web_enrollment.py` covers canonical fields/bytes across clock changes, stale and
 duplicate publication, explicit ephemeral failed/partial checks, selected Gitea login,
@@ -644,7 +643,7 @@ the persisted route regression.
 
 `POST /api/v1/projects/{name}/readiness-check` retains bounded explicit probes and
 atomically writes profile-owned `readiness.json`, independent of runtime schema.
-Schema 1 contains immutable `project_id`, exact config-byte SHA-256 `revision`, UTC
+Schema 2 contains immutable `project_id`, private machine/account and authentication-context bindings, exact config-byte SHA-256 `revision`, UTC
 `checked_at`, API-host context and typed prerequisite checks.
 Checks cover git, forge CLI/auth, runtime, the Pi CLI and AEGIS files; there is no
 model endpoint check (model access comes only from the explicit AI connection test).
@@ -653,11 +652,11 @@ ChatGPT sign-in), and the internet switch adds the boolean `egress_proxy` or
 `web_search_key` (`_INTERNET_CHECKS`); the reader accepts these optional keys in
 addition to the six required ones, and a false value makes the record `failed`.
 Commands/output/credentials are never persisted. Schema, keys, types,
-identity, digest, time and redacted values are validated on read; corrupt evidence
+identity, digest, time, required configuration-specific checks and redacted values are validated on read; a changed machine/account or relevant authentication input makes it stale; corrupt evidence
 fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`).
 
 Absent evidence is `unverified`; differing config bytes are `stale`; matching evidence
-is `failed` if any check fails, `partial` for undetected WSL runtime, otherwise
+is `failed` if any check fails, `partial` for undetected WSL runtime or uninspected AEGIS files, otherwise
 `verified`. Freshness is revision-based, not age-based. Display edits do not stale
 verification. Invalid configuration is separate from stale/absent evidence. A config
 change during probes returns `stale_config_revision` without replacing evidence.
@@ -771,7 +770,7 @@ reviewed environment candidate. See Component_Project_Images.md.
 
 ## Reviewed executor configuration
 
-`executor.connection` is a virtual candidate key whose value is strict JSON `{provider, model, base_url, api}` (endpoint fields empty unless the provider is `custom`); it is staged through `POST config/pending`, applied like other candidates, and rewrites `[executor] provider`/`model` and removes or adds `[executor.endpoint]` while preserving unrelated TOML (verified by re-parse). Its review value is that object. `executor.provider`, `executor.model`, `executor.endpoint.base_url` and `executor.endpoint.api` cannot be staged individually (400 `setting_not_editable`). `executor.command` is a container-only single-key candidate with the Pi preset. `executor.env_keys` owns a complete names-only list. All require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.
+`executor.connection` is a virtual candidate key whose value is strict JSON `{provider, model, thinking, base_url, api}` (endpoint fields empty unless the provider is `custom`); it is staged through `POST config/pending`, applied like other candidates, and rewrites `[executor] provider`/`model` and removes or adds `[executor.endpoint]` while preserving unrelated TOML (verified by re-parse). Its review value is that object. `executor.provider`, `executor.model`, `executor.thinking`, `executor.endpoint.base_url` and `executor.endpoint.api` cannot be staged individually (400 `setting_not_editable`). `executor.command` is a container-only single-key candidate with the Pi preset. `executor.env_keys` owns a complete names-only list. All require pending review and existing paused/idle apply guards. Public pending values and persisted scope are closed and checked against the unchanged base. Source-only private credential APIs retain their contracts. See [Executor configuration and credentials](Component_Executor_Configuration.md) and test_web_executor_configuration.py.
 
 ## Confirmed failed-job restart
 
@@ -808,3 +807,7 @@ Usage projection accepts an older request snapshot after another request advance
 
 
 History projects verified ticket and job target identities independently of operation IDs. It exposes prepared, applied, rejected, failed and uncertain outcomes and refuses mismatched operation/project bindings. Project visibility remains bound to immutable authorized project IDs.
+
+Readiness checks bind private hashes of relevant owned and external CLI authentication inputs. Draft tokens and project checks recheck the binding before publication; changed credentials make old evidence stale. Corrupt or old readiness records are refused before any replacement. Responses declare required checks, and the browser verifies their presence before displaying a verdict.
+
+A successful external CLI sign-in is not a bound identity and keeps the overall result partial. Only a validated project-scoped repository credential binds the forge identity; the project list separately reports the check keys derived from current config. Probe values are validated before replacing evidence.

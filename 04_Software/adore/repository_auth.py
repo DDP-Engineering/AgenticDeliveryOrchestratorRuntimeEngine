@@ -288,7 +288,6 @@ def save_connection(directory: Path, value: dict) -> None:
     if _identity(directory) != value["project_id"]:
         raise RepositoryAuthError("repository_credentials_corrupt")
     try:
-        (directory / "readiness.json").unlink(missing_ok=True)
         _write_secret(directory / AUTH_FILE, value)
     except OSError as exc:
         raise RepositoryAuthError("repository_credentials_store_failed") from exc

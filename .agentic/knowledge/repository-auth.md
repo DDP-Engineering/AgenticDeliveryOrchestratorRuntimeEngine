@@ -106,3 +106,5 @@ omits ambiguous suggestions. UI/help offers localized connection instructions.
 Requirements: REQ-FUNC-cacfa8b2 and REQ-UX-163a1c99. Proof: test_gitea_auth.py,
 test_repository_connection.py, test_repository_source.py, errors.test.mjs and
 help.test.mjs.
+
+Repository credential changes make previous readiness evidence stale through its private authentication-context fingerprint; rejected changes leave the existing record intact.

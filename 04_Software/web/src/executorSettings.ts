@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import type {Locale} from "./i18n";
-import {connectionCopy} from "./agentConnection.ts";
+import {connectionCopy, thinkingCopy} from "./agentConnection.ts";
 
 /** Pi is ADORE's only coding agent; these settings configure how it runs. */
 export const agentSettingsCopy = {
@@ -52,6 +52,7 @@ export function executorSettingLabel(key:string,locale:Locale):string|null {
  if (key==="executor.env_keys") return c.variables;
  if (key==="executor.command") return c.command;
  if (key==="executor.model") return c.model;
+ if (key==="executor.thinking") return thinkingCopy[locale].label;
  if (key==="executor.provider") return connection.provider;
  if (key==="executor.endpoint.base_url") return connection.baseUrl;
  if (key==="executor.endpoint.api") return connection.api;

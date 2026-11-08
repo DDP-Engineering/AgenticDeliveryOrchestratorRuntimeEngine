@@ -111,7 +111,7 @@ test("current model evidence remains coherent in Summary and host check details"
  const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
  const result={project_id:id,revision:config.revision,checked_at:new Date().toISOString(),executor:"pi",model:config.config.executor.model,ready:true,reason:"ready"};
  await page.route("**/projects/*/config",route=>route.fulfill({json:{...config,model_connection:result}}));
- await page.route("**/readiness-check",route=>route.fulfill({json:{status:"verified",project_id:id,revision:config.revision,checked_at:new Date().toISOString(),context:"api-host",checks:{git:true,forge_cli:true,forge_auth:true,container_runtime:true,executor_cli:true,aegis_files:true}}}));
+ await page.route("**/readiness-check",route=>route.fulfill({json:{status:"verified",project_id:id,revision:config.revision,checked_at:new Date().toISOString(),context:"api-host",auth_bound:true,required_checks:["git","forge_cli","forge_auth","container_runtime","executor_cli","aegis_files","egress_proxy"],checks:{git:true,forge_cli:true,forge_auth:true,container_runtime:true,executor_cli:true,aegis_files:true,egress_proxy:true}}}));
  await page.goto(`/projects/${id}`);
  await expect(page.getByText("AI model connected",{exact:true})).toHaveCount(0);
  await page.getByRole("button",{name:"Check host prerequisites",exact:true}).click();

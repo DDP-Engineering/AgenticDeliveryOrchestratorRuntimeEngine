@@ -34,7 +34,7 @@ text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, inc
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Projects reuse local Gitea sign-in; older refreshes no longer replace host-check results.", fr = "Connexion Gitea locale réutilisée ; les anciens rafraîchissements ne remplacent plus les résultats.", de = "Lokale Gitea-Anmeldung genutzt; ältere Aktualisierungen überschreiben keine Host-Prüfergebnisse.", ro = "Autentificare Gitea locală reutilizată; actualizările vechi nu mai înlocuiesc verificările gazdei." }
+text = { en = "Local sign-in and enrollment checks persist; older refreshes preserve host results.", fr = "Connexion locale et contrôles conservés ; les anciens rafraîchissements préservent les résultats.", de = "Lokale Anmeldung und Einrichtungsprüfungen bleiben; ältere Updates wahren Host-Ergebnisse.", ro = "Autentificarea locală și verificările persistă; actualizările vechi păstrează rezultatele gazdei." }
 
 [[release.entry]]
 category = "fixed"
@@ -79,7 +79,7 @@ text = { en = "Prepare project images and let agents install system packages ins
 [[release.entry]]
 category = "new"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "Choose the AI provider and model: an API key, your own server like LM Studio, or ChatGPT sign-in.", fr = "Choisissez fournisseur IA et modèle : clé API, votre serveur comme LM Studio, ou connexion ChatGPT.", de = "KI-Anbieter und Modell wählen: API-Schlüssel, eigener Server wie LM Studio oder ChatGPT-Anmeldung.", ro = "Alegeți furnizorul AI și modelul: cheie API, propriul server ca LM Studio sau autentificare ChatGPT." }
+text = { en = "Choose the AI provider, model and supported reasoning effort, with API key or ChatGPT sign-in.", fr = "Choisissez fournisseur, modèle et effort de raisonnement, avec clé API ou connexion ChatGPT.", de = "KI-Anbieter, Modell und unterstützten Denkaufwand mit API-Schlüssel oder ChatGPT-Anmeldung wählen.", ro = "Alegeți furnizorul, modelul și efortul de raționament, cu cheie API sau autentificare ChatGPT." }
 
 [[release.entry]]
 category = "new"

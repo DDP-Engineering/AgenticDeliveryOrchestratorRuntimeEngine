@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Clarify enrollment and project settings, preserve current readiness evidence, and support Pi reasoning effort.
+
 - Correct History targets and outcomes, and retain CLI job deletion evidence after removal.
 
 - Confirm cancellation and clarify cleanup, worker activity, monitoring updates and project empty states; exclude configured epic tickets from pickup.
@@ -33,6 +35,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
 
 ### Changed
+
+- Delete each project profile’s `readiness.json` before starting this build.
 
 - Ticket details place Body display and its selector together on the right of the description heading; action buttons wrap without splitting words when details open.
 

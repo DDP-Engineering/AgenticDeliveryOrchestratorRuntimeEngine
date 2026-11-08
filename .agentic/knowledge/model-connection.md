@@ -57,3 +57,5 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/web/src/ModelConnection.tsx`, `App.tsx`, `styles.css`: GUI; `web/src/modelEvidence.ts`: reasons, evidence validation, copy and guidance (`web/tests/modelEvidence.test.mjs`).
 - `04_Software/tests/test_model_connection.py`, `web/e2e/model-connection.spec.ts`: offline proof.
 - `05_SoftwareDocu/Component_Model_Connection.md`: detailed contract.
+
+The native and container model diagnostics pass the configured Pi thinking level to their RPC launcher.

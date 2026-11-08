@@ -106,3 +106,5 @@ Existing saved/manual commands retain authority; selected paths are revalidated
 by native policy and applied through the existing reviewed configuration flow.
 
 The local launch command is not editable; guided setup and reviewed settings share the managed Pi backend.
+
+The atomic connection candidate includes thinking and validates it with the exact provider/model. The pinned catalog exposes the per-model supported levels.

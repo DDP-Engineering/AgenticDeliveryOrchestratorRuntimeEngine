@@ -436,11 +436,12 @@ def test_pi_executor_passes_the_provider_and_model_id(tmp_path: Path) -> None:
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt")
     target = CopyTarget(fake)
-    run = PiExecutor("pi", "gpt-5.4", provider="openai").run_gate(
+    run = PiExecutor("pi", "gpt-5.4", provider="openai", thinking="medium").run_gate(
         target, worktree, io_dir, PROMPT, timeout=30)
     assert run.ok
     assert fake.argv[fake.argv.index("--provider") + 1] == "openai"
     assert fake.argv[fake.argv.index("--model") + 1] == "gpt-5.4"
+    assert fake.argv[fake.argv.index("--thinking") + 1] == "medium"
     assert target.commands == [] and not (io_dir / "pi-models.json").exists()
     chatgpt = FakePi(tmp_path, "run_tool_calls_chatgpt")
     assert PiExecutor("pi", "gpt-5.6-luna", provider="chatgpt").run_gate(

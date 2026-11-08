@@ -87,6 +87,14 @@ def main() -> None:
     with TemporaryDirectory(prefix="adore-e2e-") as directory:
         home = Path(directory)
         os.environ["ADORE_HOME"] = str(home)
+        # Browser fixtures must never inspect the operator's CLI authentication files.
+        for key in ("USERPROFILE", "LOCALAPPDATA", "APPDATA", "XDG_CONFIG_HOME",
+                    "GH_CONFIG_DIR", "GLAB_CONFIG_DIR"):
+            os.environ[key] = str(home / "isolated-cli")
+        for key in ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
+                    "GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN", "OPENAI_API_KEY",
+                    "BRAVE_API_KEY", "TAVILY_API_KEY"):
+            os.environ.pop(key, None)
         profiles = ProfileStore(home)
         for name in ("alpha", "beta"):
             root = home / "state" / name

@@ -674,8 +674,8 @@ test("summary with corrupt job evidence shows unknown counters and no fabricated
 });
 
 function readinessFixture(project: string, changes: Record<string, unknown> = {}) {
-  return { status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
-    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, ...changes } };
+  return { auth_bound: true, required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "egress_proxy", ...Object.keys(changes).filter(key => !["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "egress_proxy"].includes(key))], status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
+    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, egress_proxy: true, ...changes } };
 }
 
 for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as const) {
@@ -697,7 +697,7 @@ for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as co
     } else {
       const panel = page.locator(".readiness-evidence");
       await expect(panel.locator(".readiness-verdict")).toHaveCount(0);
-      await expect(panel.locator(".readiness-check")).toHaveCount(7);
+      await expect(panel.locator(".readiness-check")).toHaveCount(8);
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
       await expect(model).toContainText("Use Test AI connection in Settings → Agent and model");
       await expect(panel).toContainText("does not test a complete job");
@@ -840,7 +840,7 @@ test("repository connection clears tokens and shows scoped verified identity", a
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ project_id: project.id, provider: project.platform, server: "https://git.example.com", repository: project.repo, account: "alice" }) });
   });
   const area = page.locator(".repository-connection");
-  const trigger = area.getByRole("button", {name: "Connect repository", exact: true});
+  const trigger = area.getByRole("button", {name: "Repository access", exact: true});
   const check = page.getByRole("button", {name: "Check host prerequisites", exact: true});
   expect(Math.abs((await trigger.boundingBox())!.y - (await check.boundingBox())!.y)).toBeLessThan(2);
   await trigger.click();
@@ -853,10 +853,10 @@ test("repository connection clears tokens and shows scoped verified identity", a
   await area.getByRole("button", {name: "Verify and connect"}).click();
   await expect(token).toHaveValue("");
   await expect(area.getByRole("status")).toContainText("Connected account: alice");
-  await expect(page.locator(".summary-fact").filter({hasText: "Environment verification"})).toContainText("Unverified");
+  await expect(page.locator(".summary-fact").filter({hasText: "Environment verification"})).not.toContainText("Verified");
   expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain("test-only-value");
   await token.fill("discard-me"); await area.getByRole("button", {name: "Cancel", exact: true}).click();
-  await area.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await area.getByRole("button", {name: "Repository access", exact: true}).click();
   await expect(token).toHaveValue("");
   await area.getByLabel("Repository server", {exact: true}).fill("http://git.example.com");
   const checkbox = area.getByRole("checkbox");
@@ -865,7 +865,7 @@ test("repository connection clears tokens and shows scoped verified identity", a
   await token.fill("discard-on-escape");
   await page.keyboard.press("Escape");
   await expect(area.getByRole("dialog")).not.toBeVisible();
-  await trigger.click(); await expect(token).toHaveValue("");
+  await area.getByRole("button", {name: "Repository access", exact: true}).click(); await expect(token).toHaveValue("");
   await area.getByRole("button", {name: "Cancel", exact: true}).click();
   await expect(area.getByRole("dialog")).not.toBeVisible();
 });
@@ -873,7 +873,7 @@ test("repository connection clears tokens and shows scoped verified identity", a
 test("repository connection rejects failed or mismatched evidence without exposing secrets", async ({ page }) => {
   await signIn(page); await page.goto("/projects/alpha");
   const area = page.locator(".repository-connection");
-  await area.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await area.getByRole("button", {name: "Repository access", exact: true}).click();
   await area.getByLabel("Repository server", {exact: true}).fill("https://git.example.com");
   await page.route("**/repository-connection", route => route.fulfill({status: 400, contentType: "application/json", body: JSON.stringify({detail: {code: "repository_connection_failed", message: "DO-NOT-DISPLAY-SECRET"}})}));
   await area.getByLabel("Access token", {exact: true}).fill("test-secret");
@@ -887,7 +887,7 @@ test("repository connection rejects failed or mismatched evidence without exposi
   await expect(area.getByRole("alert")).toContainText("Credential storage is invalid");
   await expect(area.getByRole("status")).toHaveCount(0);
   await page.goto("/projects/beta");
-  await page.locator(".repository-connection").getByRole("button", {name: "Connect repository", exact: true}).click();
+  await page.locator(".repository-connection").getByRole("button", {name: "Repository access", exact: true}).click();
   await expect(page.getByLabel("Access token", {exact: true})).toHaveValue("");
 });
 
@@ -895,7 +895,7 @@ test("repository connection rejects failed or mismatched evidence without exposi
 test("repository connection supports keyboard four locales and narrow dark layout", async ({ page }, info) => {
   await signIn(page);
   await page.setViewportSize({width: 390, height: 844});
-  for (const [locale, button, label] of [["fr", "Connecter le dépôt", "Jeton d’accès"], ["de", "Repository verbinden", "Zugriffstoken"], ["ro", "Conectează depozitul", "Token de acces"], ["en", "Connect repository", "Access token"]]) {
+  for (const [locale, button, label] of [["fr", "Accès au dépôt", "Jeton d’accès"], ["de", "Repository-Zugang", "Zugriffstoken"], ["ro", "Acces la repository", "Token de acces"], ["en", "Repository access", "Access token"]]) {
     await page.goto("/account");
     const [savedLanguage] = await Promise.all([
       page.waitForResponse(response => response.url().endsWith("/api/v1/me/preferences") &&
@@ -917,7 +917,7 @@ test("repository connection supports keyboard four locales and narrow dark layou
   ]);
   expect(savedTheme.ok()).toBe(true);
   await page.goto("/projects/alpha");
-  await page.getByRole("button", {name: "Connect repository", exact: true}).click();
+  await page.getByRole("button", {name: "Repository access", exact: true}).click();
   await page.screenshot({path: info.outputPath("repository-connection-dark.png"), fullPage: true});
 });
 

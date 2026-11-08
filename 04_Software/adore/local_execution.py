@@ -610,12 +610,12 @@ class LocalTarget:
             if self.env.get(key)
         }, key=len, reverse=True)
 
-    def pi_argv(self, model, provider, *, web=False, notice=""):
+    def pi_argv(self, model, provider, *, web=False, notice="", thinking=""):
         """@brief Build fixed RPC argv for the exact native Node and Pi installation."""
         from adore.executor.launcher import pi_rpc_argv
 
         self.backend.verify_identity(self.name, self.resource)
-        return pi_rpc_argv(model, provider, web=web, notice=notice,
+        return pi_rpc_argv(model, provider, web=web, notice=notice, thinking=thinking,
                            installation=managed_pi(),
                            windows=self.backend.context["system"] == "Windows")
 

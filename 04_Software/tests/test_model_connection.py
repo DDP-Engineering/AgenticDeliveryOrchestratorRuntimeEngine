@@ -230,6 +230,20 @@ def test_rpc_probe_reports_each_outcome_distinctly(tmp_path, monkeypatch, fixtur
     assert all("pull" not in argv for argv, _ in runtime.calls)
 
 
+def test_connection_probe_passes_thinking_to_pi(tmp_path, monkeypatch):
+    """@brief The disposable RPC probe receives the configured Pi reasoning effort."""
+    profiles = project(tmp_path)
+    path = profiles.config_path("alpha")
+    path.write_text(path.read_text(encoding="utf-8").replace('model = "gpt-5.5"',
+                    'model = "gpt-5.5"\nthinking = "medium"'), encoding="utf-8")
+    (profiles.profile_dir("alpha") / ".env").write_text(f"OPENAI_API_KEY={SECRET}\n")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    runtime = Runtime(tmp_path, "run_connection_test_endpoint")
+    probe(profiles, runtime)
+    argv = runtime.spawned[0][0]
+    assert argv[argv.index("--thinking") + 1] == "medium"
+
+
 def set_internet(profiles, internet: bool, search: str = "") -> None:
     """@brief Set [executor] internet (and [executor.web] search) in the project config."""
     path = profiles.config_path("alpha")

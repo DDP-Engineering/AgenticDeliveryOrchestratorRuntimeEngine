@@ -61,6 +61,7 @@ _HOST_RE = re.compile(r"(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
                       r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+")
 MAX_PROVIDER_HOSTS = 8
 #: Web search choices of `[executor.web] search` and the key variable each needs.
+THINKING_LEVELS = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
 WEB_SEARCH_CHOICES = ("exa", "brave", "tavily", "none")
 SEARCH_KEY_VARIABLES = {"brave": "BRAVE_API_KEY", "tavily": "TAVILY_API_KEY"}
 
@@ -91,20 +92,35 @@ def _validated(value: Any) -> dict:
         raise CatalogError("catalog providers")
     seen: set[str] = set()
     for item in providers:
-        if (not isinstance(item, dict)
-                or set(item) != {"id", "name", "variable", "models", "hosts"}
-                or not isinstance(item["id"], str) or not _PROVIDER_ID_RE.fullmatch(item["id"])
-                or item["id"] in seen or item["id"] in (CHATGPT, CUSTOM, ENDPOINT_PROVIDER)
-                or not isinstance(item["name"], str) or not 0 < len(item["name"]) <= 80
-                or not isinstance(item["variable"], str)
-                or not _VARIABLE_RE.fullmatch(item["variable"])
-                or not isinstance(item["models"], list) or not item["models"]
-                or not all(isinstance(model, str) and MODEL_ID_RE.fullmatch(model)
-                           for model in item["models"])
-                or not isinstance(item["hosts"], list)
-                or not 0 < len(item["hosts"]) <= MAX_PROVIDER_HOSTS
-                or not all(isinstance(host, str) and _HOST_RE.fullmatch(host)
-                           for host in item["hosts"])):
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"id", "name", "variable", "models", "hosts", "thinking"}
+            or not isinstance(item["id"], str)
+            or not _PROVIDER_ID_RE.fullmatch(item["id"])
+            or item["id"] in seen
+            or item["id"] in (CHATGPT, CUSTOM, ENDPOINT_PROVIDER)
+            or not isinstance(item["name"], str)
+            or not 0 < len(item["name"]) <= 80
+            or not isinstance(item["variable"], str)
+            or not _VARIABLE_RE.fullmatch(item["variable"])
+            or not isinstance(item["models"], list)
+            or not item["models"]
+            or not all(
+                isinstance(model, str) and MODEL_ID_RE.fullmatch(model) for model in item["models"]
+            )
+            or not isinstance(item["thinking"], dict)
+            or not set(item["thinking"]).issubset(item["models"])
+            or not all(
+                isinstance(levels, list)
+                and levels
+                and all(isinstance(level, str) and level in THINKING_LEVELS for level in levels)
+                and len(set(levels)) == len(levels)
+                for levels in item["thinking"].values()
+            )
+            or not isinstance(item["hosts"], list)
+            or not 0 < len(item["hosts"]) <= MAX_PROVIDER_HOSTS
+            or not all(isinstance(host, str) and _HOST_RE.fullmatch(host) for host in item["hosts"])
+        ):
             raise CatalogError("catalog provider")
         seen.add(item["id"])
     models = value["chatgpt_models"]
@@ -130,6 +146,19 @@ def catalog() -> dict:
         return _validated(json.loads(CATALOG_PATH.read_text(encoding="utf-8")))
     except (OSError, UnicodeError, ValueError) as exc:
         raise CatalogError(f"Pi provider catalog unreadable: {exc}") from exc
+
+
+def thinking_levels(provider: str, model: str) -> list[str]:
+    """@brief Return proven Pi levels for an exact provider and model, or none."""
+    if not isinstance(provider, str) or not isinstance(model, str):
+        return []
+    if provider == CUSTOM:
+        return ["off"]
+    if provider == CHATGPT:
+        if model not in catalog()["chatgpt_models"]:
+            return []
+        provider = "openai"
+    return api_key_providers().get(provider, {}).get("thinking", {}).get(model, [])
 
 
 def api_key_providers() -> dict[str, dict]:

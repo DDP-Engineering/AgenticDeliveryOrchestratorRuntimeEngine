@@ -378,6 +378,34 @@ def test_transfer_probe_and_late_target_occupancy(tmp_path):
         assert not app.state.profiles.profile_dir("target").exists()
 
 
+def test_transfer_creation_keeps_server_check(tmp_path):
+    """@brief Copy setup carries only the check issued for its reviewed target."""
+    app = create_app(
+        tmp_path / "home",
+        probe_runner=lambda argv, **kwargs: CommandResult(argv=argv, exit_code=127),
+    )
+    with TestClient(app) as client:
+        headers, body, _, _ = _source(client, app, tmp_path, "project")
+        reviewed, _preview = _review(client, body, headers)
+        checked = client.post(
+            "/api/v1/projects/transfer-check", json=reviewed, headers=headers
+        ).json()
+        bad = client.post(
+            "/api/v1/projects/transfer-create",
+            json={**reviewed, "evidence_token": "0" * 64},
+            headers=headers,
+        )
+        assert bad.status_code == 409
+        created = client.post(
+            "/api/v1/projects/transfer-create",
+            json={**reviewed, "evidence_token": checked["evidence_token"]},
+            headers=headers,
+        )
+        assert created.status_code == 200, created.text
+        assert created.json()["verification"]["status"] == checked["status"]
+        assert created.json()["verification"]["checks"] == checked["checks"]
+
+
 @pytest.mark.parametrize("bad", ["unknown", "duplicate", "missing", "both", "none"])
 def test_transfer_source_selection_and_active_corruption(tmp_path, bad):
     """@brief Source choice and corrupt active TOML are strict public boundaries."""

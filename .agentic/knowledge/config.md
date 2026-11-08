@@ -146,3 +146,5 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 ## Actual branch admission names
 
 `branch_naming_preview(..., run_id=..., iid=...)` permits actual identity checks using the same bounded one-second rule evaluation, with unchanged default example output. Fresh admission validates each generated actual name and refuses invalid identity types or rules. Proof: tests/test_drift_recovery.py and test_branch_naming.py.
+
+The optional executor.thinking setting accepts only a level proven for the exact provider/model in the pinned Pi catalog; blank uses Pi default. Custom endpoint models support off.

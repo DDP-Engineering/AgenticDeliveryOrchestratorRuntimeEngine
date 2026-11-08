@@ -32,6 +32,7 @@ from adore.pi_providers import (
     ENDPOINT_APIS,
     MODEL_ID_RE,
     provider_ids,
+    thinking_levels,
     valid_endpoint_url,
 )
 from adore.util import strict_json_loads
@@ -41,9 +42,9 @@ LAUNCH_PRESETS = {"executor.command": (PI_NATIVE_COMMAND,)}
 #: Virtual edit key of the provider/model/endpoint selection.
 CONNECTION_KEY = "executor.connection"
 #: Configuration rows edited through CONNECTION_KEY, never one by one.
-CONNECTION_KEYS = frozenset({"executor.provider", "executor.model",
+CONNECTION_KEYS = frozenset({"executor.provider", "executor.model", "executor.thinking",
                              "executor.endpoint.base_url", "executor.endpoint.api"})
-_FIELDS = {"provider", "model", "base_url", "api"}
+_FIELDS = {"provider", "model", "thinking", "base_url", "api"}
 _ENDPOINT_HEADER = re.compile(r"\s*\[\s*executor\s*\.\s*endpoint\s*\]\s*(?:#.*)?")
 _TABLE_HEADER = re.compile(r"\s*\[")
 
@@ -91,6 +92,10 @@ def valid_connection(value: object) -> bool:
         return False
     if value["provider"] not in provider_ids() or not MODEL_ID_RE.fullmatch(value["model"]):
         return False
+    if value["thinking"] and value["thinking"] not in thinking_levels(
+        value["provider"], value["model"]
+    ):
+        return False
     if value["provider"] == CUSTOM:
         return valid_endpoint_url(value["base_url"]) and value["api"] in ENDPOINT_APIS
     return value["base_url"] == "" and value["api"] == ""
@@ -107,6 +112,7 @@ def connection_value(tree: dict) -> dict:
     endpoint = executor.get("endpoint") if isinstance(executor.get("endpoint"), dict) else {}
     custom = executor.get("provider") == CUSTOM
     return {"provider": executor.get("provider", ""), "model": executor.get("model", ""),
+            "thinking": executor.get("thinking", ""),
             "base_url": endpoint.get("base_url", "") if custom else "",
             "api": endpoint.get("api", ENDPOINT_APIS[0]) if custom else ""}
 
@@ -127,7 +133,7 @@ def set_connection(text: str, wire_value: str) -> str:
     original = tomllib.loads(text)
     expected = deepcopy(original)
     executor = expected.setdefault("executor", {})
-    executor.update(provider=value["provider"], model=value["model"])
+    executor.update(provider=value["provider"], model=value["model"], thinking=value["thinking"])
     executor.pop("endpoint", None)
     changed = _without_endpoint(text)
     # Explicit string literals: a model ID such as "7" or "true" must stay a string.
@@ -136,6 +142,8 @@ def set_connection(text: str, wire_value: str) -> str:
                                literal=json.dumps(value["provider"]))
     changed = _set_toml_scalar(changed, "executor.model", value["model"],
                                literal=json.dumps(value["model"]))
+    changed = _set_toml_scalar(changed, "executor.thinking", value["thinking"],
+                               literal=json.dumps(value["thinking"]))
     if value["provider"] == CUSTOM:
         executor["endpoint"] = {"base_url": value["base_url"], "api": value["api"]}
         newline = _newline(changed)

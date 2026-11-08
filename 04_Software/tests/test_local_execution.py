@@ -679,6 +679,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
                 yield process
 
         controller.stream = stream
+    config.executor.thinking = "off" if scenario == "keyless-endpoint" else "medium"
     env_file = tmp_path / ".env"
     if scenario == "keyless-endpoint":
         monkeypatch.delenv("ADORE_ENDPOINT_API_KEY", raising=False)
@@ -690,6 +691,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
     assert result["ready"], result
     argv, _, env = controller.streams[0]
     assert argv[0].endswith("node.exe") and "--no-extensions" in argv
+    assert argv[argv.index("--thinking") + 1] == config.executor.thinking
     if scenario != "keyless-endpoint":
         assert env["OPENAI_API_KEY"] == "fake-key"
 

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-1ab8feb0"
+
+title = "Bind enrollment readiness evidence to a created project"
+
+status = "active"
+
+requirement = """
+When an administrator creates a reviewed project with current server-generated enrollment readiness evidence, ADORE shall record the measured checks against the created project and exact configuration revision.
+"""
+
+verification = "Offline API tests check a draft, create the same project, and compare its stored verdict and checks including incomplete checks."
+
+affected_paths = ["04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_enrollment.py::test_partial_enrollment_evidence_remains_partial_and_goes_stale", "04_Software/tests/test_web_transfer.py::test_transfer_creation_keeps_server_check"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

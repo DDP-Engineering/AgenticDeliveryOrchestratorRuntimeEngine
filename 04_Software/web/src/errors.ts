@@ -20,10 +20,10 @@ export class ApiError extends Error {
 
 /** Shared recovery steps use the interface field and action names. */
 export const repositoryConnectionHelp: Record<Locale, string> = {
-  en: "In Project Summary, choose Connect repository. Enter Repository server and Access token, choose Verify and connect, then Check host prerequisites. Existing CLI sign-in must belong to the account running ADORE on this computer.",
-  ro: "În Rezumatul proiectului, alege Conectează depozitul. Completează Serverul depozitului și Token de acces, apasă Verifică și conectează, apoi verifică cerințele gazdei. Autentificarea CLI trebuie să aparțină contului care rulează ADORE pe acest calculator.",
-  fr: "Dans le Résumé du projet, choisissez Connecter le dépôt. Saisissez Serveur du dépôt et Jeton d’accès, puis Vérifier et connecter et contrôlez les prérequis. La connexion CLI doit appartenir au compte qui exécute ADORE sur cet ordinateur.",
-  de: "Wählen Sie in der Projektübersicht Repository verbinden. Geben Sie Repository-Server und Zugriffstoken ein, wählen Sie Prüfen und verbinden und prüfen Sie die Host-Voraussetzungen. Die CLI-Anmeldung muss zum ADORE-Konto auf diesem Rechner gehören.",
+  en: "In Project Summary, choose Repository access. Enter Repository server and Access token, choose Verify and connect, then Check host prerequisites. Existing CLI sign-in must belong to the account running ADORE on this computer.",
+  ro: "În Rezumatul proiectului, alege Acces la repository. Completează Serverul depozitului și Token de acces, apasă Verifică și conectează, apoi verifică cerințele gazdei. Autentificarea CLI trebuie să aparțină contului care rulează ADORE pe acest calculator.",
+  fr: "Dans le Résumé du projet, choisissez Accès au dépôt. Saisissez Serveur du dépôt et Jeton d’accès, puis Vérifier et connecter et contrôlez les prérequis. La connexion CLI doit appartenir au compte qui exécute ADORE sur cet ordinateur.",
+  de: "Wählen Sie in der Projektübersicht Repository-Zugang. Geben Sie Repository-Server und Zugriffstoken ein, wählen Sie Prüfen und verbinden und prüfen Sie die Host-Voraussetzungen. Die CLI-Anmeldung muss zum ADORE-Konto auf diesem Rechner gehören.",
 };
 
 /** Localized sentences for every API and client error code. */

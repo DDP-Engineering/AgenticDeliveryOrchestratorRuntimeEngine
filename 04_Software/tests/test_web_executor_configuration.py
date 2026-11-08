@@ -31,7 +31,9 @@ from tests.test_model_connection import project
 # PUBLIC API
 def _connection(provider, model, base_url="", api=""):
     """@brief The strict JSON wire value of one agent connection edit."""
-    return json.dumps({"provider": provider, "model": model, "base_url": base_url, "api": api})
+    return json.dumps(
+        {"provider": provider, "model": model, "thinking": "", "base_url": base_url, "api": api}
+    )
 
 
 def _stage_and_apply(client, headers, value):
@@ -76,11 +78,44 @@ def test_connection_is_one_reviewed_edit_and_no_agent_choice_exists(tmp_path):
         assert direct.status_code == 400
         pending = _stage_and_apply(client, headers, _connection("anthropic", "claude-x"))
         assert pending["proposed_value"] == {"provider": "anthropic", "model": "claude-x",
-                                             "base_url": "", "api": ""}
+                                             "thinking": "", "base_url": "", "api": ""}
         assert pending["restart_required"] is True
     expected = deepcopy(tomllib.loads(original.decode()))
-    expected["executor"].update(provider="anthropic", model="claude-x")
+    expected["executor"].update(provider="anthropic", model="claude-x", thinking="")
     assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
+
+
+def test_connection_thinking_is_reviewed_and_rejects_unsupported(tmp_path):
+    """@brief Supported effort applies with its model; invalid combinations cannot stage."""
+    profiles = project(tmp_path)
+    StateStore(tmp_path / "state").pause()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = {
+            "X-CSRF-Token": client.post(
+                "/api/v1/session", json={"username": "admin", "password": "admin"}
+            ).json()["csrf"]
+        }
+        valid = {
+            "provider": "openai",
+            "model": "gpt-5",
+            "thinking": "medium",
+            "base_url": "",
+            "api": "",
+        }
+        view = client.get("/api/v1/projects/alpha/config").json()
+        bad = client.post(
+            "/api/v1/projects/alpha/config/pending",
+            headers=headers,
+            json={
+                "key": "executor.connection",
+                "value": json.dumps({**valid, "model": "gpt-4"}),
+                "revision": view["revision"],
+            },
+        )
+        assert bad.status_code == 400
+        pending = _stage_and_apply(client, headers, json.dumps(valid))
+        assert pending["proposed_value"]["thinking"] == "medium"
+        assert load_config(profiles.config_path("alpha")).executor.thinking == "medium"
 
 
 def test_connection_adds_and_removes_the_endpoint_table(tmp_path):
@@ -92,19 +127,29 @@ def test_connection_adds_and_removes_the_endpoint_table(tmp_path):
     with TestClient(create_app(profiles.home)) as client:
         login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         headers = {"X-CSRF-Token": login.json()["csrf"]}
-        pending = _stage_and_apply(client, headers, _connection(
-            "custom", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1", "openai-completions"))
+        pending = _stage_and_apply(
+            client,
+            headers,
+            _connection(
+                "custom", "qwen/qwen3.5-9b", "http://172.27.80.1:1234/v1", "openai-completions"
+            ),
+        )
         assert pending["proposed_value"]["base_url"] == "http://172.27.80.1:1234/v1"
         custom = load_config(path)
         assert custom.executor.provider == "custom"
         assert custom.executor.endpoint.base_url == "http://172.27.80.1:1234/v1"
         expected = deepcopy(original)
-        expected["executor"].update(provider="custom", model="qwen/qwen3.5-9b", endpoint={
-            "base_url": "http://172.27.80.1:1234/v1", "api": "openai-completions"})
+        expected["executor"].update(
+            provider="custom",
+            model="qwen/qwen3.5-9b",
+            thinking="",
+            endpoint={"base_url": "http://172.27.80.1:1234/v1", "api": "openai-completions"},
+        )
         assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
         view = client.get("/api/v1/projects/alpha/config").json()
         assert view["config"]["executor"]["endpoint"]["base_url"] == "http://172.27.80.1:1234/v1"
         _stage_and_apply(client, headers, _connection("openai", "gpt-5.5"))
+    original["executor"]["thinking"] = ""
     assert tomllib.loads(path.read_text(encoding="utf-8")) == original
 
 

@@ -218,3 +218,5 @@ Every completed executor attempt records the latest evidence marker, including a
 Status comments identify the pinned or configured backend. Terminal failures name that backend and web/CLI retry choices. Status outbox replay updates the current lifecycle comment and labels before acknowledgement, retaining failed operations and adopting marker-owned posts after interruption. Proof: targeted review-question, terminal and replay tests in test_orchestrator.py.
 
 Parked recovery rechecks backend stop and removes the handoff; failures terminate with PARK_CLEANUP_FAILED. Quoted notification markers never authorize comment adoption.
+
+The orchestrator supplies the configured Pi thinking level to the executor factory.

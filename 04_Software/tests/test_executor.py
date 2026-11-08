@@ -483,4 +483,11 @@ def test_pi_questions_and_failure_behave_like_the_shared_base(tmp_path: Path) ->
     assert not failed.ok and failed.exit_code == 124
 
 
+def test_pi_rpc_argv_carries_thinking_level() -> None:
+    """@brief Explicit Pi effort reaches the process; empty leaves its default."""
+    from adore.executor.launcher import pi_rpc_argv
+    assert pi_rpc_argv("gpt-5", "openai", thinking="medium")[-2:] == ["--thinking", "medium"]
+    assert "--thinking" not in pi_rpc_argv("gpt-5", "openai")
+
+
 # END OF FILE

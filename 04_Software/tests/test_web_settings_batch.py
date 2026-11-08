@@ -94,7 +94,7 @@ def test_batch_validates_the_combined_configuration(project):
     state.pause()
     response = stage(project, [
         {"key": "executor.connection", "value": json.dumps({
-            "provider": "chatgpt", "model": "gpt-5.6-luna", "base_url": "", "api": "",
+            "provider": "chatgpt", "model": "gpt-5.6-luna", "thinking": "", "base_url": "", "api": "",
         })},
         {"key": "budgets.per_gate_timeout_seconds", "value": "300"},
     ])
@@ -253,7 +253,7 @@ def test_batch_collection_and_connection_values_remain_safe(project):
     result = stage(project, [
         {"key": "executor.env_keys", "value": '["OPENAI_API_KEY"]'},
         {"key": "executor.connection", "value": json.dumps({
-            "provider": "openai", "model": "gpt-5.5", "base_url": "", "api": "",
+            "provider": "openai", "model": "gpt-5.5", "thinking": "", "base_url": "", "api": "",
         })},
         {"key": "delivery.reviewers", "value": '["reviewer"]'},
     ])

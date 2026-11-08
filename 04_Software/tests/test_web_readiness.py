@@ -45,7 +45,8 @@ def test_readiness_persistence_is_closed(tmp_path, monkeypatch, change):
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
     evidence = {"checks": {"git": True, "forge_cli": True, "forge_auth": True,
-                "container_runtime": True, "executor_cli": False, "aegis_files": True}}
+                "container_runtime": True, "executor_cli": False, "aegis_files": True,
+                "egress_proxy": True}}
     monkeypatch.setattr(module, "_probe_setup", lambda *a, **kw: evidence)
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -65,12 +66,213 @@ def test_readiness_persistence_is_closed(tmp_path, monkeypatch, change):
             saved["context"] = "PRIVATE-OUTPUT"
         text = json.dumps(saved)
         if change == "duplicate":
-            text = text.replace('"executor_cli": false',
-                                '"executor_cli": false, "executor_cli": true')
+            text = text.replace(
+                '"executor_cli": false', '"executor_cli": false, "executor_cli": true'
+            )
         path.write_text(text, encoding="utf-8")
         loaded = client.get("/api/v1/projects/alpha")
         assert loaded.status_code == (200 if change == "roundtrip" else 503), loaded.text
         assert "PRIVATE" not in loaded.text
+
+
+def test_old_readiness_schema_is_refused_with_deletion_guidance(tmp_path, monkeypatch):
+    """@brief An old readiness record is never migrated or removed automatically."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        assert (
+            client.post(
+                "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
+            ).status_code
+            == 200
+        )
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        record["schema"] = 1
+        old = json.dumps(record).encode()
+        path.write_bytes(old)
+        response = client.get("/api/v1/projects/alpha")
+        assert response.status_code == 503 and "readiness.json" in response.text
+        assert path.read_bytes() == old
+        retry = client.post(
+            "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
+        )
+        assert retry.status_code == 503 and path.read_bytes() == old
+
+
+def test_external_auth_change_makes_readiness_stale(tmp_path, monkeypatch):
+    """@brief A different effective forge environment cannot inherit prior evidence."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    monkeypatch.setenv("GITLAB_TOKEN", "fixture-one")
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        assert (
+            client.post(
+                "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
+            ).json()["status"]
+            == "partial"
+        )
+        monkeypatch.setenv("GITLAB_TOKEN", "fixture-two")
+        result = client.get("/api/v1/projects/alpha").json()["verification"]
+        assert result["status"] == "stale"
+        assert "fixture" not in json.dumps(result)
+
+
+def test_external_cli_config_change_makes_readiness_stale(tmp_path, monkeypatch):
+    """@brief A changed external CLI config invalidates its earlier check."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    root = tmp_path / "cli"
+    auth = root / "glab-cli" / "config.yml"
+    auth.parent.mkdir(parents=True)
+    auth.write_text("fixture-one", encoding="utf-8")
+    for key in ("XDG_CONFIG_HOME", "LOCALAPPDATA", "APPDATA", "USERPROFILE"):
+        monkeypatch.setenv(key, str(root))
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        assert (
+            client.post(
+                "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
+            ).json()["status"]
+            == "partial"
+        )
+        auth.write_text("fixture-two", encoding="utf-8")
+        response = client.get("/api/v1/projects/alpha")
+        assert response.json()["verification"]["status"] == "stale"
+        assert "fixture" not in response.text
+
+
+def test_auth_changes_during_probe_do_not_publish(tmp_path, monkeypatch):
+    """@brief A concurrent authentication change invalidates the entire check."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setenv("GITLAB_TOKEN", "before")
+
+    def probe(*args, **kwargs):
+        monkeypatch.setenv("GITLAB_TOKEN", "after")
+        return {"checks": checks}
+
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).status_code
+            == 200
+        )
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        before = path.read_bytes()
+        monkeypatch.setattr(module, "_probe_setup", probe)
+        result = client.post("/api/v1/projects/alpha/readiness-check", headers=headers)
+        assert result.status_code == 409
+        assert path.read_bytes() == before
+
+
+def test_unbound_cli_identity_stays_partial(tmp_path, monkeypatch):
+    """@brief Unobservable external CLI identity cannot produce Verified."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        result = client.post(
+            "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
+        )
+        assert result.json()["status"] == "partial"
+        assert client.get("/api/v1/projects/alpha").json()["verification"]["status"] == "partial"
+
+
+def test_malformed_probe_cannot_replace_good_readiness(tmp_path, monkeypatch):
+    """@brief Invalid probe values fail before overwriting existing evidence."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _ = _project(tmp_path)
+    checks = {
+        "git": True,
+        "forge_cli": True,
+        "forge_auth": True,
+        "container_runtime": True,
+        "executor_cli": True,
+        "aegis_files": True,
+        "egress_proxy": True,
+    }
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": dict(checks)})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post(
+            "/api/v1/session", json={"username": "admin", "password": "admin"}
+        ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).status_code
+            == 200
+        )
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        before = path.read_bytes()
+        checks["git"] = "bad"
+        assert (
+            client.post("/api/v1/projects/alpha/readiness-check", headers=headers).status_code
+            == 503
+        )
+        assert path.read_bytes() == before
 
 
 def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_path):
@@ -80,8 +282,12 @@ def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_pa
 
     def runner(argv, *, cwd=None, timeout=None, env=None):
         calls.append((list(argv), timeout))
-        return CommandResult(argv=list(argv), exit_code=127 if argv[0] == "glab" else 0,
-                             stdout="secret-host-output", stderr="secret-auth-detail")
+        return CommandResult(
+            argv=list(argv),
+            exit_code=127 if argv[0] == "glab" else 0,
+            stdout="secret-host-output",
+            stderr="secret-auth-detail",
+        )
 
     with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
         csrf = client.post("/api/v1/session", json={

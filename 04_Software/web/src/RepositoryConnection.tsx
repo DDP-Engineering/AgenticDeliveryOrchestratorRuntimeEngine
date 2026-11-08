@@ -66,7 +66,7 @@ export function RepositoryConnection({ project, provider, repository, locale, co
     }
   };
   return <div className="repository-connection">
-    <button type="button" className="ghost" aria-expanded={open} onClick={() => { setOpen(!open); setToken(""); setError(""); }}>{text.title}</button>
+    <button type="button" className="ghost" aria-expanded={open} onClick={() => { setOpen(!open); setToken(""); setError(""); }}>{({ en: "Repository access", fr: "Accès au dépôt", de: "Repository-Zugang", ro: "Acces la repository" })[locale]}</button>
     <dialog ref={dialog} className="repository-connect-dialog" aria-label={text.title} onCancel={close} onClose={close}>
     {open && <form className="form-stack" onSubmit={submit}>
       <div className="card-heading"><h2>{text.title}</h2></div>

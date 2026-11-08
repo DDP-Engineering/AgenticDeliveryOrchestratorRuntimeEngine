@@ -32,7 +32,7 @@ Opening a project from Projects shows its name and repository path above these t
 
 | Tab | What it holds |
 |---|---|
-| Summary | Container type, executor, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Connect repository**. |
+| Summary | Container type, executor, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
 | Settings | The project's effective settings in groups. Administrators change one setting at a time through a reviewed change; Devs read them without secrets. See [Project settings](/help/settings). |
 | Jobs | The Tickets and Jobs sub-tabs for this project, without a project selector. |
 | Statistics | The same reporting period, tabs and exports as the Statistics page, for this project only. |

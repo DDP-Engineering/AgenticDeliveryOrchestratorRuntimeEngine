@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-2946ca7f"
+
+title = "Present clear localized enrollment and project status"
+
+status = "active"
+
+requirement = """
+The web interface shall present localized enrollment checks and review values consistently with the configured execution environment and measured status.
+"""
+
+verification = "Offline browser tests inspect the wizard in four locales and at narrow widths, including partial evidence and local execution."
+
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/RepositoryConnection.tsx"]
+
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

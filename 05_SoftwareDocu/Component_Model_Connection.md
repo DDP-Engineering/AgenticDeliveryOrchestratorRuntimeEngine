@@ -71,3 +71,6 @@ without calling a model. Stage limits remain at most 3000 seconds.
 WSL2 uses the Linux backend and delegated cgroup v2. Host networking remains
 separate from the container internet switch. See
 [ChatGPT sign-in](Component_ChatGPT_Sign_In.md).
+
+
+Native and container diagnostics pass the same selected Pi thinking level as stage execution.

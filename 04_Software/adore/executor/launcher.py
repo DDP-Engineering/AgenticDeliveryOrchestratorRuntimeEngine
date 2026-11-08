@@ -523,6 +523,7 @@ class PiExecutor(FileProtocolExecutor):
         models: dict | None = None,
         internet: bool = False,
         web_search: str = "exa",
+        thinking: str = "",
     ) -> None:
         """
         @brief      Configure Pi from the [executor] section.
@@ -533,12 +534,14 @@ class PiExecutor(FileProtocolExecutor):
         @param[in]  models Endpoint models.json document, or None.
         @param[in]  internet `[executor] internet`.
         @param[in]  web_search `[executor.web] search` (used while internet is on).
+        @param[in]  thinking Optional validated Pi thinking level.
         """
         self.provider = pi_provider(provider) if provider else ""
         self.model_id = model
         self.models = models
         self.internet = internet
         self.web_search = web_search
+        self.thinking = thinking
         native_model = f"{self.provider}/{model}" if self.provider else model
         super().__init__(command_template, native_model, questions_file)
 
@@ -591,7 +594,8 @@ class PiExecutor(FileProtocolExecutor):
         argv_builder = execute.pi_argv if native is not None else pi_rpc_argv
         notice = ("ADORE does not enforce internet restrictions on this server."
                   if native is not None else "" if self.internet else INTERNET_OFF_NOTICE)
-        argv = argv_builder(self.model_id, self.provider, web=web, notice=notice)
+        argv = argv_builder(self.model_id, self.provider, web=web, notice=notice,
+                            thinking=self.thinking)
         placements = []
         if self.models is not None:
             placements.append((MODELS_FILE, "models.json", self.models,
@@ -793,13 +797,14 @@ def web_search_json(search: str) -> dict:
     return {"provider": search, "workflow": "none", "toolActivation": "eager"}
 
 
-def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False,
+def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False, thinking: str = "",
                 notice: str = "", installation: ManagedPi | None = None,
                 windows: bool = False) -> list[str]:
     """
     @brief      Fixed command line of a managed Pi RPC launch.
     @param[in]  model Model id within the provider.
     @param[in]  provider Pi provider id ("" passes only `--model`).
+    @param[in]  thinking Optional validated Pi thinking level.
     @param[in]  web Load the pinned pi-web-access extension (internet on only).
     @param[in]  notice Text appended to Pi's system prompt ("" appends nothing);
                 a stage with internet off passes INTERNET_OFF_NOTICE.
@@ -818,7 +823,8 @@ def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False,
             *(["--tools", "read,powershell,edit,write"] if windows else []),
             *(["-e", extension] if web else []),
             *(["--append-system-prompt", notice] if notice else []),
-            *(["--provider", provider] if provider else []), "--model", model]
+            *(["--provider", provider] if provider else []), "--model", model,
+            *(["--thinking", thinking] if thinking else [])]
 
 
 def build_executor(
@@ -830,6 +836,7 @@ def build_executor(
     models: dict | None = None,
     internet: bool = False,
     web_search: str = "exa",
+    thinking: str = "",
 ) -> Executor:
     """
     @brief      Construct the Pi launcher (config selection point).
@@ -841,11 +848,12 @@ def build_executor(
     @param[in]  models Endpoint models.json for `provider = "custom"`, else None.
     @param[in]  internet `[executor] internet`.
     @param[in]  web_search `[executor.web] search`.
+    @param[in]  thinking Optional validated Pi thinking level.
     @return     A PiExecutor.
     """
     return PiExecutor(command_template, model, questions_file,
                       provider=provider, models=models, internet=internet,
-                      web_search=web_search)
+                      web_search=web_search, thinking=thinking)
 
 
 # END OF FILE

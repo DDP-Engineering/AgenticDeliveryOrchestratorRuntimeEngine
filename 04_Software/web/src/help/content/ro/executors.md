@@ -2,6 +2,9 @@
 
 Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de programare Pi și modelul AI pe care îl folosește. Administratorii aleg modelul în Setările unui proiect.
 
+
+**Efort de raționament** oferă nivelurile acceptate de model în catalogul Pi inclus. Implicit Pi lasă alegerea în seama Pi. Modelele nelistate și endpointurile proprii nu pot pretinde niveluri neconfirmate. Alegerea se aplică lucrărilor și testului conexiunii AI.
+
 ## Ce este un executor {#what}
 
 Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. ADORE folosește Pi din imagine pentru lucrările în container și instalarea Pi administrată de ADORE pentru lucrările pe server.

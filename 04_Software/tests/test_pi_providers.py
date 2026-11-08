@@ -61,6 +61,17 @@ def _issues(tmp_path: Path, executor: str, extra: str = "") -> list[str]:
 # PUBLIC API / TESTS
 
 
+def test_thinking_level_configuration_fails_closed(tmp_path: Path) -> None:
+    """@brief Explicit Pi thinking levels match the pinned provider/model catalog."""
+    assert not _issues(tmp_path, 'provider = "openai"\nmodel = "gpt-5"\nthinking = "medium"')
+    assert any("thinking" in item for item in _issues(
+        tmp_path, 'provider = "openai"\nmodel = "gpt-4"\nthinking = "medium"'))
+    assert any("thinking" in item for item in _issues(
+        tmp_path, 'provider = "openai"\nmodel = "gpt-5"\nthinking = "invalid"'))
+    assert any("thinking" in item for item in _issues(
+        tmp_path, 'provider = "openai"\nmodel = "unknown-model"\nthinking = "high"'))
+
+
 def test_shipped_catalog_matches_the_pinned_pi_and_lists_key_providers() -> None:
     """@brief The catalog names the image's Pi version, one variable per provider, models."""
     catalog = pi_providers.catalog()
@@ -122,7 +133,7 @@ def test_catalog_hosts_are_validated(tmp_path: Path, monkeypatch) -> None:
     """@brief A provider without hosts, with none or with a malformed one is refused."""
     bad = tmp_path / "pi_catalog.json"
     provider = {"id": "x", "name": "X", "variable": "X_KEY", "models": ["a"],
-                "hosts": ["api.x.example"]}
+                "hosts": ["api.x.example"], "thinking": {"a": ["off"]}}
 
     def write(item: dict) -> None:
         bad.write_text(json.dumps({"pi_version": "1.4.0", "providers": [item],

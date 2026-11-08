@@ -54,6 +54,7 @@ from adore.pi_providers import (
     CatalogError,
     provider_hosts,
     provider_ids,
+    thinking_levels,
     valid_endpoint_url,
 )
 from adore.util import (
@@ -309,6 +310,7 @@ class ExecutorConfig:
 
     provider: str = ""
     model: str = ""
+    thinking: str = ""
     internet: bool = False
     endpoint: ExecutorEndpointConfig = field(default_factory=ExecutorEndpointConfig)
     web: ExecutorWebConfig = field(default_factory=ExecutorWebConfig)
@@ -1035,6 +1037,9 @@ def _provider_issues(config: Config) -> list[str]:
     elif not MODEL_ID_RE.fullmatch(executor.model):
         issues.append(f"[executor] model {executor.model!r} must be one model id without "
                       "spaces, quotes or control characters (at most 200 characters)")
+    if not isinstance(executor.thinking, str) or (executor.thinking and
+            executor.thinking not in thinking_levels(executor.provider, executor.model)):
+        issues.append("[executor] thinking is unsupported for this provider and model")
     if executor.provider == CHATGPT:
         issues.extend(_chatgpt_issues(config))
     if type(executor.internet) is not bool:

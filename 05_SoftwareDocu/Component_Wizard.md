@@ -221,3 +221,6 @@ The recommended profile keeps 5400 cumulative active seconds. `test_wizard.py`
 validates generated profiles with the normal configuration validator and golden
 values; its known regex fixture process is injected independently of host startup
 latency. `test_branch_naming.py` retains actual matching and process-protocol proof.
+
+
+Web guided enrollment includes the optional validated Pi thinking level in its reviewed candidate; the CLI wizard retains its existing Pi default.

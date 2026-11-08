@@ -2,6 +2,9 @@
 
 Ein Executor ist das, was ADORE für jeden Auftrag startet: der Coding-Agent Pi und das KI-Modell, das er verwendet. Administratoren wählen das Modell in den Einstellungen eines Projekts.
 
+
+**Denkaufwand** bietet die vom gewählten Modell im mitgelieferten Pi-Katalog unterstützten Stufen. Der Pi-Standard überlässt Pi die Wahl. Nicht gelistete Modelle und eigene Endpunkte können keine unbelegten Stufen wählen. Die Auswahl gilt für Aufträge und den KI-Verbindungstest.
+
 ## Was ein Executor ist {#what}
 
 Für jeden Auftrag startet ADORE Pi, seinen einzigen Coding-Agenten, in einer isolierten Arbeitskopie, und Pi arbeitet die AEGIS-Phasen des Repositorys mit dem konfigurierten Anbieter und Modell ab. ADORE verwendet das Pi im Image für Containeraufträge und seine verwaltete Pi-Installation für Serveraufträge.

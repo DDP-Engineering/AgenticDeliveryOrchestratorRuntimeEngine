@@ -226,3 +226,6 @@ no regex matcher, host check or CLI. Unknown sections/keys outside budgets fail
 the binding; unknown budget keys fail the closed table check.
 
 Non-budget binding preserves scalar types as well as values: boolean false and numeric zero are distinct. Canonical typed JSON comparison launches no probes.
+
+
+Pi thinking is optional; explicit values are validated against the pinned provider/model catalog, with custom endpoints limited to off. Invalid or unproven levels fail configuration validation.

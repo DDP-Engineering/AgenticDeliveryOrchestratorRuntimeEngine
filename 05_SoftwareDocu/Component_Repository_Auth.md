@@ -113,3 +113,5 @@ Enrollment uses the same metadata, omitting ambiguous host suggestions. Four-loc
 UI/help names the connection fields and verification actions. Focused proof:
 `test_gitea_auth.py`, `test_repository_connection.py`, `test_repository_source.py`,
 and frontend error/help tests.
+
+Repository credential changes make previous readiness evidence stale through its private authentication-context fingerprint; rejected changes leave the existing record intact.

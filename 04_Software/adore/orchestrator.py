@@ -292,6 +292,7 @@ class Orchestrator:
                 config.executor.model,
                 config.executor.questions_file,
                 provider=config.executor.provider,
+                thinking=config.executor.thinking,
                 models=models_json(config.executor, ENDPOINT_KEY_VARIABLE in secrets),
                 internet=config.executor.internet,
                 web_search=config.executor.web.search,

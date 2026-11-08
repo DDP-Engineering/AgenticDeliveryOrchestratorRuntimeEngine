@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 import { systemPackageCopy } from "./executorSettings.ts";
-import { localCopy, localSettingHelp } from "./localExecution.ts";
+import { localSettingHelp } from "./localExecution.ts";
 
 /**
  * Help text for every project setting, keyed by the setting catalog
@@ -17,7 +17,7 @@ import { localCopy, localSettingHelp } from "./localExecution.ts";
 export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   en: {
     ...localSettingHelp.en,
-    "execution.backend": "Where the executor runs: container (an image on the ADORE server, chosen under Agent container image) or local (installed on the server). Changing it applies after review. For local: " + localCopy.en.notice,
+    "execution.backend": "Where the executor runs: container (an image on the ADORE server, chosen under Agent container image) or local (installed on the server). Changing it applies after review.",
     "execution.preparation": "Reviewed tracked recipe: relative.yml#job@full Git commit. Empty disables setup. Review commands before applying; stale sources fail closed.",
     "execution.preparation_step_timeout_seconds": "Maximum preparation step time, seconds: 1–1800. Remaining job and setup budgets also apply.",
     "execution.preparation_total_timeout_seconds": "Maximum preparation attempt time, seconds: 1–3600. Exceeding this limit prevents agent startup.",
@@ -128,7 +128,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   },
   fr: {
     ...localSettingHelp.fr,
-    "execution.backend": "Où tourne l’exécuteur : container (une image du serveur ADORE, choisie dans Image de l'exécuteur) ou local (installé sur le serveur). Le changement s’applique après revue. En local : " + localCopy.fr.notice,
+    "execution.backend": "Où tourne l’exécuteur : container (une image du serveur ADORE, choisie dans Image de l'exécuteur) ou local (installé sur le serveur). Le changement s’applique après revue.",
     "execution.preparation": "Recette examinée : chemin.yml#job@commit Git complet. Vide désactive la préparation. Examinez les commandes ; les sources périmées sont refusées.",
     "execution.preparation_step_timeout_seconds": "Durée maximale par étape, secondes : 1–1800. Les budgets restants s’appliquent aussi.",
     "execution.preparation_total_timeout_seconds": "Durée maximale par tentative, secondes : 1–3600. Son dépassement empêche le démarrage de l’agent.",
@@ -239,7 +239,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   },
   de: {
     ...localSettingHelp.de,
-    "execution.backend": "Wo der Executor läuft: container (ein Image auf dem ADORE-Server, gewählt unter Executor-Image) oder local (auf dem Server installiert). Änderungen gelten nach Prüfung. Bei local: " + localCopy.de.notice,
+    "execution.backend": "Wo der Executor läuft: container (ein Image auf dem ADORE-Server, gewählt unter Executor-Image) oder local (auf dem Server installiert). Änderungen gelten nach Prüfung.",
     "execution.preparation": "Geprüftes Rezept: relativ.yml#Job@vollständiger Git-Commit. Leer deaktiviert die Vorbereitung. Prüfen Sie alle Befehle; veraltete Quellen werden abgelehnt.",
     "execution.preparation_step_timeout_seconds": "Maximale Schrittdauer in Sekunden: 1–1800. Verbleibende Job- und Vorbereitungsbudgets gelten ebenfalls.",
     "execution.preparation_total_timeout_seconds": "Maximale Versuchsdauer in Sekunden: 1–3600. Eine Überschreitung verhindert den Agentstart.",
@@ -350,7 +350,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   },
   ro: {
     ...localSettingHelp.ro,
-    "execution.backend": "Unde rulează executorul: container (o imagine de pe serverul ADORE, aleasă la Imagine executor) sau local (instalat pe server). Schimbarea se aplică după revizuire. Pentru local: " + localCopy.ro.notice,
+    "execution.backend": "Unde rulează executorul: container (o imagine de pe serverul ADORE, aleasă la Imagine executor) sau local (instalat pe server). Schimbarea se aplică după revizuire.",
     "execution.preparation": "Rețetă revizuită: relativ.yml#job@commit Git complet. Valoarea goală dezactivează pregătirea. Revizuiți comenzile; sursele expirate sunt respinse.",
     "execution.preparation_step_timeout_seconds": "Durata maximă per pas, secunde: 1–1800. Se aplică și bugetele rămase ale jobului și pregătirii.",
     "execution.preparation_total_timeout_seconds": "Durata maximă per încercare, secunde: 1–3600. Depășirea împiedică pornirea agentului.",

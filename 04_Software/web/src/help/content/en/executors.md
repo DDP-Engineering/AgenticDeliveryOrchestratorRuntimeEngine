@@ -2,6 +2,9 @@
 
 An executor is what ADORE launches for every job: the Pi coding agent and the AI model it uses. Administrators choose the model in a project's Settings.
 
+
+**Reasoning effort** offers levels supported by the selected model in the bundled Pi catalog. Pi default leaves its choice unchanged. Unlisted models and custom endpoints cannot claim unsupported levels. The selection applies to jobs and Test AI connection.
+
 ## What an executor is {#what}
 
 For each job ADORE starts Pi, its only coding agent, in an isolated working copy, and Pi works through the repository's AEGIS stages with the configured provider and model. ADORE uses the Pi built into the image for container jobs and its managed Pi installation for server jobs.

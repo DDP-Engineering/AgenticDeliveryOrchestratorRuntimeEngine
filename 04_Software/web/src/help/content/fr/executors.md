@@ -2,6 +2,9 @@
 
 Un exécuteur est ce qu’ADORE lance pour chaque tâche : l’agent de programmation Pi et le modèle d’IA qu’il utilise. Les administrateurs choisissent le modèle dans les Paramètres d’un projet.
 
+
+**Effort de raisonnement** propose les niveaux pris en charge par le modèle dans le catalogue Pi fourni. La valeur par défaut laisse Pi choisir. Les modèles absents et les points personnalisés ne peuvent pas déclarer de niveaux non pris en charge. Le choix vaut pour les tâches et le test de connexion IA.
+
 ## Ce qu’est un exécuteur {#what}
 
 Pour chaque tâche, ADORE démarre Pi, son unique agent de codage, dans une copie de travail isolée, et Pi suit les étapes AEGIS du dépôt avec le fournisseur et le modèle configurés. ADORE utilise le Pi intégré à l’image dans un conteneur et son installation gérée de Pi pour les tâches sur le serveur.
