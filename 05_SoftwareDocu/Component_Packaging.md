@@ -63,3 +63,12 @@ flow have been retired in favor of the portable distribution.
 Application package acceptance remains separate from setup/deployment scripts.
 Do not add or run automated tests for environment setup or deployment scripts.
 Package/release verification prints results without retaining technical outputs.
+
+
+## Web bundle verification
+
+Release consistency checks the committed frontend input/output fingerprint and
+rebuilds the frontend in a temporary directory using the locally installed Vite.
+It rejects missing dependencies, stale inputs, modified output and output that
+does not match the fresh build. Build and commit the production bundle whenever
+frontend inputs change. No network installation is attempted by the checker.

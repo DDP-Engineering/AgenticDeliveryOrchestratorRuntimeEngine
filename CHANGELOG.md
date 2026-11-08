@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Refresh the committed web bundle and detect stale frontend assets before packaging.
+
 - Job details explains normal states in four languages, shows current-stage failures, event stages and seconds, safe Markdown questions, useful host-captured executor diagnostics and a real consumption refresh action. Concurrent usage snapshots retain verified prefixes without falsely reporting corruption.
 
 - Budget defaults use 20 launches across CLI and web enrollment. Job details shows launches and cumulative active time with limit warnings; reviewed budget-only saves allow parked jobs and apply at the next attempt or resume without resetting consumption or progress. Unavailable current limits preserve valid job evidence and recovery controls.

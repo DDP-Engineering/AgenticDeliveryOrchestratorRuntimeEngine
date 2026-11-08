@@ -15,7 +15,46 @@
 
 # IMPORTS
 import argparse
+import hashlib
+import json
 from pathlib import Path
+
+
+# CONSTANTS
+STAMP = "BUILD_FINGERPRINT.json"
+
+
+def fingerprint(repo: Path, static: Path) -> dict:
+    """@brief Compute deterministic hashes of frontend build inputs and outputs.
+    @param[in] repo Repository root containing the frontend sources.
+    @param[in] static Build output directory.
+    @return Path-to-hash mappings for inputs and output files.
+    @exception OSError A required input or output cannot be read.
+    """
+    web = repo / "04_Software/web"
+    inputs = [repo / "LICENSE.txt", repo / "02_Tools/internal/stamp_web_assets.py"]
+    inputs += [web / name for name in ("index.html", "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts", "THIRD_PARTY_NOTICES.md")]
+    for folder in ("src", "public"):
+        directory = web / folder
+        if folder == "src" and not directory.is_dir():
+            raise FileNotFoundError(directory)
+        if directory.exists():
+            inputs.extend(path for path in directory.rglob("*") if path.is_file())
+    outputs = [path for path in static.rglob("*") if path.is_file() and path != static / STAMP]
+    if not (static / "index.html").is_file():
+        raise FileNotFoundError(static / "index.html")
+    def hashes(paths, root, normalize_text=False):
+        result = {}
+        for path in sorted(paths):
+            content = path.read_bytes()
+            if normalize_text and path.suffix.lower() in {
+                ".css", ".html", ".js", ".json", ".md", ".py", ".svg",
+                ".ts", ".tsx", ".txt", ".yaml", ".yml",
+            }:
+                content = content.replace(b"\r\n", b"\n")
+            result[path.relative_to(root).as_posix()] = hashlib.sha256(content).hexdigest()
+        return result
+    return {"inputs": hashes(inputs, repo, True), "outputs": hashes(outputs, static)}
 
 
 # PUBLIC API
@@ -45,10 +84,14 @@ def main(argv: list[str] | None = None) -> int:
             continue
         content = path.read_text(encoding="utf-8")
         if not content.startswith("/*\nCopyright (c) 2026 DDP Engineering"):
-            path.write_text(banner + content, encoding="utf-8")
+            path.write_text(banner + content, encoding="utf-8", newline="\n")
     (static / "LICENSE.txt").write_bytes((repo / "LICENSE.txt").read_bytes())
     (static / "THIRD_PARTY_NOTICES.md").write_bytes(
         (repo / "04_Software" / "web" / "THIRD_PARTY_NOTICES.md").read_bytes()
+    )
+    (static / STAMP).write_text(
+        json.dumps(fingerprint(repo, static), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8", newline="\n",
     )
     return 0
 

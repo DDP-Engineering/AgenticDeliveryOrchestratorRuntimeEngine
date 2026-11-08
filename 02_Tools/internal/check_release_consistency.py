@@ -27,10 +27,18 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import tempfile
 import sys
 import tarfile
 import tomllib
 import zipfile
+
+if __package__:
+    from .stamp_web_assets import STAMP, fingerprint
+else:
+    from stamp_web_assets import STAMP, fingerprint
 
 # CONSTANTS
 
@@ -368,6 +376,37 @@ def check_repository(root: Path, *, require_artifacts: bool = False) -> list[str
     """
     resolved = root.resolve()
     issues: list[str] = []
+    static = resolved / "04_Software/adore/web/static"
+    bundle_valid = False
+    try:
+        recorded = json.loads((static / STAMP).read_text(encoding="utf-8"))
+        if recorded != fingerprint(resolved, static):
+            issues.append("web bundle differs from its build inputs or outputs; run npm run build in 04_Software/web and commit the bundle")
+        else:
+            bundle_valid = True
+    except (OSError, UnicodeError, ValueError) as exc:
+        issues.append(f"cannot verify web bundle ({exc}); run npm run build in 04_Software/web and commit the bundle")
+    if bundle_valid:
+        # Rebuild independently: a manually refreshed fingerprint alone cannot
+        # attest that the generated files actually came from the current sources.
+        try:
+            node = shutil.which("node")
+            web = resolved / "04_Software/web"
+            vite = web / "node_modules/vite/bin/vite.js"
+            if not node or not vite.is_file():
+                raise OSError("node and the installed local Vite are required to verify the web bundle")
+            with tempfile.TemporaryDirectory(prefix="adore-web-consistency-") as tmp:
+                generated = Path(tmp) / "static"
+                subprocess.run([node, str(vite), "build", "--outDir", str(generated)],
+                               cwd=web, check=True, capture_output=True, timeout=180)
+                # Stamp using this checker's companion, with the candidate sources.
+                subprocess.run([sys.executable, str(resolved / "02_Tools/internal/stamp_web_assets.py"),
+                                "--output", str(generated)], cwd=web, check=True,
+                               capture_output=True, timeout=30)
+                if fingerprint(resolved, static)["outputs"] != fingerprint(resolved, generated)["outputs"]:
+                    issues.append("web bundle differs from a fresh build; run npm run build in 04_Software/web and commit the bundle")
+        except (OSError, subprocess.SubprocessError) as exc:
+            issues.append(f"cannot rebuild web bundle for verification ({exc}); prepare frontend dependencies and retry")
     _check_metadata(resolved, issues)
     _check_release_surfaces(resolved, issues)
     _check_artifacts(resolved, require_artifacts, issues)

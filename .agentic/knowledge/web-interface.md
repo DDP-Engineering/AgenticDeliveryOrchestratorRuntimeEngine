@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
+
 Statistics browser fixtures restore the authenticated account's English/light
 preferences in afterEach so a failed localized journey cannot leak its locale
 to later files. The four-locale/two-theme statistics journey has a60-second

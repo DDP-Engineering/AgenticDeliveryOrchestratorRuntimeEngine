@@ -1269,3 +1269,13 @@ Job details explains normal Working, Waiting for clarification and Failed states
 Evidence and artifacts → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
 
 Consumption failures have a Refresh consumption button. A corrected out-of-order projection race preserves verified journal prefixes without rolling back cursors. This controlled reproducer does not establish the cause of every historical 503; malformed sources continue to be rejected and need operator investigation.
+
+
+### Committed web bundle
+
+Commit the production `adore/web/static` bundle with every change to frontend
+build inputs. From `04_Software/web`, run `npm run build` and commit all added,
+changed and removed output files. Source launches serve this committed bundle.
+`python 02_Tools/internal/check_release_consistency.py` checks the recorded
+input and output fingerprints and fails on drift; rebuild before packaging.
+The check also compares the bundle with an isolated fresh build and requires the installed frontend dependencies.

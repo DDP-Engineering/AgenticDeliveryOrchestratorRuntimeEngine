@@ -1016,3 +1016,13 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
 
 ExecutorOutputView fetches only on demand and rejects stale/unmounted or identity-mismatched responses. The viewer displays host-normalized diagnostics and explains omitted private content and unavailable provenance. Browser regressions exercise four locales, safe Markdown, concrete output, refresh and 390px dark-theme local scrolling.
+
+
+## Production bundle consistency
+
+The production bundle is committed whenever frontend build inputs change.
+The existing post-build legal stamper also records SHA-256 hashes of build
+inputs and all generated output files in `BUILD_FINGERPRINT.json`. The release
+consistency checker compares those hashes before packaging; a missing stamp or
+drift requires `npm run build` in `04_Software/web` and committing the result.
+The checker also compares against an isolated fresh build, using the installed frontend dependencies.

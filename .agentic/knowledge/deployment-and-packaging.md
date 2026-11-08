@@ -22,7 +22,7 @@ optional adjacent hashes. No technical directory, README, report, build workspac
 or extracted verification media is retained. Build and verification use managed
 OS temporary storage and console output.
 
-`02_Tools/internal/` contains release metadata/note checks and asset licensing.
+`02_Tools/internal/` contains release metadata/note checks and asset licensing. The release consistency check verifies the committed frontend fingerprints and compares an isolated local Vite rebuild before packaging; rebuild and commit the bundle when inputs change.
 `02_Tools/deploy/` remains specialized service administration. No automated tests
 are added or run for environment setup or deployment scripts. The old advanced
 source bundle and separate wheelhouse installer flow have been retired.
