@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Component
 
+The nonempty `labels.selection.type_epic` value names the ticket label excluded from automatic pickup and manual Start.
+
 ## 1. Purpose
 
 `adore/config.py` loads typed TOML and rejects unsafe or ambiguous ADORE

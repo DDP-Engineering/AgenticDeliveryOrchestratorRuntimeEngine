@@ -879,3 +879,7 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
   .folder-panel { flex: 1; }
   .host-folder-list [role="option"] { min-height: 44px; }
 }
+
+/* Make queued operation feedback and worker guidance easy to spot. */
+.notice[role="status"] { border: 2px solid var(--accent-deep); font-weight: 600; flex-wrap: wrap; }
+.system-indicator small { display: block; max-width: 36rem; line-height: 1.5; }

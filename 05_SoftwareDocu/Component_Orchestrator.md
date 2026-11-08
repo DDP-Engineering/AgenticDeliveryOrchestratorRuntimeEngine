@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Orchestrator Component
 
+Shared ticket eligibility excludes the configured epic type label from automatic pickup and manual admission; eligible manual Start remains available with monitoring paused.
+
 ## 1. Purpose
 
 `adore/orchestrator.py` is the deterministic ADORE conductor around the

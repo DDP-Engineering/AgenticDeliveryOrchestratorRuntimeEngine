@@ -213,13 +213,14 @@ export function JobWorkspace(props: Props) {
 
   const command = async (action: "retry" | "cancel" | "restart", job: Job) => {
     if (submitLock.current || busy || !project || project.archived || !commandAllowed(job, action)) return;
+    if (action === "cancel" && !window.confirm(copy.cancelConfirm)) return;
     if (action === "restart" && !window.confirm(recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)))) return;
     submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
     const generation = commandGeneration.current;
     try {
       const current = readOperation(await request(`/projects/${encodeURIComponent(scope)}/operations/${action}`, "POST",
         { run_id: job.run_id, idempotency_key: crypto.randomUUID(),
-          ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision } : {}) }, csrf));
+          ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision } : action === "cancel" ? { confirmed: true } : {}) }, csrf));
       if (mounted.current && generation === commandGeneration.current) setOperation(current);
     } catch (cause) { if (mounted.current && generation === commandGeneration.current) setOperationError(cause); }
     finally { if (mounted.current && generation === commandGeneration.current) { submitLock.current = false; setSubmitting(false); } }
@@ -257,7 +258,7 @@ export function JobWorkspace(props: Props) {
     {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
     {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>}
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
-    {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
+    {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{operation.status === "pending" && <p>{t("workerQueueHelp")}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>
     </section>}
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}

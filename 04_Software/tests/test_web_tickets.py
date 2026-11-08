@@ -324,7 +324,7 @@ def test_stop_queues_cancel_removes_ready_label_and_audits(tmp_path: Path) -> No
         response = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         )
         assert response.status_code == 200, response.text
         body = response.json()
@@ -359,12 +359,12 @@ def test_stop_without_job_or_ready_label_changes_nothing_extra(tmp_path: Path) -
         first = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         ).json()
         second = client.post(
             "/api/v1/projects/alpha/tickets/13/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-13"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-13"},
         ).json()
     assert first == {
         "cancel_operation_id": None,
@@ -392,7 +392,7 @@ def test_stop_reports_label_failure_but_keeps_queued_cancel(tmp_path: Path) -> N
         body = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         ).json()
     assert body["cancel_operation_id"] is not None
     assert body["ready_label"] == "failed" and body["ready_label_error"] == "forge_write_failed"
@@ -411,10 +411,11 @@ def test_stop_rejects_missing_ticket_archived_project_csrf_and_foreign_developer
         missing = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         )
         no_csrf = client.post(
-            "/api/v1/projects/alpha/tickets/12/stop", json={"idempotency_key": "stop-ticket-12"}
+            "/api/v1/projects/alpha/tickets/12/stop",
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         )
         assert (
             client.post(
@@ -425,7 +426,7 @@ def test_stop_rejects_missing_ticket_archived_project_csrf_and_foreign_developer
         archived = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12b"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12b"},
         )
     assert missing.status_code == 404 and missing.json()["detail"]["code"] == "ticket_not_found"
     assert no_csrf.status_code == 403 and no_csrf.json()["detail"]["code"] == "csrf_required"
@@ -438,7 +439,7 @@ def test_stop_rejects_missing_ticket_archived_project_csrf_and_foreign_developer
         foreign = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         )
     assert foreign.status_code == 404 and foreign.json()["detail"]["code"] == "project_not_found"
 
@@ -476,7 +477,7 @@ def test_stop_reports_malformed_ticket_after_queueing_cancel(tmp_path: Path) -> 
         response = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         )
     assert response.status_code == 200, response.text
     body = response.json()
@@ -501,7 +502,7 @@ def test_stop_cancels_even_when_repository_credentials_are_corrupt(tmp_path: Pat
         body = client.post(
             "/api/v1/projects/alpha/tickets/12/stop",
             headers={"X-CSRF-Token": csrf},
-            json={"idempotency_key": "stop-ticket-12"},
+            json={"confirmed": True, "idempotency_key": "stop-ticket-12"},
         ).json()
     assert body["cancel_operation_id"] is not None and body["ready_label"] == "failed"
     assert body["ready_label_error"] == "repository_credentials_corrupt"
@@ -875,5 +876,47 @@ def test_start_with_malformed_ticket_record_is_a_bad_gateway(tmp_path: Path) -> 
     assert response.status_code == 502
     assert response.json()["detail"]["code"] == "forge_response_invalid"
 
+
+
+
+def test_cancel_requires_explicit_confirmation_at_both_web_boundaries(tmp_path: Path) -> None:
+    """@brief Refuse unconfirmed cancellation before any queue or forge write."""
+    profiles = _project(tmp_path)
+    run_id = _run(tmp_path, 12, "working")
+    forge = Forge([_issue(12, "agent-ready")])
+    with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
+        csrf = _admin(client)
+        for path, body in [
+            ("/api/v1/projects/alpha/tickets/12/stop", {}),
+            ("/api/v1/projects/alpha/operations/cancel", {"run_id": run_id}),
+        ]:
+            for confirmation in (None, False, "true"):
+                payload = {**body, "idempotency_key": "confirmation-test-key"}
+                if confirmation is not None:
+                    payload["confirmed"] = confirmation
+                response = client.post(path, headers={"X-CSRF-Token": csrf}, json=payload)
+                assert response.status_code in (400, 422)
+        assert not forge.calls
+        response = client.post("/api/v1/projects/alpha/operations/cancel",
+            headers={"X-CSRF-Token": csrf},
+            json={"run_id": run_id, "confirmed": True, "idempotency_key": "confirmed-cancel"})
+        assert response.status_code == 200
+
+
+def test_custom_epic_label_refuses_start_without_forge_write(tmp_path: Path) -> None:
+    """@brief Configured epic labels prevent both listed and direct manual admission."""
+    profiles = _project(tmp_path)
+    path = profiles.config_path("alpha")
+    path.write_text(path.read_text(encoding="utf-8").replace('type_epic       = "epic"',
+        'type_epic       = "initiative"'), encoding="utf-8")
+    forge = Forge([_issue(12, "initiative", "P2"), _issue(13, "P2")])
+    with TestClient(create_app(profiles.home, probe_runner=forge)) as client:
+        csrf = _admin(client)
+        rows = client.get("/api/v1/projects/alpha/tickets").json()["tickets"]
+        assert rows[0]["can_start"] is False and rows[1]["can_start"] is True
+        response = client.post("/api/v1/projects/alpha/tickets/12/start",
+            headers={"X-CSRF-Token": csrf}, json={"idempotency_key": "epic-start-key"})
+        assert response.status_code == 409
+    assert not any(call[2] == "update" for call in forge.calls)
 
 # END OF FILE

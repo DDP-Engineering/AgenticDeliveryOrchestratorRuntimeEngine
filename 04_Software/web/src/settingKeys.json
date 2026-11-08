@@ -64,6 +64,7 @@
   "labels.selection.priority_low",
   "labels.selection.priority_medium",
   "labels.selection.type_bug",
+  "labels.selection.type_epic",
   "labels.selection.type_feature",
   "local.account",
   "local.path",

@@ -64,6 +64,14 @@ type Session = { user: User; csrf: string };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null }; validation: { structural_valid: boolean }; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
 type Config = { executor_environment?: ExecutorEnvironmentInfo; local_execution?: { machine: string; account: string; system: string } | null; execution_plan?: ExecutionPlan | null; model_connection?: ModelEvidence | null; config: Record<string, unknown>; revision: string; issues: string[]; settings?: SettingMeta[] };
 type Operation = { id: number; status: string; result?: string; reason?: string; detail?: string; action?: string };
+/** Refuse malformed or mismatched operation evidence at the API boundary. */
+function readOperation(value: unknown, expected?: number): Operation {
+  const item = value as Operation;
+  if (!item || !Number.isSafeInteger(item.id) || item.id < 1 || (expected !== undefined && item.id !== expected) ||
+      !["pending", "running", "succeeded", "failed", "uncertain"].includes(item.status) ||
+      [item.result, item.reason, item.detail, item.action].some(part => part !== undefined && typeof part !== "string")) throw new ApiError("unexpected_response");
+  return item;
+}
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
 type Page = "overview" | "projects" | "createProject" | "importProject" | "cloneProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
@@ -72,7 +80,7 @@ const metricsTabLabels: Record<MetricsTab, MessageKey> = {
   summary: "metricsTabSummary", usage: "metricsTabUsage", quality: "metricsTabQuality",
   trends: "metricsTabTrends", projects: "metricsTabProjects",
 };
-type WorkerStatus = "checking" | "ready" | "unavailable" | "error";
+type WorkerStatus = "checking" | "ready" | "busy" | "unknown" | "unavailable" | "error";
 type StorageStatus = { threshold_bytes: number; low: boolean; volumes: Array<{ scope: "home" | "project"; project: string | null; free_bytes: number; total_bytes: number; low: boolean; volume_id: string }> };
 type AuditPolicy = { retention_days: number | null; max_bytes: number | null };
 
@@ -192,6 +200,10 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [operation, setOperation] = useState<Operation | null>(null);
+  const operationId = useRef<number | null>(null);
+  const operationBusy = useRef(false);
+  const operationSubmission = useRef(0);
+  const [operationSubmitting, setOperationSubmitting] = useState(false);
   const [operationVisible, setOperationVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const enrollmentGuard = useRef<(() => boolean) | null>(null);
@@ -565,7 +577,8 @@ export default function App() {
       try {
         const response = await fetch("/api/v1/ready", { cache: "no-store" });
         const code = response.ok ? "" : (await response.json().catch(() => ({})))?.detail?.code;
-        if (active) setWorkerStatus(response.ok ? "ready" : code === "worker_unavailable" ? "unavailable" : "error");
+        const activity = response.ok ? (await response.json()).activity : null;
+        if (active) setWorkerStatus(response.ok ? activity === "busy" ? "busy" : activity === "idle" ? "ready" : "unknown" : code === "worker_unavailable" ? "unavailable" : "error");
       } catch {
         if (active) setWorkerStatus("error");
       }
@@ -620,30 +633,35 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    // A failure with engine lines stays until it is closed; other outcomes fade after 5 s.
+    // Failed or uncertain outcomes stay visible until explicitly dismissed.
     if (!operationVisible || !operation || ["pending", "running"].includes(operation.status) ||
-      ["failed", "uncertain"].includes(operation.status) && operation.detail) return;
+      ["failed", "uncertain"].includes(operation.status)) return;
     const timer = window.setTimeout(() => setOperationVisible(false), 5000);
     return () => window.clearTimeout(timer);
   }, [operationVisible, operation?.id, operation?.status]);
 
   useEffect(() => {
     if (!operation || !["pending", "running"].includes(operation.status)) return;
-    const stopPolling = startVisiblePolling(async () => {
+    let active = true, sequence = 0;
+    const poll = async () => {
+      const currentSequence = ++sequence;
       const generation = viewGeneration.current;
       try {
-        const current = await request<Operation>(`/operations/${operation.id}`);
-        if (generation !== viewGeneration.current) return;
+        const current = readOperation(await request(`/operations/${operation.id}`), operation.id);
+        if (!active || currentSequence !== sequence || generation !== viewGeneration.current || operationId.current !== operation.id) return;
         setOperation(current);
         if (!["pending", "running"].includes(current.status)) {
+          operationBusy.current = false;
           if (current.action === "delete") await refreshProjects();
           else { await refreshSelected(); await refreshProjects(); refreshView(); }
         }
       } catch (cause) {
-        if (generation === viewGeneration.current) setError(cause);
+        if (active && currentSequence === sequence && generation === viewGeneration.current && operationId.current === operation.id) setError(cause);
       }
-    }, 2000);
-    return () => stopPolling();
+    };
+    void poll();
+    const stopPolling = startVisiblePolling(poll, 2000);
+    return () => { active = false; stopPolling(); };
   }, [operation?.id, operation?.status, refreshSelected, refreshProjects]);
 
   useEffect(() => {
@@ -753,7 +771,7 @@ export default function App() {
     setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
     setUsage(null); setUsageScope(""); setAllUsage(null); setUsageSortKey("date"); setUsageSortDescending(false);
     setConfig(null); setPendingConfig(null); setPrices([]);
-    setUsers([]); setAuditPolicy(null); setOperation(null); setOperationVisible(false);
+    setUsers([]); setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
     setWorkerStatus("checking");
     setNotice(""); setLastRefresh(null);
   };
@@ -784,31 +802,40 @@ export default function App() {
   };
 
   const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {
-    if (!session || !projectId) return;
+    if (!session || !projectId || operationBusy.current) return;
+    operationBusy.current = true; setOperationSubmitting(true);
+    const submission = ++operationSubmission.current;
     setError(""); setNotice("");
     const body = action === "start" ? { ticket_iid: Number(target) } :
       action === "retry" || action === "cancel" ? { run_id: target } : {};
     try {
-      const op = await request<{ id: number; status: string }>(
+      const op = readOperation(await request(
         `/projects/${encodeURIComponent(projectId)}/operations/${action}`, "POST",
         { ...body, idempotency_key: crypto.randomUUID() }, session.csrf,
-      );
-      setOperation(op);
+      ));
+      if (submission !== operationSubmission.current) return;
+      operationId.current = op.id; setOperation(op);
       setOperationVisible(true);
-      await refreshSelected();
-    } catch (cause) { setError(cause); }
+      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; await refreshProjects(); }
+    } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
+    finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
   };
 
   const deleteProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(""); setNotice("");
-    if (!deleteTarget || !session || !isAdmin || page !== "projectDetails" || deleteTarget.id !== selected || deleteName !== deleteTarget.name || !deleteTarget.archived || !selectedProject?.archived) return;
+    if (operationBusy.current || !deleteTarget || !session || !isAdmin || page !== "projectDetails" || deleteTarget.id !== selected || deleteName !== deleteTarget.name || !deleteTarget.archived || !selectedProject?.archived) return;
+    operationBusy.current = true; setOperationSubmitting(true);
+    const submission = ++operationSubmission.current;
     try {
-      const op = await request<Operation>(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
-        { confirm_name: deleteName, idempotency_key: crypto.randomUUID(), remove_clone: deleteClone }, session.csrf);
-      setOperation(op);
+      const op = readOperation(await request(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
+        { confirm_name: deleteName, idempotency_key: crypto.randomUUID(), remove_clone: deleteClone }, session.csrf));
+      if (submission !== operationSubmission.current) return;
+      operationId.current = op.id; setOperation(op);
       setOperationVisible(true);
       setDeleteTarget(null); setDeleteName("");
-    } catch (cause) { setError(cause); }
+      if (!["pending", "running"].includes(op.status)) operationBusy.current = false;
+    } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
+    finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
   };
 
   useEffect(() => { setDeleteTarget(null); setDeleteName(""); }, [page, selected, projectTab]);
@@ -1204,16 +1231,16 @@ export default function App() {
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
         {(notice || (operationVisible && operation)) && <div className="notice" role="status">
-          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && operation.result !== "completed" ? ` · ${(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}` : ""}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}</>)}
+          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && operation.result !== "completed" ? ` · ${(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}` : ""}{operation.status === "pending" && <small>{t("workerQueueHelp")}</small>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}</>)}
           <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} />}
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} onEnroll={page === "overview" ? () => setPage("createProject") : undefined} />}
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
           <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("cloneProject"); }}>{t("cloneProject")}</button></>}</div>
-          <section className="panel">
+          {projects.length > 0 && <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
               <SortHeader label={t("repository")} sortKey="repo" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -1226,7 +1253,7 @@ export default function App() {
               <td><StatusBadge code={item.archived ? "archived" : item.paused ? "paused" : "working"}>{item.archived ? t("archived") : item.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></td>
               <td>{item.runs}</td><td>{item.last_activity ? formatDate(item.last_activity) : "\u2014"}</td>
             </tr>)}</tbody></table></PagedTable> : null}
-          </section>
+          </section>}
         </>}
 
         {(page === "createProject" || page === "cloneProject") && isAdmin && <TransferWizard key={page} mode={page === "createProject" ? "enroll" : "clone"} locale={locale} csrf={session.csrf} t={t}
@@ -1251,7 +1278,7 @@ export default function App() {
               <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
               {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
             </dl>
-            {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
+            {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" disabled={operationSubmitting || !!operation && ["pending", "running"].includes(operation.status)} onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
               <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
               {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
               <button ref={readinessTrigger} type="button" className="ghost" aria-disabled={readinessBusy} aria-controls="host-check-details" aria-expanded={readinessExpanded} onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
@@ -1274,7 +1301,7 @@ export default function App() {
             <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
               <DeleteCloneOption locale={locale} project={deleteTarget.id} read={path => request(path)} checked={deleteClone} onChange={setDeleteClone} />
               <label><span className="delete-confirm-label">{t("deleteProjectConfirm").split("{project}").map((part, index) => <Fragment key={index}>{index > 0 && <strong className="delete-confirm-name">{deleteTarget.name}</strong>}{part}</Fragment>)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
-              <div className="button-row"><button className="danger" type="submit" disabled={deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
+              <div className="button-row"><button className="danger" type="submit" disabled={operationSubmitting || !!operation && ["pending", "running"].includes(operation.status) || deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
             </form>
           </section></ProjectDeleteDialog>}
           </>}
@@ -1324,7 +1351,7 @@ export default function App() {
             <form key={`${auditPolicy.retention_days}-${auditPolicy.max_bytes}`} className="inline-form audit-policy-form" onSubmit={saveAuditPolicy}><label>{t("auditDays")}<input name="retention_days" type="number" min="0" max="36500" step="1" defaultValue={auditPolicy.retention_days ?? 0} /></label><label>{t("auditMib")}<input name="max_mib" type="number" min="0" max="1024" step="any" defaultValue={auditPolicy.max_bytes == null ? 0 : auditPolicy.max_bytes / 1024**2} /></label><button className="primary" type="submit">{t("save")}</button></form></>}</section>
           <section className="panel wide-panel" role="status" aria-live="polite">
             <div className="system-status-row">
-              <span className="system-indicator"><span>{t("workerReadiness")}</span><strong className={`readiness readiness-${workerStatus}`}>{t(workerStatus === "ready" ? "workerReady" : workerStatus === "unavailable" ? "workerUnavailable" : workerStatus === "error" ? "workerCheckFailed" : "workerChecking")}</strong></span>
+              <span className="system-indicator"><span>{t("workerReadiness")}</span><strong className={`readiness readiness-${workerStatus}`}>{t(workerStatus === "ready" ? "workerReady" : workerStatus === "busy" ? "workerBusy" : workerStatus === "unknown" ? "workerActivityUnknown" : workerStatus === "unavailable" ? "workerUnavailable" : workerStatus === "error" ? "workerCheckFailed" : "workerChecking")}</strong><small>{t("workerQueueHelp")}</small></span>
               <span className="system-indicator"><span>{t("storageStatus")}</span><strong className={`readiness readiness-${storageError ? "error" : storageStatus?.low ? "unavailable" : storageStatus ? "ready" : "checking"}`}>{t(storageError ? "storageCheckFailed" : storageStatus?.low ? "storageLow" : storageStatus ? "storageHealthy" : "workerChecking")}</strong></span>
             </div>
             {storageGroups.length === 1 ? <p className="muted">{t("storageShared").replace("{free}", gib(storageGroups[0].free)).replace("{total}", gib(storageGroups[0].total))}</p>

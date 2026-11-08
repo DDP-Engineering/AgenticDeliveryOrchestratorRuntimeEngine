@@ -17,6 +17,7 @@ import {
 /** The name a setting has in Settings, in the chosen language (shared by Settings and enrollment). */
 export function settingDisplayLabel(key: string, locale: Locale): string {
   if (key === "local.path") return localCopy[locale].path;
+  if (key === "labels.selection.type_epic") return { en: "Epic label", fr: "Étiquette épopée", de: "Epic-Label", ro: "Etichetă epic" }[locale];
   const common = COMMON_SETTINGS.find(entry => entry.key === key)?.label;
   return executorSettingLabel(key, locale) || branchSettingLabel(key, locale) || implementationSettingLabel(key, locale)
     || localizedSettingLabel(key, locale) || lifecycleCopy[locale].labels[key]

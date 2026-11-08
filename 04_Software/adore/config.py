@@ -233,6 +233,7 @@ class SelectionLabels:
     priority_low: str = "P3"
     type_feature: str = "feature"
     type_bug: str = "bug"
+    type_epic: str = "epic"
 
     def priority_order(self) -> list[str]:
         """
@@ -1557,6 +1558,9 @@ def validate_config(config: Config) -> list[str]:
         and bool(config.delivery.approval_label.strip()),
         "[delivery] approval_label must be a non-empty label",
     )
+    check(isinstance(config.labels.selection.type_epic, str) and
+          bool(config.labels.selection.type_epic.strip()),
+          "[labels.selection] type_epic must be a non-empty label")
     lifecycle_labels = set(asdict(config.labels.lifecycle).values())
     control_labels = set(asdict(config.labels.control).values())
     check(

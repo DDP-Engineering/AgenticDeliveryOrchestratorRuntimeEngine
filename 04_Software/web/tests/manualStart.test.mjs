@@ -10,6 +10,7 @@ import { operationResultText } from "../src/ticketCopy.ts";
 
 for (const locale of ["en", "ro", "fr", "de"]) {
   test(`manual start refusal is readable and secret-free in ${locale}`, () => {
+    assert.notEqual(operationResultText("start:epic", locale), operationResultText("start:invalid_result", locale));
     const message = operationResultText("start:at_capacity", locale);
     assert.ok(message.length > 15 && !message.includes("start:"));
     assert.ok(!operationResultText("start:PRIVATE", locale).includes("PRIVATE"));

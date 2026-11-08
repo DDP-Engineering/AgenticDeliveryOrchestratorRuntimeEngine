@@ -4,6 +4,9 @@ L’Administration couvre les comptes utilisateurs, l’accès aux projets, la s
 
 > Tout ce qui figure sur cette page exige le rôle Administrateur.
 
+
+Un battement récent indique que le worker est disponible. **Occupé** indique une commande ou vérification en cours ; **Activité inconnue** indique une preuve indisponible. Un seul worker traite projets et commandes à tour de rôle. Un signal d’annulation autorisé peut atteindre une tâche active avant la fin de la commande en file.
+
 ## Utilisateurs {#users}
 
 Sous **Administration**, ouvrez [Utilisateurs](/admin/users). La page comporte un panneau **Ajouter un utilisateur** et une liste **Utilisateurs**.
@@ -32,7 +35,7 @@ Un développeur qui a accès voit le projet et peut démarrer, relancer ou annul
 
 Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actualise seul.
 
-- **Agent de contrôle** indique **Prêt**, **Indisponible**, **Échec de la vérification** ou **Vérification…**. Prêt signifie que le worker s’est signalé au cours des dix dernières secondes. Cela ne confirme pas que la forge, les exécuteurs ou les modèles sont joignables.
+- **Agent de contrôle** affiche **Prêt** au repos, **Occupé** en traitement, **Activité inconnue** si la preuve manque, **Indisponible**, **Échec de la vérification** ou **Vérification…**. Un battement récent ne confirme pas l’accès à la forge, aux exécuteurs ou aux modèles.
 - **Stockage** indique **Espace disponible**, **Espace disque faible** ou **Échec de la vérification du stockage**. Il mesure l’espace disque libre pour la base de comptes d’ADORE et le dossier d’état des tâches de chaque projet, regroupés par volume physique. Un disque partagé donne une seule ligne ; plusieurs disques donnent un tableau **Volume**, **Libre** et **État**. Moins de 1 Gio libre est considéré comme faible, et une mesure en échec n’est jamais présentée comme de l’espace libre.
 - **Conservation de l'audit** définit la durée de conservation de l’historique des changements. Les limites actuelles (ou **Illimité**) apparaissent au-dessus du formulaire. Définissez **Conserver pendant (jours)** (jours entiers, de 0 à 36500) et **Limite des données d'audit (Mio)** (de 0 à 1024, fractions admises) puis choisissez **Enregistrer**. Zéro ou vide signifie illimité. Les deux limites s’appliquent indépendamment et les plus anciens événements sont supprimés en premier. Le message après l’enregistrement indique combien d’événements ont été supprimés. La limite de taille compte le texte d’audit stocké, pas le fichier de base de données sur le disque. Les tâches, les journaux d’exécution et les comptes sont conservés.
 

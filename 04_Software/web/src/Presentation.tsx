@@ -20,9 +20,9 @@ export function DataFeedback({ state, t }: { state: DataState; t: (key: MessageK
 }
 
 /** Successful empty project access has a role-specific next step and remains separate from errors. */
-export function ProjectEmpty({ isAdmin, t }: { isAdmin: boolean; t: (key: MessageKey) => string }) {
+export function ProjectEmpty({ isAdmin, t, onEnroll }: { isAdmin: boolean; t: (key: MessageKey) => string; onEnroll?: () => void }) {
   return <section className="panel data-feedback" role="status"><span className="feedback-icon" aria-hidden="true">◇</span>
-    <div><h2>{t(isAdmin ? "noProjects" : "noProjectAccess")}</h2><p>{t(isAdmin ? "noEnrolledProjectsHelp" : "noProjectAccessHelp")}</p><p className="muted">{t("accountStillAvailable")}</p></div>
+    <div><h2>{t(isAdmin ? "noProjects" : "noProjectAccess")}</h2><p>{t(isAdmin ? "noEnrolledProjectsHelp" : "noProjectAccessHelp")}</p><p className="muted">{t("accountStillAvailable")}</p>{isAdmin && onEnroll && <button className="primary" onClick={onEnroll}>{t("createProject")}</button>}</div>
   </section>;
 }
 

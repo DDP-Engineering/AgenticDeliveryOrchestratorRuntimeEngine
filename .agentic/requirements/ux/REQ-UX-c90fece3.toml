@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-c90fece3"
+
+title = "Explain worker availability and queue waits"
+
+status = "active"
+
+requirement = """
+While the control worker is processing work, the interface shall explain worker readiness and that queued commands can wait.
+"""
+
+verification = "Offline worker and browser fixtures inspect active and idle status and queued operation guidance."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/e2e/issue37.spec.ts", "04_Software/web/src/help/content/en/administration.md", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/en/tickets.md", "04_Software/web/src/help/content/fr/administration.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/fr/tickets.md", "04_Software/web/src/help/content/de/administration.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/de/tickets.md", "04_Software/web/src/help/content/ro/administration.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/web/src/help/content/ro/tickets.md"]
+
+linked_tests = ["04_Software/tests/test_web_server.py::test_api_health_and_worker_readiness_are_distinct", "04_Software/tests/test_web_commands.py::test_worker_heartbeats_during_blocking_engine_command", "04_Software/web/e2e/issue37.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

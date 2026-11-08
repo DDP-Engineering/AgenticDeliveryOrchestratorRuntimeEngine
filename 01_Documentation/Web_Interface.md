@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One worker handles projects and operations in turn; authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
+
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation and image builds stay external and Agent and model groups executor settings, including where it runs, the container runtime and the image, in Settings. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.
@@ -461,8 +463,9 @@ require a browser session and reveal no account or project data. A graceful
 worker stop clears readiness immediately; after an abrupt stop it expires within
 ten seconds.
 Administration shows this control-worker status and refreshes it every five
-seconds. Ready means the command worker has a recent heartbeat; it does not
-confirm forge, executor, or model connectivity.
+seconds. Ready means a recent heartbeat and idle activity; Busy means the worker is
+processing. Activity unknown means the heartbeat is recent but activity evidence
+is unavailable. These states do not confirm forge, executor, or model connectivity.
 
 ## Offline delivery
 

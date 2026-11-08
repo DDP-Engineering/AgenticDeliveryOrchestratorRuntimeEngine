@@ -2,6 +2,9 @@
 
 ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab ou Gitea) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.
 
+
+Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.
+
 ## Comment fonctionne la prise en charge {#how-pickup-works}
 
 Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.

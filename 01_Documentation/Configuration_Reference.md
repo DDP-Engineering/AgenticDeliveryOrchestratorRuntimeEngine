@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Configuration Reference
 
+`labels.selection.type_epic` names a nonempty label (default `epic`). Tickets bearing it are excluded from automatic pickup and manual Start.
+
 `target_branch` is shown as **Target branch** (Romanian: **Ramura de integrare**). New jobs start from `origin/<target_branch>` and their PR/MR targets that branch. Enter an existing remote branch’s short name, such as `main`, `master` or `develop`, without `origin/`. A human performs the merge; changing this setting does not retarget existing PRs/MRs.
 
 This reference describes the ADORE configuration. The canonical

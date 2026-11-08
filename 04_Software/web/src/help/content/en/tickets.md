@@ -2,6 +2,9 @@
 
 ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.
 
+
+Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.
+
 ## How pickup works {#how-pickup-works}
 
 Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.

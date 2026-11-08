@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Environment guide
 
+Offline web control proof uses isolated temporary homes and fake external runners. Worker activity evidence is advisory and requires a current heartbeat.
+
 Portable user delivery is built natively with `python 02_Tools/create_package.py`
 with automatic frontend compilation/licensing. It includes managed CPython and locked
 web dependencies; uv and network access are needed only on the build host.

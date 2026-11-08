@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; one worker serializes commands and polls, while authorized cancel signals reach active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
+
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
 Statistics browser fixtures restore the authenticated account's English/light
@@ -538,7 +540,7 @@ wait for the current engine command. Administrator metrics attribute usage and
 reported/estimated cost to the most recent revision-started event in each run;
 initial work remains in run totals and developers receive no financial rows.
 API liveness at `/api/v1/health` is separate from readiness at `/api/v1/ready`.
-The worker refreshes a schema-5 SQLite heartbeat even while an engine command
+The worker refreshes its SQLite heartbeat even while an engine command
 blocks; a stopped, stale or corrupt heartbeat does not claim readiness.
 Administration expands into System status, Users and Change history sidebar pages;
 both roles reach a top-level My account page. Every view has a path URL
@@ -976,7 +978,7 @@ closing a context, preserving the shared fixture's restored English preference.
 
 ### Transient application notifications
 
-The application shows one dismissible notification for ordinary feedback or the current operation. Operation status replaces the queued confirmation. Pending/running operations stay visible until completion or dismissal; terminal results and ordinary notices disappear after five seconds. Closing the banner keeps worker polling and final project refresh active. Replacement/unmount cancels earlier dismissal timers; persisted outcomes remain available in History. Error alerts retain their existing presentation.
+The application shows one dismissible notification for ordinary feedback or the current operation. Operation status replaces the queued confirmation. Pending/running operations stay visible until completion or dismissal; successful results and ordinary notices disappear after five seconds; failed and uncertain results remain until dismissed. Closing the banner keeps worker polling and final project refresh active. Replacement/unmount cancels earlier dismissal timers; persisted outcomes remain available in History. Error alerts retain their existing presentation.
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 

@@ -482,6 +482,7 @@ class TicketStartInput(BaseModel):
 class TicketStopInput(BaseModel):
     """@brief A ticket stop request including an idempotency key."""
 
+    confirmed: bool = Field(default=False, strict=True)
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
@@ -2477,7 +2478,7 @@ def create_app(home: str | Path | None = None,
         """@brief Require a recent control-worker heartbeat for readiness."""
         if not web.worker_ready():
             raise _error(503, "worker_unavailable")
-        return {"status": "ready", "worker": "ready"}
+        return {"status": "ready", "worker": "ready", "activity": web.worker_activity()}
 
     @app.get("/api/v1/system/storage")
     def storage_status(_user: Annotated[dict, Depends(administrator)]) -> dict:
@@ -4512,6 +4513,8 @@ def create_app(home: str | Path | None = None,
             raise _error(404, "operation_not_found")
         if action in ("pause", "resume") and user["role"] != "admin":
             raise _error(403, "admin_required")
+        if action == "cancel" and not body.confirmed:
+            raise _error(400, "invalid_operation")
         if action == "start":
             if body.ticket_iid is None or body.ticket_iid < 1 or body.run_id:
                 raise _error(400, "ticket_required")
@@ -4684,6 +4687,8 @@ def create_app(home: str | Path | None = None,
             raise _error(409, "project_archived")
         if iid < 1:
             raise _error(404, "ticket_not_found")
+        if not body.confirmed:
+            raise _error(400, "invalid_operation")
         config = ticket_config(item)
         run_id = ticket_read(lambda: unfinished_run(_store_for(profiles, item), config, iid))
         operation_id = None

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from adore.config import Config, ReadinessConfig
+from adore.config import Config, ReadinessConfig, validate_config
 from adore.forge import Ticket
 from adore.selection import INELIGIBILITY_REASONS, ineligibility, start_blocker, start_preparation
 import pytest
@@ -131,6 +131,19 @@ def test_start_blocker_names_the_rule_labels_cannot_fix() -> None:
     assert start_blocker(_ticket("agent-hold"), Config(), has_run=False) == "held"
     assert start_blocker(_ticket("P2"), Config(), has_run=True) == "has_job"
     assert start_blocker(_ticket(), Config(), has_run=False) is None
+
+
+
+def test_epic_type_label_blocks_selection_and_rejects_empty_configuration() -> None:
+    """@brief Shared selection uses the configured label and rejects invalid settings."""
+    config = Config()
+    config.labels.selection.type_epic = "initiative"
+    assert (ineligibility(_ticket("agent-ready", "P2", "initiative"), config,
+                          has_run=False) == "epic")
+    assert start_preparation(_ticket("initiative"), config, has_run=False) is None
+    assert ineligibility(_ticket("agent-ready", "P2", "epic"), config, has_run=False) is None
+    config.labels.selection.type_epic = " "
+    assert any("type_epic" in issue for issue in validate_config(config))
 
 
 # END OF FILE

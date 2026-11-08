@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Project profile
 
+Web cancellation requires confirmation and explains attempted runtime/worktree cleanup; worker activity is distinct from its heartbeat. The configurable epic label excludes tickets from pickup and manual Start; eligible manual Start remains available when monitoring is paused.
+
 Installation settings in Technical details are informational and configured in server project TOML. The generic web mutation rule rejects the workflow Python command as well as state/worktree paths; changing paths does not relocate existing data.
 
 Shared CLI/web configuration defaults optional acceptance checking to false and additional revision rounds to five; the typed readiness and portable contracts contain supported fields only.

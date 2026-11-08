@@ -68,6 +68,7 @@ def test_worker_heartbeats_while_idle_and_clears_on_graceful_stop(tmp_path):
                 break
             time.sleep(0.02)
         assert web.worker_ready()
+        assert web.worker_activity() == "idle"
     finally:
         stop.set()
         thread.join(timeout=3)
@@ -100,6 +101,7 @@ def test_worker_heartbeats_during_blocking_engine_command(tmp_path):
         assert entered.wait(timeout=3)
         time.sleep(0.25)
         assert web.worker_ready(max_age_seconds=0.1)
+        assert web.worker_activity() == "busy"
     finally:
         stop.set()
         release.set()
@@ -266,7 +268,7 @@ def test_cancel_submission_rejects_finished_run(tmp_path):
         csrf = client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"}).json()["csrf"]
         response = client.post("/api/v1/projects/alpha/operations/cancel", json={
-            "run_id": "run-1", "idempotency_key": "cancel-finished",
+            "run_id": "run-1", "confirmed": True, "idempotency_key": "cancel-finished",
         }, headers={"X-CSRF-Token": csrf})
         assert response.status_code == 409
         assert state.load("run-1").lifecycle == "done"
@@ -283,7 +285,7 @@ def test_cancel_submission_waits_for_worker_authorization(tmp_path):
         csrf = client.post("/api/v1/session", json={
             "username": "admin", "password": "admin"}).json()["csrf"]
         response = client.post("/api/v1/projects/alpha/operations/cancel", json={
-            "run_id": "run-1", "idempotency_key": "cancel-active",
+            "run_id": "run-1", "confirmed": True, "idempotency_key": "cancel-active",
         }, headers={"X-CSRF-Token": csrf})
         assert response.status_code == 200
         assert not state.cancel_requested("run-1")

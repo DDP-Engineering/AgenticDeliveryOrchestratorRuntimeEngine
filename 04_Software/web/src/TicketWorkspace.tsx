@@ -10,6 +10,7 @@ import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
 import { startVisiblePolling } from "./polling";
 import { keptLabels, outcomeText } from "./operationReason";
+import { jobCopy } from "./jobCopy";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
 import { HelpLink } from "./HelpCenter";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
@@ -42,7 +43,7 @@ type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
 type StartRequest = { row: Row; addsReady: boolean; needsPriority: boolean };
 
 const FINISHED = ["done", "failed", "cancelled", "handed-off", "handoff-pending"];
-const REASONS = ["not_open", "missing_ready_label", "held", "excluded", "has_job", "missing_priority_label", "missing_acceptance_criteria"];
+const REASONS = ["epic", "not_open", "missing_ready_label", "held", "excluded", "has_job", "missing_priority_label", "missing_acceptance_criteria"];
 // Stopped pickup blocks Start without changing a ticket's pickup eligibility.
 const PICKUP_PAUSED = "pickup_paused";
 const BLOCKERS = [...REASONS, PICKUP_PAUSED];
@@ -122,9 +123,11 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   const [queued, setQueued] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [commandStatusError, setCommandStatusError] = useState(false);
   const [actionError, setActionError] = useState<{ error: unknown; project: Project } | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const operationPending = !!notice?.operation && ["pending", "running"].includes(notice.operation.status);
   const base = (project: Project) => `/projects/${encodeURIComponent(project.id)}`;
   const projectName = (project: Project) => project.display_name || project.name;
   // Several projects can share ticket numbers, so messages name the project when more than one is shown.
@@ -166,8 +169,8 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   // Start adds missing ready/priority labels server-side; a label change is confirmed first.
   const start = async (row: Row, chosen = "") => {
     const iid = row.ticket.iid;
-    if (busy || row.project.archived) return;
-    setBusy(true); setActionError(null); setNotice(null); setStarting(null);
+    if (busy || operationPending || row.project.archived) return;
+    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null); setStarting(null);
     try {
       const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), ...(chosen ? { priority: chosen } : {}) }, csrf));
       const lines = [...(result.labels_added.length ? [fill(copy.labelsAdded, { labels: result.labels_added.join(", ") })] : []), named(row, fill(copy.startQueued, { iid, id: result.operation_id })), copy.startEffect];
@@ -188,8 +191,8 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
 
   const retry = async (row: Row) => {
     const { ticket } = row;
-    if (busy || row.project.archived || !ticket.job) return;
-    setBusy(true); setActionError(null); setNotice(null);
+    if (busy || operationPending || row.project.archived || !ticket.job) return;
+    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null);
     try {
       const operation = readOperation(await request(`${base(row.project)}/operations/retry`, "POST", { run_id: ticket.job.run_id, idempotency_key: crypto.randomUUID() }, csrf));
       if (mounted.current) { setNotice({ lines: [named(row, fill(copy.retryQueued, { iid: ticket.iid, id: operation.id }))], operation }); setQueued(items => [...items, row.key]); }
@@ -199,10 +202,10 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
 
   const stop = async (row: Row) => {
     const iid = row.ticket.iid;
-    if (busy || row.project.archived) return;
-    setBusy(true); setActionError(null); setNotice(null); setConfirm(null); setStarting(null);
+    if (busy || operationPending || row.project.archived) return;
+    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null); setConfirm(null); setStarting(null);
     try {
-      const result = readStop(await request(`${base(row.project)}/tickets/${iid}/stop`, "POST", { idempotency_key: crypto.randomUUID() }, csrf));
+      const result = readStop(await request(`${base(row.project)}/tickets/${iid}/stop`, "POST", { idempotency_key: crypto.randomUUID(), confirmed: true }, csrf));
       const label = result.ready_label === "removed" ? copy.labelRemoved : result.ready_label === "absent" ? copy.labelAbsent :
         fill(copy.labelFailed, { reason: describeError(locale, new ApiError(result.ready_label_error || "unexpected_response")) });
       const cancel = result.cancel_operation_id ? fill(copy.cancelQueued, { iid, id: result.cancel_operation_id }) : fill(copy.noCancel, { iid });
@@ -215,13 +218,16 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   const operation = notice?.operation;
   useEffect(() => {
     if (!operation || !["pending", "running"].includes(operation.status)) return;
-    let active = true;
+    let active = true, sequence = 0;
     const poll = async () => {
+      const currentSequence = ++sequence;
       try {
         const current = readOperation(await request(`/operations/${operation.id}`));
-        if (active && current.id === operation.id) setNotice(value => value && value.operation?.id === current.id ? { ...value, operation: current } : value);
-      } catch { /* The notice keeps the last known status; Read tickets refreshes job state. */ }
+        if (current.id !== operation.id) throw invalid();
+        if (active && currentSequence === sequence) { setCommandStatusError(false); setNotice(value => value && value.operation?.id === current.id ? { ...value, operation: current } : value); }
+      } catch { if (active && currentSequence === sequence) setCommandStatusError(true); }
     };
+    void poll();
     const stopPolling = startVisiblePolling(() => void poll(), 2000);
     return () => { active = false; stopPolling(); };
   }, [operation?.id, operation?.status]);
@@ -249,6 +255,8 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
       {pausedLists.map(({ project }) => <p className="notice ticket-pickup-stopped" role="status" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.pickupStopped}</p>)}
       {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}
         {notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{(notice.operation.reason ? outcomeText(locale, notice.operation) : operationResultText(notice.operation.result || "", locale)) ? ` · ${(notice.operation.reason ? outcomeText(locale, notice.operation) : operationResultText(notice.operation.result || "", locale))}` : ""}</p>}
+        {notice.operation?.status === "pending" && <p>{messages[locale].workerQueueHelp}</p>}
+        {commandStatusError && <p role="alert">{jobCopy[locale].commandError}</p>}
         {failure?.detail && <pre className="operation-detail" tabIndex={0}>{failure.detail}</pre>}
         {keptLabels(notice.operation, notice.labels).length > 0 && <p>{fill(copy.labelsKept, { labels: keptLabels(notice.operation, notice.labels).join(", ") })}</p>}
       </div>}
@@ -273,9 +281,9 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
               <td>{status(row)}</td>
               <td><div className="button-row ticket-actions">
                 {ticket.job?.lifecycle === "failed"
-                  ? <button className="primary" type="button" disabled={busy || project.archived || queued.includes(row.key)} onClick={() => void retry(row)}>{copy.retry}</button>
-                  : <button className="primary" type="button" disabled={busy || project.archived || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
-                <button className="ghost" type="button" disabled={busy || project.archived || !stoppable(row)} onClick={() => { setStarting(null); setConfirm(row); }}>{copy.stop}</button>
+                  ? <button className="primary" type="button" disabled={busy || operationPending || project.archived || queued.includes(row.key)} onClick={() => void retry(row)}>{copy.retry}</button>
+                  : <button className="primary" type="button" disabled={busy || operationPending || project.archived || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
+                <button className="ghost" type="button" disabled={busy || operationPending || project.archived || !stoppable(row)} onClick={() => { setStarting(null); setConfirm(row); }}>{copy.stop}</button>
                 <button className="ghost" type="button" aria-expanded={open} aria-controls={detailId} onClick={() => void toggle(row)}>{open ? copy.hide : copy.details}</button>
               </div></td>
             </tr>
@@ -287,7 +295,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
             </div></td></tr>}
             {confirm?.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
               <p>{named(row, fill(copy.stopConfirm, { iid: ticket.iid, label: row.list.ready_label }))}</p>
-              <div className="button-row"><button className="danger" type="button" disabled={busy} onClick={() => void stop(row)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
+              <div className="button-row"><button className="danger" type="button" disabled={busy || operationPending} onClick={() => void stop(row)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
             </div></td></tr>}
             {open && <tr className="ticket-detail-row"><td colSpan={columns}><div className="ticket-detail" id={detailId}>
               <div className="ticket-body-heading">

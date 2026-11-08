@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web control worker
 
+The worker publishes advisory busy or idle activity around its blocking runner. A recent heartbeat gates this evidence; absent or invalid activity is unknown. The authorized cancellation watcher remains independent of the serialized command queue.
+
 ## 1. Purpose
 
 `adore.web.commands.CommandWorker` bridges durable web operations to the

@@ -286,6 +286,7 @@ class CommandWorker:
                     # The main worker still handles queued operations afterward.
                     return
 
+        self.web.set_worker_activity("busy")
         watcher = Thread(target=watch, daemon=True)
         watcher.start()
         try:
@@ -293,6 +294,7 @@ class CommandWorker:
         finally:
             done.set()
             watcher.join(timeout=2)
+            self.web.set_worker_activity("idle")
 
     def poll_project(self, project: str) -> int | CommandResult:
         """@brief Poll one project while watching for newly authorized cancels."""
@@ -328,6 +330,7 @@ class CommandWorker:
         cadences: dict[str, PollCadence] = {}
         try:
             self.web.recover_interrupted()
+            self.web.set_worker_activity("idle")
             self.web.touch_worker()
             heartbeat_started = True
             heartbeat_thread = Thread(target=beat, daemon=True)

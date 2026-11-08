@@ -113,6 +113,7 @@ priority_medium = "P2"
 priority_low    = "P3"
 type_feature    = "feature"
 type_bug        = "bug"
+type_epic       = "epic"
 
 # Control labels - human overrides, checked BEFORE eligibility (they always win).
 [labels.control]

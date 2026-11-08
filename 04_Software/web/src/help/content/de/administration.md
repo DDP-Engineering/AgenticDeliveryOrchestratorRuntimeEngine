@@ -4,6 +4,9 @@ Die Verwaltung umfasst Benutzerkonten, Projektzugriff, Systemzustand und das Pro
 
 > Alles auf dieser Seite erfordert die Rolle Administrator.
 
+
+Ein aktueller Heartbeat zeigt einen verfügbaren Worker. **Beschäftigt** bedeutet einen laufenden Befehl oder Projektlauf; **Aktivität unbekannt** bedeutet fehlenden Nachweis. Ein Worker bearbeitet Projekte und Befehle nacheinander. Ein berechtigtes Abbruchsignal kann einen aktiven Auftrag vorher erreichen.
+
 ## Benutzer {#users}
 
 Öffnen Sie unter **Verwaltung** die Seite [Benutzer](/admin/users). Sie hat ein Feld **Benutzer hinzufügen** und eine Liste **Benutzer**.
@@ -32,7 +35,7 @@ Ein Entwickler mit Zugriff sieht das Projekt und kann dessen Aufträge starten, 
 
 Öffnen Sie unter **Verwaltung** den [Systemstatus](/admin/status). Er aktualisiert sich selbst.
 
-- **Steuerungs-Worker** lautet **Bereit**, **Nicht verfügbar**, **Statusprüfung fehlgeschlagen** oder **Prüfung…**. Bereit bedeutet, dass sich der Worker innerhalb der letzten zehn Sekunden gemeldet hat. Es bestätigt nicht, dass Forge, Executoren oder Modelle erreichbar sind.
+- **Steuerungs-Worker** zeigt **Bereit** im Leerlauf, **Beschäftigt** bei Arbeit, **Aktivität unbekannt** ohne Nachweis, **Nicht verfügbar**, **Statusprüfung fehlgeschlagen** oder **Prüfung…**. Ein aktueller Heartbeat bestätigt nicht die Erreichbarkeit von Forge, Executoren oder Modellen.
 - **Speicherplatz** lautet **Platz verfügbar**, **Wenig Speicherplatz** oder **Speicherprüfung fehlgeschlagen**. Es misst den freien Speicherplatz für die ADORE-Kontendatenbank und den Auftragsstatus-Ordner jedes Projekts, gruppiert nach physischem Datenträger. Eine gemeinsame Platte erhält eine einzige Zeile; mehrere Platten erhalten eine Tabelle mit **Datenträger**, **Frei** und **Status**. Weniger als 1 GiB frei gilt als wenig, und eine fehlgeschlagene Messung wird nie als freier Platz angezeigt.
 - **Audit-Aufbewahrung** legt fest, wie lange der Änderungsverlauf aufbewahrt wird. Die aktuellen Limits (oder **Unbegrenzt**) stehen über dem Formular. Legen Sie **Aufbewahrung (Tage)** (ganze Tage, 0 bis 36500) und **Limit für Auditdaten (MiB)** (0 bis 1024, Bruchteile erlaubt) fest und wählen Sie **Speichern**. Null oder leer bedeutet unbegrenzt. Die beiden Limits gelten unabhängig voneinander, und die ältesten Ereignisse werden zuerst entfernt. Der Hinweis nach dem Speichern meldet, wie viele Ereignisse gelöscht wurden. Das Größenlimit zählt gespeicherten Audit-Text, nicht die Datenbankdatei auf dem Datenträger. Aufträge, Lauf-Journale und Konten bleiben erhalten.
 

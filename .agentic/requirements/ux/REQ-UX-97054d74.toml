@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-97054d74"
+
+title = "Keep ticket actions accessible at narrow widths"
+
+status = "active"
+
+requirement = """
+At desktop and mobile widths the tickets view shall keep ticket actions reachable.
+"""
+
+verification = "Offline browser checks at 1366 pixels and mobile exercise Details and ticket actions."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css"]
+
+linked_tests = ["04_Software/web/e2e/issue37.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

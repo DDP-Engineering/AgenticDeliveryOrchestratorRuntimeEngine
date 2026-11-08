@@ -15,6 +15,7 @@
 
 import sqlite3
 
+from adore.state import StateStore
 from adore.web.app import create_app
 from adore.web.server import main
 from fastapi.testclient import TestClient
@@ -66,7 +67,20 @@ def test_api_health_and_worker_readiness_are_distinct(tmp_path):
         assert missing.json()["detail"]["code"] == "worker_unavailable"
         app.state.web_store.touch_worker()
         assert client.get("/api/v1/ready").json() == {
-            "status": "ready", "worker": "ready"}
+            "status": "ready", "worker": "ready", "activity": "unknown"}
+        web = app.state.web_store
+        lock = StateStore(web.path.parent / "web-control", "adore-web")
+        assert lock.acquire_lock()
+        web.set_worker_activity("busy")
+        assert client.get("/api/v1/ready").json()["activity"] == "busy"
+        old_activity = web.path.with_name(web.path.name + ".activity").read_bytes()
+        lock.release_lock()
+        assert lock.acquire_lock()
+        web.path.with_name(web.path.name + ".activity").write_bytes(old_activity)
+        assert client.get("/api/v1/ready").json()["activity"] == "unknown"
+        web.path.with_name(web.path.name + ".activity").write_bytes(b"invalid")
+        assert client.get("/api/v1/ready").json()["activity"] == "unknown"
+        lock.release_lock()
         app.state.web_store.clear_worker()
         assert client.get("/api/v1/ready").status_code == 503
 

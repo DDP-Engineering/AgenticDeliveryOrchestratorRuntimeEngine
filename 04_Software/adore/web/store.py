@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 # IMPORTS
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import hashlib
@@ -327,6 +327,62 @@ class WebStore:
                 )
         except sqlite3.DatabaseError as exc:
             raise WebStoreError("worker heartbeat storage is corrupt") from exc
+
+    def _worker_lock_fingerprint(self) -> str | None:
+        """@brief Bind advisory activity to the current worker lock instance."""
+        path = self.path.parent / "web-control" / "adore-web.lock"
+        try:
+            with path.open("rb") as stream:
+                before = path.stat()
+                raw = stream.read(4097)
+                after = path.stat()
+            if (before.st_ino, before.st_ctime_ns) != (after.st_ino, after.st_ctime_ns):
+                return None
+            if len(raw) > 4096:
+                return None
+            value = json.loads(raw)
+            if (not isinstance(value, dict) or type(value.get("pid")) is not int
+                    or value["pid"] <= 0 or not isinstance(value.get("acquired_at"), str)
+                    or not value["acquired_at"] or not isinstance(value.get("host"), str)
+                    or not value["host"]):
+                return None
+            identity = f"{after.st_ino}:{after.st_ctime_ns}".encode("ascii")
+            return hashlib.sha256(raw + identity).hexdigest()
+        except (OSError, ValueError, TypeError, UnicodeError):
+            return None
+
+    def set_worker_activity(self, activity: str) -> None:
+        """@brief Publish advisory activity bound to the current worker lock."""
+        if activity not in ("idle", "busy"):
+            raise ValueError("invalid worker activity")
+        path = self.path.with_name(self.path.name + ".activity")
+        temporary = path.with_name(path.name + ".tmp")
+        fingerprint = self._worker_lock_fingerprint()
+        try:
+            if fingerprint is None:
+                path.unlink(missing_ok=True)
+                return
+            temporary.write_text(f"{activity} {fingerprint}", encoding="ascii")
+            temporary.replace(path)
+        except OSError:
+            with suppress(OSError):
+                path.unlink(missing_ok=True)
+
+    def worker_activity(self) -> str:
+        """@brief Reject missing, corrupt or differently bound activity evidence."""
+        fingerprint = self._worker_lock_fingerprint()
+        if fingerprint is None:
+            return "unknown"
+        path = self.path.with_name(self.path.name + ".activity")
+        try:
+            with path.open("rb") as stream:
+                value = stream.read(80)
+        except OSError:
+            return "unknown"
+        for activity in ("idle", "busy"):
+            if value == f"{activity} {fingerprint}".encode("ascii"):
+                return activity
+        return "unknown"
 
     def clear_worker(self) -> None:
         """@brief Remove worker readiness after graceful shutdown."""

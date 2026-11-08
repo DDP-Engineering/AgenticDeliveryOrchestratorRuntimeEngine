@@ -27,6 +27,7 @@ from adore.forge import Ticket
 #: Reason codes in the order the rules are checked; the first unmet rule wins.
 INELIGIBILITY_REASONS = (
     "not_open",
+    "epic",
     "missing_ready_label",
     "held",
     "excluded",
@@ -52,6 +53,8 @@ def ineligibility(ticket: Ticket, config: Config, *, has_run: bool) -> str | Non
     labels = config.labels
     if ticket.state != "opened":
         return "not_open"
+    if labels.selection.type_epic in ticket.labels:
+        return "epic"
     if labels.lifecycle.ready not in ticket.labels:
         return "missing_ready_label"
     if labels.control.hold in ticket.labels:

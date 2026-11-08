@@ -4,6 +4,9 @@ Administration covers user accounts, project access, system health and the recor
 
 > Everything on this page requires the Administrator role.
 
+
+A recent heartbeat means the worker is available. **Busy** means it is executing a command or project poll; **Activity unknown** means activity evidence is unavailable. One worker handles projects and commands in turn, so queued commands can wait. An authorized cancellation signal can reach an active job before the queued command finishes.
+
 ## Users {#users}
 
 Under **Administration**, open [Users](/admin/users). The page has an **Add user** panel and a **Users** list.
@@ -32,7 +35,7 @@ A developer with access sees the project and can start, retry or cancel its jobs
 
 Under **Administration**, open [System status](/admin/status). It refreshes by itself.
 
-- **Control worker** reads **Ready**, **Unavailable**, **Status check failed** or **Checking…**. Ready means the worker has reported within the last ten seconds. It does not confirm that the forge, executors or models are reachable.
+- **Control worker** shows **Ready** when idle, **Busy** while processing, **Activity unknown** when the activity evidence is missing, **Unavailable**, **Status check failed** or **Checking…**. A recent heartbeat does not confirm forge, executor or model reachability.
 - **Storage** reads **Space available**, **Low disk space** or **Storage check failed**. It measures free disk space for the ADORE account database and each project's job state folder, grouped by physical volume. One shared disk gets a single line; several disks get a **Volume**, **Free** and **Status** table. Below 1 GiB free counts as low, and a failed measurement is never shown as free space.
 - **Audit retention** sets how long change history is kept. The current limits (or **Unlimited**) appear above the form. Set **Keep for days** (whole days, 0 to 36500) and **Audit data limit (MiB)** (0 to 1024, fractions allowed) and choose **Save**. Zero or blank means unlimited. The two limits apply independently and the oldest events are removed first. The notice after saving reports how many events were deleted. The size limit counts stored audit text, not the database file on disk. Jobs, run journals and accounts are kept.
 

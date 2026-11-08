@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Configuration
 
+`labels.selection.type_epic` is a nonempty configured label; shared selection excludes tickets bearing it from pickup and manual admission.
+
 ## Routing
 
 Use this page for typed TOML loading, executor/auth validation, budgets,

@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Confirm cancellation and clarify cleanup, worker activity, monitoring updates and project empty states; exclude configured epic tickets from pickup.
+
 - Reconcile status labels during notification replay and identify the execution backend and web Retry in failure comments.
 
 - Refresh the committed web bundle and detect stale frontend assets before packaging.

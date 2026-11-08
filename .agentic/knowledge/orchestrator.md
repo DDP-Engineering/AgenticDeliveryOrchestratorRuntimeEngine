@@ -8,6 +8,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Orchestrator
 
+Shared ticket eligibility excludes the configured epic type label from automatic pickup and manual admission; eligible manual Start remains available with monitoring paused.
+
 ## Routing
 
 Use this page for ticket selection, run lifecycle, stage gates, approval,
