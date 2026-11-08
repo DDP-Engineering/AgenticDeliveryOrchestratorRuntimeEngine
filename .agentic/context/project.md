@@ -102,7 +102,7 @@ session closes the AEGIS task; ADORE verifies that advance itself, and the run
 stays at stage done while it awaits approval, publishes and is in review.
 A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
-budget, and required forge notifications pass through a persisted outbox.
+budget, and required forge notifications pass through a persisted outbox. Parked cleanup is durably settled before polling resumes; status replay reconciles the current lifecycle labels.
 Publication requires a fresh `agent-approved` label bound to the exact
 candidate fingerprint and target commit; every review round repeats validation
 and approval.

@@ -1170,3 +1170,27 @@ def test_list_open_rejects_non_list_payload() -> None:
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("provider", ["gitlab", "github", "gitea"])
+def test_comment_unicode_reaches_injected_cli_for_post_and_edit(provider: str) -> None:
+    """@brief Each provider passes Unicode comments unchanged through its CLI boundary."""
+    body = "Question — țară / Grüße / café"
+    first = {"gitlab": _ok("https://example/i/1#note_42"),
+             "github": _ok("https://example/i/1#issuecomment-42"),
+             "gitea": _api_ok('{"id":42}')}
+    second = _api_ok('{}') if provider == "gitea" else _ok()
+    runner = FakeRunner(first[provider], second)
+    forge = build_forge(provider, "owner/repo", runner=runner)
+    assert forge.post_comment(1, body) == 42
+    forge.edit_comment(1, 42, body)
+    assert all(any(body in arg for arg in call) for call in runner.calls)
+
+
+@pytest.mark.parametrize("provider", ["gitlab", "github", "gitea"])
+def test_comment_unicode_transport_failure_is_typed(provider: str) -> None:
+    """@brief A CLI refusal never counts an attempted Unicode post as delivered."""
+    runner = FakeRunner(_fail("offline"))
+    forge = build_forge(provider, "owner/repo", runner=runner)
+    with pytest.raises(ForgeError):
+        forge.post_comment(1, "Question — țară")

@@ -1181,6 +1181,8 @@ class Orchestrator:
             run.stage = task.stage
             self.store.save(run)
             self._status(run)
+            if run.lifecycle != "working":
+                return
             if task.done:
                 if not run.validation_evidence:
                     result = self._launch_stage(
@@ -2226,13 +2228,17 @@ class Orchestrator:
         self.store.save(run)
         with contextlib.suppress(IsolationError):
             self.backend.stop(run.container, expected=run.execution.get("resource") or None)
+        backend = run.execution.get("plan", {}).get("backend", self.config.execution.backend)
+        stopped = ("A stop was requested for local execution" if backend == "local"
+                   else "A stop was requested for the container")
         body = (
             f"{self.identity.tag} Run `{run.run_id}` failed loudly at stage "
             f"`{run.stage}`.\n\n"
             f"Terminal error code: `{code}`\n\n"
             f"{_sanitize(evidence)}\n\n"
-            "The container is stopped, the worktree and evidence are preserved, and the "
-            f"execution slot is released. After remediation use `adore retry {run.run_id}`.\n"
+            f"{stopped}, the worktree and evidence are preserved, and the "
+            f"execution slot is released. After remediation use Retry in the web interface "
+            f"or `adore retry {run.run_id}`.\n"
             f"{self.identity.make_marker(run.run_id, 'terminal-failure', code=code)}"
         )
         self._required_comment(run, "terminal-failure", body)
@@ -2352,6 +2358,8 @@ class Orchestrator:
             self.store.save(run)
             self._notification_transport_failure(run, "NOTIFICATION_DELIVERY", exc)
             return None
+        if kind == "question":
+            run.question_comment_id = comment_id
         run.notification_outbox = [
             item for item in run.notification_outbox if item.get("id") != record["id"]
         ]
@@ -2396,9 +2404,11 @@ class Orchestrator:
                 self.forge.list_mr_comments(resource)
                 if surface == "mr" else self.forge.list_comments(resource)
             )
+            kind = "status-replay" if record["kind"] == "status" else record["kind"]
+            marker = self.identity.make_marker(run.run_id, kind, notification=record["id"])
             for comment in comments:
-                marker = self.identity.parse_marker(comment.body)
-                if marker and marker.get("notification") == record["id"]:
+                if any(marker in line for line in comment.body.splitlines()
+                       if not line.lstrip().startswith(">")):
                     return comment.id
         if surface == "mr":
             if edit_id is not None:
@@ -2413,6 +2423,7 @@ class Orchestrator:
     def _retry_outbox(self, run: RunState) -> int:
         """@brief Retry due notifications without provisioning or occupying a slot."""
         delivered = 0
+        parked_replayed = False
         remaining: list[dict[str, Any]] = []
         for record in run.notification_outbox:
             due = iso_to_datetime(str(record.get("next_attempt_at", "")))
@@ -2421,7 +2432,18 @@ class Orchestrator:
                 remaining.append(record)
                 continue
             try:
-                comment_id = self._deliver_outbox_record(run, record)
+                if record.get("kind") == "status":
+                    comment_id = self._deliver_status(run, record)
+                else:
+                    comment_id = self._deliver_outbox_record(run, record)
+                if (record.get("kind") == "question" and run.parked_at
+                        and (run.lifecycle == "parked-clarification" or
+                             (run.lifecycle == "failed" and
+                              run.outcome.startswith("NOTIFICATION_DELIVERY:")))):
+                    run.question_comment_id = comment_id
+                    run.lifecycle = "parked-clarification"
+                    run.outcome = ""
+                    parked_replayed = True
             except ForgeError as exc:
                 if record.get("undeliverable"):
                     continue
@@ -2439,6 +2461,8 @@ class Orchestrator:
             )
         run.notification_outbox = remaining
         self.store.save(run)
+        if parked_replayed and self._settle_parked(run):
+            self._status(run)
         return delivered
 
     def _next_retry_time(self, attempt: int) -> str:
@@ -2528,9 +2552,15 @@ class Orchestrator:
                 continue
             if run.lifecycle != "publishing" and self._cancel_if_requested(run):
                 continue
+            if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
+                continue
             if run.notification_outbox:
                 summary["notifications"] += self._retry_outbox(run)
                 run = self.store.load(run.run_id)
+                if run.notification_outbox:
+                    continue
+                if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
+                    continue
             if run.lifecycle == "parked-clarification":
                 self._reconcile_clarification(run, summary)
             elif run.lifecycle == "awaiting-approval":
@@ -2637,20 +2667,38 @@ class Orchestrator:
             "This question does not consume the stage error budget.\n"
             f"{marker}"
         )
-        comment_id = self._required_comment(run, "question", body, force_ticket=True)
-        if comment_id is None:
-            return
-        run.question_comment_id = comment_id
         run.lifecycle = "parked-clarification"
         run.parked_at = utc_now_iso()
         run.parked_polls = 0
+        comment_id = self._required_comment(run, "question", body, force_ticket=True)
+        if comment_id is None:
+            return
         self.store.save(run)
         self.store.journal(run.run_id, "parked", questions=clean)
-        with contextlib.suppress(OSError):
-            (Path(run.worktree) / self.questions_file).unlink(missing_ok=True)
-        with contextlib.suppress(IsolationError):
+        if self._settle_parked(run):
+            self._status(run)
+
+    def _settle_parked(self, run: RunState) -> bool:
+        """@brief Idempotently stop a parked backend and remove its question handoff."""
+        # Zero means parking has not yet settled; positive values are persisted
+        # only after cleanup, before the regular clarification poll increments.
+        if run.parked_polls > 0:
+            return True
+        try:
             self.backend.stop(run.container, expected=run.execution.get("resource") or None)
-        self._status(run)
+            (Path(run.worktree) / self.questions_file).unlink(missing_ok=True)
+        except (IsolationError, OSError) as exc:
+            run.notification_outbox = [
+                item for item in run.notification_outbox if item.get("kind") != "question"
+            ]
+            self._fail_immediately(
+                run, "PARK_CLEANUP_FAILED",
+                f"{exc}; clarification is inactive until the run is retried",
+            )
+            return False
+        run.parked_polls = 1
+        self.store.save(run)
+        return True
 
     def _reconcile_clarification(self, run: RunState, summary: dict[str, Any]) -> None:
         """@brief Resume from a human answer or fail visibly at its configured timeout."""
@@ -2660,6 +2708,10 @@ class Orchestrator:
             return
         if self._cancel_if_ticket_closed(run, ticket):
             return
+        if self.config.labels.lifecycle.clarify not in ticket.labels:
+            self._status(run)
+            if run.lifecycle != "parked-clarification":
+                return
         comments = self.forge.list_comments(run.ticket_iid)
         answers = [
             item for item in comments
@@ -3393,11 +3445,13 @@ class Orchestrator:
             web_url=str(data.get("web_url", "")),
         )
 
-    def _status(self, run: RunState) -> None:
-        """@brief Reflect lifecycle in the editable status comment and labels."""
+    def _status_body(self, run: RunState) -> str:
+        """@brief Render current lifecycle and checkpoint evidence for the ticket."""
         body = self.identity.status_comment(
             run.run_id, run.lifecycle, run.stage, utc_now_iso()
         )
+        backend = run.execution.get("plan", {}).get("backend", self.config.execution.backend)
+        body += f"\nExecution backend: {backend}"
         if (self.config.delivery.publish_checkpoints or run.checkpoint_remote_commit
                 or run.checkpoint_error):
             body += (
@@ -3407,40 +3461,61 @@ class Orchestrator:
                 + (f"Remote checkpoint stale: {_sanitize(run.checkpoint_error)}\n"
                    if run.checkpoint_error else "")
             )
+        return body
+
+    def _deliver_status(self, run: RunState, record: dict[str, Any]) -> int:
+        """@brief Deliver current status and labels, retaining identity before label writes."""
+        comment_id = self._deliver_outbox_record(run, record)
+        marker = self.identity.make_marker(
+            run.run_id, "status-replay", notification=record["id"]
+        )
+        self.forge.edit_comment(
+            run.ticket_iid, comment_id, f"{marker}\n{self._status_body(run)}"
+        )
+        run.status_comment_id = comment_id
+        record["edit_id"] = comment_id
+        self.store.save(run)
+        self._status_labels(run)
+        return comment_id
+
+    def _status(self, run: RunState) -> None:
+        """@brief Persist and deliver lifecycle status and labels idempotently."""
+        notification_id = uuid4().hex
+        marker = self.identity.make_marker(
+            run.run_id, "status-replay", notification=notification_id
+        )
+        record = {
+            "id": notification_id,
+            "kind": "status",
+            "surface": "ticket",
+            "resource": run.ticket_iid,
+            "edit_id": run.status_comment_id,
+            "body": f"{marker}\n{self._status_body(run)}",
+            "attempts": 0,
+            "next_attempt_at": utc_now_iso(),
+            "last_error": "",
+        }
+        run.notification_outbox.append(record)
+        self.store.save(run)
         try:
-            if run.status_comment_id is None:
-                run.status_comment_id = self.forge.post_comment(run.ticket_iid, body)
-            else:
-                self.forge.edit_comment(run.ticket_iid, run.status_comment_id, body)
-            self._status_labels(run)
-            self.store.save(run)
+            self._deliver_status(run, record)
         except ForgeError as exc:
-            # Problem/status signaling is required under 4.0. Queue a replay,
-            # but avoid recursive status attempts while marking the local stop.
-            marker = self.identity.make_marker(run.run_id, "status-replay")
-            record = {
-                "id": uuid4().hex,
-                "kind": "status",
-                "surface": "ticket",
-                "resource": run.ticket_iid,
-                "edit_id": run.status_comment_id,
-                "body": f"{body}\n{marker}",
-                "attempts": 1,
-                "next_attempt_at": self._next_retry_time(1),
-                "last_error": _sanitize(exc),
-            }
-            run.notification_outbox.append(record)
+            record["attempts"] = 1
+            record["last_error"] = _sanitize(exc)
+            record["next_attempt_at"] = self._next_retry_time(1)
             if run.lifecycle in {"cancelled", "done", "failed", "handed-off", "handoff-pending"}:
                 self.store.save(run)
                 self.store.journal(
-                    run.run_id,
-                    "notification-blocked",
-                    code="STATUS_NOTIFICATION",
-                    evidence=_sanitize(exc),
-                    terminal_lifecycle=run.lifecycle,
+                    run.run_id, "notification-blocked", code="STATUS_NOTIFICATION",
+                    evidence=_sanitize(exc), terminal_lifecycle=run.lifecycle,
                 )
                 return
             self._notification_transport_failure(run, "STATUS_NOTIFICATION", exc)
+            return
+        run.notification_outbox = [
+            item for item in run.notification_outbox if item.get("id") != notification_id
+        ]
+        self.store.save(run)
 
     def _status_labels(self, run: RunState) -> None:
         """@brief Map schema-1 lifecycle to existing ticket labels."""

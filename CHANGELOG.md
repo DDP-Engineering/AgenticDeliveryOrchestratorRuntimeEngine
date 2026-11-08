@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Reconcile status labels during notification replay and identify the execution backend and web Retry in failure comments.
+
 - Refresh the committed web bundle and detect stale frontend assets before packaging.
 
 - Job details explains normal states in four languages, shows current-stage failures, event stages and seconds, safe Markdown questions, useful host-captured executor diagnostics and a real consumption refresh action. Concurrent usage snapshots retain verified prefixes without falsely reporting corruption.

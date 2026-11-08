@@ -593,3 +593,17 @@ def test_saved_empty_clock_is_refused_without_reinitializing_work(tmp_path):
     with pytest.raises(StateError):
         store.load(run.run_id)
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("value", [True, -1, 1.5, "1", None])
+def test_parked_poll_counter_rejects_corrupt_state(tmp_path: Path, value: object) -> None:
+    """@brief Invalid parked cleanup evidence fails closed at the persisted state boundary."""
+    store = _store(tmp_path)
+    run = RunState(run_id="run-1", ticket_iid=1)
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["parked_polls"] = value
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(StateError, match="parked_polls"):
+        store.load(run.run_id)

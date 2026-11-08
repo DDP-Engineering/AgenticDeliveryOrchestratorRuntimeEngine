@@ -212,3 +212,7 @@ Non-budget source binding uses type-sensitive canonical JSON; false/0 and true/1
 Each executor-artifacts journal event may bind the host-normalized GateRun diagnostics to a unique schema-1 file under the run-owned executor-diagnostics directory outside executor IO. The reference includes the cumulative launch number and exact SHA-256; the snapshot binds run, attempt, context, exit/timeout and bounded canonical streams. Missing capture stays unavailable; unsafe locations/content fail closed. No run-state schema or execution/recovery/publication authority changes. The public Retry diagnostic test proves this seam through the injected executor/backend.
 
 Every completed executor attempt records the latest evidence marker, including attempts with no archive or captured diagnostics, so earlier output is never substituted as the latest attempt.
+
+Status comments identify the pinned or configured backend. Terminal failures name that backend and web/CLI retry choices. Status outbox replay updates the current lifecycle comment and labels before acknowledgement, retaining failed operations and adopting marker-owned posts after interruption. Proof: targeted review-question, terminal and replay tests in test_orchestrator.py.
+
+Parked recovery rechecks backend stop and removes the handoff; failures terminate with PARK_CLEANUP_FAILED. Quoted notification markers never authorize comment adoption.

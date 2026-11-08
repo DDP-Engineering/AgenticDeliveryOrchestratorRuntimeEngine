@@ -211,6 +211,8 @@ class RunState:
             _clock_stamp(state.active_started_at)
         if type(state.iterations) is not int or state.iterations < 0:
             raise StateError("run-state iterations must be nonnegative")
+        if type(state.parked_polls) is not int or state.parked_polls < 0:
+            raise StateError("run-state parked_polls must be nonnegative")
         if (
             not isinstance(state.run_id, str)
             or _RUN_ID_RE.fullmatch(state.run_id) is None

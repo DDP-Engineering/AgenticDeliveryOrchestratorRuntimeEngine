@@ -104,7 +104,9 @@ Read [Recovery_And_Maintenance.md](Recovery_And_Maintenance.md) before using a
 destructive command.
 
 These intervention commands mutate ADORE-owned state only. None edits an AEGIS
-task journal. `retry` resets the current stage counter but preserves cumulative active-work time and
+task journal. Terminal failure comments name the execution backend and offer the web Retry action as well as the CLI command. Status notifications remain pending until their lifecycle labels are reconciled.
+
+`retry` resets the current stage counter but preserves cumulative active-work time and
 task/failure history, and refuses to run while a required notification
 remains pending.
 

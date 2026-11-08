@@ -120,3 +120,5 @@ fields must be aware ISO timestamps, or `StateError` refuses the state.
 Proof: `test_state.py` covers working/parked/repeated-save/retry time and corrupt
 clock evidence; conductor tests cover clarification, approval invalidation and
 review resumption without resetting consumed time.
+
+The parked-poll counter is a strictly nonnegative integer; positive values confirm parked cleanup was completed, so corrupt values fail with StateError at load.

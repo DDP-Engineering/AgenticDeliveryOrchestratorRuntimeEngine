@@ -44,7 +44,7 @@ text = { en = "Jobs keep Git in the right repo and non-Latin text intact, withou
 [[release.entry]]
 category = "fixed"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Manual Start works with monitoring paused and shows clear failure reasons.", fr = "Démarrer fonctionne avec la surveillance en pause et explique les échecs.", de = "Manuelles Starten funktioniert bei pausierter Überwachung und zeigt klare Fehlergründe.", ro = "Pornirea manuală funcționează cu monitorizarea în pauză și afișează motivele eșecurilor." }
+text = { en = "Manual Start works when paused; status labels recover and failures explain Retry.", fr = "Démarrer fonctionne en pause ; étiquettes rétablies et Relancer expliqué en cas d'échec.", de = "Start bei Pause; Statuslabels erholen sich und Fehler erklären Wiederholen.", ro = "Pornire în pauză; etichetele se refac, iar erorile explică Reia." }
 
 [[release.entry]]
 category = "new"

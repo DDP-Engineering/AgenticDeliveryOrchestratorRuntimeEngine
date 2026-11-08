@@ -105,7 +105,7 @@ is reconciled before the source ticket state.
 ## 4. Recovery Contract
 
 `max_stage_failures` counts attempts for the current stage. The default third
-failure posts a terminal comment, stops the container and preserves the
+failure posts a terminal comment, requests the selected backend to stop and preserves the
 worktree. Routine cleanup works only on this project's run IDs (runs in its
 state store, corrupt run directories, and worktree directories or executor
 containers named in its `<platform>-<repo>-<ticket>` form) and protects failed
@@ -359,3 +359,7 @@ Non-budget binding preserves scalar types as well as values: boolean false and n
 When a gate returns archives and host-normalized diagnostics, the conductor writes a unique schema-1 executor-diagnostics snapshot outside writable executor IO and records its exact SHA-256, cumulative launch number and filename on executor-artifacts. The snapshot binds run identity, launch context, exit/timeout and canonical streams. Gates without captured diagnostics retain explicit unavailability. This evidence adds no execution, retry or publication authority and changes no run-state schema. Invalid diagnostics or linked snapshot locations fail closed. A public Retry regression proves capture persistence and journal binding without live resources.
 
 Every completed executor attempt records the latest evidence marker, including attempts with no archive or captured diagnostics, so earlier output is never substituted as the latest attempt.
+
+Status comments identify the pinned execution backend, or configured backend before a plan exists. Terminal failure comments name the backend and offer web Retry and the CLI retry command. A status outbox replay edits the current lifecycle status and reconciles its labels before it acknowledges delivery; a failed comment or label operation remains pending, with notification markers preserving comment identity across replay.
+
+On parked recovery the conductor verifies a backend stop and removes the question handoff again; failure becomes `PARK_CLEANUP_FAILED` rather than resuming work. Quoted notification markers never authorize adoption or editing of a human comment.

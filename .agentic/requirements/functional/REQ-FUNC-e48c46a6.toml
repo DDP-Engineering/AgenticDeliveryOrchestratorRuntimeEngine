@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-e48c46a6"
+
+title = "Identify execution backend in status"
+
+status = "active"
+
+requirement = """
+When the conductor reports run status, it shall identify the selected execution backend.
+"""
+
+verification = "Offline conductor tests inspect status comments for both local and container backends."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_review_question_uses_ticket_clarify_label_via_poll", "04_Software/tests/test_orchestrator.py::test_terminal_uses_pinned_backend_after_config_drift"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

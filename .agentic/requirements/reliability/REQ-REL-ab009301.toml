@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-ab009301"
+
+title = "Reconcile clarification labels and notification replay"
+
+status = "active"
+
+requirement = """
+When a clarification is parked or its status notification is replayed, the conductor shall reconcile the ticket lifecycle label with the persisted run state.
+"""
+
+verification = "Offline public polling tests park a review question and inject a status-label failure, then replay and assert the current lifecycle label."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_review_question_delivery_recovers_parking_after_failure", "04_Software/tests/test_orchestrator.py::test_poll_restores_missing_parked_label_after_interruption", "04_Software/tests/test_orchestrator.py::test_status_replay_reconciles_current_lifecycle_labels", "04_Software/tests/test_orchestrator.py::test_replay_adopts_comment_when_post_response_is_lost"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

@@ -87,3 +87,5 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/adore/state.py`
 - `04_Software/tests/test_state.py`
 - `04_Software/tests/test_checkpoint_handoff.py`
+
+The parked-poll counter must be a nonnegative integer. A positive value records completion of parked cleanup; corrupt values are refused at load. Proof: test_parked_poll_counter_rejects_corrupt_state.

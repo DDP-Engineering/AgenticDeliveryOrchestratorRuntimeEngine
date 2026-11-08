@@ -43,18 +43,7 @@ cannot use a human comment without a valid ADORE marker as mutable state.
 - `REQ-FUNC-f699f84a` - malformed forge response data fails closed.
 - `REQ-FUNC-e7a89a6d` - publication creates draft or ready records according to the requested boolean and has no merge capability.
 
-## Architecture
-
-```mermaid
-flowchart LR
-    caller([Orchestrator]) --> contract[Forge]
-    contract --> adapters[GitLabForge / GitHubForge / GiteaForge]
-    adapters --> runner([Injected command runner])
-    runner --> output[Strict response parser]
-    output --> records[(Typed tickets and reviews)]
-```
-
-Draft state is a creation input; the adapters expose no merge operation.
+Unicode comment text passes unchanged to each adapter's injectable CLI runner for post and edit. Offline runner and local-child proof does not establish live CLI/server behavior.
 
 ## Files
 

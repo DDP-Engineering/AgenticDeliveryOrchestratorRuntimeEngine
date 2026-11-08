@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-fcafb258"
+
+title = "Reject corrupt parked cleanup evidence"
+
+status = "active"
+
+requirement = """
+If persisted parked cleanup evidence is not a nonnegative integer, the state store shall reject the run with a typed state error.
+"""
+
+verification = "Offline store loads reject boolean, negative, fractional, textual and null parked counters."
+
+affected_paths = ["04_Software/adore/state.py"]
+
+linked_tests = ["04_Software/tests/test_state.py::test_parked_poll_counter_rejects_corrupt_state"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

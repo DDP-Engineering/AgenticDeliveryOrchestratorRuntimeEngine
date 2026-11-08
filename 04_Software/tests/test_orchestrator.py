@@ -3651,3 +3651,374 @@ def test_reviewed_parked_budget_save_is_used_by_the_same_job_on_resume(tmp_path,
     assert (saved.active_task_id, saved.branch) == (run.active_task_id, run.branch)
     assert Path(saved.worktree) == Path(run.worktree)
     assert engine.config.budgets.max_iterations == 3
+
+
+@pytest.mark.parametrize("backend, expected", [("local", "local"), ("container", "container")])
+def test_terminal_comment_names_backend_and_retry_choices(
+    tmp_path: Path, backend: str, expected: str,
+) -> None:
+    """@brief A timed-out parked run reports its own backend and recovery choices."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    engine.config.execution.backend = backend
+    run.lifecycle = "parked-clarification"
+    run.parked_at = "2000-01-01T00:00:00+00:00"
+    engine.store.save(run)
+    engine.store.pause()
+
+    engine.poll_once()
+
+    body = next(body for body in forge.ticket_comments.values() if "Terminal error code" in body)
+    assert expected in body.lower()
+    assert "Retry" in body and "web" in body.lower() and "adore retry" in body
+    if backend == "local":
+        assert "container is stopped" not in body.lower()
+
+
+def test_status_replay_reconciles_current_lifecycle_labels(tmp_path: Path) -> None:
+    """@brief A failed label write remains pending until polling restores current status."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "parked-clarification"
+    run.parked_at = utc_now_iso()
+    engine.store.save(run)
+    original = forge.add_labels
+    failing = [True]
+    def add_labels(iid, labels):
+        if failing[0]:
+            raise ForgeError("label unavailable")
+        original(iid, labels)
+    forge.add_labels = add_labels
+    engine._status(run)
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert len(saved.notification_outbox) == 1
+    saved.notification_outbox[0]["next_attempt_at"] = "2000-01-01T00:00:00+00:00"
+    engine.store.save(saved)
+    engine.store.pause()
+
+    engine.poll_once()
+    assert engine.store.load(run.run_id).notification_outbox
+    failing[0] = False
+    saved = engine.store.load(run.run_id)
+    saved.notification_outbox[0]["next_attempt_at"] = "2000-01-01T00:00:00+00:00"
+    engine.store.save(saved)
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert not saved.notification_outbox
+    assert "agent-failed" in forge.ticket.labels
+    assert "agent-clarify" not in forge.ticket.labels
+    assert "failed" in forge.ticket_comments[saved.status_comment_id]
+
+
+def test_review_question_uses_ticket_clarify_label_via_poll(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief A review revision question parks on the ticket with its lifecycle label."""
+    engine, forge, _, _, _ = make_engine(
+        tmp_path, executor=FakeExecutor(GateRun(exit_code=0, has_questions=True,
+                                               questions="Question — țară")))
+    run = _review_run(engine, forge)
+    forge.mr.labels = ["agent-revise"]
+    class Client(FakeAegis):
+        """@brief Offline revision task and stage snapshots."""
+        def __init__(self, *args):
+            super().__init__([task("frame", task_type="change")])
+        def probe(self):
+            return None
+        def create_task(self, *args):
+            return "TASK-deadbeef"
+    monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
+    engine.store.pause()
+    summary = engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert summary["revised"] == 1
+    assert saved.lifecycle == "parked-clarification"
+    assert "agent-clarify" in forge.ticket.labels
+    assert "agent-working" not in forge.ticket.labels
+    assert "container" in forge.ticket_comments[saved.status_comment_id].lower()
+    assert any("Question — țară" in body for body in forge.ticket_comments.values())
+
+
+def test_status_replay_recovers_post_before_edit_failure_without_duplicate(tmp_path: Path) -> None:
+    """@brief Polling adopts a replayed status after a write fails before acknowledgement."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "cancelled"
+    engine.store.save(run)
+    forge.fail_comments = True
+    engine._status(run)
+    forge.fail_comments = False
+    saved = engine.store.load(run.run_id)
+    saved.notification_outbox[0]["next_attempt_at"] = ""
+    engine.store.save(saved)
+    edit = forge.edit_comment
+    def fail_edit(*args):
+        raise ForgeError("edit unavailable")
+    forge.edit_comment = fail_edit
+    engine.store.pause()
+    engine.poll_once()
+    assert len(forge.ticket_comments) == 1
+    assert engine.store.load(run.run_id).notification_outbox
+    forge.edit_comment = edit
+    saved = engine.store.load(run.run_id)
+    saved.notification_outbox[0]["next_attempt_at"] = ""
+    engine.store.save(saved)
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert not saved.notification_outbox
+    assert len(forge.ticket_comments) == 1
+    assert saved.status_comment_id in forge.ticket_comments
+
+
+def test_review_question_delivery_recovers_parking_after_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief Poll replay completes the same clarification without a duplicate question."""
+    engine, forge, _, _, _ = make_engine(
+        tmp_path,
+        executor=FakeExecutor(GateRun(exit_code=0, has_questions=True, questions="Need answer")),
+    )
+    run = _review_run(engine, forge)
+    forge.mr.labels = ["agent-revise"]
+    class Client(FakeAegis):
+        """@brief Provide a revision task without external AEGIS."""
+        def __init__(self, *args):
+            super().__init__([task("frame", task_type="change")])
+        def probe(self):
+            return None
+        def create_task(self, *args):
+            return "TASK-deadbeef"
+    monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
+    post = forge.post_comment
+    def fail_question(iid, body):
+        if "Clarification required" in body:
+            raise ForgeError("offline")
+        return post(iid, body)
+    forge.post_comment = fail_question
+    engine.store.pause()
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed" and saved.notification_outbox
+    forge.post_comment = post
+    saved.notification_outbox[0]["next_attempt_at"] = ""
+    engine.store.save(saved)
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "parked-clarification"
+    assert saved.question_comment_id in forge.ticket_comments
+    assert "agent-clarify" in forge.ticket.labels
+    assert sum("Clarification required" in b for b in forge.ticket_comments.values()) == 1
+
+
+def test_poll_restores_missing_parked_label_after_interruption(tmp_path: Path) -> None:
+    """@brief A persisted parked run regains its label without needing an answer."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "parked-clarification"
+    run.parked_at = utc_now_iso()
+    run.question_comment_id = 102
+    engine.store.save(run)
+    engine.store.pause()
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "parked-clarification"
+    assert "agent-clarify" in forge.ticket.labels
+
+
+def test_review_status_failure_prevents_executor_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief A failed required status label stops a review before its executor gate."""
+    engine, forge, _, _, executor = make_engine(tmp_path)
+    run = _review_run(engine, forge)
+    forge.mr.labels = ["agent-revise"]
+    class Client(FakeAegis):
+        """@brief Revision client with an executable stage."""
+        def __init__(self, *args):
+            super().__init__([task("frame", task_type="change")])
+        def probe(self):
+            return None
+        def create_task(self, *args):
+            return "TASK-deadbeef"
+    monkeypatch.setattr(orchestrator_module, "AegisClient", Client)
+    def fail_labels(*args):
+        raise ForgeError("offline")
+    forge.add_labels = fail_labels
+    engine.store.pause()
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "failed"
+    assert not executor.prompts
+
+
+@pytest.mark.parametrize("kind", ["question", "status"])
+def test_replay_adopts_comment_when_post_response_is_lost(tmp_path: Path, kind: str) -> None:
+    """@brief An accepted post with a lost response is adopted on the next public poll."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    post = forge.post_comment
+    def ambiguous_post(iid, body):
+        post(iid, body)
+        raise ForgeError("response lost")
+    forge.post_comment = ambiguous_post
+    if kind == "question":
+        engine._park(run, "Need answer")
+    else:
+        run.lifecycle = "cancelled"
+        engine._status(run)
+    saved = engine.store.load(run.run_id)
+    assert len(forge.ticket_comments) == 1 and saved.notification_outbox
+    saved.notification_outbox[0]["next_attempt_at"] = ""
+    engine.store.save(saved)
+    forge.post_comment = post
+    engine.store.pause()
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    if kind == "question":
+        questions = [
+            body for body in forge.ticket_comments.values() if "Clarification required" in body
+        ]
+        assert len(questions) == 1
+        assert saved.lifecycle == "parked-clarification"
+    else:
+        assert len(forge.ticket_comments) == 1
+        assert saved.lifecycle == "cancelled"
+    assert not saved.notification_outbox
+
+
+@pytest.mark.parametrize("pinned", ["local", "container"])
+def test_terminal_uses_pinned_backend_after_config_drift(
+    tmp_path: Path, pinned: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief Saved execution identity, not changed configuration, selects the text."""
+    from adore.preparation import resolve_plan
+
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    engine.config.execution.backend = pinned
+    if pinned == "local":
+        from tests.test_local_execution import local_fixture
+        fixture_root = tmp_path / "fixture"
+        fixture_root.mkdir()
+        fixture_config, *_ = local_fixture(fixture_root, monkeypatch)
+        plan = resolve_plan(fixture_config)
+    else:
+        plan = resolve_plan(engine.config)
+    run = make_run(engine)
+    run.execution = {"plan": plan, "resource": {}, "status": "not-required", "attempts": 0,
+                     "steps": [], "history": [], "reprepare": False}
+    run.lifecycle = "parked-clarification"
+    run.parked_at = "2000-01-01T00:00:00+00:00"
+    engine.store.save(run)
+    engine.config.execution.backend = "local" if pinned == "container" else "container"
+    engine.store.pause()
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    terminal = next(b for b in forge.ticket_comments.values() if "Terminal error code" in b)
+    assert pinned in terminal.lower()
+    assert pinned in forge.ticket_comments[saved.status_comment_id].lower()
+
+
+def test_terminal_does_not_claim_stop_succeeded_on_backend_error(tmp_path: Path) -> None:
+    """@brief Failed backend stops remain accurately described as requests."""
+    engine, forge, _, containers, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "parked-clarification"
+    run.parked_at = "2000-01-01T00:00:00+00:00"
+    engine.store.save(run)
+    def fail_stop(*args, **kwargs):
+        raise IsolationError("stop unconfirmed")
+    containers.stop = fail_stop
+    engine.store.pause()
+    engine.poll_once()
+    terminal = next(b for b in forge.ticket_comments.values() if "Terminal error code" in b)
+    assert "stop was requested" in terminal.lower()
+    assert "is stopped" not in terminal.lower()
+
+
+def test_replay_does_not_adopt_quoted_human_marker(tmp_path: Path) -> None:
+    """@brief A quoted notification marker never authorizes editing a human comment."""
+    engine, forge, _, _, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "cancelled"
+    forge.fail_comments = True
+    engine._status(run)
+    saved = engine.store.load(run.run_id)
+    record = saved.notification_outbox[0]
+    marker = record["body"].splitlines()[0]
+    forge.ticket_comments[999] = "> " + marker
+    record["next_attempt_at"] = ""
+    engine.store.save(saved)
+    forge.fail_comments = False
+    engine.store.pause()
+    engine.poll_once()
+    assert forge.ticket_comments[999] == "> " + marker
+    assert engine.store.load(run.run_id).status_comment_id != 999
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_poll_finishes_parked_resource_cleanup(tmp_path: Path, fails: bool) -> None:
+    """@brief A recovered parked run stops its backend and cleans the handoff."""
+    engine, forge, _, containers, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    run.worktree = str(worktree)
+    handoff = worktree / engine.questions_file
+    handoff.write_text("Need answer", encoding="utf-8")
+    run.lifecycle = "parked-clarification"
+    run.parked_at = utc_now_iso()
+    run.question_comment_id = 123
+    engine.store.save(run)
+    if fails:
+        def fail_stop(*args, **kwargs):
+            raise IsolationError("stop failed")
+        containers.stop = fail_stop
+    engine.store.pause()
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    if fails:
+        assert saved.lifecycle == "failed"
+        assert "stop failed" in saved.outcome
+    else:
+        assert saved.lifecycle == "parked-clarification"
+        assert run.container in containers.stopped
+        assert not handoff.exists()
+        assert "agent-clarify" in forge.ticket.labels
+
+
+def test_settled_parked_run_does_not_repeat_stop_after_drift(tmp_path: Path) -> None:
+    """@brief A settled parked run does not revalidate native tools on ordinary polls."""
+    engine, forge, _, containers, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "parked-clarification"
+    run.parked_at = utc_now_iso()
+    engine.store.save(run)
+    engine.store.pause()
+    engine.poll_once()
+    def drift(*args, **kwargs):
+        raise IsolationError("environment drift")
+    containers.stop = drift
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "parked-clarification"
+
+
+def test_pending_question_is_not_posted_after_park_cleanup_failure(tmp_path: Path) -> None:
+    """@brief Failed parking never replays an obsolete question as actionable."""
+    engine, forge, _, containers, _ = make_engine(tmp_path)
+    run = make_run(engine)
+    run.lifecycle = "parked-clarification"
+    run.parked_at = utc_now_iso()
+    marker = engine.identity.make_marker(run.run_id, "question", notification="a" * 32)
+    run.notification_outbox = [{"id": "a" * 32, "kind": "question", "surface": "ticket",
+        "resource": run.ticket_iid, "edit_id": None, "body": "Need answer\n" + marker,
+        "attempts": 0, "next_attempt_at": "", "last_error": ""}]
+    engine.store.save(run)
+    def fail_stop(*args, **kwargs):
+        raise IsolationError("stop failed")
+    containers.stop = fail_stop
+    engine.store.pause()
+    engine.poll_once()
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert not any(item["kind"] == "question" for item in saved.notification_outbox)
+    assert not any("Need answer" in body for body in forge.ticket_comments.values())

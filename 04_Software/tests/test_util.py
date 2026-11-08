@@ -183,3 +183,12 @@ def test_strict_json_rejects_ambiguous_external_data(source):
 
     with pytest.raises(ValueError):
         strict_json_loads(source)
+
+
+def test_run_command_preserves_unicode_argument_through_child() -> None:
+    """@brief A local child receives and returns Unicode independently of console encoding."""
+    text = "Question — țară / Grüße"
+    child = "import sys; sys.stdout.buffer.write(sys.argv[1].encode('utf-8'))"
+    result = run_command([sys.executable, "-c", child, text])
+    assert result.exit_code == 0
+    assert result.stdout == text
