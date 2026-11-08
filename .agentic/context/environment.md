@@ -257,3 +257,6 @@ one-second real matcher contract remains in test_branch_naming.py; wizard assemb
 injects its trusted fixture process. Budget/state/HTTP/browser proof uses isolated
 homes and the existing 18765 browser listener, with no live model, forge, runtime
 job or user-service acceptance. See orchestrator.md and web-interface.md knowledge.
+
+
+Focused History and CLI deletion verification uses temporary home/profile stores and fake engines; it performs no live forge, model or runtime operation.

@@ -146,3 +146,8 @@ The durable `restart` action stores `<run-id>.<state-sha256>` in the existing op
 Confirmed deletion clears the owning profile/job usage projections while holding their SQLite write transaction across source removal; old reporting readers cannot restore a discarded cursor. The CLI binds this callback only to the registered profile matching its exact resolved config path. No account, grant, audit or other project projection is reset.
 
 A successful CLI restart summary with `unproven_branch_retained: true` becomes localized `restart:retained` success evidence. This reports an older unproven ref retained while a fresh branch is used; it grants no cleanup or publication authority.
+
+
+Start and Retry consume bound terminal evidence. Restart exit zero requires a JSON summary naming the original ticket; malformed, absent or mismatched evidence remains uncertain. The History projection distinguishes observed failure from refusal.
+
+Restart terminal evidence binds job, revision, exit and selected ticket; unbound output is uncertain and cannot establish a refusal or success.

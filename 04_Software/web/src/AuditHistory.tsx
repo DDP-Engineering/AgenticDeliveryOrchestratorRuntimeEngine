@@ -35,15 +35,15 @@ function validRow(value: unknown): value is Row {
     typeof row.project === "string" && /^$|^[a-z0-9][a-z0-9._-]{0,63}$/.test(row.project) &&
     (row.project_id === null || typeof row.project_id === "string" && /^[0-9a-f]{32}$/.test(row.project_id)) &&
     (row.resource_id === null || typeof row.resource_id === "string" && /^[A-Za-z0-9._-]{1,160}$/.test(row.resource_id)) &&
-    (row.resource_type === null || ["account", "access", "config", "project", "operation", "policy"].includes(row.resource_type)) &&
+    (row.resource_type === null || ["account", "access", "config", "project", "operation", "policy", "ticket", "job"].includes(row.resource_type)) &&
     typeof row.created_at === "string" && Number.isFinite(Date.parse(row.created_at)) && /(?:Z|[+-]00:00)$/.test(row.created_at) &&
     (row.phase === null || ["prepare", "apply", "discard"].includes(row.phase)) &&
-    (row.result === null || ["prepared", "applied", "discarded", "rejected", "uncertain"].includes(row.result)) &&
+    (row.result === null || ["prepared", "applied", "discarded", "rejected", "failed", "uncertain"].includes(row.result)) &&
     (row.operation_id === null || Number.isSafeInteger(row.operation_id) && row.operation_id > 0) &&
     [row.base_revision, row.candidate_revision, row.correlation].every(item => item === null || typeof item === "string" && /^[0-9a-f]{64}$/.test(item)) &&
     (row.result !== "applied" || row.phase === "apply") && (row.result !== "prepared" || row.phase === "prepare") &&
     (row.result !== "discarded" || row.phase === "discard") &&
-    (!["uncertain", "rejected"].includes(row.result || "") || row.after === null) &&
+    (!["uncertain", "rejected", "failed"].includes(row.result || "") || row.after === null) &&
     safeValue(row.before) && safeValue(row.after);
 }
 
@@ -105,8 +105,8 @@ export function AuditHistory({ locale, projects, fixedProject, read }: {
     {state === "loading" ? <p role="status">{c.loading}</p> : state === "error" ? <div role="alert"><p>{messages[locale].dataFailed}</p><p>{c.error}</p></div> : <>
       <p role="status">{total} {c.matched}</p>
       {rows.length ? <div className="table-scroll"><table><thead><tr><th>{c.who}</th><th>{c.what}</th><th>{c.when}</th><th>{c.result}</th><th>{c.evidence}</th></tr></thead><tbody>{rows.map(row => { const expanded = open.includes(row.id), detailId = `audit-detail-${row.id}`; return <Fragment key={row.id}><tr>
-        <td>{row.actor || c.unknown}{row.actor_id && <small>#{row.actor_id}</small>}</td>
-        <td>{row.action}<small>{row.project || row.project_id || c.unknown}</small><small>{row.resource_type} {row.resource_id}</small></td>
+        <td>{row.actor || (row.action === "job-deleted" ? c.cli : c.unknown)}{row.actor_id && <small>#{row.actor_id}</small>}</td>
+        <td>{row.action}<small>{row.project || row.project_id || c.unknown}</small><small>{row.resource_type ? c[row.resource_type] || row.resource_type : ""} {row.resource_id}</small></td>
         <td><time dateTime={row.created_at}>{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(row.created_at))}</time></td>
         <td><strong>{row.result ? c[row.result] : c.unknown}</strong><small>{row.phase ? c[{prepare: "preparePhase", apply: "applyPhase", discard: "discardPhase"}[row.phase] || "unknown"] : c.unknown}</small></td>
         <td><button type="button" className="text-button audit-toggle" aria-expanded={expanded} aria-controls={detailId} onClick={() => setOpen(items => expanded ? items.filter(id => id !== row.id) : [...items, row.id])}>{c.evidence}</button></td>

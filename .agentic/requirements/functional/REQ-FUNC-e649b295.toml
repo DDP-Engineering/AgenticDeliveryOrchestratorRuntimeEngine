@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-e649b295"
+
+title = "Identify targets in history"
+
+status = "active"
+
+requirement = """
+When History displays ticket, job or operation evidence, the interface shall identify the target by its actual type and identity.
+"""
+
+verification = "Create ticket and job operations and inspect History targets, including differing ticket and operation numbers."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/web/src/AuditHistory.tsx"]
+
+linked_tests = ["04_Software/tests/test_web_tickets.py::test_history_distinguishes_ticket_from_queued_operation", "04_Software/web/e2e/audit.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

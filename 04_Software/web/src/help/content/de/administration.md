@@ -43,6 +43,8 @@ Ein Entwickler mit Zugriff sieht das Projekt und kann dessen Aufträge starten, 
 
 Öffnen Sie unter **Verwaltung** den [Änderungsverlauf](/admin/audit), um zu sehen, wer was wann geändert hat und mit welchem Ergebnis. Der Reiter **Verlauf** eines Projekts zeigt dieselben Nachweise nur für dieses Projekt, zusammen mit seinen abgeschlossenen Aufträgen. Mit **Aktualisieren** laden Sie neu.
 
+Der Verlauf unterscheidet Tickets und Aufträge von Vorgangsnummern. Fehlgeschlagene Vorgänge zeigen **Fehlgeschlagen**, abgelehnte **Abgelehnt**. Löschungen per CLI zeigen CLI als Akteur und bleiben nach dem Entfernen des Auftrags sichtbar. Eine unterbrochene Löschung bleibt bis zur Bestätigung **Ungewiss**.
+
 Filter:
 
 - **Akteur-ID**: die Nummer neben einem Kontonamen.

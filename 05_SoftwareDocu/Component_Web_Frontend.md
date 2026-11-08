@@ -1028,3 +1028,6 @@ inputs and all generated output files in `BUILD_FINGERPRINT.json`. The release
 consistency checker compares those hashes before packaging; a missing stamp or
 drift requires `npm run build` in `04_Software/web` and committing the result.
 The checker also compares against an isolated fresh build, using the installed frontend dependencies.
+
+
+History renders localized ticket/job identities, a CLI actor for CLI deletion, and failed separately from rejected and uncertain. The interface validates the closed response before rendering.

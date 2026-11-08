@@ -862,3 +862,18 @@ def test_web_database_of_another_schema_is_refused_untouched(tmp_path, version):
     assert f"schema {version}" in message and "not supported" in message
     assert str(web.path) in message and "web.db.initialized" in message
     assert web.path.read_bytes() == before
+
+
+def test_engine_fault_is_failed_in_history(tmp_path):
+    """@brief A bound engine failure is not described as an operator refusal."""
+    from adore.util import CommandResult
+
+    profiles, web, operation = _queued_start(tmp_path)
+    output = 'ADORE_START_RESULT {"schema":1,"ticket":42,"exit_code":1,"reason":"engine_fault"}'
+    CommandWorker(
+        profiles, web, runner=lambda argv, env: CommandResult(exit_code=1, stdout=output)
+    ).run_pending()
+    row = next(r for r in web.recent_audit(None) if r["action"] == "operation-finished")
+    assert row["operation_id"] == operation["id"] and row["result"] == "failed"
+
+# END OF FILE

@@ -1282,3 +1282,10 @@ changed and removed output files. Source launches serve this committed bundle.
 `python 02_Tools/internal/check_release_consistency.py` checks the recorded
 input and output fingerprints and fails on drift; rebuild before packaging.
 The check also compares the bundle with an isolated fresh build and requires the installed frontend dependencies.
+
+
+History identifies ticket and job targets separately from operation numbers. A prepared request is not a completed operation. Applied, Rejected, Failed and Uncertain reflect the recorded outcome. CLI job deletion is identified as CLI; a confirmed deletion remains visible after the job is removed. Interrupted cleanup remains uncertain. A developer sees this evidence only for an assigned, verified project identity.
+
+CLI deletion records a local receipt in the ADORE home before cleanup, even when the web interface has never been initialized. History imports it when the web database is available; this does not initialize web accounts during CLI deletion. An unreadable or unsupported receipt store refuses deletion. For an unsupported receipt schema, delete the named `deletion-audit.db` manually only to start fresh. A failed confirmation after cleanup reports that the job was deleted and the audit outcome remains uncertain. Audit retention applies to imported events; completed import receipts retain only an opaque key.
+
+The History import requires durable SQLite rollback journal modes for both databases; a WAL, memory or disabled journal mode is refused rather than risking a partially committed import. Restore a durable rollback mode under your database maintenance procedure and retry History.

@@ -43,6 +43,8 @@ Under **Administration**, open [System status](/admin/status). It refreshes by i
 
 Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Use **Refresh** to reload.
 
+History identifies ticket and job targets separately from operation numbers. A failed operation is shown as **Failed**; a refused operation is **Rejected**. CLI deletions identify the actor as CLI and remain visible after the job is removed. An interrupted deletion stays **Uncertain** until its result is confirmed.
+
 Filters:
 
 - **Actor ID**: the number shown beside an account name.

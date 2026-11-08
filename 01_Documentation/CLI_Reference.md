@@ -189,3 +189,8 @@ reason; the web worker shows the saved job cause rather than raw process logs.
 `stats --rebuild` is a writer and holds the project conductor lock for its complete read/write batch. This keeps old terminal statistics from being restored after a confirmed fresh start.
 
 Confirmed `restart` may retain an older unproven branch only when no remote checkpoint was ever recorded, then uses a naming-rule-validated fresh generation. It reports that retention. Normal `delete` never deletes an unproven remote ref; a changed known checkpoint always refuses. Fresh names are bounded to the base plus three alternatives.
+
+
+CLI `delete` records a local deletion attempt outside the job before cleanup. It refuses cleanup if the deletion audit is corrupt or inaccessible; unsupported schema errors identify `deletion-audit.db` for manual removal to start fresh. After cleanup, failure to confirm the audit is reported separately because the job may already be gone. The receipt does not create a web database or user account.
+
+Restart prints a final structured outcome bound to the requested job and confirmed revision for the web worker.

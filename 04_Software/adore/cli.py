@@ -38,6 +38,7 @@ from adore.branding import PACKAGE_NAME, PRODUCT_NAME
 from adore.clone_cleanup import clone_decision, project_clone_decision
 from adore.config import Config, load_config, validate_config
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
+from adore.deletion_audit import DeletionAudit, DeletionAuditError
 from adore.forge import ForgeError
 from adore.isolation import IsolationError
 from adore.local_execution import LocalPrerequisiteError, local_probe_failure
@@ -46,7 +47,7 @@ from adore.orchestrator import LockHeldError, Orchestrator
 from adore.preparation import PreparationError, preview_plan, public_plan
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
-from adore.start_result import emit_retry_result, emit_start_result
+from adore.start_result import emit_restart_result, emit_retry_result, emit_start_result
 from adore.state import StateError, StateStore
 from adore.util import force_rmtree, parse_duration, run_command
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
@@ -730,10 +731,14 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     @param[in]  args Parsed arguments (args.run_id set).
     @return     Process exit code.
     """
-    def finish(code: int, reason: str) -> int:
-        """@brief Bind Retry outcomes without changing other operator commands."""
+    def finish(code: int, reason: str, picked: int | None = None,
+               retained: bool = False) -> int:
+        """@brief Bind Retry and Restart outcomes to the requested job."""
         if args.command == "retry":
             emit_retry_result(args.run_id, code, reason)
+        elif args.command == "restart":
+            emit_restart_result(args.run_id, args.expected_revision or "", code, reason,
+                                picked, retained)
         return code
 
     try:
@@ -743,7 +748,7 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             print("error: native setup or identity changed; restore settings or use "
                   "`adore delete <run-id> --force --owned-resources` for proven owned "
                   "resources; no job state was deleted")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "engine_setup_failed")
         if args.command != "retry":
             raise
         cause = local_probe_failure(exc, "engine-setup-failed")
@@ -753,7 +758,7 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     except Exception:  # noqa: BLE001 - Retry must return a closed setup outcome
         if args.command in {"delete", "restart"}:
             print("error: cannot prepare cleanup; check project configuration and host access")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "engine_setup_failed")
         if args.command != "retry":
             raise
         return finish(EXIT_ERROR, "engine_setup_failed")
@@ -789,10 +794,11 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     if args.command in {"delete", "restart"}:
         if not store.exists(args.run_id):
             print(f"no such run: {args.run_id}")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "run_unavailable")
         if not args.force:
             print("delete removes ALL run state irrecoverably; re-run with --force")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "force_required")
+    deleted = False
     try:
         with _operator_lock(store):
             if args.command == "cancel":
@@ -822,18 +828,50 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             if args.command == "restart":
                 summary = engine.restart(args.run_id, args.expected_revision)
                 print(json.dumps(summary))
-                return EXIT_OK if summary.get("picked") is not None else EXIT_ERROR
+                picked = summary.get("picked")
+                code = EXIT_OK if picked is not None else EXIT_ERROR
+                return finish(code, "restarted" if code == EXIT_OK else "not_started",
+                              picked if code == EXIT_OK else None,
+                              code == EXIT_OK and summary.get("unproven_branch_retained") is True)
+            # Validate all durable identity/evidence before touching owned resources.
+            store.load(args.run_id)
+            profiles = ProfileStore()
+            if profiles.invalid_profiles():
+                raise StateError("project identity is corrupt")
+            matches = [item for item in profiles.list_profiles()
+                       if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+            if len(matches) > 1:
+                raise StateError("project identity is ambiguous")
+            project = matches[0] if matches else None
+            ledger = DeletionAudit(profiles.home)
+            receipt = ledger.begin(
+                project.name if project else "",
+                project.project_id if project else None,
+                args.run_id,
+            )
             engine.delete(args.run_id, owned_resources=args.owned_resources)
+            deleted = True
+            ledger.confirm(receipt)
             print(f"deleted {args.run_id}")
             return EXIT_OK
     except LockHeldError as exc:
         print(f"error: {exc}")
         return finish(EXIT_ERROR, "lock_held")
+    except DeletionAuditError as exc:
+        if deleted:
+            print(
+                "error: job deleted but deletion audit confirmation is uncertain; inspect History"
+            )
+        else:
+            print(f"error: {exc}")
+        return EXIT_ERROR
     except (StateError, OSError) as exc:
         if args.command in {"delete", "restart"}:
-            print(f"error: cleanup incomplete ({type(exc).__name__}); inspect retained "
-                  "job state and permissions before retrying")
-            return EXIT_ERROR
+            print(
+                f"error: cleanup incomplete ({type(exc).__name__}); inspect retained "
+                "job state and permissions before retrying"
+            )
+            return finish(EXIT_ERROR, "cleanup_failed")
         if args.command != "retry":
             raise
         print(f"retry state unavailable: {type(exc).__name__}")
@@ -841,7 +879,7 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     except ForgeError:
         if args.command in {"delete", "restart"}:
             print("error: repository access failed; check repository connection before retrying")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "repository_unavailable")
         if args.command != "retry":
             raise
         return finish(EXIT_ERROR, "repository_unavailable")
@@ -850,14 +888,16 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             if args.command != "retry":
                 raise
             return finish(EXIT_ERROR, "engine_fault")
-        print(f"error: cleanup refused: {type(exc).__name__}; restore saved settings or use "
-              "`adore delete <run-id> --force --owned-resources` for proven owned resources. "
-              "Foreign resources and changed remote branches are retained; inspect Job details.")
-        return EXIT_ERROR
+        print(
+            f"error: cleanup refused: {type(exc).__name__}; restore saved settings or use "
+            "`adore delete <run-id> --force --owned-resources` for proven owned resources. "
+            "Foreign resources and changed remote branches are retained; inspect Job details."
+        )
+        return finish(EXIT_ERROR, "cleanup_refused")
     except Exception:  # noqa: BLE001 - no untrusted exception text in web results
         if args.command in {"delete", "restart"}:
             print("error: cleanup could not be confirmed; inspect retained job evidence")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "engine_fault")
         if args.command != "retry":
             raise
         return finish(EXIT_ERROR, "engine_fault")

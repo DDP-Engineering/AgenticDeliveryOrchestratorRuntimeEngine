@@ -204,3 +204,6 @@ a reverse proxy should preserve a stable trusted address policy.
 ## Deleted-job usage projection boundary
 
 `forget_run_usage(project_id, run_id, remove_source=...)` acquires the SQLite write transaction, removes only the caller-verified job source, clears that composite identity's usage/observation/cursor rows and commits. Source removal failure rolls back the projection reset. Production `reconcile_usage` calls validate their captured journal against the current source prefix under the same transaction, permitting append progress while refusing stale deleted/replaced evidence. This keeps deterministic-ID fresh admissions independent of prior usage without a schema change. Proof: tests/test_drift_recovery.py interleaving, rollback and real-admission integration cases.
+
+
+Change history imports local CLI deletion receipts with a transactional attached SQLite ledger. Import validates schema, identities, state and durable journal modes, binds updates to the original event, and keeps an opaque completion receipt after importing applied evidence. Interrupted cleanup remains uncertain. Audit retention applies to the imported event.

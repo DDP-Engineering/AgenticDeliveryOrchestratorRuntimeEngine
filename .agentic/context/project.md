@@ -364,3 +364,6 @@ Missing/corrupt budget limits retain valid job evidence and recovery with explic
 ## Operational job details
 
 Job details explains normal lifecycle states, exposes current-stage failed attempts and event-recorded stage/context/transition destinations with second-precision times. Clarification Markdown uses the existing safe renderer and local scrolling. On-demand executor output uses host-normalized, journal/digest-bound operational snapshots outside executor IO; missing provenance is explicit and raw archives are never a fallback. Canonical missing-module exceptions and test counts remain useful while private content and costs are withheld for both roles. Concurrent consumption snapshots preserve verified prefixes/cursors, and read failures have a real refresh control. Scoped offline API/RPC/helper/browser tests cover the seam; historical live 503 causes remain unproven.
+
+
+History identifies ticket/job targets and actual operation outcomes; CLI delete records a local receipt before cleanup even without web identity. History imports it with project-scoped authorization and conservative interruption handling.

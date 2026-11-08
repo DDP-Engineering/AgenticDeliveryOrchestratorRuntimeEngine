@@ -35,6 +35,8 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
 from adore import metrics
+from adore.deletion_audit import NAME as DELETION_AUDIT_NAME
+from adore.deletion_audit import DeletionAudit, DeletionAuditError
 from adore.profiles import ProfileError, ProfileStore
 from adore.web import audit as audit_contract
 
@@ -452,7 +454,7 @@ class WebStore:
     @contextmanager
     def _connect(self):
         """@brief Yield and close one transactional SQLite connection."""
-        connection = sqlite3.connect(self.path, timeout=10)
+        connection = sqlite3.connect(self.path, timeout=10, uri=True)
         try:
             connection.row_factory = sqlite3.Row
             connection.execute("PRAGMA foreign_keys=ON")
@@ -1408,7 +1410,8 @@ class WebStore:
         )
 
     def _write_audit(
-        self, connection, actor_id, action, project="", detail="", *, payload=None, event_key=None
+        self, connection, actor_id, action, project="", detail="", *, payload=None, event_key=None,
+        created_at=None,
     ) -> None:
         """@brief Persist evidence and enforce retention inside the owning transaction."""
         if (
@@ -1427,6 +1430,7 @@ class WebStore:
         event_key = event_key or secrets.token_hex(32)
         try:
             audit_contract.validate(payload)
+            stamp = audit_contract.instant(created_at) if created_at is not None else _now()
             encoded = json.dumps(
                 payload, sort_keys=True, separators=(",", ":"), allow_nan=False
             )
@@ -1437,7 +1441,7 @@ class WebStore:
             connection.execute(
                 "INSERT INTO audit(actor_id,action,project,detail,created_at,evidence,event_key) "
                 "VALUES (?,?,?,?,?,?,?)",
-                (actor_id, action, project, detail[:256], _now(), encoded, event_key),
+                (actor_id, action, project, detail[:256], stamp, encoded, event_key),
             )
             self._prune_audit(connection)
 
@@ -1758,7 +1762,9 @@ class WebStore:
         self._audit_storage(connection)
         policy = self._audit_policy_row(connection)
         days, byte_limit = policy["retention_days"], policy["max_bytes"]
-        rows = connection.execute("SELECT * FROM audit ORDER BY id").fetchall()
+        rows = connection.execute(
+            "SELECT * FROM audit ORDER BY julianday(created_at), id"
+        ).fetchall()
         cutoff = datetime.now(UTC) - timedelta(days=days) if days is not None else None
         sizes = []
         expired = []
@@ -1796,6 +1802,88 @@ class WebStore:
         if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
             raise WebStoreError("invalid audit limit")
         return self.audit_page(limit, 0)[0]
+
+    def _import_deletion_audit(self, connection) -> None:
+        """@brief Atomically import local receipts without bootstrapping web identity.
+        @exception WebStoreError The separate receipt store is unreadable or corrupt.
+        """
+        path = self.path.parent / DELETION_AUDIT_NAME
+        try:
+            path.stat()
+            if path.is_symlink():
+                raise WebStoreError("deletion audit path is a symbolic link")
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise WebStoreError("deletion audit unavailable") from exc
+        try:
+            connection.execute(
+                "ATTACH DATABASE ? AS deletion_audit", (path.resolve().as_uri() + "?mode=rw",)
+            )
+            for database in ("main", "deletion_audit"):
+                mode = connection.execute(f"PRAGMA {database}.journal_mode").fetchone()[0]
+                if mode.lower() not in ("delete", "truncate", "persist"):
+                    raise WebStoreError("deletion audit requires durable SQLite journal modes")
+            connection.execute("BEGIN IMMEDIATE")
+            for database in ("main", "deletion_audit"):
+                mode = connection.execute(f"PRAGMA {database}.journal_mode").fetchone()[0]
+                if mode.lower() not in ("delete", "truncate", "persist"):
+                    raise WebStoreError("deletion audit requires durable SQLite journal modes")
+            DeletionAudit.validate(connection, "deletion_audit")
+            rows = connection.execute(
+                "SELECT event_key,project,project_id,run_id,created_at,result,imported "
+                "FROM deletion_audit.events WHERE dirty=1 ORDER BY created_at,event_key"
+            ).fetchall()
+            for row in rows:
+                key, project, identity, run_id, stamp, result, imported = row
+                payload = audit_contract.evidence(
+                    actor=None,
+                    project_id=identity,
+                    resource_type="operation",
+                    resource_id=run_id,
+                    result=result,
+                )
+                if not imported:
+                    self._write_audit(
+                        connection, None, "job-deleted", project, payload=payload,
+                        event_key=key, created_at=stamp,
+                    )
+                else:
+                    old = connection.execute(
+                        "SELECT * FROM audit WHERE event_key=?", (key,)
+                    ).fetchone()
+                    if old is not None:
+                        prior = self._audit_projection(old)
+                        if (
+                            prior["action"] != "job-deleted"
+                            or prior["actor_id"] is not None
+                            or prior["actor"] is not None
+                            or prior["project"] != project
+                            or prior["project_id"] != identity
+                            or prior["resource_id"] != run_id
+                            or prior["result"] != "uncertain"
+                            or result != "applied"
+                        ):
+                            raise WebStoreError("deletion audit identity conflict")
+                        connection.execute(
+                            "UPDATE audit SET evidence=? WHERE event_key=?",
+                            (json.dumps(payload, sort_keys=True), key),
+                        )
+                if result == "applied":
+                    connection.execute(
+                        "UPDATE deletion_audit.events SET imported=1,dirty=0,project='',"
+                        "project_id=NULL,run_id='' WHERE event_key=?",
+                        (key,),
+                    )
+                else:
+                    connection.execute(
+                        "UPDATE deletion_audit.events SET imported=1,dirty=0 WHERE event_key=?",
+                        (key,),
+                    )
+            connection.commit()
+        except (sqlite3.Error, DeletionAuditError, ValueError, OSError) as exc:
+            connection.rollback()
+            raise WebStoreError("deletion audit unavailable or corrupt") from exc
 
     def audit_page(
         self,
@@ -1852,35 +1940,153 @@ class WebStore:
                 args.append(value)
         if project_reader:
             # Match the configuration read boundary: financial values remain Admin-only.
-            where.append("(json_extract(evidence,'$.resource_type') != 'config' OR "
-                         "json_extract(evidence,'$.resource_id') != 'budgets.max_cost_usd')")
-            where.append("json_extract(evidence,'$.resource_type') "
-                         "IN ('config','project','operation')")
-            where.append("action IN ('config-updated','config-staged','config-applied',"
-                         "'config-discarded','project-created','project-imported','project-cloned',"
-                         "'settings-imported','project-display-name-changed','project-archived',"
-                         "'project-restored','readiness-checked','operation-submitted',"
-                         "'operation-finished','project-deleted')")
+            where.append(
+                "(json_extract(evidence,'$.resource_type') != 'config' OR "
+                "json_extract(evidence,'$.resource_id') != 'budgets.max_cost_usd')"
+            )
+            where.append(
+                "json_extract(evidence,'$.resource_type') IN ('config','project','operation')"
+            )
+            where.append(
+                "action IN ('config-updated','config-staged','config-applied',"
+                "'config-discarded','project-created','project-imported','project-cloned',"
+                "'settings-imported','project-display-name-changed','project-archived',"
+                "'project-restored','readiness-checked','operation-submitted',"
+                "'operation-finished','project-deleted','job-deleted',"
+                "'ticket-start-prepared','ticket-stopped')"
+            )
         selection = " WHERE " + " AND ".join(where) if where else ""
         try:
             with self._connect() as connection:
+                self._import_deletion_audit(connection)
                 connection.execute("BEGIN IMMEDIATE")
                 self._prune_audit(connection)
                 total = connection.execute(
                     "SELECT COUNT(*) FROM audit" + selection, args
                 ).fetchone()[0]
                 rows = connection.execute(
-                    "SELECT * FROM audit" + selection + " ORDER BY id DESC LIMIT ? OFFSET ?",
+                    "SELECT * FROM audit"
+                    + selection
+                    + " ORDER BY julianday(created_at) DESC, id DESC LIMIT ? OFFSET ?",
                     [*args, limit if limit is not None else -1, offset],
                 ).fetchall()
                 projected = [self._audit_projection(row) for row in rows]
+                for item in projected:
+                    if item["action"] == "job-deleted":
+                        if item["actor_id"] is not None or item["actor"] is not None:
+                            raise WebStoreError("deletion audit actor is corrupt")
+                        item["resource_type"] = "job"
+                    if item["action"] in ("ticket-start-prepared", "ticket-stopped"):
+                        item["resource_type"] = "ticket"
+                        if (
+                            item["action"] == "ticket-start-prepared"
+                            and item["result"] == "applied"
+                        ):
+                            item["phase"], item["result"] = "prepare", "prepared"
+                    if item["action"] in ("operation-submitted", "operation-finished"):
+                        operation = connection.execute(
+                            "SELECT action,run_id,status,result,reason,project_id,actor_id "
+                            "FROM operations WHERE id=?",
+                            (item["operation_id"],),
+                        ).fetchone()
+                        if (
+                            operation is None
+                            or operation["action"]
+                            not in (
+                                "start",
+                                "retry",
+                                "cancel",
+                                "restart",
+                                "pause",
+                                "resume",
+                                "delete",
+                            )
+                            or operation["status"]
+                            not in ("pending", "running", "succeeded", "failed", "uncertain")
+                            or not isinstance(operation["run_id"], str)
+                            or len(operation["run_id"]) > 225
+                            or not isinstance(operation["result"], str)
+                            or len(operation["result"]) > 1000
+                            or not isinstance(operation["reason"], str)
+                            or len(operation["reason"]) > 64
+                            or operation["project_id"] != item["project_id"]
+                            or operation["actor_id"] != item["actor_id"]
+                            or item["action"] == "operation-finished"
+                            and {
+                                "succeeded": "applied",
+                                "failed": "rejected",
+                                "uncertain": "uncertain",
+                            }.get(operation["status"])
+                            != item["result"]
+                        ):
+                            raise WebStoreError("operation audit identity is corrupt")
+                        target = operation["run_id"]
+                        if (
+                            operation["action"] == "start"
+                            and target.isascii()
+                            and target.isdecimal()
+                            and int(target) > 0
+                        ):
+                            item["resource_type"], item["resource_id"] = "ticket", target
+                        elif operation["action"] == "start":
+                            raise WebStoreError("operation audit identity is corrupt")
+                        elif operation["action"] in ("retry", "cancel", "restart"):
+                            if operation["action"] == "restart" and not re.fullmatch(
+                                r"[A-Za-z0-9._-]{1,160}\.[a-f0-9]{64}", target
+                            ):
+                                raise WebStoreError("operation audit identity is corrupt")
+                            target = (
+                                target.rsplit(".", 1)[0]
+                                if operation["action"] == "restart"
+                                else target
+                            )
+                            if not re.fullmatch(r"[A-Za-z0-9._-]{1,160}", target):
+                                raise WebStoreError("operation audit identity is corrupt")
+                            item["resource_type"], item["resource_id"] = "job", target
+                        if (
+                            item["action"] == "operation-finished"
+                            and item["result"] == "rejected"
+                            and (
+                                operation["reason"]
+                                in (
+                                    "retry_failed",
+                                    "engine_fault",
+                                    "state_unavailable",
+                                    "engine_setup_failed",
+                                    "repository_unavailable",
+                                    "executable_missing",
+                                    "permission_denied",
+                                    "invalid_result",
+                                )
+                                or operation["result"].startswith(
+                                    (
+                                        "retry:failed:",
+                                        "start:engine_fault",
+                                        "start:state_unavailable",
+                                        "start:engine_setup_failed",
+                                        "start:repository_unavailable",
+                                        "start:workflow_unavailable",
+                                        "start:invalid_result",
+                                        "restart:failed",
+                                    )
+                                )
+                            )
+                        ):
+                            item["result"] = "failed"
         except sqlite3.DatabaseError as exc:
             raise WebStoreError("audit row is corrupt") from exc
         return projected, total
 
-    def add_price(self, project: str, executor: str, model: str,
-                  effective_from: str, input_rate: str, output_rate: str,
-                  actor_id: int) -> dict[str, Any]:
+    def add_price(
+        self,
+        project: str,
+        executor: str,
+        model: str,
+        effective_from: str,
+        input_rate: str,
+        output_rate: str,
+        actor_id: int,
+    ) -> dict[str, Any]:
         """@brief Add one immutable project/executor/model price version."""
         _price_identity(project, executor, model, effective_from)
         _price_value(input_rate)
@@ -1894,8 +2100,17 @@ class WebStore:
                     "INSERT INTO prices(project,project_id,executor,model,effective_from,"
                     "input_usd_per_million,output_usd_per_million,actor_id,created_at) "
                     "VALUES (?,?,?,?,?,?,?,?,?)",
-                    (project, identity[0], executor, model, effective_from,
-                     input_rate, output_rate, actor_id, _now()),
+                    (
+                        project,
+                        identity[0],
+                        executor,
+                        model,
+                        effective_from,
+                        input_rate,
+                        output_rate,
+                        actor_id,
+                        _now(),
+                    ),
                 )
                 row = connection.execute(
                     "SELECT * FROM prices WHERE id=?", (cursor.lastrowid,)

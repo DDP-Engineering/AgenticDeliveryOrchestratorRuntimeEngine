@@ -43,6 +43,8 @@ Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actua
 
 Sous **Administration**, ouvrez [Historique des changements](/admin/audit) pour voir qui a changé quoi, quand, et avec quel résultat. L’onglet **Historique** d’un projet montre les mêmes preuves pour ce projet seul, avec ses tâches terminées. Utilisez **Actualiser** pour recharger.
 
+L’historique distingue les tickets et les tâches des numéros d’opération. Une opération échouée affiche **Échec**, une opération refusée **Refusé**. Les suppressions par CLI indiquent CLI comme auteur et restent visibles après suppression de la tâche. Une suppression interrompue reste **Incertain** jusqu’à confirmation.
+
 Filtres :
 
 - **ID de l’auteur** : le numéro affiché à côté du nom d’un compte.

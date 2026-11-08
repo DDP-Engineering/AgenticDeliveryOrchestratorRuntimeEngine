@@ -33,7 +33,12 @@ import time
 from adore.config import load_config, validate_config
 from adore.polling import PollCadence
 from adore.profiles import ProfileError, ProfileStore
-from adore.start_result import StartResultError, read_retry_result, read_start_result
+from adore.start_result import (
+    StartResultError,
+    read_restart_result,
+    read_retry_result,
+    read_start_result,
+)
 from adore.state import StateError, StateStore
 from adore.util import (
     CommandResult,
@@ -41,7 +46,6 @@ from adore.util import (
     background_process_options,
     in_quiet_hours,
     output_tail,
-    strict_json_loads,
 )
 from adore.web.jobs import redact_text
 from adore.web.store import WebStore, WebStoreError
@@ -172,7 +176,8 @@ class CommandWorker:
                 run_id, revision = match.groups()
                 state = StateStore(profile.store_root or self.profiles.default_store_root(project))
                 raw = (state.run_dir(run_id) / "state.json").read_bytes()
-                if (state.load(run_id).lifecycle != "failed"
+                previous = state.load(run_id)
+                if (previous.lifecycle != "failed"
                         or sha256(raw).hexdigest() != revision):
                     raise StateError("confirmed job changed")
             except (StateError, OSError):
@@ -206,6 +211,7 @@ class CommandWorker:
             "outcome uncertain" if code == 124 else "engine rejected operation"
         )
         evidence = outcome.stdout if isinstance(outcome, CommandResult) else output
+        retry_reason = ""
         if (action == "start" and isinstance(outcome, (CommandResult, CommandOutcome))
                 and code != 124):
             try:
@@ -223,6 +229,7 @@ class CommandWorker:
                 reason = "invalid_result"
                 if code == 0:
                     status = "uncertain"
+            retry_reason = reason
             result = "completed" if reason == "retried" else "retry:" + reason
             if reason == "retry_failed":
                 try:
@@ -234,17 +241,24 @@ class CommandWorker:
                     result = "retry:failed:" + failed.outcome[:2200]
                 except (FileNotFoundError, StateError, OSError):
                     result = "retry:state_unavailable"
-        if action == "restart" and code != 0:
-            result = "restart:failed"
-        elif action == "restart" and output.strip():
+        if action == "restart" and code != 124:
             try:
-                summary = strict_json_loads(output.strip().splitlines()[-1])
-                if isinstance(summary, dict) and summary.get("unproven_branch_retained") is True:
-                    result = "restart:retained"
-            except (ValueError, TypeError):
-                pass  # Optional warning evidence never grants engine success or deletion authority.
+                restart_reason, retained = read_restart_result(
+                    evidence, run_id=run_id, revision=revision, exit_code=code,
+                    ticket=previous.ticket_iid,
+                )
+                if restart_reason == "restarted":
+                    result = "restart:retained" if retained else "completed"
+                elif restart_reason in ("cleanup_refused", "lock_held", "run_unavailable",
+                                         "force_required"):
+                    result = "restart:rejected"
+                else:
+                    result = "restart:failed"
+            except StartResultError:
+                status, result = "uncertain", "restart:invalid_result"
         detail = output_tail(output, redact_text) if code != 0 else ""
-        reason = _refusal_reason(output, target) if status == "failed" and action == "start" else ""
+        reason = (_refusal_reason(output, target) if status == "failed" and action == "start"
+                  else retry_reason if action == "retry" else "")
         self.web.finish(operation["id"], status, result, reason=reason, detail=detail)
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)

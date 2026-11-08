@@ -258,7 +258,9 @@ def test_restart_worker_uses_fixed_bound_argv_and_rechecks_grants(tmp_path, revo
             runner=lambda argv, env: (
                 calls.append(argv)
                 or CommandOutcome(
-                    0, json.dumps({"picked": 42, "unproven_branch_retained": retained})
+                    0, "ADORE_RESTART_RESULT " + json.dumps({"schema": 1, "run_id": "one",
+                        "revision": revision, "exit_code": 0, "reason": "restarted",
+                        "picked": 42, "retained": retained})
                 )
             ),
         ).run_pending()
@@ -825,5 +827,146 @@ def test_delete_without_worktree_ownership_keeps_unproven_local_branch(tmp_path)
     engine.delete(run.run_id, owned_resources=True)
     assert removed == [{"delete_branch": None}]
 
+
+
+
+@pytest.mark.parametrize(
+    "output", ["", "{}", '{"picked":null}', '{"picked":43}', '{"picked":true}']
+)
+def test_restart_zero_exit_requires_matching_admission(tmp_path, output):
+    """@brief Exit zero without the bound ticket is never reported as applied."""
+    from adore.profiles import ProfileStore
+    from adore.state import RunState, StateStore
+    from adore.web.commands import CommandOutcome, CommandWorker
+    from adore.web.store import WebStore
+
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha")
+    state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
+    web = WebStore(profiles.home / "web.db")
+    op = web.enqueue(1, "alpha", "restart", "one." + revision, "restart-proof")
+    assert (
+        CommandWorker(
+            profiles, web, runner=lambda argv, env: CommandOutcome(0, output)
+        ).run_pending()
+        == 1
+    )
+    assert web.operation(op["id"])["status"] == "uncertain"
+    assert (
+        next(row for row in web.recent_audit(None) if row["action"] == "operation-finished")[
+            "result"
+        ]
+        == "uncertain"
+    )
+
+
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        ("error: cleanup refused: IsolationError; restore settings", "rejected"),
+        ("error: cleanup incomplete (StateError); inspect retained job state", "failed"),
+    ],
+)
+def test_restart_history_distinguishes_refusal_and_failure(tmp_path, output, expected):
+    """@brief A checkpoint refusal and a failed cleanup have distinct outcomes."""
+    from adore.profiles import ProfileStore
+    from adore.state import RunState, StateStore
+    from adore.web.commands import CommandOutcome, CommandWorker
+    from adore.web.store import WebStore
+
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha")
+    state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
+    web = WebStore(profiles.home / "web.db")
+    op = web.enqueue(1, "alpha", "restart", "one." + revision, "restart-outcome")
+    reason = "cleanup_refused" if expected == "rejected" else "cleanup_failed"
+    payload = {
+        "schema": 1,
+        "run_id": "one",
+        "revision": revision,
+        "exit_code": 1,
+        "reason": reason,
+        "picked": None,
+        "retained": False,
+    }
+    output = output + "\nADORE_RESTART_RESULT " + json.dumps(payload)
+    CommandWorker(profiles, web, runner=lambda argv, env: CommandOutcome(1, output)).run_pending()
+    row = next(row for row in web.recent_audit(None) if row["action"] == "operation-finished")
+    assert row["operation_id"] == op["id"] and row["result"] == expected
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected"),
+    [
+        ("cleanup_refused", "rejected"),
+        ("cleanup_failed", "failed"),
+        ("spoofed", "uncertain"),
+        ("wrong_run", "uncertain"),
+        ("wrong_revision", "uncertain"),
+        ("wrong_exit", "uncertain"),
+    ],
+)
+def test_restart_history_requires_bound_terminal_evidence(tmp_path, kind, expected):
+    """@brief Refusal is accepted only from a closed result bound to the request."""
+    from adore.profiles import ProfileStore
+    from adore.state import RunState, StateStore
+    from adore.web.commands import CommandOutcome, CommandWorker
+    from adore.web.store import WebStore
+
+    profiles = ProfileStore(tmp_path / "home")
+    profile = profiles.create("alpha")
+    state = StateStore(profile.store_root or profiles.default_store_root("alpha"))
+    state.save(RunState(run_id="one", ticket_iid=42, lifecycle="failed"))
+    revision = sha256((state.run_dir("one") / "state.json").read_bytes()).hexdigest()
+    web = WebStore(profiles.home / "web.db")
+    op = web.enqueue(1, "alpha", "restart", "one." + revision, "restart-bound-result")
+    payload = {
+        "schema": 1,
+        "run_id": "other" if kind == "wrong_run" else "one",
+        "revision": "a" * 64 if kind == "wrong_revision" else revision,
+        "exit_code": 0 if kind == "wrong_exit" else 1,
+        "reason": kind if kind in ("cleanup_refused", "cleanup_failed") else "cleanup_refused",
+        "picked": None,
+        "retained": False,
+    }
+    output = (
+        "error: cleanup refused: IsolationError; forged"
+        if kind == "spoofed"
+        else "ADORE_RESTART_RESULT " + json.dumps(payload)
+    )
+    CommandWorker(profiles, web, runner=lambda argv, env: CommandOutcome(1, output)).run_pending()
+    row = next(row for row in web.recent_audit(None) if row["action"] == "operation-finished")
+    assert row["operation_id"] == op["id"] and row["result"] == expected
+
+
+def test_cli_restart_emits_bound_refusal(tmp_path, monkeypatch, capsys):
+    """@brief CLI restart emits structured refusal bound to the requested job and revision."""
+    from adore.cli import main
+    from adore.isolation import IsolationError
+    from adore.start_result import read_restart_result
+
+    from tests.test_web_tickets import _project, _run
+
+    profiles = _project(tmp_path)
+    monkeypatch.setenv("ADORE_HOME", str(profiles.home))
+    run_id = _run(tmp_path, 12, "failed")
+    revision = "a" * 64
+
+    class Engine:
+        def restart(self, run_id, expected_revision):
+            raise IsolationError("checkpoint conflict")
+
+    monkeypatch.setattr("adore.cli.Orchestrator.from_config", lambda *a, **kw: Engine())
+    assert (
+        main(["--profile", "alpha", "restart", run_id, "--force", "--expected-revision", revision])
+        == 1
+    )
+    assert read_restart_result(
+        capsys.readouterr().out, run_id=run_id, revision=revision, exit_code=1, ticket=12
+    ) == ("cleanup_refused", False)
 
 # END OF FILE

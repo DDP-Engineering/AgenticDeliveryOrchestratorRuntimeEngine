@@ -919,4 +919,24 @@ def test_custom_epic_label_refuses_start_without_forge_write(tmp_path: Path) -> 
         assert response.status_code == 409
     assert not any(call[2] == "update" for call in forge.calls)
 
+
+
+
+def test_history_distinguishes_ticket_from_queued_operation(tmp_path: Path) -> None:
+    """@brief Start preparation identifies the ticket and does not assert job success."""
+    profiles = _project(tmp_path)
+    with TestClient(
+        create_app(profiles.home, probe_runner=Forge([_issue(12, "agent-ready", "P2")]))
+    ) as client:
+        response = _start(client, _admin(client), 12)
+        assert response.status_code == 200
+        rows = client.get("/api/v1/audit-page?limit=all").json()["items"]
+        row = next(item for item in rows if item["action"] == "ticket-start-prepared")
+        assert (row["resource_type"], row["resource_id"], row["result"]) == (
+            "ticket",
+            "12",
+            "prepared",
+        )
+        assert row["operation_id"] == response.json()["operation_id"]
+
 # END OF FILE

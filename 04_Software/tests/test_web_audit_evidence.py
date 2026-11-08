@@ -637,4 +637,43 @@ def test_enrollment_rollback_retains_uncertain_attempt(tmp_path, monkeypatch):
         assert "private audit" not in json.dumps(event)
 
 
+
+
+def test_history_reflects_retry_failure_and_refusal(tmp_path):
+    """@brief An accepted failed retry differs from a refused retry in History."""
+    profiles = ProfileStore(tmp_path)
+    profiles.create("alpha")
+    web = WebStore(tmp_path / "web.db")
+    for key, result in (("a", "retry:not_failed"), ("b", "retry:failed:exhausted")):
+        op = web.enqueue(1, "alpha", "retry", "job-9", key)
+        web.claim_next()
+        web.finish(op["id"], "failed", result)
+    rows = [row for row in web.recent_audit(None) if row["action"] == "operation-finished"]
+    assert [row["result"] for row in rows] == ["failed", "rejected"]
+    assert all(row["resource_type"] == "job" and row["resource_id"] == "job-9" for row in rows)
+
+
+def test_history_rejects_cross_project_operation_binding(tmp_path):
+    """@brief Corrupt operation ownership must not disclose another project's target."""
+    profiles = ProfileStore(tmp_path)
+    alpha, beta = profiles.create("alpha"), profiles.create("beta")
+    web = WebStore(tmp_path / "web.db")
+    op = web.enqueue(1, "alpha", "retry", "job-secret", "binding")
+    with sqlite3.connect(web.path) as db:
+        db.execute("UPDATE operations SET project_id=? WHERE id=?", (beta.project_id, op["id"]))
+    with pytest.raises(WebStoreError):
+        web.audit_page(None, 0, project_id=alpha.project_id, project_reader=True)
+
+
+def test_history_rejects_corrupt_operation_target_type(tmp_path):
+    """@brief A malformed persisted operation raises a typed store error."""
+    profiles = ProfileStore(tmp_path)
+    profiles.create("alpha")
+    web = WebStore(tmp_path / "web.db")
+    op = web.enqueue(1, "alpha", "start", "42", "bad-target")
+    with sqlite3.connect(web.path) as db:
+        db.execute("UPDATE operations SET run_id=? WHERE id=?", (sqlite3.Binary(b"bad"), op["id"]))
+    with pytest.raises(WebStoreError):
+        web.recent_audit(None)
+
 # END OF FILE

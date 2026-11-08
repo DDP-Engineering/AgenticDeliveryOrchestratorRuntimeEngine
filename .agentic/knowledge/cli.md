@@ -119,3 +119,8 @@ Native Pi lifecycle: `adore pi install` and `adore pi verify` work without a pro
 ## Confirmed destructive recovery
 
 The CLI adds delete --owned-resources for failed/cancelled jobs and restart --force --expected-revision for one confirmed failed incarnation. Both hold the conductor lock; cleanup errors are clean/nonzero and preserve remaining evidence. Native cleanup-only construction does not resolve current tools. Live-lock guidance names the web worker, Project Summary pause and waiting for the bounded job, plus stopping a standalone CLI loop. Proof: tests/test_drift_recovery.py and mutation tests in test_smoke.py.
+
+
+CLI delete records an uncertain local receipt outside the job before cleanup and confirms only afterward. It refuses corrupt/unavailable audit storage and reports post-delete confirmation failure as uncertain. A standalone CLI deletion never bootstraps web authentication.
+
+Restart emits a closed terminal result bound to the job, confirmed revision, process exit and selected ticket. The worker refuses missing or mismatched evidence; untrusted text cannot establish a refusal.

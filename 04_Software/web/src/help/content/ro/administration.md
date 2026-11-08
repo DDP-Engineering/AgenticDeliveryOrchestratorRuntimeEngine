@@ -43,6 +43,8 @@ Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actuali
 
 Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Folosiți **Actualizează** pentru a reîncărca.
 
+Istoricul identifică tichetele și lucrările separat de numerele operațiilor. O operație eșuată apare ca **Eșuat**, iar una refuzată ca **Respins**. Ștergerile din CLI au autorul CLI și rămân vizibile după eliminarea lucrării. O ștergere întreruptă rămâne **Incert** până la confirmarea rezultatului.
+
 Filtre:
 
 - **ID autor**: numărul afișat lângă numele unui cont.

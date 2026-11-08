@@ -117,4 +117,68 @@ def read_retry_result(stdout: str, *, run_id: str, exit_code: int) -> str:
     except (ValueError, IndexError, TypeError, KeyError) as exc:
         raise StartResultError("invalid Retry result") from exc
 
+RESTART_PREFIX = "ADORE_RESTART_RESULT "
+RESTART_REASONS = frozenset({
+    "restarted", "not_started", "cleanup_refused", "cleanup_failed", "engine_fault",
+    "engine_setup_failed", "configuration_invalid", "lock_held", "run_unavailable",
+    "force_required", "repository_unavailable",
+})
+
+
+def emit_restart_result(run_id: str, revision: str, exit_code: int, reason: str,
+                        picked: int | None = None, retained: bool = False) -> None:
+    """@brief Emit one terminal restart outcome bound to job, revision and exit."""
+    if reason not in RESTART_REASONS:
+        reason = "engine_fault"
+    print(
+        RESTART_PREFIX
+        + json.dumps(
+            {
+                "schema": 1,
+                "run_id": run_id,
+                "revision": revision,
+                "exit_code": exit_code,
+                "reason": reason,
+                "picked": picked,
+                "retained": retained,
+            }
+        )
+    )
+
+
+def read_restart_result(
+    stdout: str, *, run_id: str, revision: str, exit_code: int, ticket: int
+) -> tuple[str, bool]:
+    """@brief Validate the final closed restart result against the queued request.
+    @exception StartResultError Missing, ambiguous or mismatched evidence.
+    """
+    try:
+        line = stdout[-4096:].rstrip().splitlines()[-1]
+        if len(line) > 2048 or not line.startswith(RESTART_PREFIX):
+            raise ValueError
+        value = strict_json_loads(line[len(RESTART_PREFIX) :])
+        if (
+            not isinstance(value, dict)
+            or set(value)
+            != {"schema", "run_id", "revision", "exit_code", "reason", "picked", "retained"}
+            or type(value["schema"]) is not int
+            or value["schema"] != 1
+            or value["run_id"] != run_id
+            or value["revision"] != revision
+            or type(value["exit_code"]) is not int
+            or value["exit_code"] != exit_code
+            or not isinstance(value["reason"], str)
+            or value["reason"] not in RESTART_REASONS
+            or type(value["retained"]) is not bool
+            or (value["reason"] == "restarted") != (exit_code == 0)
+            or (exit_code == 0 and (type(value["picked"]) is not int or value["picked"] != ticket))
+        ):
+            raise ValueError
+        if exit_code != 0 and (value["picked"] is not None or value["retained"]):
+            raise ValueError
+        return value["reason"], value["retained"]
+    except (ValueError, IndexError, TypeError, KeyError) as exc:
+        raise StartResultError("invalid restart result") from exc
+
+
 # END OF FILE

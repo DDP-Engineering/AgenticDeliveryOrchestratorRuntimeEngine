@@ -171,3 +171,38 @@ test("localized change evidence remains usable at 390px in both themes", async (
     expect(restored.ok()).toBeTruthy();
   }
 });
+
+
+test("typed History targets and outcomes appear in four locales", async ({ page }) => {
+  const me = await (await page.request.get("/api/v1/me")).json();
+  const original = await (await page.request.get("/api/v1/me/preferences")).json();
+  await page.route("**/api/v1/audit-page?*", async route => {
+    const make = (id: number, action: string, type: string, target: string, result: string, phase: string) => ({
+      id, actor_id: action === "job-deleted" ? null : 1, actor: action === "job-deleted" ? null : "admin",
+      action, project: "alpha", project_id: "a".repeat(32), resource_type: type, resource_id: target,
+      created_at: "2026-11-08T10:00:00+00:00", phase, result, before: null, after: null,
+      operation_id: action === "job-deleted" ? null : id, base_revision: null, candidate_revision: null, correlation: null,
+    });
+    await route.fulfill({ json: { items: [make(1, "ticket-start-prepared", "ticket", "46", "prepared", "prepare"),
+      make(2, "operation-finished", "job", "job-46", "rejected", "apply"),
+      make(3, "operation-finished", "job", "job-47", "failed", "apply"),
+      make(4, "job-deleted", "job", "job-48", "applied", "apply")], total: 4, offset: 0, limit: 10 } });
+  });
+  try {
+    for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
+      expect((await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale } })).ok()).toBeTruthy();
+      await page.goto("/admin/audit");
+      const rows = page.locator(".audit-evidence tbody tr");
+      await expect(rows).toHaveCount(4);
+      await expect(rows.nth(0)).toContainText(`${auditCopy[locale].ticket} 46`);
+      await expect(rows.nth(0)).toContainText(auditCopy[locale].prepared);
+      await expect(rows.nth(1)).toContainText(auditCopy[locale].rejected);
+      await expect(rows.nth(2)).toContainText(auditCopy[locale].failed);
+      await expect(rows.nth(3)).toContainText(auditCopy[locale].cli);
+      await expect(rows.nth(3)).toContainText(`${auditCopy[locale].job} job-48`);
+      await expect(rows.nth(3)).toContainText(auditCopy[locale].applied);
+    }
+  } finally {
+    await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: original.language ?? "en" } });
+  }
+});
