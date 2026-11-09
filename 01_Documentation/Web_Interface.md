@@ -7,6 +7,73 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE web interface
 
+The optional ADORE web interface lets operators enroll projects, start and
+follow jobs, and review their results using the same profiles and run state as
+the CLI. ADORE conducts the repository's AEGIS workflow; PR/MR creation
+requires human approval, and a person decides whether to merge.
+
+## Quick start
+
+1. **Install from source.** From the repository root, use Python 3.11 or newer
+   and `uv` to install the web dependencies:
+
+   ```text
+   cd 04_Software
+   uv sync --extra web --group dev
+   ```
+
+   A checkout includes the committed frontend bundle, so a source launch does
+   not require Node.js or a frontend build. After changing frontend build inputs,
+   rebuild it as described in [Committed web bundle](#committed-web-bundle).
+2. **Start the API and worker.** In two terminals, each in `04_Software`, use
+   the same absolute ADORE home path for both commands (replace the placeholder):
+
+   ```text
+   uv run --extra web adore-web --home <ADORE_HOME>
+   uv run --extra web adore-web-worker --home <ADORE_HOME>
+   ```
+
+   Keep both processes running. Use one web worker per ADORE home and no
+   separate `adore run --loop` scheduler for these projects. Open
+   `http://127.0.0.1:8765`, the default loopback address. For remote access, see
+   the HTTPS guidance below.
+3. **Sign in.** Only a newly created identity database gets the initial
+   `admin` / `admin` account; its creation is announced in the server console.
+   Sign in and change the password immediately using the persistent reminder's
+   link to **My account → Change password**. Enter the current password and the
+   new password twice; the new password must have at least eight characters.
+   Sign in again with the new password. Existing databases keep their accounts.
+4. **Enroll a project.** Prepare a repository with AEGIS installed, its target
+   branch, Git clone credentials for the ADORE server account, and forge access
+   to read and update issues and create reviews. Git push credentials are
+   separate from forge sign-in. An administrator selects **Projects → Enroll new
+   project**, enters its URL and chooses **Read repository**. Confirm the
+   detected identity, target branch and clone path; choose the Pi provider,
+   model and execution location, then review labels, reviewers and limits.
+   **Validate setup** checks the structure; **Check environment** is a separate
+   explicit check. Review the candidate and choose **Create project with pickup
+   stopped**. The wizard can create missing ADORE labels. See
+   [Project and model setup](#project-and-model-setup) for details.
+5. **Check the saved project.** Open it and supply repository access and model
+   credentials as needed. In **Summary**, run **Check host prerequisites** and
+   resolve failures or incomplete evidence. Separately, in **Settings → Agent
+   and model**, use **Test AI connection** to verify model access; this starts Pi
+   and may incur provider charges. A container project needs its configured
+   image prepared on the server. See [Explicit AI connection test](#explicit-ai-connection-test).
+6. **Start and follow a first job.** Leave **Monitoring** paused to avoid
+   automatic pickup. In the project's **Jobs → Tickets**, choose **Read
+   tickets**, then **Start** on an eligible open ticket. If its ready or priority
+   label is missing, confirm and select a priority when prompted; **Add labels
+   and start** applies the labels. Hold, exclude, epic, required acceptance
+   criteria, capacity and other eligibility rules still apply. Manual Start
+   leaves monitoring paused. Follow the operation result and the job under
+   **Jobs**, or open **Details** from Overview. Review any requested human
+   approval and the resulting draft or ready PR/MR according to project
+   settings; a completed command alone does not establish a successful job or
+   merge. See [Manual Start and monitoring](#manual-start-and-monitoring).
+
+## Interface and project settings details
+
 Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One worker handles projects and operations in turn; authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
@@ -164,19 +231,9 @@ The server preview uses the effective agent slug, ticket number `1` and run iden
 
 ## Start from source
 
-On a development machine, install the optional web dependencies and build the
-frontend before starting the two processes:
-
-```text
-cd 04_Software
-uv sync --extra web --group dev
-cd web
-npm ci
-npm run build
-cd ..
-uv run --extra web adore-web --home <ADORE_HOME>
-uv run --extra web adore-web-worker --home <ADORE_HOME>
-```
+To rebuild the frontend after changing its build inputs, install Node.js and npm,
+then run `npm ci` and `npm run build` from `04_Software/web`. Source launches
+otherwise use the committed bundle; see [Committed web bundle](#committed-web-bundle).
 
 ### Development verification
 
@@ -395,11 +452,10 @@ A changed page revision hides previous results and offers **Reload first page**.
 
 To start an existing ticket, use **Start** in the Tickets sub-tab, for one
 project or for All projects. The worker applies existing readiness, ready/hold/exclude and
-approval gates; archived projects retain history with start hidden. Start is
-unavailable while the project's monitoring is paused; an administrator activates
-it in the project Summary. A confirmation opens under its ticket. When the worker
-cannot start a queued ticket, the result says why in the user's language
-(monitoring paused, all execution slots busy, AEGIS check failed, ticket no longer
+approval gates; archived projects retain history with start hidden. Manual Start
+is available while monitoring is paused and leaves it paused. A confirmation opens under its ticket. When the worker cannot start a queued ticket,
+the result says why in the user's language
+(for example, all execution slots busy, AEGIS check failed, ticket no longer
 eligible, another ADORE process busy) and shows the engine's last lines; labels
 Start added stay on the ticket until normal pickup takes it or Stop removes them.
 Retry and Cancel explain their effects and appear only for supported current
