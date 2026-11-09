@@ -20,22 +20,162 @@ test.beforeEach(async ({ context, page }) => {
 });
 
 async function identity(page: Page, username: string) {
-  const creation = page.getByRole("region", { name: "Add user", exact: true });
+  const creation = page.getByRole("dialog", { name: "Add user", exact: true });
+  if (!(await creation.isVisible())) await page.getByRole("button", { name: "Add user", exact: true }).click();
   await creation.getByLabel("Username", { exact: true }).fill(username);
   await creation.getByLabel("Password", { exact: true }).fill("review-secret-password");
+  await creation.getByLabel("Repeat new password", { exact: true }).fill("review-secret-password");
   await creation.getByRole("button", { name: "Continue to access", exact: true }).click();
   return creation;
 }
 
+test("Users opens a single fresh dialog for Add user and Reset password", async ({ page }) => {
+  const add = page.getByRole("button", { name: "Add user", exact: true });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await add.click();
+  const creation = page.getByRole("dialog", { name: "Add user", exact: true });
+  await creation.getByLabel("Password", { exact: true }).fill("draft-password");
+  await creation.getByLabel("Repeat new password", { exact: true }).fill("draft-password");
+  await creation.getByRole("button", { name: "Show new password", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(creation).toHaveCount(0);
+  await expect(add).toBeFocused();
+  await add.click();
+  await expect(creation.getByLabel("Password", { exact: true })).toHaveValue("");
+  await expect(creation.getByLabel("Password", { exact: true })).toHaveAttribute("type", "password");
+  await expect(creation.getByLabel("Repeat new password", { exact: true })).toHaveValue("");
+  await creation.getByRole("button", { name: "Close", exact: true }).click();
+  const reset = page.locator(".user-row").filter({ has: page.getByText("admin", { exact: true }) })
+    .getByRole("button", { name: "Reset password", exact: true });
+  await reset.click();
+  const dialog = page.getByRole("dialog", { name: "Reset password for admin" });
+  const password = dialog.getByLabel("New password", { exact: true });
+  const repeat = dialog.getByLabel("Repeat new password", { exact: true });
+  await password.fill("temporary-reset-draft");
+  await repeat.fill("temporary-reset-draft");
+  await dialog.getByRole("button", { name: "Show repeated password", exact: true }).click();
+  await expect(repeat).toHaveAttribute("type", "text");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(reset).toBeFocused();
+  await reset.click();
+  for (const field of [password, repeat]) {
+    await expect(field).toHaveValue("");
+    await expect(field).toHaveAttribute("type", "password");
+  }
+});
+
+test("Reset password rejects mismatch and verifies one reset for the selected account", async ({ page }) => {
+  const me = await (await page.request.get("/api/v1/me")).json();
+  const created = await page.request.post("/api/v1/users/with-access", {
+    headers: { "X-CSRF-Token": me.csrf },
+    data: { username: "ux_reset_target", password: "original-test-password", role: "developer", project_ids: [], allow_no_projects: true },
+  });
+  expect(created.ok()).toBeTruthy();
+  const target = await created.json();
+  await page.reload();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator(".user-row").filter({ has: page.getByText("ux_reset_target", { exact: true }) })
+    .getByRole("button", { name: "Reset password", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Reset password for ux_reset_target" });
+  const password = dialog.getByLabel("New password", { exact: true });
+  const repeat = dialog.getByLabel("Repeat new password", { exact: true });
+  const save = dialog.getByRole("button", { name: "Save", exact: true });
+  await expect(dialog).toContainText("At least 8 characters.");
+  await expect(dialog).toContainText("existing sessions");
+  await expect(password).toHaveAttribute("type", "password");
+  await expect(repeat).toHaveAttribute("type", "password");
+  const replacement = "🔐".repeat(513);
+  await password.fill(replacement);
+  await repeat.fill("mismatch-test-password");
+  await dialog.getByRole("button", { name: "Show new password", exact: true }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(repeat).toHaveAttribute("type", "password");
+  const requests: unknown[] = [];
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/v1/users/*/reset-password", async route => {
+    requests.push({ path: new URL(route.request().url()).pathname, body: route.request().postDataJSON() });
+    if (requests.length === 1) return route.fulfill({ json: { ok: false } });
+    await held;
+    return route.continue();
+  });
+  await save.click();
+  await expect(dialog.getByRole("alert")).toHaveText("Passwords do not match.");
+  expect(requests).toHaveLength(0);
+  await repeat.fill(replacement);
+  await save.click();
+  await expect(dialog.getByRole("alert")).toContainText("unexpected response");
+  await expect(dialog).toBeVisible();
+  await save.click();
+  try {
+    await expect(save).toBeDisabled();
+    await expect(password).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+  } finally {
+    release();
+  }
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Password reset" })).toBeVisible();
+  expect(requests).toEqual(Array(2).fill({
+    path: `/api/v1/users/${target.id}/reset-password`, body: { replacement },
+  }));
+});
+
 test("credential inputs retain required markers and reject a seven character password", async ({ page }) => {
-  const creation = page.getByRole("region", { name: "Add user", exact: true });
-  await expect(creation.locator(".required-mark")).toHaveCount(3);
+  await page.getByRole("button", { name: "Add user", exact: true }).click();
+  const creation = page.getByRole("dialog", { name: "Add user", exact: true });
+  await expect(creation.locator(".required-mark")).toHaveCount(4);
   await expect(creation).toContainText("Required field");
   await creation.getByLabel("Username", { exact: true }).fill("ux_short");
   await creation.getByLabel("Password", { exact: true }).fill("1234567");
+  await creation.getByLabel("Repeat new password", { exact: true }).fill("1234567");
   await creation.getByRole("button", { name: "Continue to access", exact: true }).click();
   await expect(creation.getByRole("heading", { name: "Identity and credentials", exact: true })).toBeVisible();
   await expect(creation.getByRole("combobox", { name: "Role", exact: true })).toHaveCount(0);
+});
+
+test("Add user password confirmation blocks mismatch and eye controls stay independent", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Add user", exact: true }).click();
+  const creation = page.getByRole("dialog", { name: "Add user", exact: true });
+  const password = creation.getByLabel("Password", { exact: true });
+  const confirmation = creation.getByLabel("Repeat new password", { exact: true });
+  const next = creation.getByRole("button", { name: "Continue to access", exact: true });
+  await creation.getByLabel("Username", { exact: true }).fill("ux_confirm");
+  await password.fill("review-secret-password");
+  await expect(password).toHaveAttribute("type", "password");
+  await expect(confirmation).toHaveAttribute("type", "password");
+  await next.click();
+  await expect(creation.getByRole("heading", { name: "Identity and credentials" })).toBeVisible();
+  await confirmation.fill("different-password");
+  await creation.getByRole("button", { name: "Show new password", exact: true }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await expect(password).toHaveAttribute("spellcheck", "false");
+  await expect(password).toHaveAttribute("autocorrect", "off");
+  await expect(password).toHaveAttribute("autocapitalize", "none");
+  await expect(confirmation).toHaveAttribute("type", "password");
+  await creation.getByRole("button", { name: "Hide new password", exact: true }).click();
+  await expect(password).toHaveAttribute("type", "password");
+  await creation.getByRole("button", { name: "Show repeated password", exact: true }).click();
+  await expect(confirmation).toHaveAttribute("type", "text");
+  await expect(password).toHaveAttribute("type", "password");
+  await creation.getByRole("button", { name: "Hide repeated password", exact: true }).click();
+  await expect(confirmation).toHaveAttribute("type", "password");
+  await next.click();
+  await expect(creation.getByRole("alert")).toHaveText("Passwords do not match.");
+  await expect(confirmation).toBeFocused();
+  await expect(creation.getByRole("combobox", { name: "Role" })).toHaveCount(0);
+  await confirmation.fill("review-secret-password");
+  await expect(creation.getByRole("alert")).toHaveCount(0);
+  await creation.getByRole("button", { name: "Show new password", exact: true }).click();
+  await next.click();
+  await creation.getByRole("button", { name: "Correct identity", exact: true }).click();
+  await expect(password).toHaveAttribute("type", "password");
+  await expect(confirmation).toHaveAttribute("type", "password");
+  await expect(confirmation).toHaveValue("");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
 
 test("Dev creation corrects review and commits exact stable grants once without review secrets", async ({ page }) => {
@@ -53,11 +193,16 @@ test("Dev creation corrects review and commits exact stable grants once without 
   expect(review).toMatch(/[0-9a-f]{32}/);
   const alphaRepo = (await (await page.request.get("/api/v1/projects")).json()).find((item: { name: string }) => item.name === "alpha").repo;
   expect(review).toContain(alphaRepo);
-  let calls = 0;
-  page.on("request", request => { if (request.url().endsWith("/users/with-access")) calls++; });
+  const payloads: unknown[] = [];
+  page.on("request", request => {
+    if (request.url().endsWith("/users/with-access")) payloads.push(request.postDataJSON());
+  });
   await creation.getByRole("button", { name: "Create reviewed account", exact: true }).dblclick();
   await expect(creation.getByRole("status")).toContainText("Account created");
-  expect(calls).toBe(1);
+  expect(payloads).toEqual([{
+    username: "ux_review_dev", role: "developer", project_ids: expect.arrayContaining([expect.any(String), expect.any(String)]),
+    allow_no_projects: false, password: "review-secret-password",
+  }]);
   const accounts = await page.request.get("/api/v1/users");
   const created = (await accounts.json()).find((row: { username: string }) => row.username === "ux_review_dev");
   expect(created.project_ids).toHaveLength(2);
@@ -93,12 +238,14 @@ test("rejected creation retains correction and reload clears credential drafts",
   await creation.getByRole("button", { name: "Correct identity", exact: true }).click();
   await expect(creation.getByLabel("Username", { exact: true })).toHaveValue("admin");
   await creation.getByLabel("Username", { exact: true }).fill("ux_corrected");
+  await creation.getByLabel("Repeat new password", { exact: true }).fill("review-secret-password");
   await creation.getByRole("button", { name: "Continue to access", exact: true }).click();
   await expect(creation.getByRole("checkbox", { name: /alpha/ })).toBeChecked();
   await creation.getByRole("button", { name: "Review account", exact: true }).click();
   await creation.getByRole("button", { name: "Create reviewed account", exact: true }).click();
   await expect(creation.getByRole("status")).toContainText("Account created");
   await page.reload();
+  await page.getByRole("button", { name: "Add user", exact: true }).click();
   await expect(page.getByLabel("Username", { exact: true })).toHaveValue("");
 });
 
@@ -121,11 +268,12 @@ test("malformed account result fails closed and unmounted creation ignores a lat
   });
   await creation.getByRole("button", { name: "Create reviewed account", exact: true }).click();
   await started;
-  await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
+  await page.goto("/projects");
   release();
   await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Account created" })).toHaveCount(0);
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("button", { name: "Add user", exact: true }).click();
   await expect(page.getByLabel("Username", { exact: true })).toHaveValue("");
 });
 
@@ -193,9 +341,14 @@ test("review is readable with keyboard focus in four locales and both themes at 
         expect((await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme } })).ok()).toBeTruthy();
         await page.reload();
         await page.setViewportSize({ width: 390, height: 844 });
-        const creation = page.getByRole("region", { name: labels.createUser, exact: true });
+        await page.getByRole("button", { name: labels.createUser, exact: true }).click();
+        const creation = page.getByRole("dialog", { name: labels.createUser, exact: true });
         await creation.getByLabel(labels.username, { exact: true }).fill(`visual_${locale}_${theme}`);
         await creation.getByLabel(labels.password, { exact: true }).fill("visual-secret-password");
+        await creation.getByLabel(labels.repeatNewPassword, { exact: true }).fill("visual-secret-password");
+        await expect(creation.getByRole("button", { name: labels.showNewPassword, exact: true })).toBeVisible();
+        await expect(creation.getByRole("button", { name: labels.showRepeatPassword, exact: true })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
         await creation.getByRole("button", { name: copy.next, exact: true }).click();
         await creation.getByRole("checkbox", { name: /alpha/ }).check();
         await creation.getByRole("button", { name: copy.review, exact: true }).click();

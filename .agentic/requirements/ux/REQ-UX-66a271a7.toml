@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-66a271a7"
+
+title = "Open Add user and Reset password from the user list"
+
+status = "active"
+
+requirement = """
+When an administrator starts Add user or Reset password from Users, the interface shall open one dismissible dialog with the shared masked password and confirmation fields in its credentials form.
+"""
+
+verification = "Browser: open either action from the list, inspect the shared controls, cancel and reopen with a fresh draft and restored focus."
+
+affected_paths = ["04_Software/web/src/AccountActionDialog.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/PasswordField.tsx"]
+
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

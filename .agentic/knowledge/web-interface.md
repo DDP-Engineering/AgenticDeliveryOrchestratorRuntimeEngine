@@ -1055,3 +1055,14 @@ A private authentication-context fingerprint binds managed, environment and CLI 
 Unobservable external CLI identity remains partial even if its probe passed; a validated project-scoped credential is required for verified. Probe values are validated before writes; list requirements are independently derived from active config.
 
 Factory administrator guidance: store initialization announces the initial credentials once; login and own-session reads derive a boolean from the current factory password hash. The authenticated shell shows a four-locale reminder with a link to My account until the password changes. Password changes and resets revoke sessions; the reminder periodically rechecks the current session while visible. Corrupt credential evidence fails closed. No schema changes.
+
+Both own-password change forms mask current, replacement and confirmation by default, provide independent reveal buttons and explain the eight-character minimum. Mismatched confirmation stays in the form with a localized error and never reaches the API.
+
+Add user and own-password change share the localized eye control. Add user
+validates the confirmation on its identity step, discards it when advancing and
+sends only the original password after review. Correct identity remasks the
+password and requires repeating the confirmation.
+
+The Users list opens one native dialog for Add user or Reset password. The
+selected account is named in reset; both actions share password confirmation.
+The reset result is acknowledged only after a valid response.

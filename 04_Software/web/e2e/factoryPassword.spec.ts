@@ -32,7 +32,8 @@ test("factory reminder persists in four languages and links to password change",
   await page.route("**/api/v1/me", route => route.fulfill({ json: current }));
   await page.locator('input[name="current"]').fill("admin");
   await page.locator('input[name="replacement"]').fill("new-long-password");
-  await page.locator('input[name="replacement"]').locator("xpath=ancestor::form").getByRole("button").click();
+  await page.locator('input[name="confirmation"]').fill("new-long-password");
+  await page.locator('input[name="replacement"]').locator("xpath=ancestor::form").getByRole("button", { name: "Save", exact: true }).click();
   await page.locator('input[name="username"]').fill("admin");
   await page.locator('input[name="password"]').fill("new-long-password");
   await page.locator('form button[type="submit"]').click();

@@ -6,7 +6,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, describeError } from "./errors";
-import type { Locale } from "./i18n";
+import { messages, type Locale } from "./i18n";
+import { NewPasswordFields, readConfirmedPassword } from "./PasswordField";
 import { userCopy, type UserCopy } from "./userCopy";
 
 export type AccessProject = { id: string; name: string; display_name: string; archived: boolean; platform?: string; repo?: string };
@@ -39,17 +40,19 @@ const ChoiceText = ({ project, projects }: { project: AccessProject; projects: A
   <span>{choiceName(project, projects)}{repository(project) && <small className="access-repo">{repository(project)}</small>}</span>;
 
 /** Transient credential draft; only the reviewed identity/role/IDs are rendered. */
-export function UserCreation({ projects, ready, locale, usernameLabel, passwordLabel, roleLabel, createLabel, requiredLegend, send, onCreated }: {
-  projects: AccessProject[]; ready: boolean; locale: Locale; usernameLabel: string; passwordLabel: string;
-  roleLabel: string; createLabel: string; requiredLegend: string; send: UserTransport; onCreated: () => void;
+export function UserCreation({ projects, ready, locale, send, onCreated, onBusyChange }: {
+  projects: AccessProject[]; ready: boolean; locale: Locale; send: UserTransport;
+  onCreated: () => void; onBusyChange: (busy: boolean) => void;
 }) {
   const copy = userCopy[locale];
+  const { username: usernameLabel, password: passwordLabel, role: roleLabel, requiredLegend } = messages[locale];
   const [draft, setDraft] = useState<Intent>(initial);
   const [step, setStep] = useState<"identity" | "access" | "review" | "result">("identity");
   const [reviewed, setReviewed] = useState<Omit<Intent, "password"> | null>(null);
   const [result, setResult] = useState<Account | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [mismatch, setMismatch] = useState(false);
   const active = useRef(true), sending = useRef(false), heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   useEffect(() => { heading.current?.focus(); }, [step]);
@@ -58,7 +61,7 @@ export function UserCreation({ projects, ready, locale, usernameLabel, passwordL
   const correction = (next: "identity" | "access") => { setReviewed(null); setStep(next); setError(null); };
   const submit = async () => {
     if (sending.current || !reviewed || !ready || !active.current) return;
-    sending.current = true; setBusy(true); setError(null);
+    sending.current = true; setBusy(true); onBusyChange(true); setError(null);
     const intent = reviewed;
     try {
       const value = await send("/users/with-access", "POST", { ...intent, password: draft.password });
@@ -66,19 +69,26 @@ export function UserCreation({ projects, ready, locale, usernameLabel, passwordL
       if (!validAccount(value) || value.username !== intent.username || value.role !== intent.role || !sameIds(value.project_ids, intent.project_ids)) throw new ApiError("unexpected_response");
       setResult(value); setDraft(initial()); setReviewed(null); setStep("result"); onCreated();
     } catch (cause) { if (active.current) setError(cause); }
-    finally { if (active.current) { sending.current = false; setBusy(false); } }
+    finally { if (active.current) { sending.current = false; setBusy(false); onBusyChange(false); } }
   };
-  const identity = (event: FormEvent) => { event.preventDefault(); setError(null); setStep("access"); };
-  return <section className="panel user-access" aria-label={createLabel}>
-    <h2>{createLabel}</h2>
+  const identity = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const password = readConfirmedPassword(event.currentTarget, "password");
+    if (password === null) { setMismatch(true); return; }
+    setDraft(previous => ({ ...previous, password }));
+    setMismatch(false);
+    setError(null);
+    setStep("access");
+  };
+  return <div className="user-access">
     <p className="muted">1. {copy.identity} → 2. {copy.access} → 3. {copy.review}</p>
     <h3 ref={heading} tabIndex={-1}>{step === "result" ? copy.created : copy[step]}</h3>
     {error !== null && <div role="alert" className="banner error">{describeError(locale, error)}</div>}
     {step === "identity" && <form className="form-stack" onSubmit={identity}>
       <p className="form-legend"><span className="required-mark" aria-hidden="true">*</span> {requiredLegend}</p>
       <label><span>{usernameLabel}<span className="required-mark" aria-hidden="true">*</span></span><input aria-label={usernameLabel} autoComplete="off" required maxLength={64} value={draft.username} onChange={e => setDraft({ ...draft, username: e.target.value })} /></label>
-      <label><span>{passwordLabel}<span className="required-mark" aria-hidden="true">*</span></span><input aria-label={passwordLabel} type="password" autoComplete="new-password" required minLength={8} maxLength={1024} value={draft.password} aria-describedby="new-user-password-help" onChange={e => setDraft({ ...draft, password: e.target.value })} /></label>
-      <p id="new-user-password-help" className="muted">{copy.passwordHelp}</p>
+      <NewPasswordFields locale={locale} name="password" label={passwordLabel} hint={copy.passwordHelp}
+        initialPassword={draft.password} maxLength={1024} mismatch={mismatch} onEdit={() => setMismatch(false)} />
       <button className="primary" type="submit">{copy.next}</button>
     </form>}
     {step === "access" && <div className="form-stack">
@@ -98,7 +108,7 @@ export function UserCreation({ projects, ready, locale, usernameLabel, passwordL
       {busy && <p role="status">{copy.creating}</p>}
     </div>}
     {step === "result" && result && <><p role="status">{copy.created}: {result.username} · {result.role === "admin" ? copy.global : labels(result.project_ids, projects).join(", ") || copy.empty}</p><button className="ghost" onClick={() => { setResult(null); setStep("identity"); }}>{copy.another}</button></>}
-  </section>;
+  </div>;
 }
 
 /** Shared visible confirmation; correction sends no mutation. */

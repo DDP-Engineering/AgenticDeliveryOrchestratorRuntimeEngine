@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-f470a75b"
+
+title = "Confirm an administrator password reset for the selected account"
+
+status = "active"
+
+requirement = """
+When an administrator submits matching new password entries in Reset password, the interface shall request one reset for the named account and report only its verified result.
+"""
+
+verification = "Browser: reject mismatch, exercise failure and correct submission for the selected account, prove exact request and successful result."
+
+affected_paths = ["04_Software/web/src/AccountActionDialog.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/PasswordField.tsx"]
+
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

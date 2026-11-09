@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-5b20007f"
+
+title = "Require matching Add user password confirmation"
+
+status = "active"
+
+requirement = """
+When an administrator continues from Add user credentials, the interface shall require a matching password confirmation with a localized error for a mismatch.
+"""
+
+verification = "Browser: empty, short and mismatching entries cannot advance, corrected matching entries reach access and review, and creation sends only the original password."
+
+affected_paths = ["04_Software/web/src/UserCreation.tsx", "04_Software/web/src/PasswordField.tsx"]
+
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

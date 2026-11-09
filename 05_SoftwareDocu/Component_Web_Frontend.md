@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
+
 The authenticated factory administrator sees a persistent localized password reminder linking to My account. A guarded visible-tab refresh checks the session while the reminder is active; stale responses cannot replace a newer session. The existing password form revokes sessions on success.
 
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
@@ -675,8 +677,18 @@ is dark text on the light accent in both system-dark and explicit Dark themes.
 
 ### Reviewed account and project access
 
+The Users list opens one native `AccountActionDialog.tsx` for Add user or a
+named account's reset. The dialog contains the creation wizard or reset form.
+Both use `NewPasswordFields` and the same matching validation. Dismissal
+discards the form and restores focus. During submission the dialog blocks
+dismissal and repeat requests. Reset sends only the replacement to the selected
+account's existing endpoint and acknowledges success only on `ok: true`.
+
 `UserCreation.tsx` and `userCopy.ts` provide four-locale identity/credentials,
-role/projects and review stages. Admin explicitly receives all current/future
+role/projects and review stages. The identity form uses the shared
+`PasswordField.tsx` control for independently masked password entries. The repeat
+entry stays in the identity form, must match before advancing and is discarded
+when leaving that step. Only the original password is sent at creation. Admin explicitly receives all current/future
 projects, system and cost access; Dev selects immutable IDs and receives project
 access only. A deliberate checkbox confirms Dev without grants. Review shows
 username, role and display labels with forge/repository plus stable IDs (choices are

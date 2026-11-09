@@ -226,7 +226,7 @@ The API binds to `127.0.0.1:8765` by default. Access it at
 `http://127.0.0.1:8765`. A new identity store creates `admin` / `admin` once.
 The server announces these credentials when it creates the store. While that account retains
 the factory password, a persistent reminder links to **My account → Change password**.
-Change it immediately. A password change or administrator reset ends existing sessions.
+Change it immediately. Enter the new password twice; the visibility buttons can reveal or hide each entry. The new password must have at least 8 characters. A password change or administrator reset ends existing sessions.
 Passwords are stored as Argon2id
 hashes, not recoverable ciphertext. An initialized database that is deleted or
 corrupt stops startup instead of recreating the default account. Back up both
@@ -308,8 +308,11 @@ access changes and pickup completion have their own actual results.
 
 ### Create a user with reviewed access
 
-In **Users**, enter the username and password, then continue to role and project
-access. **Admin** explicitly grants all current and future projects, system
+In **Users**, choose **Add user** above the list. In the dialog, enter the
+username and a password of at least eight characters.
+Enter it again in **Repeat new password**. The eye buttons reveal or hide each
+entry. Choose **Continue to access** when both entries match. Returning with
+**Correct identity** masks the password and requires a new confirmation. **Admin** explicitly grants all current and future projects, system
 administration and costs. **Dev** grants only the selected projects, listed by name with their forge and
 repository path (one checkbox row each, with the unique project name added when
 display names repeat); reviews and results add the stable IDs that identify grants. **Assigned projects** on an account opens
@@ -325,6 +328,11 @@ without a partial account. Correct the choice and review again after a rejection
 The result states the account and actual access. Existing password sign-in,
 administrator reset, required own-password replacement and disabled-session
 behavior continue to apply.
+
+To reset an account, choose **Reset password** on its row. Verify the account
+name and enter the same new password twice. Use the eye buttons to inspect each
+entry. **Close** discards the draft before submission. **Save** ends the
+account’s sessions and requires a password change at the next sign-in.
 
 Assigned-project editing under Users and the project's Access tab both show
 **Before** and **After** before **Apply reviewed access**, then the actual result.

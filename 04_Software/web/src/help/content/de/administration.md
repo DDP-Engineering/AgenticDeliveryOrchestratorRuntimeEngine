@@ -13,7 +13,7 @@ Ein aktueller Heartbeat zeigt einen verfügbaren Worker. **Beschäftigt** bedeut
 
 So legen Sie ein Konto an:
 
-1. Geben Sie **Benutzername** und **Passwort** ein (mindestens 8 Zeichen) und wählen Sie **Weiter zum Zugriff**. Das Passwort dient nur zur Kontoerstellung und erscheint nicht in der Prüfung.
+1. Wählen Sie **Benutzer hinzufügen** über der Liste, um den Dialog zu öffnen. Geben Sie **Benutzername** und **Passwort** ein (mindestens 8 Zeichen) und füllen Sie **Neues Passwort wiederholen** mit demselben Wert aus. Die Augen-Schaltflächen zeigen oder verbergen das jeweilige Feld. Wählen Sie **Weiter zum Zugriff**. Nach **Identität korrigieren** geben Sie die Wiederholung erneut ein. Das Passwort erscheint nicht in der Prüfung.
 2. Wählen Sie die **Rolle** und, für einen Dev, die Projekte. **Admin** gewährt alle aktuellen und künftigen Projekte, die Systemverwaltung und Kosten. **Dev** gewährt nur die Projekte, die Sie ankreuzen, jeweils mit Namen, Forge und Repository-Pfad aufgeführt. Um einen Dev ohne Projekt anzulegen, kreuzen Sie bewusst **Dev ohne Projektzugriff erstellen** an.
 3. Wählen Sie **Konto prüfen**, kontrollieren Sie Identität und genauen Zugriff und wählen Sie dann **Geprüftes Konto erstellen**. **Identität korrigieren** und **Zugriff korrigieren** führen zurück, ohne etwas anzulegen.
 
@@ -23,7 +23,7 @@ In der Liste **Benutzer** bietet jedes Konto diese Aktionen.
 
 - **Zugewiesene Projekte** (Dev-Konten): Projekte an- oder abwählen, **Speichern** wählen, **Vorher** und **Nachher** vergleichen und dann **Geprüften Zugriff anwenden** wählen. **Zugriff korrigieren** bricht die Prüfung ab.
 - **Deaktivieren** oder **Aktivieren**: Ein deaktiviertes Konto kann sich nicht anmelden, und seine Sitzungen enden. Sie können Ihr eigenes Konto nicht deaktivieren, und der letzte aktive Administrator kann nicht deaktiviert werden.
-- **Passwort zurücksetzen**: Geben Sie ein **Neues Passwort** mit mindestens 8 Zeichen ein und wählen Sie **Speichern**. Alle Sitzungen dieses Kontos enden, und bei der nächsten Anmeldung sieht das Konto nur einen Bildschirm **Neues Passwort erforderlich**, bis es ein eigenes Passwort gewählt hat. Es gibt keine Passwortwiederherstellung per E-Mail.
+- **Passwort zurücksetzen**: Wählen Sie die Aktion in der Zeile des Kontos. Prüfen Sie den Kontonamen, geben Sie ein **Neues Passwort** mit mindestens 8 Zeichen ein und füllen Sie **Neues Passwort wiederholen** aus. Die Augen-Schaltflächen zeigen oder verbergen die Eingaben. Wählen Sie bei Übereinstimmung **Speichern** oder verwerfen Sie die Eingaben mit **Schließen**. Beim Speichern enden alle Sitzungen des Kontos. Bei der nächsten Anmeldung muss ein neues Passwort gewählt werden. Es gibt keine Wiederherstellung per E-Mail.
 
 ## Projektzugriff {#project-access}
 

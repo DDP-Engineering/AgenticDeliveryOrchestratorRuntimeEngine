@@ -13,7 +13,7 @@ Under **Administration**, open [Users](/admin/users). The page has an **Add user
 
 To create an account:
 
-1. Enter the **Username** and **Password** (at least 8 characters), then choose **Continue to access**. The password is used only to create the account and is left out of the review.
+1. Choose **Add user** above the list to open the creation dialog. Enter the **Username** and **Password** (at least 8 characters), then fill **Repeat new password** with the same value. The eye buttons show or hide each field. Choose **Continue to access**. If you return via **Correct identity**, enter the confirmation again. The review omits the password.
 2. Choose the **Role** and, for a Dev, the projects. **Admin** grants all current and future projects, system administration and costs. **Dev** grants only the projects you tick, each listed by name with its forge and repository path. To create a Dev with no project, tick **Create Dev without project access** on purpose.
 3. Choose **Review account**, check the identity and exact access, then choose **Create reviewed account**. **Correct identity** and **Correct access** take you back without creating anything.
 
@@ -23,7 +23,7 @@ In the **Users** list each account offers these actions.
 
 - **Assigned projects** (Dev accounts): tick or untick projects, choose **Save**, compare **Before** and **After**, then choose **Apply reviewed access**. **Correct access** cancels the review.
 - **Disable** or **Enable**: a disabled account cannot sign in and its sessions end. You cannot disable your own account, and the last active administrator cannot be disabled.
-- **Reset password**: enter a **New password** of at least 8 characters and **Save**. All of that account's sessions end, and at its next sign-in the account sees only a **New password required** screen until it chooses its own password. There is no email password recovery.
+- **Reset password**: select the action on the account’s row. In the dialog, check the account name, enter a **New password** of at least 8 characters and fill **Repeat new password**. Use the eye buttons to show or hide each entry. Choose **Save** when they match, or **Close** to discard the draft. Saving ends the account’s sessions and requires a new password at its next sign-in. There is no email password recovery.
 
 ## Project access {#project-access}
 

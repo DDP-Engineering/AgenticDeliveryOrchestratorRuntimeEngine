@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Open Add user and account password resets from the Users list with shared confirmation and eye buttons. Own-password changes also use confirmation and eye buttons.
+
 - Announce the initial web account and remind its administrator to change the factory password.
 
 - Clarify enrollment and project settings, preserve current readiness evidence, and support Pi reasoning effort.

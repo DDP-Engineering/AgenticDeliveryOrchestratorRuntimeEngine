@@ -367,3 +367,5 @@ Job details explains normal lifecycle states, exposes current-stage failed attem
 History identifies ticket/job targets and actual operation outcomes; CLI delete records a local receipt before cleanup even without web identity. History imports it with project-scoped authorization and conservative interruption handling.
 
 A new web identity store announces its factory administrator credentials at creation. The unchanged factory administrator sees a persistent localized reminder linking to My account; password change and reset revoke sessions, and no stored format changes.
+
+Own-password changes, including after reset, offer independent password visibility and require matching confirmation; the existing server minimum is eight characters.

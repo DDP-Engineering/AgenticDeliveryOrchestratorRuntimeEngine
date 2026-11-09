@@ -13,7 +13,7 @@ Sous **Administration**, ouvrez [Utilisateurs](/admin/users). La page comporte u
 
 Pour créer un compte :
 
-1. Saisissez l’**Identifiant** et le **Mot de passe** (au moins 8 caractères), puis choisissez **Continuer vers les accès**. Le mot de passe sert uniquement à créer le compte et n’apparaît pas dans la vérification.
+1. Choisissez **Ajouter un utilisateur** au-dessus de la liste pour ouvrir la fenêtre de création. Saisissez l’**Identifiant** et le **Mot de passe** (au moins 8 caractères), puis répétez-le dans **Confirmer le nouveau mot de passe**. Les boutons en forme d’œil affichent ou masquent chaque champ. Choisissez **Continuer vers les accès**. Après **Corriger l’identité**, saisissez de nouveau la confirmation. La vérification omet le mot de passe.
 2. Choisissez le **Rôle** et, pour un Dev, les projets. **Admin** donne accès à tous les projets actuels et futurs, à l’administration du système et aux coûts. **Dev** donne accès uniquement aux projets que vous cochez, chacun listé avec son nom, sa forge et le chemin de son dépôt. Pour créer un Dev sans projet, cochez volontairement **Créer Dev sans accès aux projets**.
 3. Choisissez **Vérifier le compte**, contrôlez l’identité et les accès exacts, puis choisissez **Créer le compte vérifié**. **Corriger l’identité** et **Corriger les accès** vous ramènent en arrière sans rien créer.
 
@@ -23,7 +23,7 @@ Dans la liste **Utilisateurs**, chaque compte propose ces actions.
 
 - **Projets attribués** (comptes Dev) : cochez ou décochez des projets, choisissez **Enregistrer**, comparez **Avant** et **Après**, puis choisissez **Appliquer les accès vérifiés**. **Corriger les accès** annule la vérification.
 - **Désactiver** ou **Activer** : un compte désactivé ne peut plus se connecter et ses sessions prennent fin. Vous ne pouvez pas désactiver votre propre compte, et le dernier administrateur actif ne peut pas être désactivé.
-- **Réinitialiser le mot de passe** : saisissez un **Nouveau mot de passe** d’au moins 8 caractères et **Enregistrer**. Toutes les sessions de ce compte prennent fin, et à sa prochaine connexion le compte ne voit qu’un écran **Nouveau mot de passe requis** jusqu’à ce qu’il choisisse son propre mot de passe. Il n’existe pas de récupération de mot de passe par e-mail.
+- **Réinitialiser le mot de passe** : choisissez cette action sur la ligne du compte. Vérifiez le nom du compte, saisissez un **Nouveau mot de passe** d’au moins 8 caractères puis remplissez **Confirmer le nouveau mot de passe**. Les boutons en forme d’œil affichent ou masquent les saisies. Choisissez **Enregistrer** si elles correspondent ou **Fermer** pour abandonner la saisie. L’enregistrement ferme les sessions du compte et impose un nouveau mot de passe à sa prochaine connexion. Il n’existe pas de récupération par e-mail.
 
 ## Accès aux projets {#project-access}
 

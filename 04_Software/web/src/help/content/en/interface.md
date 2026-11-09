@@ -70,3 +70,5 @@ Overview, Projects and Jobs reload their data every 15 seconds while the browser
 In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
 
 The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account.
+
+When changing your password, enter the new password twice. Use the buttons to show or hide each entry. The new password needs at least 8 characters.

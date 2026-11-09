@@ -883,3 +883,23 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 /* Make queued operation feedback and worker guidance easy to spot. */
 .notice[role="status"] { border: 2px solid var(--accent-deep); font-weight: 600; flex-wrap: wrap; }
 .system-indicator small { display: block; max-width: 36rem; line-height: 1.5; }
+
+.password-field { min-width: 0; }
+.password-input { display: flex; align-items: stretch; gap: 8px; margin-top: 7px; }
+.password-input input { flex: 1; min-width: 0; }
+.password-input .password-visibility { flex: 0 0 44px; padding: 0; }
+.password-visibility svg { width: 20px; height: 20px; }
+
+.account-action-dialog {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(16px, 4vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--surface);
+}
+.account-action-dialog::backdrop { background: rgba(4, 20, 15, .6); }
+.account-action-dialog h2 { overflow-wrap: anywhere; }
+.account-password-fields { min-width: 0; margin: 0; padding: 0; border: 0; }

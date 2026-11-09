@@ -70,3 +70,5 @@ Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befe
 Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.
 
 Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto.
+
+Geben Sie beim Ändern das neue Passwort zweimal ein. Die Schaltflächen zeigen oder verbergen jede Eingabe. Mindestens 8 Zeichen sind erforderlich.

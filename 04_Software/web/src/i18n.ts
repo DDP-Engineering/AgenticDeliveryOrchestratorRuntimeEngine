@@ -7,6 +7,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const messages = {
   en: {
+    resetPasswordFor: "Reset password for {user}",
+    resetPasswordEffect: "Saving ends this account’s existing sessions. At the next sign-in, the user must choose a new password.",
+    repeatNewPassword: "Repeat new password", showCurrentPassword: "Show current password", hideCurrentPassword: "Hide current password", showNewPassword: "Show new password", hideNewPassword: "Hide new password", showRepeatPassword: "Show repeated password", hideRepeatPassword: "Hide repeated password", passwordMismatch: "Passwords do not match.",
     factoryPasswordNotice: "The initial administrator password is still in use. Change it now.",
     configurationVersion: "Configuration version", configurationVersionHelp: "Identifies the saved project configuration used by this check. Configuration changes require a new check; this is not a Git commit or the ADORE release version.",
     containerType: "Container type", checkHostPrerequisites: "Check host prerequisites",
@@ -89,6 +92,9 @@ export const messages = {
     cancelled: "Cancelled", working: "Working", parked: "Parked", review: "In review", done: "Done", pause: "Stop pickup", resume: "Start pickup", paused: "Pickup stopped", pickupEnabled: "Pickup enabled",
   },
   fr: {
+    resetPasswordFor: "Réinitialiser le mot de passe de {user}",
+    resetPasswordEffect: "L’enregistrement ferme les sessions de ce compte. À la prochaine connexion, l’utilisateur devra choisir un nouveau mot de passe.",
+    repeatNewPassword: "Confirmer le nouveau mot de passe", showCurrentPassword: "Afficher le mot de passe actuel", hideCurrentPassword: "Masquer le mot de passe actuel", showNewPassword: "Afficher le nouveau mot de passe", hideNewPassword: "Masquer le nouveau mot de passe", showRepeatPassword: "Afficher la confirmation", hideRepeatPassword: "Masquer la confirmation", passwordMismatch: "Les mots de passe ne correspondent pas.",
     factoryPasswordNotice: "Le mot de passe initial de l’administrateur est encore utilisé. Changez-le.",
     configurationVersion: "Version de configuration", configurationVersionHelp: "Identifie la configuration du projet enregistrée pour ce contrôle. Une modification nécessite un nouveau contrôle ; ce n’est ni un commit Git ni la version d’ADORE.",
     containerType: "Type de conteneur", checkHostPrerequisites: "Vérifier les prérequis de l’hôte",
@@ -171,6 +177,9 @@ export const messages = {
     cancelled: "Annulée", working: "En cours", parked: "En pause", review: "En revue", done: "Terminée", pause: "Suspendre la sélection", resume: "Reprendre la sélection", paused: "Prise en charge arrêtée", pickupEnabled: "Sélection active",
   },
   de: {
+    resetPasswordFor: "Passwort für {user} zurücksetzen",
+    resetPasswordEffect: "Beim Speichern enden die bestehenden Sitzungen dieses Kontos. Bei der nächsten Anmeldung muss ein neues Passwort gewählt werden.",
+    repeatNewPassword: "Neues Passwort wiederholen", showCurrentPassword: "Aktuelles Passwort anzeigen", hideCurrentPassword: "Aktuelles Passwort verbergen", showNewPassword: "Neues Passwort anzeigen", hideNewPassword: "Neues Passwort verbergen", showRepeatPassword: "Wiederholung anzeigen", hideRepeatPassword: "Wiederholung verbergen", passwordMismatch: "Die Passwörter stimmen nicht überein.",
     factoryPasswordNotice: "Das ursprüngliche Administratorkennwort ist noch aktiv. Ändern Sie es.",
     configurationVersion: "Konfigurationsversion", configurationVersionHelp: "Identifiziert die gespeicherte Projektkonfiguration dieser Prüfung. Änderungen erfordern eine neue Prüfung; dies ist weder ein Git-Commit noch die ADORE-Version.",
     containerType: "Containertyp", checkHostPrerequisites: "Host-Voraussetzungen prüfen",
@@ -253,6 +262,9 @@ export const messages = {
     cancelled: "Abgebrochen", working: "In Arbeit", parked: "Pausiert", review: "In Prüfung", done: "Fertig", pause: "Aufnahme pausieren", resume: "Aufnahme fortsetzen", paused: "Übernahme gestoppt", pickupEnabled: "Aufnahme aktiv",
   },
   ro: {
+    resetPasswordFor: "Resetează parola pentru {user}",
+    resetPasswordEffect: "Salvarea închide sesiunile acestui cont. La următoarea autentificare, utilizatorul trebuie să aleagă o parolă nouă.",
+    repeatNewPassword: "Repetă parola nouă", showCurrentPassword: "Arată parola curentă", hideCurrentPassword: "Ascunde parola curentă", showNewPassword: "Arată parola nouă", hideNewPassword: "Ascunde parola nouă", showRepeatPassword: "Arată parola repetată", hideRepeatPassword: "Ascunde parola repetată", passwordMismatch: "Parolele nu coincid.",
     factoryPasswordNotice: "Parola inițială a administratorului este încă activă. Schimb-o.",
     configurationVersion: "Versiunea configurației", configurationVersionHelp: "Identifică configurația salvată a proiectului folosită la această verificare. Modificările cer o nouă verificare; nu este un commit Git sau versiunea ADORE.",
     containerType: "Tip container", checkHostPrerequisites: "Verifică cerințele gazdei",

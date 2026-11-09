@@ -13,7 +13,7 @@ Sub **Administrare**, deschideți [Utilizatori](/admin/users). Pagina are un pan
 
 Pentru a crea un cont:
 
-1. Introduceți **Utilizator** și **Parolă** (cel puțin 8 caractere), apoi alegeți **Continuă la acces**. Parola este folosită doar pentru crearea contului și este omisă din revizuire.
+1. Alegeți **Adaugă utilizator** deasupra listei pentru a deschide formularul de creare. Introduceți **Utilizator** și **Parolă** (cel puțin 8 caractere), apoi introduceți aceeași valoare în **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund fiecare câmp. Alegeți **Continuă la acces**. După **Corectează identitatea**, completați din nou confirmarea. Parola este omisă din revizuire.
 2. Alegeți **Rol** și, pentru un Dev, proiectele. **Admin** acordă toate proiectele curente și viitoare, administrarea sistemului și costurile. **Dev** acordă doar proiectele bifate, fiecare listat cu numele, forge-ul și calea repository-ului. Pentru a crea un Dev fără niciun proiect, bifați intenționat **Creează Dev fără acces la proiecte**.
 3. Alegeți **Revizuiește contul**, verificați identitatea și accesul exact, apoi alegeți **Creează contul revizuit**. **Corectează identitatea** și **Corectează accesul** vă readuc înapoi fără a crea nimic.
 
@@ -23,7 +23,7 @@ Contul și accesul lui se creează împreună sau deloc. Un nume de utilizator d
 
 - **Proiecte atribuite** (conturi Dev): bifați sau debifați proiecte, alegeți **Salvează**, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. **Corectează accesul** anulează revizuirea.
 - **Dezactivează** sau **Activează**: un cont dezactivat nu se poate autentifica, iar sesiunile lui se încheie. Nu vă puteți dezactiva propriul cont, iar ultimul administrator activ nu poate fi dezactivat.
-- **Resetează parola**: introduceți o **Parola nouă** de cel puțin 8 caractere și **Salvează**. Toate sesiunile acelui cont se încheie, iar la următoarea autentificare contul vede doar ecranul **Este necesară o parolă nouă** până când își alege propria parolă. Nu există recuperare a parolei prin e-mail.
+- **Resetează parola**: alegeți acțiunea din rândul contului. Verificați numele contului, introduceți o **Parola nouă** de cel puțin 8 caractere și completați **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund valorile. Alegeți **Salvează** când parolele coincid sau **Închide** pentru a renunța la datele introduse. Salvarea închide sesiunile contului și cere o parolă nouă la următoarea autentificare. Nu există recuperare prin e-mail.
 
 ## Accesul la proiecte {#project-access}
 

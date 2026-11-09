@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
+import { PasswordField } from "./PasswordField";
 import { messages, type Locale, type MessageKey } from "./i18n";
 import { ModelConnection, validModelEvidence, type ModelEvidence } from "./ModelConnection";
 import { agentSettingsCopy, agentValue, executorSettingHelp, internetCopy, searchKeyNeeded } from "./executorSettings";
@@ -43,7 +44,8 @@ import { JobWorkspace } from "./JobWorkspace";
 import { SortHeader } from "./SortHeader";
 import { jobCopy } from "./jobCopy";
 import { outcomeText } from "./operationReason";
-import { UserCreation, AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
+import { AccountAccessEditor, AccessReview, validAccount, type Account } from "./UserCreation";
+import { AccountActionDialog, type AccountAction } from "./AccountActionDialog";
 import { userCopy } from "./userCopy";
 import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
 import { TicketWorkspace } from "./TicketWorkspace";
@@ -178,7 +180,9 @@ export default function App() {
   const [helpTopic, setHelpTopic] = useState<HelpTopic | undefined>();
   const [aboutOpen, setAboutOpen] = useState({ license: false, notices: false });
   const [error, setError] = useState<unknown>("");
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
+  useEffect(() => { setPasswordMismatch(false); }, [page, session?.csrf, passwordSession?.csrf]);
   const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
   const [jobsView, setJobsView] = useState<"tickets" | "jobs">("tickets");
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
@@ -217,7 +221,8 @@ export default function App() {
   };
   // The address of the page shown now, restored when a guarded wizard refuses browser Back.
   const shownUrl = useRef("");
-  const [resetTarget, setResetTarget] = useState<number | null>(null);
+  const [accountAction, setAccountAction] = useState<AccountAction | null>(null);
+  useEffect(() => { setAccountAction(null); }, [page, session?.csrf]);
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   // Switching About views removes the pressed button; focus its counterpart so Escape and Tab keep working.
   const aboutSwitch = useRef<HTMLButtonElement>(null);
@@ -896,20 +901,15 @@ export default function App() {
     } catch (cause) { setError(cause); }
   };
 
-  const resetUserPassword = async (event: FormEvent<HTMLFormElement>, userId: number) => {
-    event.preventDefault(); setError("");
-    const form = event.currentTarget;
-    const replacement = String(new FormData(form).get("replacement") || "");
-    try {
-      await request(`/users/${userId}/reset-password`, "POST", { replacement }, session?.csrf);
-      form.reset(); setResetTarget(null); setNotice(t("passwordResetDone"));
-    } catch (cause) { setError(cause); }
-  };
-
   const changePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError("");
+    const values = new FormData(event.currentTarget);
+    const current = String(values.get("current") ?? "");
+    const replacement = String(values.get("replacement") ?? "");
+    if (replacement !== values.get("confirmation")) { setPasswordMismatch(true); return; }
+    setPasswordMismatch(false);
     try {
-      await request("/me/password", "POST", Object.fromEntries(new FormData(event.currentTarget)), (session ?? passwordSession)?.csrf);
+      await request("/me/password", "POST", { current, replacement }, (session ?? passwordSession)?.csrf);
       clearPrivateView(); setSession(null); setPasswordSession(null); setNotice(t("passwordChanged"));
     } catch (cause) { setError(cause); }
   };
@@ -1062,9 +1062,8 @@ export default function App() {
     <section className="login-card">
       <div className="brand-mark">A</div><p className="eyebrow">ADORE</p><h1>{t("passwordRequiredTitle")}</h1><p className="muted">{t("passwordRequiredReason")}</p>
       {error ? <p className="alert" role="alert">{describeError(locale, error)}</p> : null}
-      <form onSubmit={changePassword} className="form-stack"><FormLegend t={t} />
-        <label><span>{t("currentPassword")}<RequiredMark /></span><input name="current" type="password" autoComplete="current-password" required autoFocus /></label>
-        <label><span>{t("newPassword")}<RequiredMark /></span><input name="replacement" type="password" autoComplete="new-password" minLength={8} required /><small className="field-hint">{t("passwordRule")}</small></label>
+      <form onSubmit={changePassword} onInput={() => setPasswordMismatch(false)} className="form-stack"><FormLegend t={t} />
+        <PasswordChangeFields t={t} mismatch={passwordMismatch} autoFocus />
         <button className="primary" type="submit">{t("changePassword")}</button>
         <button className="ghost" type="button" onClick={signOut}>{t("logout")}</button>
       </form>
@@ -1384,9 +1383,12 @@ export default function App() {
           </section>
         </div>}
 
-        {page === "adminUsers" && isAdmin && <div className="two-column">
-          <UserCreation key={session.user.id} projects={projects} ready={projectsState === "ready"} locale={locale} usernameLabel={t("username")} passwordLabel={t("password")} roleLabel={t("role")} createLabel={t("createUser")} requiredLegend={t("requiredLegend")} send={(path, method, body) => request(path, method, body, session.csrf)} onCreated={() => setViewRefresh(value => value + 1)} />
-          <section className="panel"><h2>{t("userAccounts")}</h2>{usersState !== "ready" ? <DataFeedback state={usersState} t={t} /> : users.length === 0 ? <Empty label={t("empty")} /> : <div className="user-list">{users.map(item =>
+        {page === "adminUsers" && isAdmin && <>
+          <section className="panel">
+            <div className="panel-heading"><h2>{t("userAccounts")}</h2>
+              <button type="button" className="primary" onClick={() => setAccountAction({ kind: "add" })}>{t("createUser")}</button>
+            </div>
+            {usersState !== "ready" ? <DataFeedback state={usersState} t={t} /> : users.length === 0 ? <Empty label={t("empty")} /> : <div className="user-list">{users.map(item =>
             <div className="user-row" key={item.id}>
               <span className="user-avatar">{item.username.charAt(0).toUpperCase()}</span>
               <div><strong>{item.username}</strong><small>{t(item.role)}{item.disabled ? ` · ${t("disable")}` : ""}</small></div>
@@ -1394,16 +1396,19 @@ export default function App() {
                 <AccountAccessEditor key={item.id + ":" + item.project_ids.join()} account={item} projects={projects} ready={projectsState === "ready"} locale={locale} saveLabel={t("save")} send={(path, method, body) => request(path, method, body, session.csrf)} onError={setError} onApplied={result => { setNotice(result); setViewRefresh(value => value + 1); }} />
               </details>}
               {item.id !== session.user.id && <button type="button" className="ghost" onClick={() => setAccountEnabled(item.id, item.disabled)}>{t(item.disabled ? "enable" : "disable")}</button>}
-              <button type="button" className="ghost" onClick={() => setResetTarget(resetTarget === item.id ? null : item.id)}>{t("resetPassword")}</button>
-              {resetTarget === item.id && <form className="inline-form" onSubmit={event => resetUserPassword(event, item.id)}><FormLegend t={t} /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form>}
+              <button type="button" className="ghost" onClick={() => setAccountAction({ kind: "reset", account: item })}>{t("resetPassword")}</button>
             </div>
           )}</div>}</section>
-        </div>}
+          {accountAction && <AccountActionDialog action={accountAction} projects={projects} ready={projectsState === "ready"}
+            locale={locale} send={(path, method, body) => request(path, method, body, session.csrf)}
+            onCreated={() => setViewRefresh(value => value + 1)} onReset={() => setNotice(t("passwordResetDone"))}
+            onClose={() => setAccountAction(null)} />}
+        </>}
 
         {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${viewRefresh}`} locale={locale} projects={projects} read={path => request(path)} />}
 
         {page === "help" && <HelpCenter locale={locale} topic={helpTopic} onNavigate={navigateHref} />}
-        {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword}><FormLegend t={t} /><Field name="current" label={t("currentPassword")} type="password" required /><Field name="replacement" label={t("newPassword")} type="password" required minLength={8} hint={t("passwordRule")} /><button className="primary">{t("save")}</button></form></section>
+        {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword} onInput={() => setPasswordMismatch(false)}><FormLegend t={t} /><PasswordChangeFields t={t} mismatch={passwordMismatch} /><button className="primary">{t("save")}</button></form></section>
         </div>}
   </DashboardShell>;
 }
@@ -1440,12 +1445,17 @@ function RequiredMark() {
   return <span className="required-mark" aria-hidden="true"> *</span>;
 }
 
-function FormLegend({ t }: { t: (key: MessageKey) => string }) {
-  return <p className="form-legend"><span className="required-mark" aria-hidden="true">*</span> {t("requiredLegend")}</p>;
+function PasswordChangeFields({ t, mismatch, autoFocus }: { t: (key: MessageKey) => string; mismatch: boolean; autoFocus?: boolean }) {
+  return <>
+    <PasswordField name="current" label={t("currentPassword")} show={t("showCurrentPassword")} hide={t("hideCurrentPassword")} autoComplete="current-password" autoFocus={autoFocus} />
+    <PasswordField name="replacement" label={t("newPassword")} show={t("showNewPassword")} hide={t("hideNewPassword")} autoComplete="new-password" minLength={8} hint={t("passwordRule")} />
+    <PasswordField name="confirmation" label={t("repeatNewPassword")} show={t("showRepeatPassword")} hide={t("hideRepeatPassword")} autoComplete="new-password" minLength={8} invalid={mismatch} />
+    {mismatch && <p className="alert" role="alert">{t("passwordMismatch")}</p>}
+  </>;
 }
 
-function Field({ name, label, type = "text", required = false, defaultValue, hint, minLength }: { name: string; label: string; type?: string; required?: boolean; defaultValue?: string; hint?: string; minLength?: number }) {
-  return <label><span>{label}{required && <RequiredMark />}</span><input name={name} type={type} required={required} defaultValue={defaultValue} minLength={minLength} />{hint && <small className="field-hint">{hint}</small>}</label>;
+function FormLegend({ t }: { t: (key: MessageKey) => string }) {
+  return <p className="form-legend"><span className="required-mark" aria-hidden="true">*</span> {t("requiredLegend")}</p>;
 }
 
 type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };

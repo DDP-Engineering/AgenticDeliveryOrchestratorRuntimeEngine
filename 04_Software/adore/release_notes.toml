@@ -149,7 +149,7 @@ text = { en = "Jobs on projects with AEGIS 0.15.0, now the minimum, reach approv
 [[release.entry]]
 category = "fixed"
 topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
-text = { en = "Interface fixes and a reminder to change the initial administrator password.", fr = "Corrections de l’interface et rappel pour changer le mot de passe administrateur initial.", de = "Oberflächenkorrekturen und Erinnerung zum Ändern des ersten Administratorkennworts.", ro = "Corecții de interfață și memento pentru schimbarea parolei inițiale de administrator." }
+text = { en = "Confirm and reveal passwords in Add user, Reset password and My account. Initial admin reminder.", fr = "Ajout, réinitialisation et changement de mot de passe avec confirmation et affichage.", de = "Passwörter beim Hinzufügen, Zurücksetzen und Ändern bestätigen und anzeigen.", ro = "Confirmă și afișează parola la adăugare, resetare și schimbare. Memento pentru adminul inițial." }
 
 [[release.entry]]
 category = "fixed"
