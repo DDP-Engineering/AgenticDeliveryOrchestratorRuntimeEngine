@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-58401aa1"
+
+title = "Contain ticket rich text in themed narrow panels"
+
+status = "active"
+
+requirement = """
+While ticket bodies are displayed in light or dark theme at desktop or 360px viewport width, the Tickets view shall keep body text and mode controls readable and reachable within their panels, wrapping prose and confining wide code, source and table content to local horizontal scrolling rather than expanding the page.
+"""
+
+verification = "Automated offline browser tests: open long prose, an unbroken URL, wide fenced code and a wide table in each mode at 360px and desktop widths in both themes; assert controls remain visible/focusable, foreground differs from background, and body content does not increase document width beyond the viewport, with overflow restricted to local content containers."
+
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/tickets.spec.ts"]
+
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

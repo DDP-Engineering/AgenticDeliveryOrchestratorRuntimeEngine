@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-06b1d542"
+
+title = "Paginate the Tickets table with a rows-per-page selector"
+
+status = "active"
+
+requirement = """
+When a Tickets table holds more than 10 tickets, the web interface shall show them in pages of 10 by default with a Rows per page selector (10, 25, 50, All), the visible range, the current page number of the page count and Previous/Next controls, returning to the first page when tickets are read again.
+"""
+
+verification = "Automated: e2e tickets.spec reads 23 tickets, sees 10 rows and page 1 of 3, moves with Next/Previous, switches to 25 and All rows, and sees no pager for 7 tickets."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/src/help/content/"]
+
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "A read returns up to 500 tickets; one long page forces a lot of scrolling."
+
+created = 2026-10-13
+updated = 2026-10-13

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-88b6455a"
+
+title = "Reject unsupported Pi thinking levels"
+
+status = "active"
+
+requirement = """
+If a configured thinking level is invalid or unsupported by the selected Pi provider and model, ADORE shall reject the configuration.
+"""
+
+verification = "Offline configuration tests submit malformed and unsupported levels and assert a typed validation failure."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/pi_providers.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_thinking_level_configuration_fails_closed", "04_Software/tests/test_web_executor_configuration.py::test_connection_thinking_is_reviewed_and_rejects_unsupported"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

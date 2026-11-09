@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-b75e1df8"
+title = "Configure and check local execution with user-owned tooling notice"
+status = "active"
+requirement = "When configuring or checking a local project ADORE shall use the selected native backend for basic executor/auth and explicit model checks, state its actual machine/account and user-owned tooling/host security responsibility, and omit machine/backend/environment identity from portable working rules."
+verification = "Offline CLI/setup/web/frontend checks observe backend-specific selection/notices and same-environment probes without container/tool-install calls, with unauthorized/invalid/stale inputs refused."
+affected_paths = ["04_Software/web/src/ExecutionPlanReview.tsx", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/tests/executionPlan.test.mjs", "04_Software/web/src/localExecution.ts", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/executionPlan.ts", "04_Software/web/src/readiness.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/settings.ts", "04_Software/web/src/settingKeys.json", "04_Software/adore/wizard.py", "04_Software/adore/cli.py", "04_Software/adore/web/app.py", "04_Software/adore/web/model_connection.py", "04_Software/adore/portable_settings.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_review_apply_rechecks_native_identity_and_permissions", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/tests/executionPlan.test.mjs", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_the_managed_rpc_installation", "04_Software/tests/test_local_execution.py::test_local_readiness_never_invokes_container_tools", "04_Software/tests/test_local_execution.py::test_local_native_settings_accept_tools_path_and_refuse_launch_overrides", "04_Software/tests/test_local_execution.py::test_local_portable_export_excludes_all_native_settings"]
+spec = "specs/REQ-FUNC-ffb9ed29.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-11-03

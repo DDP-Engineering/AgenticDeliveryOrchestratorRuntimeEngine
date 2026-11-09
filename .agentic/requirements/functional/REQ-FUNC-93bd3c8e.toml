@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-93bd3c8e"
+title = "Show the executor stderr tail in NO_STAGE_PROGRESS evidence"
+status = "active"
+requirement = """
+When an executor gate exits zero, AEGIS has not advanced and the gate's stderr is not blank, the conductor shall record NO_STAGE_PROGRESS evidence that keeps the sentence "executor exited zero but AEGIS remained at <stage>" followed by the last 20 lines, at most 2000 characters, of that stderr, after removing ANSI escape sequences and redacting credentials on the whole stderr so that no cut separates a key from its value. When the run ends in a terminal failure, its recorded outcome shall keep that sentence even when the evidence exceeds the 2000-character outcome bound.
+"""
+verification = "Offline orchestrator tests: a gate exiting zero without progress whose stderr ends with an ANSI-coloured permission line produces stage-failed evidence, a ticket incident comment and a terminal comment containing the sentence and that line without escape codes; OSC hyperlink sequences leave only their text, and an unterminated OSC or DCS sequence removes nothing past its own line; a token in stderr is redacted, including when the character cut or the line cut would fall between the key and its value and when a NUL splits the key; blank stderr leaves the evidence exactly the sentence; a 500-line stderr keeps only its last 20 lines; 30 lines of 300 characters keep exactly 2000 characters ending with the last line, and the run outcome is then exactly the code plus 2000 characters; the run outcome starts with the code, the attempt and the sentence in every case."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_no_stage_progress_evidence_carries_the_stderr_tail"]
+spec = ""
+priority = "normal"
+rationale = "The decisive cause of a no-progress stage, such as auto-rejected tool calls, appears only in the executor's stderr."
+created = 2026-11-01
+updated = 2026-11-01

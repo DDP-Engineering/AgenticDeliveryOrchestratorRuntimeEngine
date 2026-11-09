@@ -1,0 +1,23 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-REL-6922cfe5"
+title = "Pinned package-enabled execution recovery"
+status = "active"
+requirement = """
+When a package-enabled job is resumed, ADORE shall bind installation authority to its persisted policy and exact container/image identities, failing explicitly on drift or resource loss rather than assuming the prior installed environment exists.
+"""
+verification = """
+Offline conductor and persisted-state tests cover same-container resume, policy changes, replaced/missing resources and corrupt package permission fields, while legacy disabled policy plans remain readable.
+"""
+affected_paths = ["04_Software/adore/preparation.py", "04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_system_packages.py::test_package_execution_policy_pins_true_and_preserves_legacy_false_shape", "04_Software/tests/test_system_packages.py::test_package_plan_rejects_noncanonical_opt_in", "04_Software/tests/test_system_packages.py::test_package_only_state_preserves_exact_resource_without_claiming_recipe_success", "04_Software/tests/test_system_packages.py::test_public_retry_pins_package_authority_and_container"]
+spec = "specs/REQ-FUNC-c405688e.md"
+priority = "normal"
+created = 2026-10-30
+updated = 2026-10-30

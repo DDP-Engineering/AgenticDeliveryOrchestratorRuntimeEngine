@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-2219035e"
+
+title = "Keep resources of runs with corrupt state during cleanup"
+
+status = "active"
+
+requirement = """
+If a run's persisted state in the project is corrupt, then cleanup shall keep that run's worktree directory, executor container, egress proxy and egress networks and report the run ID under corrupt_runs.
+"""
+
+verification = "An automated orchestrator test writes an unreadable state file for a run that has a worktree directory, container, proxy and network; after cleanup all four still exist, the report lists the run ID under corrupt_runs, and none of them appears among the removed items."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_cleanup_keeps_resources_of_runs_with_corrupt_state"]
+
+
+spec = "specs/REQ-SEC-4a3f81cb.md"
+
+priority = "normal"
+rationale = "Corrupt state needs human inspection, and the run's worktree may hold the only copy of its work."
+
+created = 2026-10-04
+updated = 2026-10-04

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-a514d0b2"
+
+title = "Restrict web project deletion to confirmed archived projects"
+
+status = "active"
+
+requirement = """
+When an administrator requests deletion of a project through ADORE web, the service shall accept it only for an archived project whose exact name is confirmed, with a valid CSRF token and no queued, running or unfinished work, queue it for the command worker, and have the worker recheck administrator role, archive state and project identity before running the resource-removing profile delete; every other request shall be refused with a stable error code and change nothing.
+"""
+
+verification = "Automated: an administrator deleting an archived, idle project with the exact name receives a queued delete operation and the worker runs `profile delete <name> --force --remove-resources`, after which the project is gone, the operation succeeded, its status remains readable by administrators and the audit trail records the request and result; a developer (403), missing CSRF (403), an unarchived project (409 project_not_archived), a wrong name (422 delete_confirmation_mismatch), queued or unfinished work (409 project_has_active_work) and a worker-side role or archive change each leave the project intact."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/adore/web/commands.py"]
+
+linked_tests = ["04_Software/tests/test_web_delete.py::test_confirmed_archived_project_is_deleted_by_the_worker", "04_Software/tests/test_web_delete.py::test_delete_is_refused_unless_archived_confirmed_and_idle", "04_Software/tests/test_web_delete.py::test_corrupt_run_state_blocks_deletion", "04_Software/tests/test_web_delete.py::test_worker_refuses_delete_after_actor_or_identity_changes", "04_Software/tests/test_web_delete.py::test_worker_rechecks_archive_state_before_deleting"]
+
+
+spec = "specs/REQ-SEC-a514d0b2.md"
+
+priority = "high"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-04
+updated = 2026-10-04

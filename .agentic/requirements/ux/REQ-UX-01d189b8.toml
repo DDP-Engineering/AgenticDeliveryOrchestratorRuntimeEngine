@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-01d189b8"
+title = "Present externally prepared executor environment guidance"
+status = "active"
+requirement = """
+For an authorized container project, Agent and model shall display the effective image and expandable localized Dockerfile/profile preparation instructions with the actual server configuration path restricted to administrators, and administrators shall choose the execution backend, container runtime and image (with server image suggestions) and the local account fields in guided creation and in Agent and model settings through reviewed configuration.
+"""
+verification = "API/browser tests observe the effective image, Admin path and Dev omission, the disclosure, environment choices in guided enrollment and a reviewed image edit in Agent and model with developer read-only access, in four locales."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/serverImages.ts", "04_Software/web/src/ExecutorEnvironment.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/images.spec.ts", "04_Software/tests/test_executor_environment_choice.py"]
+priority = "high"
+created = 2026-10-08
+updated = 2026-11-01

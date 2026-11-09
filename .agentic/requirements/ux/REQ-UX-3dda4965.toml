@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-3dda4965"
+
+title = "Distinguish example placeholders from entered values"
+
+status = "active"
+
+requirement = """
+The web interface shall render example placeholder text in a visibly different style from entered values and prefix it with a localized example marker, while keeping the placeholder text at least 4.5:1 contrast against its field background in light and dark themes.
+"""
+
+verification = "Inspection: in each locale and theme, compare an empty Connect repository server field with one holding a typed value and confirm the placeholder shows the example marker and a distinct style; compute placeholder colour contrast against the field background in light, dark and system-dark themes (at least 4.5:1)."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-12

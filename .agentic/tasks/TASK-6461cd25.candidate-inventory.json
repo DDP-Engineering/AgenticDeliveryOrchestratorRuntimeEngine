@@ -1,0 +1,257 @@
+{
+  "task": "TASK-6461cd25",
+  "base": "6665bb72dc0dae1f3e50abf9e2ba50d515e1496a",
+  "head": "6665bb72dc0dae1f3e50abf9e2ba50d515e1496a",
+  "branch": "task/adore-web-interface",
+  "fingerprint_sha256": "5e555f77b59a797fb8cc791523b00f9b0530826ead6f8e28c170d1e24a383764",
+  "hash_basis": "SHA-256 raw working bytes; removed files use base blob bytes. Fingerprint is sorted-key compact JSON of records.",
+  "reporting_exclusions": [
+    ".agentic/tasks/TASK-6461cd25.md",
+    ".agentic/tasks/TASK-6461cd25.candidate-inventory.json",
+    ".agentic/specs/settings-candidate-inventory.md",
+    ".agentic/tasks/TASK-6461cd25.validation-final.json",
+    ".agentic/tasks/TASK-6461cd25.validation-round1.json",
+    ".agentic/tasks/TASK-6461cd25.validation-round2.json",
+    ".agentic/tasks/TASK-6461cd25.validation-round3.json"
+  ],
+  "records": [
+    {
+      "path": ".agentic/context/project.md",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "161da88db9b601fd69cb4071c058c5d08e2f58599154b1292caa756b98faabfb",
+      "base_sha256": "cd5fa3334495c74c8c2684747c72f32ace5c9c24220060a70b61b7df033fe32d"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "8cfc15bdc5655fad5f8a968d4f88d2b96d41552c58aac187f74564ac459fcf95",
+      "base_sha256": "3d16baff026edc8ec78727d9211127af8b142ea38f52df2e80c833eb0090ec8a"
+    },
+    {
+      "path": ".agentic/requirements/security/REQ-SEC-5d0f86e7.toml",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "ed45fdbc43a99afa6293c68562757b499aaea37a5aaf531428e897569ef76345",
+      "base_sha256": "5285e6c7734fde6d714118419c8636744ee54427b403ede7610e49d1542bd2f9"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-072cf049.toml",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "cb8975815755601e09803e7975265702bccf4fdfd6cd442ca6029a3fc8665579",
+      "base_sha256": "a66f05bafc8d097ecad8641687d2afa31823cea1943567eefb86397a7ecb680a"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-2bea4ff1.toml",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "62af2110e2f5375935b4fe4df1c7bd5ec8af412ba6f02a162b7e32e9b81eb9cc",
+      "base_sha256": null
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-3b5b2257.toml",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "2130b0924ce2ddfffb3c9c3382f8693be270b6d22cdf9936d5cc35a6e9bae5ff",
+      "base_sha256": "54c6049c1119845617cb12278db8cbc1532a33e4c480043c424a6ec924b0b6b5"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-84025a2c.toml",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "8be6e7193191c6229f26c3720d25c1bef642997d20a32acb406d808f816894b7",
+      "base_sha256": null
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-9a625fc5.toml",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "4ff3d375ed9ba8501d9c8c6859ef758727188cd999ccf7a90598e2326fe275f6",
+      "base_sha256": "c34deb13d2c2897d3dc2ab5daa341312e5d47a5fa791d3b91e2dc7c8b00f5ea8"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-b758d2b7.toml",
+      "action": "modified",
+      "group": "workflow/evidence",
+      "sha256": "38c254d740bd463ffe5fd374714f24ee3e0c36e55fb44d1bff2c5f014958c32b",
+      "base_sha256": "4c59f4a092122163df0cc02c65dd60a40b95de7d523954ad6540a0f0d6f3265b"
+    },
+    {
+      "path": ".agentic/specs/settings-candidate-review.md",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "f9f63b34495303ce3f839e9cef167bb7b4fddc615be370d1c436416953a2e086",
+      "base_sha256": null
+    },
+    {
+      "path": ".agentic/specs/settings-evidence/settings-dark-390.png",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "0430162d888c993ad10df594b80ef53f4ae7620adc3e4589b8b6e92007ec2a41",
+      "base_sha256": null
+    },
+    {
+      "path": ".agentic/specs/settings-evidence/settings-endpoint-review-390.png",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "d605e321e480568deab13a8ecb03a29830b7019368d5f34ed8323a3ce7bb1833",
+      "base_sha256": null
+    },
+    {
+      "path": ".agentic/specs/settings-evidence/settings-light-390.png",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "0430a0715335a82a2940efd25215c3950a052ea8a1047e1017897842622660ef",
+      "base_sha256": null
+    },
+    {
+      "path": ".agentic/specs/settings-verification.md",
+      "action": "added",
+      "group": "workflow/evidence",
+      "sha256": "577837b206386a51c9020b0a380faf28d1165e5235366887d07fa07441e3e442",
+      "base_sha256": null
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "19313cfe54eecc6353160b60d9b5b3c45dedf2470a95519d6125b2e0b2d5fbfc",
+      "base_sha256": "20559d16aa61ba556633387646e8ed67301661ea802668acf7230e50b6fc518a"
+    },
+    {
+      "path": "04_Software/adore/web/app.py",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "f37f0a333c0b56c08cbc6bc6783e9073a0e5bd4e6141406d0c8c71e9f02c31b3",
+      "base_sha256": "9746e3188fdc01512d1c2bac58b6c596cd4be3f71bb1017522ff5913bb049598"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-B7q0gYmM.js",
+      "action": "removed",
+      "group": "generated static",
+      "sha256": null,
+      "base_sha256": "2cfaaef42a39e0c1bbeace03680914db677a987cb66c1055108de6594342374b"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-C-W0ZWtp.css",
+      "action": "added",
+      "group": "generated static",
+      "sha256": "c128c982f6ad6485da440ba3b58a32229cabfa9e6612d42c85a8b2590fe5ee5f",
+      "base_sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-C0uPsQVc.js",
+      "action": "added",
+      "group": "generated static",
+      "sha256": "d80ae4e388473b6fed3863d3a2c52cef0df39774f3c19a11f837241d3a984951",
+      "base_sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-DQ8xaP1S.css",
+      "action": "removed",
+      "group": "generated static",
+      "sha256": null,
+      "base_sha256": "f4f392dd0242b4b29766c380ef583f4d3269f6894a925be6fed0d549310a46cb"
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "action": "modified",
+      "group": "generated static",
+      "sha256": "42eacd039408fc86c86d245ea2ca761562d6eb29d0bbf2719e5508a313bf7663",
+      "base_sha256": "9f28ee562614000b1cc37eeb5b67f57a71597a3ebbb38be151f890cec7bd88c6"
+    },
+    {
+      "path": "04_Software/tests/test_web_config.py",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "8f9eb659a3222f57c3551c21a232abcd6e2c2bddd844a0ad08f4a4fd56f77b8a",
+      "base_sha256": "8bcd75c8cf98ed91d68c30d965c4b68b12d0656fb9ada58d158077469a0a56fa"
+    },
+    {
+      "path": "04_Software/tests/test_web_pending_config.py",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "22a6a5a7f915f530b860c979dade48b6226e3715ac2478be0b377b996dc192d0",
+      "base_sha256": "60cbaf2b2a759c2a045dc5493f8ee64344543ca7ff09e4763ec347ccfa93b1bb"
+    },
+    {
+      "path": "04_Software/web/e2e/dashboard.spec.ts",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "ee4a6370752b2a41cd200839cdb31ed5db3b90253c9dd7909ea2466305a39c01",
+      "base_sha256": "ab101d1a2482c83c78684935a728da0c5e18b3ee5524f789e92b157d64403321"
+    },
+    {
+      "path": "04_Software/web/e2e/settings.spec.ts",
+      "action": "added",
+      "group": "authored product/test/doc",
+      "sha256": "9c5cac6daf23745a4644323e52ee4bac885a8e017107eeb943df908b5c092932",
+      "base_sha256": null
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "6434f966c761891a50a70e3769c1109c1ab6ebb70608ddbfed9ae2f13f6b5d89",
+      "base_sha256": "1595c498dd67d4f17044f95d4fd3ab7e7811fabbd9272ca77f99e6e043c86b69"
+    },
+    {
+      "path": "04_Software/web/src/settings.ts",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "6ff10fb21e323a852203c593b9c0ec02914af9255d41c27353b63bde2f6eb491",
+      "base_sha256": "a9ba0cf968bb0d7fa9885d68aa0d720d8c757aab79a86cc6f4df520134fe2f0a"
+    },
+    {
+      "path": "04_Software/web/src/settingsCopy.ts",
+      "action": "added",
+      "group": "authored product/test/doc",
+      "sha256": "5eacbd5708548f2e8fb97c611b53f43ee195ea43d54988c8e025a9cfa3f0456e",
+      "base_sha256": null
+    },
+    {
+      "path": "04_Software/web/src/styles.css",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "d71ea77611e8b75a98a900cc77693bb51f1373c7e3ace7fabd4517922131d865",
+      "base_sha256": "c9b55312a98f36f704b5d602ef3a9f55a05ff33e2968483105c3464b4ab9dbf9"
+    },
+    {
+      "path": "04_Software/web/tests/settings.test.mjs",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "48246bc18c01c980f231beb810c1bfb084e43e75bc1b30a288c86a63ca6a73cd",
+      "base_sha256": "98d2ce265b25896be13fd617923d5cdf59a51ea64dc562cb8f6fcf589a2c3b26"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Config_Edit.md",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "ac904f7715822dd0abad5f534b40d4cd09fa204e0ddb03218994f98c21d74c96",
+      "base_sha256": "39f7ba6847deaa2e1c75a0aca1d689e35f56b0591fc0bc352946d52f995d8bb7"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "b6de3a507d48ec5657eda7ce62229fb3f7ca9914f41a8f83abfa0b0751cca7f9",
+      "base_sha256": "8a9a53e234452b7b6ce21348b1ffc298ddcaa5c9930241393aab8f99118833ac"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "a062205cc38033f454a2ed37f02289079cac383290c2b22e16d2506d6e774062",
+      "base_sha256": "cab22ff6100fbfd75709e49f341bb540000821a68b587005197975fa9ec72807"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "action": "modified",
+      "group": "authored product/test/doc",
+      "sha256": "d07941a68679899abe96a7f5d0c84875226632cbd67e0bc8ac1b490ea21c7144",
+      "base_sha256": "4cb1f798588bd6931332ffeb838dfdf3060d9e0bea0368f617aed23a9b5e44f3"
+    }
+  ]
+}

@@ -21,9 +21,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from adore import __version__
+from adore import __version__, metrics
 from adore.cli import EXIT_ERROR, EXIT_OK, main
-from adore.executor.launcher import OpencodeExecutor, build_executor
+from adore.config import load_config
+from adore.executor.launcher import PiExecutor, build_executor
 from adore.forge import ForgeError
 from adore.orchestrator import LockHeldError
 from adore.process_log import ProcessLogger, process_log_path
@@ -41,9 +42,9 @@ repo = "group/project"
 repo_path = "../runtime-project"
 root      = "__WORKTREE_ROOT__"
 
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} {prompt}"
-model   = "openai/gpt-5.4-fast"
+[executor]
+provider = "openai"
+model = "gpt-5.4-fast"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -75,16 +76,28 @@ def _config_file(tmp_path: Path, text: str = VALID_CONFIG) -> str:
 class FakeMutationEngine:
     """@brief Record CLI mutation calls without touching external systems."""
 
-    def __init__(self) -> None:
+    def __init__(self, store=None) -> None:
         self.calls: list[tuple] = []
+        self.store = store
 
     def retry(self, run_id: str) -> bool:
         self.calls.append(("retry", run_id))
+        if self.store is not None:
+            run = self.store.load(run_id)
+            run.lifecycle = "working"
+            run.outcome = ""
+            self.store.save(run)
         return True
 
     def cancel(self, run_id: str, *, outcome: str = "cancelled") -> bool:
         self.calls.append(("cancel", run_id, outcome))
         return True
+
+    def delete(self, run_id: str, *, owned_resources: bool = False) -> None:
+        """@brief Record the guarded deletion boundary and emulate state removal."""
+        self.calls.append(("delete", run_id))
+        if self.store is not None:
+            self.store.delete_run(run_id)
 
     def reset(self, run_id: str, stage: str) -> bool:
         self.calls.append(("reset", run_id, stage))
@@ -99,14 +112,12 @@ def test_version_present() -> None:
     assert __version__
 
 
-def test_build_executor_opencode() -> None:
+def test_build_executor_pi() -> None:
     """
-    @brief   The factory returns an opencode executor and rejects unknown kinds.
+    @brief   The factory returns the Pi executor, ADORE's only coding agent.
     """
-    executor = build_executor("opencode", "opencode run {prompt}", "openai/gpt-5.4-fast")
-    assert isinstance(executor, OpencodeExecutor)
-    with pytest.raises(ValueError):
-        build_executor("nope", "", "")
+    executor = build_executor("pi -p {prompt}", "openai/gpt-5.4-fast")
+    assert isinstance(executor, PiExecutor)
 
 
 def test_cli_config_validate_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -195,6 +206,32 @@ def test_cli_reset_guardrail_and_cleanup_report(
     assert '"lock_cleared": false' in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(("target", "code"), [
+    ("publishing", EXIT_OK), ("validate", EXIT_OK), ("deliver", EXIT_ERROR), ("done", EXIT_ERROR),
+])
+def test_cli_reset_accepts_only_current_stages_and_publishing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], target: str, code: int,
+) -> None:
+    """
+    @brief   `reset --to` names a conducted AEGIS stage or publishing.
+    @details AEGIS 0.15.0 has no deliver stage and done is no reset target, so
+             the CLI refuses both and the saved run keeps its pointer.
+    """
+    config_path = _config_file(tmp_path)
+    config = load_config(config_path)
+    store = StateStore(config.state.store_root, config.agent.slug)
+    store.save(RunState(run_id="run-1", ticket_iid=1, stage="build", lifecycle="failed"))
+
+    assert main(["-c", config_path, "reset", "run-1", "--to", target, "--force"]) == code
+
+    saved = store.load("run-1")
+    if code == EXIT_OK:
+        assert saved.stage == target
+    else:
+        assert saved.stage == "build"
+        assert "cannot reset run-1" in capsys.readouterr().out
+
+
 def test_cli_config_set_updates_existing_key_and_preserves_comments(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -280,6 +317,56 @@ def test_cli_stats_and_export_work_empty(
     assert main(["-c", config, "export", "--csv"]) == EXIT_OK
     assert capsys.readouterr().out.startswith("run_id,")
     assert main(["-c", config, "report", "nope"]) == EXIT_ERROR
+
+
+def test_cli_report_and_rebuild_reject_conflicting_usage(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """@brief CLI metrics fail with a typed message on versioned replay conflict."""
+    config = _config_file(tmp_path)
+    store = StateStore(tmp_path / ".adore")
+    store.save(RunState(run_id="a-clean", ticket_iid=2, lifecycle="done"))
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
+             "executor": "pi", "model": "example", "review_round": 0,
+             "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
+             "cost_reported": True}
+    store.journal("run-1", "usage", **usage)
+    assert main(["-c", config, "report", "run-1"]) == EXIT_OK
+    assert '"tokens_in": 10' in capsys.readouterr().out
+    store.journal("run-1", "usage", **{**usage, "tokens_in": 11})
+    assert main(["-c", config, "report", "run-1"]) == EXIT_ERROR
+    assert "conflicting versioned usage" in capsys.readouterr().out
+    assert main(["-c", config, "stats", "--rebuild"]) == EXIT_ERROR
+    assert "conflicting versioned usage" in capsys.readouterr().out
+    assert not Path(load_config(config).metrics.db_path).exists()
+
+
+def test_cli_rebuild_replays_usage_idempotently_without_changing_run_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """@brief Historical rebuild upserts known evidence and preserves journals."""
+    config = _config_file(tmp_path)
+    state = StateStore(tmp_path / ".adore")
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
+             "executor": "pi", "model": "local/test", "review_round": 0,
+             "tokens_in": 7, "tokens_out": 3, "cost_usd": 0,
+             "cost_reported": False}
+    state.journal("run-1", "usage", **usage)
+    state.journal("run-1", "usage", **usage)
+    before = {item.name: item.read_bytes() for item in state.run_dir("run-1").iterdir()
+              if item.is_file()}
+    db = load_config(config).metrics.db_path
+    assert main(["-c", config, "stats", "--rebuild"]) == EXIT_OK
+    first = metrics.load_summaries(db)
+    assert len(first) == 1
+    assert (first[0].tokens_in, first[0].tokens_out) == (7, 3)
+    assert main(["-c", config, "stats", "--rebuild"]) == EXIT_OK
+    assert metrics.load_summaries(db) == first
+    assert {item.name: item.read_bytes() for item in state.run_dir("run-1").iterdir()
+            if item.is_file()} == before
+    assert "rebuilt 1 run" in capsys.readouterr().out
 
 
 def test_cli_run_once_writes_process_log(
@@ -404,6 +491,74 @@ def test_cli_run_once_reserves_lock_advice_for_lock_contention(
 
 
 @pytest.mark.parametrize(
+    ("outcome", "code"),
+    [
+        ({"picked": None, "paused": True}, "pickup_paused"),
+        ({"picked": None, "at_capacity": True}, "at_capacity"),
+        ({"picked": None, "payload_error": "probe failed"}, "aegis_probe_failed"),
+        ({"picked": None}, "not_eligible"),
+        (LockHeldError("another instance holds the lock"), "conductor_busy"),
+        ({"picked": 42}, None),
+    ],
+)
+def test_cli_single_ticket_run_names_why_it_started_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: dict | Exception,
+    code: str | None,
+) -> None:
+    """@brief `run --once --ticket N` prints one stable reason line when it starts no job."""
+    config = _config_file(tmp_path)
+
+    class TicketEngine:
+        """@brief Minimal single-ticket engine returning one scripted pass."""
+
+        def __init__(self) -> None:
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False, ticket_iid: int | None = None) -> dict:
+            assert ticket_iid == 42
+            if isinstance(outcome, Exception):
+                raise outcome
+            return {"resumed": 0, **outcome}
+
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: TicketEngine()
+    )
+    status = main(["-c", config, "run", "--once", "--ticket", "42"])
+    reasons = [line for line in capsys.readouterr().out.splitlines()
+               if line.startswith("error: ticket #")]
+    if code is None:
+        assert status == EXIT_OK and reasons == []
+    else:
+        assert status == EXIT_ERROR
+        assert reasons == [f"error: ticket #42 not started: {code}"]
+
+
+def test_cli_run_once_without_ticket_prints_no_not_started_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """@brief A polling pass that picks nothing is normal and names no ticket."""
+    config = _config_file(tmp_path)
+
+    class PausedEngine:
+        """@brief Engine whose pass finds pickup stopped."""
+
+        def __init__(self) -> None:
+            self.log = print
+
+        def poll_once(self, *, dry_run: bool = False) -> dict:
+            return {"picked": None, "paused": True}
+
+    monkeypatch.setattr(
+        "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: PausedEngine()
+    )
+    assert main(["-c", config, "run", "--once"]) == EXIT_OK
+    assert "not started" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
     "argv",
     [
         ["retry", "run-1"],
@@ -442,7 +597,7 @@ def test_cli_operator_mutations_refuse_a_live_lock(
     [
         (["retry", "run-1"], ("retry", "run-1")),
         (["cancel", "run-1"], ("cancel", "run-1", "cancelled")),
-        (["delete", "run-1", "--force"], ("cancel", "run-1", "deleted")),
+        (["delete", "run-1", "--force"], ("delete", "run-1")),
         (["reset", "run-1", "--to", "frame", "--force"],
          ("reset", "run-1", "frame")),
     ],
@@ -457,7 +612,7 @@ def test_cli_operator_mutations_acquire_and_release_the_lock(
     config = _config_file(tmp_path)
     store = StateStore(tmp_path / ".adore")
     store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="failed"))
-    engine = FakeMutationEngine()
+    engine = FakeMutationEngine(store)
     monkeypatch.setattr(
         "adore.cli.Orchestrator.from_config", lambda _config, **_kwargs: engine
     )
@@ -619,3 +774,44 @@ def test_cli_init_wizard_error_exits_one(
 
 
 # END OF FILE
+
+
+@pytest.mark.parametrize("reason", ["at_capacity", "workflow_unavailable", "held"])
+def test_cli_manual_start_emits_safe_terminal_reason(tmp_path, monkeypatch, capsys, reason):
+    """@brief The worker receives the concrete admission refusal without raw logs."""
+    import json
+
+    from adore import cli
+    monkeypatch.setattr(cli.Orchestrator, "poll_once", lambda *a, **k: {
+        "picked": None, "start_reason": reason})
+    assert main(["-c", _config_file(tmp_path), "run", "--once", "--ticket", "7"]) == EXIT_ERROR
+    line = capsys.readouterr().out.splitlines()[-1]
+    assert line.startswith("ADORE_START_RESULT ")
+    assert json.loads(line.removeprefix("ADORE_START_RESULT ")) == {
+        "schema": 1, "ticket": 7, "exit_code": 1, "reason": reason}
+
+
+@pytest.mark.parametrize("failure,reason", [
+    (LockHeldError("PRIVATE"), "lock_held"),
+    (ForgeError("PRIVATE"), "repository_unavailable"),
+    (RuntimeError("PRIVATE"), "engine_fault"),
+    (None, "started"),
+])
+def test_cli_manual_start_binds_exceptions_and_success(
+    tmp_path, monkeypatch, capsys, failure, reason,
+):
+    """@brief Terminal evidence identifies the gate while excluding raw fault details."""
+    import json
+
+    from adore import cli
+    def poll(*args, **kwargs):
+        if failure is not None:
+            raise failure
+        return {"picked": 7}
+    monkeypatch.setattr(cli.Orchestrator, "poll_once", poll)
+    code = main(["-c", _config_file(tmp_path), "run", "--once", "--ticket", "7"])
+    assert code == (EXIT_OK if failure is None else EXIT_ERROR)
+    line = capsys.readouterr().out.splitlines()[-1]
+    record = json.loads(line.removeprefix("ADORE_START_RESULT "))
+    assert record == {"schema": 1, "ticket": 7, "exit_code": code, "reason": reason}
+    assert "PRIVATE" not in line

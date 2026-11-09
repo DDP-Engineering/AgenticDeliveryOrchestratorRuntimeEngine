@@ -19,10 +19,12 @@
 from __future__ import annotations
 
 # IMPORTS
+import hashlib
 import os
 from pathlib import Path
+import subprocess
 
-from adore.config import ContainerEgressConfig
+from adore.config import EgressPolicy
 from adore.isolation import (
     CONTAINER_IO_MOUNT,
     CONTAINER_REPO_MOUNT,
@@ -114,6 +116,50 @@ def _manager(runner: FakeRunner) -> ContainerManager:
                             "npm-cache", runner)
 
 
+def _bounded(name: str, limit: int) -> str:
+    """
+    @brief      Expected per-run name part for a runtime-safe executor name.
+    @param[in]  name Executor container name (already runtime-safe).
+    @param[in]  limit Maximum length of the part.
+    @return     The name itself when it fits, else its start plus a 10-hex
+                SHA-256 suffix of the full name.
+    """
+    if len(name) <= limit:
+        return name
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:10]
+    return f"{name[:limit - 11].rstrip('-._')}-{digest}"
+
+
+def _provisioned_egress(tmp_path: Path, name: str) -> tuple[str, str]:
+    """
+    @brief      Provision one allowlist-proxy run on a fresh fake runtime.
+    @param[in]  tmp_path pytest tmp dir.
+    @param[in]  name Executor container name.
+    @return     (egress network, proxy container) names the runtime was given;
+                the executor joins that network and the proxy is connected to it.
+    """
+    runner = FakeRunner(
+        _fail(f"No such container: {name}"),
+        _ok("network"),
+        _fail("No such container: proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+    manager.provision(name, tmp_path / "repo", tmp_path / "wt", tmp_path / "io",
+                      {"HOME": "/home/adore"})
+    network = runner.calls[1][-1]
+    proxy = runner.calls[3][4]
+    executor_run = runner.calls[5]
+    assert executor_run[executor_run.index("--network") + 1] == network
+    assert runner.calls[4][-2:] == [network, proxy]
+    return network, proxy
+
+
 def _fake_worktree(tmp_path: Path, run_id: str, gitdir: str) -> WorktreeManager:
     """
     @brief      A WorktreeManager whose worktree exists on disk with a pointer.
@@ -193,28 +239,6 @@ def test_changed_files_counts_renames_and_quoted_paths_once(tmp_path: Path) -> N
     manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
     # src/a.py (both sides), src/b.py, src/new.py (rename dest), weird name.py
     assert manager.changed_files("run-1", "origin/develop") == 4
-
-
-def test_product_fingerprint_ignores_tool_regenerated_paths(tmp_path: Path) -> None:
-    """
-    @brief   A target repo without a matching .gitignore carries its own
-             bytecode in the candidate, and the delivery gate reruns the
-             configured commands, which rewrites it. Counting that as the
-             delivery executor mutating product code would invalidate an
-             approval a human already gave, for a file nobody edited (live
-             finding 2026-09-18). Governed and generated paths are both
-             excluded; real product changes are not.
-    """
-    runner = FakeRunner(_ok(), _ok(), _ok("diff --git a/calc/core.py"))
-    manager = WorktreeManager(tmp_path / "repo", tmp_path / "wt", runner)
-    manager.product_diff_fingerprint("run-1", "origin/master")
-    argv = runner.calls[-1]
-    assert ":(exclude).agentic/**" in argv
-    assert ":(exclude)**/__pycache__/**" in argv
-    assert ":(exclude)**/*.pyc" in argv
-    assert ":(exclude)**/.ruff_cache/**" in argv
-    # the product itself is still what gets hashed
-    assert "." in argv and "--binary" in argv
 
 
 def test_worktree_remove_missing_is_not_an_error(tmp_path: Path) -> None:
@@ -360,7 +384,8 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
              safe runtime env inline, secret keys without values, and sleep
              infinity; the io dir is created on demand.
     """
-    runner = FakeRunner(_fail("Error: No such object: adore-run-x"), _ok("cid"))
+    runner = FakeRunner(_fail("Error: No such object: adore-run-x"), _ok("cid"),
+                        _ok("adore-git-binding-v1\n"))
     manager = _manager(runner)
     io_dir = tmp_path / "state" / "runs" / "x" / "io"
     manager.provision(
@@ -369,7 +394,7 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
         tmp_path / "worktrees" / "x",
         io_dir,
         {"HOME": "/home/adore", "GIT_DIR": "/adore/repo/.git/worktrees/x",
-         "CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
+         "PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
          "ANTHROPIC_API_KEY": "sk-secret"},
     )
     run_argv = runner.calls[1]
@@ -379,8 +404,9 @@ def test_container_provision_creates_when_absent(tmp_path: Path) -> None:
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
                   if part == "--env"]
     assert "HOME=/home/adore" in env_values
-    assert "GIT_DIR=/adore/repo/.git/worktrees/x" in env_values
-    assert "CODEX_HOME=/home/adore/.adore-codex" in env_values
+    assert "GIT_DIR" in env_values  # unset image defaults, not a global selector
+    assert not any(value.startswith("GIT_DIR=") for value in env_values)
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in env_values
     assert "UV_LINK_MODE=copy" in env_values
     assert "HOME" not in env_values  # bare key would take the WSL user's HOME
     assert f"{(tmp_path / 'repo').as_posix()}:{CONTAINER_REPO_MOUNT}" in run_argv
@@ -463,7 +489,7 @@ def test_container_proxy_config_mount_combines_ro_and_relabel(
     )
     manager = ContainerManager(
         "podman", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
-        egress=ContainerEgressConfig(
+        egress=EgressPolicy(
             mode="allowlist-proxy", allowlist=["api.openai.com"],
         ),
         selinux_relabel="shared",
@@ -500,7 +526,7 @@ def test_container_provision_none_uses_no_network(tmp_path: Path) -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="none"),
+        egress=EgressPolicy(mode="none"),
     )
     manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
                       tmp_path / "io", {"HOME": "/home/adore"})
@@ -530,7 +556,7 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(
+        egress=EgressPolicy(
             mode="allowlist-proxy",
             allowlist=["api.openai.com", "*.pythonhosted.org"],
         ),
@@ -568,6 +594,79 @@ def test_container_provision_allowlist_proxy_lifecycle(tmp_path: Path) -> None:
     assert "NO_PROXY=localhost,127.0.0.1,::1" in env_values
 
 
+def test_proxy_config_admits_names_by_domain_and_addresses_by_dst(tmp_path: Path) -> None:
+    """
+    @brief   Host names become a dstdomain rule, IP literals a dst rule, and
+             every other destination is denied; no address means no dst rule.
+    """
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", FakeRunner(),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=[
+            "api.openai.com", "*.pythonhosted.org", "192.168.1.20", "::1"]),
+    )
+    lines = manager._write_proxy_config(tmp_path / "mixed").read_text(
+        encoding="utf-8").splitlines()
+    assert "acl allowed_domains dstdomain api.openai.com .pythonhosted.org" in lines
+    assert "acl allowed_addresses dst 192.168.1.20 ::1" in lines
+    allow = [line for line in lines if line.startswith("http_access")]
+    assert allow == ["http_access allow allowed_domains",
+                     "http_access allow allowed_addresses", "http_access deny all"]
+
+    manager.egress = EgressPolicy(mode="allowlist-proxy", allowlist=["api.anthropic.com"])
+    text = manager._write_proxy_config(tmp_path / "names").read_text(encoding="utf-8")
+    assert "dst " not in text and "allowed_addresses" not in text
+    manager.egress = EgressPolicy(mode="allowlist-proxy", allowlist=["10.0.0.5"])
+    text = manager._write_proxy_config(tmp_path / "addresses").read_text(encoding="utf-8")
+    assert "dstdomain" not in text and "acl allowed_addresses dst 10.0.0.5" in text
+
+
+def test_proxy_gets_the_executor_host_aliases(tmp_path: Path) -> None:
+    """
+    @brief   The proxy container receives the --add-host options of run_args
+             (both spellings) and none of the other run options.
+    """
+    runner = FakeRunner(
+        _fail("No such container: adore-run-x"),
+        _ok("network"),
+        _fail("No such container: adore-run-x-egress-proxy"),
+        _ok("proxy"),
+        _ok(),
+        _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        run_args=["--add-host=host.docker.internal:host-gateway", "--userns=keep-id",
+                  "--add-host", "llm.lan:192.168.1.20"],
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["host.docker.internal"]),
+    )
+    manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
+                      tmp_path / "io", {"HOME": "/home/adore"})
+    proxy_run = runner.calls[3]
+    assert "--add-host=host.docker.internal:host-gateway" in proxy_run
+    assert proxy_run[proxy_run.index("--add-host") + 1] == "llm.lan:192.168.1.20"
+    assert "--userns=keep-id" not in proxy_run
+    assert "--userns=keep-id" in runner.calls[5]
+
+
+def test_disposable_probe_never_pulls_executor_or_egress_proxy(tmp_path: Path) -> None:
+    """@brief A local-only probe applies the no-pull policy to both images."""
+    runner = FakeRunner(
+        _fail("No such container: adore-probe-x"), _ok("network"),
+        _fail("No such container: adore-probe-x-egress-proxy"),
+        _ok("proxy"), _ok(), _ok("cid"),
+    )
+    manager = ContainerManager(
+        "docker", "executor:local", "uv-cache", "npm-cache", runner,
+        egress=EgressPolicy(
+            mode="allowlist-proxy", allowlist=["model.internal"]),
+        pull_never=True,
+    )
+    manager.provision("adore-probe-x", tmp_path / "repo", tmp_path / "work",
+                      tmp_path / "io", {})
+    assert "--pull=never" in runner.calls[3]
+    assert "--pull=never" in runner.calls[5]
+
+
 def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> None:
     """
     @brief   Proxy network/runtime failures fail closed with IsolationError.
@@ -579,7 +678,7 @@ def test_container_provision_allowlist_proxy_failure_raises(tmp_path: Path) -> N
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     with pytest.raises(IsolationError):
         manager.provision("adore-run-x", tmp_path / "repo", tmp_path / "wt",
@@ -598,7 +697,7 @@ def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     manager.remove("adore-run-x")
     assert runner.calls == [
@@ -608,64 +707,162 @@ def test_container_remove_allowlist_proxy_removes_proxy_and_network() -> None:
     ]
 
 
-def test_cleanup_container_sweeps_preserve_protected_exact_names() -> None:
+def test_cleanup_container_sweeps_remove_only_exact_targets() -> None:
     """
-    @brief   Cleanup removes only exact-prefix executor/proxy orphans while
-             retaining active/failed companions and ignoring filter overmatch.
+    @brief   Executor/proxy sweeps remove only listed names derived from the
+             targets: retained companions, untargeted names under the same
+             prefix, absent targets and filter overmatch are left alone.
     """
     listing = "\n".join([
         "not-adore-run-x",
         "adore-run-active",
-        "adore-run-failed",
         "adore-run-orphan",
+        "adore-run-other",
         "adore-run-active-egress-proxy",
-        "adore-run-failed-egress-proxy",
         "adore-run-orphan-egress-proxy",
+        "adore-run-other-egress-proxy",
     ])
-    protected = {"adore-run-active", "adore-run-failed"}
     runner = FakeRunner(_ok(listing), _ok(), _ok(listing), _ok())
     manager = _manager(runner)
+    targets = {"adore-run-orphan", "adore-run-gone"}
+    retained = {"adore-run-active"}
 
-    executors = manager.cleanup_orphan_containers("adore-run-", protected)
-    proxies = manager.cleanup_egress_proxies("adore-run-", protected)
+    executors = manager.cleanup_orphan_containers("adore-run-", targets, retained)
+    proxies = manager.cleanup_egress_proxies(targets, retained)
 
     assert executors == ["adore-run-orphan"]
     assert proxies == ["adore-run-orphan-egress-proxy"]
+    assert runner.calls[2] == ["docker", "ps", "--all", "--filter", "name=-egress-proxy",
+                               "--format", "{{.Names}}"]
     assert runner.calls[1] == ["docker", "rm", "--force", "adore-run-orphan"]
     assert runner.calls[3] == [
         "docker", "rm", "--force", "adore-run-orphan-egress-proxy",
     ]
+    assert len(runner.calls) == 4
 
 
 def test_cleanup_network_sweep_survives_allowlist_mode_change() -> None:
     """
-    @brief   Open-mode cleanup still reclaims canonical allowlist networks and
-             preserves the exact active/failed network companions.
+    @brief   Open-mode cleanup still reclaims a target's networks under the
+             canonical and configured prefixes and leaves every other network.
     """
-    listing = "\n".join([
+    canonical = "\n".join([
         "other-adore-egress-unowned",
         "adore-egress-adore-run-active",
-        "adore-egress-adore-run-failed",
         "adore-egress-adore-run-orphan",
+        "adore-egress-adore-run-other",
     ])
-    runner = FakeRunner(_ok(listing), _ok())
+    configured = "\n".join([
+        "team-egress-adore-run-orphan",
+        "team-egress-adore-run-other",
+    ])
+    runner = FakeRunner(_ok(canonical), _ok(), _ok(configured), _ok())
     manager = ContainerManager(
         "docker",
         "adore-executor-base:1.0.0",
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="open"),
+        egress=EgressPolicy(mode="open", network_prefix="team-egress"),
     )
 
     removed = manager.cleanup_egress_networks(
-        {"adore-run-active", "adore-run-failed"}
+        {"adore-run-orphan"}, {"adore-run-active"}
     )
 
-    assert removed == ["adore-egress-adore-run-orphan"]
+    assert removed == ["adore-egress-adore-run-orphan", "team-egress-adore-run-orphan"]
     assert runner.calls[1] == [
         "docker", "network", "rm", "adore-egress-adore-run-orphan",
     ]
+    assert runner.calls[3] == [
+        "docker", "network", "rm", "team-egress-adore-run-orphan",
+    ]
+    assert len(runner.calls) == 4
+
+
+def test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs() -> None:
+    """
+    @brief   Old cut proxy/network names shared by a finished and a retained
+             run of one long-named project are kept; the finished run's own
+             per-run names go.
+    """
+    stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-"
+    done, kept = stem + "26", stem + "27"
+    old_proxy = "adore-run-gitea-dpasare-2026_Networked_Intelligent-egress-proxy"
+    old_network = "adore-egress-adore-run-gitea-dpasare-2026_Networked_Intellige"
+    proxies_listed = [old_proxy] + [f"{_bounded(n, 50)}-egress-proxy" for n in (done, kept)]
+    networks_listed = [old_network] + [f"adore-egress-{_bounded(n, 48)}" for n in (done, kept)]
+    runner = FakeRunner(_ok("\n".join(proxies_listed)), _ok(),
+                        _ok("\n".join(networks_listed)), _ok())
+    manager = _manager(runner)
+
+    proxies = manager.cleanup_egress_proxies({done}, {kept})
+    networks = manager.cleanup_egress_networks({done}, {kept})
+
+    assert proxies == [proxies_listed[1]]
+    assert networks == [networks_listed[1]]
+    assert len(runner.calls) == 4
+
+
+def test_cleanup_egress_proxy_sweep_finds_proxies_of_long_slugs() -> None:
+    """
+    @brief   A per-run proxy whose bounded name no longer starts with a long
+             slug's executor prefix is still found and removed.
+    """
+    executor = "examplex-digital-delivery-agent-prod-run-gitea-dpasare-alpha-9"
+    proxy = "examplex-digital-delivery-agent-prod-ru-1cb1a4a1e2-egress-proxy"
+    assert not proxy.startswith("examplex-digital-delivery-agent-prod-run-")
+    runner = FakeRunner(_ok(f"unrelated-egress-proxy\n{proxy}"), _ok())
+
+    assert _manager(runner).cleanup_egress_proxies({executor}, set()) == [proxy]
+    assert runner.calls[1] == ["docker", "rm", "--force", proxy]
+
+
+def test_allowlist_egress_names_are_unique_per_run(tmp_path: Path) -> None:
+    """
+    @brief   Long executor names that share their first characters (two runs of
+             one project, another project) get their own bounded proxy and
+             network names; a short name keeps today's names.
+    """
+    stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_"
+    names = [stem + "Orchestrator-26", stem + "Orchestrator-27", stem + "Other-26"]
+
+    derived = [_provisioned_egress(tmp_path / str(index), name)
+               for index, name in enumerate(names)]
+
+    assert len({network for network, _ in derived}) == 3
+    assert len({proxy for _, proxy in derived}) == 3
+    for name, (network, proxy) in zip(names, derived, strict=True):
+        assert proxy == f"{_bounded(name, 50)}-egress-proxy" and len(proxy) <= 63
+        assert network == f"adore-egress-{_bounded(name, 48)}"
+        assert len(network) - len("adore-egress-") <= 48
+    assert derived[0] == (
+        "adore-egress-adore-run-gitea-dpasare-2026_Networke-bdeedb3462",
+        "adore-run-gitea-dpasare-2026_Networked-bdeedb3462-egress-proxy",
+    )
+    assert _provisioned_egress(tmp_path / "short", "adore-run-x") == (
+        "adore-egress-adore-run-x", "adore-run-x-egress-proxy",
+    )
+
+
+def test_remove_egress_removes_only_the_runs_own_proxy_and_network(tmp_path: Path) -> None:
+    """@brief Reaping one long-named run leaves another run's proxy and network alone."""
+    stem = "adore-run-gitea-dpasare-2026_Networked_Intelligent_Lab_Orchestrator-"
+    network26, proxy26 = _provisioned_egress(tmp_path / "26", stem + "26")
+    network27, proxy27 = _provisioned_egress(tmp_path / "27", stem + "27")
+    runner = FakeRunner(_ok(), _ok())
+    manager = ContainerManager(
+        "docker", "adore-executor-base:1.0.0", "uv-cache", "npm-cache", runner,
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
+    )
+
+    manager.remove_egress(stem + "26")
+
+    assert runner.calls == [
+        ["docker", "rm", "--force", proxy26],
+        ["docker", "network", "rm", network26],
+    ]
+    assert proxy27 != proxy26 and network27 != network26
 
 
 def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
@@ -677,7 +874,9 @@ def test_cleanup_container_sweep_continues_after_one_remove_failure() -> None:
         _ok(),
     )
 
-    removed = _manager(runner).cleanup_orphan_containers("adore-run-", set())
+    removed = _manager(runner).cleanup_orphan_containers(
+        "adore-run-", {"adore-run-stuck", "adore-run-removable"}, set()
+    )
 
     assert removed == ["adore-run-removable"]
 
@@ -717,6 +916,18 @@ def test_container_stop_remove_idempotent_but_fail_closed() -> None:
         _manager(stuck).remove("c")
 
 
+def test_container_interrupt_is_bounded_and_fails_closed() -> None:
+    """@brief Cancel uses a short stop, and runtime failure is explicit."""
+    okay = FakeRunner(_ok())
+    _manager(okay).interrupt("adore-run-one")
+    assert okay.calls == [["docker", "stop", "--time", "2", "adore-run-one"]]
+    assert okay.timeouts == [20]
+
+    stuck = FakeRunner(_fail("daemon unavailable"))
+    with pytest.raises(IsolationError):
+        _manager(stuck).interrupt("adore-run-one")
+
+
 def test_container_ensure_volumes_and_failure() -> None:
     """
     @brief   Both cache volumes are created; a runtime failure raises.
@@ -752,32 +963,63 @@ def test_container_exec_returns_result_as_data() -> None:
              command is a conductor signal, not an isolation error.
     """
     runner = FakeRunner(_fail("gate failed", exit_code=3))
-    result = _manager(runner).exec("c", ["opencode", "run", "prompt"])
+    result = _manager(runner).exec("c", ["pi", "-p", "prompt"])
     assert result.exit_code == 3
-    assert runner.calls[0][:3] == ["docker", "exec", "c"]
+    assert runner.calls[0][:2] == ["docker", "exec"]
+    assert runner.calls[0][-4:] == ["c", "pi", "-p", "prompt"]
 
 
 def test_container_exec_passes_safe_env_inline_and_secret_env_bare() -> None:
     """
-    @brief   Exec-time env mirrors provision: CODEX_HOME is inline so Podman
+    @brief   Exec-time env mirrors provision: PI_CODING_AGENT_DIR is inline so Podman
              exec sees it; secret values stay out of argv.
     """
     runner = FakeRunner(_ok())
     _manager(runner).exec(
         "c",
         ["env"],
-        env={"CODEX_HOME": "/home/adore/.adore-codex", "UV_LINK_MODE": "copy",
-             "OPENAI_API_KEY": "sk-secret"},
+        env={"PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "UV_LINK_MODE": "copy",
+             "OPENAI_API_KEY": "sk-secret", "GIT_PAGER": "less", "pager": "more"},
     )
     argv = runner.calls[0]
     assert argv[:2] == ["docker", "exec"]
-    assert "CODEX_HOME=/home/adore/.adore-codex" in argv
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in argv
     assert "UV_LINK_MODE=copy" in argv
+    assert "GIT_PAGER=cat" in argv and "PAGER=cat" in argv
+    assert "GIT_PAGER=less" not in argv and "pager" not in argv
     assert "OPENAI_API_KEY" in argv
     assert not any("sk-secret" in part for part in argv)
     assert argv[-2:] == ["c", "env"]
     assert runner.envs[0] is not None
     assert runner.envs[0]["OPENAI_API_KEY"] == "sk-secret"
+
+
+def test_container_spawn_attaches_stdin_with_the_exec_env_contract() -> None:
+    """
+    @brief   spawn starts `exec -i` with live pipes and exec's env handling:
+             Pi isolation values inline, secret values only in the process env.
+    """
+    started = {}
+
+    def popen(argv, **kwargs):
+        started.update(argv=list(argv), **kwargs)
+        return "process"
+
+    process = _manager(FakeRunner()).spawn(
+        "c", ["node", "cli.js", "--mode", "rpc"],
+        env={"PI_CODING_AGENT_DIR": "/home/adore/.adore-pi-agent", "PI_OFFLINE": "1",
+             "OPENAI_API_KEY": "sk-secret"},
+        popen=popen,
+    )
+    assert process == "process"
+    argv = started["argv"]
+    assert argv[:3] == ["docker", "exec", "-i"]
+    assert "PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent" in argv
+    assert "PI_OFFLINE=1" in argv and "OPENAI_API_KEY" in argv
+    assert not any("sk-secret" in part for part in argv)
+    assert argv[-5:] == ["c", "node", "cli.js", "--mode", "rpc"]
+    assert started["env"]["OPENAI_API_KEY"] == "sk-secret"
+    assert {started[key] for key in ("stdin", "stdout", "stderr")} == {subprocess.PIPE}
 
 
 def test_container_verify_required_tools_execs_checks() -> None:
@@ -791,12 +1033,11 @@ def test_container_verify_required_tools_execs_checks() -> None:
         ["make --version", "terraform --version"],
         env={"UV_LINK_MODE": "copy"},
     )
-    assert runner.calls[0] == [
-        "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "make", "--version",
-    ]
-    assert runner.calls[1] == [
-        "docker", "exec", "--env", "UV_LINK_MODE=copy", "c", "terraform", "--version",
-    ]
+    for argv, tool in zip(runner.calls, ["make", "terraform"], strict=True):
+        assert argv[:2] == ["docker", "exec"]
+        assert argv[-3:] == ["c", tool, "--version"]
+        assert argv[2:-3:2] == ["--env"] * 3
+        assert set(argv[3:-3:2]) == {"UV_LINK_MODE=copy", "GIT_PAGER=cat", "PAGER=cat"}
 
 
 def test_container_exec_is_never_unbounded() -> None:
@@ -863,6 +1104,167 @@ def test_worktree_relative_root_resolves_against_cwd(
     assert "wt-root/r1" not in add_argv and "wt-root\\r1" not in add_argv
 
 
+@pytest.mark.parametrize("listing", [
+    "%SystemDrive%/ProgramData/Microsoft/Windows/Caches/test.db\0",
+    "ProgramData/Microsoft/Windows/Caches/\u00e9 space.db\0",
+])
+def test_checkpoint_rejects_suspicious_new_path(tmp_path: Path, listing: str) -> None:
+    """@brief Suspicious untracked paths stop before staging and identify the path."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(listing), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="suspicious") as error:
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert listing[:-1] in str(error.value)
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+def test_checkpoint_rejects_staged_suspicious_path(tmp_path: Path) -> None:
+    """@brief Already staged additions are inspected before checkpointing."""
+    runner = FakeRunner(_ok("A  file\0"), _ok(), _ok("%TEMP%/file\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="suspicious"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+@pytest.mark.parametrize("listing", ["unterminated", "../escape\0", "a\0\0"])
+def test_checkpoint_rejects_invalid_git_path_evidence(tmp_path: Path, listing: str) -> None:
+    """@brief Malformed Git evidence fails closed before staging."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(listing), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+
+def test_checkpoint_accepts_ordinary_names(tmp_path: Path) -> None:
+    """@brief Names with spaces, Unicode, percent signs and ordinary caches remain eligible."""
+    runner = FakeRunner(_ok("?? file\0"), _ok("docs/100% done/é.txt\0.cache/data\0"),
+                        _ok(), _ok(), _ok(), _ok("A  file\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert runner.calls[1][-4:] == ["ls-files", "--others", "--exclude-standard", "-z"]
+    assert runner.calls[2][-6:] == [
+        "diff", "--cached", "--no-renames", "--name-only", "--diff-filter=A", "-z",
+    ]
+
+
+
+def test_checkpoint_accepts_tracked_type_change(tmp_path: Path) -> None:
+    """@brief A valid Git type-change status remains checkpointable."""
+    runner = FakeRunner(_ok(" T file\0"), _ok(), _ok(), _ok(), _ok(),
+                        _ok("T  file\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+
+@pytest.mark.parametrize("status", ["?? new/nested.txt\0", "AA conflict\0",
+                                    " R new\0old\0"])
+def test_checkpoint_accepts_other_valid_statuses(tmp_path: Path, status: str) -> None:
+    """@brief Nested untracked, conflict and rename statuses follow normal Git behavior."""
+    runner = FakeRunner(_ok(status), _ok(), _ok(), _ok(), _ok(),
+                        _ok("M  file\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert "--untracked-files=all" in runner.calls[0]
+
+
+
+def test_checkpoint_accepts_untracked_embedded_repository(tmp_path: Path) -> None:
+    """@brief Git can list an embedded repository with a trailing slash."""
+    runner = FakeRunner(_ok("?? nested/\0"), _ok("nested/\0"), _ok(),
+                        _ok(), _ok("nested\0"), _ok("A  nested\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+def test_checkpoint_git_listing_failure_stops(tmp_path: Path) -> None:
+    """@brief Git failure is distinct from a suspicious path and prevents commit."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(), _fail("broken index"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="git diff failed"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+
+@pytest.mark.parametrize("result", [CommandResult(exit_code=False),
+                                    CommandResult(exit_code=0, timed_out=True),
+                                    _ok("?? incomplete"),
+                                    _ok(" M ../escape\0"),
+                                    _ok("?M file\0"),
+                                    _ok("TU file\0"),
+                                    _ok("R  dest\0../source\0")])
+def test_checkpoint_rejects_invalid_status(tmp_path: Path, result: CommandResult) -> None:
+    """@brief Bad status evidence cannot produce a clean checkpoint."""
+    runner = FakeRunner(result)
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert len(runner.calls) == 1
+
+
+def test_checkpoint_rechecks_additions_before_commit(tmp_path: Path) -> None:
+    """@brief A suspicious addition discovered after staging stops the commit."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(), _ok(), _ok(),
+                        _ok("%TEMP%/new\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="suspicious"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("commit" not in call for call in runner.calls)
+
+
+
+def test_checkpoint_corrupt_evidence_takes_priority_over_suspicion(tmp_path: Path) -> None:
+    """@brief Partial evidence is reported as invalid rather than as a path finding."""
+    runner = FakeRunner(_ok("?? file\0"), _ok("%TEMP%/file\0"), _ok("partial"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+@pytest.mark.parametrize("index", [3, 6])
+def test_checkpoint_rejects_corrupt_mutation_exit(tmp_path: Path, index: int) -> None:
+    """@brief Invalid add and commit exit evidence fails closed."""
+    results = [_ok("?? file\0"), _ok(), _ok(), _ok(), _ok(),
+               _ok("A  file\0"), _ok()]
+    results[index] = CommandResult(exit_code=False)
+    runner = FakeRunner(*results)
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path) -> None:
+    """@brief A fresh clone needs no global Git identity for ADORE commits."""
+    runner = FakeRunner(_ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"), _ok())
+    manager = WorktreeManager(
+        tmp_path / "repo", tmp_path / "worktrees", runner,
+        git_name="ADORE Bot", git_email="adore@example.invalid",
+    )
+    assert manager.commit_all_if_dirty("run-1", "checkpoint") is True
+    assert runner.calls[-1][-7:] == [
+        "-c", "user.name=ADORE Bot", "-c",
+        "user.email=adore@example.invalid", "commit", "-m", "checkpoint",
+    ]
+
+
+def test_checkpoint_commit_reports_git_failure(tmp_path: Path) -> None:
+    """@brief Git commit failure remains a typed isolation error."""
+    runner = FakeRunner(
+        _ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"),
+        _fail("commit rejected"),
+    )
+    manager = WorktreeManager(
+        tmp_path / "repo", tmp_path / "worktrees", runner,
+        git_name="ADORE Bot", git_email="adore@example.invalid",
+    )
+    with pytest.raises(IsolationError, match="git commit failed"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
 def test_container_mount_sources_are_always_absolute(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -916,7 +1318,7 @@ def test_wsl_runtime_prefixes_every_command() -> None:
     manager = _wsl_manager(runner)
     assert manager.wsl_mode is True
     assert manager.status("c") == "running"
-    assert runner.calls[0][:5] == ["wsl", "-d", "Ubuntu-24.04", "--", "docker"]
+    assert runner.calls[0][:5] == ["wsl", "-d", "Ubuntu-24.04", "--exec", "docker"]
     assert runner.calls[0][5] == "inspect"
 
 
@@ -925,7 +1327,8 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     @brief   In WSL mode mount sources are /mnt/<drive>/ paths; safe runtime
              env values are inline, while secret env values cross via WSLENV.
     """
-    runner = FakeRunner(_fail("No such container"), _ok("cid"))
+    runner = FakeRunner(_fail("No such container"), _ok("cid"),
+                        _ok("adore-git-binding-v1\n"))
     manager = _wsl_manager(runner)
     io_dir = tmp_path / "io"
     manager.provision(
@@ -941,7 +1344,8 @@ def test_wsl_provision_translates_mounts_and_sets_wslenv(tmp_path: Path) -> None
     assert f"{wsl_mount_path(io_dir)}:{CONTAINER_IO_MOUNT}" in run_argv
     env_values = [run_argv[i + 1] for i, part in enumerate(run_argv[:-1])
                   if part == "--env"]
-    assert "GIT_DIR=/adore/repo/.git/worktrees/x" in env_values
+    assert "GIT_DIR" in env_values
+    assert not any(value.startswith("GIT_DIR=") for value in env_values)
     assert not any("sk-secret" in part for part in run_argv)
     process_env = runner.envs[1]
     assert process_env is not None
@@ -969,11 +1373,11 @@ def test_wsl_allowlist_proxy_prefixes_network_commands(tmp_path: Path) -> None:
         "uv-cache",
         "npm-cache",
         runner,
-        egress=ContainerEgressConfig(mode="allowlist-proxy", allowlist=["example.com"]),
+        egress=EgressPolicy(mode="allowlist-proxy", allowlist=["example.com"]),
     )
     manager.provision("adore-run-x", r"D:\repo", r"D:\wt", tmp_path / "io", {})
     for call in runner.calls:
-        assert call[:5] == ["wsl", "-d", "Ubuntu-24.04", "--", "docker"]
+        assert call[:5] == ["wsl", "-d", "Ubuntu-24.04", "--exec", "docker"]
     assert runner.calls[1][5:8] == ["network", "create", "--internal"]
     assert runner.calls[4][5:8] == ["network", "connect", "--alias"]
     assert runner.calls[5][5:7] == ["run", "--detach"]

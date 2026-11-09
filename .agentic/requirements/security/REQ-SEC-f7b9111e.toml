@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-f7b9111e"
+title = "Inject approved native provider credentials"
+status = "active"
+requirement = "For native execution ADORE shall pass the current account environment through an explicit allowlist and inject the configured provider credentials, exclude forge credential variables and redact known secrets before retained evidence without copying credentials or initiating login."
+verification = "Offline environment/auth tests observe allowlisted native account/home and approved credential injection, reject a forged account or unsupported executable, and prove secret absence from output/archive."
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/local_execution.py", "04_Software/adore/local_process.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_environment_ignores_personal_auth_and_forge_credentials", "04_Software/tests/test_local_execution.py::test_local_environment_keeps_windows_system_names"]
+spec = "specs/REQ-FUNC-ffb9ed29.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-11-03

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-2cbd8d83"
+title = "Build project images through bounded durable owned operations"
+status = "retired"
+requirement = "When an authorized image build is submitted, ADORE shall execute one durable bounded runtime operation with unique managed identity, controlled network/environment, redacted phased evidence and owned cancellation or deterministic interrupted failure without replay or unrelated cleanup. Retired 2026-10-08: user approved external operator environment preparation."
+verification = "Offline injected-runner/worker tests observe queued build progress and success, resolved native executable argv and authoritative captured streams, plus negative missing executable, missing/linked/oversized/invalid output, timeout/cancel/restart/control failure, concurrency, resource/runtime and retention boundaries."
+affected_paths = ["04_Software/adore/web/image_build.py", "04_Software/adore/web/image_build_runner.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/web/e2e/server.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-a6a81d86.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-11-01

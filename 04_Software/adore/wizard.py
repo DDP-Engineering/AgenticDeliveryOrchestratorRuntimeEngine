@@ -42,6 +42,17 @@ from adore.branding import (
     PRODUCT_SLUG,
 )
 from adore.config import load_config, validate_config
+from adore.pi_providers import (
+    CHATGPT,
+    CUSTOM,
+    DEFAULT_ENDPOINT_API,
+    ENDPOINT_APIS,
+    MODEL_ID_RE,
+    catalog,
+    credential_variable,
+    provider_ids,
+    valid_endpoint_url,
+)
 from adore.profiles import Profile, ProfileStore
 from adore.util import CommandRunner, run_command
 
@@ -54,18 +65,10 @@ _LICENSE_LINES = (
     "# See the LICENSE.txt file for full license details.",
     "# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
-_OPENCODE_COMMAND = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-_PI_COMMAND = "pi -p --mode json --model {model} {prompt}"
-_CODEX_COMMAND = (
-    "codex exec {resume}--json --model {model} "
-    "--ignore-user-config --disable plugins "
-    "--dangerously-bypass-approvals-and-sandbox {prompt}"
-)
-_QWEN_COMMAND = "qwen -p --model {model} --output-format json {prompt}"
-_KNOWN_EXECUTORS = ("opencode", "pi", "codex", "qwen")
-_DEFAULT_MODEL = "openai/gpt-5.5"
+_DEFAULT_PROVIDER = "openai"
+_DEFAULT_MODEL = "gpt-5.5"
 _RECOMMENDED_BUDGETS = {
-    "max_iterations": 12,
+    "max_iterations": 20,
     "max_wall_clock_seconds": 5400,
     "max_cost_usd": 5.0,
     "max_files_touched": 120,
@@ -76,9 +79,22 @@ _RECOMMENDED_BUDGETS = {
 
 class WizardError(RuntimeError):
     """
-    @brief   Raised when the wizard cannot complete (aborted, or a required
-             non-interactive answer is missing/invalid).
+    @brief Raised when a required setup answer or assembled config is invalid.
     """
+
+    def __init__(self, message: str, *, field: str = "config"):
+        """@brief Keep setup findings addressable without exposing answer values."""
+        super().__init__(message)
+        self.field = field
+
+
+@dataclass
+class WizardSetup:
+    """@brief Validated local setup candidate, without publication or host probes."""
+
+    name: str
+    document: str
+    metadata: dict[str, object]
 
 
 @dataclass
@@ -289,7 +305,7 @@ def ask(spec: FieldSpec, asker: ConsoleAsker | ScriptedAsker, out: Callable[[str
         if error is None:
             return value
         if not asker.interactive:
-            raise WizardError(f"{spec.key}: {error} (got {value!r})")
+            raise WizardError(f"{spec.key}: {error} (got {value!r})", field=spec.key)
         out(f"  ! {error}")
 
 
@@ -373,7 +389,9 @@ def run_wizard(
     os_key: str | None = None,
     name: str | None = None,
     force: bool = False,
-) -> Profile:
+    prepare_only: bool = False,
+    pending_clone: bool = False,
+) -> Profile | WizardSetup:
     """
     @brief      Run the assisted-config flow and save a validated profile.
     @details    Phases A-I from the plan. Detection is informational (prints
@@ -389,7 +407,9 @@ def run_wizard(
     @param[in]  os_key Host OS key (defaults to doctor.detect_os()).
     @param[in]  name Profile name (asked when None).
     @param[in]  force Overwrite an existing profile.
-    @return     The saved Profile.
+    @param[in]  pending_clone Accept a clone path that ADORE creates only at creation.
+    @param[in]  prepare_only Return a validated candidate without writes or probes.
+    @return     The saved Profile, or WizardSetup when preparation is requested.
     @exception  WizardError On abort, an existing profile without --force, or a
                 config that fails validation.
     """
@@ -427,7 +447,8 @@ def run_wizard(
     ), asker, out)
 
     # Phase A guidance is informational and platform-aware; print it now.
-    _report_environment(out, runner, key, kind)
+    if not prepare_only:
+        _report_environment(out, runner, key, kind)
 
     login = ""
     if kind == "gitea":
@@ -451,11 +472,13 @@ def run_wizard(
         "repo_path", "Absolute path to the local clone:",
         "ADORE creates per-run worktrees from it and mounts it into the container",
         "D:/projects/sample-project  (Windows)  |  /home/you/sample-project  (Linux)",
-        validate=_existing_dir,
+        # A web enrollment from a repository URL clones only at creation.
+        validate=_require if pending_clone else _existing_dir,
     ), asker, out)
-    if not (Path(repo_path).expanduser() / ".git").exists():
+    if not pending_clone and not (Path(repo_path).expanduser() / ".git").exists():
         out("  note: that path has no .git - make sure it is the clone root.")
-    _report_aegis(out, runner, repo_path, key)
+    if not prepare_only:
+        _report_aegis(out, runner, repo_path, key)
     worktree_root = ask(FieldSpec(
         "worktree_root", "Worktree root (host dir holding per-run worktrees):",
         "relative to the run, or an absolute path", "worktrees", default="worktrees",
@@ -502,9 +525,15 @@ def run_wizard(
     ), asker, out)
 
     # -- Phase F (runtime & executor) ---------------------------------------------
-    runtimes = doctor.detect_runtimes(runner, os_key=key)
-    suggested = _suggest_runtime(key, runtimes)
-    runtime = ask(FieldSpec(
+    execution_backend = ask(FieldSpec(
+        "execution_backend", "Execution backend:",
+        "container or installed local CLI on the ADORE machine/current account",
+        default="container", choices=("container", "local")), asker, out)
+    suggested = "docker"
+    if not prepare_only and execution_backend == "container":
+        runtimes = doctor.detect_runtimes(runner, os_key=key)
+        suggested = _suggest_runtime(key, runtimes)
+    runtime = "docker" if execution_backend == "local" else ask(FieldSpec(
         "runtime", "Container runtime:",
         "docker/podman, optionally wrapped for Docker/podman inside WSL2",
         'docker  |  podman  |  wsl -d Ubuntu-24.04 -- docker',
@@ -514,29 +543,64 @@ def run_wizard(
     if runtime.split()[-1] == "podman":
         run_args = ["--userns=keep-id"]
         out("  note: rootless podman -> adding run_args = [\"--userns=keep-id\"].")
-    image = ask(FieldSpec(
+    image = EXECUTOR_BASE_IMAGE if execution_backend == "local" else ask(FieldSpec(
         "image", "Executor image name:",
         "base image for executor-only validation, or a runtime-project image",
         f"{EXECUTOR_BASE_IMAGE}  |  adore-executor-project:latest",
         default=EXECUTOR_BASE_IMAGE, validate=_require,
     ), asker, out)
-    executor_cli = ask(FieldSpec(
-        "executor_cli", "Executor CLI:",
-        "the agent that runs each gate (both read AGENTS.md and get their "
-        "push/merge guardrails from the repo adapter)", "opencode",
-        default="opencode", choices=_KNOWN_EXECUTORS,
+    provider = ask(FieldSpec(
+        "provider", "Model provider:",
+        'a Pi API-key provider id, "chatgpt" (this server\'s ChatGPT Plus/Pro sign-in) '
+        'or "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM)',
+        "openai  |  anthropic  |  openrouter  |  custom", default=_DEFAULT_PROVIDER,
+        validate=_provider_ok,
     ), asker, out)
+    endpoint: dict[str, str] = {}
+    if provider == CUSTOM:
+        endpoint["base_url"] = ask(FieldSpec(
+            "endpoint_base_url", "Endpoint base URL:",
+            "the address as seen by Pi (host.docker.internal works only on "
+            "Docker Desktop; otherwise use the host's address)",
+            "http://192.168.1.20:1234/v1", validate=_endpoint_url_ok,
+        ), asker, out)
+        endpoint["api"] = ask(FieldSpec(
+            "endpoint_api", "Endpoint API type:", "the Pi API type the server speaks",
+            default=DEFAULT_ENDPOINT_API, choices=ENDPOINT_APIS,
+        ), asker, out)
+    chatgpt_models = catalog()["chatgpt_models"] if provider == CHATGPT else []
     model = ask(FieldSpec(
-        "model", "Model id (provider/model):",
-        "the executor's model", _DEFAULT_MODEL, default=_DEFAULT_MODEL,
-        validate=_require,
+        "model", "Model id:",
+        ("a model a ChatGPT subscription serves: " + ", ".join(chatgpt_models))
+        if chatgpt_models else
+        "the model within the provider (Pi's list or any id the provider accepts)",
+        chatgpt_models[0] if chatgpt_models else _DEFAULT_MODEL,
+        default=(chatgpt_models[0] if chatgpt_models else
+                 _DEFAULT_MODEL if provider == _DEFAULT_PROVIDER else None),
+        validate=_model_ok,
     ), asker, out)
-    auth_mode = ask(FieldSpec(
-        "auth_mode", "Executor auth mode:",
-        "api-key sets a provider key in .env (production); host-auth bridges a "
-        "local OAuth session (pilot only)",
-        "api-key", default="api-key", choices=("api-key", "host-auth"),
-    ), asker, out)
+    if isinstance(asker, ScriptedAsker):
+        retired = {"executor_command", "local_home", "local_cgroup_root"} & asker.answers.keys()
+        if retired:
+            raise WizardError(f"remove unsupported setup answers: {', '.join(sorted(retired))}")
+        if asker.answers.get("auth_mode", ["api-key"]) != ["api-key"]:
+            raise WizardError("auth_mode: only api-key is supported; remove personal sign-in")
+        if asker.answers.get("local_account", ["current"]) != ["current"]:
+            raise WizardError("local_account must be current")
+    local_settings = {}
+    if execution_backend == "local":
+        from adore.local_process import native_context
+
+        context = native_context()
+        out(f"Local execution machine: {context['machine']}; account: {context['account']}. "
+            "You independently choose/install/prep project tools, versions, SDKs "
+            "and libraries there. "
+            "A worktree is not a host sandbox; use a dedicated account without forge credentials.")
+        out("Install and verify managed Pi as this account with 'adore pi install' "
+            "and 'adore pi verify'.")
+        local_settings = {"account": "current", "path": ask(FieldSpec(
+            "local_path", "Project tools PATH:", "Leave empty to use the server PATH.",
+            default=""), asker, out)}
 
     # -- Phase F2 (workflow labels) -----------------------------------------------
     ready_label = ask(FieldSpec(
@@ -563,11 +627,9 @@ def run_wizard(
 
     # -- Phase G (delivery) -------------------------------------------------------
     reviewers_raw = ask(FieldSpec(
-        "reviewers", "Reviewer username(s) for the draft MR (comma-separated):",
-        "at least one; the MR is always a DRAFT and ADORE never merges",
-        "reviewer.one, reviewer.two",
-        validate=lambda v: None if [p for p in v.split(",") if p.strip()]
-        else "at least one reviewer is required",
+        "reviewers", "Reviewer username(s) for the draft MR (comma-separated, blank = none):",
+        "optional; the MR is always a DRAFT and ADORE never merges",
+        "reviewer.one, reviewer.two", default="",
     ), asker, out)
     reviewers = [part.strip() for part in reviewers_raw.split(",") if part.strip()]
     approval_label = ask(FieldSpec(
@@ -579,19 +641,18 @@ def run_wizard(
     # -- Phase H (budgets & policy) -----------------------------------------------
     budgets_choice = ask(FieldSpec(
         "budgets_choice", "Budgets: recommended supervised, or customize?",
-        "recommended = 12 iters / 90 min / $5 / 120 files (6 crawl / 12-15 "
-        "supervised / 20 unattended)",
+        "recommended = 20 launches / 90 active min / $5 / 120 files",
         "recommended", default="recommended", choices=("recommended", "custom"),
     ), asker, out)
     budgets = dict(_RECOMMENDED_BUDGETS)
     if budgets_choice == "custom":
         budgets["max_iterations"] = int(ask(FieldSpec(
             "max_iterations", "Max executor launches per run:",
-            "6 crawl / 12-15 supervised / 20 unattended", "12",
-            default="12", validate=_positive_int), asker, out))
+            "20 recommended; customize for the task", "20",
+            default="20", validate=_positive_int), asker, out))
         budgets["max_wall_clock_seconds"] = int(ask(FieldSpec(
             "max_wall_clock_seconds", "Max active wall-clock per run (seconds):",
-            "restarts on retry/resume", "5400", default="5400",
+            "cumulative; excludes waiting and retains work on retry/resume", "5400", default="5400",
             validate=_positive_int), asker, out))
         budgets["max_cost_usd"] = float(ask(FieldSpec(
             "max_cost_usd", "Max reported model cost per run (USD):",
@@ -639,8 +700,8 @@ def run_wizard(
         agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
         repo_path=repo_path, worktree_root=worktree_root, branch_template=branch_template,
         branch_rule=branch_rule, runtime=runtime, run_args=run_args, image=image,
-        executor_cli=executor_cli, command=_command_for(executor_cli), model=model,
-        auth_mode=auth_mode, target_branch=target_branch, reviewers=reviewers,
+        provider=provider, model=model, endpoint=endpoint,
+        target_branch=target_branch, reviewers=reviewers,
         approval_label=approval_label,
         budgets=budgets, budgets_choice=budgets_choice, polling_mode=polling_mode,
         max_stage_failures=max_stage_failures,
@@ -649,6 +710,9 @@ def run_wizard(
         ready_label=ready_label, fix_label=fix_label, change_label=change_label,
         quick_label=quick_label,
     )
+    if execution_backend == "local":
+        sections = [(name, values) for name, values in sections if name != "container"]
+        sections.extend([("execution", {"backend": "local"}), ("local", local_settings)])
 
     # -- Phase I (summary, validate, save) ----------------------------------------
     _print_summary(out, name, sections)
@@ -663,39 +727,28 @@ def run_wizard(
     document = _emit_config_toml(sections, name, stamp)
     _validate_or_raise(document, out)
 
+    if prepare_only:
+        return WizardSetup(name, document, {
+            "description": description, "platform": kind, "repo": repo,
+            "runtime": "local" if execution_backend == "local" else runtime, "host_os": key,
+            "config_path": str(store.config_path(name)), "store_root": store_root,
+        })
+
     config_path = store.config_path(name)
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(document, encoding="utf-8")
     profile = store.create(
         name, overwrite=force, description=description, platform=kind,
-        repo=repo, runtime=runtime, host_os=key, config_path=str(config_path),
+        repo=repo, runtime="local" if execution_backend == "local" else runtime,
+        host_os=key, config_path=str(config_path),
         store_root=store_root,
     )
-    _print_next_steps(out, name, kind, auth_mode, model, runtime, image)
+    if execution_backend == "container":
+        _print_next_steps(out, name, kind, provider, runtime, image)
     return profile
 
 
 # LOCAL HELPERS
-
-
-def _command_for(executor_cli: str) -> str:
-    """
-    @brief      A safe command template for an executor CLI.
-    @details    opencode uses the proven template; any other CLI gets a generic
-                one that still carries {prompt} and never --auto (so config
-                validation passes). Advanced users edit config.toml by hand.
-    @param[in]  executor_cli Executor name.
-    @return     The command template.
-    """
-    if executor_cli == "opencode":
-        return _OPENCODE_COMMAND
-    if executor_cli == "pi":
-        return _PI_COMMAND
-    if executor_cli == "codex":
-        return _CODEX_COMMAND
-    if executor_cli == "qwen":
-        return _QWEN_COMMAND
-    return f"{executor_cli} run --dir {{worktree}} -m {{model}} {{prompt}}"
 
 
 def _suggest_runtime(os_key: str, runtimes: doctor.RuntimeDetection) -> str:
@@ -820,17 +873,12 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
         container["run_args"] = a["run_args"]
     sections.append(("container", container))
 
-    executor: dict[str, object] = {}
-    if a["executor_cli"] != "opencode":
-        executor["default"] = a["executor_cli"]
-    if a["auth_mode"] == "host-auth":
-        executor["stage_host_auth"] = True
-    else:
-        executor["env_keys"] = _env_keys_for_model(str(a["model"]))
-    if executor:
-        sections.append(("executor", executor))
-    sections.append((f"executor.{a['executor_cli']}",
-                     {"command": a["command"], "model": a["model"]}))
+    executor: dict[str, object] = {"provider": a["provider"], "model": a["model"]}
+    # The provider's key variable always reaches Pi; these are additional names.
+    executor["env_keys"] = []
+    sections.append(("executor", executor))
+    if a["endpoint"]:
+        sections.append(("executor.endpoint", dict(a["endpoint"])))  # type: ignore[arg-type]
 
     delivery: dict[str, object] = {
         "reviewers": a["reviewers"],
@@ -871,18 +919,21 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
     return sections
 
 
-def _env_keys_for_model(model: str) -> list[str]:
-    """
-    @brief      The provider secret key name(s) implied by a model id.
-    @param[in]  model e.g. "openai/gpt-5.5" or "anthropic/claude-...".
-    @return     The env-key NAMES to inject (never values).
-    """
-    lowered = model.lower()
-    if lowered.startswith("anthropic"):
-        return ["ANTHROPIC_API_KEY"]
-    if lowered.startswith("openai"):
-        return ["OPENAI_API_KEY"]
-    return ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+def _provider_ok(value: str) -> str | None:
+    """@brief Accept a Pi API-key provider id, chatgpt or custom."""
+    if value in provider_ids():
+        return None
+    return 'unknown provider: use a Pi API-key provider id, "chatgpt" or "custom"'
+
+
+def _model_ok(value: str) -> str | None:
+    """@brief Accept one model id without spaces, quotes or control characters."""
+    return None if MODEL_ID_RE.fullmatch(value) else "enter one model id without spaces"
+
+
+def _endpoint_url_ok(value: str) -> str | None:
+    """@brief Accept an endpoint address by the shared rule (pi_providers)."""
+    return None if valid_endpoint_url(value) else "enter an http(s) address such as http://192.168.1.20:1234/v1"
 
 
 def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
@@ -923,18 +974,20 @@ def _print_summary(
 
 
 def _print_next_steps(
-    out: Callable[[str], None], name: str, kind: str, auth_mode: str,
-    model: str, runtime: str, image: str,
+    out: Callable[[str], None], name: str, kind: str,
+    provider: str, runtime: str, image: str,
 ) -> None:
     """@brief Print OS-agnostic next steps after a successful write."""
     out(f"\nProfile '{name}' created and validated.")
     out("Next steps:")
-    if auth_mode == "api-key":
-        keys = " / ".join(_env_keys_for_model(model))
-        out(f"  1. Put your provider key ({keys}) in .env beside this profile's "
-            f"config.toml (`adore profile path {name}`).")
+    variable = credential_variable(provider)
+    if variable:
+        out(f"  1. Put your provider key ({variable}) in .env beside this profile's "
+            f"config.toml (`adore profile path {name}`), or save it in Settings -> "
+            "Agent and model.")
     else:
-        out("  1. host-auth mode: ensure your local opencode session is authorized.")
+        out("  1. Sign in with ChatGPT once for this server in the web interface: "
+            "Settings -> Agent and model -> Sign in with ChatGPT.")
     out(f"  2. Build the executor image ({image}) - see docker/README.md.")
     out(f"  3. Validate:  adore --profile {name} config validate")
     out(f"  4. Dry-run:   adore --profile {name} run --dry-run")

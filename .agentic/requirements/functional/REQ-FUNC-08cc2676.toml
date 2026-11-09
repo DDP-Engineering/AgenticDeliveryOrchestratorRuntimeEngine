@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-08cc2676"
+
+title = "Reviewed provider variable selection preserves private credentials"
+
+status = "active"
+
+requirement = "When an administrator prepares the additional credential variable names passed to Pi besides the provider's own key variable, ADORE shall review and apply one complete names-only list at the existing configuration boundary, preserving saved credential values and allowing only known provider names or existing custom names while refusing malformed names, duplicates and forge credentials."
+
+verification = "Authenticated API tests review/apply provider-name lists and empty subscription lists, preserve dotenv bytes, and reject malformed, duplicate, unknown-new or forge names; existing private credential APIs continue to expose sources only."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_configuration.py", "04_Software/adore/web/implementation_settings.py", "04_Software/web/src/executorSettings.ts", "04_Software/web/src/CredentialNamesEditor.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/styles.css", "04_Software/tests/test_web_executor_configuration.py", "04_Software/tests/test_web_config.py"]
+
+linked_tests = ["04_Software/tests/test_web_executor_configuration.py", "04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-11-02

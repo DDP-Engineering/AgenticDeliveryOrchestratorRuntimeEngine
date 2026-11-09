@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-93f1ccd5"
+
+title = "Show localized release notes in a What's new window"
+
+status = "active"
+
+requirement = """
+When a user chooses What's new in About, the dialog shall list each release that has notes, newest first, the unreleased one labelled In development and released ones with their version and date, with notes grouped New, Improved and Fixed and by topic in the user's language, and Back shall return to About.
+"""
+
+verification = "Automated: pytest checks /api/v1/about returns the release notes; node releaseNotes test checks grouping order and the English fallback; e2e shell.spec opens What's new, sees In development, a category heading and a note, and returns with Back."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/releaseNotes.ts", "04_Software/web/src/i18n.ts", "04_Software/adore/web/app.py", "04_Software/adore/release_notes.py", "04_Software/adore/release_notes.toml"]
+
+linked_tests = ["04_Software/tests/test_release_notes.py", "04_Software/web/tests/releaseNotes.test.mjs", "04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

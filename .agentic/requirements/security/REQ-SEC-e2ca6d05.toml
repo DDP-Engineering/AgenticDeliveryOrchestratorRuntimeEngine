@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-SEC-e2ca6d05"
+
+title = "Restrict an internet-off run to its provider hosts"
+
+status = "active"
+
+requirement = """
+While `[executor] internet` is false, ADORE shall run a container stage and the Test AI connection behind the per-run allowlist proxy that admits only the provider's hosts (the catalog provider's hosts, the openai hosts for chatgpt, the endpoint host for custom) and the `[container.egress] allowlist` entries.
+"""
+
+verification = "Automated tests derive the run egress for an API-key provider, chatgpt and a custom endpoint at an IP address and observe allowlist-proxy with exactly those hosts plus the configured allowlist; a provisioned container gets the per-run network and proxy variables and the written proxy configuration lists the hosts; the Test AI connection container runs under the same egress."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/pi_providers.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/model_connection.py", "04_Software/adore/web/app.py", "02_Tools/deploy/install-ubuntu.sh", "02_Tools/deploy/install-windows.ps1"]
+
+linked_tests = ["04_Software/tests/test_config.py::test_egress_policy_off_admits_only_the_provider_hosts", "04_Software/tests/test_model_connection.py::test_probe_runs_under_the_internet_switch", "04_Software/tests/test_isolation.py::test_container_provision_allowlist_proxy_lifecycle"]
+
+
+spec = ""
+
+priority = "high"
+rationale = "With internet Off the agent reaches only the model provider."
+
+created = 2026-11-03
+updated = 2026-11-03

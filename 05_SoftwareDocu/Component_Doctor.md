@@ -24,12 +24,37 @@ not-ready `AegisStatus` with bounded detail.
 
 All probes use injected `CommandRunner`; unit tests never contact external
 systems. The wizard prints the same guidance. Other probes cover Git,
-Docker/Podman/WSL, forge CLI/auth and executor availability. GitLab/GitHub
+Docker/Podman/WSL, forge CLI/auth and Pi availability (`detect_executor` runs
+`pi --version`; Pi is needed on the host only for a local run, since the
+executor image pins its own). GitLab/GitHub
 guidance states the runtime routing contract explicitly: ADORE uses the
 platform CLI's active/default authenticated host, which must be the intended
 corporate instance. Gitea continues to route through its selected tea login.
 
 ## 4. Validation and Tests
 
+`discover_container_commands` runs bounded Docker and Podman version probes
+on the host and up to eight Windows WSL distributions. It filters distro names
+and returns command strings only for successful probes. `inventory_runtime_argv`
+admits only fixed native and standard WSL prefixes for the web image inventory.
+`test_executor_environment_choice.py` covers the resulting API contracts offline.
+
 `tests/test_doctor.py` covers valid version/schema-1 detection, missing payload,
 malformed/blocked status, wrong version/schema, and guidance.
+
+## 5. Portable Gitea authentication
+
+`auth_status("gitea")` uses the shared portable tea runner and a bounded account
+API request. Authentication requires HTTP success and a strict, bounded JSON
+identity with a valid login; exit status alone is insufficient. Missing CLI is
+reported separately. Failed/corrupt identities return value-free Connect
+repository guidance. `external_auth=False` lets a caller-owned scoped runner
+retain authority; web readiness uses this mode after binding project credentials.
+Other forge probes retain their existing routing. Focused proof: doctor and
+Gitea-auth tests, including missing/ambiguous metadata and protected scopes.
+
+## Managed Pi readiness
+
+The native executor probe verifies the server's Node and the pinned Pi CLI
+through the managed installation verifier. A missing or invalid prerequisite
+produces safe operator guidance. It never invokes a global Pi or calls a model.

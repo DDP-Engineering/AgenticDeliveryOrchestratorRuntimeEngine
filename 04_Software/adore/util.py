@@ -20,10 +20,11 @@
 from __future__ import annotations
 
 # IMPORTS
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+import json
 import os
 from pathlib import Path
 import re
@@ -39,6 +40,13 @@ _DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhd]?)\s*$", re.IGNORECASE)
 _DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
 
 DEFAULT_COMMAND_TIMEOUT = 600.0
+
+# CSI, OSC (BEL or ST terminated), DCS/SOS/PM/APC strings, then any other ESC
+# sequence; an unterminated string sequence ends at its own line.
+ANSI_ESCAPE = re.compile(
+    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b\n]*(?:\x07|\x1b\\)?"
+    r"|[PX^_][^\x1b\n]*(?:\x1b\\)?|[ -/]*[0-~])"
+)
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -117,6 +125,30 @@ def _decode(stream: bytes | str | None) -> str:
 # PUBLIC API
 
 
+def automatic_environment(env: dict[str, str] | None = None) -> dict[str, str]:
+    """
+    @brief      Copy a child environment and disable interactive pagers.
+    @param[in]  env Replacement environment; None inherits the current process.
+    @return     Independent environment with authoritative Git/generic pager values.
+    @note       Explicit environments retain their account/credential boundary.
+    """
+    source = os.environ if env is None else env
+    result = {key: value for key, value in source.items()
+              if key.upper() not in {"GIT_PAGER", "PAGER"}}
+    result.update(GIT_PAGER="cat", PAGER="cat")
+    return result
+
+
+def background_process_options() -> dict[str, int]:
+    """
+    @brief   Suppress console allocation for automated Windows child processes.
+    @return  Windows CREATE_NO_WINDOW options, or empty options on other hosts.
+    @note    Keeps Job membership and process handles; no detached/breakaway flag.
+    """
+    # The stable Win32 value also permits offline platform simulation on Linux.
+    return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
+
+
 def run_command(
     argv: Sequence[str],
     *,
@@ -149,13 +181,12 @@ def run_command(
         completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
             argv_list,
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             cwd=str(cwd) if cwd is not None else None,
             timeout=timeout,
-            env=env,
+            env=automatic_environment(env),
+            stdin=subprocess.DEVNULL,
             check=False,
+            **background_process_options(),
         )
     except FileNotFoundError as exc:
         return CommandResult(argv=argv_list, exit_code=127, stderr=str(exc))
@@ -182,8 +213,8 @@ def run_command(
     return CommandResult(
         argv=argv_list,
         exit_code=completed.returncode,
-        stdout=completed.stdout or "",
-        stderr=completed.stderr or "",
+        stdout=_decode(completed.stdout),
+        stderr=_decode(completed.stderr),
     )
 
 
@@ -254,6 +285,23 @@ def in_quiet_hours(windows: Sequence[str], now: datetime | None = None) -> bool:
         if inside:
             return True
     return False
+
+
+def output_tail(text: str, redact: Callable[[str], str], *,
+                lines: int = 20, chars: int = 2000) -> str:
+    """
+    @brief      Keep the last lines of process output as evidence safe to show.
+    @details    NUL and ANSI escapes are removed and the whole text is redacted
+                before the cut, so a cut never separates a key from its value.
+    @param[in]  text Captured output.
+    @param[in]  redact Credential redaction for the whole cleaned text.
+    @param[in]  lines Maximum number of trailing lines kept.
+    @param[in]  chars Maximum length of the result.
+    @return     The trailing lines, or "" when the output is blank.
+    """
+    clean = ANSI_ESCAPE.sub("", str(text).replace("\x00", ""))
+    kept = redact(clean).strip().splitlines()
+    return "\n".join(kept[-lines:])[-chars:]
 
 
 def force_rmtree(path: str | Path) -> None:
@@ -373,6 +421,32 @@ def load_env_file(path: str | Path = ".env") -> dict[str, str]:
         if key:
             values[key] = value
     return values
+
+
+def strict_json_loads(source: str) -> object:
+    """
+    @brief Decode external JSON without duplicate keys or non-finite numbers.
+    @param[in] source Untrusted JSON text, bounded by the caller.
+    @return Decoded JSON value.
+    @exception ValueError For malformed or ambiguous input.
+    """
+    def unique(pairs):
+        """@brief Reject repeated keys at every nested object boundary."""
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON field")
+            result[key] = value
+        return result
+
+    def invalid(value):
+        """@brief Reject constants outside the JSON number grammar."""
+        raise ValueError("non-finite JSON value")
+
+    try:
+        return json.loads(source, object_pairs_hook=unique, parse_constant=invalid)
+    except RecursionError as exc:
+        raise ValueError("JSON nesting exceeds decoder bound") from exc
 
 
 # END OF FILE

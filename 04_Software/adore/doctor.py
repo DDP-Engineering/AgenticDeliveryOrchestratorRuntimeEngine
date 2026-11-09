@@ -30,9 +30,13 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import platform
+import re
+import shlex
+from time import monotonic
 
 from adore.aegis import MINIMUM_SERIES, SUPPORTED_MAJOR, VERSION_RE
-from adore.util import CommandRunner, run_command
+from adore.gitea_auth import GiteaAuthError, portable_tea_runner
+from adore.util import CommandResult, CommandRunner, run_command, strict_json_loads
 
 # CONSTANTS
 
@@ -47,10 +51,17 @@ TEA = "tea"
 GLAB_AUTH = "glab-auth"
 GH_AUTH = "gh-auth"
 TEA_AUTH = "tea-auth"
-OPENCODE = "opencode"
+PI = "pi"
 AEGIS = "aegis"
 GIT_PUSH = "git-push"
 GITIGNORE = "gitignore"
+_CONTAINER_CLIS = (DOCKER, PODMAN)
+_WSL_DISTRO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_. -]{0,79}")
+_WSL_INTERNAL_DISTROS = {"docker-desktop", "docker-desktop-data"}
+_RUNTIME_DISCOVERY_SECONDS = 30
+_RUNTIME_PROBE_SECONDS = 5
+_WSL_RUNTIME_PROBE_SECONDS = 18
+_RUNTIME_DISCOVERY_DISTROS = 8
 
 # The AEGIS payload contract the target repository must satisfy.
 AEGIS_WRAPPER = ".agentic/aegis.py"
@@ -68,11 +79,11 @@ _AUTH_COMPONENT_FOR_KIND = {"gitlab": GLAB_AUTH, "github": GH_AUTH, "gitea": TEA
 # Auth probe argv by kind. Kind-specific on purpose: tea has no `auth status`
 # subcommand - and tea exits 0 for UNKNOWN subcommands ("No help topic"), so a
 # generic `<cli> auth status` would falsely report Gitea as authenticated.
-# `tea whoami` calls the API with the stored token, which is the real check.
+# Gitea requires an HTTP-successful account API response with a valid identity.
 _AUTH_PROBE_FOR_KIND = {
     "gitlab": (GLAB, "auth", "status"),
     "github": (GH, "auth", "status"),
-    "gitea": (TEA, "whoami"),
+    "gitea": (TEA, "api", "-i", "--method", "GET", "user"),
 }
 
 # OS-specific (and a "*" generic) install/setup text. Kept as data so the
@@ -159,11 +170,11 @@ GUIDANCE: dict[str, dict[str, str]] = {
             "set `[platform] login = \"<name>\"` in the profile config."
         )
     },
-    OPENCODE: {
+    PI: {
         "*": (
-            "opencode is baked into the executor base image, so you only need "
-            "it on the HOST for the `host` runtime. Build the base and any "
-            "runtime-project image per docker/README.md."
+            "Pi, ADORE's coding agent, is pinned in the executor base image, so "
+            "you only need it on the HOST for a local (native) run. Build the "
+            "base and any runtime-project image per docker/README.md."
         )
     },
     AEGIS: {
@@ -389,6 +400,52 @@ def detect_runtimes(
     return RuntimeDetection(docker=docker, podman=podman, wsl_distros=distros)
 
 
+def inventory_runtime_argv(command: str) -> list[str] | None:
+    """@brief Resolve a standard runtime command for read-only inventory probes.
+    @param[in] command Configured runtime command.
+    @return Fixed native or WSL prefix, or None for unsupported commands.
+    """
+    if command in _CONTAINER_CLIS:
+        return [command]
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return None
+    if (len(argv) != 5 or argv[:2] != [WSL, "-d"]
+            or not _WSL_DISTRO_NAME.fullmatch(argv[2])
+            or argv[2].lower() in _WSL_INTERNAL_DISTROS
+            or argv[3] not in {"--", "--exec", "-e"} or argv[4] not in _CONTAINER_CLIS):
+        return None
+    return [WSL, "-d", argv[2], "--exec", argv[4]]
+
+
+def discover_container_commands(runner: CommandRunner = run_command) -> list[str]:
+    """@brief Suggest Docker and Podman commands whose version probes succeed.
+    @param[in] runner Injectable host command runner.
+    @return Native commands first, then commands in detected Windows WSL distros.
+    @note Both the number of distros and the total probe duration are bounded.
+    """
+    deadline = monotonic() + _RUNTIME_DISCOVERY_SECONDS
+
+    def probe(argv: list[str], *, limit: int = _RUNTIME_PROBE_SECONDS) -> CommandResult:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return CommandResult(argv=argv, exit_code=124, timed_out=True)
+        return runner(argv, timeout=min(remaining, limit))
+
+    found = [cli for cli in _CONTAINER_CLIS if probe([cli, "--version"]).ok]
+    if detect_os() == "windows":
+        distros = [name for name in dict.fromkeys(detect_wsl_distros(probe))
+                   if _WSL_DISTRO_NAME.fullmatch(name)
+                   and name.lower() not in _WSL_INTERNAL_DISTROS]
+        for distro in distros[:_RUNTIME_DISCOVERY_DISTROS]:
+            for cli in _CONTAINER_CLIS:
+                argv = [WSL, "-d", distro, "--exec", cli, "--version"]
+                if probe(argv, limit=_WSL_RUNTIME_PROBE_SECONDS).ok:
+                    found.append(shlex.join([WSL, "-d", distro, "--", cli]))
+    return found
+
+
 def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolStatus:
     """
     @brief      Whether the platform CLI for this kind is present.
@@ -403,30 +460,50 @@ def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolS
     return _probe(runner, cli, [cli, "--version"])
 
 
-def auth_status(kind: str, runner: CommandRunner = run_command) -> AuthStatus:
+def auth_status(
+    kind: str, runner: CommandRunner = run_command, *, external_auth: bool = True,
+) -> AuthStatus:
     """
-    @brief      Whether the platform CLI is authenticated.
-    @details    Runs the kind-specific probe (`glab auth status` /
-                `gh auth status` / `tea whoami`): exit 127 = CLI missing;
-                exit 0 = authenticated; otherwise present-but-not. The probe
-                argv is per kind because tea has no `auth status` - and tea
-                exits 0 even for unknown subcommands, which would fake success.
+    @brief      Verify platform authentication using its account probe.
+    @details    Gitea shares portable current-account discovery and requires a
+                successful HTTP response with a valid, unambiguous identity.
     @param[in]  kind "gitlab", "github" or "gitea".
     @param[in]  runner Injectable command runner.
-    @return     The AuthStatus.
-    @exception  ValueError When kind is not gitlab/github/gitea.
+    @param[in]  external_auth False when the caller already owns credential authority.
+    @return     Presence and verified authentication, with value-free Gitea guidance.
+    @exception  ValueError When kind is unsupported.
     """
     probe = _AUTH_PROBE_FOR_KIND.get(kind)
     if probe is None:
         raise ValueError(f"unknown platform kind: {kind!r}")
     cli = probe[0]
-    result = runner(list(probe))
+    auth_runner = portable_tea_runner(runner) if kind == "gitea" and external_auth else runner
+    try:
+        result = auth_runner(list(probe), timeout=8)
+    except GiteaAuthError as exc:
+        return AuthStatus(kind, cli, True, False, str(exc))
     if result.exit_code == 127:
         return AuthStatus(kind=kind, cli=cli, present=False, authenticated=False,
                           detail="CLI not installed")
-    detail = (result.stderr.strip() or result.stdout.strip())
-    return AuthStatus(kind=kind, cli=cli, present=True, authenticated=result.ok,
-                      detail=detail)
+    if kind == "gitea":
+        valid = False
+        try:
+            if len(result.stdout.encode("utf-8")) > 1_000_000:
+                raise ValueError("oversized identity")
+            identity = strict_json_loads(result.stdout)
+            statuses = re.findall(r"HTTP/\S+\s+(\d{3})", result.stderr)
+            valid = bool(
+                result.ok and not result.timed_out
+                and statuses and 200 <= int(statuses[-1]) < 300
+                and isinstance(identity, dict) and isinstance(identity.get("login"), str)
+                and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", identity["login"])
+            )
+        except (ValueError, TypeError, UnicodeError):
+            pass
+        return AuthStatus(kind, cli, True, valid,
+                          "" if valid else str(GiteaAuthError("gitea_auth_invalid")))
+    detail = result.stderr.strip() or result.stdout.strip()
+    return AuthStatus(kind, cli, True, result.ok, detail)
 
 
 def detect_aegis(
@@ -571,14 +648,20 @@ def detect_push_access(
     )
 
 
-def detect_executor(name: str = OPENCODE, runner: CommandRunner = run_command) -> ToolStatus:
+def detect_executor(runner: CommandRunner = run_command) -> ToolStatus:
+    """@brief Verify ADORE's pinned native Pi without consulting a global Pi.
+    @param[in] runner Injectable command runner.
+    @return Installed Pi version or a safe remediation message.
     """
-    @brief      Whether an executor CLI is present on the host.
-    @param[in]  name Executor CLI name (default opencode).
-    @param[in]  runner Injectable command runner.
-    @return     The ToolStatus.
-    """
-    return _probe(runner, name, [name, "--version"])
+    from adore.pi_installation import PiInstallationError, verify_pi
+
+    try:
+        installation = verify_pi(runner=runner)
+    except PiInstallationError as exc:
+        return ToolStatus(name=PI, present=False, detail=str(exc))
+    except OSError:
+        return ToolStatus(name=PI, present=False, detail="Cannot read the managed Pi installation")
+    return ToolStatus(name=PI, present=True, version=installation.prefix.name)
 
 
 def detect_all(kind: str, runner: CommandRunner = run_command) -> EnvironmentReport:

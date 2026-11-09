@@ -30,16 +30,26 @@ from dataclasses import asdict
 import json
 from pathlib import Path
 import re
+import sys
 import tomllib
 
 from adore import __version__, metrics
 from adore.branding import PACKAGE_NAME, PRODUCT_NAME
+from adore.clone_cleanup import clone_decision, project_clone_decision
 from adore.config import Config, load_config, validate_config
+from adore.config_edit import ConfigEditLockedError, config_edit_lock
+from adore.deletion_audit import DeletionAudit, DeletionAuditError
+from adore.forge import ForgeError
+from adore.isolation import IsolationError
+from adore.local_execution import LocalPrerequisiteError, local_probe_failure
+from adore.local_process import LocalExecutionError
 from adore.orchestrator import LockHeldError, Orchestrator
+from adore.preparation import PreparationError, preview_plan, public_plan
 from adore.process_log import ProcessLogger, process_log_path
 from adore.profiles import ProfileError, ProfileStore, resolve_config_path
+from adore.start_result import emit_restart_result, emit_retry_result, emit_start_result
 from adore.state import StateError, StateStore
-from adore.util import parse_duration
+from adore.util import force_rmtree, parse_duration, run_command
 from adore.wizard import ConsoleAsker, ScriptedAsker, WizardError, run_wizard
 
 # CONSTANTS
@@ -55,6 +65,13 @@ _SECRET_KEY_RE = re.compile(
     r"|private[_-]?key)s?(?:$|[._-])",
     re.IGNORECASE,
 )
+# ADORE's own settings whose names look like credentials but hold no secret.
+_NOT_SECRET_KEYS = frozenset({"metrics.capture_tokens"})
+
+
+def _is_secret_key(dotted_key: str) -> bool:
+    """@brief Whether a dotted config key names a secret (see _SECRET_KEY_RE)."""
+    return dotted_key not in _NOT_SECRET_KEYS and bool(_SECRET_KEY_RE.search(dotted_key))
 
 
 # HELPER FUNCTIONS
@@ -79,20 +96,38 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--loop", action="store_true", help="Long-running loop")
     run.add_argument("--once", action="store_true", help="Single poll pass")
     run.add_argument("--dry-run", action="store_true", help="Show actions without side effects")
+    run.add_argument("--ticket", type=int, metavar="IID",
+                     help="Run one eligible ticket (with --once); readiness still applies")
 
     sub.add_parser("status", help="Show overall state")
+    pi = sub.add_parser("pi", help="Manage the pinned native Pi installation")
+    pi.add_argument("action", choices=("install", "verify"))
     sub.add_parser("runs", help="List schema-1 working/parked/approval/review runs")
     sub.add_parser("pause", help="Stop picking new tickets")
     sub.add_parser("resume", help="Allow picking new tickets")
-    sub.add_parser("cleanup", help="Garbage-collect orphaned worktrees/containers/state")
+    sub.add_parser("cleanup", help="Remove this project's finished and orphaned run resources")
 
     for name in ("retry", "cancel", "logs", "handoff"):
         p = sub.add_parser(name, help=f"{name} a run")
         p.add_argument("run_id")
+        if name == "retry":
+            p.add_argument(
+                "--reprepare",
+                action="store_true",
+                help=("Acknowledge full recipe replay in a fresh owned container "
+                      "with retained worktree"),
+            )
 
     delete = sub.add_parser("delete", help="Hard-remove a run including state")
     delete.add_argument("run_id")
     delete.add_argument("--force", action="store_true")
+    delete.add_argument("--owned-resources", action="store_true",
+                        help="Release proven owned native resources despite settings drift")
+    restart = sub.add_parser("restart", help="Abandon a confirmed failed run and start its ticket")
+    restart.add_argument("run_id")
+    restart.add_argument("--force", action="store_true")
+    restart.add_argument("--expected-revision", required=True,
+                         help="SHA-256 of the confirmed failed run state")
 
     reset = sub.add_parser("reset", help="Force a run back to a stage")
     reset.add_argument("run_id")
@@ -116,7 +151,7 @@ def _build_parser() -> argparse.ArgumentParser:
     export.add_argument("--csv", action="store_true")
 
     cfg = sub.add_parser("config", help="Config helpers")
-    cfg.add_argument("action", choices=["show", "validate", "set"])
+    cfg.add_argument("action", choices=["show", "validate", "plan", "set"])
     cfg.add_argument("key", nargs="?")
     cfg.add_argument("value", nargs="?")
 
@@ -138,6 +173,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_delete = prof_sub.add_parser("delete", help="Delete a profile and its state")
     p_delete.add_argument("name")
     p_delete.add_argument("--force", action="store_true")
+    p_delete.add_argument("--remove-resources", action="store_true",
+                          help="Also remove the project's containers and worktrees, "
+                               "keeping human-owned ones")
+    p_delete.add_argument("--remove-clone", action="store_true",
+                          help="With --remove-resources, also remove the local clone when "
+                               "it is ADORE's own under <ADORE home>/repos")
     p_path = prof_sub.add_parser("path", help="Print a profile's config.toml path")
     p_path.add_argument("name", nargs="?", help="Defaults to the active profile")
 
@@ -207,6 +248,9 @@ def _env_file_for_config(config_path: str | Path) -> Path:
     return beside_config if beside_config.is_file() else cwd_fallback
 
 
+_DELETABLE_RUN_LIFECYCLES = {"done", "failed", "cancelled", "handed-off", "handoff-pending"}
+
+
 @contextlib.contextmanager
 def _operator_lock(store: StateStore) -> Iterator[None]:
     """
@@ -219,8 +263,9 @@ def _operator_lock(store: StateStore) -> Iterator[None]:
         pid = info.get("pid") if info else None
         holder = f"pid {pid}" if isinstance(pid, int) else "an unknown holder"
         raise LockHeldError(
-            f"the poller or another operator holds the lock ({holder}); "
-            "stop it or wait for it to finish before mutating run state"
+            f"the web worker, poller or another operator holds the lock ({holder}); "
+            "pause the project in web Project Summary (Pause monitoring), then wait "
+            "for the current bounded job to finish; a CLI poller must also be stopped"
         )
     try:
         yield
@@ -279,7 +324,12 @@ def _inline_comment(line: str) -> str:
     return ""
 
 
-def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
+def _newline(text: str) -> str:
+    """@brief A config text's line ending: CR LF when it has one, else LF."""
+    return "\r\n" if "\r\n" in text else "\n"
+
+
+def _set_toml_scalar(text: str, dotted_key: str, value: str, *, literal: str | None = None) -> str:
     """
     @brief      Set one scalar key in TOML text, preserving comments/other lines.
     @details    `dotted_key` is `<table...>.<name>` (for example
@@ -288,10 +338,14 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
                 kept); a key absent from an existing table is inserted just
                 after the table header; an absent table is appended at the end.
                 Everything else - comments, blank lines, other keys - is left
-                untouched. Only scalars are supported.
+                untouched, byte for byte. A replaced line keeps its own line
+                ending and an added line takes the text's (see _newline). Only
+                scalars are supported.
     @param[in]  text Current config file text.
     @param[in]  dotted_key Dotted table+key path.
     @param[in]  value Raw value (type inferred by _toml_scalar_literal).
+    @param[in]  literal Exact TOML literal to write instead of inferring one
+                (callers pass a validated, already quoted string).
     @return     The updated config text.
     @exception  ValueError When the key is not a `<table>.<name>` path.
     """
@@ -303,16 +357,18 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
         )
     *table_parts, key = parts
     header = "[" + ".".join(table_parts) + "]"
-    new_line = f"{key} = {_toml_scalar_literal(value)}"
-    trailing = "\n" if text.endswith("\n") else ""
-    lines = text.splitlines()
+    new_line = f"{key} = {literal if literal is not None else _toml_scalar_literal(value)}"
+    newline = _newline(text)
+    # Split on LF only: each line keeps its own CR, so joining with LF gives
+    # every untouched line back byte for byte.
+    lines = text.split("\n")
 
     header_idx = next(
         (i for i, line in enumerate(lines) if line.strip() == header), None
     )
     if header_idx is None:
-        prefix = "" if text == "" or text.endswith("\n") else "\n"
-        return f"{text}{prefix}\n{header}\n{new_line}\n"
+        prefix = "" if text == "" or text.endswith("\n") else newline
+        return f"{text}{prefix}{newline}{header}{newline}{new_line}{newline}"
 
     block_end = len(lines)
     for j in range(header_idx + 1, len(lines)):
@@ -322,14 +378,19 @@ def _set_toml_scalar(text: str, dotted_key: str, value: str) -> str:
             break
     key_re = re.compile(rf"^(\s*){re.escape(key)}\s*=")
     for k in range(header_idx + 1, block_end):
-        match = key_re.match(lines[k])
+        body = lines[k].removesuffix("\r")
+        match = key_re.match(body)
         if match:
-            comment = _inline_comment(lines[k])
+            comment = _inline_comment(body)
             suffix = f"  {comment}" if comment else ""
-            lines[k] = f"{match.group(1)}{new_line}{suffix}"
-            return "\n".join(lines) + trailing
-    lines.insert(header_idx + 1, new_line)
-    return "\n".join(lines) + trailing
+            lines[k] = f"{match.group(1)}{new_line}{suffix}{lines[k][len(body):]}"
+            return "\n".join(lines)
+    if header_idx == len(lines) - 1:  # unterminated header: the new line ends the file
+        lines[header_idx] += newline.removesuffix("\n")
+        lines.append(new_line)
+    else:
+        lines.insert(header_idx + 1, new_line + newline.removesuffix("\n"))
+    return "\n".join(lines)
 
 
 def _config_set(args: argparse.Namespace) -> int:
@@ -346,7 +407,7 @@ def _config_set(args: argparse.Namespace) -> int:
     if not args.key or args.value is None:
         print("usage: adore config set <section.key> <value>")
         return EXIT_ERROR
-    if _SECRET_KEY_RE.search(args.key):
+    if _is_secret_key(args.key):
         print("error: secrets never go in config.toml; put the value in .env and "
               "reference its NAME via [executor] env_keys")
         return EXIT_ERROR
@@ -358,9 +419,19 @@ def _config_set(args: argparse.Namespace) -> int:
     except ProfileError as exc:
         print(f"error: {exc}")
         return EXIT_ERROR
+    try:
+        with config_edit_lock(path):
+            return _config_set_locked(args, path)
+    except ConfigEditLockedError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
+
+
+def _config_set_locked(args: argparse.Namespace, path: Path) -> int:
+    """@brief Validate and atomically write one scalar under the edit lock."""
     args.config = str(path)
     try:
-        original = path.read_text(encoding="utf-8")
+        original = path.read_bytes().decode("utf-8")  # bytes: keep line endings
     except FileNotFoundError:
         print(f"error: config file not found: {path}")
         return EXIT_ERROR
@@ -376,7 +447,7 @@ def _config_set(args: argparse.Namespace) -> int:
     # real config when it still parses AND validates. tmp + replace is atomic.
     tmp = path.with_name(path.name + ".tmp")
     try:
-        tmp.write_text(updated, encoding="utf-8")
+        tmp.write_bytes(updated.encode("utf-8"))
     except OSError as exc:
         print(f"error: cannot write {tmp}: {exc}")
         return EXIT_ERROR
@@ -395,6 +466,12 @@ def _config_set(args: argparse.Namespace) -> int:
             for issue in issues:
                 print(f"  - {issue}")
             return EXIT_ERROR
+        if candidate.execution.preparation or candidate.execution.backend == "local":
+            try:
+                preview_plan(candidate, runner=run_command)
+            except PreparationError as exc:
+                print(f"refusing execution selection: {exc}")
+                return EXIT_ERROR
         tmp.replace(path)
     finally:
         tmp.unlink(missing_ok=True)
@@ -422,6 +499,15 @@ def _cmd_config(args: argparse.Namespace) -> int:
         for issue in issues:
             print(f"  - {issue}")
         return EXIT_ERROR
+    if args.action == "plan" or config.execution.preparation:
+        try:
+            plan = preview_plan(config, runner=run_command)
+        except PreparationError as exc:
+            print(f"error: {exc}")
+            return EXIT_ERROR
+        if args.action == "plan":
+            print(json.dumps(public_plan(plan), indent=2, ensure_ascii=False))
+            return EXIT_OK
     print(f"{args.config}: OK")
     return EXIT_OK
 
@@ -521,40 +607,107 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
         print(f"error: {args.config} has {len(issues)} issue(s); "
               "run `adore config validate`")
         return None
-    return config, Orchestrator.from_config(
-        config,
-        env_file=_env_file_for_config(args.config),
+    options = {"cleanup_only": True} if (
+        args.command == "delete" and getattr(args, "owned_resources", False)
+    ) else {}
+    engine = Orchestrator.from_config(
+        config, env_file=_env_file_for_config(args.config), **options,
     )
+    if args.command in {"delete", "restart"}:
+        profiles = ProfileStore()
+        database = profiles.home / "web.db"
+        if database.is_file():
+            matches = [item for item in profiles.list_profiles()
+                       if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+            if len(matches) == 1:
+                from adore.web.store import WebStore
+
+                web = WebStore(database)
+                project_id = matches[0].project_id
+                engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
+                    project_id, run_id, remove_source=remove_source,
+                )
+    return config, engine
+
+
+def _not_started_code(summary: dict) -> str:
+    """
+    @brief      Name the stable reason a single-ticket pass started no job.
+    @param[in]  summary Poll summary whose `picked` is None.
+    @return     pickup_paused, at_capacity, aegis_probe_failed or not_eligible.
+    """
+    if summary.get("paused"):
+        return "pickup_paused"
+    if summary.get("at_capacity"):
+        return "at_capacity"
+    if summary.get("payload_error"):
+        return "aegis_probe_failed"
+    return "not_eligible"
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """
     @brief      Handle `adore run [--loop|--once|--dry-run]`.
-    @details    Default mode comes from [polling] mode; flags override.
+    @details    Default mode comes from [polling] mode; flags override. A
+                `--once --ticket N` pass that starts no job ends with the line
+                `error: ticket #N not started: <code>`, which the web worker
+                reads as the operation's reason.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """
-    built = _engine(args)
+    def finish(code: int, reason: str) -> int:
+        """@brief Append secret-free terminal evidence for a manual worker request."""
+        if args.ticket is not None and not args.dry_run:
+            emit_start_result(args.ticket, code, reason)
+        return code
+
+    if args.ticket is not None and (args.ticket < 1 or not args.once or args.loop):
+        print("error: --ticket requires a positive IID and --once")
+        return finish(EXIT_ERROR, "invalid_request")
+    profile_store = ProfileStore()
+    try:
+        _path, profile_name = resolve_config_path(
+            getattr(args, "config", None), getattr(args, "profile", None),
+            store=profile_store,
+        )
+        if profile_name and profile_store.load(profile_name).archived:
+            print(f"error: profile {profile_name!r} is archived; restore it before pickup")
+            return finish(EXIT_ERROR, "project_archived")
+    except ProfileError as exc:
+        print(f"error: {exc}")
+        return finish(EXIT_ERROR, "configuration_invalid")
+    try:
+        built = _engine(args)
+    except LocalPrerequisiteError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return finish(EXIT_ERROR, "engine_setup_failed")
+    except Exception:  # noqa: BLE001 - manual result must not expose setup secrets
+        if args.ticket is None:
+            raise
+        return finish(EXIT_ERROR, "engine_setup_failed")
     if built is None:
-        return EXIT_ERROR
+        return finish(EXIT_ERROR, "configuration_invalid")
     config, engine = built
     logger = ProcessLogger(process_log_path(config.state.store_root))
     engine.log = logger.emit
+    poll_options = {"ticket_iid": args.ticket} if args.ticket is not None else {}
     if args.dry_run:
-        summary = engine.poll_once(dry_run=True)
+        summary = engine.poll_once(dry_run=True, **poll_options)
         logger.emit(json.dumps(summary))
         return EXIT_OK
     loop = args.loop or (config.polling.mode == "loop" and not args.once)
     if loop:
         return engine.run_loop()
     try:
-        summary = engine.poll_once()
+        summary = engine.poll_once(**poll_options)
     except LockHeldError as exc:
         store = _store(config)
         logger.emit(f"error: {exc} ({store.lock_path})")
         logger.emit("hint: stop or wait for a live holder; `adore cleanup` reclaims "
                     "only a provably stale local lock")
-        return EXIT_ERROR
+        if args.ticket is not None:
+            logger.emit(f"error: ticket #{args.ticket} not started: conductor_busy")
+        return finish(EXIT_ERROR, "lock_held")
     except Exception as exc:  # noqa: BLE001 - one pass must not traceback
         # `run --loop` survives an unexpected fault and keeps polling, so a
         # single pass must not be noisier than the daemon for the same cause:
@@ -562,9 +715,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         # just a nonzero exit with an ugly log. The run itself is already
         # failed and journaled by the engine.
         logger.emit(f"error: {exc}")
-        return EXIT_ERROR
+        reason = ("repository_unavailable" if isinstance(exc, ForgeError) else
+                  "state_unavailable" if isinstance(exc, StateError) else "engine_fault")
+        return finish(EXIT_ERROR, reason)
     logger.emit(json.dumps(summary))
-    return EXIT_OK
+    if args.ticket is not None and summary["picked"] is None:
+        logger.emit(f"error: ticket #{args.ticket} not started: {_not_started_code(summary)}")
+        return finish(EXIT_ERROR, summary.get("start_reason", "not_eligible"))
+    return finish(EXIT_OK, "started")
 
 
 def _cmd_run_op(args: argparse.Namespace) -> int:
@@ -573,9 +731,39 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     @param[in]  args Parsed arguments (args.run_id set).
     @return     Process exit code.
     """
-    built = _engine(args)
+    def finish(code: int, reason: str, picked: int | None = None,
+               retained: bool = False) -> int:
+        """@brief Bind Retry and Restart outcomes to the requested job."""
+        if args.command == "retry":
+            emit_retry_result(args.run_id, code, reason)
+        elif args.command == "restart":
+            emit_restart_result(args.run_id, args.expected_revision or "", code, reason,
+                                picked, retained)
+        return code
+
+    try:
+        built = _engine(args)
+    except (LocalExecutionError, PermissionError) as exc:
+        if args.command in {"delete", "restart"}:
+            print("error: native setup or identity changed; restore settings or use "
+                  "`adore delete <run-id> --force --owned-resources` for proven owned "
+                  "resources; no job state was deleted")
+            return finish(EXIT_ERROR, "engine_setup_failed")
+        if args.command != "retry":
+            raise
+        cause = local_probe_failure(exc, "engine-setup-failed")
+        reason = ("executable_missing" if cause in {"node-missing", "pi-missing"}
+                  else cause.replace("-", "_"))
+        return finish(EXIT_ERROR, reason)
+    except Exception:  # noqa: BLE001 - Retry must return a closed setup outcome
+        if args.command in {"delete", "restart"}:
+            print("error: cannot prepare cleanup; check project configuration and host access")
+            return finish(EXIT_ERROR, "engine_setup_failed")
+        if args.command != "retry":
+            raise
+        return finish(EXIT_ERROR, "engine_setup_failed")
     if built is None:
-        return EXIT_ERROR
+        return finish(EXIT_ERROR, "configuration_invalid")
     config, engine = built
     store = _store(config)
     if args.command == "handoff":
@@ -603,13 +791,14 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             print(f"{event.get('ts', '?')} {event.get('event', '?')}{suffix}")
         return EXIT_OK
     # delete: destructive - confirm via --force (design 8c guardrail)
-    if args.command == "delete":
+    if args.command in {"delete", "restart"}:
         if not store.exists(args.run_id):
             print(f"no such run: {args.run_id}")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "run_unavailable")
         if not args.force:
             print("delete removes ALL run state irrecoverably; re-run with --force")
-            return EXIT_ERROR
+            return finish(EXIT_ERROR, "force_required")
+    deleted = False
     try:
         with _operator_lock(store):
             if args.command == "cancel":
@@ -617,16 +806,101 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
                 print("cancelled" if ok else f"no such run: {args.run_id}")
                 return EXIT_OK if ok else EXIT_ERROR
             if args.command == "retry":
-                ok = engine.retry(args.run_id)
-                print("retried" if ok else f"cannot retry: {args.run_id}")
-                return EXIT_OK if ok else EXIT_ERROR
-            engine.cancel(args.run_id, outcome="deleted")
-            store.delete_run(args.run_id)
+                try:
+                    before = store.load(args.run_id)
+                except FileNotFoundError:
+                    print(f"cannot retry: {args.run_id}")
+                    return finish(EXIT_ERROR, "run_unavailable")
+                ok = (engine.retry(args.run_id, reprepare=True) if args.reprepare
+                      else engine.retry(args.run_id))
+                if not ok:
+                    reason = ("notification_pending" if before.notification_outbox else
+                              "not_failed" if before.lifecycle != "failed" else
+                              "reprepare_unavailable" if args.reprepare else "run_unavailable")
+                    print(f"cannot retry: {args.run_id} ({reason})")
+                    return finish(EXIT_ERROR, reason)
+                after = store.load(args.run_id)
+                if after.lifecycle == "failed":
+                    print(f"retry failed: {after.outcome}")
+                    return finish(EXIT_ERROR, "retry_failed")
+                print("retried")
+                return finish(EXIT_OK, "retried")
+            if args.command == "restart":
+                summary = engine.restart(args.run_id, args.expected_revision)
+                print(json.dumps(summary))
+                picked = summary.get("picked")
+                code = EXIT_OK if picked is not None else EXIT_ERROR
+                return finish(code, "restarted" if code == EXIT_OK else "not_started",
+                              picked if code == EXIT_OK else None,
+                              code == EXIT_OK and summary.get("unproven_branch_retained") is True)
+            # Validate all durable identity/evidence before touching owned resources.
+            store.load(args.run_id)
+            profiles = ProfileStore()
+            if profiles.invalid_profiles():
+                raise StateError("project identity is corrupt")
+            matches = [item for item in profiles.list_profiles()
+                       if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+            if len(matches) > 1:
+                raise StateError("project identity is ambiguous")
+            project = matches[0] if matches else None
+            ledger = DeletionAudit(profiles.home)
+            receipt = ledger.begin(
+                project.name if project else "",
+                project.project_id if project else None,
+                args.run_id,
+            )
+            engine.delete(args.run_id, owned_resources=args.owned_resources)
+            deleted = True
+            ledger.confirm(receipt)
             print(f"deleted {args.run_id}")
             return EXIT_OK
     except LockHeldError as exc:
         print(f"error: {exc}")
+        return finish(EXIT_ERROR, "lock_held")
+    except DeletionAuditError as exc:
+        if deleted:
+            print(
+                "error: job deleted but deletion audit confirmation is uncertain; inspect History"
+            )
+        else:
+            print(f"error: {exc}")
         return EXIT_ERROR
+    except (StateError, OSError) as exc:
+        if args.command in {"delete", "restart"}:
+            print(
+                f"error: cleanup incomplete ({type(exc).__name__}); inspect retained "
+                "job state and permissions before retrying"
+            )
+            return finish(EXIT_ERROR, "cleanup_failed")
+        if args.command != "retry":
+            raise
+        print(f"retry state unavailable: {type(exc).__name__}")
+        return finish(EXIT_ERROR, "state_unavailable")
+    except ForgeError:
+        if args.command in {"delete", "restart"}:
+            print("error: repository access failed; check repository connection before retrying")
+            return finish(EXIT_ERROR, "repository_unavailable")
+        if args.command != "retry":
+            raise
+        return finish(EXIT_ERROR, "repository_unavailable")
+    except (LocalExecutionError, IsolationError) as exc:
+        if args.command not in {"delete", "restart"}:
+            if args.command != "retry":
+                raise
+            return finish(EXIT_ERROR, "engine_fault")
+        print(
+            f"error: cleanup refused: {type(exc).__name__}; restore saved settings or use "
+            "`adore delete <run-id> --force --owned-resources` for proven owned resources. "
+            "Foreign resources and changed remote branches are retained; inspect Job details."
+        )
+        return finish(EXIT_ERROR, "cleanup_refused")
+    except Exception:  # noqa: BLE001 - no untrusted exception text in web results
+        if args.command in {"delete", "restart"}:
+            print("error: cleanup could not be confirmed; inspect retained job evidence")
+            return finish(EXIT_ERROR, "engine_fault")
+        if args.command != "retry":
+            raise
+        return finish(EXIT_ERROR, "engine_fault")
 
 
 def _cmd_stats(args: argparse.Namespace) -> int:
@@ -640,14 +914,21 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         return EXIT_ERROR
     store = _store(config)
     if args.rebuild:
-        rebuilt = 0
-        for run in store.list_runs():
-            if metrics.is_terminal(run.lifecycle):
-                summary = metrics.summarize_run(store, run.run_id)
-                metrics.record_summary(config.metrics.db_path, summary,
-                                       config.metrics.export_jsonl)
-                rebuilt += 1
-        print(f"rebuilt {rebuilt} run summarie(s)")
+        try:
+            with _operator_lock(store):
+                rebuilt = [metrics.summarize_run(store, run.run_id)
+                           for run in store.list_runs()
+                           if metrics.is_terminal(run.lifecycle)]
+                for summary in rebuilt:
+                    metrics.record_summary(config.metrics.db_path, summary,
+                                           config.metrics.export_jsonl)
+        except LockHeldError as exc:
+            print(f"error: {exc}")
+            return EXIT_ERROR
+        except metrics.MetricsError as exc:
+            print(f"error: metrics evidence corrupt: {exc}")
+            return EXIT_ERROR
+        print(f"rebuilt {len(rebuilt)} run summarie(s)")
     since = None
     if args.since:
         try:
@@ -689,7 +970,11 @@ def _cmd_report(args: argparse.Namespace) -> int:
     if not store.exists(args.run_id):
         print(f"no such run: {args.run_id}")
         return EXIT_ERROR
-    summary = metrics.summarize_run(store, args.run_id)
+    try:
+        summary = metrics.summarize_run(store, args.run_id)
+    except metrics.MetricsError as exc:
+        print(f"error: metrics evidence corrupt: {exc}")
+        return EXIT_ERROR
     print(json.dumps(asdict(summary), indent=2, ensure_ascii=False))
     return EXIT_OK
 
@@ -775,6 +1060,11 @@ def _cmd_profile(args: argparse.Namespace) -> int:
             print("delete removes the profile and its state irrecoverably; "
                   "re-run with --force")
             return EXIT_ERROR
+        if getattr(args, "remove_clone", False) and not getattr(args, "remove_resources", False):
+            print("error: --remove-clone requires --remove-resources")
+            return EXIT_ERROR
+        if getattr(args, "remove_resources", False):
+            return _delete_profile_with_resources(store, args)
         store.delete(args.name)
         print(f"deleted profile {args.name}")
         return EXIT_OK
@@ -787,6 +1077,81 @@ def _cmd_profile(args: argparse.Namespace) -> int:
         print(f"no such profile: {name}")
         return EXIT_ERROR
     print(store.config_path(name))
+    return EXIT_OK
+
+
+def _delete_profile_with_resources(store: ProfileStore, args: argparse.Namespace) -> int:
+    """
+    @brief      Remove a project's ADORE resources, then delete its profile.
+    @details    Human-owned worktrees/containers and a state folder outside the
+                profile directory are kept and reported. Nothing is deleted when
+                the configuration is invalid, the conductor lock is held, run
+                state is corrupt or any run is unfinished. With --remove-clone
+                the local clone is checked first (an unsafe clone deletes
+                nothing), rechecked after the purge, and removed after the
+                profile; a clone that became unsafe or cannot be removed is
+                kept and reported.
+    @param[in]  store Profile store holding the profile.
+    @param[in]  args Parsed `profile delete` arguments.
+    @return     Process exit code.
+    """
+    engine_args = argparse.Namespace(**{**vars(args), "config": None, "profile": args.name})
+    built = _engine(engine_args)
+    if built is None:
+        return EXIT_ERROR
+    config, engine = built
+    remove_clone = bool(getattr(args, "remove_clone", False))
+    clone = None
+    try:
+        with _operator_lock(engine.store):
+            if engine.store.invalid_runs():
+                print("error: corrupt run state; inspect it before deleting the project")
+                return EXIT_ERROR
+            unfinished = [run.run_id for run in engine.store.list_runs()
+                          if run.lifecycle not in _DELETABLE_RUN_LIFECYCLES]
+            if unfinished:
+                print(f"error: unfinished runs block deletion: {', '.join(sorted(unfinished))}")
+                return EXIT_ERROR
+            if remove_clone:
+                clone = project_clone_decision(store, args.name, config,
+                                               engine.store.list_runs())
+                if not clone.removable:
+                    print(f"error: the local clone cannot be removed ({clone.reason}): "
+                          f"{clone.path}")
+                    return EXIT_ERROR
+            report = engine.purge_resources()
+            if clone is not None:
+                # Purge may leave stale worktree records; live linked worktrees stay.
+                run_command(["git", "-C", clone.path, "worktree", "prune"], timeout=30)
+                clone = clone_decision(store, args.name, config.worktree.repo_path,
+                                       config.platform.repo)
+    except LockHeldError as exc:
+        print(f"error: {exc}")
+        return EXIT_ERROR
+    profile_dir = store.profile_dir(args.name).resolve()
+    state_root = Path(engine.store.root).resolve()
+    retained = None if state_root.is_relative_to(profile_dir) else str(state_root)
+    try:
+        store.delete(args.name)
+    except OSError as exc:
+        print(json.dumps({"deleted": None, **report, "state_retained": retained,
+                          "clone_removed": None, "clone_retained": None,
+                          "error": f"profile removal failed: {exc}"},
+                         indent=2, ensure_ascii=False))
+        return EXIT_ERROR
+    removed, kept = None, None
+    if clone is not None and clone.removable:
+        # force_rmtree tolerates errors; only a folder that is really gone counts.
+        force_rmtree(clone.path)
+        if Path(clone.path).exists():
+            kept = {"path": clone.path, "reason": "removal-failed"}
+        else:
+            removed = clone.path
+    elif clone is not None:
+        kept = {"path": clone.path, "reason": clone.reason}
+    print(json.dumps({"deleted": args.name, **report, "state_retained": retained,
+                      "clone_removed": removed, "clone_retained": kept},
+                     indent=2, ensure_ascii=False))
     return EXIT_OK
 
 
@@ -896,10 +1261,13 @@ def _cmd_reset(args: argparse.Namespace) -> int:
 
 def _cmd_cleanup(args: argparse.Namespace) -> int:
     """
-    @brief      Handle `adore cleanup`: sweep stale lock + orphaned resources.
-    @details    Preserves active and failed runs for resume/retry. Cancelled,
-                completed and unknown resources are eligible; corrupt run
-                state is reported, never deleted.
+    @brief      Handle `adore cleanup`: stale lock + this project's run resources.
+    @details    Works only on the selected project's runs. Active and failed
+                runs stay for resume/retry, human-owned runs stay with their
+                owner, and corrupt runs keep their resources and are reported,
+                never deleted. Done, cancelled, stale and state-less runs of
+                this project lose their containers, proxies, networks and
+                worktrees.
     @param[in]  args Parsed arguments.
     @return     Process exit code.
     """
@@ -926,6 +1294,19 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.command == "pi":
+        from adore.pi_installation import PiInstallationError, install_pi, verify_pi
+
+        try:
+            if args.action == "install":
+                install_pi(progress=lambda message: print(message, flush=True))
+            else:
+                pi = verify_pi()
+                print(f"Managed Pi {pi.prefix.name} verified at {pi.prefix}.")
+        except (PiInstallationError, OSError) as exc:
+            print(f"Managed Pi: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        return 0
     if args.command == "config":
         return _cmd_config(args)
     if args.command == "status":
@@ -938,7 +1319,7 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_pause(args, paused=False)
     if args.command == "run":
         return _cmd_run(args)
-    if args.command in ("cancel", "retry", "logs", "delete", "handoff"):
+    if args.command in ("cancel", "retry", "logs", "delete", "restart", "handoff"):
         return _cmd_run_op(args)
     if args.command == "stats":
         return _cmd_stats(args)

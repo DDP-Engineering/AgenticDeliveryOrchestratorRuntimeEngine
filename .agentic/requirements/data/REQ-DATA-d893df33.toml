@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-d893df33"
+title = "Preserve stable project identity with human display names"
+status = "active"
+requirement = "When a profile is loaded or an administrator changes its display name, the profile store shall expose a validated human display_name, saved as the profile name when none is given, while retaining the existing profile name, immutable project ID, paths, grants, operation ownership and URLs. A profile.json with unknown or missing keys shall be refused as written by another ADORE build."
+verification = "Round-trip current metadata; edit through admin API and inspect unchanged paths, state, memberships and queued identity; corrupt types, controls, empty names and a profile.json with unknown or missing keys fail closed."
+affected_paths = ["04_Software/adore/profiles.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py", "04_Software/tests/test_profiles.py::test_profile_json_of_another_build_is_refused"]
+spec = "specs/REQ-REL-c598b075.md"
+created = 2026-10-05
+updated = 2026-11-01

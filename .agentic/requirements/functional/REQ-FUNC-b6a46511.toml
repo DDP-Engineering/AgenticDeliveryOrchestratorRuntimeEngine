@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-b6a46511"
+
+title = "Web statistics reads the configured summary database"
+
+status = "active"
+
+requirement = "Authorized web statistics and usage JSON/CSV views read summaries from the profile configured metrics.db_path using CLI path semantics and read-only evidence validation. Missing configured databases contribute no summaries; corrupt configuration or databases fail closed without fallback. Metadata-only profiles retain their historical state-root database until configuration exists."
+
+verification = "Offline API tests verify absolute/relative configured paths across project/global/CSV and Dev grants, default-path decoys, read-only bytes, missing files and corrupt TOML/type/SQLite rejection."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/tests/test_web_scoped_metrics.py", "04_Software/tests/test_web_config.py"]
+
+linked_tests = ["04_Software/tests/test_web_scoped_metrics.py", "04_Software/tests/test_web_config.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-10-09

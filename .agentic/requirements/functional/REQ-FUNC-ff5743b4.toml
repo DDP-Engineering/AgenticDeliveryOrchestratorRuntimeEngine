@@ -1,0 +1,26 @@
+schema = 1
+
+id = "REQ-FUNC-ff5743b4"
+
+title = "Detect web bundle drift at release"
+
+status = "active"
+
+requirement = """
+When release consistency is checked, the repository checker shall reject a web bundle whose recorded build inputs or output files differ from the current files or whose stamp is missing or invalid.
+"""
+
+verification = "Inspection: run release consistency on matching assets and isolated copies with changed source, changed output and missing stamp; verify success and rejection."
+
+affected_paths = ["02_Tools/internal/stamp_web_assets.py", "02_Tools/internal/check_release_consistency.py"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

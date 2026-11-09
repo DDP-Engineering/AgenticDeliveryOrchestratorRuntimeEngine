@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-bcaf01be"
+
+title = "Remove an archived project's ADORE resources on deletion"
+
+status = "active"
+
+requirement = """
+When an operator runs `adore profile delete <name> --force --remove-resources` for a project with no unfinished run, ADORE shall remove the executor containers (with their egress proxies and networks) and worktrees recorded for that project's own runs, except those of human-owned (handed-off or handoff-pending) runs and never another project's resources, then delete the profile with its profile-owned state, keep any state folder outside ADORE home, and print a JSON report of removed and retained resources; if a run is unfinished, the conductor lock is held or the configuration is invalid, it shall delete nothing and exit with an error.
+"""
+
+verification = "Automated: with a fake container runtime and worktree manager, a project with done, failed, cancelled and handed-off runs is deleted - the recorded containers and worktrees of the non-human runs are removed while handed-off and handoff-pending worktrees and another project's worktree directory remain, no name-prefix sweep runs, the profile directory is gone, an external store root remains, and the JSON report lists removed and retained items; a working run, a held lock and an invalid configuration each leave the profile and resources untouched with a non-zero exit; `profile delete` without --remove-resources keeps its current behavior."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/cli.py", "04_Software/adore/profiles.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_purge_resources_touches_only_this_projects_non_human_runs", "04_Software/tests/test_profile_cli.py::test_profile_delete_remove_resources_sweeps_then_deletes", "04_Software/tests/test_profile_cli.py::test_profile_delete_remove_resources_keeps_external_state", "04_Software/tests/test_profile_cli.py::test_profile_delete_remove_resources_refuses_unsafe_states", "04_Software/tests/test_profile_cli.py::test_profile_delete_remove_resources_reports_failed_profile_removal"]
+
+
+spec = "specs/REQ-SEC-a514d0b2.md"
+
+priority = "high"   # low | normal | high
+rationale = "Deleting only the profile leaves containers and worktrees behind; deleting human-owned worktrees would destroy human work."        # why this behavior exists, if not obvious
+
+created = 2026-10-04
+updated = 2026-10-04

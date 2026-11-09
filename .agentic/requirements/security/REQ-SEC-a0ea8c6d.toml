@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-a0ea8c6d"
+
+title = "Represent forge Markdown images without fetching"
+
+status = "active"
+
+requirement = """
+When a forge body contains Markdown image syntax, the Tickets view shall represent it by a readable inert placeholder or a user-activated link under the safe-link policy without automatically loading any image resource.
+"""
+
+verification = "Automated: supply inline and reference images with https tracking URLs, relative paths and unsafe schemes, with and without alt text, in descriptions and comments; assert no img/resource-loading element and zero automatic requests to those destinations in either mode; the representation remains readable and any anchor obeys the URL allowlist."
+
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
+
+linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

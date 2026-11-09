@@ -13,14 +13,25 @@ authors = [{ name = "Eng. Dan Dumitru Pasare" }]
 # Runtime is standard-library only by design. Keep this empty.
 dependencies = []
 
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.116,<1",
+    "uvicorn>=0.35,<1",
+    "argon2-cffi>=25.1,<26",
+    "tzdata>=2026.4",
+]
+
 [project.scripts]
 adore = "adore.cli:main"
+adore-web = "adore.web.server:main"
+adore-web-worker = "adore.web.commands:main"
 
 # Dev-time tooling only (not required to run ADORE).
 [dependency-groups]
 dev = [
     "ruff>=0.15",
     "pytest>=8",
+    "httpx>=0.28",
 ]
 
 [build-system]

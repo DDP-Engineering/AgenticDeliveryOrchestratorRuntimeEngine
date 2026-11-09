@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-e1eaf583"
+title = "Exact revision-bound reviewed enrollment"
+status = "active"
+requirement = "When guided enrollment is confirmed, the system shall submit the frozen reviewed draft once and publish its exact revision with pickup stopped, rejecting a changed or duplicate candidate and exposing ambiguous failures without automatic resubmission."
+verification = "Preview then confirm and inspect exact configuration bytes; mutate identity/setup or omit/wrong revision on guarded route, race duplicate calls, double-click UI and delay responses; verify one profile or explicit conflict."
+affected_paths = ["04_Software/adore/web/app.py","04_Software/adore/profiles.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py","04_Software/tests/test_web_readiness.py"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

@@ -5,64 +5,41 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Tools
+# Repository tools
 
-This folder holds repository-level scripts used outside the runtime package.
-Use it for development-environment setup, release/delivery preparation,
-packaging, verification helpers, and other repository automation scripts.
-The implemented tools are the release checker and the runtime-bundle packager:
+Three public commands, the same on Windows and Ubuntu/Linux:
 
-- `check_release_consistency.py` - fails closed when the ADORE package,
-  lockfile, image tags, deployment names, documentation, delivery-artifact
-  contents, or forbidden pre-rename identifiers drift from the release
-  identity declared by its `EXPECTED_VERSION` constant.
-- `package_runtime.ps1` - Windows PowerShell packager; writes a trimmed
-  `adore-runtime-<version>.zip` or directory under `07_Delivery/`.
-- `package_runtime.cmd` - cmd.exe wrapper around the PowerShell packager.
-- `package_runtime.sh` - POSIX/Bash packager; writes a trimmed
-  `adore-runtime-<version>.tar.gz`, `.zip`, or directory under `07_Delivery/`.
-- `create_portable_zip.py` - shared standard-library ZIP writer used by both
-  packagers; rejects links/unsafe placement and always writes POSIX member
-  names so Windows-built ZIPs extract to the documented tree on Linux.
-
-The runtime bundle contains the runnable contents of `04_Software/` needed on a
-deployment host: `adore/`, `deploy/`, `docker/`, package metadata, lockfile,
-examples, changelog, and the canonical operator documentation under
-`Documentation/`. It excludes development/test/runtime state such as `tests/`,
-`.venv/`, `.adore/`, `worktrees/`, caches, and `.env`.
-
-The package includes the existing setup scripts in `deploy/`; it does not
-replace them. After unpacking, use `deploy/install-windows.ps1` for Windows Task
-Scheduler setup or `deploy/install-ubuntu.sh` for Ubuntu systemd setup.
-
-Examples:
-
-```powershell
-python .\02_Tools\check_release_consistency.py
-python .\02_Tools\check_release_consistency.py --require-artifacts
+```text
+python 02_Tools/setup_environment.py
+python 02_Tools/create_package.py
+python 02_Tools/verify_package.py
 ```
 
-```powershell
-.\02_Tools\package_runtime.ps1
-.\02_Tools\package_runtime.ps1 -Format directory
-.\02_Tools\package_runtime.cmd -OutputDir D:\packages
-```
+Use `python3` on Linux when `python` is not available. Run from the repository
+root; the scripts resolve their working files from their own locations.
 
-```bash
-bash 02_Tools/package_runtime.sh
-bash 02_Tools/package_runtime.sh --format zip
-bash 02_Tools/package_runtime.sh --include-config
-```
+| Command | What it does |
+| --- | --- |
+| `setup_environment.py` | Prepares the repository Python environment, frontend dependencies and Chromium. Requires Python 3.11+, uv, Git and Node.js 22.18+ with npm. Does not run tests or install services. |
+| `create_package.py` | Checks release metadata/notes, compiles and licenses the frontend, bundles Python and locked dependencies, then writes the native final archive and adjacent SHA-256 file. Requires the prepared environment and build-time network access. |
+| `verify_package.py [archive]` | Checks the archive identity/hash, extracts into temporary storage, verifies all package files and starts/stops the actual application with isolated data. Defaults to the current release for this host. Prints results and removes temporary data on exit. |
 
-By default, `config.toml` is not copied because it is target-specific, and
-`.env` is never copied. Use the explicit config option only for a controlled
-operator handoff where that target config is meant to travel with the bundle.
+Build/verify the Windows ZIP on Windows and the Linux TAR.GZ on Ubuntu/Linux x64.
+WSL Ubuntu can build and verify the Linux package. The target user needs no Python,
+Node.js or uv installation to open the packaged application.
 
-## Conventions
+`07_Delivery/` holds only these final archives and optional adjacent `.sha256`
+files. No README, report, log, extracted test package or technical directory is
+retained there. `sha256sum -c *.sha256` checks hashes from that directory on Linux.
 
-- Scripts are provided as **Bash (`.sh`)**, **PowerShell (`.ps1`)**, and
-  **cmd (`.bat`/`.cmd`)** as appropriate, so packaging and deployment can be
-  driven from both Ubuntu 22+ and Windows 11.
-- Every script is **commented for each stage** - a short comment before each
-  meaningful step explains what that stage does - so the scripts double as
-  readable, step-by-step runbooks.
+`internal/` contains automatically called release checks and asset licensing.
+`portable/` holds the start/stop/CLI templates copied into each package.
+`deploy/` contains specialized Windows/Ubuntu service administration sources;
+they are independent of repository setup and ordinary portable startup.
+`tests/` contains existing portable-media contract checks, not setup/deploy tests.
+Do not add or run automated tests for environment setup or deployment scripts.
+
+Older source-runtime packagers and the separate wheelhouse installer/launcher
+have been retired. There is one standard portable delivery flow.
+
+`generate_pi_catalog.py` refreshes the pinned Pi provider/model catalog offline; use it when changing the pinned Pi version.

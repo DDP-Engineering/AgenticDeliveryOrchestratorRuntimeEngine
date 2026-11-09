@@ -1,0 +1,256 @@
+{
+  "task": "TASK-c4655839",
+  "issue": 9,
+  "branch": "task/adore-web-interface",
+  "base_head": "7b4caea6f031f3f535456671baa8eb4640baa434",
+  "fingerprint": "31a9c5bd01e59c041f1f4b5140562f35aa01fb5d568ff0f6c8ce5824ff3655e1",
+  "encoding": "SHA-256 of sorted action/path/sha256 entries, compact sorted-key JSON; working bytes; deletions hash HEAD bytes",
+  "counts": {
+    "authored": 17,
+    "generated": 5,
+    "workflow": 11,
+    "evidence": 2
+  },
+  "excluded_reporting": [
+    ".agentic/tasks/TASK-c4655839.md",
+    ".agentic/tasks/TASK-c4655839.validation-final.json",
+    ".agentic/specs/portable-candidate-inventory.json",
+    ".agentic/specs/portable-candidate-review.md",
+    ".agentic/specs/portable-verification.md"
+  ],
+  "local_ignored": [
+    ".agentic/tasks/TASK-c4655839.anchor.json",
+    ".agentic/tasks/TASK-c4655839.evolution.json"
+  ],
+  "entries": [
+    {
+      "action": "modified",
+      "path": ".agentic/context/project.md",
+      "sha256": "9c81915c62ee8568b82201b38cdb0bf2ac8ba4dfb1d5dbe111fae9a57bc47488",
+      "category": "workflow"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/knowledge/portable-settings.md",
+      "sha256": "60c54d63a498bcbc33ea445ad57e4b4509e8ec4105569538dadfc7700beb04a1",
+      "category": "workflow"
+    },
+    {
+      "action": "modified",
+      "path": ".agentic/knowledge/web-interface.md",
+      "sha256": "997fa254a3b0827429853a012c0ac9f421c42300c014ec2af29869a270e298c7",
+      "category": "workflow"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/requirements/data/REQ-DATA-9528fad6.toml",
+      "sha256": "0204134efed95c17e20eeac367bae02ad4952fe4a56c7dd427d20d41db546c5c",
+      "category": "workflow"
+    },
+    {
+      "action": "modified",
+      "path": ".agentic/requirements/security/REQ-SEC-5d0f86e7.toml",
+      "sha256": "cd720960ad9da80c5e240d2481657493abf14bf0e7fd266c5bbe420be764c825",
+      "category": "workflow"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/requirements/security/REQ-SEC-f96d80d4.toml",
+      "sha256": "0f549e23cf87bcf4ffead232ec00cdbf1663a5b573b354795a014c2f97f32d93",
+      "category": "workflow"
+    },
+    {
+      "action": "modified",
+      "path": ".agentic/requirements/ux/REQ-UX-072cf049.toml",
+      "sha256": "5d814afc831e975d9ea255e7ad144e0f76c028a79a56e9f0776dda3e10913bd0",
+      "category": "workflow"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/requirements/ux/REQ-UX-302fbce4.toml",
+      "sha256": "59bc291e61397df224e087fbcb338fcfd1ef140970471084a8c20c911375c13f",
+      "category": "workflow"
+    },
+    {
+      "action": "modified",
+      "path": ".agentic/requirements/ux/REQ-UX-3b5b2257.toml",
+      "sha256": "952289bb79607cd179ac3763ba90106adb3cdbdbda18cd135a640e0c37e07f98",
+      "category": "workflow"
+    },
+    {
+      "action": "modified",
+      "path": ".agentic/requirements/ux/REQ-UX-b758d2b7.toml",
+      "sha256": "25801a7b24ba3eeae80cba6a8af1314f7f44e5c2cc072c92a87591b2b7f39256",
+      "category": "workflow"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/specs/REQ-DATA-9528fad6.md",
+      "sha256": "ee912f0dd0052abd3cf4630d64e9e8310511d88d24a97836d96d56ed7a0c362b",
+      "category": "workflow"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/specs/portable-evidence/portable-dark-390.png",
+      "sha256": "489941a328e56c05815dbb3512ab80e076bd1b2994c200a74f2c72ea13f360b5",
+      "category": "evidence"
+    },
+    {
+      "action": "added",
+      "path": ".agentic/specs/portable-evidence/portable-light-390.png",
+      "sha256": "cf5af8fd30cfc0ae0022fb0e72b7dd63a12e81007d02c5ba7094f4fd61743980",
+      "category": "evidence"
+    },
+    {
+      "action": "added",
+      "path": "01_Documentation/Portable_Project_Settings.md",
+      "sha256": "8eaf2281aefab98eabda9b6212e81c288b3c757c9e71073314a83e9c314bba96",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "01_Documentation/Web_Interface.md",
+      "sha256": "1efac9b6d890111136f11d87af27d635b24f79d0413875bdc6e663349760ae42",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/adore/portable_settings.py",
+      "sha256": "2590da4ff1e1dd75af5ac0e2075e3cf98cf9a8088c29edc2dde44a9491ef2ce3",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "04_Software/adore/web/app.py",
+      "sha256": "cf4ef1627327b61fbcda207679289bd8900a447126178fdbe353cfade1c71a44",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/adore/web/static/assets/index-5ArCE1x7.js",
+      "sha256": "70bf01c540af6f424bb4e27fd74416bb8371babce6b82d0ab42b66becd7a63ec",
+      "category": "generated"
+    },
+    {
+      "action": "deleted",
+      "path": "04_Software/adore/web/static/assets/index-C-W0ZWtp.css",
+      "sha256": "08465308ea3e4a6a7021d8924b0b10b0498cd63114ad5087a966c44fd9d43f55",
+      "category": "generated"
+    },
+    {
+      "action": "deleted",
+      "path": "04_Software/adore/web/static/assets/index-C0uPsQVc.js",
+      "sha256": "bf82a8e93ded0787a929615cb40aa6493925ae8b3012dbd4f2a6e38669e6e1b6",
+      "category": "generated"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/adore/web/static/assets/index-C5RGRyvo.css",
+      "sha256": "6bb5d05c2c15c73e43640c508f35c2139ab18b4fd474d5c52801bdd6fa04d779",
+      "category": "generated"
+    },
+    {
+      "action": "modified",
+      "path": "04_Software/adore/web/static/index.html",
+      "sha256": "617ff0931a5e39a0cc8e903d83d7b708748a71c6ae542a46cf3eff576f188794",
+      "category": "generated"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/tests/test_portable_settings.py",
+      "sha256": "23e8236f6070f33376f58cbd6582fc1fde34d7ee3ef483fb66770a526be10196",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/tests/test_web_portable_settings.py",
+      "sha256": "ea9bbfa88041baac170917758dd955e80480d8a66beb4a706b0f3be150c5b058",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/web/e2e/portable.spec.ts",
+      "sha256": "864e4aee67e45a8e628a3455e4bfd4c7de14d4135f1b32cd2205e7f77eb83548",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "04_Software/web/src/App.tsx",
+      "sha256": "5d5ee8597b4f0e6d0f028605d3539b9da80d4c58437a743d8f5a420eb4b2bf76",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/web/src/PortableSettings.tsx",
+      "sha256": "dfacd10ae553027b6f71419e7a1f707eb03769e23525159d8c1eefbaf021c493",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "04_Software/web/src/errors.ts",
+      "sha256": "17266234a956ef3f786788eaf238356c80f4c93da8706ef8781970870946e882",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/web/src/portable.ts",
+      "sha256": "98dff6f1d984febd12bad74c955fb1aed77b4ab56a79fafa0a7aab11fdf38d80",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "04_Software/web/src/styles.css",
+      "sha256": "63f0ad5315f7b97b22db8f7f2fb1922e698fe5b9da053d0cce5b756e6dbb6422",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "04_Software/web/tests/portable.test.mjs",
+      "sha256": "3b7c3a6c9d253aeedb5d9f291ad4fe3b063bc2f5224ebd2347c2bf8094652e28",
+      "category": "authored"
+    },
+    {
+      "action": "added",
+      "path": "05_SoftwareDocu/Component_Portable_Settings.md",
+      "sha256": "bc949c18f44559a2cf30919f1345d5172147b0b1424d35f56a0dd904e41edf9e",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "sha256": "18877f597027f989e30721e55d524ff0137c5eb371b10c6302ff8823f519153e",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "sha256": "00e364857d5a32f3f606b2918b28d397ba26a5e8d6031d9e15e87454ae12f076",
+      "category": "authored"
+    },
+    {
+      "action": "modified",
+      "path": "CHANGELOG.md",
+      "sha256": "4ee95392f8282d9e2bb16044832d810a109340459600333db4d23bad3e2b507d",
+      "category": "authored"
+    }
+  ],
+  "reporting_snapshot": [
+    {
+      "path": ".agentic/tasks/TASK-c4655839.md",
+      "sha256": "4c9ad95dfe83ba6202a907333b67f3e0dd22c6fee665aa33a0abc69935c5ac32"
+    },
+    {
+      "path": ".agentic/tasks/TASK-c4655839.validation-final.json",
+      "sha256": "28d7c0eaad0f8be0abe2f215eff54d3689c70cfaeee318019e5dfd5fb6e6638f"
+    },
+    {
+      "path": ".agentic/specs/portable-candidate-review.md",
+      "sha256": "ce99407fda2c7f49a52aeeafd8f41f47659a125d302862581c6d8603a34adb93"
+    },
+    {
+      "path": ".agentic/specs/portable-verification.md",
+      "sha256": "b8acee1749f79fd09afedc3c7aae0c06c44144083cf75b5f6fba23e71b85af2b"
+    }
+  ],
+  "reporting_note": "Current metadata byte snapshot; inventory excludes its own hash. Journal delivery records may subsequently change under delivery authority; bound payload never changes without renewed validation."
+}

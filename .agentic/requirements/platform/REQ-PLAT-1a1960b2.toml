@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-PLAT-1a1960b2"
+
+title = "Ship pinned Pi, web extension and Node in the executor image"
+
+status = "active"
+
+requirement = """The ADORE executor base image shall install Node 22.23.4, Pi (@earendil-works/pi-coding-agent) 1.4.0 and pi-web-access 0.46.0 at exact versions under /opt/pi together with the ADORE Pi guard extension, and verify-runtime.sh shall fail when any installed version differs."""
+
+verification = "Inspection: (2026-11-02 live, WSL Docker) the Dockerfile pins the exact versions and copies the guard; a live image build followed by verify-runtime.sh reports the three versions and fails on a mismatched pin."
+
+affected_paths = ["04_Software/docker/Dockerfile.executor-base", "04_Software/docker/verify-runtime.sh", "04_Software/docker/pi/adore-guard.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

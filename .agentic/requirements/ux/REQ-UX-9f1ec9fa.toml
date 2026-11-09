@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-9f1ec9fa"
+title = "Synchronize authorized statistics scope and exports"
+status = "active"
+requirement = "When the reporting project, date range, IANA timezone (UTC or supplied by the URL), grouping or project authorization changes, the statistics interface shall present cards, tables, trends and CSV links bound to that selected server scope and reject stale, mismatched or malformed responses, showing loading or failure without numeric placeholders."
+verification = "Offline browser changes all scope fields, delays old responses, revokes access and aborts reads; assert latest data/export queries agree and failures expose no earlier or false-zero data."
+affected_paths = ["04_Software/web/playwright.config.ts", "04_Software/web/tests/", "04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/shell.spec.ts", "04_Software/adore/web/static/", "04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/statisticsCopy.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/metrics.ts", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/tests/statistics.test.mjs", "04_Software/web/tests/metrics.test.mjs", "04_Software/web/tests/routes.test.mjs", "04_Software/web/e2e/statistics.spec.ts"]
+spec = "specs/statistics-presentation.md"
+created = 2026-10-06
+updated = 2026-10-11

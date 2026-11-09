@@ -7,17 +7,26 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Getting Started
 
+For the complete portable web application, extract the matching Windows ZIP
+or Linux TAR.GZ from `07_Delivery/`. Start `Start-ADORE.cmd` (Windows) or
+`./start-adore.sh` (Linux). The included Python starts the API and worker and
+opens the browser when ready. No system Python, uv or Node.js setup is needed
+for this package. Read its README for first sign-in, stop controls, data and
+logs. Prepare Git/forge/executor/container tools when configuring projects.
+The following sections describe source/CLI setup.
+
 ADORE selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS
-inside isolated worktrees and containers, and opens draft MR/PRs after fresh
+inside dedicated worktrees with container or native local execution, and opens draft MR/PRs after fresh
 human approval. It never merges.
 
 ## Prerequisites
 
 - Python 3.11 or newer for ADORE;
 - Git and a non-interactively pushable target clone;
-- Docker or rootless Podman;
+- Docker or rootless Podman for container profiles; native scope controls for local profiles;
 - authenticated `gh`, `glab`, or `tea` on the host;
-- an executor supported by the configured launcher;
+- Pi, ADORE's only coding agent: built into the executor base image for container
+  profiles, installed for the service account (`pi --version`) for local profiles;
 - AEGIS installed in the target repository as `.agentic/aegis.py`;
 - schema 1 from `status --all --json` and valid configured AEGIS tests.
 
@@ -54,6 +63,12 @@ repo_path = "D:/source/runtime-project"
 [container]
 runtime = "docker"
 image = "my-project-adore:latest"
+
+[executor]
+provider = "openai"   # Pi API-key provider, "chatgpt" or "custom" (an endpoint)
+model = "gpt-5.5"     # model ID within the provider
+# The key goes in .env beside config.toml as OPENAI_API_KEY (never here),
+# or in Settings -> Agent and model.
 
 [workflow]
 aegis_python = "python"
@@ -94,11 +109,15 @@ run_args = ["--userns=keep-id"]
 
 ## Create the Labels First
 
-ADORE applies and removes labels but never creates them. GitHub and Gitea
-reject an unknown label name, so the very first poll fails before it can post
-anything to the ticket; the reason is printed to the console and `adore.log`.
-Create all of these in the forge repository before the first run, renaming them
-here only if you also change the matching configuration key:
+GitHub and Gitea reject an unknown label name, so a missing label makes the
+very first poll fail before it can post anything to the ticket; the reason is
+printed to the console and `adore.log`. All of these must exist in the forge
+repository before the first run. The web interface creates the missing ones when
+you enroll a project (**Create the ADORE labels in the repository**, ticked by
+default) or from Settings → Repository → **Create missing labels**; it never
+changes existing labels. `adore init` does not create them, so after a CLI setup
+create them in the forge or use that Settings button. Rename them here only if you
+also change the matching configuration key:
 
 | Label | Config key |
 | --- | --- |
@@ -145,8 +164,9 @@ container, and releases the slot. Review the evidence, then freshly add
 `agent-approved`. The next poll rechecks the exact candidate and target before
 publication.
 
-ADORE pushes only after approval, opens a draft MR/PR, records close-out in the
-AEGIS task, and stops in `in-review`. A human reviews and merges.
+ADORE pushes only after approval, opens the configured draft or ready MR/PR,
+and stops in `in-review`; the AEGIS task already closed in validate. A human
+reviews and merges.
 
 ## Failure and Recovery
 
@@ -163,3 +183,10 @@ adore --profile my-project retry <run-id>
 ```
 
 Retry is refused while a required notification remains pending.
+
+## Native local execution
+
+Choose server or container execution in setup. Server profiles require the [managed Pi installation](Local_Execution.md), native Python for AEGIS and Windows Jobs or delegated Linux cgroup v2. Prepare project tools and forge login for the service account on the ADORE machine.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

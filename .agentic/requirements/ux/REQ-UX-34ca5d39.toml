@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-34ca5d39"
+title = "Compact project settings with raw actions"
+status = "active"
+requirement = "Project Settings shall retain concise field descriptions and Admin original-configuration preview/download actions alongside the project Save flow while omitting duplicated comparison panels and technical preparation instructions."
+verification = "Offline browser tests verify raw preview, exact download via Export raw configuration, Dev denial and one Save for ordinary settings."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/styles.css", "04_Software/web/src/RawConfiguration.tsx"]
+linked_tests = ["04_Software/web/e2e/portable.spec.ts", "04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/settings-save.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+spec = "specs/settings-save.md"
+priority = "normal"
+rationale = ""
+created = 2026-10-06
+updated = 2026-11-09

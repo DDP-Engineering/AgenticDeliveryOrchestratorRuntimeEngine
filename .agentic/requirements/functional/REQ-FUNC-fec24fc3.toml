@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-fec24fc3"
+
+title = "Local model endpoint profile and readiness"
+
+status = "retired"
+
+requirement = """
+When an administrator configures a local model endpoint, ADORE web shall save a validated executor-compatible profile with protocol, URL, model ID, credential reference, timeout and TLS/CA policy, and pass it to the selected executor without silently falling back to a cloud provider. Retired 2026-11-02: OpenCode support was removed; Pi is the only coding agent and the web interface has no model endpoint profile.
+"""
+
+verification = "Save a compatible OpenAI-style endpoint and inspect the generated executor configuration and an offline internal-network request. Reject unsupported protocol or executor combinations, invalid URLs, credential values instead of references, unsafe redirects and missing TLS/CA inputs without changing the active configuration."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/endpoint_probe.py", "04_Software/adore/config_edit.py"]
+
+linked_tests = ["04_Software/tests/test_web_config.py", "04_Software/tests/test_web_readiness.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-11-02

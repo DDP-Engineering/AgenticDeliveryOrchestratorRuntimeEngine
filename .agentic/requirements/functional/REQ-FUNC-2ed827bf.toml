@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-2ed827bf"
+
+title = "Report a missing credential in Test AI connection"
+
+status = "active"
+
+requirement = """If the configured provider takes an API key, needs it, and none is saved for the project or set on the server, then Test AI connection shall report credential-missing without starting a container."""
+
+verification = "A probe for openai with no OPENAI_API_KEY reports credential-missing and the runner records no container command; an endpoint without a key is not refused here."
+
+affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/adore/pi_providers.py", "04_Software/web/src/modelEvidence.ts"]
+
+linked_tests = ["04_Software/tests/test_model_connection.py::test_missing_credential_is_reported_without_a_container"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-03

@@ -1,0 +1,203 @@
+{
+  "schema": 1,
+  "task": "TASK-bb98355e",
+  "branch": "task/adore-web-interface",
+  "base": "dc566608665605fc4a45a160438af2d7f910b804",
+  "created_utc": "2026-10-06T02:56:05.441646+00:00",
+  "binding": "SHA256 of sorted JSON entries (sort_keys=True,separators=comma/colon); raw working-tree bytes; deletions explicit",
+  "candidate_sha256": "4e21c6abafe3d28e0fd1e62f76ece4865fb699ab4a0ddc23dc2bc9348160eb97",
+  "entries": [
+    {
+      "path": ".agentic/context/project.md",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "168023da97e4983073c552be6440921182070f511713f81838409892eafb6a9f"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "65dabb0fbb625abd8dfb2dfb9e4df752bd54519031f29646b61a58eecabee95f"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-7fdffe77.toml",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "992a91e27fac0ebfad9e07278363db2459e0cec8c583c5607551033d54c7bac3"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-9f1ec9fa.toml",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "017b25b68f450fb6f67b973ce683f70b6200bc93553d18fc6394287604fd1879"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-a24db609.toml",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "2646cab7a34ab4a09304065b6faadeaf0d15d5c6aeaf0003d6a33c92f5d8c713"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-c65b3022.toml",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "5db6316000cc02b46af925468f0673221fec92b6effe4d88fe26bcd9fd6898af"
+    },
+    {
+      "path": ".agentic/specs/statistics-presentation.md",
+      "kind": "workflow",
+      "status": "present",
+      "sha256": "1c34c5545fe0653732a1d299627cdb8f3d0701e0b1b9a3ab2a5824a660105917"
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "a8011c5de585109cfed33a43afeb6d42077d7e5d68a29e112d74e919e911b0cc"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-C5RGRyvo.css",
+      "kind": "generated",
+      "status": "deleted",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-EDoC3lKU.css",
+      "kind": "generated",
+      "status": "present",
+      "sha256": "95a745fbf5a65bd8acecb4012a29dad02ea89be3b8e83db5aad90a27c6479293"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-K2sSmMhU.js",
+      "kind": "generated",
+      "status": "deleted",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-b67LL_gF.js",
+      "kind": "generated",
+      "status": "present",
+      "sha256": "9845a22e438810a7054af35b7b0e4fc42fe45b6227577b6d0179e2aa3ae3ee99"
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "kind": "generated",
+      "status": "present",
+      "sha256": "e13dd7f208a80484fccf477415fa70491298e8672e0b57a949d108de84311cca"
+    },
+    {
+      "path": "04_Software/web/e2e/jobs.spec.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "9abb6d71ab5304acd61176955084c1a9759c8fa6db943c9c2cf48365c01dd00c"
+    },
+    {
+      "path": "04_Software/web/e2e/shell.spec.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "35461c4e893c7ccc02870ac4624964862fcc98eb6b7c112e4f258e48c00124ba"
+    },
+    {
+      "path": "04_Software/web/e2e/statistics.spec.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "71fdcab7672a8f3b050a376ed0e8a9865987eb3aab9954034c3dacef18e7fe21"
+    },
+    {
+      "path": "04_Software/web/playwright.config.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "596d6a4e6e8ca9499a835b422e2d5cd06ded7e871b0ef0b6ee9c03106028faf2"
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "3c1475d3109505005e4da0ce667ee2e6f93a294d0433386f94acb89fbdb25793"
+    },
+    {
+      "path": "04_Software/web/src/JobWorkspace.tsx",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "be3b319551beec3ea47284e989906b0be9c178d6637a81c64f691edfacac89ec"
+    },
+    {
+      "path": "04_Software/web/src/StatisticsEvidence.tsx",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "b80129a3dcd57c7b7b6bf76f3e64edfdeb736109c7073bc183fc8ec6b14df3a5"
+    },
+    {
+      "path": "04_Software/web/src/metrics.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "e883f93d7c5135d0478e034ebd4da3cb7df2d34ae261a0bf67f682834194203a"
+    },
+    {
+      "path": "04_Software/web/src/routes.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "0fe26d2bc16e35f043abadaf9583619b4c88323ddd3a2bb1ffb8675fc71e3abf"
+    },
+    {
+      "path": "04_Software/web/src/statistics.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "1aef44ddb8365c0cff8ecfe3d72174afcea206f3eb4ed90578918d3d40e02646"
+    },
+    {
+      "path": "04_Software/web/src/statisticsCopy.ts",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "0ba9f3db4bdbb5dcd570ce3f5b00ea4be1da97055645d51e35d4a63a78f25456"
+    },
+    {
+      "path": "04_Software/web/src/styles.css",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "d8e880892b4aad28b170fe1d551c3e5e33e119c646cbba0a7d47535bf4a7ca91"
+    },
+    {
+      "path": "04_Software/web/tests/metrics.test.mjs",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "663640b3eaf46748f0cff5a316d6257e56d665e280382d43d7a619483c2eea2c"
+    },
+    {
+      "path": "04_Software/web/tests/routes.test.mjs",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "819c6b7f0c1e0fb7a72c756bf5b096ba7e941ebb76e55c5a945caef3d7d49fca"
+    },
+    {
+      "path": "04_Software/web/tests/statistics.test.mjs",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "547d1ce4d9d24dc9d0fb3e852b1c2f338bf8410dd57a8b4140da483e5d02af97"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "8b977092a918c8f56b025fc113b4f4bfe8b0c1860eae297d2b4c66c42045f97a"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "kind": "authored",
+      "status": "present",
+      "sha256": "82630e187dc63d8274bf4db7c6c9bda0fb90658ee7192ac47b74da431e69b36c"
+    }
+  ],
+  "excluded_from_binding": [
+    "task journal",
+    "review/verification/candidate/inventory metadata",
+    "ignored anchor/evolution/build/test diagnostics",
+    ".agentic/tasks/W11-bb98355e-reviews.md (review metadata)",
+    ".agentic/tasks/W11-bb98355e-verification.md",
+    ".agentic/tasks/W11-bb98355e-strict.json",
+    ".agentic/tasks/W11-bb98355e-strict.log",
+    ".agentic/tasks/W11-bb98355e-inventory.json"
+  ],
+  "previous_candidate_sha256": "d26ee64123d1cc042364998d5ea54f70535d4c2e49322669cb1821c3afbe4e90",
+  "review_round": 3
+}

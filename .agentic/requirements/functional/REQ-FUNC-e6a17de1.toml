@@ -1,0 +1,30 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+schema = 1
+
+id = "REQ-FUNC-e6a17de1"
+
+title = "Confirmed abandonment and fresh restart of failed jobs"
+
+status = "active"
+
+requirement = """
+When an authorized operator confirms abandoning a failed job, ADORE shall clean its verified owned execution resources, worktree, local state and unchanged remote run branch before manually starting the same ticket with current settings while preserving monitoring pause and using a bounded naming-rule-valid empty generation when an older no-checkpoint ref must be retained.
+"""
+
+verification = "Offline failed-job restart: owned cleanup precedes fresh admission; changed state, foreign known remote commit and partial cleanup prevent admission; an unproven older ref is retained and a fresh generation is used, with exact local creation and strict naming-rule refusal before cleanup."
+
+affected_paths = ["04_Software/adore/cli.py", "04_Software/adore/metrics.py", "04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/local_execution.py", "04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/recoveryCopy.ts", "04_Software/web/src/ticketCopy.ts"]
+
+linked_tests = ["04_Software/tests/test_drift_recovery.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/driftRecovery.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-05
+updated = 2026-11-05

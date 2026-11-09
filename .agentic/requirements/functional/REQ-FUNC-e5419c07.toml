@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e5419c07"
+title = "Execute bounded preparation before executor gates"
+status = "active"
+requirement = "For a recipe-based container run, ADORE shall execute the pinned preparation steps sequentially in the gate container and worktree before the first executor launch, bounded by step and total run limits with fail-fast, redacted immutable outcome evidence."
+verification = "Injected backend tests observe ordered setup and gate execution, multiline file transport, bounded output and time, and suppressed gates after exit failure, timeout or cancellation."
+affected_paths = ["04_Software/adore/execution.py", "04_Software/adore/preparation_runner.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_execution.py::test_transport_rejects_linked_parents_before_creating_files", "04_Software/tests/test_orchestrator.py::test_recipe_preparation_precedes_ai_and_is_not_replayed_on_resume", "04_Software/tests/test_preparation_lifecycle.py::test_setup_failure_retains_outcome_and_never_reaches_ai", "04_Software/tests/test_execution.py::test_standalone_preparation_runner_bounds_output_and_process_lifetime"]
+spec = "specs/REQ-FUNC-e2b539d4.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-11-02

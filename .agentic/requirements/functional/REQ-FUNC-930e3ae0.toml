@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-930e3ae0"
+
+title = "Cost and quality efficiency metrics"
+
+status = "active"
+
+requirement = """
+When an administrator views quality and efficiency metrics, ADORE web shall show evidence-backed retry and review cohorts, lead time, and reported versus estimated cost per completed or human-merged job with stated denominators and unavailable values for empty or unknown-money cohorts; developers shall receive no monetary fields.
+"""
+
+verification = "Use runs with stage retries, reviewer revisions, pipeline repairs, open drafts, completed and human-merged outcomes to verify cohort denominators and cost-per-job values; verify zero-denominator nulls, unknown cost separation, and no money in developer JSON/CSV or rendered views."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/tests/test_web_metrics.py", "04_Software/tests/test_web_pricing.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-09-30

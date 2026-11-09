@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-702b0fce"
+title = "Complete offline enrollment candidate preview"
+status = "active"
+requirement = "When an administrator previews a guided draft, the backend shall return structural findings or an exact candidate revision and complete secret-free review including identity, environment, eligibility/reviewers/limits and server paths without publishing profiles or probing external tools."
+verification = "Preview explicit fields with a runner that fails if called; inspect generated candidate fields, paths and digest; reject malformed references/limits/clone/runtime without profile artifacts."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py","04_Software/tests/test_web_readiness.py"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

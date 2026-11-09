@@ -1,0 +1,14 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-5c5c19cd"
+title = "Keep the ticket number column compact"
+status = "active"
+requirement = "When the Tickets table is displayed, ADORE shall use a compact number column so its width is available to the other columns."
+verification = "Measure number and title widths in Chromium with all projects and one project at desktop width, then verify the number and expanded details fit at 360 px."
+affected_paths = ["04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+updated = 2026-11-09

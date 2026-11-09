@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-0d0625e1"
+
+title = "Preserve native Git repository discovery in fresh executor containers"
+
+status = "active"
+
+requirement = "When a fresh repository executor container is provisioned, the runtime shall support native Git discovery of the mounted linked worktree and independently selected repositories without inherited repository-selection environment overrides."
+
+verification = "Offline public provision/exec tests inspect the container pointer mount and absent Git-selection forwarding; controlled Docker acceptance reads the managed linked worktree and commits in independent and nested repositories, confirming unchanged main HEAD/index."
+
+affected_paths = ["04_Software/web/playwright.config.ts", "04_Software/adore/isolation.py", "04_Software/web/src/help/content/en/executors.md", "04_Software/web/src/help/content/fr/executors.md", "04_Software/web/src/help/content/de/executors.md", "04_Software/web/src/help/content/ro/executors.md", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/tests/test_container_git.py::test_wsl_options_and_wrapper_arguments_keep_their_positions", "04_Software/tests/test_container_git.py::test_wsl_incomplete_or_unsupported_options_fail_before_execution", "04_Software/tests/test_container_git.py::test_wsl_container_commands_use_direct_argv_transport", "04_Software/tests/test_container_git.py::test_ambiguous_wsl_runtime_requires_explicit_command_boundary", "04_Software/tests/test_container_git.py::test_fresh_git_container_mounts_native_pointer_and_clears_selection", "04_Software/tests/test_container_git.py::test_bound_exec_does_not_forward_git_selection_metadata", "04_Software/tests/test_container_git.py::test_git_pointer_binding_preserves_runtime_transport"]
+
+
+spec = "specs/REQ-FUNC-0d0625e1.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-11-03

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-53f09c54"
+
+title = "Reveal Add user passwords independently"
+
+status = "active"
+
+requirement = """
+When entering Add user credentials, the interface shall offer independent, localized eye controls for the initially masked password and confirmation fields.
+"""
+
+verification = "Browser: both fields start masked, independently show and hide, and return masked after correcting identity at a narrow viewport."
+
+affected_paths = ["04_Software/web/src/UserCreation.tsx", "04_Software/web/src/PasswordField.tsx"]
+
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

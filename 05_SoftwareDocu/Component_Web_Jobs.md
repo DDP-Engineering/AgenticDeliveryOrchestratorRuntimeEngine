@@ -1,0 +1,199 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+
+# Persisted Web Job Reads
+
+## 1. Purpose
+
+`adore/web/jobs.py` builds a complete, authorized global job projection for
+the HTTP API from retained local run sources. It supplies job evidence for
+administrator and project-assigned developer clients.
+
+## 2. Responsibilities
+
+The API owns principal and project-grant resolution. The projection owns strict
+source validation, composite identity, actual evidence, UTC ordering and an
+optimistic source revision. It reads current and archived profile history.
+The existing conductor owns lifecycle, state updates and operational recovery;
+statistics owns usage measurement. Job reads invoke no external command.
+
+## 3. Implementation Overview
+
+`read_jobs(profiles, items)` receives already authorized profiles and captures
+the profile metadata, complete run-directory inventory and exact state, ticket
+and journal bytes. It validates all selected records, reinspects sources and
+returns ordered rows plus a SHA-256 revision. The API rechecks selected profiles
+and grants before returning any results. A failed selected project aborts the
+whole read. The projection does not call the forgiving `StateStore.list_runs`
+or operational `read_journal` reader.
+
+## 4. Dependencies
+
+Standard-library JSON, datetimes, URL parsing and hashing; existing `Profile`,
+`ProfileStore` and `RunState.from_dict`. HTTP authentication and errors are
+provided by `app.py`. There is no new runtime dependency or persisted schema.
+
+## 5. Inputs And Outputs
+
+`GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `attention`,
+`limit`, `offset`, `snapshot`, `sort` (`activity`, `ticket`, `project`, `status`;
+default `activity`) and `order` (`asc`/`desc`; default newest activity first,
+otherwise ascending); every matched job is sorted before paging, unknown values
+last, and other `sort`/`order` values return 422. Other query parameters are ignored. `project_id` is an immutable 32-hex
+identity. `q` is a trimmed case-insensitive substring of 1–80 characters;
+search covers project name/display name, run ID, ticket number/actual title,
+lifecycle, stage and outcome. `limit` is 1–100 or `all`, default 25; offset
+is nonnegative. `attention=true` selects clarification, approval, in-review,
+failed, stale and handoff-pending. Whitespace-only search text returns 422.
+
+The response contains `items`, matching `total`, `counts`, `groups`, `limit`,
+`offset`, `complete: true`, `snapshot` and
+`snapshot_semantics: "optimistic-source-revision"`. Counts and groups describe
+the authorized, project-filtered, searched population before status-group and
+attention selection. Archived jobs are included and each row carries `project_archived`.
+
+`GET /api/v1/jobs/{project_id}/{run_id}` returns
+`{job, complete: true, snapshot}` for the composite identity. Its strict read
+validates the selected project's retained history. An unassigned or absent
+project returns 404 `project_not_found`; an absent run returns 404 `run_not_found`.
+Existing `/projects/{name}/runs`, `runs-page` and run-detail contracts continue
+to serve existing clients.
+
+## 6. Data Contracts
+
+Each list job exposes `project_id`, project labels/archive flag, `run_id`, ticket
+number/actual title/URL, MR URL, exact `lifecycle`, `stage`, `outcome`,
+stage/review counters, `created_at`, `updated_at`, `last_activity_at`, `waiting`,
+`evidence_url`, `coverage` and `consumption`. Empty outcomes remain empty.
+No stage implies completion, waiting, a reviewer or a next action.
+
+`last_activity_at` is the latest valid persisted state update or journal event
+timestamp, normalized to UTC. Missing timestamps are null. Ordering is that
+instant descending, missing values last, then project ID and run ID ascending.
+Thus equal instants with different original timezone offsets tie deterministically.
+
+`waiting` contains availability, reason, next_action, responsible_role,
+responsible_person, evidence_url and source. Real parked questions provide the
+reason when its journal timestamp is at or after the current `parked_at`;
+missing correlation and older questions stay unknown. A saved comment ID and ticket URL support `answer_question_on_ticket`.
+Saved candidate digests, presentation time and approval comment ID support
+`review_candidate_on_ticket`. `in-review` with a saved MR URL supports
+`review_draft_on_forge`. Roles are human_responder, human_approver or
+human_reviewer respectively, supported by these observed references. Named
+responsibility is null: existing snapshots do not identify an assigned person.
+Other waiting evidence stays unknown. GitLab comment links use `#note_ID`;
+GitHub/Gitea use `#issuecomment-ID`; unknown platforms retain the actual ticket URL.
+Source markers identify the saved state field or parked journal event.
+
+Coverage distinguishes missing/present ticket and journal files and unknown/observed
+title and last activity. Empty titles are unknown. Consumption is
+`{availability: "unknown"}`; absence is never a zero measurement. The composite
+API detail URL locates the safe local evidence view without disclosing host paths.
+
+Strict composite detail additionally exposes `timeline`: saved events in append
+order with only normalized UTC `ts` (or null), redacted `event`, and validated
+persisted `stage` (or null). Missing stages remain unknown. The timeline is not
+added to list rows. Malformed recorded stage/executor identities in a journal,
+including an event naming the removed `deliver` stage, fail closed
+(`run_journal_corrupt`) before any result is returned.
+
+HTTP(S) source links require valid host/port and exclude credentials, query/fragment,
+controls and backslashes, including percent-decoded forms. Free text redacts
+common token/password/secret/API-key/authorization assignments and Basic/Bearer
+credentials. Descriptions, authors, arbitrary journal values, financial payloads,
+outbox bodies, worktree paths and validation command output are excluded.
+
+Schema-1 state is validated without adding fields or writing defaults. Ticket
+and journal files may be absent; malformed files, duplicate JSON keys,
+non-finite constants, parser depth failures, invalid Unicode scalars, torn JSONL records, invalid projected types, mismatched
+ticket/run identity and nonempty malformed timestamps fail closed. An empty
+`created_at` or `updated_at` is `run_state_corrupt`, because every save stamps
+both. Operational
+journal recovery retains its existing tolerance for torn lines.
+
+Typed `JobReadError` exposes only a code: 503 `run_state_corrupt`,
+`run_journal_corrupt`, `job_evidence_corrupt` or profile integrity codes;
+409 `job_snapshot_changed` for observed source changes. Errors contain no
+source bytes or partial totals. Invalid query bounds return 422.
+
+## 7. Workflow Integration
+
+Global pages use a complete in-memory projection, never concatenated per-project
+pages. Clients pass the returned `snapshot` on continuations. Any selected-source
+addition/deletion, evidence change, profile rename/archive or authorization change
+invalidates the continuation; restart at offset zero. Search/page parameters do
+not alter a source revision. Project-scoped revisions cover that selected profile.
+A deleted profile is unavailable; an archived profile retains history. An absent
+runs root is an empty collection; unreadable sources and orphan run folders
+are integrity errors. No source is repaired or reset by reading.
+
+## 8. Usage
+
+After session authentication, request `/api/v1/jobs-page?limit=25&q=build`.
+For the next slice, send `offset=25&snapshot=<returned digest>` with the same
+filters. A 409 indicates that the local sources changed; reload the first slice.
+Use `project_id=<immutable ID>` for the same model within a single authorized project.
+
+## 9. Validation And Tests
+
+`tests/test_web_jobs.py` verifies multi-project paging/search, totals, grants and
+direct routes, colliding run IDs, timezone ties, source/grant mutations,
+archived/missing metadata, wait evidence, forge anchors, unsafe URLs, corrupt
+state/tickets/journals, secret filtering, IO failures and zero subprocess calls.
+Advanced-filter/timeline tests prove matching, bounds, corruption/redaction and
+attention selection. `test_project_summary_refuses_a_run_without_an_aware_activity_time`
+proves the project list answers 503 `run_state_corrupt` for an empty, malformed
+or naive update time.
+`test_web_paging.py`, `test_web_rbac.py` and `test_state.py` preserve adjacent
+API and recovery contracts. Final verification uses repository strict validation.
+
+## 10. Limitations And Future Work
+
+The revision is optimistic and content-based, not a durable frozen snapshot or
+a multi-file transaction. A host write after final reinspection appears on the
+next read. Each request scans all authorized selected history twice; memory and
+IO scale with retained sources. Read-time file absence cannot recover deleted
+history. Named responsibility and usage remain unknown until actual persisted
+contracts supply that evidence. The action workspace consumes this projection; Statistics supplies separate
+measured duration and usage contracts.
+
+## Preparation projection
+
+Authorized job reads validate `RunState.execution` then expose only preparation status, attempt count, image, fingerprint and ordered timestamp/exit/timeout/cancel summaries. Jobs without a recipe selection (including the empty no-recipe record) carry null. Source scripts, policy and raw streams remain outside the job projection. Existing composite identity, authorization and optimistic snapshots are preserved.
+
+## Confirmed restart evidence
+
+Every job exposes `state_revision`, SHA-256 of its validated state bytes. Failed jobs offer Abandon and start again with destructive confirmation, including loss of unpublished work and preservation of monitoring pause. Stable execution-profile/settings drift explains why Retry cannot help and hides that button; volatile native environment changes remain eligible for explicit Retry, including processor variables after VM resizing. Restart binds confirmation to this revision; malformed/missing revision disables the action. Four-locale browser proof: `web/e2e/driftRecovery.spec.ts`; model proof: `web/tests/jobs.test.mjs`.
+
+An older occupied ref without a saved checkpoint is retained during confirmed restart, which chooses a fresh generation under the repository naming rule. Known changed checkpoints still refuse. The successful result explains retained old branches; normal owned branch reuse remains available under strict rules.
+
+## Detail budget observation
+
+`read_job_budget(profiles, item, run_id, state_revision)` adds `budget` only to the
+composite job-detail response: `launches`, `max_launches`, `active_seconds`,
+`max_active_seconds`, `config_revision`, `availability`, `reason`. It binds saved state bytes to the earlier
+projection and rechecks both configuration and state bytes after reading. Limits
+are current project settings, applied by the conductor at its next boundary.
+The budget allowlist, positive safe-integer bounds and finite cost validation run
+locally; no branch matcher, forge, model or runtime command is launched. No financial
+value is returned to either role. Corrupt saved state returns a typed read failure;
+concurrent source replacement returns 409 `job_snapshot_changed`. Missing/corrupt
+current limit configuration raises a classified internal read error, represented as
+availability=unavailable with reason=config_missing/config_corrupt and null limits
+and config_revision. Valid saved counters, history and recovery stay available;
+no default is invented. Derivation type errors are classified, including AttributeError.
+
+Public HTTP proof: `test_web_jobs.py` checks counters/frozen elapsed time, roles,
+source corruption and authorized identity. Statistics consumption remains separate.
+
+## Operational executor evidence
+
+Job cards explain normal Working, parked-clarification and Failed lifecycles in four locales and surface current-stage failed-attempt counts. Clarification reasons use the shared safe ForgeMarkdown renderer. Times include seconds; the event projection uses explicit stage, usage/artifact stage context and stage-transition current destination, never today's run stage for unrelated past events.
+
+`GET /api/v1/jobs/{project_id}/{run_id}/executor-output` authorizes before reads and rechecks grants after them. The last executor-artifacts event must carry a host-generated diagnostics reference (`file`, SHA-256, cumulative `attempt`). `executor_evidence.read_executor_output` reads only the run-owned executor-diagnostics snapshot, checks stable regular unlinked files, exact schema/identity/context/digest and normalized stream content. It never opens raw executor archives. Missing provenance/files return availability missing; corruption is a typed 503 and a changing snapshot is 409. Both roles get the same operational facts, without financial text.
+
+Snapshots are capped at 150 KiB JSON, with at most 500 diagnostic records and 64 KiB per stream. Run/journal reads are bounded. Public HTTP tests cover concrete missing-module/test-count diagnostics, scoped/revoked grants, unsafe references, malformed/oversized/linked files and explicit missing provenance.

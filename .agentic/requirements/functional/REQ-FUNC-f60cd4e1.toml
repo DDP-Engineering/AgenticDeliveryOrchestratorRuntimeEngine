@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-f60cd4e1"
+
+title = "Select the Pi provider and model on every launch"
+
+status = "active"
+
+requirement = """When ADORE starts Pi through its native or container backend, it shall pass `--provider` with the Pi provider (openai for chatgpt, adore-endpoint for custom, otherwise the configured id) and `--model` with the configured model id."""
+
+verification = "Fake-process launch tests check the argv for an API-key provider, chatgpt and custom, and a native RPC test checks fixed launch arguments."
+
+affected_paths = ["04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_passes_the_provider_and_model_id", "04_Software/tests/test_local_execution.py::test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi", "04_Software/tests/test_orchestrator.py::test_from_config_wires_the_provider_key_and_endpoint_models_into_stage_runs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-03

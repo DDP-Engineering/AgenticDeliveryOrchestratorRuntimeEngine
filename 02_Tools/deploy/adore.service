@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# -----------------------------------------------------------------------------
+# ADORE systemd unit TEMPLATE (design doc 12a) - installed by install-ubuntu.sh,
+# which replaces __ADORE_DIR__ (04_Software or the bundle root) and __ADORE_USER__.
+# Logs go to journald: journalctl -u adore -f
+
+[Unit]
+Description=ADORE - Agentic Delivery Orchestrator & Runtime Engine (poll loop)
+Documentation=file://__ADORE_DIR__/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__ADORE_USER__
+WorkingDirectory=__ADORE_DIR__
+# Secrets: OS-level EnvironmentFile is preferred on a server (design 12b).
+# The leading "-" makes it optional - ADORE also reads .env from the working
+# directory itself, and glab/gh/tea host auth may cover everything.
+EnvironmentFile=-__ADORE_DIR__/.env
+ExecStart=__ADORE_DIR__/.venv/bin/adore -c config.toml run --loop
+# The poll loop is designed to run forever; restart on crashes, with a pause
+# so a broken config cannot hot-loop. The single-instance lock (.adore/adore.lock)
+# additionally guarantees no second poller on the same store.
+Restart=on-failure
+RestartSec=30
+# Hardening: ADORE needs its checkout (state store, worktrees) and the docker
+# socket, nothing else system-wide.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

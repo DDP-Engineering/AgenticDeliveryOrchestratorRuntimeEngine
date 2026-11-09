@@ -14,7 +14,7 @@ schema = 1
 # and must match the category folder this file sits in.
 id = "REQ-FUNC-e7a89a6d"
 
-title = "Open only forge draft delivery records"
+title = "Open configured forge review records"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When publication is requested, forge adapters shall create or normalize only a draft merge or pull request and expose no merge operation.
+When publication is requested, forge adapters shall create a merge or pull request in the requested draft or ready state and expose no merge operation.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ When publication is requested, forge adapters shall create or normalize only a d
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated forge and orchestrator tests verify draft creation for supported forges and the deliberate absence of merge capability."
+verification = "Automated forge and orchestrator tests verify draft and ready creation for supported forges and the deliberate absence of merge capability."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/forge/", "04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_forge.py::test_github_open_pr_draft", "04_Software/tests/test_forge.py::test_gitea_open_pr_wip_prefix_and_reviewers_best_effort", "04_Software/tests/test_orchestrator.py::test_forge_contract_deliberately_has_no_merge_operation"]
+linked_tests = ["04_Software/tests/test_forge.py::test_ready_review_omits_draft_flag", "04_Software/tests/test_forge.py::test_gitea_open_pr_title_prefix_edges_and_missing_url", "04_Software/tests/test_forge.py::test_github_open_pr_draft", "04_Software/tests/test_forge.py::test_gitea_open_pr_wip_prefix_and_reviewers_best_effort", "04_Software/tests/test_orchestrator.py::test_forge_contract_deliberately_has_no_merge_operation"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Merging is outside ADORE authority."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-10-08

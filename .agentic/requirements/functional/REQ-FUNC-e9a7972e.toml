@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-e9a7972e"
+
+title = "Preserve Unicode forge comment text"
+
+status = "active"
+
+requirement = """
+When the conductor submits a forge comment, the forge adapter shall pass its Unicode text unchanged to the CLI runner.
+"""
+
+verification = "Offline adapter tests pass non-ASCII text through all three injected runners, and a controlled Windows child verifies the transport."
+
+affected_paths = ["04_Software/adore/forge/", "04_Software/adore/util.py"]
+
+linked_tests = ["04_Software/tests/test_forge.py::test_comment_unicode_reaches_injected_cli_for_post_and_edit", "04_Software/tests/test_forge.py::test_comment_unicode_transport_failure_is_typed", "04_Software/tests/test_util.py::test_run_command_preserves_unicode_argument_through_child"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

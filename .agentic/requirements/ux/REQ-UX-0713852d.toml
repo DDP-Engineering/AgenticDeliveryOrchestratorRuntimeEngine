@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-0713852d"
+title = "Keep project scope explicit across dashboard views"
+status = "active"
+requirement = "While the user navigates a project's details, including its Jobs and Statistics tabs, the dashboard shall show the authorized project's identity and section navigation once, in the project hub, deliberately preserving that project across navigation and browser history; the Overview, Jobs and Statistics pages shall identify their scope only through their own project selector and shall distinguish all-project statistics."
+verification = "Offline Chromium: project deep link to Jobs and Statistics retains ID and visible scope on reload and Back; administrator All projects scope and Dev foreign-project fallback."
+affected_paths = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/adore/web/static/", "04_Software/web/src/JobWorkspace.tsx"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/jobs.spec.ts"]
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-10

@@ -1,0 +1,378 @@
+{
+  "task": "TASK-97d530c5",
+  "issue": 14,
+  "epic": 3,
+  "created_utc": "2026-10-06T01:31:06.969388+00:00",
+  "branch": "task/adore-web-interface",
+  "base_and_unchanged_local_remote_head": "f1aeefa0ca49038c2d70c9987bbaffa6644c61b5",
+  "candidate_sha256": "e9ff78685f8606de38a23a72781ad4729b3e5d689a94c63e62bcfbc37120f3fe",
+  "review_round": 2,
+  "corrective_cycles": 1,
+  "unchanged_native_worker_retries": 1,
+  "budget": "Zero paid API/executor/subagent calls; elapsed approximately 82 minutes of four-hour limit",
+  "delivery_status": "WAITING: coordinator exact-inventory verification and delivery instruction; no commit/push/issue closure",
+  "forge_readback": "Issue 14 open, zero comments, eight unchecked criteria; epic 3 open",
+  "strict_proof": {
+    "path": ".agentic/tasks/TASK-97d530c5.final-check.json",
+    "exit": 0,
+    "errors": 0,
+    "warnings": 6,
+    "notes": 30,
+    "python": "1081 passed, 1 native Windows symlink skip",
+    "ruff": "passed",
+    "frontend": "7 Node helpers, typecheck/E2E build, 87 Chromium passed"
+  },
+  "counts": {
+    "workflow-contract-context-knowledge-review": 10,
+    "generated-review-validation-evidence": 16,
+    "workflow-ledger": 1,
+    "authored-product-test-documentation": 17,
+    "generated-static": 3
+  },
+  "entries": [
+    {
+      "path": ".agentic/context/project.md",
+      "git_status": " M",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 9153,
+      "sha256": "6ee289b4636733284abbf8c6b631d7c2c09cc5c2f40bcd349a862ac8cd010e14"
+    },
+    {
+      "path": ".agentic/knowledge/metrics.md",
+      "git_status": " M",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 7948,
+      "sha256": "2ad3999ed07cfff69856d1d475b535db85b324beff300e499a166dd0c98049ef"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "git_status": " M",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 40201,
+      "sha256": "c3326151c23209575b485887574c6c0f52b2031f85d4dcb6fd3bef608f488787"
+    },
+    {
+      "path": ".agentic/requirements/data/REQ-DATA-5a620f4e.toml",
+      "git_status": "??",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 1486,
+      "sha256": "e5f2983eba7fdde20f90f75af6d21ca628b48aa4d8d5b4c4f979e4ee2961c5e1"
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-448cbde7.toml",
+      "git_status": " M",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 2063,
+      "sha256": "7dded7ddd5d1405e921282c4fae74a98ba9642f4d1f7fdd7ae11c44eea933e38"
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-83da8d95.toml",
+      "git_status": "??",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 1427,
+      "sha256": "bc6b0e54c24d7e83caae0816c7731be581c151d4cfcb73affc3b9ff758d4d225"
+    },
+    {
+      "path": ".agentic/requirements/reliability/REQ-REL-6564a3b2.toml",
+      "git_status": "??",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 1466,
+      "sha256": "def8ea78844b5ee41390f6e31a7999b80507348ac5e285159ce16be3a38f655b"
+    },
+    {
+      "path": ".agentic/specs/scoped-metrics-review.md",
+      "git_status": "??",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 5868,
+      "sha256": "5aa75d49e641d7db71ce61af1000f6276e1d895f7bd3b701cc4da9bcfe89c545"
+    },
+    {
+      "path": ".agentic/specs/scoped-metrics-verification.md",
+      "git_status": "??",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 5121,
+      "sha256": "44db543952b14ed8c175915d9df6fa977642808a7e306391281419d9d44c6925"
+    },
+    {
+      "path": ".agentic/specs/scoped-metrics.md",
+      "git_status": "??",
+      "classification": "workflow-contract-context-knowledge-review",
+      "bytes": 5910,
+      "sha256": "57c376678c1243559c6ff4f7ba03fa94f5d5f1dc1ce6d5f8091bfaef8d3dfadc"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.app-review.diff",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 44146,
+      "sha256": "177eb011532863f1f0a92ef60a218ada14e11c786735a386a686e90524f89220"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.candidate.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 5559,
+      "sha256": "8198e3606fb283bdd31b7f3716a3984afbf5861a07417ea61decc009407eff4e"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.final-check-progress.txt",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 132,
+      "sha256": "2990ef8dc9ed18d3de4dbbe39961ec7ef792652367d540a42899e539d9039fb5"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.final-check.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 10535,
+      "sha256": "3eab534752b64860fa43da0531d2d074ae7b244140436a03e4318c8dd786b2a9"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.focused-first.txt",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 25023,
+      "sha256": "e1bf0ffc0448bab88c7d96d153a0be518dd86c31a3ce118d31671dd3fe53b46a"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.focused-second.txt",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 34084,
+      "sha256": "0f066237f548849f847602c3ecd3346b867c85e80dfd086d52662d992412b351"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.focused-third.txt",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 6101,
+      "sha256": "a3daa6951643a7e6f1b2e54280bb3f492aa0b7cd6cc4ae8419b15839543c2ee8"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.full-content-scan.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 10808,
+      "sha256": "310dbcc471464847fd9fd1ab8aa64112edb444439058a6dfe046aabe624391df"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.md",
+      "git_status": "??",
+      "classification": "workflow-ledger",
+      "bytes": 13092,
+      "sha256": "c8931af87d7401fde1a64273fa3d8db9667f7abd8d189f41a1c863ea020ff16c"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.native-pytest.txt",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 1784,
+      "sha256": "b6fbb610c120ec29d6fafa9c56bb944297ffb1794ce69ad1f745ff1527661404"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.node-red.txt",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 1464,
+      "sha256": "2ba5b48d7fcee187c4fcfdf1e4a93d87496e007a66c384a5114ce190fc700d5a"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.prevalidate-check.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 8911,
+      "sha256": "fc33928ee50d9df1472f4b895c46a9a74bfdd5579b53300a506ae1119ac09789"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.round-1-candidate.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 5540,
+      "sha256": "1c0147f703d90ff69715e9cc19ee0562edb5d7b4a4a53509a5f9269de9128315"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.round-1-check.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 10465,
+      "sha256": "4bf108de6d1a6cc0494b11563fa58d85ac7c6aca4b64c072e3c44f133bafb952"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.round-2-interrupted-check.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 10574,
+      "sha256": "4f702138829d2eb90a5af5946347c696b7d23797bba755dbd05de98ae76e6f2f"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.spec-check.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 9253,
+      "sha256": "0f8603bab347a8b2bbc1094a944618c8a25cf4caba1e8c6b1f724a79a6c0743d"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.validation-preview.json",
+      "git_status": "??",
+      "classification": "generated-review-validation-evidence",
+      "bytes": 8834,
+      "sha256": "959eabd1381a53173059e59e2282c0991e86cb744a25d534e6365e3ee01656c8"
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 51857,
+      "sha256": "36154aad79cd1c5417ce212b9b7ee0d71bbe7cb61437757c10541aa40e240e0a"
+    },
+    {
+      "path": "04_Software/adore/metrics.py",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 23442,
+      "sha256": "9a8e1e5a252301b680c7a4cd18bcd88b6d3784d67161247b214f9946e656a7c2"
+    },
+    {
+      "path": "04_Software/adore/web/analytics.py",
+      "git_status": "??",
+      "classification": "authored-product-test-documentation",
+      "bytes": 39102,
+      "sha256": "d68166dca914f06845cde995baa3c94699c3d71cb1108c8d3cb535a4aef0a04d"
+    },
+    {
+      "path": "04_Software/adore/web/app.py",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 170072,
+      "sha256": "7a8453853a1336d1d9f861a1f4199b62981c4a3163e89444a5c8e1bc0e187ebc"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-DH2GbHeG.js",
+      "git_status": " D",
+      "classification": "generated-static",
+      "bytes": null,
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-K2sSmMhU.js",
+      "git_status": "??",
+      "classification": "generated-static",
+      "bytes": 654491,
+      "sha256": "aaf6a196e430c5ec6cd3a88792ac65eef47ab733613201c2358d7302315f60b8"
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "git_status": " M",
+      "classification": "generated-static",
+      "bytes": 729,
+      "sha256": "92e7638a70a123f053d10ba6b5ac0efafd9bfa14c7a108a75eb00b25a7611b9b"
+    },
+    {
+      "path": "04_Software/adore/web/store.py",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 63596,
+      "sha256": "35f4929ecac8261a220914b1983d053c9746b8e2f668576ecf0718133d7693c1"
+    },
+    {
+      "path": "04_Software/tests/test_web_metrics.py",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 59059,
+      "sha256": "1b6c2ae12a9cfb7e1bb8e9cfc0d4be49371740b89460df1a28dee7e02a678b37"
+    },
+    {
+      "path": "04_Software/tests/test_web_pricing.py",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 10567,
+      "sha256": "9e153553f03a2f7f6c60f0284a592ba1896614190e711d8066c69c05c9b9570b"
+    },
+    {
+      "path": "04_Software/tests/test_web_scoped_metrics.py",
+      "git_status": "??",
+      "classification": "authored-product-test-documentation",
+      "bytes": 24736,
+      "sha256": "63b35ac26faebefe41d6df6f62b804c06926b21f7afacdeb64f7bcf990257185"
+    },
+    {
+      "path": "04_Software/web/e2e/shell.spec.ts",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 21099,
+      "sha256": "fb50ef9e194b1f710288c1c98fcb66c8032a37cfc4e168c5b7d7c9138b4bd234"
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 122051,
+      "sha256": "88645a34833880d914a70f8ecbf9a0606da1ced1edece59a1fa9c47ced95c759"
+    },
+    {
+      "path": "04_Software/web/src/i18n.ts",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 90649,
+      "sha256": "373ccbaefc5ea7894d87e2dacfae4923d72f7bf9395ff1f5ddaedec862a94afa"
+    },
+    {
+      "path": "04_Software/web/src/metrics.ts",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 12291,
+      "sha256": "9577e05dbfc6c00d515e3cd460502e78eeb09cc35be0076f2f6638dd3dc10c96"
+    },
+    {
+      "path": "04_Software/web/tests/metrics.test.mjs",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 7507,
+      "sha256": "7e6f0c831ea47fb060e033a6d4cf66a799cb5b3a6f93e2da69ec2c7e61c038a5"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Metrics.md",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 10827,
+      "sha256": "347d1088b0918f797a1d478638e1e30c0e14fb1bcfa0eb461987d99ce7c4e60b"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 35083,
+      "sha256": "1448f66fa56cc0774e67cf2bdaffa274491ef8f5c986a705a26fc168dc140fb6"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 35455,
+      "sha256": "7eb8f02e122eb4ffa15080f8a344ce7be0d5117a4b6a263c5713a00034a9fa16"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "git_status": " M",
+      "classification": "authored-product-test-documentation",
+      "bytes": 53760,
+      "sha256": "6cfc40ea20016bca1e396e3db3add42e8f11b839d77b77d0f0c85282e70b4bfd"
+    }
+  ],
+  "ignored_local_evidence": [
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.anchor.json",
+      "classification": "ignored-local-evidence-not-publication-candidate",
+      "bytes": 65516,
+      "sha256": "f00f7d707fbedc588bd999310ee5adc4b284179c8e81322503b6012a80690163"
+    },
+    {
+      "path": ".agentic/tasks/TASK-97d530c5.evolution.json",
+      "classification": "ignored-local-evidence-not-publication-candidate",
+      "bytes": 9455,
+      "sha256": "8516d29c5e7459ccbad2567bebe438b45f37573e43b85a5fc3e6cb39a1b24e48"
+    }
+  ],
+  "self_binding": "This manifest excludes itself. Its SHA256 is returned separately in the final handoff; all other changed/untracked files are listed exactly. JSON proof files cannot contain legal comments."
+}

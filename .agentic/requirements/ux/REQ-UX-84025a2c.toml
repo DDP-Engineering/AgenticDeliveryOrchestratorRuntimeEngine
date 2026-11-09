@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-84025a2c"
+title = "Save all project setting edits with one action"
+status = "active"
+requirement = "When an administrator changes editable project settings, the dashboard shall present one project-scoped Save action enabled only for actual valid edits or a recoverable prepared candidate, saving all edited settings together and exposing concise important-effect confirmation instead of a prepare/apply panel."
+verification = "Offline frontend and Chromium tests cover several simultaneous edits, unchanged/invalid Save disabling, ordinary save, important confirmation, pending recovery, failed/stale boundaries and Dev read-only access."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/app.py", "04_Software/adore/web/settings_batch.py", "04_Software/adore/release_notes.toml", "04_Software/web/e2e/settings-actions.ts", "04_Software/web/e2e/dashboard.spec.ts", "04_Software/web/e2e/executor-config.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/system-packages.spec.ts", "04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/src/help/content/en/settings.md", "04_Software/web/src/help/content/en/executors.md", "04_Software/web/src/help/content/fr/settings.md", "04_Software/web/src/help/content/fr/executors.md", "04_Software/web/src/help/content/de/settings.md", "04_Software/web/src/help/content/de/executors.md", "04_Software/web/src/help/content/ro/settings.md", "04_Software/web/src/help/content/ro/executors.md"]
+linked_tests = ["04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/settings-save.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+spec = "specs/settings-save.md"
+priority = "high"
+created = 2026-10-05
+updated = 2026-11-04

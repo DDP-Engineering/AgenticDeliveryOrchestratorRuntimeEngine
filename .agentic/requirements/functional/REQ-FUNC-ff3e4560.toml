@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-ff3e4560"
+
+title = "Require explicit confirmation for cancellation"
+
+status = "active"
+
+requirement = """
+When an operator requests cancellation, the web API shall reject the request unless explicit confirmation is true.
+"""
+
+verification = "Offline API requests with true, false, absent and malformed confirmation prove admission and rejection."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/ticketCopy.ts", "04_Software/web/e2e/issue37.spec.ts"]
+
+linked_tests = ["04_Software/tests/test_web_tickets.py::test_cancel_requires_explicit_confirmation_at_both_web_boundaries", "04_Software/web/e2e/issue37.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-23ce3d34"
+title = "Refuse local OpenCode commands when the managed configuration directory is unavailable"
+status = "retired"
+requirement = """
+If the managed executor-config directory under the profile's state root cannot be created or is not a directory when the native local backend of an OpenCode profile is prepared while that directory is the effective XDG_CONFIG_HOME, then ADORE shall raise LocalExecutionError before launching any native command. Retired 2026-11-02: OpenCode support was removed; there is no managed OpenCode configuration directory.
+"""
+verification = "Offline: with a regular file at <state root>/executor-config, preparing an OpenCode local backend raises LocalExecutionError naming the managed executor configuration directory; with the path absent it is created as a directory."
+affected_paths = ["04_Software/adore/local_execution.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_backend_refuses_unavailable_managed_opencode_directory"]
+spec = ""
+priority = "normal"
+rationale = "A missing managed directory must not silently fall back to the personal configuration."
+created = 2026-10-31
+updated = 2026-11-02

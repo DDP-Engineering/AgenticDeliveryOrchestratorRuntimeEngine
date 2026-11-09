@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-aa5e358e"
+title = "Display approved company branding at original proportions"
+status = "active"
+requirement = "While the authenticated shell is visible, the dashboard shall display the approved transparent sage DDP Engineering logo at its original 630:300 proportions on a dark navigation background, separately from the ADORE product label, in both supported themes and at desktop and 390px widths."
+verification = "Offline Chromium: decode logo dimensions/alpha and compare source SHA-256 with approved manifest; verify proportion/background at 1440 and 390px in light/dark themes; inspect representative screenshots."
+affected_paths = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/assets/DDP_Engineering_logo_dark.png", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/tests/shell.test.mjs"]
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-05

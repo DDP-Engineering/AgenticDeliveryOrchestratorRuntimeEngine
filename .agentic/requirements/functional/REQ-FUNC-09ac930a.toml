@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-09ac930a"
+
+title = "Start Sign in with ChatGPT from container and native projects"
+
+status = "active"
+
+requirement = """When an administrator starts Sign in with ChatGPT from a valid container or local project, ADORE shall start the selected trusted Pi helper, return its authorization link and wait at most 15 minutes for the matching redirect address, replacing any earlier pending sign-in."""
+
+verification = "Offline API tests exercise both transports, matching/foreign state, cancel/replace, admin/CSRF and missing helpers; native callback success/refusal completes on status read without a manual submit. The browser observes completion and clears the temporary URL/address while retaining the manual fallback."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py", "04_Software/adore/release_notes.toml", "04_Software/web/src/agentConnection.ts", "04_Software/web/src/errors.ts", "04_Software/web/tests/chatgpt.test.mjs", "04_Software/web/src/help/content/en/executors.md", "04_Software/web/src/help/content/ro/executors.md", "04_Software/web/src/help/content/fr/executors.md", "04_Software/web/src/help/content/de/executors.md"]
+
+linked_tests = ["04_Software/tests/test_web_chatgpt.py", "04_Software/tests/test_native_chatgpt.py::test_native_sign_in_and_cancel_use_only_owned_process", "04_Software/tests/test_chatgpt.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-04

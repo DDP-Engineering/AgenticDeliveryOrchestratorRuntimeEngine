@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-0859d96e"
+
+title = "Abort a Pi stage at its timeout and end the process"
+
+status = "active"
+
+requirement = """If a Pi RPC stage reaches its timeout before `agent_settled`, then ADORE shall send the RPC `abort` command, wait up to 10 seconds for `agent_settled`, close stdin, terminate the process when it has not exited within 5 further seconds, and report the launch as timed out."""
+
+verification = "A fake Pi that never settles is given a short timeout; the launch reports timed_out with exit 124 and the fake process has exited before the abort and exit grace periods have elapsed; a fake that ignores abort and stdin is killed."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_timeout_aborts_and_the_process_is_gone_within_the_grace", "04_Software/tests/test_pi_rpc.py::test_timeout_kills_a_process_that_ignores_abort_and_stdin"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

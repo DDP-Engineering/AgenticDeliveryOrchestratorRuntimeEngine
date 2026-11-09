@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-4a3f81cb"
+
+title = "Confine cleanup to the current project's resources"
+
+status = "active"
+
+requirement = """
+When an operator runs cleanup for a runtime project, the CLI shall remove only containers, egress proxies, egress networks and worktree directories that belong to that project's runs, leaving every other resource untouched, including resources of another project that shares the agent slug, egress network prefix or worktree root.
+"""
+
+verification = "Automated orchestrator tests place a second project's run resources on a host sharing the slug, worktree root and egress network prefix, plus resources of a project whose repository path extends the current one and an unrelated folder under the worktree root; after cleanup of the current project all of them still exist and none appears in the report; the proxy and network of a retained run of the current project stay, a proxy or network named by an earlier ADORE build is not recognised and stays, and no proxy or network is removed when the executor listing fails."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/state.py"]
+
+linked_tests = ["04_Software/tests/test_state.py::test_run_id_pattern_matches_only_one_projects_run_ids", "04_Software/tests/test_isolation.py::test_cleanup_container_sweeps_remove_only_exact_targets", "04_Software/tests/test_isolation.py::test_cleanup_egress_sweeps_keep_names_shared_with_retained_runs", "04_Software/tests/test_orchestrator.py::test_cleanup_leaves_other_projects_resources_on_a_shared_host", "04_Software/tests/test_orchestrator.py::test_cleanup_removes_no_proxy_or_network_when_executor_listing_fails"]
+
+
+spec = "specs/REQ-SEC-4a3f81cb.md"
+
+priority = "high"
+rationale = "Several projects can share one host; one project's maintenance must never destroy another project's running or human-owned work."
+
+created = 2026-10-04
+updated = 2026-11-01

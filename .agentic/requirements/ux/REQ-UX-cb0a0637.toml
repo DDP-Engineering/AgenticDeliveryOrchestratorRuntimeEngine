@@ -1,0 +1,30 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+schema = 1
+
+id = "REQ-UX-cb0a0637"
+
+title = "Job details route stable drift to confirmed restart"
+
+status = "active"
+
+requirement = """
+When Job details shows a failed job with execution settings drift, the interface shall explain why Retry cannot fix stable settings drift and offer a confirmed abandon-and-restart action to authorized operators.
+"""
+
+verification = "Offline UI positive confirmation and cancellation, stale state and revoked access refusal; four locales explain stable drift versus volatile environment revalidation."
+
+affected_paths = ["04_Software/adore/cli.py", "04_Software/adore/metrics.py", "04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/local_execution.py", "04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/recoveryCopy.ts", "04_Software/web/src/ticketCopy.ts"]
+
+linked_tests = ["04_Software/tests/test_drift_recovery.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/driftRecovery.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-05
+updated = 2026-11-05

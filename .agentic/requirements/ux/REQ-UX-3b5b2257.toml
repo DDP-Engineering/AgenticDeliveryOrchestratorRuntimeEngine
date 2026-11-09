@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-3b5b2257"
+title = "Explain exact server TOML enrollment and review"
+status = "active"
+requirement = "When an administrator selects a TOML file in the raw import dialog, the interface shall validate it automatically and enable confirmation of stopped enrollment only for the current valid file."
+verification = "Chromium selects valid and invalid files without leaving Projects, checks automatic preview, import gating, paused publication and rejection of stale validation."
+affected_paths = ["04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/importCopy.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/web/e2e/import.spec.ts", "04_Software/adore/web/static/", "04_Software/adore/web/static/index.html"]
+linked_tests = ["04_Software/web/e2e/import.spec.ts"]
+spec = "specs/REQ-REL-39c1b197.md"
+created = 2026-10-05
+updated = 2026-11-09

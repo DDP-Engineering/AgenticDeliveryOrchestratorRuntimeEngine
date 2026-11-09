@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-664b7fa0"
+
+title = "Offer guided enrollment and modal raw import on Projects"
+
+status = "active"
+
+requirement = """
+When an administrator opens Projects, the page shall offer Enroll new project on its own route and Import raw configuration in a dialog as the two project creation actions.
+"""
+
+verification = "Chromium checks the two actions, guided enrollment and modal import; Node route tests direct former import and clone URLs to Projects."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/importCopy.ts", "04_Software/web/src/help/content/"]
+
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/import.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

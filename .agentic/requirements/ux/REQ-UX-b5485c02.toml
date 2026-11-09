@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-b5485c02"
+
+title = "Overview selector order and quiet background refresh"
+
+status = "active"
+
+requirement = """
+When Overview is open, the authorized Project selector shall appear in the ADORE/Overview header before the compact job tables, with one localized selector and responsive wrapping.
+"""
+
+verification = "Offline jobs browser journeys check header selector geometry above the job tables with no context band, navigation resets and scoped deep links, held background request visibility and malformed polling fail-closed behavior."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-10

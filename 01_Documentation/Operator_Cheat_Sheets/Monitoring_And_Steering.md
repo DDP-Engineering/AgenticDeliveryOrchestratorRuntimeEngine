@@ -37,16 +37,6 @@ need to pause and resume ticket pickup safely.
 If `status` reports corrupt run state, ADORE skips it. Inspect it manually before
 deleting anything.
 
-### An unchanged stage can still be progressing
-
-Look for `stage-continuation` in `logs <run-id>`. It records a successful partial
-session with actual candidate changes and appended work evidence. ADORE keeps
-`working`, checkpoints locally and launches a fresh session at the same stage.
-No manual retry is needed. These sessions preserve failure counts but consume
-run budgets. `NO_STAGE_PROGRESS` is a failed attempt; `WORKTREE_PROGRESS` means
-ADORE could not reliably observe the worktree. See
-[Recovery and Maintenance](../Recovery_And_Maintenance.md).
-
 ## Pause And Resume
 
 Pause stops new ticket pickup. It does not kill in-flight runs.
@@ -96,7 +86,7 @@ Treat the AEGIS strict-check outcome (`ok` or `failed`) separately from the
 ADORE lifecycle outcome. Both remain visible in journals, reports, exports,
 ticket comments, and draft MR/PRs.
 
-If metrics were added after older terminal runs, rebuild summaries once:
+If metrics were enabled after some runs had already finished, rebuild summaries once:
 
 ```powershell
 .\.venv\Scripts\adore.exe --profile <profile-name> stats --rebuild

@@ -14,10 +14,36 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Frontend dependencies, isolated verification build and browser diagnostics
+node_modules/
+*.tsbuildinfo
+04_Software/web/.e2e-dist/
+04_Software/web/playwright-report/
+04_Software/web/test-results/
+
 # OS / editor
 .DS_Store
 Thumbs.db
+*.code-workspace
+
+# Local web packaging and installation checks (release media are built afresh)
+07_Delivery/_technical/work/
+07_Delivery/_technical/offline/
+07_Delivery/_technical/verification/
+07_Delivery/adore-web-*/
+07_Delivery/web-candidate-*/
+07_Delivery/web-final-*/
+07_Delivery/web-runtime-check/
+07_Delivery/web-build-check/
+07_Delivery/portable-build-*/
+07_Delivery/portable-check-*/
+07_Delivery/portable-unit-*/
+07_Delivery/portable-python-*/
+07_Delivery/ui-smoke-home-*/
 # AEGIS:BEGIN (managed by .agentic/aegis.py init)
 .agentic/tasks/*.anchor.json
 .agentic/tasks/*.evolution.json
 # AEGIS:END
+
+# Profile-local forge credentials never belong in source control.
+repository-auth.json

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-448cbde7"
+title = "Web metrics and usage history"
+status = "active"
+requirement = """When an authorized user requests web statistics or exports, ADORE shall apply one explicit project, half-open instant interval, IANA timezone and granularity scope to lifecycle counts, consumption and compatible existing aggregates, with nullable unknown evidence, separate current stock and Admin-only reported and estimated money as defined in the scoped metrics contract."""
+verification = "Offline analytical/API/CSV and browser pooling fixtures assert own lifecycle/event dates, DST/boundaries, null versus zero/unallocated, filtered rates/durations and all financial denial; existing price-history/revision/replay tests remain."
+affected_paths = ["04_Software/adore/web/analytics.py", "04_Software/web/src/metrics.ts", "04_Software/web/tests/metrics.test.mjs", "04_Software/web/e2e/shell.spec.ts", "04_Software/adore/web/static/assets/*", "04_Software/adore/web/static/index.html", "04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/adore/executor/base.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py", "04_Software/adore/metrics.py", "04_Software/adore/cli.py", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts"]
+linked_tests = ["04_Software/tests/test_web_scoped_metrics.py", "04_Software/web/tests/metrics.test.mjs", "04_Software/web/e2e/shell.spec.ts", "04_Software/tests/test_web_metrics.py", "04_Software/tests/test_web_pricing.py", "04_Software/tests/test_executor.py", "04_Software/tests/test_metrics.py", "04_Software/tests/test_smoke.py", "04_Software/tests/test_orchestrator.py"]
+created = 2026-09-29
+updated = 2026-10-06
+
+spec = "specs/scoped-metrics.md"

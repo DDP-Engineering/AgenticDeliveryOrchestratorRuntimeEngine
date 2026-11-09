@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-NFR-da638732"
+
+title = "Pause background refresh while the page is hidden"
+
+status = "active"
+
+requirement = """
+While the ADORE web page is hidden in the browser, the interface shall send no periodic refresh requests, and when the page becomes visible again it shall refresh the current view immediately and resume its normal refresh interval.
+"""
+
+verification = "Automated: a unit test of the pure visibility-aware polling helper with a fake clock and document verifies no callback while hidden, one immediate callback on becoming visible and the resumed interval. Manual: in Chrome, open Overview with DevTools network logging, hide the tab for 60 seconds and confirm no API requests, then show it and confirm an immediate refresh."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/", "04_Software/web/src/polling.ts", "04_Software/web/tests/"]
+
+linked_tests = ["04_Software/web/tests/polling.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Idle background tabs should not load the ADORE host."        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

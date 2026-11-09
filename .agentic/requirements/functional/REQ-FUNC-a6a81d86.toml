@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-a6a81d86"
+title = "Define a bounded project Dockerfile artifact"
+status = "retired"
+requirement = "When an administrator defines a container project image, ADORE shall retain a revision-bound project-owned UTF-8 Dockerfile and declared checks with bounded minimal context and typed refusal for invalid text, secrets, paths or unsupported context instructions. Retired 2026-10-08: user approved external operator environment preparation."
+verification = "Offline artifact tests save/import/export a legal non-root template and prove byte/command/context/ownership/corruption refusals."
+affected_paths = ["04_Software/adore/web/image_build.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-a6a81d86.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-11-01

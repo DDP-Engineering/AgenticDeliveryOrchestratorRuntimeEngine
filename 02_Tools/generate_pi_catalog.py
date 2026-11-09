@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-  # noqa: UP009
+# -----------------------------------------------------------------------------
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# -----------------------------------------------------------------------------
+"""
+@file generate_pi_catalog.py
+@brief Write ADORE's Pi provider and model catalog from the pinned Pi, offline.
+@details Reads the single-variable API-key provider table from the installed
+         Pi package's `docs/providers.md`, then runs `pi --list-models` once per
+         variable with only that variable set to a placeholder, `PI_OFFLINE=1`
+         and an empty agent directory. Pi lists the built-in catalog of every
+         provider that has a credential, so each run yields the provider ids
+         and models behind one variable; no network call is made and no real
+         key is used. The models of a ChatGPT subscription come from Pi's
+         ChatGPT catalog in the installed pi-ai package (`chatgpt_models`).
+         Each provider's `hosts` are the host names of every `baseUrl` in
+         pi-ai's `providers/data/<id>.json`: the hosts an internet-off run
+         must reach.
+         The result is `04_Software/adore/pi_catalog.json`.
+         Providers whose key is a forge token (GitHub Copilot) or that list
+         no chat models (TypeSafe classifiers) are left out. Run it again
+         whenever the pinned Pi version changes.
+@example
+    python 02_Tools/generate_pi_catalog.py --node <node22>/node.exe \
+        --cli <prefix>/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+"""
+
+from __future__ import annotations
+
+# IMPORTS
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+from urllib.parse import urlsplit
+
+# CONSTANTS
+OUTPUT = Path(__file__).resolve().parents[1] / "04_Software" / "adore" / "pi_catalog.json"
+#: Variables ADORE does not offer: a GitHub token is a forge credential, and
+#: TypeSafe serves classifier models only.
+EXCLUDED_VARIABLES = frozenset({"COPILOT_GITHUB_TOKEN", "TYPESAFE_API_KEY"})
+#: Names for the provider ids that share one variable in Pi's table.
+SPLIT_NAMES = {
+    "opencode": "OpenCode Zen",
+    "opencode-go": "OpenCode Go",
+    "moonshotai": "Moonshot AI",
+    "moonshotai-cn": "Moonshot AI (China)",
+    "qwen-token-plan": "Qwen Token Plan",
+    "qwen-token-plan-individual": "Qwen Individual",
+}
+PLACEHOLDER = "adore-catalog-placeholder"
+_ROW = re.compile(r"^\|\s*(?P<name>[^|]+?)\s*\|\s*`(?P<variable>[A-Z][A-Z0-9_]*)`\s*\|\s*$")
+
+
+# HELPER FUNCTIONS
+
+
+def provider_table(docs: Path) -> list[tuple[str, str]]:
+    """
+    @brief      Read Pi's single-variable API-key provider table.
+    @param[in]  docs Pi's `docs/providers.md`.
+    @return     (display name, variable) rows in Pi's order.
+    @exception  SystemExit When the table is missing.
+    """
+    text = docs.read_text(encoding="utf-8")
+    section = text.split("## Use an API key from the environment", 1)[-1].split("\n## ", 1)[0]
+    rows = []
+    for line in section.splitlines():
+        match = _ROW.match(line)
+        if match:
+            name = re.sub(r"\s*\(\[.*?\]\(.*?\)\)", "", match["name"]).strip()
+            rows.append((name, match["variable"]))
+    if not rows:
+        raise SystemExit(f"no provider table found in {docs}")
+    return rows
+
+
+def list_models(node: str, cli: str, variable: str) -> dict[str, list[str]]:
+    """
+    @brief      List the models Pi offers when only `variable` holds a credential.
+    @param[in]  node Node executable.
+    @param[in]  cli Pi's `cli.js`.
+    @param[in]  variable Provider key variable set to a placeholder.
+    @return     Provider id -> model ids in Pi's order.
+    @exception  SystemExit When Pi fails or prints an unexpected table.
+    """
+    with tempfile.TemporaryDirectory(prefix="adore-pi-catalog-") as home:
+        env = {key: os.environ[key] for key in ("PATH", "SYSTEMROOT", "TEMP", "TMP")
+               if key in os.environ}
+        env.update(HOME=home, USERPROFILE=home, PI_CODING_AGENT_DIR=str(Path(home) / "agent"),
+                   PI_OFFLINE="1", PI_TELEMETRY="0", PI_SKIP_VERSION_CHECK="1",
+                   **{variable: PLACEHOLDER})
+        result = subprocess.run(  # noqa: S603 - fixed argv
+            [node, cli, "--list-models"], env=env, cwd=home, capture_output=True,
+            text=True, encoding="utf-8", timeout=120, check=False)
+    lines = result.stdout.splitlines()
+    if result.returncode or not lines or lines[0].split()[:2] != ["provider", "model"]:
+        raise SystemExit(f"pi --list-models failed for {variable}: {result.stderr.strip()}")
+    models: dict[str, list[str]] = {}
+    for line in lines[1:]:
+        parts = line.split()
+        if len(parts) < 2:
+            raise SystemExit(f"unexpected --list-models line for {variable}: {line!r}")
+        models.setdefault(parts[0], []).append(parts[1])
+    return models
+
+
+def pi_ai_data(package: Path) -> Path:
+    """
+    @brief      The provider data directory of the installed pi-ai package.
+    @param[in]  package Installed pi-coding-agent package directory.
+    @return     `.../pi-ai/dist/providers/data`.
+    @exception  SystemExit When it is missing.
+    """
+    data = Path("dist") / "providers" / "data"
+    candidates = (package / "node_modules" / "@earendil-works" / "pi-ai" / data,
+                  package.parent / "pi-ai" / data)
+    path = next((item for item in candidates if item.is_dir()), None)
+    if path is None:
+        raise SystemExit("Pi's provider data (pi-ai dist/providers/data) was not found")
+    return path
+
+
+def provider_hosts(data: Path, provider: str) -> list[str]:
+    """
+    @brief      Host names of every base URL Pi uses for a provider.
+    @param[in]  data pi-ai provider data directory.
+    @param[in]  provider Provider id.
+    @return     Sorted unique host names.
+    @exception  SystemExit When the provider has no data file or no concrete host.
+    """
+    path = data / f"{provider}.json"
+    if not path.is_file():
+        raise SystemExit(f"Pi has no provider data for {provider}")
+    hosts: set[str] = set()
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key == "baseUrl" and isinstance(item, str):
+                    host = urlsplit(item).hostname
+                    if not host or "{" in item:
+                        raise SystemExit(f"{provider} has a base URL without a fixed host: {item}")
+                    hosts.add(host)
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(json.loads(path.read_text(encoding="utf-8")))
+    if not hosts:
+        raise SystemExit(f"{provider} lists no base URL")
+    return sorted(hosts)
+
+
+def model_thinking(data: Path, provider: str, models: list[str]) -> dict[str, list[str]]:
+    """@brief Derive conservative supported levels from pinned Pi model data."""
+    levels = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
+    source = json.loads((data / f"{provider}.json").read_text(encoding="utf-8"))
+    found: dict[str, list[set[str]]] = {}
+    for group in source.values():
+        if not isinstance(group, dict):
+            continue
+        for item in group.values():
+            if not isinstance(item, dict) or item.get("type") != "chat":
+                continue
+            model = item.get("id")
+            if model not in models:
+                continue
+            mapping = item.get("thinkingLevelMap", {})
+            supported = {level for level in levels if (
+                level == "off" and not item.get("reasoning") or item.get("reasoning")
+                and mapping.get(level, True) is not None
+                and (level not in ("xhigh", "max") or level in mapping))}
+            found.setdefault(model, []).append(supported)
+    return {model: [level for level in levels if all(level in group for group in found[model])]
+            for model in models if model in found}
+
+
+def chatgpt_models(package: Path, openai: list[str]) -> list[str]:
+    """
+    @brief      The models a ChatGPT subscription serves, from Pi's own catalog.
+    @details    Pi's ChatGPT-backed catalog (`openai-codex`, the legacy client's
+                provider) lists the chat models of a ChatGPT account; Sign in
+                with ChatGPT runs them as provider `openai`, so only those that
+                are also openai models are kept, in Pi's order.
+    @param[in]  package Installed pi-coding-agent package directory.
+    @param[in]  openai Models Pi lists for provider openai.
+    @return     Model ids.
+    @exception  SystemExit When the catalog is missing or empty.
+    """
+    path = pi_ai_data(package) / "openai-codex.json"
+    if not path.is_file():
+        raise SystemExit("Pi's ChatGPT catalog (pi-ai openai-codex.json) was not found")
+    chat = json.loads(path.read_text(encoding="utf-8")).get("openai-codex-responses", {})
+    models = [key.split(":", 1)[1] for key in chat if key.startswith("chat:")]
+    models = [model for model in models if model in openai]
+    if not models:
+        raise SystemExit("Pi's ChatGPT catalog lists no openai chat model")
+    return models
+
+
+# PUBLIC API
+
+
+def main() -> int:
+    """
+    @brief      Generate the catalog file.
+    @return     Process exit code.
+    """
+    parser = argparse.ArgumentParser(description="Write adore/pi_catalog.json from the pinned Pi.")
+    parser.add_argument("--node", required=True, help="Node 22 executable")
+    parser.add_argument("--cli", required=True, help="pinned Pi dist/bundle/cli.js")
+    parser.add_argument("--out", type=Path, default=OUTPUT)
+    options = parser.parse_args()
+    package = Path(options.cli).resolve().parents[2]
+    version = json.loads((package / "package.json").read_text(encoding="utf-8"))["version"]
+    providers: dict[str, dict] = {}
+    for name, variable in provider_table(package / "docs" / "providers.md"):
+        if variable in EXCLUDED_VARIABLES:
+            continue
+        listed = list_models(options.node, options.cli, variable)
+        if not listed:
+            raise SystemExit(f"Pi listed no models for {variable}")
+        for provider, models in listed.items():
+            if provider in providers:
+                raise SystemExit(f"provider {provider} appears under two variables")
+            if len(listed) > 1 and provider not in SPLIT_NAMES:
+                raise SystemExit(f"name the provider {provider} in SPLIT_NAMES")
+            providers[provider] = {"id": provider, "name": SPLIT_NAMES.get(provider, name),
+                                   "variable": variable, "models": models,
+                                   "hosts": provider_hosts(pi_ai_data(package), provider),
+                                   "thinking": model_thinking(pi_ai_data(package), provider, models)}
+    catalog = {"pi_version": version,
+               "providers": sorted(providers.values(), key=lambda item: item["name"].casefold()),
+               "chatgpt_models": chatgpt_models(package, providers["openai"]["models"])}
+    options.out.write_bytes((json.dumps(catalog, indent=1, ensure_ascii=False) + "\n")
+                            .encode("utf-8"))
+    print(f"wrote {options.out}: Pi {version}, {len(providers)} providers, "
+          f"{sum(len(item['models']) for item in providers.values())} models, "
+          f"{len(catalog['chatgpt_models'])} ChatGPT models")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+# END OF FILE

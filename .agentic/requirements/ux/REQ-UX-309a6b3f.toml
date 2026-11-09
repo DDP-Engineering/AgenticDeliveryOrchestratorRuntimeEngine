@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-309a6b3f"
+
+title = "Show only password change while a new password is required"
+
+status = "active"
+
+requirement = """
+While the signed-in account must set a new password, the web interface shall show only a change-password form with the reason, language, theme and sign-out controls, and after a successful change it shall return to the sign-in page.
+"""
+
+verification = "Manual: as administrator reset a developer's password, sign in as that developer in each supported locale, confirm only the change-password form with reason, language, theme and Sign out is shown and the sidebar views are absent; submit a wrong current password and confirm the localized error with the form retained; submit a valid change and confirm the sign-in page, then sign in with the new password and see the dashboard."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

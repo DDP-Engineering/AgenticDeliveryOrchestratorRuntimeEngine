@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-3d5fe8a6"
+
+title = "Keep provider keys out of configuration, logs, audit, API responses and the browser"
+
+status = "active"
+
+requirement = """While a project uses a provider API key, ADORE shall keep the key value out of config.toml, process logs, audit rows, every web API response and the browser, exposing only the variable name and its source."""
+
+verification = "API tests save a key, stage and apply a connection change, run Test AI connection with a fake Pi and read config, pending, raw-free views, credentials, audit and the log file, asserting the key value appears in none; configuration refuses an inline key field."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_settings.py", "04_Software/adore/web/model_connection.py", "04_Software/adore/config.py"]
+
+linked_tests = ["04_Software/tests/test_executor_settings.py::test_provider_key_never_leaves_the_credential_store", "04_Software/tests/test_executor_settings.py::test_credential_follows_the_configured_provider", "04_Software/tests/test_pi_providers.py::test_invalid_provider_schema_is_refused_naming_the_key"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

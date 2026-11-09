@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-5438972a"
+
+title = "Use sidebar Jobs navigation from Overview"
+
+status = "active"
+
+requirement = """
+When a user opens Overview, full job history shall be reachable through the sidebar Jobs link retaining authorized selected-project scope, while the Overview content provides job-specific Details without a duplicate View all jobs link.
+"""
+
+verification = "Offline jobs browser compact Overview journey checks absent duplicated footer link and scoped sidebar Jobs URL alongside preserved Details."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file __init__.py
-@brief Executor adapter subpackage (opencode/pi/codex behind one launcher).
+@brief Executor adapter subpackage (Pi behind the executor interface).
 """
 
 # END OF FILE

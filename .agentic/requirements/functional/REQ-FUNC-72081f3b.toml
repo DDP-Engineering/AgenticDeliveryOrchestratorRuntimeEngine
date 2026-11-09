@@ -1,0 +1,14 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-72081f3b"
+title = "Detect container runtime commands on the server"
+status = "active"
+requirement = "When an administrator requests container runtime discovery, ADORE shall list successful bounded Docker and Podman command probes on the server and its supported Windows WSL distributions."
+verification = "Simulate Windows and Linux hosts with working, absent and timed-out CLIs and verify the exact command suggestions."
+affected_paths = ["04_Software/adore/doctor.py","04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_executor_environment_choice.py::test_runtime_inventory_lists_successful_probes_only"]
+updated = "2026-11-09"

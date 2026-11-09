@@ -31,6 +31,8 @@ get in-line, OS-specific guidance from `doctor`.
   identity, platform/repo, local clone, branch conventions, runtime/executor,
   delivery, budgets/policy - and assembles a **minimal** config (only keys that
   matter; defaults omitted).
+  The reported-cost cap accepts finite nonnegative USD input; zero disables
+  that cap for subscription/local execution while other run bounds remain.
 - **Emit + guard:** a stdlib TOML emitter (`_emit_config_toml`, no `tomli_w`
   dependency) and `_validate_or_raise()` - the assembled config is written to a
   temp file, loaded and validated the same way the engine does at startup, and
@@ -52,23 +54,40 @@ commands + `--profile` resolution.
 - **Re-prompting vs fail-fast:** `ask()` re-prompts on an interactive asker and
   raises `WizardError` on a non-interactive one - so `--answers` fails fast on a
   bad value rather than looping.
+- **Executor:** Pi is the only coding agent, so there is no agent choice.
+  A container profile always uses API-key mode and keeps the default Pi
+  command; a local profile asks for the installed native Pi argv
+  (`executor_command`) and an auth mode: `api-key` (provider key in `.env`)
+  or `existing` (the account's own Pi sign-in at `PI_CODING_AGENT_DIR`,
+  default `~/.pi/agent/auth.json`). There is no host sign-in staging into
+  containers.
+- **Provider and model:** the wizard asks the provider (`provider`, default
+  `openai`, validated against `pi_providers.provider_ids()`: a Pi API-key
+  provider id, `chatgpt` (this server's ChatGPT Plus/Pro sign-in) or
+  `custom`); for `custom` it then asks the endpoint
+  base URL (`endpoint_base_url`, an http(s) address as seen from the container
+  with no credentials, query or fragment) and API type (`endpoint_api`,
+  default `openai-completions`); then the model ID within the provider
+  (`model`, matching `MODEL_ID_RE`; default `gpt-5.5` only for `openai`). For
+  `chatgpt` the model prompt lists the catalog's `chatgpt_models` (the models a
+  ChatGPT subscription serves) and defaults to the first of them. It
+  writes `[executor] provider`, `model` and `env_keys = []` (additional names;
+  the provider's key variable always reaches Pi), and `[executor.endpoint]`
+  `base_url`/`api` for `custom`.
 - **Branch cross-check:** the branch-template validator renders a sample with
   `{slug}/{run_id}/{iid}` and, when a push rule is set, rejects a template the
   rule would reject (the exact check that bit the first pilot) - inline, before
   anything is written.
 - **Minimal + valid output:** required-for-validation fields are always written
-  (platform, repo, worktree, executor command/model, reviewers, runtime, image,
+  (platform, repo, worktree, executor provider and model, reviewers, runtime, image,
   profile-owned state_root); optional fields only when they differ from the
   dataclass default. The image prompt defaults to the generic executor base
   (`adore-executor-base:1.0.0`) and points project profiles at derived
   runtime-project images when needed. Rootless podman auto-adds
   `run_args=["--userns=keep-id"]`; Docker deployments rely on the image being
   built with `--build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g)` so
-  the container user/group match the host (no `run_args` needed for UID mapping). The executor `env_keys` are
-  derived from the model's provider (names only, never secret values).
-- **Reported-cost opt-out:** custom budgets accept finite nonnegative USD values.
-  Zero explicitly disables the dollar cap for subscription/local execution;
-  the prompt states this option, and negative/nonfinite inputs fail validation.
+  the container user/group match the host (no `run_args` needed for UID mapping). No secret
+  value is ever written; the next steps name the provider's credential variable.
 - **Governance-aware file budget:** the recommended profile allows 120 touched
   files. AEGIS task journals and evidence count toward the same bound as product
   files, and the CR6 full pilot occupied 45 paths before implementation; the
@@ -96,8 +115,9 @@ commands + `--profile` resolution.
 - Answer keys (interactive prompts and `--answers`) are the `FieldSpec.key`
   values: `profile_name, description, agent_name, kind, login, repo,
   repo_path, worktree_root, target_branch,
-  has_push_rule, branch_rule, branch_template, runtime, image, executor_cli,
-  model, auth_mode, reviewers, budgets_choice, max_*, polling_mode,
+  has_push_rule, branch_rule, branch_template, execution_backend, runtime,
+  image, provider, endpoint_base_url, endpoint_api, model, local_path,
+  reviewers, budgets_choice, max_*, polling_mode,
   state_location, confirm`. `kind` accepts gitlab/github/gitea. GitLab/GitHub
   deliberately ask no hosting, host URL, or visibility questions because
   routing follows the platform CLI's active/default authenticated host; the
@@ -110,7 +130,14 @@ commands + `--profile` resolution.
 - The emitted config always satisfies `validate_config` (enforced by the
   write-then-validate guard).
 - API-key next steps place `.env` beside the generated profile `config.toml`,
-  matching CLI engine resolution rather than relying on the service cwd.
+  matching CLI engine resolution rather than relying on the service cwd, and
+  name the provider's credential variable (`pi_providers.credential_variable`,
+  for example `OPENAI_API_KEY`, or `ADORE_ENDPOINT_API_KEY` for an endpoint)
+  with Settings → Agent and model as the alternative; for `chatgpt` the first
+  step is to sign in with ChatGPT once for the server in the web interface
+  (Settings → Agent and model → Sign in with ChatGPT). Configuration validation
+  refuses a `chatgpt` profile that runs locally or has a stage limit above
+  3000 s, so the wizard never saves one.
 
 - **Workflow labels:** the wizard asks for the ready label,
   task-type labels (fix/change), and the quick framing hint, and writes
@@ -167,5 +194,33 @@ adore init <profile-name> --force   # overwrite an existing profile
   the user confirms.
 - Version-vs-requirement checks (`required_tools`) are a separate backlog item;
   the wizard reports presence via `doctor`, not versions.
-- The executor command template is fixed per known CLI (opencode proven);
-  exotic executors get a generic `{prompt}` template to edit by hand.
+- A container profile always keeps the default Pi command
+  (`pi -p --mode json --model {model} {prompt}`), which the container run
+  ignores; only a local profile's native Pi argv is asked for. `[executor]
+  command` is written only when it differs from that default.
+
+## Offline candidate preparation
+
+`run_wizard(..., prepare_only=True)` returns `WizardSetup(name, document,
+metadata)` after the same answer/config validation. It skips doctor, AEGIS and
+runtime-detection probes, writes no profile, and uses the explicit runtime or
+Docker default. `WizardError.field` identifies the rejected answer. The web API
+maps it to a value-free structured finding; CLI diagnostics retain their existing
+behavior. Without this option the wizard still probes and saves a `Profile`.
+`test_web_enrollment.py` proves both modes with an injected offline runner.
+
+## Native execution contract
+
+Choosing local execution omits container selection and offers a project tools PATH under the current service account. The wizard gives the managed Pi install/verify commands. It never runs npm or signs in to a personal Pi account.
+
+## Shared launch default
+
+Recommended and custom CLI prompts and web enrollment default to 20 executor
+launches, aligned with `BudgetsConfig`. Explicit operator values stay authoritative.
+The recommended profile keeps 5400 cumulative active seconds. `test_wizard.py`
+validates generated profiles with the normal configuration validator and golden
+values; its known regex fixture process is injected independently of host startup
+latency. `test_branch_naming.py` retains actual matching and process-protocol proof.
+
+
+Web guided enrollment includes the optional validated Pi thinking level in its reviewed candidate; the CLI wizard retains its existing Pi default.

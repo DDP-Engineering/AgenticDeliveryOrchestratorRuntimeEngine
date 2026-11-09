@@ -1,0 +1,24 @@
+schema = 1
+
+id = "REQ-FUNC-4efa960e"
+
+title = "Report the server's ChatGPT sign-in status"
+
+status = "active"
+
+requirement = """When an administrator reads the ChatGPT sign-in, ADORE shall report, from the credential directory and without starting Pi, `signed-in` for a stored OpenAI OAuth credential, `not-signed-in` when none is stored, and `sign-in-again` when the credential cannot be read or its last refresh was refused, together with whether a sign-in is pending."""
+
+verification = "Unit and API tests with fake credential files: no auth.json and an auth.json without openai give not-signed-in; a well-formed oauth entry gives signed-in; a malformed file, an entry without a refresh token and the sign-in-again mark give sign-in-again."
+
+affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_chatgpt.py::test_status_reads_the_credential_files_only", "04_Software/tests/test_web_chatgpt.py::test_admin_signs_the_server_in_and_out"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-03
+updated = 2026-11-03

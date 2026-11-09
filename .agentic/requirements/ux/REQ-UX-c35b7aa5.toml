@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-c35b7aa5"
+title = "Offer only current account and optional tools PATH"
+status = "active"
+requirement = "When local execution is selected, ADORE shall present the current account and optional project tools PATH as the local settings."
+verification = "Inspect enrollment and reviewed settings; reject an old local launch override at configuration validation."
+affected_paths = ["04_Software/adore/config.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_native_settings_accept_tools_path_and_refuse_launch_overrides"]
+created = 2026-11-03
+updated = 2026-11-03

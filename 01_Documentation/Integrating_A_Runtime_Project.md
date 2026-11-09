@@ -69,10 +69,11 @@ python .agentic/aegis.py status --all --json
 
 ADORE rejects unknown versions, schemas, malformed output, or unreadable
 journals before governed work. Repository probing accepts AEGIS adoption
-journals at `survey`, `components`, or `close`; those are valid foreign journals
-but are never valid stages for the ADORE-created task, whose decoder remains
-restricted to `frame`, `specify`, `design`, `build`, `validate`, `deliver`, and
-`done`. Any other AEGIS contract is refused at probe.
+journals at `survey`, `components`, or `close`, and a legacy journal another task
+left at `deliver`; those are valid foreign journals but are never valid stages
+for the ADORE-created task, whose decoder remains restricted to `frame`,
+`specify`, `design`, `build`, `validate`, and `done`. An AEGIS release older
+than 0.15.0, a different major, or any other contract is refused at probe.
 
 The pre-pick repository probe runs directly on the host. After a run container
 is provisioned, ADORE writes each fully shell-quoted AEGIS command to the run's
@@ -115,31 +116,35 @@ records why the task uses `full` or `quick`.
 Full path:
 
 ```text
-frame -> specify -> design -> build -> validate -> deliver -> done
+frame -> specify -> design -> build -> validate -> done
 ```
 
 Quick path:
 
 ```text
-frame -> build -> validate -> deliver -> done
+frame -> build -> validate -> done
 ```
 
-Validation may route backward to specify, design, or build. Delivery may route
-back to validation. Unknown stages, forward skips, and other regressions fail
+Validation may route backward to specify, design, or build, and validate closes
+the task by advancing to done. A done task returns to validation when ADORE
+must revalidate it. Unknown stages, forward skips, and other regressions fail
 closed.
 
 ## Stage Sessions and Checkpoints
 
 ADORE creates the task after creating the branch. Every stage prompt declares
-the task autopilot-to-deliver by explicit conductor instruction, the per-task
+the task in autopilot by explicit conductor instruction, the per-task
 override AEGIS defines for its `[interaction]` default: the executor records
 `interaction: autopilot` in the journal header and never pauses to present
 choices to a human, because no human is reading. Autopilot governs who decides,
 not how much the executor does in one session. The target repository's
 `[interaction]` setting keeps governing human sessions and needs no change for
-conducted runs. ADORE supervises every stage and owns the pre-publication
-approval. Each attempt uses a fresh executor session. Durable AEGIS artifacts
-are the resume authority.
+conducted runs. ADORE supervises every stage and owns the approval before
+publication. Each attempt uses a fresh executor session. Durable AEGIS artifacts
+are the resume authority. The prompt has the executor finish a stage with
+`python .agentic/aegis.py advance`, record unfinished work with `log` and end
+with `pause` (`pause --blocked` for a question); a following session resumes
+from `brief` and the journal State.
 
 The prompt asks for exactly one stage per session, and the session boundary is
 what gives ADORE a checkpoint to recover from, a per-stage error budget, and the
@@ -158,7 +163,9 @@ recovery a clean tree, and are not remotely visible before approval.
 ## Final Validation and Approval
 
 Before final validation ADORE fetches and integrates the current target. It
-then launches validation and independently runs:
+then launches validation, whose session ends with AEGIS's own final strict
+check, `report` and `advance` to done. On that validate -> done advance ADORE
+independently runs:
 
 ```text
 python .agentic/aegis.py check --task TASK-<id> --strict --run --json
@@ -166,7 +173,11 @@ python .agentic/aegis.py check --task TASK-<id> --strict --run --json
 
 Success requires schema 1, exit zero, `strict.passed == true`, no errors or
 promoted warnings, at least one executed verification command, successful
-completion of every executed command, and a valid task journal at `deliver`.
+completion of every executed command, and a valid task journal at `done`. A
+done task ADORE holds no verification evidence for gets one fresh session that
+returns it with `advance --to validate`; a failed check counts one validate
+failure, and a remediation session returns the task from done to validate,
+build, design or specify.
 
 ADORE fingerprints the target commit, candidate tree and exact local commit
 series. It removes `agent-approved`, verifies absence, posts the evidence together
@@ -177,17 +188,16 @@ approval and force integration, validation, presentation and approval again.
 
 ## Publication and Review
 
-After approval, a constrained delivery session records approval and AEGIS
-bookkeeping. ADORE invokes the AEGIS report/evolution operations, creates the
-final local commit, rechecks target freshness, pushes the branch and opens or
-updates a draft MR/PR. A close-out session records the successful remote result
-and must leave the task at `done`; ADORE pushes that small commit to the same
-draft.
+After approval, ADORE pushes the branch and opens or adopts the draft or ready
+MR/PR. No executor session and no AEGIS command runs after the human approved:
+the approval check fetched the target and re-checked the target commit and
+candidate fingerprint just before, so the pushed branch is exactly the
+approved candidate. The run keeps the stage `done` while it waits for approval,
+publishes and is in review.
 
 Before draft creation, ADORE looks up and adopts an existing open MR/PR for the
-task branch. Restart recovery for a task already at `done` repeats the final
-checkpoint and push before entering review, so close-out evidence is not left
-only in the worktree.
+task branch. A failed push keeps the approval evidence, so `adore retry` checks
+freshness again and publishes the same candidate.
 
 A requested revision creates a new AEGIS task journal on the same branch.
 Earlier journals remain history. Every review round is bounded and requires a
@@ -206,3 +216,14 @@ outage stops code work until polling delivers the pending notification.
 Executor timeouts are classified only from the command runner's authoritative
 timeout flag. Exit code or stderr text containing the word `timeout` is not
 treated as proof that ADORE killed the process.
+
+## Container preparation
+
+Projects may select a tracked preparation recipe at an exact reviewed target commit after `adore init`. It prepares the ordinary run worktree/container before any AI stage; declared image tools must already exist and dependencies follow existing egress. Later gates discover installed tools through explicit `container.runtime_env.PATH`. See [Container preparation](Container_Preparation.md) for the closed Actions-style grammar and immutable recovery contract.
+
+## Native local execution
+
+Local projects use dedicated worktrees with independently prepared account tools. Container recipes/tool-check manifests cannot be selected for local profiles.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.

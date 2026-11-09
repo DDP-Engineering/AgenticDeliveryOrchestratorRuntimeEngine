@@ -22,7 +22,7 @@ from __future__ import annotations
 
 # IMPORTS
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -34,10 +34,10 @@ from adore.util import CommandResult
 
 class ExecTarget(Protocol):
     """
-    @brief   Callable that runs a command inside the run's container.
-    @details The orchestrator binds ContainerManager.exec to the run's
-             container name and passes it in; tests pass fakes. Matches the
-             exec seam: exit codes come back as data.
+    @brief   Callable that runs a command in the run's execution backend.
+    @details The backend binds resource identity/environment and exposes target
+             paths for file gates; plain test callables retain container defaults.
+             Exit codes and authoritative timeouts come back as data.
     """
 
     def __call__(
@@ -66,7 +66,8 @@ class GateRun:
              (also persisted in the run's io dir for audit). `artifact_dirs`
              names immutable per-launch archive directories created by the file
              protocol. There is deliberately no session id: every stage gets a
-             FRESH executor session, so nothing is ever continued.
+             FRESH executor session, so nothing is ever continued. `diagnostics`
+             optionally carries host-normalized operational streams for safe viewing.
     """
 
     exit_code: int
@@ -77,8 +78,13 @@ class GateRun:
     timed_out: bool = False
     tokens_in: int = 0
     tokens_out: int = 0
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    tokens_reported: bool | None = None
     cost_usd: float = 0.0
+    cost_reported: bool = False
     artifact_dirs: list[str] = field(default_factory=list)
+    diagnostics: dict[str, str] | None = None
 
     @property
     def ok(self) -> bool:
@@ -96,7 +102,7 @@ class GateRun:
 
 class Executor(ABC):
     """
-    @brief   Abstract executor launcher (opencode/pi/codex).
+    @brief   Abstract executor launcher; Pi is its only implementation.
     """
 
     @abstractmethod
@@ -109,6 +115,8 @@ class Executor(ABC):
         *,
         timeout: float | None = None,
         archive_stem: str = "",
+        package_secrets: dict[str, str] | None = None,
+        cancel: Callable[[], bool] | None = None,
     ) -> GateRun:
         """
         @brief      Launch the executor for a single workflow gate.
@@ -123,8 +131,25 @@ class Executor(ABC):
                            travels through argv).
         @param[in]  timeout Wall-clock bound (run budgets).
         @param[in]  archive_stem Optional immutable archive name stem.
+        @param[in]  package_secrets Optional known credentials for bounded and
+                                   redacted package-enabled gate retention.
+        @param[in]  cancel Cancellation check, passed only when
+                           `cancel_grace_seconds` returns a value.
         @return     A GateRun describing the outcome.
         """
+
+    def cancel_grace_seconds(self, execute: ExecTarget) -> float | None:
+        """
+        @brief      Whether this launch watches the run's cancellation itself.
+        @details    `None` (the default): the conductor stops the target when a
+                    cancel arrives. A number: `run_gate` takes a `cancel` check,
+                    stops the executor itself, and the conductor stops the
+                    target only when the gate is still running that many
+                    seconds after the cancel was seen.
+        @param[in]  execute Exec seam the gate will run on.
+        @return     Seconds the executor needs to end on cancel, or None.
+        """
+        return None
 
 
 # END OF FILE

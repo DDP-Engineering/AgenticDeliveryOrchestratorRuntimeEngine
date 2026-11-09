@@ -8,6 +8,7 @@ schema = 1
 test = ".\\.venv\\Scripts\\python.exe -m pytest -q"
 # test_impacted = "pytest -q {tests}"   # {tests} = the focused regression set
 lint = ".\\.venv\\Scripts\\ruff.exe check adore tests"
+frontend = "npm --prefix web run validate"
 # timeout = 0                           # seconds allowed per command; 0 or
 #                                       # absent means no limit at all
 workdir = "04_Software"                # run commands here, not at the root
@@ -29,20 +30,44 @@ workdir = "04_Software"                # run commands here, not at the root
 
 [layout]
 # Globs used by the traceability heuristics of `aegis check`.
-source = ["04_Software/adore/"]
-tests = ["04_Software/tests/"]
+source = [
+  "04_Software/adore/", "04_Software/web/", "02_Tools/",
+  "04_Software/pyproject.toml", "04_Software/ruff.toml",
+  "04_Software/uv.lock",
+]
+tests = ["04_Software/tests/", "04_Software/web/tests/"]
 docs = [
   "00_Planning/", "01_Documentation/", "05_SoftwareDocu/",
   "README.md", "CHANGELOG.md", "LICENSE.txt",
-  "02_Tools/README.md", "04_Software/README.md", "04_Software/deploy/README.md",
+  "02_Tools/README.md", "04_Software/README.md", "02_Tools/deploy/README.md",
   "04_Software/docker/README.md", "07_Delivery/README.md",
 ]
+
+[interaction]
+# false stops at every completed stage and presents the next choices.
+# true flows between stages, but never bypasses publication approval.
+autopilot = true
+
+[review]
+# Explicit verdicts are on: validate records an independent
+# spec-compliance verdict and an independent implementation-quality verdict
+# for the current candidate, and may run up to `max_fix_cycles` bounded
+# fix-and-re-review rounds. This never replaces ordinary validation.
+enabled = true
+max_fix_cycles = 5
+
+[records]
+# Anchor and evolution sidecars under .agentic/tasks/ are local evidence.
+# false keeps them out of git through a managed block in .gitignore that
+# init maintains; true removes that block so they are committed with the
+# journal. The journal log line is the durable record either way.
+commit_fingerprints = false
 
 [zones]
 # What each stage may write besides `.agentic/`, which every stage may
 # always write. Values name the globs above: "source", "tests". A stage
 # left out entirely may write anywhere - that is why build, validate, and
-# deliver are not listed. Deliver is publish-only by instruction, but the
+# are not listed. Git publication follows the repository rules; the
 # merge-base diff cannot attribute an edit to one stage without false hits.
 # Advisory like everything else: check reports an edit
 # outside the zone, it never stops one. The defaults are shown; uncomment
@@ -58,6 +83,11 @@ docs = [
 secret_patterns_extra = []
 ignore = []
 strict_promote = []
-run = ["test", "lint"]
+run = ["test", "lint", "frontend"]
 # run = ["test", "lint"]   # restrict what `check --run` executes; without
 #                          # this, side-effect-looking names are skipped
+
+# Generate all supported Mermaid diagram types during AEGIS Design.
+[diagrams]
+enabled = true
+types = ["structure", "sequence", "state"]

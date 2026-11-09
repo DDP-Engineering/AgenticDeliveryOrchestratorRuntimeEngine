@@ -16,7 +16,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 The single user-facing entry point: the `adore` command. CLI-first over a
 library core - the command surface is thin argparse wiring that delegates to
-the `adore` package; no REST API or web UI exists in v1 by design.
+the `adore` package. An optional web API also exposes selected controls.
 
 ## 2. Responsibilities
 
@@ -27,7 +27,8 @@ the `adore` package; no REST API or web UI exists in v1 by design.
   - `adore config validate` - all validation issues, exit 1 when any;
   - `adore config set <section.key> <value>` - edit one scalar in the resolved
     config file (comments preserved, type inferred), refusing secret-looking
-    keys and writing only when the whole result still validates (atomic);
+    keys (except ADORE's own non-secret boolean `metrics.capture_tokens`) and writing
+    only when the whole result still validates (atomic);
   - `adore status` - config health, store root, pause flag, lock holder, run
     counts by lifecycle, corrupt-run warning;
   - `adore runs` - table of persisted runs (corrupt ones shown as `CORRUPT`);
@@ -36,24 +37,45 @@ the `adore` package; no REST API or web UI exists in v1 by design.
   config): `adore run --loop|--once|--dry-run` (default mode from
   `[polling] mode`; `--once` prints the poll summary as JSON; all `run`
   modes also mirror their output to `<store_root>/adore.log`),
-  `adore cancel <run-id>`, `adore retry <run-id>`, `adore logs <run-id>`
+  `adore cancel <run-id>`, `adore retry <run-id>`, `adore handoff <run-id>`,
+  `adore logs <run-id>`
   (journal, including executor archive paths when present), and
   `adore delete <run-id> --force` (destructive; refuses without `--force`,
   design 8c guardrail). Retry, cancel, delete, and reset acquire the
   single-conductor lock for their entire mutation; logs remain unlocked.
+  Handoff queues an exact durable request when that lock is held, then the
+  conductor stops at a safe boundary and preserves human-owned work. With an
+  idle lock, the CLI completes the transfer directly.
 - Wire the metrics commands (phase 5): `adore stats [--since 30d] [--by
   priority|outcome] [--html] [--rebuild]`, `adore report <run-id>` (live
   journal summary as JSON), `adore export --csv` (all summaries to stdout).
+  Report and rebuild return an explicit error on malformed or conflicting
+  versioned usage. Rebuild validates every terminal run before writing any
+  refreshed summary.
 - Wire the operator commands:
   - `adore reset <run-id> --to <stage> --force` - state surgery; refuses
     without `--force` (resetting may repeat orchestration work: executor cost,
     ticket churn), then tells the operator to `adore retry`. It moves only
-    ADORE's pointer; AEGIS still owns the governed stage;
-  - `adore cleanup` - reclaims a provably stale local instance lock and sweeps
-    orphaned containers and orphaned/husk worktree directories; prints a JSON
-    report. Corrupt
-    run state is reported but never auto-deleted (that is `adore delete
-    <run-id> --force`'s explicit job).
+    ADORE's pointer to `frame`, `specify`, `design`, `build`, `validate` or
+    `publishing`, refusing any other target with the run unchanged (a run
+    saved at the removed `deliver` stage is already refused when its state
+    loads); AEGIS still owns the governed stage;
+  - `adore profile delete <name> --force --remove-resources [--remove-clone]` - under the
+    conductor lock, refuses unfinished or corrupt runs, removes the containers,
+    egress resources and worktrees recorded for the project's own runs except
+    human-owned ones, then
+    deletes the profile and prints a JSON report (an external state root is
+    kept and reported);
+    With `--remove-clone` (requires `--remove-resources`) the clone decision of
+    `adore/clone_cleanup.py` runs before the sweep (an unsafe clone deletes
+    nothing), again after `git worktree prune`, and the clone is removed after
+    the profile; the report adds `clone_removed` and `clone_retained`;
+  - `adore cleanup` - reclaims a provably stale local instance lock and removes
+    the selected project's finished and orphaned containers, proxies, networks
+    and worktree directories and leaves other projects' resources in place;
+    prints a JSON report.
+    Corrupt runs are reported and keep their state and resources (deleting them
+    is `adore delete <run-id> --force`'s explicit job).
 - Wire assisted-config + profiles:
   - `adore init [name] [--force] [--answers FILE]` - the setup wizard
     (delegates to `adore.wizard`); writes a validated runtime-project profile.
@@ -70,6 +92,8 @@ the `adore` package; no REST API or web UI exists in v1 by design.
   unaffected. Engine commands prefer `.env` beside that resolved config and
   fall back to cwd `.env`; process environment precedence remains in the
   orchestrator constructor.
+  `run` refuses an archived named or active profile before constructing the
+  engine. Explicit `-c FILE` is an independent operator config override.
 
 Explicitly not owned: any engine behavior; the handlers are thin views over
 `config`, `state`, and the orchestrator.
@@ -87,6 +111,8 @@ Explicitly not owned: any engine behavior; the handlers are thin views over
 - `_operator_lock` protects retry/cancel/delete/reset and always releases a lock
   it acquired, including unsuccessful mutations. A live or unknown holder
   refuses the command clearly; read-only logs do not acquire the lock.
+- `config set` holds the shared per-directory `config_edit_lock` through read,
+  validation and replacement. A concurrent CLI or web edit fails clearly.
 - `_cmd_run` wraps the engine logger with `ProcessLogger`, so engine log
   lines and the final `--once` / `--dry-run` JSON summary are both printed to
   stdout and appended to `<store_root>/adore.log`. Other commands remain
@@ -174,12 +200,22 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
   advice to `LockHeldError` rather than unrelated runtime failures.
 - `tests/test_orchestrator.py` covers the engine side of `reset` (stage set +
   journaled, invalid stage/run refused, retry continues from the reset
-  stage) and `cleanup` (stale lock cleared, orphans swept, active runs and
-  failed runs protected, corrupt state reported).
+  stage) and `cleanup` (stale lock cleared, this project's orphans removed,
+  other projects' resources kept, active, failed, human-owned and corrupt runs
+  protected).
 - Minimum validation after a change: `uv run --group dev pytest tests/test_smoke.py`
   and `uv run adore -c config.example.toml config validate`.
 
 ## 10. Limitations And Future Work
+
+- `adore run --once --ticket IID` requests one specific ready ticket. The
+  normal hold/exclude/readiness checks still apply; a missing or ineligible
+  ticket returns an error. The web worker uses this entry point for Start.
+  A completed pass that does not pick the ticket, or a held conductor lock, ends with
+  `error: ticket #IID not started: <code>`
+  (`pickup_paused`, `at_capacity`, `aegis_probe_failed`, `not_eligible`, or
+  `conductor_busy` for a held lock) and exits 1; the worker records the code as
+  the operation's reason.
 
 - `adore config set` edits one scalar at a time and infers the value type from
   the text; it does not set arrays/tables or change a value's declared type on
@@ -187,8 +223,43 @@ adore --profile <profile-name> run --dry-run   # any command against a profile
 - No `--json` output mode for `status`/`runs` yet; add when scripting needs
   it.
 
-## Checkpoint publication and human ownership
+## Plan and explicit setup replay
 
-adore handoff RUN_ID persists a validated request. With a free lock it performs the transfer under the operator lock; a held lock queues safely and reports that current bounded execution must finish. Done/cancelled or missing/corrupt runs are refused. Ownership state distinguishes pending transfer from permission to edit.
+`config plan` prints a public normalized image/source/command review without setup. `config validate` and `config set` resolve selected recipes before accepting changes. `retry --reprepare` explicitly authorizes full bounded replay in a fresh owned container with retained worktree. Ordinary retry cannot replay failed preparation. Focused proof: `tests/test_profile_cli.py` and `tests/test_preparation_lifecycle.py`.
 
-Offline contract coverage: `04_Software/tests/test_checkpoint_handoff.py`.
+## Native execution contract
+
+`adore pi install` and `adore pi verify` manage the pinned native install and surface typed prerequisite failures without a project selection. config validate accepts local profiles; config plan resolves pinned native policy without project commands. Local config set resolves the same plan before writing. Existing run/retry/cancel/handoff/cleanup commands retain conductor ownership.
+
+See [Local execution](../01_Documentation/Local_Execution.md) and
+[Local execution component](Component_Local_Execution.md). Focused native proof:
+`04_Software/tests/test_local_execution.py`.
+
+## Manual start result
+
+`run --once --ticket IID` is manual admission and works while automatic pickup
+is paused; it preserves pause. Actual non-preview manual runs append a final
+`ADORE_START_RESULT ` JSON line using `start_result.py`: schema 1, requested
+integer ticket, integer exit_code and allowlisted reason. Ordinary operator logs
+precede it. Exit zero reports `started`; refusal reports its specific closed
+gate (capacity, workflow, eligibility, lock, configuration or engine failure).
+Dry runs retain their existing summary-only preview and produce no terminal
+execution result. No exception/forge/executor text enters the terminal record.
+
+## Explicit Retry result
+
+retry retains its arguments and operator lock. Its final ADORE_RETRY_RESULT line
+contains exactly schema=1, run_id, exit_code and an allowlisted reason. An accepted
+retry which immediately ends failed returns exit 1/retry_failed with the saved
+outcome printed for the operator. Successful rearming returns 0/retried. Setup,
+configuration, lock, repository, state and lifecycle refusals have closed reasons.
+The worker binds this terminal evidence to the requested job and actual exit;
+arbitrary preceding logs and stderr are not a web diagnostic channel.
+Focused proof: tests/test_retry_revalidation.py and CLI mutation-lock tests.
+
+## Confirmed drift recovery
+
+`delete <run-id> --force` uses verified resource/worktree and exact remote-branch cleanup before deleting state. Typed native, Git, storage and forge failures return nonzero with actionable guidance. `--owned-resources` explicitly authorizes release using the saved native plan/receipt despite changed executable/environment settings; it never authorizes another host/account, foreign receipt or human-owned job. `restart <run-id> --force --expected-revision <sha256>` requires the confirmed failed state under the conductor lock and then manually admits its ticket with current settings, preserving monitoring pause. A web-worker lock names Project Summary -> Pause monitoring and waiting for the bounded job; CLI loop processes must be stopped separately. Offline proof: `tests/test_drift_recovery.py`.
+
+
+The CLI delete boundary records a durable uncertain receipt in the home deletion audit before cleanup, then confirms it only after successful job removal. It refuses corrupt or unavailable receipts before cleanup and reports an unconfirmed post-delete receipt without asserting the job remains. CLI identity is not a web user.

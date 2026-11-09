@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-ba4eee4e"
+
+title = "List a project's open tickets on demand with pickup eligibility"
+
+status = "active"
+
+requirement = """
+When an authorized user asks the web API for a project's tickets, ADORE shall read the project's open forge issues through the project's credentials within a bounded time and return each ticket's number, title, description, labels, author, web link and update time with its pickup eligibility (startable, or the first unmet selection rule), whether Start can make it eligible by adding only the ready and priority labels and which of them it would add, and any existing job's run ID and lifecycle, together with the configured priority labels, flagging when more than 500 tickets were truncated; a forge failure, timeout or malformed issue record shall return a typed error and no partial list.
+"""
+
+verification = "Automated: forge adapter tests list open issues for GitLab, GitHub and Gitea from fake CLI output, paginate, bound the count and raise ForgeError for a malformed record; web API tests return tickets with eligibility and job fields for an admin and an assigned developer, 404 for an unassigned developer, a truncation flag, 503 forge_read_failed for a failing CLI and 502 forge_response_invalid for malformed output; orchestrator tests keep selecting with the same shared eligibility rules."
+
+affected_paths = ["04_Software/adore/forge/base.py", "04_Software/adore/forge/gitlab.py", "04_Software/adore/forge/github.py", "04_Software/adore/forge/gitea.py", "04_Software/adore/forge/__init__.py", "04_Software/adore/selection.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/app.py", "04_Software/adore/web/tickets.py"]
+
+linked_tests = ["04_Software/tests/test_forge.py", "04_Software/tests/test_selection.py", "04_Software/tests/test_web_tickets.py", "04_Software/tests/test_orchestrator.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Operators choose work from the forge's real backlog instead of typing ticket numbers."        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-11

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-f5388ba8"
+
+title = "Describe terminal recovery for the selected backend"
+
+status = "active"
+
+requirement = """
+When a run fails, the conductor shall describe the selected execution backend and both web and CLI retry actions in the terminal comment.
+"""
+
+verification = "Offline conductor tests trigger failures for local and container backends and inspect terminal comments; a review question checks the status comment."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_terminal_comment_names_backend_and_retry_choices", "04_Software/tests/test_orchestrator.py::test_terminal_does_not_claim_stop_succeeded_on_backend_error", "04_Software/tests/test_orchestrator.py::test_terminal_uses_pinned_backend_after_config_drift"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

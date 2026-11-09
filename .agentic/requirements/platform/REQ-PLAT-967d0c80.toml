@@ -1,0 +1,25 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-PLAT-967d0c80"
+title = "Launch automated Windows console processes without visible windows"
+status = "active"
+requirement = """When ADORE starts an automated Windows console command, its process launch shall request CREATE_NO_WINDOW while preserving captured output, command status, timeout and native ownership handling; Linux launches shall retain their platform launch semantics."""
+verification = """Automated: inspect injected runner, worker, regex and native supervisor/child subprocess options; verify Windows CREATE_NO_WINDOW and absence of Windows flags on Linux, and regress timeout, OS error and ownership/release/cancel handling."""
+affected_paths = ["04_Software/adore/util.py", "04_Software/adore/local_execution.py", "04_Software/adore/local_process.py", "04_Software/adore/local_child.py", "04_Software/adore/isolation.py", "04_Software/adore/web/commands.py", "04_Software/adore/config.py"]
+linked_tests = [
+    "04_Software/tests/test_automatic_processes.py::test_automatic_runner_background_environment",
+    "04_Software/tests/test_automatic_processes.py::test_windows_automatic_child_has_no_console",
+    "04_Software/tests/test_automatic_processes.py::test_branch_preview_background_regex_keeps_json_stdin",
+    "04_Software/tests/test_local_execution.py::test_native_launch_records_ownership_before_release_and_redacts",
+    "04_Software/tests/test_local_execution.py::test_local_child_release_barrier_and_cancel_are_native",
+    "04_Software/tests/test_web_commands.py::test_default_worker_runner_carries_manual_outcome",
+]
+priority = "normal"
+created = 2026-10-21
+updated = 2026-10-21

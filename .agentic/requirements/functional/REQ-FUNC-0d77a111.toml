@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-0d77a111"
+
+title = "Reject start of epic tickets"
+
+status = "active"
+
+requirement = """
+When a ticket has the configured epic type label, ADORE shall refuse its manual start.
+"""
+
+verification = "Offline selection and API fixtures exercise the configured epic label and ordinary tickets."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/selection.py", "04_Software/adore/web/tickets.py", "04_Software/config.example.toml", "04_Software/web/src/ticketCopy.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/settingKeys.json", "04_Software/web/src/settingLabels.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/tests/manualStart.test.mjs", "04_Software/tests/test_selection.py"]
+
+linked_tests = ["04_Software/tests/test_web_tickets.py::test_custom_epic_label_refuses_start_without_forge_write"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-183b80f6"
+
+title = "Show header Refresh on Administration Users"
+
+status = "active"
+
+requirement = """
+The interface shall show the header Refresh control and last refresh time exclusively on Administration Users.
+"""
+
+verification = "Chromium finds header Refresh and its timestamp on Administration Users and verifies their absence on automatic views including project History."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-11-09

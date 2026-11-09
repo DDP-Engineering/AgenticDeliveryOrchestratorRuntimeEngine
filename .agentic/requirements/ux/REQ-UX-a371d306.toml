@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-a371d306"
+
+title = "Preserve the absent description message"
+
+status = "active"
+
+requirement = """
+When a ticket has an empty description, the Tickets view shall display its existing localized No description message in either body display mode.
+"""
+
+verification = "Automated: provide an empty description and switch both modes, asserting the existing localized fallback rather than an empty renderer; a nonempty description displays its body instead."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/e2e/tickets.spec.ts"]
+
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

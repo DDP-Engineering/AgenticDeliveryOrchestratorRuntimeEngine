@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-79c7e862"
+title = "Review account identity and explicit access before creation"
+status = "active"
+requirement = "When an administrator creates an account in the browser, ADORE shall guide identity and credentials, explicit role and project selection, and secret-free review before one submission, making Admin all-project/system access and deliberately selected Dev zero-project access explicit while permitting correction."
+verification = "Automated: browser selects Dev projects, corrects identity and access from review, creates the exact account once; checks Admin global warning, deliberate zero-project confirmation, failed submission correction and absence of password in review/storage."
+affected_paths = ["04_Software/web/src/UserCreation.tsx", "04_Software/web/src/userCopy.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/users.spec.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/users.spec.ts"]
+spec = "specs/REQ-FUNC-97bcc67f.md"
+priority = "normal"
+created = 2026-10-06
+updated = 2026-10-06

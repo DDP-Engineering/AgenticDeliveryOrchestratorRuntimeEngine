@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-49e89542"
+title = "Explicit pre-create environment verification"
+status = "active"
+requirement = "When an authorized administrator explicitly checks a structurally valid reviewed draft revision, the backend shall return bounded redacted revision/time-bound prerequisite evidence without persisting a draft, rejecting stale revisions and invalid setup before probes."
+verification = "Fake tool/container/model responses; verify calls only on explicit draft probe, current failed/partial/verified evidence, mismatched revisions and no profile creation or durable draft."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py","04_Software/tests/test_web_readiness.py"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

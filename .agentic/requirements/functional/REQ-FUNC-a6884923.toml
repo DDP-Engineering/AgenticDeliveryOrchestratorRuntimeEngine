@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-a6884923"
+
+title = "Create the project's missing ADORE labels in the forge"
+
+status = "active"
+
+requirement = """
+When an administrator asks ADORE to create a project's labels, ADORE shall read the repository's existing labels and create, with a colour and a description, only the ADORE labels named by the project's settings that are missing (compared without case), never changing or deleting existing labels, and report the created, already existing and failed labels.
+"""
+
+verification = "Automated: pytest covers the label list from settings, creation of missing labels only, case-insensitive matching, a failing create reported while others continue, a failing listing, the GitHub/GitLab/Gitea command lines and the administrator-only endpoint with its audit."
+
+affected_paths = ["04_Software/adore/forge_labels.py", "04_Software/adore/forge/base.py", "04_Software/adore/forge/github.py", "04_Software/adore/forge/gitlab.py", "04_Software/adore/forge/gitea.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_forge_labels.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "GitHub and Gitea refuse to add labels that do not exist in the repository, so a new project cannot work until its labels exist."
+
+created = 2026-10-13
+updated = 2026-10-13

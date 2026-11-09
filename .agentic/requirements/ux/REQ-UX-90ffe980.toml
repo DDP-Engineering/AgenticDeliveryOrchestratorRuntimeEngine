@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-90ffe980"
+
+title = "Manage estimated prices inside Agent and model settings"
+
+status = "active"
+
+requirement = """
+Where the signed-in user is an administrator, the Agent and model group of a project's Settings shall show the estimated-price form and the table of that project's estimated prices, and saving a valid price shall add it to that table; for developers the group shall show neither.
+"""
+
+verification = "Automated: e2e as administrator opens a project's Settings, expands Agent and model, finds the Estimated prices form and table there, saves a price and sees its row in the table; as developer the same group shows no Estimated prices section."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/routes.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/executor-config.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "A price is defined per executor and model, which are selected in the same group."        # why this behavior exists, if not obvious
+
+created = 2026-10-10
+updated = 2026-10-10

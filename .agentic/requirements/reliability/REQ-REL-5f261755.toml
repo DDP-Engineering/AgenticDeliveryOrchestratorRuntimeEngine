@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-REL-5f261755"
+title = "Respect automatic polling quiet hours"
+status = "active"
+requirement = """While the configured local-time quiet window is active, CLI loop and the web worker shall defer automatic polling using the current cadence without changing the prior error multiplier."""
+verification = "Observe no automatic command inside midnight-crossing quiet windows and resumed commands outside; queued operations and worker heartbeat remain functional."
+affected_paths = ["04_Software/adore/polling.py", "04_Software/adore/web/commands.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_web_commands.py::test_shared_cadence_retains_errors_through_quiet_rounds_and_resets", "04_Software/tests/test_web_commands.py::test_worker_resumes_automatic_polling_after_quiet_window"]
+priority = "normal"
+created = 2026-10-08
+updated = 2026-10-08

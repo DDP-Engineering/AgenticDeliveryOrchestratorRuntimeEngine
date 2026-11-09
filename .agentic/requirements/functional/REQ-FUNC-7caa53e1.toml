@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-7caa53e1"
+
+title = "Sum Pi usage over the turns of a launch"
+
+status = "active"
+
+requirement = """When a Pi RPC launch ends, ADORE shall report as the launch's token usage the sum over every assistant `message_end` of input plus cache-read plus cache-write tokens as input, output tokens as output, and cache-read and cache-write separately, shall report no billed cost, and shall mark token usage unavailable when an assistant `message_end` record could not be read."""
+
+verification = "Replaying the recorded four-turn run yields input 5275, output 141, cache-read 3456 and zero cost not reported; the orchestrator's journaled usage event passes unique_usage_events; a replay with an unreadable assistant record reports tokens unavailable."
+
+affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_successful_run_with_tool_calls_sums_usage_over_turns", "04_Software/tests/test_pi_rpc.py::test_unreadable_assistant_record_makes_tokens_unavailable", "04_Software/tests/test_pi_rpc.py::test_pi_usage_event_passes_validation_and_reaches_statistics"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-01
+updated = 2026-11-02

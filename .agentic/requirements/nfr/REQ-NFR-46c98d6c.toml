@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-NFR-46c98d6c"
+
+title = "Request one table page at a time for Overview and Audit"
+
+status = "active"
+
+requirement = """
+When a user pages the Audit trail or an expanded Overview job table, the web interface shall request only the rows of the displayed page from the server, requesting every row only when the user chooses All, while keeping the 10, 25, 50 and All page-size choices and finite page navigation.
+"""
+
+verification = "Manual: with more than 50 audit rows and more than 25 matching jobs, open Audit and an Overview job table with DevTools network logging; confirm each page change requests limit/offset for that page only, All requests limit=all once, and page totals and navigation stay correct."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

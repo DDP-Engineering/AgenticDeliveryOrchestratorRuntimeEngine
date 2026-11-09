@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-1141c28f"
+
+title = "Show observed monitoring operation results"
+
+status = "active"
+
+requirement = """
+When a monitoring operation finishes, the web interface shall refresh the displayed project state from the observed result.
+"""
+
+verification = "Offline browser fixtures return successful and failed operation outcomes and inspect the tile."
+
+affected_paths = ["04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/web/e2e/issue37.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

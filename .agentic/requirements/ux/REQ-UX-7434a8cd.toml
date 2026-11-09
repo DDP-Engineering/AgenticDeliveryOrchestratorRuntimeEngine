@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-7434a8cd"
+
+title = "Separate project details metadata from action controls"
+
+status = "active"
+
+requirement = """
+The Project details summary shall display readable, wrapping metadata rows with visible spacing and at least 16 CSS pixels of separation between Last activity and action buttons at desktop and phone viewport sizes.
+"""
+
+verification = "Manual: Open Project details at desktop and 390px widths; inspect metadata row gaps and measure Last activity to button-row gap >=16px, confirm long repository text and wrapped buttons remain within the panel."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

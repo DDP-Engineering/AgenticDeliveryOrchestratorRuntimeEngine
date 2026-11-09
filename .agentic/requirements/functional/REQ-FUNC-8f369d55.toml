@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-8f369d55"
+title = "Prove a shell tool call in the local Test AI connection"
+status = "active"
+requirement = """
+When an administrator runs Test AI connection for a native local profile, ADORE shall report ready only when the installed Pi run with the configured command, given one challenge to run echo <tool nonce> with its shell tool and then reply with <reply nonce>, produced a completed, successful shell tool call whose output contains the tool nonce and a completed final reply equal to the reply nonce.
+"""
+verification = "Offline: a recorded Pi event stream with a successful bash tool_execution_end carrying the tool nonce and a last assistant message_end with stopReason stop and the exact reply reports ready; the same stream without the reply, with a different final reply, with an earlier message carrying the nonce but a different last reply, or with the nonce only in the reply reports not ready; a container profile runs the same challenge over RPC (REQ-FUNC-9110e185). Native: on this Windows host an installed Pi passes against a live model."
+affected_paths = ["04_Software/adore/web/model_connection.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_model_challenge_requires_a_completed_shell_call", "04_Software/tests/test_model_connection.py::test_rpc_probe_reports_each_outcome_distinctly", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_the_managed_rpc_installation"]
+spec = "specs/REQ-FUNC-8f369d55.md"
+priority = "high"
+rationale = "A model reply alone does not show the agent can run the commands AEGIS stages need."
+created = 2026-11-01
+updated = 2026-11-02

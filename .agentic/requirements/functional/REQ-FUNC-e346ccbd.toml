@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-e346ccbd"
+
+title = "Report an invalid API key in Test AI connection"
+
+status = "active"
+
+requirement = """If the provider rejects the API key during Test AI connection, then ADORE shall report the reason credential-invalid."""
+
+verification = "A fake Pi replaying the recorded 401 invalid-key run reports credential-invalid with no key hint in the result."
+
+affected_paths = ["04_Software/adore/web/model_connection.py", "04_Software/web/src/modelEvidence.ts"]
+
+linked_tests = ["04_Software/tests/test_model_connection.py::test_rpc_probe_reports_each_outcome_distinctly"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

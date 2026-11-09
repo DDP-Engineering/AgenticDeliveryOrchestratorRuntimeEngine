@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-aae1904f"
+
+title = "Remove the current project's finished and orphaned run resources"
+
+status = "active"
+
+requirement = """
+When an operator runs cleanup for a runtime project, the CLI shall remove the executor container, egress proxy, egress networks and worktree directory of each of that project's done, cancelled or stale runs and of each of its runs that has no state, and list every removed resource in its report.
+"""
+
+verification = "Automated orchestrator tests give the current project done, cancelled and stale runs (including a recorded run ID outside the run-ID form and a recorded container of another name) and a container, proxy, network and worktree directory named for a run without state; after cleanup those resources, under the current per-run proxy and network names, are gone and listed under containers_removed, proxy_containers_removed, egress_networks_removed and worktrees_removed, while the project's working, failed and handed-off runs keep theirs; a failing container runtime is skipped, and a directory that survives removal is not listed."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py", "04_Software/adore/cli.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_cleanup_removes_this_projects_finished_and_stateless_run_resources", "04_Software/tests/test_orchestrator.py::test_cleanup_preserves_failed_run_resources_and_reports_egress_gc", "04_Software/tests/test_orchestrator.py::test_cleanup_continues_when_the_container_runtime_fails", "04_Software/tests/test_orchestrator.py::test_cleanup_reports_only_worktrees_it_removed", "04_Software/tests/test_isolation.py::test_cleanup_network_sweep_survives_allowlist_mode_change", "04_Software/tests/test_isolation.py::test_cleanup_container_sweep_continues_after_one_remove_failure"]
+
+
+spec = "specs/REQ-SEC-4a3f81cb.md"
+
+priority = "normal"
+rationale = "Resources left by crashes or lost state still need collecting, within the project's own boundary."
+
+created = 2026-10-04
+updated = 2026-11-01

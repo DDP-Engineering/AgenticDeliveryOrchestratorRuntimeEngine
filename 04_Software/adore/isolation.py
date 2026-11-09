@@ -15,8 +15,10 @@
          object store) mounted into a container (execution isolation). The
          worktree's `.git` pointer file holds an absolute HOST path, invalid
          inside the container, so the repo and worktree are mounted at fixed
-         container paths and git is directed with GIT_DIR / GIT_COMMON_DIR /
-         GIT_WORK_TREE environment variables instead of path discovery. The container
+         container paths with a container-native, read-only `.git` pointer
+         overlay. Git then discovers repositories normally, including independent
+         repositories used by project tests. Selection environment keys transport
+         binding metadata to provisioning rather than leaking to descendants. The container
          runtime may be a wrapped command (for example
          "wsl -d Ubuntu-24.04 -- docker" for Docker Engine inside WSL2); in
          WSL mode mount sources are translated to /mnt/<drive>/ paths and
@@ -31,12 +33,15 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Sequence
 import hashlib
+import ipaddress
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import shlex
 import stat
+import subprocess
 import time
+from uuid import uuid4
 
 from adore.branding import (
     CONTAINER_HOME,
@@ -48,12 +53,15 @@ from adore.branding import (
     EGRESS_NETWORK_PREFIX,
     EGRESS_PROXY_ALIAS,
 )
-from adore.config import SELINUX_RELABEL_OPTIONS, ContainerEgressConfig
+from adore.config import SELINUX_RELABEL_OPTIONS, EgressPolicy
 from adore.util import (
     DEFAULT_COMMAND_TIMEOUT,
     CommandResult,
     CommandRunner,
+    automatic_environment,
+    background_process_options,
     run_command,
+    strict_json_loads,
 )
 
 # CONSTANTS
@@ -71,8 +79,27 @@ _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 # already creates carrying a container-readable label, and relabeling those
 # would be both pointless and slow.
 _PROXY_SUFFIX = "-egress-proxy"
+# Per-run egress names stay within these lengths (a 50-character proxy stem
+# plus the suffix is a 63-character DNS label); a longer runtime-safe executor
+# name keeps its start and ends in a short digest of the full name.
+_PROXY_NAME_LIMIT = 50
+_NETWORK_NAME_LIMIT = 48
+_NAME_DIGEST_LENGTH = 10
+_GIT_SELECTION_ENV = frozenset({"GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE"})
+_GIT_BINDING_LABEL = "io.ddp.adore.git-binding"
+_GIT_BINDING_VERSION = "pointer-v1"
+_GIT_BINDING_ACK = "adore-git-binding-v1"
+_GIT_BINDING_CHECK = (
+    'test -z "${GIT_DIR+x}${GIT_COMMON_DIR+x}${GIT_WORK_TREE+x}" && '
+    'test "$(cat /adore/work/.git)" = "$1" && '
+    'test "$(git -C /adore/work rev-parse --absolute-git-dir)" = "$2" && '
+    'test "$(git -C /adore/work rev-parse --show-toplevel)" = /adore/work && '
+    "printf '%s\\n' adore-git-binding-v1"
+)
 PROXY_ALIAS = EGRESS_PROXY_ALIAS
 _INLINE_ENV_KEYS = frozenset({
+    "GIT_PAGER",
+    "PAGER",
     "HOME",
     "GIT_DIR",
     "GIT_COMMON_DIR",
@@ -81,7 +108,10 @@ _INLINE_ENV_KEYS = frozenset({
     "GIT_AUTHOR_EMAIL",
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
-    "CODEX_HOME",
+    "PI_CODING_AGENT_DIR",
+    "PI_OFFLINE",
+    "PI_TELEMETRY",
+    "PI_SKIP_VERSION_CHECK",
     "UV_CACHE_DIR",
     "UV_LINK_MODE",
     "UV_PROJECT_ENVIRONMENT",
@@ -111,10 +141,10 @@ _TEARDOWN_RACE_MARKERS = (
 _TEARDOWN_RETRY_DELAYS = (1.0, 2.0, 4.0)  # ~7s ceiling; the race clears in seconds
 
 # Paths a TOOL regenerates rather than a person editing them. Excluded from the
-# PRODUCT fingerprint only: rerunning a configured command rewrites them, and
-# that must never read as the delivery executor changing product code after a
-# human approved the candidate. Deliberately narrow - anything whose content a
-# person could meaningfully author stays inside the fingerprint.
+# stage PROGRESS fingerprint only: rerunning a configured command rewrites them,
+# and that must never read as a session having made candidate progress.
+# Deliberately narrow - anything whose content a person could meaningfully
+# author stays inside the fingerprint.
 _GENERATED_PATHSPECS = (
     ":(exclude)**/__pycache__/**",
     ":(exclude)**/*.pyc",
@@ -188,14 +218,13 @@ def wsl_mount_path(path: str | Path) -> str:
 
 def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dict[str, str]:
     """
-    @brief      Compose the git environment injected into a run's container.
+    @brief      Compose Git binding metadata and container identity environment.
     @details    GIT_DIR points at the worktree's admin dir under the mounted
                 repo, GIT_COMMON_DIR at the mounted repository's common
                 object/config store, and GIT_WORK_TREE at the mounted
-                worktree. This bypasses the worktree's `.git` pointer file,
-                whose absolute host path is meaningless inside the container,
-                while keeping linked-worktree git discovery stable for CLIs
-                that inspect the repository deeply. The identity variables
+                worktree. ContainerManager consumes these selection keys to
+                mount a native pointer and filters them from fresh container
+                configuration and explicit exec environment. The identity variables
                 give commits the configured bot authorship
                 (Security_And_Credentials.md).
     @param[in]  git_dir_name The worktree admin dir name under
@@ -208,7 +237,7 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         # Force the container user's home explicitly: some daemons (Docker
         # Engine in WSL2) inject the host user's HOME into every container,
         # overriding the image and breaking every HOME-based cache - tflint's
-        # bundled plugin, uv, npm, opencode auth (live finding 2026-07-04).
+        # bundled plugin, uv, npm, agent auth (live finding 2026-07-04).
         "HOME": CONTAINER_HOME,
         "GIT_DIR": f"{CONTAINER_REPO_MOUNT}/.git/worktrees/{git_dir_name}",
         "GIT_COMMON_DIR": f"{CONTAINER_REPO_MOUNT}/.git",
@@ -218,6 +247,117 @@ def build_container_env(git_dir_name: str, git_name: str, git_email: str) -> dic
         "GIT_COMMITTER_NAME": git_name,
         "GIT_COMMITTER_EMAIL": git_email,
     }
+
+
+def _without_git_selection(env: dict[str, str]) -> dict[str, str]:
+    """@brief Keep process environment while removing managed Git selectors.
+    @param[in] env Environment mapping; Windows keys are case insensitive.
+    @return Independent mapping without repository-selection overrides.
+    """
+    return {key: value for key, value in env.items() if key.upper() not in _GIT_SELECTION_ENV}
+
+
+def _container_runtime_prefix(runtime: str) -> tuple[list[str], bool, str]:
+    """@brief Parse runtime transport without interpreting option operands as commands.
+    @param[in] runtime Native container CLI or supported WSL command prefix.
+    @return Direct argument prefix, WSL mode and actual command basename.
+    @exception ValueError For empty, incomplete or ambiguous runtime prefixes.
+    """
+    argv = shlex.split(runtime)
+    if not argv:
+        raise ValueError("container runtime command is empty")
+    wsl = PureWindowsPath(argv[0]).stem.lower() == "wsl"
+    command = 0
+    if wsl:
+        command = 1
+        value_options = {"-d", "--distribution", "--distribution-id", "-u", "--user",
+                         "--cd", "--shell-type"}
+        while command < len(argv):
+            option = argv[command]
+            if option in {"--exec", "-e", "--"}:
+                if option == "--":
+                    argv[command] = "--exec"
+                command += 1
+                break
+            if option in value_options:
+                if command + 1 >= len(argv):
+                    raise ValueError("WSL runtime option requires a value")
+                command += 2
+            elif option == "--system":
+                command += 1
+            elif option.startswith("-"):
+                raise ValueError("unsupported WSL runtime option")
+            else:
+                if PureWindowsPath(option).stem.lower() not in {
+                    "docker", "podman", "podman-remote",
+                }:
+                    raise ValueError(
+                        "WSL runtime requires an explicit -- or --exec command boundary"
+                    )
+                argv.insert(command, "--exec")
+                command += 1
+                break
+        if command >= len(argv):
+            raise ValueError("WSL runtime requires a container command")
+    return argv, wsl, PureWindowsPath(argv[command]).stem.lower()
+
+
+def _git_binding_payload(env: dict[str, str]) -> bytes | None:
+    """@brief Admit exact managed metadata for a native linked-worktree pointer.
+    @param[in] env Provisioning metadata and executor environment.
+    @return Exact pointer bytes, or None for a non-repository probe.
+    @exception IsolationError For incomplete, foreign or malformed metadata.
+    """
+    if not _GIT_SELECTION_ENV.intersection(env):
+        return None
+    git_dir = env.get("GIT_DIR")
+    prefix = f"{CONTAINER_REPO_MOUNT}/.git/worktrees/"
+    if not isinstance(git_dir, str) or not git_dir.startswith(prefix):
+        raise IsolationError("invalid container Git binding metadata")
+    component = git_dir[len(prefix):]
+    if (not component or component in {".", ".."}
+            or any(char in "/\\" or ord(char) < 32 or 127 <= ord(char) < 160 for char in component)
+            or env.get("GIT_COMMON_DIR", f"{CONTAINER_REPO_MOUNT}/.git")
+            != f"{CONTAINER_REPO_MOUNT}/.git"
+            or env.get("GIT_WORK_TREE", CONTAINER_WORKTREE_MOUNT) != CONTAINER_WORKTREE_MOUNT):
+        raise IsolationError("invalid container Git binding metadata")
+    try:
+        return f"gitdir: {git_dir}\n".encode()
+    except UnicodeError as exc:
+        raise IsolationError("invalid container Git binding metadata") from exc
+
+
+def _admit_git_pointer(path: Path, payload: bytes, *, create: bool = False) -> None:
+    """@brief Create or verify bounded regular binding data without overwriting it.
+    @param[in] path Private run IO file, outside the candidate worktree.
+    @param[in] payload Exact expected Git data; its format cannot contain comments.
+    @param[in] create Allow exclusive initial creation, preserving existing evidence.
+    @exception IsolationError For missing, linked, nonregular or mismatched evidence.
+    """
+    try:
+        if create:
+            try:
+                descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                                     | getattr(os, "O_BINARY", 0), 0o644)
+            except FileExistsError:
+                pass
+            else:
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(payload)
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size != len(payload):
+            raise IsolationError("container Git pointer evidence is corrupt")
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                             | getattr(os, "O_BINARY", 0))
+        with os.fdopen(descriptor, "rb") as stream:
+            if stream.read(len(payload) + 1) != payload:
+                raise IsolationError("container Git pointer evidence is corrupt")
+    except OSError as exc:
+        raise IsolationError("container Git pointer evidence unavailable or corrupt") from exc
+
+
+class SuspiciousCheckpointPathError(IsolationError):
+    """@brief A new checkpoint path needs operator inspection."""
 
 
 class CheckpointConflictError(IsolationError):
@@ -245,6 +385,9 @@ class WorktreeManager:
         root: str | Path,
         runner: CommandRunner = run_command,
         sleep: Callable[[float], None] = time.sleep,
+        *,
+        git_name: str = "",
+        git_email: str = "",
     ) -> None:
         """
         @brief      Bind the manager to a local clone and a worktrees root.
@@ -257,11 +400,15 @@ class WorktreeManager:
         @param[in]  runner Command runner (injectable for tests).
         @param[in]  sleep Sleep function used by `remove`'s teardown-race
                           backoff (test override).
+        @param[in]  git_name Name for host-side ADORE checkpoint commits.
+        @param[in]  git_email Email for host-side ADORE checkpoint commits.
         """
         self.repo_path = Path(repo_path).resolve()
         self.root = Path(root).resolve()
         self.runner = runner
         self.sleep = sleep
+        self.git_name = git_name
+        self.git_email = git_email
 
     def path_for(self, run_id: str) -> Path:
         """
@@ -279,7 +426,8 @@ class WorktreeManager:
         """
         return (self.path_for(run_id) / ".git").exists()
 
-    def create(self, run_id: str, branch: str, base_ref: str) -> Path:
+    def create(self, run_id: str, branch: str, base_ref: str,
+               *, new_branch: bool = False) -> Path:
         """
         @brief      Create (or reuse) the run's worktree on its branch.
         @details    Idempotent, in resume order: an existing worktree is
@@ -290,10 +438,18 @@ class WorktreeManager:
         @param[in]  branch Run branch name (for example "adore/<run-id>").
         @param[in]  base_ref Base ref for a new branch (for example
                              "origin/develop").
+        @param[in]  new_branch Require an absent path and atomic new-ref creation for admission.
         @return     The worktree path.
         @exception  IsolationError When git fails.
         """
         path = self.path_for(run_id)
+        if new_branch:
+            if path.exists() or path.is_symlink():
+                raise IsolationError("fresh worktree path already exists; ownership is unproven")
+            self.root.mkdir(parents=True, exist_ok=True)
+            # Git creates the ref atomically; an appearing local branch is never reattached.
+            self._git("worktree", "add", "-b", branch, str(path), base_ref)
+            return path
         if self.exists(run_id):
             return path
         self.root.mkdir(parents=True, exist_ok=True)
@@ -375,7 +531,8 @@ class WorktreeManager:
         """
         @brief   Directories currently under the worktrees root.
         @details Includes husks (deregistered but not deleted, e.g. after the
-                 WSL bind-mount race) - exactly what `adore cleanup` sweeps.
+                 WSL bind-mount race). `adore cleanup` reads it to find the
+                 project's run IDs that have no state.
         @return  Child directories, sorted.
         """
         if not self.root.is_dir():
@@ -495,10 +652,112 @@ class WorktreeManager:
             raise CheckpointConflictError("remote branch changed during checkpoint push")
         raise IsolationError("checkpoint push not verified", result.argv, result.stderr)
 
+    def remote_branch_head(self, branch: str) -> str:
+        """@brief Read one exact remote ref without adopting or deleting its ownership.
+        @param[in] branch Candidate run branch.
+        @return Observed commit, or empty for an absent branch.
+        @exception IsolationError Invalid ref, transport, duplicate or malformed output.
+        """
+        ref = f"refs/heads/{branch}"
+        self._git("check-ref-format", ref)
+        output = self._git("ls-remote", "--heads", "origin", ref).stdout.strip()
+        if not output:
+            return ""
+        match = re.fullmatch(r"([0-9a-f]{40}|[0-9a-f]{64})\t" + re.escape(ref), output)
+        if match is None:
+            raise IsolationError("invalid remote branch availability evidence")
+        return match[1]
+
+    def fresh_branch(self, base: str, *, validate: Callable[[str], bool]) -> str:
+        """@brief Select an empty local/remote branch in at most four bounded probes.
+        @param[in] base Configured derived branch; occupied refs are preserved.
+        @param[in] validate Bounded repository naming-policy check for each actual candidate.
+        @return Base or one exact derived generation with a twelve-hex suffix.
+        @exception IsolationError No valid empty name or unconfirmed Git evidence.
+        """
+        for attempt in range(4):
+            candidate = base if attempt == 0 else f"{base}-g{uuid4().hex[:12]}"
+            if not validate(candidate):
+                continue
+            self._git("check-ref-format", f"refs/heads/{candidate}")
+            local = self.runner(["git", "-C", str(self.repo_path), "show-ref", "--verify",
+                                 "--quiet", f"refs/heads/{candidate}"])
+            if local.timed_out or local.exit_code not in (0, 1):
+                raise IsolationError("local branch availability could not be verified")
+            if local.exit_code == 1 and not self.remote_branch_head(candidate):
+                return candidate
+        raise IsolationError("no empty branch satisfies the repository naming rule")
+
+    def verify_removal(self, run_id: str, branch: str) -> None:
+        """@brief Verify local Git ownership before destructive recovery.
+        @param[in] run_id State-owned run directory name.
+        @param[in] branch Exact run branch, independently checked by the conductor.
+        @exception IsolationError Aliased, foreign or unregistered worktree.
+        """
+        path = self.path_for(run_id)
+        if path.resolve() != path.absolute() or path.is_symlink():
+            raise IsolationError("cleanup worktree path is linked or aliased")
+        if not path.exists():
+            return
+        if not (path / ".git").is_file() or (path / ".git").is_symlink():
+            raise IsolationError("cleanup worktree Git ownership is missing")
+        common = self._run_wt(str(path), "rev-parse", "--path-format=absolute", "--git-common-dir")
+        owner = self._git("rev-parse", "--path-format=absolute", "--git-common-dir")
+        head = self._run_wt(str(path), "symbolic-ref", "-q", "HEAD")
+        top = self._run_wt(str(path), "rev-parse", "--show-toplevel")
+        if (not Path(common.stdout.strip()).is_absolute()
+                or not Path(owner.stdout.strip()).is_absolute()
+                or Path(common.stdout.strip()).resolve() != Path(owner.stdout.strip()).resolve()
+                or Path(top.stdout.strip()).resolve() != path.resolve()
+                or head.stdout.strip() != f"refs/heads/{branch}"):
+            raise IsolationError("cleanup worktree belongs to a different repository or branch")
+
+    def remove_remote_branch(self, branch: str, expected: str, target: str,
+                             *, allow_absent: bool = False) -> None:
+        """
+        @brief Remove an unchanged owned run branch using an exact remote lease.
+        @param[in] branch Owned run branch selected by the conductor.
+        @param[in] expected Last published commit, which every publication records.
+        @param[in] target Protected delivery target branch.
+        @param[in] allow_absent Permit an empty checkpoint only when the remote ref is absent.
+        @exception IsolationError When identity, transport or deletion cannot be verified.
+        @note An already absent branch succeeds without requiring its local counterpart.
+        """
+        ref = f"refs/heads/{branch}"
+        if (not branch or branch.startswith("-") or branch == target
+                or (not (allow_absent and expected == "")
+                    and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", expected or "") is None)):
+            raise IsolationError("invalid or protected branch cleanup identity")
+        self._git("check-ref-format", ref)
+
+        def remote_head() -> str:
+            """@brief Reject remote output that does not identify exactly the requested ref."""
+            output = self._git("ls-remote", "--heads", "origin", ref).stdout.strip()
+            if not output:
+                return ""
+            match = re.fullmatch(r"([0-9a-f]{40}|[0-9a-f]{64})\t" + re.escape(ref), output)
+            if match is None:
+                raise IsolationError("invalid remote branch cleanup identity")
+            return match[1]
+
+        remote = remote_head()
+        if not remote:
+            return
+        if remote != expected:
+            raise IsolationError("remote run branch changed outside ADORE")
+        self.scrub_container_worktree_config()
+        result = self.runner([
+            "git", "-C", str(self.repo_path), "push",
+            f"--force-with-lease={ref}:{expected}", "origin", f":{ref}",
+        ])
+        if not remote_head():
+            return
+        raise IsolationError("remote branch deletion not verified", result.argv, result.stderr)
+
     def is_dirty(self, run_id: str) -> bool:
         """
         @brief      Whether the run's worktree has uncommitted changes.
-        @details    Conductor check before delivery: a validated run with a
+        @details    Conductor check before fingerprinting: a validated run with a
                     dirty tree has work that would never reach the MR
                     (pilot finding 2026-07-03).
         @param[in]  run_id Stable run identifier.
@@ -607,40 +866,6 @@ class WorktreeManager:
                 digest.update(value)
         return digest.hexdigest()
 
-    def product_diff_fingerprint(self, run_id: str, base_ref: str) -> str:
-        """
-        @brief      Fingerprint candidate content outside `.agentic/`.
-        @details    Delivery bookkeeping is expected to change governed
-                    journal/report files. Product code is not; this digest lets
-                    the conductor detect that prohibited candidate mutation.
-
-                    Tool-regenerated paths are excluded too. A target
-                    repository without a matching `.gitignore` carries its own
-                    bytecode and tool caches in the candidate, and the delivery
-                    gate reruns the configured commands, which rewrites them.
-                    Counting that as the delivery executor mutating product
-                    code would invalidate an approval a human had already
-                    given, for a file nobody edited (live finding 2026-09-18).
-                    They stay in the diff and in `changed_files`: the candidate
-                    really does contain them and the reviewer should see that.
-        @param[in]  run_id Stable run identifier.
-        @param[in]  base_ref Integrated target ref.
-        @return     SHA-256 of the binary product diff.
-        """
-        if self.is_dirty(run_id):
-            raise IsolationError("cannot fingerprint a dirty product candidate")
-        result = self._run_wt(
-            str(self.path_for(run_id)),
-            "diff",
-            "--binary",
-            f"{base_ref}...HEAD",
-            "--",
-            ".",
-            ":(exclude).agentic/**",
-            *_GENERATED_PATHSPECS,
-        )
-        return hashlib.sha256(result.stdout.encode("utf-8")).hexdigest()
-
     def commit_series(self, run_id: str, base_ref: str) -> list[str]:
         """@brief Return the ordered SHA and subject series over the target."""
         result = self._run_wt(
@@ -673,11 +898,10 @@ class WorktreeManager:
 
     def commit_all_if_dirty(self, run_id: str, message: str) -> bool:
         """
-        @brief      Commit pending worktree changes when delivery checks
-                    generated artifacts after the last executor commit.
-        @details    Used by the conductor after its own delivery gates/report
-                    commands. `git add -A` includes non-ignored workflow
-                    artifacts (for example `.agentic/.../report.md`) while
+        @brief      Commit pending worktree changes as one checkpoint.
+        @details    Used by the conductor after each executor stage and after
+                    its own verification. `git add -A` includes non-ignored
+                    workflow artifacts (for example the AEGIS task journal) while
                     naturally leaving ignored dependency caches out of the
                     branch. Empty status is a no-op.
         @param[in]  run_id Stable run identifier.
@@ -686,12 +910,82 @@ class WorktreeManager:
         @exception  IsolationError When git fails.
         """
         wt = str(self.path_for(run_id))
-        if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
+        staged = ("diff", "--cached", "--no-renames", "--name-only", "--diff-filter=A", "-z")
+
+        def git(*args: str) -> str:
+            """@brief Run one checkpoint Git command and validate its result."""
+            result = self._run_wt(wt, *args)
+            output = result.stdout
+            if (type(result.exit_code) is not int or result.timed_out
+                    or not isinstance(output, str) or len(output) > 4_000_000
+                    or "\ufffd" in output):
+                raise IsolationError("invalid Git checkpoint evidence")
+            return output
+
+        def records(output: str) -> list[str]:
+            """@brief Validate a bounded, complete NUL-delimited Git response."""
+            if output and not output.endswith("\0"):
+                raise IsolationError("invalid Git checkpoint path evidence")
+            entries = output[:-1].split("\0") if output else []
+            if len(entries) > 100_000 or any(not item for item in entries):
+                raise IsolationError("invalid Git checkpoint path evidence")
+            return entries
+
+        def status() -> bool:
+            """@brief Validate porcelain status including rename source records."""
+            entries = records(git("status", "--porcelain", "--untracked-files=all", "-z"))
+            valid = {"??", " D", "D ", "DD", "AU", "UD", "UA", "DU", "AA", "UU"}
+            valid.update(x + y for x in " MTARC" for y in " MTDRC" if x + y != "  ")
+            i = 0
+            while i < len(entries):
+                entry = entries[i]
+                if (len(entry) < 4 or entry[2] != " "
+                        or entry[:2] not in valid):
+                    raise IsolationError("invalid Git checkpoint status evidence")
+                paths = [entry[3:]]
+                if "R" in entry[:2] or "C" in entry[:2]:
+                    i += 1
+                    if i >= len(entries):
+                        raise IsolationError("invalid Git checkpoint status evidence")
+                    paths.append(entries[i])
+                if entry[:2] == "??" and paths[0].endswith("/"):
+                    paths[0] = paths[0][:-1]
+                if any(any(part in ("", ".", "..") for part in path.split("/"))
+                       for path in paths):
+                    raise IsolationError("invalid Git checkpoint status evidence")
+                i += 1
+            return bool(entries)
+
+        def inspect_paths(*outputs: str) -> None:
+            """@brief Refuse suspicious new paths after validating all entries."""
+            entries = [path for output in outputs for path in records(output)]
+            for path in entries:
+                parts = path.removesuffix("/").split("/")
+                if any(part in ("", ".", "..") for part in parts):
+                    raise IsolationError("invalid Git checkpoint path evidence")
+            for path in entries:
+                parts = path.split("/")
+                lowered = [part.casefold() for part in parts]
+                variable = any(re.fullmatch(r"%[A-Za-z_][A-Za-z0-9_]*%", part)
+                               for part in parts)
+                system_cache = any(lowered[i:i + 4] ==
+                                   ["programdata", "microsoft", "windows", "caches"]
+                                   for i in range(len(parts) - 3))
+                if variable or system_cache:
+                    raise SuspiciousCheckpointPathError(
+                        f"suspicious checkpoint path {path!r}; inspect and remove or relocate "
+                        "the unintended file before retrying")
+
+        if not status():
             return False
-        self._run_wt(wt, "add", "-A")
-        if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
+        untracked = git("ls-files", "--others", "--exclude-standard", "-z")
+        additions = git(*staged)
+        inspect_paths(untracked, additions)
+        git("add", "-A")
+        inspect_paths(git(*staged))
+        if not status():
             return False
-        self._run_wt(wt, "commit", "-m", message)
+        git("commit", "-m", message)
         return True
 
     def scrub_container_worktree_config(self) -> None:
@@ -768,7 +1062,11 @@ class WorktreeManager:
         @exception  IsolationError When git exits non-zero.
         """
         self.scrub_container_worktree_config()
-        argv = ["git", "-C", worktree, *args]
+        identity = (["-c", f"user.name={self.git_name}",
+                     "-c", f"user.email={self.git_email}"]
+                    if args[0] == "commit" and self.git_name and self.git_email
+                    else [])
+        argv = ["git", "-C", worktree, *identity, *args]
         result = self.runner(argv)
         if not result.ok:
             raise IsolationError(f"git {args[0]} failed", result.argv, result.stderr)
@@ -795,8 +1093,9 @@ class ContainerManager:
         runner: CommandRunner = run_command,
         *,
         run_args: Sequence[str] = (),
-        egress: ContainerEgressConfig | None = None,
+        egress: EgressPolicy | None = None,
         selinux_relabel: str = "off",
+        pull_never: bool = False,
     ) -> None:
         """
         @brief      Configure the manager from the [container] section.
@@ -812,29 +1111,33 @@ class ContainerManager:
         @param[in]  run_args Extra option tokens for `<runtime> run`
                              ([container] run_args; e.g. "--userns=keep-id"
                              for rootless podman, live finding 2026-07-04).
-        @param[in]  egress Optional egress policy for executor containers.
+        @param[in]  egress Optional egress policy for executor containers
+                    (`config.egress_policy`; default open).
         @param[in]  selinux_relabel [container] selinux_relabel mode; "shared"
                              appends `z` to every host bind mount so an
                              SELinux-enforcing host lets the container read
                              them. Config validation is the operator-facing
                              gate; an unknown value fails closed here too
                              rather than silently mounting unlabeled.
-        @exception  ValueError When selinux_relabel is not a known mode.
+        @param[in]  pull_never Require both executor and proxy images to be
+                    present locally. The disposable web readiness probe uses
+                    this without changing normal conductor image policy.
+        @exception  ValueError For an unknown relabel mode or ambiguous WSL prefix.
         """
         if selinux_relabel not in SELINUX_RELABEL_OPTIONS:
             raise ValueError(
                 f"unsupported selinux_relabel mode: {selinux_relabel!r}"
             )
         self.runtime = runtime
-        self.runtime_argv = shlex.split(runtime)
-        self.wsl_mode = Path(self.runtime_argv[0]).stem.lower() == "wsl"
+        self.runtime_argv, self.wsl_mode, self._runtime_command = _container_runtime_prefix(runtime)
         self.image = image
         self.uv_cache_volume = uv_cache_volume
         self.npm_cache_volume = npm_cache_volume
         self.runner = runner
         self.run_args = [str(arg) for arg in run_args]
-        self.egress = egress or ContainerEgressConfig()
+        self.egress = egress or EgressPolicy()
         self.selinux_relabel = selinux_relabel
+        self.pull_never = pull_never
 
     def status(self, name: str) -> str:
         """
@@ -853,6 +1156,179 @@ class ContainerManager:
             return "absent"
         raise IsolationError(f"{self.runtime} inspect failed", result.argv, result.stderr)
 
+    def resource_identity(self, name: str) -> dict[str, str]:
+        """
+        @brief Read actual owned resource/image identity with strict inspect validation.
+        @param[in] name Exact expected run container name.
+        @return Container ID, image ID and observed lifecycle status.
+        @exception IsolationError For missing, corrupt or foreign resources.
+        """
+        result = self.runner([*self.runtime_argv, "inspect", name], timeout=30)
+        try:
+            if not result.ok or result.timed_out:
+                raise ValueError
+            if len(result.stdout) > 1_000_000:
+                raise ValueError
+            data = strict_json_loads(result.stdout)
+            if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
+                raise ValueError
+            item = data[0]
+            cid, image, status = item["Id"], item["Image"], item["State"]["Status"]
+            if (
+                item["Name"].lstrip("/") != name
+                or not isinstance(cid, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", cid)
+                or not isinstance(image, str)
+                or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", image)
+                or status not in {"running", "exited", "created", "paused", "restarting", "dead"}
+            ):
+                raise ValueError
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise IsolationError("container identity unavailable or corrupt") from exc
+        return {"container_id": cid, "image_id": image, "status": status}
+
+    def release_owned(self, name: str, repo: Path, worktree: Path, io: Path,
+                      *, expected: dict | None = None) -> None:
+        """@brief Release actual owned container/proxy/network IDs despite policy drift.
+        @param[in] name Derived run container name, never a deletion target by itself.
+        @param[in] repo Main repository clone.
+        @param[in] worktree Dedicated run worktree.
+        @param[in] io Dedicated exchange directory.
+        @param[in] expected Saved immutable executor identity when available.
+        @exception IsolationError Foreign mounts, leases, network members or unconfirmed removal.
+        """
+        def inspect_container(target: str) -> dict | None:
+            """@brief Read one strict container identity; absence grants no name deletion."""
+            result = self.runner([*self.runtime_argv, "inspect", target], timeout=30)
+            if (not result.ok and not result.timed_out
+                    and any(marker in (result.stderr + result.stdout).lower()
+                            for marker in _ABSENT_MARKERS)):
+                return None
+            try:
+                if not result.ok or result.timed_out or len(result.stdout) > 1_000_000:
+                    raise ValueError
+                records = strict_json_loads(result.stdout)
+                if not isinstance(records, list) or len(records) != 1:
+                    raise ValueError
+                record = records[0]
+                if (not isinstance(record, dict)
+                        or not re.fullmatch(r"[0-9a-f]{64}", record.get("Id", ""))
+                        or not isinstance(record.get("Name"), str)
+                        or (record["Id"] != target and record["Name"].lstrip("/") != target)):
+                    raise ValueError
+                return record
+            except (ValueError, TypeError) as exc:
+                raise IsolationError("container cleanup identity is corrupt") from exc
+
+        def mounts_match(record: dict, pairs: list[tuple[str, Path]]) -> None:
+            """@brief Verify each dedicated bind once before granting release authority."""
+            mounts = record.get("Mounts")
+            if not isinstance(mounts, list):
+                raise IsolationError("container cleanup mounts are missing")
+            for destination, source in pairs:
+                matches = [item for item in mounts if isinstance(item, dict)
+                           and item.get("Destination") == destination]
+                if (len(matches) != 1 or matches[0].get("Type") != "bind"
+                        or not isinstance(matches[0].get("Source"), str)
+                        or os.path.normcase(matches[0]["Source"].replace("\\", "/"))
+                        != os.path.normcase(self._mount_source(source).replace("\\", "/"))):
+                    raise IsolationError("container cleanup mount belongs to another job")
+
+        executor = inspect_container(name)
+        proxy_name = self._proxy_name(name)
+        proxy = inspect_container(proxy_name)
+        if executor:
+            mounts_match(executor, [(CONTAINER_REPO_MOUNT, repo),
+                                   (CONTAINER_WORKTREE_MOUNT, worktree), (CONTAINER_IO_MOUNT, io)])
+            if expected and (executor["Id"] != expected.get("container_id")
+                             or executor.get("Image") != expected.get("image_id")):
+                raise IsolationError("container cleanup differs from the saved immutable identity")
+        if proxy:
+            mounts_match(proxy, [("/etc/squid/squid.conf", io / "egress-proxy" / "squid.conf")])
+        owned = {item["Id"] for item in (executor, proxy) if item}
+        suffix = "-" + self._bounded_name(name, _NETWORK_NAME_LIMIT)
+        listing = self._run([*self.runtime_argv, "network", "ls", "--filter",
+                             f"name={suffix}", "--format", "{{.Name}}"])
+        names = listing.stdout.splitlines()
+        if (listing.timed_out or len(listing.stdout) > 1_000_000
+                or any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,255}", n) for n in names)
+                or len(set(names)) != len(names)):
+            raise IsolationError("container cleanup network listing is corrupt")
+
+        def members(network_id: str) -> set[str]:
+            """@brief Read complete runtime membership without depending on inspect dialect."""
+            result = self._run([*self.runtime_argv, "ps", "--all", "--no-trunc", "--filter",
+                                f"network={network_id}", "--format", "{{.ID}}"])
+            values = result.stdout.splitlines()
+            if (result.timed_out or len(result.stdout) > 1_000_000
+                    or any(not re.fullmatch(r"[0-9a-f]{64}", value) for value in values)
+                    or len(set(values)) != len(values)):
+                raise IsolationError("container cleanup network membership is corrupt")
+            return set(values)
+
+        networks = []
+        for network in names:
+            if not network.endswith(suffix):
+                continue
+            result = self._run([*self.runtime_argv, "network", "inspect", network])
+            try:
+                if result.timed_out or len(result.stdout) > 1_000_000:
+                    raise ValueError
+                records = strict_json_loads(result.stdout)
+                if not isinstance(records, list) or len(records) != 1:
+                    raise ValueError
+                record = records[0]
+                # Docker and Podman expose different network-inspect field casing.
+                if "Id" in record:
+                    nid, actual_name, internal = record["Id"], record["Name"], record["Internal"]
+                else:
+                    nid, actual_name, internal = record["id"], record["name"], record["internal"]
+                if (not isinstance(nid, str) or not re.fullmatch(r"[0-9a-f]{64}", nid)
+                        or actual_name != network or internal is not True):
+                    raise ValueError
+            except (ValueError, TypeError, KeyError) as exc:
+                raise IsolationError("container cleanup network identity is corrupt") from exc
+            attached = members(nid)
+            if not attached or not attached <= owned:
+                raise IsolationError("container cleanup network has unproven or foreign ownership")
+            networks.append(nid)
+        # IDs are the sole destructive targets; a replacement under an old name is never removed.
+        for record in (executor, proxy):
+            if record:
+                self._run([*self.runtime_argv, "rm", "--force", record["Id"]])
+                if inspect_container(record["Id"]) is not None:
+                    raise IsolationError("owned container deletion was not verified")
+        for nid in networks:
+            if members(nid):
+                raise IsolationError("container cleanup network gained another member")
+            self._run([*self.runtime_argv, "network", "rm", nid])
+            absent = self.runner([*self.runtime_argv, "network", "inspect", nid], timeout=30)
+            if (absent.ok or absent.timed_out
+                    or not any(marker in (absent.stdout + absent.stderr).lower()
+                               for marker in ("no such network", "no such object", "not found"))):
+                raise IsolationError("owned network deletion was not verified")
+        if inspect_container(name) is not None or inspect_container(proxy_name) is not None:
+            raise IsolationError("another container appeared during cleanup; retained")
+
+    def image_identity(self, image: str) -> str:
+        """
+        @brief Resolve a locally available image ID without pulling or installing.
+        @param[in] image Effective reviewed image reference.
+        @return Exact runtime image ID.
+        @exception IsolationError For missing or malformed runtime output.
+        """
+        result = self.runner(
+            [*self.runtime_argv, "image", "inspect", "--format", "{{.Id}}", image], timeout=30
+        )
+        value = result.stdout.strip()
+        if (
+            not result.ok
+            or result.timed_out
+            or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", value)
+        ):
+            raise IsolationError("image identity unavailable or corrupt")
+        return value
+
     def list_containers(self, prefix: str) -> list[str]:
         """
         @brief      Names of all containers (any state) with a name prefix.
@@ -867,6 +1343,21 @@ class ContainerManager:
         return [
             name for line in result.stdout.splitlines()
             if (name := line.strip()) and name.startswith(prefix)
+        ]
+
+    def list_executors(self, prefix: str) -> list[str]:
+        """
+        @brief      Names of all executor containers (any state) with a prefix.
+        @details    `list_containers` without egress proxy containers: a proxy
+                    name often starts with the executor prefix but is not an
+                    executor.
+        @param[in]  prefix Container-name prefix ("<slug>-run-").
+        @return     Matching executor container names.
+        @exception  IsolationError When the runtime fails.
+        """
+        return [
+            name for name in self.list_containers(prefix)
+            if not name.endswith(_PROXY_SUFFIX)
         ]
 
     def list_egress_networks(self, prefix: str | None = None) -> list[str]:
@@ -890,21 +1381,27 @@ class ContainerManager:
     def cleanup_orphan_containers(
         self,
         prefix: str,
-        protected: set[str],
+        targets: set[str],
+        retained: set[str],
     ) -> list[str]:
         """
-        @brief      Best-effort removal of unprotected executor containers.
-        @details    The runtime filter supplies candidates only. Exact prefix
-                    filtering happens in `list_containers`, and egress proxies
-                    are handled separately so cleanup can report them after a
+        @brief      Best-effort removal of listed target executor containers.
+        @details    Removes a listed executor only when its exact name is one
+                    of `targets` and not one of `retained`, so containers of
+                    other projects under a shared prefix are never touched.
+                    The runtime filter supplies candidates only; exact prefix
+                    filtering happens in `list_containers`. Egress proxies are
+                    handled separately so cleanup can report them after a
                     profile changes egress mode.
         @param[in]  prefix Deterministic executor-container prefix.
-        @param[in]  protected Exact persisted container names to retain.
+        @param[in]  targets Exact executor names cleanup may remove.
+        @param[in]  retained Exact executor names to keep.
         @return     Executor container names successfully removed.
         """
+        wanted = targets - retained
         removed: list[str] = []
         for name in self.list_containers(prefix):
-            if name.endswith(_PROXY_SUFFIX) or name in protected:
+            if name not in wanted:
                 continue
             try:
                 self._remove_container(name)
@@ -915,19 +1412,35 @@ class ContainerManager:
 
     def cleanup_egress_proxies(
         self,
-        prefix: str,
-        protected: set[str],
+        targets: set[str],
+        retained: set[str],
     ) -> list[str]:
         """
-        @brief      Best-effort removal of unprotected ADORE proxy containers.
-        @param[in]  prefix Deterministic executor-container prefix.
-        @param[in]  protected Exact persisted executor names to retain.
+        @brief      Best-effort removal of the target executors' proxy containers.
+        @details    Covers each executor's per-run proxy name; a name also
+                    derived from a retained executor is kept. Candidates are
+                    listed by the proxy suffix, not the executor prefix: a
+                    bounded per-run name of a long slug no longer starts with
+                    `<slug>-run-`.
+        @param[in]  targets Exact executor names whose proxies may go.
+        @param[in]  retained Exact executor names whose proxies stay.
         @return     Proxy container names successfully removed.
         """
-        retained = {self._proxy_name(name) for name in protected}
+        wanted = (
+            {self._proxy_name(name) for name in targets}
+            - {self._proxy_name(name) for name in retained}
+        )
+        result = self._run(
+            [*self.runtime_argv, "ps", "--all",
+             "--filter", f"name={_PROXY_SUFFIX}", "--format", "{{.Names}}"]
+        )
+        listed = [
+            name for line in result.stdout.splitlines()
+            if (name := line.strip()) and name.endswith(_PROXY_SUFFIX)
+        ]
         removed: list[str] = []
-        for name in self.list_containers(prefix):
-            if not name.endswith(_PROXY_SUFFIX) or name in retained:
+        for name in listed:
+            if name not in wanted:
                 continue
             try:
                 self._remove_container(name)
@@ -936,27 +1449,39 @@ class ContainerManager:
             removed.append(name)
         return removed
 
-    def cleanup_egress_networks(self, protected: set[str]) -> list[str]:
+    def cleanup_egress_networks(
+        self,
+        targets: set[str],
+        retained: set[str],
+    ) -> list[str]:
         """
-        @brief      Best-effort removal of unprotected ADORE egress networks.
-        @details    Sweeps both the canonical ADORE prefix and the current
+        @brief      Best-effort removal of the target executors' egress networks.
+        @details    Covers both the canonical ADORE prefix and the current
                     configured prefix even when the current mode is not
                     allowlist-proxy. Arbitrary historical prefixes are never
-                    guessed.
-        @param[in]  protected Exact persisted executor names to retain.
+                    guessed. Each executor's per-run network names are
+                    covered; a name also derived from a retained executor is
+                    kept.
+        @param[in]  targets Exact executor names whose networks may go.
+        @param[in]  retained Exact executor names whose networks stay.
         @return     Egress network names successfully removed.
         """
         prefixes = {EGRESS_NETWORK_PREFIX, self.egress.network_prefix}
-        retained = {
-            self._egress_network_name(name, prefix=prefix)
-            for prefix in prefixes
-            for name in protected
-        }
+
+        def networks(executors: set[str]) -> set[str]:
+            return {
+                network
+                for prefix in prefixes
+                for name in executors
+                for network in (self._egress_network_name(name, prefix=prefix),)
+            }
+
+        wanted = networks(targets) - networks(retained)
         removed: list[str] = []
         seen: set[str] = set()
         for prefix in sorted(prefixes):
             for name in self.list_egress_networks(prefix):
-                if name in seen or name in retained:
+                if name in seen or name not in wanted:
                     continue
                 seen.add(name)
                 try:
@@ -996,13 +1521,13 @@ class ContainerManager:
     ) -> str:
         """
         @brief      Bring the run's container up (create or restart).
-        @details    Idempotent against the current state: running -> no-op;
+        @details    Idempotent against the current state: running -> verify/reuse;
                     stopped/created -> start (keep-warm resume, design 8b);
                     absent -> create fresh with the mounts and env. Secrets
                     never appear in argv: secret env keys are passed as bare
                     `--env KEY` and the values travel via the runtime CLI's
                     own process environment. Safe runtime variables (HOME,
-                    Git mount paths, CODEX_HOME, bot identity) are passed
+                    Git mount paths, Pi agent settings, bot identity) are passed
                     inline so they survive wrapped runtimes consistently. In
                     WSL mode the mount sources are translated to /mnt/<drive>/
                     form and bare env keys are additionally listed in WSLENV
@@ -1017,8 +1542,8 @@ class ContainerManager:
                               at /adore/io; gate scripts in, event streams out
                               - outside the worktree so the executor can
                               never commit them).
-        @param[in]  env Environment for the container (git env from
-                        build_container_env plus the executor's secret subset).
+        @param[in]  env Git binding metadata and identity from build_container_env
+                        plus runtime environment and the executor's secret subset.
         @return     What happened: "running" (no-op), "started" (warm
                     resume), or "created" (fresh container - anything that
                     lived only inside the old one, like executor sessions, is
@@ -1026,16 +1551,30 @@ class ContainerManager:
         @exception  IsolationError When the runtime fails.
         """
         state = self.status(name)
+        git_payload = _git_binding_payload(env)
+        git_pointer = Path(io_path) / "container.git"
+        git_mode = ""
+        if git_payload is not None and state != "absent":
+            git_mode = self._git_binding_mode(name)
+            if git_mode == _GIT_BINDING_VERSION:
+                _admit_git_pointer(git_pointer, git_payload)
         if state == "running":
+            if git_mode == _GIT_BINDING_VERSION:
+                self._verify_git_binding(name, git_payload)
             return "running"
         if self.egress.mode == "allowlist-proxy":
             self._ensure_proxy_context(name, io_path)
         if state != "absent":
             self.start(name)
+            if git_mode == _GIT_BINDING_VERSION:
+                self._verify_git_binding(name, git_payload)
             return "started"
         Path(io_path).mkdir(parents=True, exist_ok=True)
+        if git_payload is not None:
+            _admit_git_pointer(git_pointer, git_payload, create=True)
         argv = [
             *self.runtime_argv, "run", "--detach", *self.run_args,
+            *(["--pull=never"] if self.pull_never else []),
             "--name", name,
             "--volume", self._bind_mount(repo_path, CONTAINER_REPO_MOUNT),
             "--volume", self._bind_mount(worktree_path, CONTAINER_WORKTREE_MOUNT),
@@ -1044,6 +1583,15 @@ class ContainerManager:
             "--volume", f"{self.npm_cache_volume}:{CONTAINER_NPM_CACHE_MOUNT}",
             "--workdir", CONTAINER_WORKTREE_MOUNT,
         ]
+        if git_payload is not None:
+            argv += ["--label", f"{_GIT_BINDING_LABEL}={_GIT_BINDING_VERSION}",
+                     "--volume", self._bind_mount(
+                         git_pointer, f"{CONTAINER_WORKTREE_MOUNT}/.git", "ro")]
+            # Both native and WSL-wrapped Podman provide explicit image-default
+            # removal. Docker's bare-key removal needs a sanitized CLI environment.
+            podman = self._runtime_command in {"podman", "podman-remote"}
+            for key in sorted(_GIT_SELECTION_ENV):
+                argv += ["--unsetenv" if podman else "--env", key]
         if self.egress.mode == "none":
             argv += ["--network", "none"]
         elif self.egress.mode == "allowlist-proxy":
@@ -1051,9 +1599,9 @@ class ContainerManager:
             env = {**env, **self._proxy_env()}
         # Safe runtime values go inline: they are not secrets, and the
         # bare-key/WSLENV path is brittle across wrapped runtimes (HOME is
-        # reset by login shells; CODEX_HOME was dropped by the WSL/Podman
-        # path in the Codex pilot). Bare keys stay reserved for secrets.
-        secret_env = dict(env)
+        # reset by login shells; an agent home variable was dropped by
+        # the WSL/Podman path in an earlier pilot). Bare keys stay reserved for secrets.
+        secret_env = _without_git_selection(env)
         for key in _INLINE_ENV_KEYS:
             value = secret_env.pop(key, None)
             if value is not None:
@@ -1062,6 +1610,8 @@ class ContainerManager:
             argv += ["--env", key]
         argv += [self.image, "sleep", "infinity"]
         process_env = {**os.environ, **secret_env}
+        if git_payload is not None:
+            process_env = _without_git_selection(process_env)
         if self.wsl_mode and secret_env:
             existing = process_env.get("WSLENV", "")
             shared = ":".join(secret_env)
@@ -1069,7 +1619,77 @@ class ContainerManager:
         result = self.runner(argv, env=process_env)
         if not result.ok:
             raise IsolationError(f"{self.runtime} run failed", result.argv, result.stderr)
+        if git_payload is not None:
+            self._verify_git_binding(name, git_payload)
         return "created"
+
+    def _git_binding_mode(self, name: str) -> str:
+        """@brief Read one bounded creation-time binding label without guessing.
+        @param[in] name Exact owned resource selected for reuse.
+        @return Empty for historical mode, otherwise the known pointer version.
+        @exception IsolationError For failed, corrupt or unknown runtime evidence.
+        """
+        result = self.runner([
+            *self.runtime_argv, "inspect", "--format",
+            '{{json (index .Config.Labels "' + _GIT_BINDING_LABEL + '")}}', name,
+        ], timeout=30)
+        try:
+            if (not result.ok or result.timed_out or not isinstance(result.stdout, str)
+                    or len(result.stdout) > 1024):
+                raise ValueError
+            value = strict_json_loads(result.stdout)
+            if value is None or value == "":
+                return ""
+            if isinstance(value, str) and value == _GIT_BINDING_VERSION:
+                return value
+            raise ValueError
+        except (ValueError, TypeError) as exc:
+            raise IsolationError("container Git binding mode unavailable or corrupt") from exc
+
+    def _verify_git_binding(self, name: str, payload: bytes) -> None:
+        """@brief Confirm actual pointer, native discovery and selector absence.
+        @param[in] name Exact owned container.
+        @param[in] payload Admitted pointer bytes.
+        @exception IsolationError If the runtime cannot confirm this binding.
+        """
+        pointer = payload.decode("utf-8").rstrip("\n")
+        result = self.exec(name, [
+            "sh", "-c", _GIT_BINDING_CHECK, "adore-git-binding", pointer,
+            pointer.removeprefix("gitdir: "),
+        ], timeout=30)
+        if (not result.ok or result.timed_out or result.stdout.strip() != _GIT_BINDING_ACK):
+            raise IsolationError("container Git binding confirmation failed",
+                                 result.argv, result.stderr)
+
+    def authorize_system_packages(self, name: str) -> None:
+        """
+        @brief Authorize direct noninteractive package-manager sudo in a container.
+        @param[in] name Exact owned container selected by the conductor.
+        @exception IsolationError For invalid UID, failed/timeout authorization,
+                   incompatible images or missing authoritative confirmation.
+        @note Does not install packages, change egress or inject credentials.
+        """
+        from adore.package_permissions import (
+            PACKAGE_AUTHORIZATION_ACK,
+            PACKAGE_AUTHORIZATION_SCRIPT,
+        )
+
+        identity = self.exec(name, ["/usr/bin/id", "-u"], timeout=15)
+        uid = identity.stdout.strip()
+        if (not identity.ok or identity.timed_out
+                or not re.fullmatch(r"[1-9][0-9]{0,9}", uid)
+                or int(uid) >= 4294967295):
+            raise IsolationError("system_packages requires a verified non-root agent UID")
+        result = self.runner([
+            *self.runtime_argv, "exec", "--user", "0", name,
+            "/usr/bin/python3", "-I", "-c", PACKAGE_AUTHORIZATION_SCRIPT, uid,
+        ], timeout=30)
+        if (not result.ok or result.timed_out
+                or result.stdout.strip() != PACKAGE_AUTHORIZATION_ACK):
+            raise IsolationError(
+                "system_packages authorization failed; image needs OS Python, sudo and a "
+                "supported package manager", result.argv, result.stderr,
+            )
 
     def verify_required_tools(
         self,
@@ -1127,6 +1747,20 @@ class ContainerManager:
         result = self.runner([*self.runtime_argv, "stop", name])
         if not result.ok and self.status(name) != "absent":
             raise IsolationError(f"{self.runtime} stop failed", result.argv, result.stderr)
+
+    def interrupt(self, name: str) -> None:
+        """
+        @brief Promptly stop an active executor container after a cancel request.
+        @param[in] name Exact run container name.
+        @exception IsolationError When the bounded stop fails.
+        """
+        result = self.runner(
+            [*self.runtime_argv, "stop", "--time", "2", name], timeout=20,
+        )
+        if not result.ok:
+            raise IsolationError(
+                f"{self.runtime} interrupt failed", result.argv, result.stderr,
+            )
 
     def remove(self, name: str) -> None:
         """
@@ -1186,8 +1820,102 @@ class ContainerManager:
         """
         if timeout is None:
             timeout = DEFAULT_COMMAND_TIMEOUT
-        full = [*self.runtime_argv, "exec"]
-        exec_env = dict(env or {})
+        full, process_env = self._exec_command(name, argv, env, interactive=False)
+        return self.runner(full, timeout=timeout, env=process_env)
+
+    def spawn(
+        self,
+        name: str,
+        argv: Sequence[str],
+        *,
+        env: dict[str, str] | None = None,
+        popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+    ) -> subprocess.Popen:
+        """
+        @brief      Start a long-lived command inside the container with live pipes.
+        @details    The streaming counterpart of `exec` for executors driven over
+                    stdin/stdout (Pi's RPC mode): `exec -i` keeps the command's
+                    stdin attached, and the environment follows exactly `exec`'s
+                    rules (safe values inline, secret values only in the client
+                    process environment). The caller owns the process: it bounds
+                    the run and ends it. Closing stdin, or ending the client,
+                    closes the command's stdin inside the container.
+        @param[in]  name Container name.
+        @param[in]  argv Command and arguments to run inside.
+        @param[in]  env Optional exec-time env, as for `exec`.
+        @param[in]  popen Process factory (tests inject a recorder).
+        @return     The started client process with binary stdin/stdout/stderr pipes.
+        @exception  OSError When the runtime client cannot be started.
+        """
+        full, process_env = self._exec_command(name, argv, env, interactive=True)
+        return popen(  # noqa: S603 - fixed argv, no shell
+            full,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=process_env,
+            **background_process_options(),
+        )
+
+    def helper_command(
+        self,
+        name: str,
+        argv: Sequence[str],
+        *,
+        mount: tuple[str | Path, str],
+        env: dict[str, str],
+        interactive: bool = False,
+    ) -> list[str]:
+        """
+        @brief      Command line of a one-off ADORE helper container from the image.
+        @details    `<runtime> run --rm` with exactly one host bind mount (the
+                    SELinux relabel applies as for run containers), working
+                    directory on that mount, the configured run_args, never an
+                    implicit pull, and the default network: a helper is ADORE's
+                    own tool, not the agent. Its environment holds no secret,
+                    so every value is passed inline. The first argv element is
+                    the entrypoint. The caller bounds the process and removes
+                    the container by `name` if it has to stop it.
+        @param[in]  name Container name for a forced removal.
+        @param[in]  argv Entrypoint and its arguments inside the image.
+        @param[in]  mount (host directory, container directory).
+        @param[in]  env Non-secret environment.
+        @param[in]  interactive Attach stdin (`-i`) for a helper that reads it.
+        @return     The full argv, runtime prefix included.
+        """
+        source, target = mount
+        full = [*self.runtime_argv, "run", "--rm", *(["-i"] if interactive else []),
+                "--name", name, *self.run_args, "--pull=never",
+                "--volume", self._bind_mount(source, target), "--workdir", target]
+        for key, value in env.items():
+            full += ["--env", f"{key}={value}"]
+        return [*full, "--entrypoint", str(argv[0]), self.image, *[str(part) for part in argv[1:]]]
+
+    def remove_helper(self, name: str) -> None:
+        """
+        @brief      Force-remove a helper container by name, best effort.
+        @param[in]  name Helper container name.
+        """
+        self.runner([*self.runtime_argv, "rm", "--force", name])
+
+    def _exec_command(
+        self,
+        name: str,
+        argv: Sequence[str],
+        env: dict[str, str] | None,
+        *,
+        interactive: bool,
+    ) -> tuple[list[str], dict[str, str] | None]:
+        """
+        @brief      Build one `exec` argv and the client process environment.
+        @param[in]  name Container name.
+        @param[in]  argv Command and arguments to run inside.
+        @param[in]  env Optional exec-time env; safe keys inline, secrets bare.
+        @param[in]  interactive Attach stdin (`-i`) for a streaming command.
+        @return     (full argv, process env or None when no env is passed).
+        """
+        full = [*self.runtime_argv, "exec", *(["-i"] if interactive else [])]
+        exec_env = automatic_environment(_without_git_selection(env or {}))
         if self.egress.mode == "allowlist-proxy":
             exec_env.update(self._proxy_env())
         secret_env = exec_env
@@ -1203,19 +1931,37 @@ class ContainerManager:
             existing = process_env.get("WSLENV", "")
             shared = ":".join(secret_env)
             process_env["WSLENV"] = f"{existing}:{shared}" if existing else shared
-        return self.runner(full, timeout=timeout, env=process_env if exec_env else None)
+        return full, process_env if exec_env else None
 
     # -- internals ------------------------------------------------------------------
 
-    def _safe_name(self, value: str, *, limit: int = 48) -> str:
+    def _safe_name(self, value: str) -> str:
         """
-        @brief      Convert a run/container id into a runtime resource suffix.
+        @brief      Convert a run/container id into a runtime-safe name segment.
         @param[in]  value Raw name.
-        @param[in]  limit Maximum returned length.
-        @return     Runtime-safe name segment.
+        @return     Runtime-safe name segment ("run" when nothing is left).
         """
         safe = _SAFE_NAME_RE.sub("-", value).strip("-._")
-        return (safe or "run")[:limit]
+        return safe or "run"
+
+    def _bounded_name(self, value: str, limit: int) -> str:
+        """
+        @brief      Runtime-safe name segment of at most `limit` characters.
+        @details    A segment that fits is returned unchanged. A longer one
+                    keeps its start and ends in "-" plus the first hex
+                    characters of the SHA-256 of the full value, so values that
+                    agree in their first characters (two runs of one long-named
+                    project) still get different segments.
+        @param[in]  value Raw name (an executor container name).
+        @param[in]  limit Maximum returned length.
+        @return     Bounded, per-value name segment.
+        """
+        safe = self._safe_name(value)
+        if len(safe) <= limit:
+            return safe
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:_NAME_DIGEST_LENGTH]
+        stem = safe[:limit - _NAME_DIGEST_LENGTH - 1].rstrip("-._")
+        return f"{stem}-{digest}"
 
     def _egress_network_name(self, name: str, *, prefix: str | None = None) -> str:
         """
@@ -1224,7 +1970,8 @@ class ContainerManager:
         @param[in]  prefix Optional owned network prefix override.
         @return     Network name.
         """
-        return f"{prefix or self.egress.network_prefix}-{self._safe_name(name)}"
+        bounded = self._bounded_name(name, _NETWORK_NAME_LIMIT)
+        return f"{prefix or self.egress.network_prefix}-{bounded}"
 
     def _remove_container(self, name: str) -> None:
         """
@@ -1256,9 +2003,9 @@ class ContainerManager:
         """
         @brief      Per-run proxy container name.
         @param[in]  name Executor container name.
-        @return     Proxy container name.
+        @return     Proxy container name (at most 63 characters).
         """
-        return f"{self._safe_name(name, limit=50)}{_PROXY_SUFFIX}"
+        return f"{self._bounded_name(name, _PROXY_NAME_LIMIT)}{_PROXY_SUFFIX}"
 
     def _proxy_env(self) -> dict[str, str]:
         """
@@ -1278,6 +2025,22 @@ class ContainerManager:
             "no_proxy": no_proxy,
         }
 
+    def _proxy_host_args(self) -> list[str]:
+        """
+        @brief      The `--add-host` options of run_args, for the proxy container.
+        @details    A host alias the executor uses (such as
+                    host.docker.internal on a Docker Engine) must resolve in
+                    the proxy too, because the proxy opens the connection.
+        @return     The options in their original spelling and order.
+        """
+        args: list[str] = []
+        for index, arg in enumerate(self.run_args):
+            if arg.startswith("--add-host="):
+                args.append(arg)
+            elif arg == "--add-host" and index + 1 < len(self.run_args):
+                args += [arg, self.run_args[index + 1]]
+        return args
+
     def _squid_domain(self, pattern: str) -> str:
         """
         @brief      Convert an ADORE hostname pattern to Squid dstdomain form.
@@ -1289,18 +2052,36 @@ class ContainerManager:
     def _write_proxy_config(self, io_path: str | Path) -> Path:
         """
         @brief      Write the per-run Squid allowlist configuration.
+        @details    Host names (exact or `*.` wildcards) are admitted by
+                    destination domain, IP addresses (an endpoint such as
+                    192.168.1.20) by destination address; everything else is
+                    denied.
         @param[in]  io_path Run IO directory.
         @return     Host path to the generated Squid config.
         """
         proxy_dir = Path(io_path) / "egress-proxy"
         proxy_dir.mkdir(parents=True, exist_ok=True)
-        domains = " ".join(self._squid_domain(host) for host in self.egress.allowlist)
+        addresses, names = [], []
+        for host in self.egress.allowlist:
+            try:
+                ipaddress.ip_address(host)
+            except ValueError:
+                names.append(self._squid_domain(host))
+            else:
+                addresses.append(host)
+        rules = []
+        if names:
+            rules += [f"acl allowed_domains dstdomain {' '.join(names)}",
+                      "http_access allow allowed_domains"]
+        if addresses:
+            rules += [f"acl allowed_addresses dst {' '.join(addresses)}",
+                      "http_access allow allowed_addresses"]
         config_path = proxy_dir / "squid.conf"
         config_path.write_text(
             "\n".join([
                 f"http_port {self.egress.proxy_port}",
-                f"acl allowed_domains dstdomain {domains}",
-                "http_access allow allowed_domains",
+                *[rule for rule in rules if rule.startswith("acl")],
+                *[rule for rule in rules if rule.startswith("http_access")],
                 "http_access deny all",
                 "access_log stdio:/var/log/squid/access.log",
                 "cache_log /var/log/squid/cache.log",
@@ -1332,6 +2113,8 @@ class ContainerManager:
             config_path = self._write_proxy_config(io_path)
             self._run([
                 *self.runtime_argv, "run", "--detach",
+                *(["--pull=never"] if self.pull_never else []),
+                *self._proxy_host_args(),
                 "--name", proxy_name,
                 "--volume", self._bind_mount(config_path, "/etc/squid/squid.conf", "ro"),
                 self.egress.proxy_image,

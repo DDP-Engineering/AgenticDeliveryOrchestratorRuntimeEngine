@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-c65b3022"
+title = "Present composite job lifetime consumption"
+status = "active"
+requirement = "When an authorized job appears in the jobs workspace, the interface shall show its known lifetime consumption under its immutable project and run identity (shown in job details), preserving unavailable and measured-zero semantics and rejecting missing or malformed evidence without colliding equal run IDs across projects."
+verification = "Helper and browser fixtures use identical run IDs in two projects with zero/missing/partial/cross-period usage; assert lifetime input/output tokens in rows and details, a dash for unknown and 0 for measured zero, distinct data-identity per (project, run), no selected-period text, scoped direct details and no unauthorized or stale financial projection."
+affected_paths = ["04_Software/web/tests/", "04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/shell.spec.ts", "04_Software/adore/web/static/", "04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/statisticsCopy.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/metrics.ts", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/tests/statistics.test.mjs", "04_Software/web/tests/metrics.test.mjs", "04_Software/web/tests/routes.test.mjs", "04_Software/web/e2e/statistics.spec.ts"]
+spec = "specs/statistics-presentation.md"
+created = 2026-10-06
+updated = 2026-10-12

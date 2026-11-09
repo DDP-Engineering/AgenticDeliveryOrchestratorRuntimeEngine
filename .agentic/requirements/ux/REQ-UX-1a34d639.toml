@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-1a34d639"
+
+title = "Accessible responsive web journeys"
+
+status = "active"
+
+requirement = """
+When a user operates any web journey at compact, wide, short-height or 200-percent zoom viewports, ADORE web shall keep primary actions, status and chart alternatives perceivable and keyboard-operable across English, French, German and Romanian, with visible focus, labeled controls, adequate contrast and reduced-motion behavior.
+"""
+
+verification = "Manual: exercise both roles, all four locales and themes at 360px, 768px, 1024x768, 1366x768, 1920px and scaled 2560px viewports plus 200-percent zoom; inspect keyboard focus/order, contrast, long strings, diacritics, reduced motion, status without color and tabular chart alternatives."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css"]
+
+linked_tests = ["04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_capacity.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-10-01

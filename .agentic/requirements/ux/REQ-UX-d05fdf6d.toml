@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-d05fdf6d"
+title = "Retain project setting drafts across failures and guard abandonment"
+status = "active"
+requirement = "While a project has unsaved setting edits, the dashboard shall retain their values on validation, save and stale-revision failure and request explicit discard before abandoning them through navigation or reload."
+verification = "Chromium tests exercise failed preparation/application, external revision changes, cancel/retry and navigation rejection; project-scoped drafts never apply to another project."
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/settings-save.spec.ts", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
+spec = "specs/settings-save.md"
+priority = "normal"
+rationale = ""
+created = 2026-11-04
+updated = 2026-11-04

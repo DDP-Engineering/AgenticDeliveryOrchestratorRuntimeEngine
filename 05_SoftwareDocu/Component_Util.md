@@ -15,8 +15,8 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 Shared low-level helpers every other ADORE component builds on: running
 external commands safely, parsing human-readable durations, and producing
-consistent UTC timestamps. It exists so that shelling out (glab, gh, git,
-docker, the executor CLI) happens in exactly one place with one error model.
+consistent UTC timestamps. It supplies the common runner/error model and child process policy used by
+forge, Git, runtime, worker and native executor launches.
 
 ## 2. Responsibilities
 
@@ -55,7 +55,7 @@ JSON/URLs) and retry/backoff policy (the orchestrator's concern).
   - `124` - wall-clock timeout (subprocess killed),
   - otherwise the command's own exit code.
 - Output is always **captured**, never streamed: the prerequisites check
-  showed opencode buffers stdout, so naive streaming looks "hung"
+  showed a headless CLI may buffer stdout, so naive streaming looks "hung"
   Output is decoded as UTF-8 with
   replacement to survive Windows console encodings.
 - Default command timeout: 600 s (`DEFAULT_COMMAND_TIMEOUT`).
@@ -109,3 +109,22 @@ seconds = parse_duration("24h")  # 86400
 - No retry/backoff wrapper yet; the poll loop will add it where needed.
 - No streaming mode; if a later phase needs live progress, add an explicit
   file-tail mechanism rather than reading process stdout.
+
+## Exact source decoding
+
+`run_command` decodes captured bytes without newline translation, preserving CRLF recipe fingerprints. `strict_json_loads` rejects duplicate keys, non-finite constants and decoder nesting overflow. Callers own input-size limits and translate failures to their typed domain errors. Focused proof: `tests/test_util.py`.
+
+## Automatic child process policy
+
+`automatic_environment(env)` copies the explicit mapping, or the ambient
+process environment when `env` is `None`, then forces `GIT_PAGER=cat` and
+`PAGER=cat`. Conflicting case variants are removed; explicit empty mappings
+stay isolated from ambient variables. Caller mappings and `os.environ` remain
+unchanged. `background_process_options()` returns Windows `CREATE_NO_WINDOW`
+options and an empty mapping on Linux.
+
+`run_command` combines both policies with captured streams and closed stdin.
+Worker engine launches, native supervisors and the bounded JSON-stdin regex
+probe reuse these helpers. Exit codes 126/127/124, authoritative timeout
+classification, exact CRLF decoding and argv execution remain unchanged.
+Focused proof: `tests/test_automatic_processes.py` and runner cases in `tests/test_util.py`.

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-94a97e70"
+title = "Review execution plans through project configuration"
+status = "active"
+requirement = "When an authorized operator previews or applies an execution selection through external server profile configuration or CLI, ADORE shall show the normalized effective image/source and preparation plan through CLI preview and read-only web metadata with side-effect-free readiness and visible run preparation evidence."
+verification = "Offline CLI/web/frontend tests observe CLI plan preview/effective image/run evidence and reject unauthorized web environment mutations and invalid source; readiness executes no setup."
+affected_paths = ["04_Software/adore/cli.py", "04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py", "04_Software/adore/web/model_connection.py", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/settingKeys.json", "04_Software/web/src/executionPlan.ts", "04_Software/web/src/ExecutionPlanReview.tsx", "04_Software/web/e2e/server.py", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/executionPlan.test.mjs", "04_Software/web/tests/settings.test.mjs"]
+linked_tests = ["04_Software/tests/test_profile_cli.py::test_cli_previews_reviewed_plan_without_setup", "04_Software/tests/test_web_pending_config.py::test_pending_candidate_for_an_external_key_is_corrupt_but_discardable", "04_Software/tests/test_web_pending_config.py::test_execution_setting_direct_write_requires_review", "04_Software/tests/test_web_jobs.py::test_job_preparation_projection_is_closed_and_rejects_false_success", "04_Software/tests/test_preparation.py::test_readiness_uses_reviewed_effective_image_without_setup"]
+spec = "specs/REQ-FUNC-e2b539d4.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-11-01

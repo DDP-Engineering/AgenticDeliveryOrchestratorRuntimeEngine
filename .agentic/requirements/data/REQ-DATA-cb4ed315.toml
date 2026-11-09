@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-DATA-cb4ed315"
+title = "Reject invalid automatic polling inputs"
+status = "active"
+requirement = """If automatic web polling encounters invalid configuration or an invalid/exceptional command outcome, the worker shall defer that project: invalid configuration is rechecked after 60 seconds without invocation, and invalid/exceptional command outcomes receive error backoff."""
+verification = "Corrupt TOML and invalid values produce zero invocations; malformed runner results and invocation exceptions delay retry while a healthy project continues."
+affected_paths = ["04_Software/adore/polling.py", "04_Software/adore/web/commands.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_web_commands.py::test_bad_polling_config_skips_invocation_and_rechecks", "04_Software/tests/test_web_commands.py::test_automatic_polling_uses_loop_wait_after_completion"]
+priority = "normal"
+created = 2026-10-08
+updated = 2026-10-08

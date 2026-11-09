@@ -29,6 +29,7 @@ from datetime import UTC, datetime, timedelta
 import html
 import io
 import json
+import math
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -40,6 +41,10 @@ from adore.util import iso_to_datetime
 # CONSTANTS
 
 _TABLE = "run_summaries"
+
+
+class MetricsError(ValueError):
+    """@brief Persisted metrics evidence violates its versioned contract."""
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -95,8 +100,11 @@ def _seconds_between(start: str, end: str) -> int:
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     """
     @brief      Open (creating on demand) the metrics database.
+    @details    There are no migrations while ADORE is in development: a table
+                whose columns differ from RunSummary is refused, not extended.
     @param[in]  db_path SQLite file path.
     @return     Connection with the schema ensured.
+    @exception  MetricsError When the database was written by another build.
     """
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,25 +119,143 @@ def _connect(db_path: str | Path) -> sqlite3.Connection:
         str(row[1])
         for row in connection.execute(f"PRAGMA table_info({_TABLE})").fetchall()
     }
-    for item in fields(RunSummary):
-        if item.name in existing:
-            continue
-        affinity = (
-            "REAL" if item.type == "float" else
-            "INTEGER" if item.type == "int" else "TEXT"
-        )
-        default = (
-            "0.0" if affinity == "REAL" else
-            "0" if affinity == "INTEGER" else "''"
-        )
-        connection.execute(
-            f"ALTER TABLE {_TABLE} ADD COLUMN {item.name} {affinity} "
-            f"NOT NULL DEFAULT {default}"
+    if existing != {item.name for item in fields(RunSummary)}:
+        connection.close()
+        raise MetricsError(
+            f"metrics database {path} was written by another ADORE build; "
+            "delete it to start fresh"
         )
     return connection
 
 
 # PUBLIC API
+
+
+def validate_usage_observation(event: dict, run_id: str) -> tuple:
+    """
+    @brief Validate one versioned launch coverage record for replay.
+    @param[in] event Persisted usage-observation journal object.
+    @param[in] run_id Owning run identity.
+    @return Stable replay identity and validated usage/coverage fields.
+    @exception MetricsError On malformed or non-UTC evidence.
+    """
+    attempt = event.get("attempt")
+    token_status = event.get("token_status")
+    cost_status = event.get("cost_status")
+    incoming = event.get("tokens_in")
+    outgoing = event.get("tokens_out")
+    money = event.get("cost_usd")
+    cache_read = event.get("cache_read_tokens")
+    cache_write = event.get("cache_write_tokens")
+    includes_cache = event.get("input_includes_cache")
+    stamp = event.get("ts")
+    try:
+        observed_at = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise MetricsError("malformed usage observation timestamp") from exc
+    if observed_at.utcoffset() != timedelta(0):
+        raise MetricsError("non-UTC usage observation timestamp")
+    if (type(event.get("schema")) is not int or event["schema"] != 1
+            or type(attempt) is not int or attempt < 1
+            or event.get("event_id") != f"{run_id}:{attempt}"
+            or type(event.get("stage")) is not str
+            or not 0 < len(event["stage"]) <= 80
+            or type(event.get("review_round")) is not int
+            or event["review_round"] < 0
+            or type(event.get("executor")) is not str
+            or not 0 < len(event["executor"]) <= 200
+            or (event.get("model") is not None and (
+                type(event["model"]) is not str or len(event["model"]) > 200))
+            or token_status not in ("reported", "unavailable", "disabled")
+            or cost_status not in ("reported", "unavailable", "disabled")
+            or (token_status == "disabled") != (cost_status == "disabled")):
+        raise MetricsError("malformed usage observation")
+    if token_status == "reported":
+        if (type(incoming) is not int or incoming < 0
+                or type(outgoing) is not int or outgoing < 0):
+            raise MetricsError("malformed usage observation")
+    elif incoming is not None or outgoing is not None:
+        raise MetricsError("malformed usage observation")
+    if ((cache_read is not None and
+         (type(cache_read) is not int or cache_read < 0))
+            or (cache_write is not None and
+                (type(cache_write) is not int or cache_write < 0))
+            or (includes_cache is not None and type(includes_cache) is not bool)
+            or ((cache_read is not None or cache_write is not None)
+                and (token_status != "reported" or includes_cache is not True))):
+        raise MetricsError("malformed usage observation")
+    if cost_status == "reported":
+        if (type(money) not in (int, float) or money < 0
+                or not math.isfinite(money)):
+            raise MetricsError("malformed usage observation")
+    elif money is not None:
+        raise MetricsError("malformed usage observation")
+    return (event["event_id"], attempt, event["stage"], event["review_round"],
+            event["executor"], event.get("model"), token_status, cost_status,
+            incoming, outgoing, money, cache_read, cache_write, includes_cache)
+
+
+def unique_usage_events(events: list[dict], run_id: str) -> list[dict]:
+    """@brief Keep one numeric usage event per versioned launch identity.
+
+    @param[in] events Run journal records in persisted order.
+    @param[in] run_id Run owning those records.
+    @return Journal records with identical versioned usage replays removed.
+    @exception MetricsError Malformed or conflicting versioned evidence.
+    """
+    seen: dict[str, tuple] = {}
+    result: list[dict] = []
+    for event in events:
+        if not isinstance(event, dict):
+            raise MetricsError("non-object journal record")
+        if event.get("event") != "usage":
+            result.append(event)
+            continue
+        if "event_id" not in event:
+            raise MetricsError("usage event without an event ID")
+        attempt = event.get("attempt")
+        incoming = event.get("tokens_in")
+        outgoing = event.get("tokens_out")
+        money = event.get("cost_usd")
+        context = event.get("context")
+        executor = event.get("executor")
+        model = event.get("model")
+        review_round = event.get("review_round")
+        reported = event.get("cost_reported")
+        cache_read = event.get("cache_read_tokens")
+        cache_write = event.get("cache_write_tokens")
+        includes_cache = event.get("input_includes_cache")
+        if (type(attempt) is not int or attempt < 1
+                or event.get("event_id") != f"{run_id}:{attempt}"
+                or type(event.get("ts")) is not str or not event["ts"]
+                or type(context) is not str or not 0 < len(context) <= 80
+                or type(executor) is not str or not 0 < len(executor) <= 200
+                or (model is not None and (type(model) is not str or len(model) > 200))
+                or type(review_round) is not int or review_round < 0
+                or type(incoming) is not int or incoming < 0
+                or type(outgoing) is not int or outgoing < 0
+                or type(money) not in (int, float) or money < 0
+                or not math.isfinite(money) or type(reported) is not bool):
+            raise MetricsError("malformed versioned usage")
+        if ((cache_read is not None and
+             (type(cache_read) is not int or cache_read < 0))
+                or (cache_write is not None and
+                    (type(cache_write) is not int or cache_write < 0))
+                or (includes_cache is not None and type(includes_cache) is not bool)
+                or ((cache_read is not None or cache_write is not None)
+                    and includes_cache is not True)):
+            raise MetricsError("malformed versioned cache usage")
+        identity = event["event_id"]
+        value = (context, executor, model, review_round, incoming,
+                 outgoing, money, reported, cache_read, cache_write,
+                 includes_cache)
+        if identity in seen:
+            if seen[identity] != value:
+                raise MetricsError("conflicting versioned usage")
+            continue
+        seen[identity] = value
+        result.append(event)
+    return result
 
 
 def summarize_run(store: StateStore, run_id: str,
@@ -138,8 +264,8 @@ def summarize_run(store: StateStore, run_id: str,
     @brief      Compute a run's summary from its journal, state, and ticket.
     @details    The journal is the source of truth: AEGIS stage outcomes,
                 usage events (tokens/cost per launch), park/resume gaps, and
-                the time to the MR all come from its timestamps. Never raises
-                for partial data - metrics are best-effort by design.
+                the time to the MR all come from its timestamps. Malformed
+                usage fails closed.
     @param[in]  store The state store holding the run.
     @param[in]  run_id Stable run identifier.
     @param[in]  files_changed Files-touched count when the caller still has a
@@ -147,7 +273,7 @@ def summarize_run(store: StateStore, run_id: str,
     @return     The RunSummary.
     """
     state = store.load(run_id)
-    events = store.read_journal(run_id)
+    events = unique_usage_events(store.read_journal(run_id), run_id)
     try:
         ticket = store.load_ticket(run_id)
     except Exception:  # noqa: BLE001 - missing snapshot is fine
@@ -178,9 +304,7 @@ def summarize_run(store: StateStore, run_id: str,
     for event in events:
         name = event.get("event", "")
         ts = event.get("ts", "")
-        # Summary column names remain stable while schema-1 journal events use
-        # the AEGIS task-stage vocabulary.
-        if name in ("stage-launch", "delivery-fix", "revise-start"):
+        if name == "stage-launch":
             summary.executor_launches += 1
         elif name == "stage-advanced":
             summary.gates_passed += 1
@@ -233,6 +357,25 @@ def record_summary(db_path: str | Path, summary: RunSummary,
                 handle.write(json.dumps(asdict(row), ensure_ascii=False) + "\n")
 
 
+def delete_summary(db_path: str | Path, run_id: str, export_jsonl: str = "") -> None:
+    """@brief Remove a deleted job's terminal projection before its identity is reused.
+    @param[in] db_path Current metrics store; absent files remain absent.
+    @param[in] run_id Exactly the verified deleted job.
+    @param[in] export_jsonl Optional current summary mirror.
+    @exception MetricsError Unsupported store schema.
+    """
+    if not db_path or not Path(db_path).exists():
+        return
+    with _connect(db_path) as connection:
+        connection.execute(f"DELETE FROM {_TABLE} WHERE run_id=?", (run_id,))
+    if export_jsonl:
+        mirror = Path(export_jsonl)
+        mirror.parent.mkdir(parents=True, exist_ok=True)
+        with mirror.open("w", encoding="utf-8") as handle:
+            for row in load_summaries(db_path):
+                handle.write(json.dumps(asdict(row), ensure_ascii=False) + "\n")
+
+
 def load_summaries(db_path: str | Path,
                    since_seconds: int | None = None) -> list[RunSummary]:
     """
@@ -257,6 +400,46 @@ def load_summaries(db_path: str | Path,
             if (ended := iso_to_datetime(s.ended_at)) and ended >= cutoff
         ]
     return summaries
+
+
+def load_analytical_summaries(db_path: str | Path) -> list[RunSummary]:
+    """
+    @brief Read summary evidence without creating or extending its database.
+    @param[in] db_path Existing metrics database; absence is an empty source.
+    @return Validated summaries.
+    @exception MetricsError Corrupt, unsupported or unreadable summary source.
+    """
+    path = Path(db_path)
+    if not path.exists():
+        return []
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise MetricsError("invalid metrics source")
+        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+            names = [str(row[1]) for row in connection.execute(
+                f"PRAGMA table_info({_TABLE})").fetchall()]
+            fields_by_name = {f.name: f for f in fields(RunSummary)}
+            if set(names) != fields_by_name.keys():
+                raise MetricsError("unsupported metrics table")
+            rows = connection.execute(f"SELECT {', '.join(names)} FROM {_TABLE}").fetchall()
+        result = []
+        for row in rows:
+            values = dict(zip(names, row, strict=True))
+            for name, value in values.items():
+                kind = fields_by_name[name].type
+                valid = (type(value) is str if kind == "str" else
+                         type(value) is int and value >= 0 if kind == "int" else
+                         type(value) in (int, float) and math.isfinite(value) and value >= 0)
+                if not valid:
+                    raise MetricsError("malformed metrics row")
+            if not values["run_id"]:
+                raise MetricsError("missing metrics identity")
+            result.append(RunSummary(**values))
+        if len({r.run_id for r in result}) != len(result):
+            raise MetricsError("duplicate metrics identity")
+        return result
+    except (OSError, sqlite3.DatabaseError, TypeError, ValueError) as exc:
+        raise MetricsError("corrupt metrics source") from exc
 
 
 def aggregate(summaries: list[RunSummary],

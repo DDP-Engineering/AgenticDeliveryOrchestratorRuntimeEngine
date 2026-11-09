@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-f9bdb5d2"
+
+title = "Limit reset targets to current stages and publishing"
+
+status = "active"
+
+requirement = """
+If an operator resets a run to a target other than frame, specify, design, build, validate or publishing, then the conductor shall refuse the reset and leave the saved run unchanged.
+"""
+
+verification = "Offline tests reset a run to validate and to publishing, and refuse deliver, done and an unknown target while the saved run keeps its stage and lifecycle; the CLI exits with an error for the refused target."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/cli.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_reset_accepts_current_stages_and_publishing", "04_Software/tests/test_orchestrator.py::test_reset_refuses_other_targets_and_keeps_the_run", "04_Software/tests/test_smoke.py::test_cli_reset_accepts_only_current_stages_and_publishing"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Reset moves ADORE's own pointer; a pointer to a stage AEGIS no longer has would only fail later. A run saved at the removed deliver stage no longer loads, so it cannot be reset."
+
+created = 2026-10-25
+updated = 2026-11-01

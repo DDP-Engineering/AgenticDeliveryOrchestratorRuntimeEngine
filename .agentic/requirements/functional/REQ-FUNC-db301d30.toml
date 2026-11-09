@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-db301d30"
+title = "Shared pickup and review defaults"
+status = "active"
+requirement = "When CLI or web loads configuration with omitted pickup and review values, ADORE shall default acceptance-criteria checking to false and maximum revision rounds to five while retaining explicit valid overrides and rejecting invalid revision limits."
+verification = "Offline model and API tests assert omitted defaults false/five, explicit true/two, sample defaults, CLI JSON and minimum-one rejection."
+affected_paths = ["04_Software/adore/config.py", "04_Software/config.example.toml", "04_Software/tests/test_config.py", "04_Software/tests/test_web_config.py", "04_Software/tests/test_orchestrator.py"]
+linked_tests = ["04_Software/tests/test_config.py", "04_Software/tests/test_web_config.py", "04_Software/tests/test_orchestrator.py"]
+created = 2026-10-09
+updated = 2026-10-09

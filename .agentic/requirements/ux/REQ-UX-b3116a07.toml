@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-b3116a07"
+
+title = "Open project creation on a separate page"
+
+status = "active"
+
+requirement = """
+When an administrator selects Enroll new project from Projects, the web interface shall open a dedicated creation page without the Projects table or project selector, and successful creation shall open the new project's details. Back to projects and Cancel return to Projects without creating a project.
+"""
+
+verification = "Manual: Sign in as administrator, open Enroll new project, inspect the dedicated page, return with Back and Cancel, then create a disposable project and confirm its details open. Confirm a developer has no creation action."
+
+affected_paths = ["04_Software/web/src/App.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Keep the directory visible as a directory and give setup a focused workflow."
+
+created = 2026-10-01
+updated = 2026-10-12

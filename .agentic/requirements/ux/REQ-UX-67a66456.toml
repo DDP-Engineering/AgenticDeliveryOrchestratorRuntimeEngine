@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-67a66456"
+
+title = "Readable secondary text and project configuration guidance"
+
+status = "active"
+
+requirement = """
+Secondary text shall remain readable on light and dark surfaces; project metadata, configuration type/domain/value text and field guidance shall use at least 0.875rem type with 1.5 line height and wrap long identifiers at narrow viewport widths.
+"""
+
+verification = "Manual: Inspect Project details and expanded configuration/help at desktop and 390px viewport widths in light and dark themes; inspect computed font size, colour contrast and page overflow."
+
+affected_paths = ["04_Software/web/src/styles.css"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

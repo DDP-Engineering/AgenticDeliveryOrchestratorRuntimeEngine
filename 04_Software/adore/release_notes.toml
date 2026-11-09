@@ -1,0 +1,182 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+#
+# User-facing release notes shown in About > What's new. Rules: AGENTS.md
+# "Release notes rules"; check: python 02_Tools/internal/check_release_notes.py.
+# One [[release]] per release, "Unreleased" first, then released versions
+# newest first with the date of their CHANGELOG.md heading. Each entry has a
+# category (new | improved | fixed), a short topic and a text of at most 100
+# characters in en, fr, de and ro, in plain user language.
+
+schema = 1
+
+[[release]]
+version = "Unreleased"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Save all edits in wider rows with effect confirmation; optional reviewers and five stage limits.", fr = "Un Enregistrer, effets confirmés, lignes larges, relecteurs facultatifs et cinq limites.", de = "Ein Speichern, bestätigte Folgen, breite Zeilen, optionale Reviewer und fünf Phasenlimits.", ro = "Un Salvează, efecte confirmate, rânduri largi, revieweri opționali și cinci limite de etapă." }
+
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Jobs preserve progress and stop checkpoints containing suspicious new paths.", fr = "Les tâches gardent leur progrès et arrêtent les points de contrôle aux chemins suspects.", de = "Jobs bewahren Fortschritt und stoppen Prüfpunkte bei verdächtigen neuen Pfaden.", ro = "Joburile păstrează progresul și opresc punctele de control cu căi noi suspecte." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, including WSL2.", fr = "Les abonnements ChatGPT fonctionnent en natif sous Windows et Linux, y compris WSL2.", de = "ChatGPT-Abos funktionieren jetzt nativ unter Windows und Linux, einschließlich WSL2.", ro = "Abonamentele ChatGPT funcționează acum nativ pe Windows și Linux, inclusiv WSL2." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Local sign-in persists. Stale refreshes keep host checks. Enrollment shows native Pi errors.", fr = "Connexion locale et contrôles conservés. L’inscription affiche les erreurs de Pi sur le serveur.", de = "Lokale Anmeldung und Prüfungen bleiben erhalten. Die Einrichtung zeigt native Pi-Fehler.", ro = "Autentificarea locală și verificările persistă. Înrolarea arată erorile Pi de pe server." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Jobs keep Git in the right repo and non-Latin text intact, without pagers or Windows pop-ups.", fr = "Git vise le bon dépôt ; textes multilingues préservés, sans pagineurs ni consoles Windows.", de = "Git nutzt das richtige Repository; native Texte bleiben korrekt, ohne Pager oder Windows-Konsolen.", ro = "Git folosește repo-ul corect și păstrează diacriticele, fără paginare sau console Windows." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Start while paused; confirm cancellation; History shows correct results and CLI deletions.", fr = "Démarrez en pause ; confirmez l’arrêt ; l’historique corrige résultats et suppressions CLI.", de = "Start bei Pause; Abbruch bestätigen; Verlauf zeigt Ergebnisse und CLI-Löschungen korrekt.", ro = "Pornire în pauză; confirmați anularea; istoricul arată rezultatele și ștergerile CLI." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Dashboard", fr = "Tableau de bord", de = "Dashboard", ro = "Panou web" }
+text = { en = "Follow projects, jobs and statistics in a web dashboard, in four languages.", fr = "Suivez projets, tâches et statistiques dans un tableau de bord web, en quatre langues.", de = "Projekte, Aufträge und Statistiken in einem Web-Dashboard verfolgen, in vier Sprachen.", ro = "Urmăriți proiecte, lucrări și statistici într-un panou web, în patru limbi." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
+text = { en = "Compact number column, saved Markdown/source choice, and action labels that keep words whole.", fr = "Colonne numéro étroite, choix Markdown/source mémorisé et boutons sans mots coupés.", de = "Schmale Nummernspalte, gemerkte Markdown/Quelltext-Wahl und ungeteilte Buttontexte.", ro = "Coloană de număr îngustă, alegere Markdown/sursă salvată și butoane fără cuvinte rupte." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Add a project from its repository URL; ADORE clones it and can remove the clone on delete.", fr = "Ajoutez un projet depuis l'URL de son dépôt ; ADORE le clone et peut supprimer le clone.", de = "Projekt über seine Repository-URL hinzufügen; ADORE klont es, Löschen kann den Klon entfernen.", ro = "Adăugați un proiect din URL-ul repository-ului; ADORE îl clonează și poate șterge clona." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Labels", fr = "Étiquettes", de = "Labels", ro = "Etichete" }
+text = { en = "ADORE creates its missing labels in the repository when you add a project, or from Settings.", fr = "ADORE crée ses étiquettes manquantes dans le dépôt à l'ajout d'un projet ou depuis Paramètres.", de = "ADORE legt fehlende Labels im Repository beim Hinzufügen oder über Einstellungen an.", ro = "ADORE își creează etichetele lipsă în repository la adăugarea proiectului sau din Setări." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Accounts", fr = "Comptes", de = "Konten", ro = "Conturi" }
+text = { en = "Administrators create accounts and choose the projects each developer can use.", fr = "Les administrateurs créent les comptes et choisissent les projets de chaque développeur.", de = "Administratoren legen Konten an und wählen die Projekte jedes Entwicklers.", ro = "Administratorii creează conturi și aleg proiectele fiecărui dezvoltator." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
+text = { en = "Prepare project images and let agents install system packages inside their containers.", fr = "Préparez les images et autorisez les agents à installer des paquets système dans leur conteneur.", de = "Projekt-Images vorbereiten und Agenten die Installation von Systempaketen im Container erlauben.", ro = "Pregătiți imaginile și permiteți agenților să instaleze pachete de sistem în container." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "Choose the AI provider, model and supported reasoning effort, with API key or ChatGPT sign-in.", fr = "Choisissez fournisseur, modèle et effort de raisonnement, avec clé API ou connexion ChatGPT.", de = "KI-Anbieter, Modell und unterstützten Denkaufwand mit API-Schlüssel oder ChatGPT-Anmeldung wählen.", ro = "Alegeți furnizorul, modelul și efortul de raționament, cu cheie API sau autentificare ChatGPT." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
+text = { en = "Merge requests open as drafts or ready for review; ADORE watches and repairs failed pipelines.", fr = "Les demandes de fusion s'ouvrent en brouillon ou prêtes ; ADORE surveille et répare le pipeline.", de = "Merge-Requests öffnen als Entwurf oder prüfbereit; ADORE überwacht und repariert Pipelines.", ro = "Cererile de îmbinare se deschid ca schiță sau gata de revizie; ADORE repară pipeline-urile." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
+text = { en = "The agent reaches only its AI provider; turn on internet access for web search and downloads.", fr = "L'agent n'atteint que son fournisseur IA ; l'accès Internet ouvre recherche web et téléchargements.", de = "Der Agent erreicht nur seinen KI-Anbieter; Internetzugang erlaubt Websuche und Downloads.", ro = "Agentul ajunge doar la furnizorul AI; accesul la internet permite căutare web și descărcări." }
+
+[[release.entry]]
+category = "new"
+topic = { en = "Help", fr = "Aide", de = "Hilfe", ro = "Ajutor" }
+text = { en = "How ADORE works opens a help center; What's new lists each release's notes in your language.", fr = "Comment fonctionne ADORE ouvre l'aide ; Nouveautés liste les notes de chaque version.", de = "So funktioniert ADORE öffnet die Hilfe; Neuigkeiten zeigt die Hinweise jeder Version.", ro = "Cum funcționează ADORE deschide ajutorul; Noutăți arată notele fiecărei versiuni." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Choose clone folders and remote branches easily, with the repository’s default branch selected.", fr = "Choisissez dossier et branche distante ; la branche par défaut du dépôt est présélectionnée.", de = "Klonordner und Remote-Branch einfach wählen; der Standardbranch ist vorausgewählt.", ro = "Alegeți simplu folderul clonei și ramura remote, cu ramura implicită preselectată." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
+text = { en = "Choose where Pi runs. Pick detected runtimes and images in WSL too, or enter a command.", fr = "Choisissez où Pi tourne, avec moteurs et images détectés aussi dans WSL ou une commande.", de = "Wählen Sie Pi-Laufzeit und Image auch in WSL oder geben Sie einen eigenen Befehl ein.", ro = "Alege unde rulează Pi, cu runtime și imagini detectate și în WSL sau cu o comandă manuală." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Import raw configuration in a dialog that validates the file automatically.", fr = "Importez la configuration brute dans un dialogue qui valide le fichier automatiquement.", de = "Originalkonfiguration im Dialog importieren. Die Datei wird automatisch geprüft.", ro = "Importă configurația brută într-un dialog care validează automat fișierul." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
+text = { en = "Statistics is compact: one period row, each figure shown once, trends in one table.", fr = "Statistiques est compact : une ligne de période, chaque valeur une fois, tendances en un tableau.", de = "Statistiken sind kompakt: eine Zeitraumzeile, jeder Wert einmal, Trends in einer Tabelle.", ro = "Statistici e compact: un rând de perioadă, fiecare valoare o dată, tendințe într-un tabel." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Inspect job failures and safe output; recover after drift, track budgets and edit waiting jobs.", fr = "Échecs et sorties sûres ; reprenez après dérive et ajustez les budgets des travaux en attente.", de = "Jobfehler und sichere Ausgaben prüfen; nach Drift wiederherstellen und Wartebudgets anpassen.", ro = "Vezi eșecurile și ieșirile sigure; recuperează după derivă și ajustează bugetele în așteptare." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Statistics, History and Access.", fr = "Chaque projet s'ouvre en un espace avec Résumé, Paramètres, Tâches, Statistiques, Historique, Accès.", de = "Jedes Projekt bündelt Übersicht, Einstellungen, Aufträge, Statistik, Verlauf und Zugriff.", ro = "Fiecare proiect se deschide cu Rezumat, Setări, Lucrări, Statistici, Istoric și Acces." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Administration", fr = "Administration", de = "Verwaltung", ro = "Administrare" }
+text = { en = "System status shows retention and storage; Users lists each account's projects.", fr = "État du système montre conservation et stockage ; Utilisateurs liste les projets de chaque compte.", de = "Systemstatus zeigt Aufbewahrung und Speicher; Benutzer listet die Projekte jedes Kontos.", ro = "Starea sistemului arată păstrarea și stocarea; Utilizatori listează proiectele fiecărui cont." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Navigation", fr = "Navigation", de = "Navigation", ro = "Navigare" }
+text = { en = "Settings, Access and both history views refresh automatically. Settings pauses during edits.", fr = "Paramètres, Accès et les deux historiques s’actualisent. La saisie suspend les Paramètres.", de = "Einstellungen, Zugriff und beide Verläufe aktualisieren sich. Beim Bearbeiten pausiert es.", ro = "Setări, Acces și paginile de istoric se actualizează automat. Editarea pune Setările în pauză." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "About", fr = "À propos", de = "Über ADORE", ro = "Despre" }
+text = { en = "About shows the DDP Engineering logo and the version, with licenses folded.", fr = "À propos affiche le logo DDP Engineering et la version, licences repliées.", de = "Über ADORE zeigt das DDP-Engineering-Logo und die Version, Lizenzen eingeklappt.", ro = "Despre afișează sigla DDP Engineering și versiunea, cu licențele pliate." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Jobs on projects with AEGIS 0.15.0, now the minimum, reach approval and publish again.", fr = "Les tâches sous AEGIS 0.15.0, désormais le minimum, peuvent à nouveau être approuvées et publiées.", de = "Aufträge mit AEGIS 0.15.0, jetzt Mindestversion, erreichen wieder Freigabe und Veröffentlichung.", ro = "Lucrările cu AEGIS 0.15.0, acum versiunea minimă, ajung din nou la aprobare și publicare." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
+text = { en = "Confirm and reveal passwords in Add user, Reset password and My account. Initial admin reminder.", fr = "Ajout, réinitialisation et changement de mot de passe avec confirmation et affichage.", de = "Passwörter beim Hinzufügen, Zurücksetzen und Ändern bestätigen und anzeigen.", ro = "Confirmă și afișează parola la adăugare, resetare și schimbare. Memento pentru adminul inițial." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Delivery", fr = "Livraison", de = "Lieferung", ro = "Livrare" }
+text = { en = "Draft reviews, busy-ticket resumes and retries after brief push failures work again.", fr = "Revues en brouillon, reprises de tickets occupés et nouvelles tentatives de publication corrigées.", de = "Review-Entwürfe, belegte Tickets und Wiederholungen nach kurzen Push-Fehlern funktionieren.", ro = "Funcționează review-urile draft, reluarea tichetelor ocupate și reîncercarea publicării." }
+
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Messages", fr = "Messages", de = "Meldungen", ro = "Mesaje" }
+text = { en = "Errors read as sentences in your language; a stalled agent or a refused Start shows its last lines.", fr = "Erreurs en phrases dans votre langue ; agent bloqué ou démarrage refusé montre ses dernières lignes.", de = "Fehler als Sätze in Ihrer Sprache; blockierter Agent oder abgelehnter Start zeigt letzte Zeilen.", ro = "Erori ca propoziții în limba aleasă; un agent blocat sau o pornire refuzată arată ultimele linii." }
+
+[[release.entry]]
+category = "fixed"
+topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
+text = { en = "Settings and data from earlier versions are refused with what to delete; edits keep line endings.", fr = "Paramètres et données d'anciennes versions refusés, avec quoi effacer ; fins de ligne conservées.", de = "Einstellungen und Daten älterer Versionen werden mit Löschhinweis abgelehnt; Zeilenenden bleiben.", ro = "Setări și date din versiuni anterioare refuzate, cu ce trebuie șters; terminațiile de linie rămân." }
+
+[[release]]
+version = "0.13.0"
+date = "2026-09-12"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "AEGIS", fr = "AEGIS", de = "AEGIS", ro = "AEGIS" }
+text = { en = "The version number names the newest AEGIS release ADORE was verified against.", fr = "Le numéro de version nomme la dernière version d'AEGIS avec laquelle ADORE a été vérifié.", de = "Die Versionsnummer nennt die neueste AEGIS-Version, gegen die ADORE geprüft wurde.", ro = "Numărul versiunii indică cea mai nouă versiune AEGIS cu care ADORE a fost verificat." }
+
+[[release.entry]]
+category = "improved"
+topic = { en = "AEGIS", fr = "AEGIS", de = "AEGIS", ro = "AEGIS" }
+text = { en = "Works with AEGIS 0.9.1 to 0.13.0, including its new checkpoint mode.", fr = "Fonctionne avec AEGIS 0.9.1 à 0.13.0, y compris son nouveau mode par étapes.", de = "Funktioniert mit AEGIS 0.9.1 bis 0.13.0, auch mit dem neuen Checkpoint-Modus.", ro = "Funcționează cu AEGIS 0.9.1 până la 0.13.0, inclusiv noul mod cu puncte de control." }

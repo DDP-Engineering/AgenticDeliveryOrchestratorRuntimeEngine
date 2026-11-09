@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-8fe70d7b"
+title = "Refuse invalid budget refresh input"
+status = "active"
+requirement = "If a budget boundary reread is unavailable, invalid or changes non-budget configuration, ADORE shall fail closed before another executor attempt with a clear configuration failure."
+verification = "Remove or corrupt the selected source or change execution identity and assert terminal BUDGET_CONFIG_INVALID without another launch."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/config.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_retry_rereads_only_budgets_between_attempts"]
+priority = "normal"
+created = 2026-11-05
+updated = 2026-11-05

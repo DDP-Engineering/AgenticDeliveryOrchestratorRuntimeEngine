@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-8532e8f2"
+
+title = "Remember ticket body mode per account"
+
+status = "active"
+
+requirement = """
+When an authenticated user successfully saves a ticket body display mode, ADORE shall retain Rendered or Markdown source as that account's preference across ticket/project navigation, reloads, sign-ins and browsers independently of other accounts, using Rendered for an account with no saved ticket mode.
+"""
+
+verification = "Automated: save source as account A through the authenticated preference API, reload and read another project and a fresh browser session as A to observe source; account B with no saved mode observes Rendered; save Rendered as A and observe the reverse round trip; account switching suppresses delayed A preference responses."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketPreferences.ts", "04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_rbac.py", "04_Software/web/e2e/tickets.spec.ts"]
+
+linked_tests = ["04_Software/tests/test_web_auth.py::test_ticket_body_mode_round_trip_and_partial_updates", "04_Software/tests/test_web_rbac.py::test_ticket_body_mode_api_round_trip_is_account_scoped", "04_Software/web/tests/ticketPreferences.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

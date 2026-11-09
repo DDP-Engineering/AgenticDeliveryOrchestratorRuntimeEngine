@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-7f8fde2c"
+title = "Honest stopped-pickup enrollment completion"
+status = "active"
+requirement = "After guided enrollment succeeds, the frontend shall display the created stable identity and pickup-stopped outcome with a separate activation explanation, without promising a particular issue starts."
+verification = "Create offline profile; observe stopped server state and completion with identity, activation guidance, project link and no automatic resume/start request."
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx","04_Software/web/src/enrollmentCopy.ts","04_Software/web/src/App.tsx","04_Software/web/src/styles.css"]
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

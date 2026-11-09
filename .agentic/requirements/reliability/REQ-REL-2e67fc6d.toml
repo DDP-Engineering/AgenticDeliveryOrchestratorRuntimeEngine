@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-2e67fc6d"
+
+title = "Read run history that names the removed deliver stage"
+
+status = "retired"
+
+requirement = """
+While a persisted run or a run-journal event names the removed deliver stage, the state store and the web job reader shall load it for history display. Retired 2026-11-01: ADORE keeps no compatibility with earlier builds during development (AGENTS.md "Stored data during development"); a run saved at deliver is now refused as an unknown stage, and a journal event naming deliver is run_journal_corrupt.
+"""
+
+verification = "Offline tests load a run saved at stage deliver, with the approved product it recorded, through the state store, read a run journal with deliver stage events through the web job API, and accept that stage in the web job model with a Deliver label in all four locales; an unknown stage name still fails closed as corrupt."
+
+affected_paths = ["04_Software/adore/state.py", "04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx"]
+
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/tests/test_web_jobs.py::test_global_projected_timeline_corruption_fails_closed"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Run history from before AEGIS 0.15.0 names deliver; rejecting it would mark a project's whole job history corrupt."
+
+created = 2026-10-25
+updated = 2026-11-01

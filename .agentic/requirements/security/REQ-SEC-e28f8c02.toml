@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-e28f8c02"
+
+title = "Reject forged or stale enrollment readiness evidence"
+
+status = "active"
+
+requirement = """
+If enrollment readiness evidence is forged, malformed or stale for the reviewed configuration, ADORE shall refuse to transfer that evidence.
+"""
+
+verification = "Offline API tests tamper with evidence or change the draft before creation and assert no verified result is recorded."
+
+affected_paths = ["04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_enrollment.py::test_checked_enrollment_transfers_only_server_evidence", "04_Software/tests/test_web_enrollment.py::test_expired_enrollment_check_is_rejected"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

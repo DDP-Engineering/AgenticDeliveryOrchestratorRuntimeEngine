@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-9415d21d"
+
+title = "Redacted audit projections"
+
+status = "active"
+
+requirement = """
+The service shall persist and project audit evidence through a closed redaction contract that excludes credentials, passwords, environment values, arbitrary errors and caller correlation metadata at every nesting depth.
+"""
+
+verification = "Inject nested secret payloads and malformed persisted evidence; inspect database and public projection for exclusion and typed rejection."
+
+affected_paths = ["04_Software/adore/web/audit.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/AuditHistory.tsx"]
+
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py::test_corrupt_project_fails_closed_on_public_reads", "04_Software/tests/test_web_audit_evidence.py", "04_Software/web/e2e/audit.spec.ts"]
+
+
+spec = "specs/REQ-DATA-34ed1530.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-11-01

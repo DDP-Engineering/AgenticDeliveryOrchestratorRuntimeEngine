@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-1cd0e743"
+
+title = "Suggest raw import identity from the TOML repository"
+
+status = "active"
+
+requirement = """
+When an administrator submits a raw import preview without a project ID, the server shall derive an available identity from the repository declared in the TOML and bind that identity to the validated preview.
+"""
+
+verification = "API and Chromium tests validate a file with no supplied ID, import the reviewed exact bytes with pickup stopped, and verify that invalid or changed inputs cannot publish."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/RawImportDialog.tsx"]
+
+linked_tests = ["04_Software/tests/test_web_import.py", "04_Software/web/e2e/import.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

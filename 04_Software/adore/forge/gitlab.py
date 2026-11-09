@@ -117,6 +117,34 @@ class GitLabForge(Forge):
                 return tickets
             page += 1
 
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List open issues without a label filter, page by page.
+        @details    Walks pages of `_PAGE_SIZE` until a short page, `limit` items
+                    or `_MAX_LIST_PAGES`; the state is explicit as in `list_ready`.
+        @param[in]  limit Maximum number of tickets to return.
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When glab fails or a record is malformed.
+        """
+        items: list[Any] = []
+        page = 1
+        while True:
+            result = self._run(
+                [
+                    "glab", "issue", "list",
+                    "--repo", self.repo,
+                    "--state", "opened",
+                    "--output", "json",
+                    "--per-page", str(_PAGE_SIZE),
+                    "--page", str(page),
+                ]
+            )
+            batch = self._parse_json(result, list)
+            items.extend(batch)
+            if len(batch) < _PAGE_SIZE or len(items) >= limit or page >= _MAX_LIST_PAGES:
+                return self._open_tickets(items, limit)
+            page += 1
+
     def get_ticket(self, iid: int) -> Ticket | None:
         """
         @brief      Fetch one issue; None when it was deleted.
@@ -341,12 +369,12 @@ class GitLabForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a draft MR via `glab mr create --draft`. Never merges.
+        @brief      Open a draft or ready MR via `glab mr create`. Never merges.
         @param[in]  source Source branch.
         @param[in]  target Target branch.
         @param[in]  title MR title.
         @param[in]  body MR description.
-        @param[in]  draft Open as draft (ADORE always passes true).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer usernames.
         @param[in]  remove_source_branch Delete the branch on merge.
         @param[in]  cwd Git checkout to run in; glab resolves remotes from a
@@ -410,6 +438,25 @@ class GitLabForge(Forge):
             if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
                 return notes
             page += 1
+
+    def list_labels(self) -> list[str]:
+        """@brief Project label names, read page by page."""
+        names: list[str] = []
+        page = 1
+        while True:
+            endpoint = f"projects/{self._project_enc}/labels?per_page={_PAGE_SIZE}&page={page}"
+            batch = self._parse_json(self._run(["glab", "api", endpoint]), list)
+            names.extend(str(item["name"]) for item in batch
+                         if isinstance(item, dict) and item.get("name"))
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return names
+            page += 1
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """@brief Create a project label (GitLab takes the colour with #)."""
+        self._run(["glab", "api", "--method", "POST", f"projects/{self._project_enc}/labels",
+                   "--raw-field", f"name={name}", "--raw-field", f"color=#{color}",
+                   "--raw-field", f"description={description}"])
 
     @property
     def _project_enc(self) -> str:

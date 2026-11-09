@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-676d284c"
+
+title = "Require a new password after an administrator reset"
+
+status = "active"
+
+requirement = """
+When an administrator resets an account's password, ADORE web shall require that account to set a new password before further use: until the account changes its own password successfully, every authenticated API route other than reading the account, reading or updating its presentation preferences, changing its own password and signing out shall return 403 with error code password_change_required.
+"""
+
+verification = "Automated: reset a developer's password as administrator, sign in as the developer, and observe 403 password_change_required from a protected route while GET /me, preferences, POST /me/password and DELETE /session succeed; change the password and observe protected routes succeed after signing in again. Boundary: a wrong current password leaves the requirement in place; the requirement survives a service restart; the bootstrap admin is not flagged; a store whose users table lacks the flag column fails closed."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_auth.py::test_reset_password_requires_own_change_until_it_succeeds", "04_Software/tests/test_web_auth.py::test_bootstrap_admin_starts_unmarked", "04_Software/tests/test_web_auth.py::test_schema_thirteen_missing_password_policy_fails_closed", "04_Software/tests/test_web_auth.py::test_password_change_required_limits_api_to_account_routes", "04_Software/tests/test_web_auth.py::test_password_change_required_session_can_sign_out"]
+
+
+spec = "specs/REQ-SEC-676d284c.md"
+
+priority = "high"   # low | normal | high
+rationale = "A password set by an administrator is known to someone other than the account holder."        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-11-01

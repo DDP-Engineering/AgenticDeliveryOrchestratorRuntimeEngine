@@ -15,8 +15,7 @@
 #     environment or a gitignored `.env` (template: `.env.example`).
 #   - Every key shown here has a sensible default; you can delete any line or
 #     whole section you do not want to override. The only values you MUST set
-#     are [platform] repo, [executor.<name>] command/model, and
-#     [delivery] reviewers.
+#     are [platform] repo and [executor] model.
 #   - Full reference with all defaults and rationale:
 #     ../01_Documentation/Configuration_Reference.md
 # =============================================================================
@@ -53,11 +52,8 @@ repo = "group/subgroup/project"
 # How run state is reflected ON THE TICKET for humans. The authoritative state
 # always lives locally under the store_root; the ticket only mirrors it.
 [state]
-# Accepted values: "comments" | "labels" | "both". Validated for compatibility;
-# the runtime mirrors every state change with ONE status comment, edited in
-# place, and the lifecycle labels regardless of this value. Clarification and
-# delivery notices are separate comments.
-channel = "comments"
+# Every state change is mirrored by ONE status comment, edited in place, and
+# the lifecycle labels. Clarification and delivery notices are separate comments.
 # Local authoritative state directory (runs, lock, pause flag, metrics).
 # Leave out to derive ".<slug>".
 store_root = ".adore"
@@ -69,11 +65,11 @@ store_root = ".adore"
 # "once" = a single pass per invocation, scheduled externally by cron (Linux)
 #          or Task Scheduler (Windows).
 mode = "loop"
-# Base wait between poll passes, in seconds.
+# Base wait after completed passes in CLI loop and the web worker, in seconds.
 poll_interval_seconds = 60
-# Random +/- jitter added to each wait, to avoid a fixed cadence.
+# Random 0..maximum seconds added after backoff, to avoid synchronized checks.
 poll_jitter_seconds = 5
-# Lengthen the interval after Git-platform errors / rate limits.
+# Double waits after failed checks (up to 8x); reset after success. Web includes nonzero/uncertain CLI outcomes.
 poll_backoff = true
 # How many tickets may be in flight at once (worktree + container each).
 max_concurrent_runs = 1
@@ -84,15 +80,10 @@ quiet_hours = []
 # Applied AFTER the eligibility label: a ticket that is `agent-ready` but fails
 # these checks is left for a human instead of being picked.
 [readiness]
-# Skip tickets whose body has no acceptance criteria.
-require_acceptance_criteria = true
+# Optional: require "acceptance criteria" text or an unchecked - [ ] item.
+require_acceptance_criteria = false
 # Require one of the priority labels (see [labels.selection]).
 require_priority_label = true
-# Require the ticket to map to a known component of the target repo.
-# NOT YET ENFORCED: accepted and validated, but pickup is not filtered by
-# component (review finding ADORE-ARCH-006). Today only
-# require_acceptance_criteria / require_priority_label filter pickup.
-require_known_component = true
 # Skip tickets estimated larger than this scope hint.
 # NOT YET ENFORCED: accepted and validated, but large tickets are NOT skipped
 # (review finding ADORE-ARCH-006).
@@ -102,8 +93,8 @@ max_scope_hint = "small"
 # All label STRINGS are configurable; the orchestrator refers to labels only by
 # their role, so a team can rename any label without code changes.
 
-# Lifecycle labels - managed by the orchestrator (only applied when
-# state.channel includes "labels"). `ready` and `answered` are the two a HUMAN
+# Lifecycle labels - managed by the orchestrator. `ready` and `answered` are
+# the two a HUMAN
 # applies to move a ticket into / back into the flow.
 [labels.lifecycle]
 ready    = "agent-ready"      # eligible, not yet picked (human opt-in)
@@ -122,22 +113,43 @@ priority_medium = "P2"
 priority_low    = "P3"
 type_feature    = "feature"
 type_bug        = "bug"
+type_epic       = "epic"
 
 # Control labels - human overrides, checked BEFORE eligibility (they always win).
 [labels.control]
 hold    = "agent-hold"        # never pick while present, even if agent-ready
 exclude = "no-agent"          # permanently human-only, ignore always
 
-# Executor pin - optional per-ticket executor override, e.g. a ticket labelled
-# "agent-exec:opencode" forces that executor for its run.
-[labels.executor]
-prefix = "agent-exec:"
-
 # ----- Executor ----------------------------------------------------------------
 [executor]
-# Which executor to launch: "opencode" | "pi" | "codex".
-# Must have a matching [executor.<name>] table below.
-default = "opencode"
+# ADORE's coding agent is Pi (@earendil-works/pi-coding-agent); there is no
+# agent choice. A container run uses the Pi pinned in the executor image,
+# driven over its RPC mode, and reads AGENTS.md natively. Keys of removed
+# agents (`default`, `stage_host_auth`, `[executor.<name>]` tables) are refused.
+# Provider: one of Pi's API-key providers (for example "openai", "anthropic",
+# "google", "openrouter", "mistral"; Settings -> Agent and model lists them all),
+# "chatgpt" (this server's ChatGPT Plus/Pro sign-in, made in the web interface;
+# container runs only, stage time limits at most 3000 seconds) or
+# "custom" (an OpenAI-compatible endpoint such as LM Studio, Ollama or vLLM,
+# described in [executor.endpoint] below).
+provider = "openai"
+# Model id within the provider (Pi's list, or any id the provider accepts).
+model = "gpt-5.5"
+# Internet access for the agent (Settings -> Agent and model). false (default):
+# a container run reaches only the model provider's hosts (ADORE derives them,
+# plus [container.egress] allowlist) through a per-run proxy; web search, page
+# reading and downloads are unavailable. true: open network, with Pi's web
+# search and page reading ([executor.web]); downloads use bash (curl, npm, pip).
+# With true, a malicious page could try to make the agent send its API key or
+# ChatGPT token out: prefer limited, short-lived keys. A local (server-installed)
+# run is not restricted by this switch.
+# internet = false
+# The provider's API key is a credential, never a value in this file: save it in
+# Settings -> Agent and model, or put it in .env beside this config.toml under
+# the variable Pi reads for the provider (OPENAI_API_KEY for "openai",
+# ANTHROPIC_API_KEY for "anthropic", ADORE_ENDPOINT_API_KEY for "custom").
+# Container launch is fixed by ADORE. A local profile must omit command.
+# command = "pi -p --mode json --model {model} {prompt}"
 # "thick"    = the orchestrator drives gate-by-gate and verifies in between
 #              (recommended; matches the workflow's stop-after-each-gate design).
 # "headless" = single-shot: launch once and read the final result only.
@@ -148,58 +160,27 @@ mode = "thick"
 # after a gate is the deterministic "needs clarification" signal.
 # Leave out to derive "<SLUG>_QUESTIONS.md".
 questions_file = "ADORE_QUESTIONS.md"
-# The ONLY environment variables passed into the executor container (values
-# come from the host environment or .env; design: scope secrets minimally).
-env_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
-# PILOT-ONLY: copy the host's opencode auth.json (OAuth/ChatGPT-account
-# session) into the run container at provision. Use when no provider API key
-# exists yet (01_Documentation/Security_And_Credentials.md). Fragile for
-# long-running use
-# (refresh tokens rotate); production needs a real key in .env instead.
-stage_host_auth = false
+# Additional secret variables passed to Pi besides the provider's key variable
+# (values come from the host environment or .env; scope secrets minimally).
+env_keys = []
 
-# One table per executor. `command` is a template; ADORE substitutes {prompt},
-# {model}, and {worktree}. SAFETY: never add --auto (it would auto-approve the
-# push/merge permissions that must stay blocked; the executor never touches
-# the remote - the orchestrator owns push and MR creation).
-[executor.opencode]
-command = "opencode run --dir {worktree} -m {model} --format json {prompt}"
-# Model in provider/model form; the provider API key comes from .env.
-model = "openai/gpt-5.4-fast"
+# Only with provider = "custom": the OpenAI-compatible endpoint. base_url is the
+# address as seen by Pi. In a container, "localhost" is the container itself, and
+# host.docker.internal reaches the host only on Docker Desktop. On Docker Engine
+# (Linux, or inside WSL) use the host's LAN address or the Docker network
+# gateway; for a server on Windows reached from WSL Docker, the WSL default
+# gateway. api is the Pi API type the server speaks: "openai-completions"
+# (LM Studio, Ollama, vLLM), "openai-responses", "anthropic-messages" or
+# "google-generative-ai". An endpoint key, if any, is ADORE_ENDPOINT_API_KEY.
+# [executor.endpoint]
+# base_url = "http://192.168.1.20:1234/v1"
+# api = "openai-completions"
 
-# Alternative executor: Pi (@earendil-works/pi-coding-agent). To use it, set
-# `default = "pi"` above and uncomment this table. Pi reads AGENTS.md natively
-# and gets its push/merge guardrails from the repo's `.pi` agentic-guard
-# extension (enforced in headless/json mode). It must be installed in the
-# executor image, and the project must be trusted for headless runs.
-# [executor.pi]
-# command = "pi -p --mode json --model {model} {prompt}"
-# model = "openai/gpt-5.5"
-
-# Alternative executor: OpenAI Codex (@openai/codex). To use it, set
-# `default = "codex"` above and uncomment this table. Codex reads AGENTS.md
-# natively. {resume} becomes `resume --last ` on continuation (Codex resumes
-# the previous gate's session - keep it). SAFETY: full-auto Codex mode is
-# acceptable only because ADORE runs executors inside an external container/
-# worktree sandbox and keeps push/MR ownership outside the executor.
-# `--ignore-user-config` plus `--disable plugins` prevents workstation-local
-# and bundled Codex plugin/marketplace state from bleeding into the container;
-# ADORE stages only auth.json into an isolated CODEX_HOME when
-# `stage_host_auth = true`.
-# [executor.codex]
-# command = "codex exec {resume}--json --model {model} --ignore-user-config --disable plugins --dangerously-bypass-approvals-and-sandbox {prompt}"
-# model = "gpt-5.5"
-
-# Alternative executor: Qwen Code (@qwen-code/qwen-code, a Gemini-CLI fork). To
-# use it, set `default = "qwen"` above and uncomment this table. Qwen reads
-# AGENTS.md natively and is guarded by the repo's `.qwen` hooks + deny list.
-# It runs STATELESS per gate (no session continuation). SAFETY: the command
-# must not use --yolo / --approval-mode yolo (validation enforces this). Auth is
-# OpenAI-compatible: OPENAI_API_KEY (+ OPENAI_BASE_URL for the Qwen/Dashscope
-# endpoint) in .env, or the Qwen OAuth free tier.
-# [executor.qwen]
-# command = "qwen -p --model {model} --output-format json {prompt}"
-# model = "qwen3-coder-plus"
+# Web search while internet = true: "exa" (default, no key), "brave" or "tavily"
+# (key saved in Settings -> Agent and model as BRAVE_API_KEY or TAVILY_API_KEY,
+# or in .env), or "none" (no web search or page reading).
+# [executor.web]
+# search = "exa"
 
 # ----- Clarification -----------------------------------------------------------
 # Bounds for parked runs (executor asked a question, waiting on a human).
@@ -218,7 +199,19 @@ timeout_state = "failed"
 # ----- Container / isolation ---------------------------------------------------
 # Execution isolation: the executor always runs inside a container; the git
 # worktree is mounted in. Both exist once per run-id.
+# Optional reviewed project preparation; see Container_Preparation.md.
+# Selection is a tracked path#job@full-reviewed-target-commit, never a branch name.
+[execution]
+backend = "container"
+preparation = ""
+preparation_step_timeout_seconds = 300
+preparation_total_timeout_seconds = 900
+preparation_max_attempts = 2
+
 [container]
+# Opt-in direct agent package-manager sudo; rebuild a compatible image first.
+# Network stays independently configured under [container.egress].
+system_packages = false
 # "docker" | "podman", optionally wrapped when the daemon lives elsewhere -
 # e.g. Docker Engine inside WSL2 (no Docker Desktop):
 #   runtime = "wsl -d Ubuntu-24.04 -- docker"
@@ -243,7 +236,7 @@ parked_ttl_polls = 30
 uv_cache_volume  = "adore-uv-cache"
 npm_cache_volume = "adore-npm-cache"
 # Non-secret runtime environment injected at container creation and every
-# `exec`. ADORE reserves HOME/GIT_*/CODEX_HOME for isolation; use this for
+# `exec`. ADORE reserves HOME, GIT_* and the proxy variables; use this for
 # portable tool behavior. Default keeps uv package links copy-based, which is
 # safer on Windows/WSL bind mounts.
 runtime_env = { UV_LINK_MODE = "copy" }
@@ -278,20 +271,16 @@ required_tool_checks = [
 ]
 
 [container.egress]
-# "open" = unrestricted egress, intended for supervised operation.
-# "none" = start executor containers with --network none for fully offline,
-#          pre-provisioned runs.
-# "allowlist-proxy" = executor has no direct internet; HTTP/HTTPS egress goes
-#                     through an ADORE-managed per-run proxy container.
-mode = "open"
-# Exact or wildcard hostnames only. Runtime projects fill this with the
-# minimum hosts their executor and package manager require, e.g.
-# ["gitlab.example.com", "api.openai.com", "*.pythonhosted.org"].
+# The per-run proxy behind which a run with [executor] internet = false sits.
+# ADORE admits the model provider's hosts itself; allowlist adds hosts such a
+# run may also reach, exact or wildcard host names only, e.g. a package mirror
+# ["pypi.org", "*.pythonhosted.org"]. Unused while internet = true.
 allowlist = []
 # Bypassed by proxy-aware tools. Keep loopback defaults unless your executor
 # also needs an internal hostname.
 no_proxy = ["localhost", "127.0.0.1", "::1"]
-# Build from docker/Dockerfile.egress-proxy.
+# Build from docker/Dockerfile.egress-proxy; the readiness check reports it
+# missing for an internet-off project.
 proxy_image = "adore-egress-proxy:1.0.0"
 proxy_port = 3128
 network_prefix = "adore-egress"
@@ -315,7 +304,7 @@ branch_template = "{slug}/{run_id}"
 branch_rule = ""
 
 # ----- AEGIS workflow ------------------------------------------------------------
-# How a ticket becomes an AEGIS task journal (AEGIS 0.5+, schema 1). ADORE creates the task after
+# How a ticket becomes an AEGIS task journal (AEGIS 0.15.0+, schema 1). ADORE creates the task after
 # creating the task branch; the frame executor chooses and justifies its path.
 # All of them are optional - the defaults below are what ADORE uses when the
 # section is absent.
@@ -332,8 +321,9 @@ quick_label = "agent-quick"
 # Python executable used for `python .agentic/aegis.py ...`.
 aegis_python = "python"
 # Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
-# stages that legitimately need more room than intake does. Keys must be AEGIS
-# stage names; values are whole seconds.
+# stages that legitimately need more room than intake does. Keys are the AEGIS
+# stages that launch an executor: frame, specify, design, build, validate;
+# values are whole seconds.
 # stage_timeout_overrides = { build = 5400, validate = 3600 }
 stage_timeout_overrides = {}
 
@@ -352,8 +342,8 @@ retry_backoff_seconds = [5, 30, 120]
 # the counters and continues from where AEGIS says the run stands (it never
 # redoes closed stages).
 [budgets]
-# Executor LAUNCHES per run: six working stages for a full path, four for quick,
-# plus remediation, delivery bookkeeping and close-out launches. The default
+# Executor LAUNCHES per run: five working stages for a full path, three for
+# quick, plus continuation, remediation and revalidation launches. The default
 # provides bounded unattended headroom.
 max_iterations           = 20
 max_wall_clock_seconds   = 3600   # total wall-clock per run (whole-run ceiling)
@@ -362,21 +352,22 @@ max_cost_usd             = 5.0    # reported cost cap; 0 disables this cap
 max_files_touched        = 120    # includes AEGIS forms/evidence + product files
 
 # ----- Delivery ------------------------------------------------------------------
-# The hard boundary: ADORE opens a DRAFT MR/PR and stops. It never merges, and
-# `draft = false` is rejected by `adore config validate`.
+# ADORE opens the configured review state after human approval. It never merges.
+# true creates a draft; false creates a review-ready PR/MR. Both require human approval.
 [delivery]
 # Branch the MR/PR targets.
 target_branch = "develop"
-# Always true: a draft cannot be merged until a human marks it ready.
+# Default true: create a draft. Set false to create a PR/MR ready for review.
 draft = true
-# Human reviewer(s) assigned to the MR/PR. REQUIRED - at least one.
+# Human reviewer(s) assigned to the MR/PR. Optional - [] requests no review.
 reviewers = ["reviewer.one"]
 # Delete the run branch when the human merges (GitLab option).
 remove_source_branch = true
 # ADORE removes this label before presentation and accepts only a fresh re-add.
 approval_label = "agent-approved"
-# Opt in to remote WIP checkpoints; delivery still needs fresh human approval.
-publish_checkpoints = false
+# Publish remote WIP checkpoints by default; delivery needs fresh human approval.
+# Set false to keep intermediate checkpoints local.
+publish_checkpoints = true
 
 # ----- Post-MR review loop ----------------------------------------------------
 # How ADORE reacts to review feedback on its draft MR. It never auto-reacts to
@@ -389,7 +380,7 @@ revise_label = "agent-revise"
 # Revise cycles before the run escalates to `failed`. Bounds human-requested
 # revisions and automatic pipeline repairs together, so a permanently red
 # pipeline cannot loop.
-max_review_rounds = 3
+max_review_rounds = 5
 # What a NEW `failed` forge pipeline verdict on the published draft does:
 #   "revise" - start a governed repair round automatically (default). Same
 #              bounded path as the revise label: a new AEGIS task on the same
@@ -406,20 +397,27 @@ on_pipeline_failure = "revise"
 review_reminder_after = "48h"
 
 # ----- Reconciliation ------------------------------------------------------------
-# Reactions when the outside world changes under an active/parked run, so a
-# deleted or closed ticket never leaves a zombie run or orphaned container.
+# Reactions when the outside world changes under a waiting run, so a deleted
+# or closed ticket never leaves a zombie run or orphaned container.
 #
 # STATUS (review finding ADORE-ARCH-005): on_ticket_deleted / on_ticket_closed
 # are validated but their configured VALUES are not consulted - reconciliation
-# applies hardcoded behavior matching the defaults below, and only to PARKED
-# runs. on_trigger_removed is NOT IMPLEMENTED AT ALL: adding the hold label
-# mid-run does NOT stop an active `working` run. Use `adore cancel <run-id>`.
+# applies the fixed behavior described below, and only to runs waiting for
+# approval, a clarification answer or review. A run in review checks its MR/PR
+# first: a merged MR/PR completes it, a closed one fails it (MR_CLOSED) and one
+# that stays missing fails it (MR_DELETED), whatever the ticket's state.
+# on_trigger_removed is NOT IMPLEMENTED AT ALL: adding the hold label mid-run
+# does NOT stop an active `working` run. Use `adore cancel <run-id>`.
 [reconcile]
 # Ticket deleted: "abort-cleanup" (stop + remove container/worktree) | "ignore".
-# NOT ENFORCED - parked runs are always orphaned regardless of this value.
+# NOT ENFORCED - whatever this value, a waiting run whose ticket is deleted
+# fails visibly (TICKET_DELETED): its container stops and its worktree and
+# evidence stay.
 on_ticket_deleted = "abort-cleanup"
 # Ticket closed by a human mid-run: "cancel" (graceful stop + comment) | "ignore".
-# NOT ENFORCED - parked runs are always cancelled regardless of this value.
+# NOT ENFORCED - whatever this value, a waiting run whose ticket is closed is
+# cancelled: its container, worktree and local branch are removed and its
+# state history stays.
 on_ticket_closed = "cancel"
 # Trigger label removed / hold added mid-run: "pause" | "abort" | "ignore".
 # NOT IMPLEMENTED - this key has no effect; use `adore cancel <run-id>`.
@@ -443,3 +441,12 @@ capture_tokens = true
 capture_resource = true
 # Output path for the self-contained `adore stats --html` dashboard.
 html_out = ".adore/metrics/stats.html"
+
+# Native local alternative: switch the existing [execution] backend to "local".
+# Run adore pi install and adore pi verify as the ADORE service account.
+# Linux: set ADORE_LOCAL_CGROUP_ROOT in the service environment.
+# Keep preparation empty and remove container-only runtime/tool-check overrides.
+# [local]
+# account = "current"
+# path = "" # Optional project-tool PATH; blank uses the service PATH.
+# See ../01_Documentation/Local_Execution.md; worktrees are not host sandboxes.

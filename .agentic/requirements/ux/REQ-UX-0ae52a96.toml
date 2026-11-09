@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-0ae52a96"
+
+title = "Authorized filtered change history and administrative retention"
+
+status = "active"
+
+requirement = """
+For an authenticated administrator or an authorized project-history reader, the service shall return correctly scoped actor/project/type/UTC period filtered audit rows and counts with server paging and a readable who/what/when/result browser view.
+"""
+
+verification = "Offline API and browser tests cover filters, counts, pages, empty/error states and denial of global or unassigned history to Dev."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/auditCopy.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/", "04_Software/web/e2e/audit.spec.ts"]
+
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py", "04_Software/web/e2e/audit.spec.ts", "04_Software/web/e2e/shell.spec.ts", "04_Software/tests/test_web_paging.py", "04_Software/tests/test_web_errors.py"]
+
+
+spec = "specs/REQ-DATA-34ed1530.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

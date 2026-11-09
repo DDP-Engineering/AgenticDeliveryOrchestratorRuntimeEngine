@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-b0e9a434"
+
+title = "Explain every project setting in the selected language"
+
+status = "active"
+
+requirement = """
+On a project's Configuration, the web interface shall show for every setting a help text in the selected language that states what the setting controls, its unit or allowed values and the effect of changing it, or that it is reserved, together with ADORE's default value.
+"""
+
+verification = "Automated tests check that the setting catalog equals the keys ADORE's configuration produces and that every catalog key has a non-empty help text in English, French, German and Romanian with no text for unknown keys and with pattern keys resolving; Manual: in a browser, open Help on a common, a list, a reserved and an executor command setting in two languages and read the specific text and default."
+
+affected_paths = ["04_Software/web/src/settingHelp.ts", "04_Software/web/src/settingKeys.json", "04_Software/web/src/settings.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/", "04_Software/web/tests/", "04_Software/tests/test_web_setting_catalog.py"]
+
+linked_tests = ["04_Software/tests/test_web_setting_catalog.py::test_setting_catalog_lists_every_configuration_key", "04_Software/web/tests/settingHelp.test.mjs", "04_Software/web/tests/settings.test.mjs"]
+
+
+spec = "specs/REQ-UX-b0e9a434.md"
+
+priority = "normal"
+rationale = "Operators decide what to change from the help; a pointer to the reference does not explain a setting."
+
+created = 2026-10-04
+updated = 2026-10-04

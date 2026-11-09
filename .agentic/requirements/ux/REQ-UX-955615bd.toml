@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-955615bd"
+title = "Navigate the dashboard with authorized accessible links"
+status = "active"
+requirement = "While a user is signed in, the dashboard shall provide keyboard-operable Overview, Projects, Jobs, Statistics and My account navigation as real links with visible focus and selected-page semantics, adding administrator navigation only for the server-authenticated administrator role."
+verification = "Offline Chromium: Admin and assigned Dev traverse semantic navigation by keyboard, inspect current-page/focus, open My account, use Back/reload; administrator URLs as Dev fall back and API access is denied."
+affected_paths = ["04_Software/web/e2e/dashboard.spec.ts", "04_Software/web/e2e/shell.spec.ts", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-05

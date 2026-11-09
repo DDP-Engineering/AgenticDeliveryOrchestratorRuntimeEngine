@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-a6d68c4a"
+
+title = "Administrative independent retention policy"
+
+status = "active"
+
+requirement = """
+When an administrator changes audit retention in administrative settings, the service shall enforce independent nullable age and stored-text byte bounds with an explicit deletion/limit impact summary.
+"""
+
+verification = "Policy success, bounds, CSRF/RBAC and browser separation tests verify saved limits, deletion count and unlimited values."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/auditCopy.ts"]
+
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py", "04_Software/tests/test_web_rbac.py", "04_Software/web/tests/auditPolicy.test.mjs", "04_Software/web/e2e/audit.spec.ts"]
+
+
+spec = "specs/REQ-DATA-34ed1530.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

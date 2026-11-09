@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-c18f6fec"
+title = "Name the chosen priority label in the Start confirmation"
+status = "active"
+requirement = """
+When the Start confirmation asks for a priority label, its message shall list the ready label to add and the currently selected priority label, updating when the selection changes, instead of the word Priority.
+"""
+verification = "Automated browser test: a ticket missing ready and priority labels opens the confirmation whose message names the ready label and the preselected priority label; choosing another priority updates the message to that label; the message never contains the placeholder word."
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts"]
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+spec = ""
+priority = "normal"
+rationale = "The message showed the placeholder word Priority instead of the label to be added."
+created = 2026-11-01
+updated = 2026-11-01

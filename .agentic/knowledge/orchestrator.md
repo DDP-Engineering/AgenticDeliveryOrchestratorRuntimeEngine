@@ -8,115 +8,215 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Orchestrator
 
-## Purpose and boundaries
-
-`04_Software/adore/orchestrator.py` is the deterministic conductor around an
-agent-operated AEGIS task. It selects eligible tickets, provisions isolation,
-runs one fresh executor session per stage attempt, and persists enough state to
-recover visibly after interruption.
-
-## Public interface
-
-The conductor owns ticket claiming, worktrees/containers, AEGIS task binding,
-budgets, retries, clarification parking, notifications/outbox replay,
-validation, candidate fingerprinting, and draft-only MR/PR publication. AEGIS
-owns journal content and governance checks; the executor performs bounded code
-work; forge adapters perform remote operations. ADORE never merges and never
-hands forge credentials to an executor. Each stage prompt declares the task
-autopilot-to-deliver by explicit conductor instruction and has the executor
-record `interaction: autopilot` in the journal header, so the AEGIS checkpoint
-default never stops an executor before the transition ADORE waits to observe.
-Each stage prompt also forbids AEGIS child task journals (`task --parent`): the
-conductor pins exactly one task per run and reads only that journal, so work in
-a child would be invisible to stage supervision.
-
-## Invariants
-
-Lifecycle state (`working`, parked, approval, publishing, review, terminal)
-is separate from the AEGIS stage. Stage failures, transient infrastructure
-retries, questions, typed AEGIS timeouts, and typed executor timeouts are
-classified independently and journaled. Failed resources are preserved for
-operator recovery. Strict verification and a fresh approval must match the
-exact candidate fingerprint before delivery publication or a draft MR/PR; any drift forces
-re-conduction. The approval presentation leads with the deviations the
-journal recorded; they inform the approver and never block.
-
-## Requirement coverage
-
-- `REQ-FUNC-ff7dad34` - candidate-bound approval and draft-only publication.
-- `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
-- `REQ-FUNC-1ec4a21d` - durable, idempotent notification outbox replay.
-
-## Dependencies and verification
-
-The `Orchestrator` composes config, state store, AEGIS client, executor,
-isolation, forge adapters, identity, metrics, and utilities through injectable
-seams. `04_Software/tests/test_orchestrator.py` covers full/quick paths,
-recovery limits, clarification, outbox replay, ticket/MR reconciliation,
-approval freshness, timeout classification, cleanup protections, and the
-absence of merge behavior.
-
+Shared ticket eligibility excludes the configured epic type label from automatic pickup and manual admission; eligible manual Start remains available with monitoring paused.
 
 ## Routing
 
-For stage conduction, partial continuations, retry limits, approval or ticket
-reconciliation, start at `Orchestrator` in `04_Software/adore/orchestrator.py`
-and `04_Software/tests/test_orchestrator.py`. Worktree observation belongs to
-Isolation; model stream accounting belongs to Executor Launcher.
+Use this page for ticket selection, run lifecycle, stage gates, approval,
+publication and recovery. Start at `04_Software/adore/orchestrator.py` and
+verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
+`web-interface.md`; CLI argument parsing belongs to `cli.md`.
+
+
+`REQ-FUNC-93bd42af`: Human-merged reviews trigger configured, leased remote run-branch cleanup on every forge. Final publication persists its commit independently of progress-publication policy. Bounded cleanup failure completes the merge with a branch-retained warning and preserves local evidence. Closed unmerged reviews authorize no remote deletion.
+
+## Purpose and boundaries
+
+The orchestrator conducts one agent-operated AEGIS task through isolation,
+bounded stage execution, validation and configured draft or ready publication. AEGIS owns its task
+journal and closes it in validate, the executor performs code work, and forge
+adapters perform remote operations. ADORE verifies the validate -> done advance
+itself, presents the candidate and publishes with Git and forge operations only.
+ADORE never merges or gives forge credentials to an executor.
+
+## Public interface
+
+`poll_once(ticket_iid=None)` selects an eligible ticket and conducts its run;
+`run_loop()`, `retry(run_id)`, `cancel(run_id)`, `handoff(run_id)` and
+`reset(run_id, stage)` expose bounded operations; reset accepts `frame`,
+`specify`, `design`, `build`, `validate` or `publishing`.
+`Orchestrator.from_config()` constructs the conductor from validated settings
+and binds project-scoped forge credentials through repository-auth.md using
+the env-file directory. Worktree/container/executor credentials stay separate.
+
+## Invariants
+
+The conductor owns ticket claiming, worktrees/containers, budgets, retries,
+clarification parking, outbox replay, candidate fingerprinting and human-approved
+MR/PR publication. One AEGIS task is pinned to each run. The executor's
+validate -> done advance triggers ADORE's own strict verification; strict
+verification and fresh candidate-bound approval precede the push and draft or
+ready creation, and no executor session or AEGIS command runs after approval.
+A done task without verification evidence returns to validate through
+one fresh session first, and a failed check is routed back from done. A run
+keeps the stage done while it awaits approval, publishes and is in review;
+guarded progress checkpoints default to enabled and stay on the owned ticket branch and do
+not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
+remain available for recovery. Cleanup works only on this project's run IDs and
+keeps active, failed, human-owned and corrupt runs' resources. Selected-ticket
+requests retain readiness, hold and exclude checks. Pickup eligibility is the
+shared `adore.selection.ineligibility` rule set, which the web ticket browser
+also reports, so a ticket shown as startable is one the conductor selects.
+Worker-authorized cancellation markers interrupt a working executor gate;
+the conductor alone finalizes cancellation and clears the marker.
+At a safe boundary, a requested handoff stops autonomous work, preserves the
+worktree and wins over a concurrent cancellation request. A foreign remote
+checkpoint commit stops execution instead of replacing human work.
+An idle poll republishes failed-run recovery commits only when the local branch
+has advanced or a recorded transport error remains; a verified checkpoint
+does not refresh historical run timestamps. Stage prompts declare autopilot,
+have the executor finish with `advance` and stop with `log` and `pause`, and
+never name a deliver stage. The conductor is the only stage owner; API
+requests do not conduct in the HTTP process.
 
 ## Change map
 
-| Request | Start with | Focused verification |
+| Change requested | Start with | Focused verification |
 |---|---|---|
-| Stage completion or continuation | `_conduct_task`, `_stage_prompt` | `partial_stage`, full/quick path cases |
-| Recovery and questions | `_stage_failure`, `_park` | failure, timeout, clarification cases |
-| Publication and approval | `_strict_verification`, `_present_for_approval` | approval and review cases |
+| Stage flow, verification trigger, return to validate | `_conduct_task_impl`, `_strict_verification`, `_validation_failure` | `test_orchestrator.py` path, route and remediation tests |
+| Approval and publication | `_present_for_approval`, `_approval_ready`, `_publish_impl` | `test_orchestrator.py` publication tests, `test_checkpoint_handoff.py` |
+| Executor prompts | `_stage_prompt` | `test_orchestrator.py` prompt tests |
+| Retry and reset | `retry`, `_published`, `reset`, `RESETTABLE_STAGES` | `test_orchestrator.py` reset tests, `test_smoke.py` |
+| Checkpoints and human handoff | `_checkpoint`, `_push_checkpoint`, `handoff` | `test_checkpoint_handoff.py` |
+| Cleanup | `cleanup`, `purge_resources` | `test_orchestrator.py` cleanup tests |
 
 ## Key behaviors
 
-- `REQ-FUNC-b0811cbe`: monetary enforcement runs only for positive reported-cost
-  caps; explicit zero preserves telemetry and all remaining run limits.
+- REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b / REQ-DATA-0c65db9f: before provision and each executor attempt, reread the selected source, validate budgets and pin parsed/resolved non-budget settings. Only budgets are rebound; no branch matcher/host probe is rerun. Missing/corrupt/unknown input or non-budget drift fails BUDGET_CONFIG_INVALID before another launch. Active time, sessions and saved task/worktree progress stay cumulative across resume/retry/revision. An in-flight launch retains its timeout. Proof includes public Retry boundaries and HTTP parked-budget save followed by same-job resume in test_orchestrator.py.
 
-- `REQ-FUNC-dff76be9`: a zero-exit same-stage gate continues only with changed
-  candidate content and a strict nonempty append to the work Log. The conductor
-  checkpoints, records `stage-continuation` and supplies recent work plus Handoff
-  instructions to a fresh session. Continuation preserves stage failure counts;
-  every session consumes existing iteration/time/cost/file budgets.
-- `REQ-FUNC-83133b5e`: failed gates or missing progress use bounded recovery;
-  only a legal stage transition resets the current failure count.
-- `REQ-FUNC-ff7dad34`: independent validation and fresh candidate-bound approval
-  precede draft publication.
+Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
+One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage
+and model targets, with native evidence redaction. Readiness reads the stored
+status without refreshing or calling a model. Missing/rejected credentials
+prevent Pi launch. Host network and owned-process scope policy stay in force.
+Offline proof: `tests/test_native_chatgpt.py` and `tests/test_web_chatgpt.py`.
 
-## Architecture
+- REQ-REL-6922cfe5 / REQ-FUNC-c405688e: package-enabled jobs persist a policy/resource plan without requiring a recipe, grant authority before agent work, pass bounded retention credentials and describe direct sudo/network limits in each stage prompt. Resource/policy drift fails closed.
 
-```mermaid
-flowchart TD
-  poll([poll_once]) --> request[_handoff_at_boundary]
-  request --> conduct[_conduct_task]
-  conduct --> gate([Fresh bounded executor])
-  gate --> request
-  conduct --> checkpoint[_checkpoint]
-  checkpoint --> push[_push_checkpoint]
-  push --> git([Guarded Git checkpoint])
-  push --> status([WIP remote status])
-  request --> transfer[handoff]
-  transfer --> pending[(handoff-pending)]
-  pending --> stop([Container stop and final checkpoint])
-  stop --> human[(handed-off)]
-  human --> notice([Durable takeover notice])
-  conduct --> strict[_strict_verification]
-  strict --> approval[_present_for_approval]
-  approval --> delivery([Fresh approval and draft publication])
-```
+REQ-FUNC-8adb68f9: Every stage prompt points to the installed
+.agentic/templates/task.md before editing a journal, preserving the original
+legal prologue, any retained guide link, same task ID and append-only history.
+Failed edits repair that journal; current checklist and CLI-owned State updates follow
+installed instructions. One-stage, no-child, budgets and publication limits
+remain authoritative. Optional diagrams and review/proof order belong to AEGIS.
+Focused proof: test_stage_prompt_preserves_aegis_journal_authoring_contract.
+
+
+REQ-FUNC-ffb9ed29: Explicit native retry alone refreshes volatile environment and
+installed-executable identity after saved plan, stable configuration and ownership
+checks. It retains job/task/worktree/branch/resource/history and cumulative budgets,
+then runs normal version provisioning and conduction. A refused refresh persists
+RETRY_REVALIDATION_FAILED with its cause; automatic polls do not authorize it.
+The bool retry result means accepted; CLI inspects final lifecycle before success.
+Focused proof: tests/test_retry_revalidation.py, all agents and injected OS paths.
+
+
+Accepted AEGIS returns, including Design -> Specify, continue in fresh sessions
+within cumulative budgets, clearing obsolete stage remediation context while
+retaining failure history. The conductor persists the observed stage and a
+stage-bearing transition event before Git checkpoint work; Jobs reads this saved
+state. Typed checkpoint Git failure becomes CHECKPOINT_FAILED at that stage,
+preserving the worktree. Active conduction retains its ownership marker; genuine
+orphaned runs still fail as STALE_WORKING.
+
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: The conductor selects the shared native backend and pins plan/resource, retaining the same AEGIS/executor/approval loop. Native provisioning skips images/setup/auth copies. Retry/parking preserve identity; local cleanup removes worktrees only after verified control. Container cleanup protects persisted native runs after backend drift.
+
+Native ownership/auth route to `local-execution.md`; focused proof is
+`04_Software/tests/test_local_execution.py`.
+
+
+Container profiles without recipes or enabled package permission retain the existing recovery/profile-update contract and empty execution record; immutable execution policy applies to recipe and package-enabled runs.
+
+- `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
+
+- `REQ-FUNC-ff7dad34` - candidate-bound approval and human-approved draft or ready publication.
+- `REQ-FUNC-9246f8cc` - the validate -> done advance triggers the strict check before presentation.
+- `REQ-FUNC-faab24b2` - a conduct step that starts at done without verification evidence
+  returns the task to validate first.
+- `REQ-FUNC-67469d47` - a failed independent check is routed back from done.
+- `REQ-FUNC-67bd56c8` - publication pushes and opens or adopts the MR/PR with no executor session or AEGIS command.
+- `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
+- `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing.
+- `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
+  approved unpublished one and conducts any other run from done.
+- `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
+- `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
+- `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
+- `REQ-FUNC-93bd3c8e` - NO_STAGE_PROGRESS evidence carries the gate's stderr tail
+  after its sentence: NUL and ANSI stripped (an open OSC/DCS string stops at its
+  line) and redacted on the whole stderr before the 20-line/2000-character cut, so
+  a cut never splits a key from its secret; the terminal `run.outcome` keeps the
+  sentence through `_head_and_tail` over `_sanitize(evidence, None)`, for every code.
+  The strip-redact-cut is the shared `util.output_tail`, also used by the web
+  worker's operation detail with its own redaction.
+- `REQ-FUNC-1ec4a21d` - durable notification outbox replay.
+- `REQ-FUNC-f9946b6b` - selected-ticket web start uses the normal conductor.
+- `REQ-FUNC-448cbde7` - usage events carry executor/model/review-round context
+  and explicit token/cost coverage for web analytics. Complete zero-token
+  reports remain known zero; partial records do not create numeric usage.
+- `REQ-REL-94e653aa` - configurable remote checkpoints and durable human handoff
+  preserve DCP recovery evidence and the fresh approval boundary.
+
 
 ## Files
 
-- `04_Software/adore/orchestrator.py`: conductor, lifecycle and approval policy.
-- `04_Software/tests/test_orchestrator.py`: offline behavior and trust boundaries.
-- `05_SoftwareDocu/Component_Orchestrator.md`: operator/component contract.
+- `04_Software/tests/test_system_packages.py`: package authority, independent egress, recovery and reviewed settings contracts.
 
-## Remote checkpoint and ownership contract
+- `04_Software/tests/test_retry_revalidation.py`: explicit Retry and bound outcome proof.
 
-- `REQ-FUNC-dd307c58`: strict opt-in WIP checkpoint visibility, exact remote identity/ancestor/lease protection, bounded transport recovery and approval-bound delivery.
-- `REQ-FUNC-c9d64cfe`: queued safe-boundary handoff; durable pending/handed-off state preserves resources and prevents automatic retry/reset.
-- Focused verification: `04_Software/tests/test_checkpoint_handoff.py`.
+- `04_Software/tests/test_local_execution.py`: native integration/negative proof.
+
+
+- `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
+- `04_Software/tests/test_orchestrator.py` - selection, recovery and delivery.
+- `04_Software/tests/test_checkpoint_handoff.py` - checkpoint and handoff edges.
+
+## Automatic loop cadence
+
+`run_loop()` uses the shared `adore.polling.PollCadence` policy documented in
+[Polling cadence](polling.md). It retains the conductor lock, typed
+forge/unexpected-error logging, local quiet windows and interrupt cleanup.
+Success resets backoff; a quiet round preserves it. Each wait begins after the
+round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.
+
+Manual admission with a positive explicit ticket_iid bypasses only automatic
+monitoring pause, retains that marker, and freshly checks the selected ticket.
+Capacity, payload, lock and eligibility remain authoritative; refused manual
+admission returns a closed start_reason in its summary.
+
+## Container timeout recovery
+
+The shared bound backend settles timed-out container descendants before retaining
+output or admitting another command. It parks and later resumes the same verified
+resource, preserving installed dependencies and the independent egress policy.
+Unconfirmed recovery raises ExecutionRecoveryError; active conduction persists the
+existing INFRASTRUCTURE_EXHAUSTED terminal outcome without spending another
+executor attempt. A pending operator cancellation takes precedence. Successful
+timeout recovery preserves the original typed timeout classification and existing
+bounded stage-failure policy. Preparation replay rules remain unchanged.
+
+Contracts: REQ-FUNC-bff135e2, REQ-REL-ea593cbb, REQ-REL-d8e08cca and
+REQ-DATA-62052e16. Offline coverage is tests/test_container_timeout.py, including
+public retry persistence, plus preparation/native/conductor regressions.
+
+## Owned abandonment and restart
+
+delete verifies derived names (including configured branch templates), dedicated paths, Git worktree ownership and saved native receipts or actual container bind mounts. Remote deletion requires the recorded checkpoint commit and exact lease; unpublished refs must already be absent. State deletion follows verified cleanup; partial failures prevent fresh admission and retain remaining evidence. restart accepts only a failed state at the confirmed SHA-256 revision and an open ticket, then restores ready eligibility and invokes ordinary locked manual admission with monitoring pause preserved. Human ownership is refused. Proof: tests/test_drift_recovery.py.
+
+Deletion removes the old terminal metrics summary and invokes the optional registered-profile deletion callback, which holds projection serialization across source removal and cursor reset. No persisted schema changes. Offline proof includes a real poll/admission after prior projected usage, plus stale-reader and summary-rebuild writer boundaries.
+
+Previously deleted jobs with unproven occupied refs use bounded fresh branch generations on restart; the old ref is retained and reported, never deleted. A known changed checkpoint still refuses before cleanup. Verified own branches can be reused under strict rules; rule refusal occurs before cleanup. Initial admission uses atomic new-branch/worktree creation; a job without established worktree ownership cannot delete an unproven local ref. Delete and merged cleanup accept only exact derived generation names. Proof includes actual orphan admission and all-forge generated-merge cleanup in tests/test_drift_recovery.py.
+
+Non-budget source binding uses type-sensitive canonical JSON; false/0 and true/1 never authorize another attempt after a configuration type change.
+
+## Host diagnostic snapshots
+
+Each executor-artifacts journal event may bind the host-normalized GateRun diagnostics to a unique schema-1 file under the run-owned executor-diagnostics directory outside executor IO. The reference includes the cumulative launch number and exact SHA-256; the snapshot binds run, attempt, context, exit/timeout and bounded canonical streams. Missing capture stays unavailable; unsafe locations/content fail closed. No run-state schema or execution/recovery/publication authority changes. The public Retry diagnostic test proves this seam through the injected executor/backend.
+
+Every completed executor attempt records the latest evidence marker, including attempts with no archive or captured diagnostics, so earlier output is never substituted as the latest attempt.
+
+Status comments identify the pinned or configured backend. Terminal failures name that backend and web/CLI retry choices. Status outbox replay updates the current lifecycle comment and labels before acknowledgement, retaining failed operations and adopting marker-owned posts after interruption. Proof: targeted review-question, terminal and replay tests in test_orchestrator.py.
+
+Parked recovery rechecks backend stop and removes the handoff; failures terminate with PARK_CLEANUP_FAILED. Quoted notification markers never authorize comment adoption.
+
+The orchestrator supplies the configured Pi thinking level to the executor factory.

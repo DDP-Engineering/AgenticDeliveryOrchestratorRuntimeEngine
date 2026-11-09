@@ -12,13 +12,19 @@
 @brief Tests for the `adore init` wizard - driven offline with a scripted asker
        and a fake command runner; the golden assertion is that every profile it
        writes passes validate_config.
+@details Known branch-rule fixture evaluation is injected; real matcher and
+         process-protocol verification remains in test_branch_naming.py.
 """
 
 from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Sequence
+import json
 from pathlib import Path
+import re
+import subprocess
+import tomllib
 
 from adore.config import load_config, validate_config
 from adore.profiles import ProfileStore
@@ -39,6 +45,24 @@ import pytest
 FIXED_NOW = "2026-07-05T00:00:00Z"
 
 # HELPER FUNCTIONS
+
+
+@pytest.fixture(autouse=True)
+def isolated_branch_rule_process(monkeypatch):
+    """
+    @brief Keep wizard assembly tests independent of host Python startup latency.
+    @details Trusted fixture rules still match the actual generated branch; the
+             real bounded process and corrupt-output contract are exercised by
+             test_branch_naming.py, with the product's one-second limit intact.
+    """
+    def evaluate(argv, **kwargs):
+        """@brief Simulate only the known JSON-in/boolean-out regex boundary."""
+        assert argv[1:3] == ["-I", "-c"]
+        assert kwargs["timeout"] == 1 and kwargs["capture_output"]
+        rule, name = json.loads(kwargs["input"])
+        return subprocess.CompletedProcess(
+            argv, 0, json.dumps(re.match(rule, name) is not None), "")
+    monkeypatch.setattr("adore.config.subprocess.run", evaluate)
 
 
 class FakeRunner:
@@ -88,7 +112,7 @@ def _answers(clone: Path, **overrides: object) -> dict[str, object]:
         "branch_rule": r"^(feature|bugfix|release|hotfix)/.*$",
         "branch_template": "feature/{slug}-{iid}",
         "runtime": "docker",
-        "model": "openai/gpt-5.5",
+        "provider": "openai", "model": "gpt-5.5",
         "auth_mode": "api-key",
         "reviewers": "reviewer.one, reviewer.two",
         "budgets_choice": "recommended",
@@ -130,9 +154,38 @@ def test_wizard_writes_a_valid_minimal_profile(tmp_path: Path) -> None:
     assert config.delivery.approval_label == "agent-approved"
     assert config.recovery.max_stage_failures == 3
     assert config.recovery.retry_backoff_seconds == [5, 30, 120]
+    assert config.budgets.max_iterations == 20
     assert config.budgets.max_files_touched == 120
     assert config.state.store_root.endswith("state")         # profile-owned (D2)
     assert profile.platform == "gitlab" and profile.repo == "grp/sub/proj"
+
+
+def test_wizard_writes_pi_without_agent_choice_or_host_sign_in(tmp_path: Path) -> None:
+    """@brief The wizard asks for no agent, writes [executor] model and refuses host-auth."""
+    store = _store(tmp_path)
+    clone = _clone(tmp_path)
+    asked: list[str] = []
+    asker = ScriptedAsker(_answers(clone), interactive=False)
+    original = asker.read
+
+    def record(spec):
+        asked.append(spec.key)
+        return original(spec)
+
+    asker.read = record
+    run_wizard(store, asker=asker, out=lambda _line: None,
+               runner=_runner(), os_key="linux", name="pi")
+    assert "executor_cli" not in asked and "auth_mode" not in asked
+    document = tomllib.loads(store.config_path("pi").read_text(encoding="utf-8"))
+    assert document["executor"] == {"provider": "openai", "model": "gpt-5.5",
+                                    "env_keys": []}
+    asker = ScriptedAsker(_answers(
+        clone, execution_backend="local", auth_mode="host-auth"
+    ), interactive=False)
+    with pytest.raises(WizardError, match="auth_mode"):
+        run_wizard(store, asker=asker, out=lambda _line: None,
+                   runner=_runner(), os_key="linux", name="pi-host-auth")
+    assert not store.exists("pi-host-auth")
 
 
 def test_wizard_podman_adds_userns_keepid(tmp_path: Path) -> None:
@@ -460,24 +513,3 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
 
 
 # END OF FILE
-
-
-@pytest.mark.parametrize("cap", ["0", "-1", "nan", "inf"])
-def test_wizard_custom_cost_cap_zero_and_invalid_boundary(tmp_path, cap):
-    """@brief Wizard accepts explicit opt-out and refuses nonfinite/negative caps."""
-    store = _store(tmp_path)
-    asker = ScriptedAsker(_answers(
-        _clone(tmp_path), budgets_choice="custom", max_iterations="9",
-        max_wall_clock_seconds="1200", max_cost_usd=cap, max_files_touched="15",
-    ), interactive=False)
-    if cap == "0":
-        run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(),
-                   os_key="linux", name="free")
-        cfg = load_config(store.config_path("free"))
-        assert cfg.budgets.max_cost_usd == 0
-        assert validate_config(cfg) == []
-    else:
-        with pytest.raises(WizardError):
-            run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(),
-                       os_key="linux", name="free")
-        assert not store.config_path("free").exists()

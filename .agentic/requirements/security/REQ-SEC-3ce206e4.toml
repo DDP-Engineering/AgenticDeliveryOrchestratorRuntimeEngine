@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-3ce206e4"
+
+title = "Change one developer's access to one project"
+
+status = "active"
+
+requirement = """
+When an administrator grants or removes one developer's access to a project from that project's access interface, ADORE shall change only that developer's grant for that project, leave every other grant unchanged and record the change in the audit trail, and shall refuse the request when the caller is not an administrator, the CSRF token is missing, the project or account does not exist, or the account is not a developer.
+"""
+
+verification = "Automated: an administrator lists a project's developers with their access, grants one developer access and then removes it; the developer's project list follows, their grants for other projects and other developers' grants for this project stay unchanged, and each change is in the audit trail. A developer caller gets 403, a missing CSRF token 403, an unknown project or account 404, and an administrator account 400 user_not_developer."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/store.py", "04_Software/tests/test_web_project_access.py"]
+
+linked_tests = ["04_Software/tests/test_web_project_access.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Granting access one project at a time from the project itself must not overwrite grants changed elsewhere, as a whole-list replace would."
+
+created = 2026-10-04
+updated = 2026-10-04

@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-ce64af73"
+title = "Provide consumption reload action"
+status = "active"
+requirement = "When job consumption cannot be loaded, the interface shall provide a visible localized reload action beside the error."
+verification = "Browser intercepts 503, clicks visible reload, then observes actual fixture consumption without losing job actions."
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+created = 2026-11-05
+updated = 2026-11-05

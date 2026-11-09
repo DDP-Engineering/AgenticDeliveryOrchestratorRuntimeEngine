@@ -1,0 +1,15 @@
+{
+  "license": "<!--\nCopyright (c) 2026 DDP Engineering\nThis software is licensed under the PolyForm Noncommercial License 1.0.0.\nCommercial use requires a separate commercial license.\nSee the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n-->",
+  "purpose": "Approved visual reference; English issue requirements govern implementation.",
+  "files": {
+    "DESIGN_BRIEF.md": "fa47756ceb3369ce150792ff9c4b9ff1b455b4b27f7dbc7af2665f29b2e4773a",
+    "DDP_Engineering_logo_dark.png": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481",
+    "DDP_Engineering_logo_dark.svg": "0b74f251ef8d97e154ed33f87ed60d714b4f2d66065b6ccedc89e7717b3a30ea",
+    "DDP_Engineering_logo.png": "27e907530a0308cabf2d974f7868f475929af3ee1f1b82189a88571e2879e52a",
+    "proposal-overview-dark-logo.png": "c0702d2cabcc3555e38155e3a8f75bdb4f07af706fe98aa2533e01fd20a04dac",
+    "proposal-import.png": "ee3960ae6ecace4de00f79e818b5146b8132902fc5007a5300eccb5814691181",
+    "proposal-job.png": "c3b027774bfd202f7cbaed0da8503b3405e2cb7dba4dc056c8788906779c5092",
+    "proposal-configuration.png": "4ee91d2958d98349660b866d2bd097c70db1375b0196c52b9370611234a2262d",
+    "proposal-statistics.png": "417dcda4818845dd3ed409c1a355806decc58914aa0ac2843fc9b74dcab40b82"
+  }
+}

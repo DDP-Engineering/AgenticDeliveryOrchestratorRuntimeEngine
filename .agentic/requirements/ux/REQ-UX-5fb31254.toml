@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-5fb31254"
+title = "Show a refused operation's reason and engine lines"
+status = "active"
+requirement = """
+When an operation the user follows ends failed or uncertain, the Tickets notice, the Jobs command result and the project operation status shall show its reason as a sentence in the user's locale, falling back to the stored result text for an empty or unknown reason, and its detail lines verbatim in a bounded block.
+"""
+verification = "Automated: node tests of outcomeText and reasonSentence give every reason its own sentence in every locale and fall back to the stored result for an empty or unknown reason; a browser test of the Tickets notice with a failed start shows the at_capacity sentence instead of the result and the detail lines in a pre block; the existing Jobs and dashboard operation tests keep the result text when no reason is set. Inspection: JobWorkspace and App render outcomeText and the detail block for a failed or uncertain operation."
+affected_paths = ["04_Software/web/src/operationReason.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/App.tsx"]
+linked_tests = ["04_Software/web/tests/operationReason.test.mjs", "04_Software/web/e2e/tickets.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/dashboard.spec.ts"]
+spec = ""
+priority = "normal"
+rationale = "Operators read why work did not start without opening the server logs."
+created = 2026-11-01
+updated = 2026-11-01

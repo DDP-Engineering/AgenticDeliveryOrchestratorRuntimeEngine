@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-7fdffe77"
+
+title = "Distinguish successful empty statistics from unavailable measurements"
+
+status = "active"
+
+requirement = """
+When a successfully validated Statistics scope contains no jobs, Summary shall retain measured zero lifecycle counts and unavailable token evidence without explanatory text, and Quality and Trends shall show localized empty feedback. Reporting controls, Usage and Projects remain available. Pending, failed or corrupt reads shall hide numeric presentations and exports.
+"""
+
+verification = "Offline Chromium selects an empty local interval, asserts zero lifecycle versus unavailable tokens and the Trends empty feedback, then selects nonempty evidence; abort/corrupt response tests require errors without totals or exports."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/StatisticsEvidence.tsx", "04_Software/web/src/statisticsCopy.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-11

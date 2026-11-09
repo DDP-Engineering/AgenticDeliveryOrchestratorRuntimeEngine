@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "task": "TASK-287ae997",
+  "base": "d38b5b0fc2697cc4eae309f3126146f8045460c2",
+  "branch": "task/adore-web-interface",
+  "digest_algorithm": "sha256 of compact sorted-key JSON of ordered candidate rows; hashes are exact working bytes",
+  "candidate_sha256": "5172f7e5659d095af4227940ef3b32cd61a41a6a25cbd6f77a83a8824f99d891",
+  "candidate": [
+    {
+      "path": ".agentic/context/project.md",
+      "category": "workflow",
+      "operation": "modified",
+      "sha256": "d19a26f9a93d3f4ea41f6878a86884a5ca252ea9ac3fc052d93cccdd51f951cd"
+    },
+    {
+      "path": ".agentic/knowledge/web-interface.md",
+      "category": "workflow",
+      "operation": "modified",
+      "sha256": "663280c7b17ea88971cc9ff9042b77edf133320ea56efca1ba81a5ca5f4f245b"
+    },
+    {
+      "path": ".agentic/requirements/functional/REQ-FUNC-97bcc67f.toml",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "1777b187ee31516665d96d6b90586c83b07c080b749427b55fa1f87700dd512f"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-69f84f19.toml",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "c8b02ee592880de45bfa0b8de4bbbbfb77f9a90d88cf241c05b86f23c0e92775"
+    },
+    {
+      "path": ".agentic/requirements/ux/REQ-UX-79c7e862.toml",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "ee1e2c7c2d573defc38db6ee3f0d522f5a361a5d44f76a36cfd0e15dd5fecc0b"
+    },
+    {
+      "path": ".agentic/specs/REQ-FUNC-97bcc67f.md",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "99cb54ba23173c5875d7c54d6e4ca5a00551e13777803f272e228a1b509197ec"
+    },
+    {
+      "path": ".agentic/specs/user-access-users-en-dark-1440.png",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "deb273fc1082597a36559361ad2afe4ae426437cee52948f2a2fa8fe9f0ac385"
+    },
+    {
+      "path": ".agentic/specs/user-access-users-en-light-1440.png",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "6a5fc6696322bdaa040628ff2dcc9425118bb9a3fb6c3f8b67c9f70da4b07597"
+    },
+    {
+      "path": ".agentic/specs/user-access-users-en-light-390.png",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "43bff82c40c46ff35b27f48b9c9da5c5e663b76815d7d66319e1053be7d6cd31"
+    },
+    {
+      "path": ".agentic/specs/user-access-users-ro-dark-390.png",
+      "category": "workflow",
+      "operation": "added",
+      "sha256": "51fab908fdec39cedde046e6adb61df924e35c32d680247dfdedd3eb1ec1ff5e"
+    },
+    {
+      "path": "01_Documentation/Web_Interface.md",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "7966bb090f638953f1cc8637e8c0e31a617ce05e85e661d79d32b0534188b0cc"
+    },
+    {
+      "path": "04_Software/adore/web/app.py",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "a913cfe0383f58fa37fcd1f21625e898b378bf83915475fbe87df63a519b7451"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-BcJKHcd-.css",
+      "category": "generated",
+      "operation": "added",
+      "sha256": "f0d1a407cb21a942e3f96a4c6298e183e9d85c2b1ea2c01eb64aa8a85b8a785d"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-D1AKikXR.js",
+      "category": "generated",
+      "operation": "added",
+      "sha256": "d5d6facb8f65cc1ed241095fd8a491ae2ac9f0601a8f11bae8935e57db096e8d"
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-EDoC3lKU.css",
+      "category": "generated",
+      "operation": "deleted",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/assets/index-b67LL_gF.js",
+      "category": "generated",
+      "operation": "deleted",
+      "sha256": null
+    },
+    {
+      "path": "04_Software/adore/web/static/index.html",
+      "category": "generated",
+      "operation": "modified",
+      "sha256": "64d493d22bb38f7eec2be34b13da471d0054aefa7126a067cbd910ce917ba5d7"
+    },
+    {
+      "path": "04_Software/adore/web/store.py",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "8878a246588f994ee62e81b0bfce24f3274050e92b42a7527918d0e474acc3fb"
+    },
+    {
+      "path": "04_Software/tests/test_web_user_creation.py",
+      "category": "authored",
+      "operation": "added",
+      "sha256": "22d72f8ddb1a14950eedfc4e096791333dfcbd436fb92c44c2715482798ec195"
+    },
+    {
+      "path": "04_Software/web/e2e/users.spec.ts",
+      "category": "authored",
+      "operation": "added",
+      "sha256": "89fc195ddb6e0e461b144dd697f29324afe5e3752721704fe2c5bf4cc0e27423"
+    },
+    {
+      "path": "04_Software/web/src/App.tsx",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "4e7f70a5ca50a5eac6a8ca1229204a8f3b621f719e5d2ac188cbd80d2e91df47"
+    },
+    {
+      "path": "04_Software/web/src/UserCreation.tsx",
+      "category": "authored",
+      "operation": "added",
+      "sha256": "0cb674b09a0b8815de638362a833b0c3dc534402d29091d57162471430bbcc52"
+    },
+    {
+      "path": "04_Software/web/src/styles.css",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "38cf2e7154c9c080003ff02d3f8ffc520a68859c0f87cf11d148f842f25d7cfd"
+    },
+    {
+      "path": "04_Software/web/src/userCopy.ts",
+      "category": "authored",
+      "operation": "added",
+      "sha256": "7ad5f0a427cb0ad84ae0355416261982d7adeae98dea909c8ef9caab3d056373"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_API.md",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "f0e0b9ae92653e0318ced4aed3236fff158c4b5fa6c050899b3573e39e4fe485"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Frontend.md",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "57c4c0eb59502bc7691aaaaa71824d45ac8af9c18c26c61fca0f2438a3641594"
+    },
+    {
+      "path": "05_SoftwareDocu/Component_Web_Identity.md",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "1cfc24478abbe52c7ee45a4222668ba586bb9e94951582ac4f9c6549b316c077"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "category": "authored",
+      "operation": "modified",
+      "sha256": "4146582a0af21d806972b932feba83f8bcf3f14079be582e48d493f1f082a7ba"
+    }
+  ],
+  "reporting_paths": [
+    ".agentic/specs/user-access-candidate-inventory.json",
+    ".agentic/specs/user-access-review.md",
+    ".agentic/specs/user-access-verification.md",
+    ".agentic/tasks/TASK-287ae997.md",
+    ".agentic/tasks/TASK-287ae997.validation-final.json"
+  ],
+  "reporting_policy": "Reporting records carry results/authority and are separately hashed at presentation; excluded from semantic candidate digest to avoid self-reference. Product/spec/requirement/knowledge/context and generated/static/visual bytes remain frozen.",
+  "local_evidence": [
+    {
+      "path": ".agentic/tasks/TASK-287ae997.anchor.json",
+      "sha256": "d0f72a1bcfa26447f0887d9beeab728bd1f7e0dc8d3038ae969a418530a3efad",
+      "publish": false
+    },
+    {
+      "path": ".agentic/tasks/TASK-287ae997.evolution.json",
+      "sha256": "b3cf22f45c096dfc3b24f8f055a200c620daf0eecf8b4fa3e198ef80717faeac",
+      "publish": false
+    }
+  ],
+  "reporting_snapshot": [
+    {
+      "path": ".agentic/specs/user-access-review.md",
+      "sha256": "214927407b478fe329c58dabc08d7b5dc78d18d464bc9577da2f1a6a28ba457b"
+    },
+    {
+      "path": ".agentic/specs/user-access-verification.md",
+      "sha256": "dc4a002de728284948ec86d0e4361d09f63df8d3fb2881f14463a0c001220bc1"
+    },
+    {
+      "path": ".agentic/tasks/TASK-287ae997.md",
+      "sha256": "94e18677e36b8b8bb4ef2dbd871456bb6112a6f849594235e015207dbcb1ad89"
+    },
+    {
+      "path": ".agentic/tasks/TASK-287ae997.validation-final.json",
+      "sha256": "df0fc4031589a9ae1d66f6cdb862fc62efe6bb8945722ccd55d5c7ca5a934a50"
+    }
+  ],
+  "inventory_self_hash_policy": "The inventory hash is supplied at presentation outside this file to avoid recursive self-reference."
+}

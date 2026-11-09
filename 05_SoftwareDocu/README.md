@@ -7,6 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Software Documentation
 
+The [Portable user distribution](Component_Portable_Distribution.md) documents
+complete Windows/Linux application packages, included Python, native launchers,
+checksum verification and tests of the extracted archives.
+
 Implementation notes, internal contracts, and deeper technical documentation for
 the orchestrator package belong here. Component documents follow
 `component_documentation_template.md` and are created or updated in the same
@@ -18,6 +22,9 @@ responsibilities, dependencies, or workflow integration. These documents are
 implementation companions to the code and tests; user manuals and operator
 guides belong in `01_Documentation/`.
 
+- [Persisted Web Job Reads](Component_Web_Jobs.md) — complete authorized global
+  pages, composite identity and strict local evidence (`adore/web/jobs.py`).
+
 ## Component documentation (phase 1 - base services)
 
 - `Component_Branding.md` - canonical ADORE product, package, filesystem,
@@ -27,6 +34,9 @@ guides belong in `01_Documentation/`.
   parsing, UTC timestamps (`adore/util.py`).
 - `Component_Config.md` - typed `config.toml` loading, slug-derived defaults,
   and validation (`adore/config.py`).
+- `Component_ChatGPT_Sign_In.md` - the server's one ChatGPT sign-in, its
+  status, helper container and the short-lived token each stage receives
+  (`adore/chatgpt.py`, `docker/pi/adore-chatgpt.mjs`).
 - `Component_Identity.md` - marker-based comment identity and slug-derived
   naming (`adore/identity.py`).
 - `Component_State_Store.md` - the authoritative local run state, run-id,
@@ -37,6 +47,8 @@ guides belong in `01_Documentation/`.
   (`adore/forge/`).
 - `Component_CLI.md` - the `adore` command surface and exit-code contract
   (`adore/cli.py`).
+- `Component_Config_Edit.md` - shared CLI/web local configuration edit lock
+  (`adore/config_edit.py`).
 
 ## Component documentation (phase 2 - isolation and executor)
 
@@ -64,9 +76,9 @@ guides belong in `01_Documentation/`.
 - `Component_Process_Log.md` - ADORE-owned rotating `run` command log at
   `<store_root>/adore.log` (`adore/process_log.py`).
 - `Component_Deployment.md` - Task Scheduler/systemd deployment scripts and
-  service setup (`04_Software/deploy/`).
+  service setup (`02_Tools/deploy/`).
 - `Component_Packaging.md` - runtime-bundle packaging scripts
-  (`02_Tools/package_runtime.*`).
+  (`02_Tools/create_package.py`).
 
 ## Component documentation (phase 5 - assisted setup and profiles)
 
@@ -78,9 +90,34 @@ guides belong in `01_Documentation/`.
 - `Component_Wizard.md` - the `adore init` guided setup that emits a minimal
   validated profile (`adore/wizard.py`).
 
+## Web interface
+
+- `Component_Web_Identity.md` - SQLite accounts, sessions, grants and queue.
+- `Component_Web_API.md` - same-origin HTTP API and role enforcement.
+- `Component_Web_Worker.md` - authorized queued CLI operations and scheduling.
+- `Component_Web_Frontend.md` - React views, locale catalogs and themes.
+- `Component_Repository_Source.md` - enrollment from a repository URL: address
+  validation, forge detection and the clone made at creation
+  (`adore/web/repository_source.py`).
+- `Component_Clone_Cleanup.md` - optional removal of the ADORE-made local clone when a
+  project is deleted (`adore/clone_cleanup.py`).
+- `Component_Release_Notes.md` - four-locale user-facing release notes, their
+  repository check and the What's new payload (`adore/release_notes.py`).
+
 ## Cross-cutting contracts
 
 The implemented run-state, recovery, and idempotency contracts are currently
 documented in `Component_State_Store.md`, `Component_Orchestrator.md`, and
 `Component_Isolation.md`. Operator-facing recovery procedures belong in
 `01_Documentation/Recovery_And_Maintenance.md`.
+
+- [Preparation](Component_Preparation.md): reviewed exact-source plans and closed grammar.
+- [Execution](Component_Execution.md): shared backend, file setup runner and owned recovery.
+
+- [Project images](Component_Project_Images.md): bounded project Dockerfile/build/verification and reviewed selection.
+
+- [Installed executor discovery](Component_Executor_Discovery.md): native launch suggestions and manual paths.
+
+- [Host folder selection](Component_Host_Folders.md): administrator host directory navigation and automatic/custom clone destinations.
+
+- [Package permissions](Component_Package_Permissions.md): direct agent system-package authority, independent egress and resource-bound recovery.

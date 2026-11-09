@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-PLAT-a1b60ff9"
+title = "Offline web deployment"
+status = "active"
+requirement = """When an operator installs the web-enabled ADORE release from its delivery media, installation and first startup shall use supplied artifacts without Internet downloads and shall report missing host prerequisites explicitly. The installed API shall distinguish HTTP liveness from control-worker readiness, with a stale or corrupt worker heartbeat failing closed. The Administration page shall show this worker readiness without claiming that the forge, executor or model is ready. Administrator-only storage checks shall warn when ADORE home or project state volumes have less than 1 GiB free and shall report measurement failure explicitly."""
+verification = "Build a host-matched bundle, install with pip --no-index through both a real and symlinked host Python, start the installed HTTP service and load its local assets; verify checksum and host mismatch errors. Verify readiness with a live, stopped, stale and corrupt worker heartbeat, including while an engine command blocks; inspect administrator UI transitions from unavailable to ready and back. Fake disk capacity and failures to verify low-space warnings, admin restriction and explicit measurement errors."
+affected_paths = ["02_Tools/package_web_offline.py", "02_Tools/install_web_offline.py", "02_Tools/launch_web.py", "02_Tools/check_release_consistency.py", "04_Software/pyproject.toml", "04_Software/uv.lock", "04_Software/ruff.toml", "04_Software/adore/web/__init__.py", "04_Software/adore/web/server.py", "04_Software/adore/web/app.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/web/src/App.tsx"]
+linked_tests = ["04_Software/tests/test_release_consistency.py", "04_Software/tests/test_web_server.py", "04_Software/tests/test_web_package.py", "04_Software/tests/test_web_commands.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_storage.py"]
+created = 2026-09-29
+updated = 2026-09-30

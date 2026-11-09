@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-ab8c90b6"
+
+title = "Report local executor prerequisite failure causes"
+
+status = "active"
+
+requirement = "When a local host prerequisite check fails, ADORE shall persist a bounded closed cause and optional process exit code for the installed executor, version, account, authentication, permissions, launch or cleanup boundary while accepting legacy readiness records and rejecting corrupt or contradictory diagnostic evidence."
+verification = "Offline local/API tests cover stdout/stderr version success, missing executable/auth, corrupt auth, timeout/nonzero status, account/permission/cleanup failure, roundtrip and corrupt/contradictory persisted evidence."
+affected_paths = ["04_Software/adore/local_execution.py", "04_Software/adore/web/app.py", "04_Software/web/src/readiness.ts"]
+
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_prerequisite_retains_safe_cause", "04_Software/tests/test_local_execution.py::test_local_prerequisite_account_scope_and_cleanup", "04_Software/tests/test_web_readiness.py::test_local_diagnostic_persistence_is_closed", "04_Software/web/tests/readiness.test.mjs"]
+
+
+spec = "specs/REQ-FUNC-ab8c90b6.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-22
+updated = 2026-10-22

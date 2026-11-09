@@ -19,6 +19,7 @@ from pathlib import Path
 import sqlite3
 
 from adore.metrics import (
+    MetricsError,
     RunSummary,
     aggregate,
     export_csv,
@@ -28,8 +29,12 @@ from adore.metrics import (
     record_summary,
     render_html,
     summarize_run,
+    unique_usage_events,
 )
 from adore.state import RunState, StateStore
+import pytest
+
+from tests.usage_events import versioned_usage
 
 # HELPER FUNCTIONS
 
@@ -51,8 +56,8 @@ def _seed_run(tmp_path: Path) -> StateStore:
         ("2026-07-04T10:00:00Z", "picked", {}),
         ("2026-07-04T10:00:01Z", "stage-launch", {"stage": "frame"}),
         ("2026-07-04T10:03:00Z", "usage",
-         {"context": "frame", "tokens_in": 1000, "tokens_out": 50,
-          "cost_usd": 0.02}),
+         versioned_usage("r-45", 1, context="frame", tokens_in=1000,
+                         tokens_out=50, cost_usd=0.02)),
         ("2026-07-04T10:03:01Z", "stage-advanced", {"stage": "frame"}),
         ("2026-07-04T10:03:02Z", "stage-launch", {"stage": "specify"}),
         ("2026-07-04T10:05:00Z", "stage-failed", {"stage": "specify"}),
@@ -62,8 +67,8 @@ def _seed_run(tmp_path: Path) -> StateStore:
         ("2026-07-04T11:08:01Z", "resumed", {}),
         ("2026-07-04T11:08:02Z", "stage-launch", {"stage": "specify"}),
         ("2026-07-04T11:10:00Z", "usage",
-         {"context": "specify", "tokens_in": 2000, "tokens_out": 150,
-          "cost_usd": 0.03}),
+         versioned_usage("r-45", 2, context="specify", tokens_in=2000,
+                         tokens_out=150, cost_usd=0.03)),
         ("2026-07-04T11:10:01Z", "stage-advanced", {"stage": "specify"}),
         ("2026-07-04T11:19:59Z", "strict-verification", {"passed": True}),
         ("2026-07-04T11:20:00Z", "mr-opened", {"url": "https://x/mr/29"}),
@@ -104,6 +109,33 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     assert summary.clarification_rounds == 2 and summary.review_rounds == 1
 
 
+def test_versioned_usage_replay_counts_once_and_conflict_fails(tmp_path: Path) -> None:
+    """@brief Replayed launch usage cannot inflate a terminal summary."""
+    store = StateStore(tmp_path / "state")
+    store.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    usage = {"event_id": "run-1:1", "attempt": 1, "context": "build",
+             "executor": "codex", "model": "example", "review_round": 0,
+             "tokens_in": 10, "tokens_out": 2, "cost_usd": 0.5,
+             "cost_reported": True}
+    store.journal("run-1", "usage", **usage)
+    store.journal("run-1", "usage", **usage)
+    summary = summarize_run(store, "run-1")
+    assert (summary.tokens_in, summary.tokens_out, summary.cost_usd) == (10, 2, 0.5)
+    store.journal("run-1", "usage", **{**usage, "tokens_in": 11})
+    with pytest.raises(MetricsError, match="conflicting"):
+        summarize_run(store, "run-1")
+
+
+@pytest.mark.parametrize("stamp", [None, ""])
+def test_usage_event_without_timestamp_is_refused(stamp) -> None:
+    """@brief The journal stamps every event, so an undated usage record is older data."""
+    event = {"event": "usage", **versioned_usage("run-1", 1, tokens_in=1)}
+    if stamp is not None:
+        event["ts"] = stamp
+    with pytest.raises(MetricsError, match="malformed versioned usage"):
+        unique_usage_events([event], "run-1")
+
+
 def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
     """
     @brief   INSERT OR REPLACE by run_id: re-recording updates, never
@@ -120,43 +152,22 @@ def test_record_load_roundtrip_is_duplicate_free(tmp_path: Path) -> None:
     assert len(mirror.read_text(encoding="utf-8").strip().splitlines()) == 2
 
 
-def test_existing_metrics_database_gains_governance_outcome(tmp_path: Path) -> None:
+def test_metrics_database_of_another_build_is_refused_untouched(tmp_path: Path) -> None:
     """
-    @brief   An older metrics database is extended in place and preserves the
-             strict-check result without requiring deletion.
+    @brief   No migration: a summary table with other columns stops recording and
+             names the file to delete.
     """
-    db = tmp_path / "legacy.db"
-    legacy_columns = [
-        "run_id TEXT PRIMARY KEY", "ticket_iid INTEGER", "title TEXT",
-        "priority TEXT", "lifecycle TEXT", "outcome TEXT", "started_at TEXT",
-        "ended_at TEXT", "span_seconds INTEGER", "parked_wait_seconds INTEGER",
-        "time_to_mr_seconds INTEGER", "gates_passed INTEGER",
-        "gate_failures INTEGER", "invariant_failures INTEGER",
-        "executor_launches INTEGER", "clarification_rounds INTEGER",
-        "review_rounds INTEGER", "tokens_in INTEGER", "tokens_out INTEGER",
-        "cost_usd REAL", "files_changed INTEGER", "mr_url TEXT",
-    ]
+    db = tmp_path / "metrics.db"
     with sqlite3.connect(db) as connection:
-        connection.execute(
-            "CREATE TABLE run_summaries (" + ", ".join(legacy_columns) + ")"
-        )
-        connection.execute(
-            "INSERT INTO run_summaries (run_id, outcome) VALUES (?, ?)",
-            ("legacy", "merged"),
-        )
+        connection.execute("CREATE TABLE run_summaries (run_id TEXT PRIMARY KEY, outcome TEXT)")
+        connection.execute("INSERT INTO run_summaries VALUES ('old', 'merged')")
+    before = db.read_bytes()
 
-    record_summary(
-        db,
-        RunSummary(
-            run_id="legacy",
-            outcome="merged",
-            governance_outcome="ok",
-        ),
-    )
+    with pytest.raises(MetricsError, match="written by another ADORE build") as refused:
+        record_summary(db, RunSummary(run_id="new"))
 
-    rows = load_summaries(db)
-    assert len(rows) == 1
-    assert rows[0].governance_outcome == "ok"
+    assert str(db) in str(refused.value)
+    assert db.read_bytes() == before
 
 
 def test_since_window_filters_by_ended_at(tmp_path: Path) -> None:

@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-f5f4896f"
+
+title = "Validate the Pi provider, model and endpoint schema"
+
+status = "active"
+
+requirement = """When ADORE loads a project configuration, it shall accept `[executor] provider` only as a Pi API-key provider id from the shipped catalog, `chatgpt` or `custom`, require a model id, require `[executor.endpoint]` with an http(s) `base_url` without credentials, query or fragment and a supported `api` exactly when the provider is `custom`, and refuse every other value, a missing value and every unknown key with a message naming the key."""
+
+verification = "Configuration tests accept an API-key provider, chatgpt and custom with its endpoint; they refuse an unknown provider, a missing provider or model, an endpoint without custom, custom without an endpoint, a base URL with user info, query, fragment or another scheme, an unknown api, and unknown keys such as `[executor] api_key` and `[executor.endpoint] key`, each naming the key."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/pi_providers.py", "04_Software/config.example.toml", "04_Software/adore/wizard.py"]
+
+linked_tests = ["04_Software/tests/test_pi_providers.py::test_valid_provider_model_and_endpoint_are_accepted", "04_Software/tests/test_pi_providers.py::test_invalid_provider_schema_is_refused_naming_the_key", "04_Software/tests/test_config.py::test_pi_is_the_only_executor_and_needs_only_a_provider_and_model"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-02
+updated = 2026-11-02

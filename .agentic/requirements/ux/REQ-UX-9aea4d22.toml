@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-9aea4d22"
+
+title = "Refresh clean project settings while visible"
+
+status = "active"
+
+requirement = """
+While project Settings is visible, the interface shall reread its saved data every 15 seconds only when no settings edit or write is pending, discarding background results superseded by an edit.
+"""
+
+verification = "Chromium protects a settings draft from delayed responses, resumes on the interval after discard, preserves price and credential drafts, and recovers a prepared edit alongside a new revision."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/ChatGptSignIn.tsx"]
+
+linked_tests = ["04_Software/web/e2e/settings.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

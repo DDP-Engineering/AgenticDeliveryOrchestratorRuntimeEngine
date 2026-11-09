@@ -8,32 +8,62 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Doctor
 
-## Purpose
+## Routing
 
-`04_Software/adore/doctor.py` performs read-only, injectable readiness checks
-used by assisted setup. It tells an operator whether host tools, a container
-runtime, forge CLI authentication, executor availability, and the target's
-AEGIS payload are suitable before delivery begins.
+For read-only host readiness and CLI authentication, start at
+`04_Software/adore/doctor.py` and `04_Software/tests/test_doctor.py`.
+Portable tea metadata and protected project credentials belong to
+repository-auth.md; web permission and persisted evidence belong to web-interface.md.
 
-## AEGIS contract
+## Purpose and boundaries
 
-`detect_aegis()` requires `.agentic/aegis.py`, accepts only `aegis 0.5.x`,
-runs `status --all --json`, and requires schema `1`, a status envelope, task
-list, and unreadable-task list. Missing Python/payload, nonzero exit, malformed
-JSON, wrong shape/version/schema, or unreadable tasks returns a not-ready
-`AegisStatus` with bounded diagnostic text rather than an exception that
-pretends the target is compatible.
+Provides injectable host-tool, container, executor, forge authentication and
+AEGIS-payload probes. Callers own UI, configuration persistence and authorization.
+All command execution uses CommandRunner; tests fake external CLIs.
 
-## Requirement coverage
+## Public interface
 
-- `REQ-FUNC-69bfe896` - AEGIS 0.5/schema-1 readiness acceptance only.
-- `REQ-FUNC-8a2e5904` - injected host, forge, runtime, and executor readiness reporting.
+`detect_aegis()` returns an `AegisStatus`, `aegis_version_supported()` answers
+for one `aegis --version` text, and `guidance_for()` returns the per-platform
+remedy text, which names the supported range (`AEGIS_SUPPORTED_TEXT`) and
+schema 1. `detect_executor()` probes Pi (`doctor.PI`) with `pi --version`.
+`discover_container_commands()` returns successful native and Windows WSL
+Docker and Podman version probes. `inventory_runtime_argv()` resolves the
+standard read-only inventory command form into a fixed argument list.
 
-## Boundaries and verification
+## Invariants
 
-All subprocess work flows through an injected `CommandRunner`, making tests
-offline and preventing doctor from changing the workstation or repository.
-GitLab/GitHub guidance reminds operators that the active/default CLI host is
-the routing authority; Gitea routes through the selected `tea` login.
-`04_Software/tests/test_doctor.py` covers readiness, absent payloads, invalid
-responses, unsupported version/schema cases, and guidance.
+No workstation mutation. Gitea authentication requires successful HTTP and
+strict bounded duplicate-free JSON with a valid account login; invalid output
+never authenticates or echoes raw diagnostics. Caller-owned credential authority
+is retained with external_auth=False. GitHub/GitLab use active/default CLI auth.
+AEGIS readiness requires the supported client range, schema 1 and readable journals.
+`detect_aegis`, `aegis_version_supported` and `guidance_for` share the client
+version floor; malformed version/schema/status and nonzero commands fail readiness.
+
+## Change map
+
+| Request | Entry | Focused proof |
+| --- | --- | --- |
+| Authentication | auth_status | test_doctor.py and test_gitea_auth.py |
+| AEGIS compatibility | detect_aegis | test_doctor.py |
+| Tool guidance | detect_all and guidance_for | test_doctor.py |
+| Web runtime discovery | discover_container_commands and inventory_runtime_argv | test_executor_environment_choice.py |
+
+## Key behaviors
+
+- REQ-FUNC-69bfe896: supported AEGIS/schema-1 payload readiness.
+- REQ-FUNC-8a2e5904: injected host/forge/runtime/executor reporting.
+- REQ-FUNC-cacfa8b2: portable current-account Gitea discovery and verified identity.
+- REQ-UX-163a1c99: safe Connect repository recovery steps.
+- REQ-FUNC-72081f3b and REQ-SEC-548f27ce: fixed, bounded runtime probes with validated distro names.
+
+## Files
+
+- 04_Software/adore/doctor.py — typed probes and guidance.
+- 04_Software/adore/gitea_auth.py — portable tea metadata policy.
+- 04_Software/tests/test_doctor.py — offline readiness contracts.
+- 04_Software/tests/test_gitea_auth.py — portable discovery integration.
+- 05_SoftwareDocu/Component_Doctor.md — component documentation.
+
+Native executor detection calls the managed verifier and reports Node/Pi prerequisites.

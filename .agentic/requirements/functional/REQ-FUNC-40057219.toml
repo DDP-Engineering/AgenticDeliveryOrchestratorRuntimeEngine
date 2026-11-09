@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-40057219"
+
+title = "Refuse to publish a run outside the done stage"
+
+status = "active"
+
+requirement = """
+If an approved run reaches publication while its stage is neither done nor publishing, then the conductor shall fail it without pushing or opening an MR/PR.
+"""
+
+verification = "An offline test approves a run saved awaiting approval at the validate stage and observes a PUBLICATION_STAGE failure with no push and no MR/PR."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_publication_refuses_a_run_outside_the_done_stage"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Only a candidate verified when validate closed the AEGIS task may be published."
+
+created = 2026-10-26
+updated = 2026-11-01

@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-21f0f5a5"
+title = "Name the labels a refused Start leaves on the ticket"
+status = "active"
+requirement = """
+When a Start that added labels ends failed with a known refusal reason in the Tickets view, the notice shall name those labels and say in the user's locale that the ticket keeps them, that ADORE picks it up when its pickup rules allow, and that Stop removes them.
+"""
+verification = "Automated: a browser test where a mocked Start returning labels_added agent-ready and P1 whose operation then fails shows both label names with the kept-labels sentence; node tests of keptLabels name the labels for every known reason and none for a failed Start that added none, for a failure without a known reason (it may have started a job) and for pending, running, succeeded and uncertain outcomes."
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ticketCopy.ts", "04_Software/web/src/operationReason.ts"]
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts", "04_Software/web/tests/operationReason.test.mjs"]
+spec = ""
+priority = "normal"
+rationale = "RULING-003 keeps labels on a late refusal; the operator must know they remain."
+created = 2026-11-01
+updated = 2026-11-01

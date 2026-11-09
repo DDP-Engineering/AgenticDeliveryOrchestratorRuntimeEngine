@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-c6c694cc"
+title = "Independent positive clarification answer duration"
+status = "active"
+requirement = "ADORE shall validate a positive clarification answer duration independently of the reserved reminder duration while retaining duration-format validation and unchanged expiration behavior."
+verification = "Config tests accept a 12-hour answer timeout with the default 24-hour reserved reminder and reject zero/invalid answer durations. Existing conductor clarification expiry tests retain the runtime contract."
+affected_paths = ["04_Software/adore/config.py"]
+linked_tests = ["04_Software/tests/test_config.py", "04_Software/tests/test_orchestrator.py"]
+spec = "specs/implementation-settings.md"
+priority = "high"
+created = 2026-10-09
+updated = 2026-10-09

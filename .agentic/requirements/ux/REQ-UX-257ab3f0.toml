@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-257ab3f0"
+title = "Distinguish pending empty and failed dashboard data"
+status = "active"
+requirement = "When dashboard data is pending, succeeds without records or fails, the interface shall present distinct loading, useful empty or explicit error feedback for that request scope, rendering totals only from successful data and withholding stale or zero-fallback totals after a failed request."
+verification = "Offline Chromium: delay owned API traffic, return empty records, HTTP failures or malformed metrics; verify pending/error versus empty, absent false numeric totals and refresh recovery; project/session switches ignore stale responses."
+affected_paths = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/App.tsx", "04_Software/adore/web/static/"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+priority = "high"
+created = 2026-10-05
+updated = 2026-10-05

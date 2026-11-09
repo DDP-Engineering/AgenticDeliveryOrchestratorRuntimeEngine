@@ -1,0 +1,29 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-4d08dee5"
+
+title = "Present concise native readiness and model guidance"
+
+status = "active"
+
+requirement = "When displaying local executor and model checks, ADORE shall show one concise explanation per result with localized actual failure guidance, the safe exit code when available, and local execution wording in Summary and Test AI connection across all four interface languages."
+verification = "Focused four-locale copy/render contract tests and strict transport tests cover absence of duplicate notices, local/container help, explicit model reasons, legacy unknown causes and malformed evidence."
+affected_paths = ["04_Software/web/tests/localDiagnostics.test.mjs", "04_Software/web/src/help/content/", "04_Software/adore/release_notes.toml", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/ModelConnection.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/localDiagnostics.ts"]
+
+linked_tests = ["04_Software/web/tests/localDiagnostics.test.mjs", "04_Software/web/tests/help.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-22
+updated = 2026-10-22

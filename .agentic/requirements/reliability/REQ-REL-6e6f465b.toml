@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-6e6f465b"
+
+title = "Keep help content complete in every locale and current with the interface"
+
+status = "active"
+
+requirement = """
+While ADORE is developed, every help topic shall exist in English, French, German and Romanian with the same section outline, tables and link targets in each language, use only the supported Markdown subset, and link only to existing help topics, their sections or valid interface addresses; the Node test suite shall fail otherwise, and agents shall update affected topics in the same change as the interface or workflow they describe.
+"""
+
+verification = "Automated: node tests/help.test.mjs checks locale parity, the Markdown subset, link and anchor targets and contextual targets; AGENTS.md Help content rules plus the journal line help: updated | none (<reason>)."
+
+affected_paths = ["04_Software/web/src/help/", "04_Software/web/tests/help.test.mjs", "AGENTS.md", "CLAUDE.md"]
+
+linked_tests = ["04_Software/web/tests/help.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

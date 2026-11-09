@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-f304fd2e"
+
+title = "Revision-bound model connection evidence"
+
+status = "active"
+
+requirement = """
+After an explicit model connection test, ADORE shall persist and display its closed project/configuration/credential-bound result across navigation and host verification, suppress stale results and fail closed on corrupt or foreign evidence.
+"""
+
+verification = "Offline API test/read/reload/host check retains a current result; config/environment drift hides it and malformed/foreign/duplicate records produce safe rejection; Chromium shows coherent Summary/model status."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_settings.py", "04_Software/web/src/ModelConnection.tsx", "04_Software/web/src/ReadinessEvidence.tsx"]
+
+linked_tests = ["04_Software/tests/test_executor_settings.py::test_model_evidence_survives_reload_and_invalidates_on_credentials", "04_Software/tests/test_executor_settings.py::test_model_evidence_corruption_fails_closed", "04_Software/tests/test_executor_settings.py::test_credentials_changing_during_test_do_not_publish_evidence"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

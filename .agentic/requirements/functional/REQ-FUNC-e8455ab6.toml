@@ -1,0 +1,40 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-e8455ab6"
+
+title = "Read globally ordered authorized job pages"
+
+status = "active"
+
+requirement = """
+When an authenticated caller reads jobs, the service shall return a complete globally filtered and deterministically ordered page across authorized current and archived projects, identified by project_id and run_id, with matching totals, status groups and an optimistic source revision that rejects changed sources on continuation.
+"""
+
+verification = "Create colliding runs across projects, request pages/search/groups and compare exact identities/totals; deny unassigned direct/project/search reads and reject stale revision, invalid filters and concurrent source changes."
+
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py"]
+
+linked_tests = [
+    "04_Software/tests/test_web_jobs.py::test_global_pages_search_groups_and_collision_identity",
+    "04_Software/tests/test_web_jobs.py::test_developer_scope_precedes_reads_counts_search_and_details",
+    "04_Software/tests/test_web_jobs.py::test_page_revision_rejects_source_changes",
+    "04_Software/tests/test_web_jobs.py::test_invalid_job_queries_fail_closed",
+    "04_Software/tests/test_web_jobs.py::test_source_mutation_during_read_is_rejected",
+    "04_Software/tests/test_web_jobs.py::test_empty_legacy_project_and_absent_default_state_root",
+]
+
+
+spec = "specs/REQ-FUNC-e8455ab6.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-05
+updated = 2026-10-05

@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-PLAT-3ef15c3a"
+
+title = "TLS proxy deployment acceptance"
+
+status = "active"
+
+requirement = """
+When the web UI is exposed to an internal network, ADORE deployment shall keep its API and worker on loopback or local process boundaries, terminate login traffic at an operator-provided TLS proxy, set secure session cookies, and reject an untrusted plain-HTTP remote listener or forged forwarding context.
+"""
+
+verification = "Run an installed API behind a local TLS test proxy and verify HTTPS login, Secure/HttpOnly/SameSite cookies, correct client/scheme handling and a loopback API listener; verify a direct non-loopback bind and forged forwarding headers from an untrusted client cannot create a remotely exposed HTTP login."
+
+affected_paths = ["04_Software/adore/web/server.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_server.py", "04_Software/tests/test_web_auth.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-09-30

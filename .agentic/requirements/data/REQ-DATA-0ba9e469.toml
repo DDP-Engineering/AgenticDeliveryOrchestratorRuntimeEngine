@@ -1,0 +1,39 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-0ba9e469"
+
+title = "Expose persisted job evidence with honest unknowns"
+
+status = "active"
+
+requirement = """
+When a job read succeeds, the service shall expose exact persisted lifecycle, AEGIS stage, outcome, last activity and available ticket/title/wait/action/responsibility/evidence links, with explicit unknown coverage for evidence and consumption that was not recorded, using local snapshots without invoking external commands. A run state with an empty created_at or updated_at shall fail closed as run_state_corrupt.
+"""
+
+verification = "Persist ticket and parked/approval evidence and read the public endpoints with a runner that fails on calls; assert observed evidence, safe links, exact stage/outcome, unknown person/consumption and missing wait timestamps; a project summary over a run without an aware updated_at answers 503 run_state_corrupt."
+
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py"]
+
+linked_tests = [
+    "04_Software/tests/test_web_jobs.py::test_project_summary_refuses_a_run_without_an_aware_activity_time",
+    "04_Software/tests/test_web_jobs.py::test_stale_parked_questions_are_unknown_for_new_wait",
+    "04_Software/tests/test_web_jobs.py::test_persisted_wait_evidence_unknowns_archive_and_last_activity",
+    "04_Software/tests/test_web_jobs.py::test_wait_locations_respect_forge_and_reads_launch_no_commands",
+    "04_Software/tests/test_web_jobs.py::test_all_lifecycle_groups_exact_stage_review_and_redaction",
+]
+
+
+spec = "specs/REQ-FUNC-e8455ab6.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-05
+updated = 2026-11-01

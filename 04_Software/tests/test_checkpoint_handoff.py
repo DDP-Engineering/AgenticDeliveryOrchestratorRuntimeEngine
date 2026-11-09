@@ -52,6 +52,10 @@ class CheckpointWorktrees(FakeWorktrees):
     def ref_head(self, ref):
         return self.target if ref.startswith("origin/") else self.head
 
+    def worktree_progress_fingerprint(self, run_id):
+        """@brief Keep simulated source progress stable across checkpoint transport."""
+        return self.fingerprint
+
     def commit_all_if_dirty(self, run_id, message):
         if self.commit_error:
             raise IsolationError("commit failed; dirty files retained")
@@ -66,28 +70,30 @@ def setup_run(tmp_path):
     return engine, run, forge, engine.worktrees, containers, executor
 
 
-def test_checkpoint_handoff_configuration_default_off(tmp_path):
-    """@brief Existing profiles retain approval-only pushes."""
+def test_checkpoint_handoff_configuration_default_on(tmp_path):
+    """@brief Profiles without an override publish guarded progress by default."""
     path = tmp_path / "config.toml"
     path.write_text(MINIMAL_VALID)
-    assert load_config(path).delivery.publish_checkpoints is False
+    assert load_config(path).delivery.publish_checkpoints is True
 
 
 @pytest.mark.parametrize(
     "value,valid", [("true", True), ("false", True), ("1", False), ('"yes"', False)]
 )
 def test_checkpoint_handoff_configuration_boolean_boundary(tmp_path, value, valid):
-    """@brief Opt-in accepts only TOML booleans."""
+    """@brief Explicit overrides accept only TOML booleans."""
     path = tmp_path / "config.toml"
     path.write_text(MINIMAL_VALID + "\npublish_checkpoints = " + value)
     config = load_config(path)
     issues = validate_config(config)
     assert any("publish_checkpoints" in issue for issue in issues) is (not valid)
+    if valid:
+        assert config.delivery.publish_checkpoints is (value == "true")
 
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, enabled):
-    """@brief Useful checkpoints become fetchable only with explicit opt-in."""
+    """@brief Progress publication follows the selected policy and retains approval."""
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = enabled
     run.stage = "build"
@@ -96,9 +102,9 @@ def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, en
         task("build"),
         task("validate"),
         task("validate"),
-        task("deliver"),
-        task("deliver"),
-        task("deliver"),
+        task("done"),
+        task("done"),
+        task("done"),
     ]
     engine._conduct_task(run, forge.ticket, FakeAegis(snapshots), "")
     saved = engine.store.load(run.run_id)
@@ -109,6 +115,26 @@ def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, en
         assert saved.checkpoint_remote_commit == worktrees.head
         assert "Work in progress" in "\n".join(forge.ticket_comments.values())
         assert any(e["event"] == "checkpoint-pushed" for e in engine.store.read_journal(run.run_id))
+
+
+
+@pytest.mark.parametrize("backend", ["container", "local"])
+def test_checkpoint_guard_stops_publication_for_both_backends(tmp_path, backend):
+    """@brief A guard refusal preserves the run and prevents checkpoint publication."""
+    engine, run, forge, worktrees, _, _ = setup_run(tmp_path)
+    engine.config.execution.backend = backend
+    engine.config.delivery.publish_checkpoints = True
+    runner = FakeRunner(_ok("?? accidental\0"), _ok("%TEMP%/bad.db\0"), _ok())
+    real_manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    worktrees.commit_all_if_dirty = real_manager.commit_all_if_dirty
+    run.stage = "build"
+    engine.store.save(run)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("build"), task("validate")]), "")
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert not worktrees.remote_pushes
+    assert not any("commit" in call or "push" in call for call in runner.calls)
+    assert "suspicious" in saved.outcome.lower()
 
 
 def test_checkpoint_handoff_transport_failure_is_visible_and_recovers(tmp_path):
@@ -126,9 +152,9 @@ def test_checkpoint_handoff_transport_failure_is_visible_and_recovers(tmp_path):
                 task("build"),
                 task("validate"),
                 task("validate"),
-                task("deliver"),
-                task("deliver"),
-                task("deliver"),
+                task("done"),
+                task("done"),
+                task("done"),
             ]
         ),
         "",
@@ -229,12 +255,13 @@ def test_checkpoint_handoff_request_after_gate_prevents_next_session(tmp_path):
     assert not engine.store.handoff_requested(run.run_id)
 
 
-def test_checkpoint_handoff_state_additive_and_strict(tmp_path):
-    """@brief Existing records load; corrupt checkpoint identities fail closed."""
+def test_checkpoint_handoff_state_is_strict(tmp_path):
+    """@brief Missing or corrupt checkpoint identities fail closed."""
     original = RunState("run-1", 1).to_dict()
-    for key in ["checkpoint_remote_commit", "checkpoint_error"]:
-        original.pop(key, None)
-    assert RunState.from_dict(original).checkpoint_remote_commit == ""
+    missing = {key: value for key, value in original.items()
+               if key not in ("checkpoint_remote_commit", "checkpoint_error")}
+    with pytest.raises(StateError, match="missing keys"):
+        RunState.from_dict(missing)
     original["checkpoint_remote_commit"] = "not-a-commit"
     with pytest.raises(StateError):
         RunState.from_dict(original)
@@ -346,6 +373,12 @@ def test_checkpoint_handoff_failed_run_publishes_commits_without_resuming(tmp_pa
     assert saved.checkpoint_remote_commit == worktrees.head
     assert worktrees.dirty and not worktrees.checkpoints
     assert not executor.prompts and not forge.opened
+    state_path = engine.store.run_dir(run.run_id) / "state.json"
+    state_before = state_path.read_bytes()
+    pushes_before = list(worktrees.remote_pushes)
+    engine.poll_once()
+    assert state_path.read_bytes() == state_before
+    assert worktrees.remote_pushes == pushes_before
 
 
 def test_checkpoint_handoff_protocol_failure_stops_without_transport_retries(tmp_path):
@@ -409,6 +442,9 @@ def test_checkpoint_handoff_comment_has_forge_branch_link(tmp_path, kind, url, f
     assert engine.handoff(run.run_id)
     body = "\n".join(forge.ticket_comments.values())
     assert fragment + "adore%2Fgithub-owner-repo-7" in body
+    # the takeover note names the AEGIS 0.15.0 resume view, not a Handoff section
+    assert "python .agentic/aegis.py brief" in body
+    assert "and Handoff" not in body
 
 
 def test_checkpoint_handoff_metrics_records_human_ownership(tmp_path):
@@ -447,17 +483,15 @@ def test_checkpoint_handoff_owner_not_announced_before_git_finishes(tmp_path):
 
 
 def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, monkeypatch):
-    """@brief WIP visibility preserves normal approved draft publication and close-out tracking."""
-    from collections import deque
-
+    """@brief WIP visibility preserves normal approved draft publication without AEGIS."""
     import adore.orchestrator as conductor
     from adore.util import utc_now_iso
 
     from .test_orchestrator import passing_check
 
-    engine, run, forge, worktrees, _, _ = setup_run(tmp_path)
+    engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
-    run.stage = "deliver"
+    run.stage = "done"
     run.lifecycle = "awaiting-approval"
     run.validation_evidence = engine._validation_payload(passing_check())
     run.candidate_fingerprint = worktrees.fingerprint
@@ -470,30 +504,19 @@ def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, mon
     assert not forge.opened and not worktrees.pushes
     forge.ticket.labels.append("agent-approved")
 
-    class PublishClient:
-        statuses = deque([task("deliver"), task("deliver"), task("deliver"), task("done")])
+    class NoAegis:
+        """@brief Publication runs no AEGIS command after approval."""
 
         def __init__(self, *args, **kwargs):
-            pass
+            raise AssertionError("publication must not run an AEGIS command")
 
-        def probe(self):
-            return None
-
-        def task_status(self, task_id):
-            return self.statuses.popleft()
-
-        def report(self, task_id):
-            return None
-
-        def evolution(self, task_id):
-            return {}
-
-    monkeypatch.setattr(conductor, "AegisClient", PublishClient)
+    monkeypatch.setattr(conductor, "AegisClient", NoAegis)
     engine.poll_once()
     saved = engine.store.load(run.run_id)
     assert saved.lifecycle == "in-review" and forge.opened[0]["draft"] is True
     assert saved.checkpoint_remote_commit == worktrees.head
-    assert len(worktrees.pushes) == 2
+    assert worktrees.pushes == [run.branch]
+    assert executor.prompts == []
 
 
 @pytest.mark.parametrize("lifecycle", ["done", "cancelled"])

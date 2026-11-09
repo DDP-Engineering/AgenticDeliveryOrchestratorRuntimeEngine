@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-8472a560"
+
+title = "Refuse AEGIS releases older than 0.15.0"
+
+status = "active"
+
+requirement = """
+If a target reports an AEGIS release outside major 0 or older than 0.15.0, then the client shall refuse it at probe with a protocol error that names 0.15.0 as the minimum.
+"""
+
+verification = "Offline AEGIS tests probe 0.15.0 and a later 0.x release successfully and refuse 0.14.9, 0.5.0 and 1.0.0 with an AegisProtocolError naming 0.15.0, before any status read."
+
+affected_paths = ["04_Software/adore/aegis.py"]
+
+linked_tests = ["04_Software/tests/test_aegis_compatibility.py", "04_Software/tests/test_aegis.py::test_probe_refuses_releases_older_than_0_15_0", "04_Software/tests/test_aegis.py::test_probe_accepts_the_whole_supported_major_from_the_floor_up", "04_Software/tests/test_aegis.py::test_probe_rejects_a_different_major"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "AEGIS before 0.15.0 ends in a deliver stage that asks the agent to wait for a human and to commit; ADORE no longer conducts that flow."
+
+created = 2026-10-25
+updated = 2026-10-25

@@ -14,6 +14,11 @@ own names. No guide assumes a particular target repository.
 
 ## Start Here
 
+For the packaged web application, start with the compact
+[user guide](User_Guide/README.md). Its three files are the documentation included
+in the self-contained Windows/Linux user distributions; the guides below retain
+the complete source and advanced administration references.
+
 Follow these guides in order when introducing ADORE to a host or a project:
 
 1. [Getting_Started.md](Getting_Started.md) - understand the operating model,
@@ -30,10 +35,15 @@ Follow these guides in order when introducing ADORE to a host or a project:
 
 ## Reference Guides
 
+- [AEGIS_Compatibility.md](AEGIS_Compatibility.md) - verified companion delivery,
+  workflow changes and compatibility evidence.
+
 - [Configuration_Reference.md](Configuration_Reference.md) - every
   `config.toml` setting, profile resolution, defaults, and validation rules.
 - [CLI_Reference.md](CLI_Reference.md) - the complete command-line interface,
   command syntax, safety flags, and exit codes.
+- [Web_Interface.md](Web_Interface.md) - optional browser interface, accounts,
+  RBAC, metrics, offline installation, and worker operations.
 
 ## Quick References
 
@@ -45,3 +55,18 @@ sheet and a reference need different levels of detail.
 
 [Code_Style.md](Code_Style.md) is internal engineering guidance for people who
 implement ADORE. It is not part of the operator documentation path.
+
+- [Container preparation](Container_Preparation.md): recipe grammar, review, execution evidence and recovery.
+
+## Native local execution
+
+Native execution setup, security and recovery are documented in Local_Execution.md.
+
+See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
+authentication, process ownership and acceptance coverage.
+
+- [Project executor images](Project_Executor_Images.md): external image build and verification, image selection in ADORE, and pending-candidate recovery.
+
+## Adaptive container dependencies
+
+[Agent dependency installation](Agent_Dependency_Installation.md) describes direct agent system-package installation, opt-in rights, independent egress and recovery.

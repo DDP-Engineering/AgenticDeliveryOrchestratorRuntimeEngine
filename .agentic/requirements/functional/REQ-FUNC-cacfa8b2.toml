@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-cacfa8b2"
+title = "Discover portable Gitea authentication"
+status = "active"
+requirement = "When an external tea command fails before HTTP because its login is unavailable, ADORE shall discover metadata through tea in the current account standard Windows/Linux configuration, select only its configured login or unambiguous default/sole login, and retry once with a child-only environment; explicit XDG and saved scoped credentials retain authority, while malformed or ambiguous metadata fails closed without credential copying or application-specific path searches."
+verification = "Offline injected runners prove Windows/Linux standard roots, explicit XDG precedence, sole/default/named selection, bounded retry, environment isolation, scoped credential precedence and rejection of malformed/oversized/ambiguous JSON or HTTP failure."
+affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/gitea_auth.py", "04_Software/adore/repository_auth.py", "04_Software/adore/web/repository_source.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_gitea_auth.py", "04_Software/tests/test_repository_connection.py", "04_Software/tests/test_repository_source.py", "04_Software/tests/test_doctor.py"]
+created = 2026-10-22
+updated = 2026-10-22

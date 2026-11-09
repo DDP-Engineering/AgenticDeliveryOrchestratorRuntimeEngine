@@ -1,0 +1,32 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-67469d47"
+
+title = "Return the task after failed independent verification"
+
+status = "active"
+
+requirement = """
+If the conductor's strict verification of a done task fails, then the conductor shall count one validate failure and launch one fresh executor session that returns the task from done to validate, build, design or specify before conducting again.
+"""
+
+verification = "An offline conductor test fails the strict check after validate -> done and observes one STRICT_VERIFICATION_FAILED validate failure, cleared verification evidence, no approval presentation, and one remediation session whose prompt names the done stage and the backward `advance --to`."
+
+affected_paths = ["04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_failed_strict_check_returns_the_task_from_done", "04_Software/tests/test_orchestrator.py::test_many_strict_findings_count_as_one_failed_invocation", "04_Software/tests/test_orchestrator.py::test_failed_strict_check_remediation_conducts_again"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Independent verification is the conductor's own proof; a failure goes back through AEGIS instead of being patched at done."
+
+created = 2026-10-25
+updated = 2026-10-26

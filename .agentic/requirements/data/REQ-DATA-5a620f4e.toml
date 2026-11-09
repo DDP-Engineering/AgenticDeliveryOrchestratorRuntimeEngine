@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-5a620f4e"
+
+title = "Expose composite job lifetime and period consumption"
+
+status = "active"
+
+requirement = """When an authorized consumer requests job consumption, the web API shall return separate lifetime, in-period and unallocated measured amounts with coverage keyed by immutable project and run identity, under the caller financial boundary."""
+
+verification = "Cross-period, colliding-ID, unknown/zero/unallocated, exact executor/model and Dev JSON/CSV fixtures assert separate measured amounts and denial."
+
+affected_paths = ["04_Software/adore/metrics.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/adore/web/analytics.py", "04_Software/web/src/metrics.ts"]
+
+linked_tests = ["04_Software/tests/test_web_scoped_metrics.py", "04_Software/tests/test_web_metrics.py", "04_Software/tests/test_web_pricing.py", "04_Software/web/tests/metrics.test.mjs", "04_Software/web/e2e/shell.spec.ts"]
+
+
+spec = "specs/scoped-metrics.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

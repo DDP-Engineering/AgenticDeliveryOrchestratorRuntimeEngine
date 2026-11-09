@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-c2298428"
+
+title = "Scoped read access to redacted project configuration"
+
+status = "active"
+
+requirement = """
+When an authenticated user requests a project's effective configuration, the API shall return its redacted settings only if the user administers the platform or is assigned to that project. Other project identities shall return 404, and developer configuration mutations shall return 403.
+"""
+
+verification = "Run test_web_config.py for assigned and unassigned developer reads, redacted values, and rejected developer mutations."
+
+affected_paths = ["04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_config.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

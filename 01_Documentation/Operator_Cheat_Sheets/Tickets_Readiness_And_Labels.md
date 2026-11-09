@@ -10,7 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Applies to ADORE 0.13.0 and its AEGIS schema-1 contract.
 
 Use this when you want ADORE to pick up a ticket, skip a ticket, resume a parked
-ticket, or route a ticket to a specific executor.
+ticket, or request a revision.
 
 ![ADORE ticket lifecycle](assets/ticket-lifecycle.svg)
 
@@ -60,13 +60,12 @@ Defaults can be renamed in `config.toml`, but the roles stay the same.
 | Bug/fix | `bug` or `fix` | Human | Selects an AEGIS fix run. |
 | Change | `change` | Human | Selects an AEGIS change run. |
 | Quick | `agent-quick` | Human | Hints that framing may select the quick path; AEGIS records the final path decision. |
-| Executor pin | `agent-exec:<name>` | Human | Forces a configured executor for this ticket. |
 | Revise | `agent-revise` | Reviewer | Requests a post-MR revision cycle. |
 
 ## ADORE-Managed Lifecycle Labels
 
-ADORE applies these labels on every state change regardless of `[state]
-channel`; that setting is validated for compatibility but not consulted.
+ADORE applies these labels on every state change, together with its one status
+comment; there is no setting to turn them off.
 
 | Default label | Meaning |
 | --- | --- |
@@ -80,9 +79,11 @@ The authoritative state lives locally under the profile state root; the
 ticket mirrors it through one status comment, edited in place, plus these
 labels.
 
-**Create every label before the first run.** ADORE applies and removes labels
-but never creates them, and GitHub and Gitea reject a name that does not exist
-in the repository. The failure lands at claim time, before ADORE can post
+**Every label must exist before the first run.** GitHub and Gitea reject a
+name that does not exist in the repository. The web interface creates the missing
+ADORE labels when you enroll a project (ticked by default) or from Settings →
+Repository → **Create missing labels**, never changing existing ones; the polling
+loop and `adore init` do not create labels. The failure lands at claim time, before ADORE can post
 anything to the ticket, so the ticket simply sits there still wearing its ready
 label while the reason goes to the console and `adore.log`.
 
@@ -93,14 +94,11 @@ is nine in total, plus your priority labels.
 
 ## Readiness Rules
 
-The implemented readiness filter rejects tickets that are missing:
-
-- acceptance criteria;
-- a priority label;
-
-Known component and scope remain strongly recommended, but
-`require_known_component` and `max_scope_hint` are currently validated settings
-only and do not filter pickup. Do not treat them as enforcement.
+By default, pickup requires a configured priority label. Acceptance-criteria
+checking is optional and disabled by default. When enabled, the description
+must contain `acceptance criteria` (case-insensitive) or an unchecked `- [ ]`
+item. This is a text check, not a quality assessment. Explicit project settings
+override the defaults. The reserved `max_scope_hint` does not filter pickup.
 
 Check the active configuration:
 
@@ -122,6 +120,5 @@ Check the active configuration:
 | Make the ticket human-only. | Add `no-agent`. |
 | Answer a clarification. | Reply in a normal human comment, then add `agent-answered`. |
 | Request a revision after draft MR/PR review. | Add `agent-revise` to the MR/PR, then run another poll. |
-| Force opencode for one ticket. | Add `agent-exec:opencode`. |
 
 Do not remove or edit the hidden ADORE marker lines in status comments.

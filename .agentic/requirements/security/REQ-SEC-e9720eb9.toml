@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-e9720eb9"
+title = "Refuse unsafe executor evidence sources"
+status = "active"
+requirement = "If executor evidence identity, links, path, file type, size or contents are unsafe or corrupt, the service shall refuse the evidence with a typed safe error."
+verification = "API tests foreign paths, links, missing/corrupt/oversized archive and revoked project access; no source bytes escape."
+affected_paths = ["04_Software/adore/executor/diagnostics.py", "04_Software/adore/web/executor_evidence.py", "04_Software/adore/web/app.py", "04_Software/web/src/jobModel.ts"]
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/tests/test_pi_rpc.py"]
+created = 2026-11-05
+updated = 2026-11-05

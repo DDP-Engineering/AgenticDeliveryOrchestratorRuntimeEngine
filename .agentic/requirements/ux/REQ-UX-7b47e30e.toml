@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-7b47e30e"
+
+title = "Reviewed branch naming edits in Repository"
+
+status = "active"
+
+requirement = "When a project operator opens Repository settings, ADORE shall show localized job branch template and optional naming rule with a current server-checked example, permitting only administrators to prepare and apply valid branch naming edits through the existing revision-bound paused-idle reviewed flow while retaining external path/runtime restrictions."
+
+verification = "Offline helper/API/browser tests open Repository, edit each field, observe fixed sample and rule result, prepare/review/apply valid input; negative tests cover invalid drafts, stale or malformed preview, read-only Dev, CSRF and blocked external keys."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/settingHelp.ts", "04_Software/adore/web/app.py", "04_Software/web/src/styles.css", "04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts"]
+
+linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/e2e/settings.spec.ts", "04_Software/tests/test_web_branch_naming.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-10-09

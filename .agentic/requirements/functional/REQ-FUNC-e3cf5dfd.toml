@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e3cf5dfd"
+title = "Apply reviewed budget-only edits while parked"
+status = "active"
+requirement = "When an administrator applies an exact reviewed budget-only candidate with parked clarification jobs and no active conductor or unfinished operations, ADORE shall save the project budgets for the same jobs to use on resume."
+verification = "Apply scalar and batch budgets to a parked fixture; assert saved limits, unchanged state bytes/task/usage and revision binding."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_settings_batch.py::test_parked_job_allows_only_reviewed_budget_batch"]
+priority = "normal"
+created = 2026-11-05
+updated = 2026-11-05

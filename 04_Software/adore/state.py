@@ -27,6 +27,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, fields
+from datetime import datetime, timedelta
 import hashlib
 import json
 import os
@@ -34,11 +35,13 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import stat
 import tempfile
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
-from adore.util import process_alive, utc_now_iso
+from adore.preparation import PreparationError, validate_plan
+from adore.util import iso_to_datetime, process_alive, strict_json_loads, utc_now_iso
 
 # CONSTANTS
 
@@ -52,12 +55,33 @@ PAUSE_FILE = "paused"
 STATE_SCHEMA_VERSION = 1
 _TASK_ID_RE = re.compile(r"^TASK-[0-9a-f]{8,64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-_STAGES = {"frame", "specify", "design", "build", "validate", "deliver", "done",
-           "publishing"}
+#: Stages a persisted run may name. ADORE conducts frame to done and points at
+#: publishing.
+_STAGES = {"frame", "specify", "design", "build", "validate", "done", "publishing"}
 _LIFECYCLES = {
     "working", "parked-clarification", "awaiting-approval", "publishing",
     "in-review", "failed", "done", "cancelled", "stale", "handed-off", "handoff-pending",
 }
+
+
+# LOCAL HELPERS
+def _clock_stamp(value: object) -> datetime:
+    """
+    @brief Refuse malformed durable clock evidence before budget accounting.
+    @param[in] value Untrusted saved or current timestamp.
+    @return A timezone-aware datetime.
+    @exception StateError For nontext, invalid or timezone-free evidence.
+    """
+    try:
+        if not isinstance(value, str):
+            raise ValueError
+        stamp = datetime.fromisoformat(value)
+        if stamp.tzinfo is None or stamp.utcoffset() is None:
+            raise ValueError
+        return stamp
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise StateError("run-state active clock requires aware ISO timestamps") from exc
+
 
 # DATA MODELS / TYPEDEFINITIONS
 
@@ -113,27 +137,38 @@ class RunState:
     mr_missing_polls: int = 0
     #: Last forge pipeline verdict already surfaced for this MR/PR, so a red
     #: pipeline is reported once rather than on every poll of a run that may
-    #: sit in review for days. Additive with a default, so state written before
-    #: it existed still loads.
+    #: sit in review for days.
     pipeline_reported: str = ""
     notification_outbox: list[dict[str, Any]] = field(default_factory=list)
     candidate_fingerprint: str = ""
     candidate_base_ref: str = ""
-    #: Product digest of the candidate a human approved, captured ONCE when
-    #: publication begins and reused by every retry. Without it a retry
-    #: recaptured the baseline from whatever the failed attempt left behind,
-    #: which would let an unapproved product change become the new baseline.
-    approved_product: str = ""
+    #: Candidate fingerprint of the last publication that reached review.
+    #: Stage done spans approval, publication and review, so this is what
+    #: tells a published candidate from one still waiting to publish.
+    published_fingerprint: str = ""
     approval_presented_at: str = ""
     approval_comment_id: int | None = None
     approval_label_removed: bool = False
     validation_evidence: dict[str, Any] = field(default_factory=dict)
+    #: Optional closed execution/preparation record. Empty means legacy mode.
+    execution: dict[str, Any] = field(default_factory=dict)
     outcome: str = ""
     checkpoint_remote_commit: str = ""
     checkpoint_error: str = ""
+    #: Effective clock anchor, shifted over inactive intervals to retain consumed work.
     active_started_at: str = ""
     created_at: str = ""
     updated_at: str = ""
+
+    def active_work_seconds(self, now: str) -> float:
+        """
+        @brief Return cumulative working time; inactive lifecycles freeze at last save.
+        @param[in] now Aware current timestamp for an actively working job.
+        @return Nonnegative elapsed seconds from the effective active-clock anchor.
+        @exception StateError For malformed or timezone-free clock evidence.
+        """
+        end = _clock_stamp(now if self.lifecycle == "working" else self.updated_at)
+        return max(0.0, (end - _clock_stamp(self.active_started_at)).total_seconds())
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -146,8 +181,10 @@ class RunState:
     def from_dict(cls, data: dict[str, Any]) -> RunState:
         """
         @brief      Rebuild a RunState from a persisted mapping.
-        @details    Missing or wrong schema and unknown keys are rejected, so
-                    foreign state is never reinterpreted as an AEGIS task run.
+        @details    Missing or wrong schema, unknown keys and missing keys are
+                    rejected, so foreign state is never reinterpreted as an AEGIS
+                    task run and state of another ADORE build is never filled in
+                    with defaults (no migrations while ADORE is in development).
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
         """
@@ -163,7 +200,19 @@ class RunState:
                 f"run-state schema {STATE_SCHEMA_VERSION} has unknown "
                 f"keys: {unknown}"
             )
+        missing = sorted(known - set(data))
+        if missing:
+            raise StateError(
+                f"run-state schema {STATE_SCHEMA_VERSION} is missing keys {missing}; "
+                "it was written by another ADORE build"
+            )
         state = cls(**data)
+        if state.active_started_at != "" or state.created_at or state.updated_at:
+            _clock_stamp(state.active_started_at)
+        if type(state.iterations) is not int or state.iterations < 0:
+            raise StateError("run-state iterations must be nonnegative")
+        if type(state.parked_polls) is not int or state.parked_polls < 0:
+            raise StateError("run-state parked_polls must be nonnegative")
         if (
             not isinstance(state.run_id, str)
             or _RUN_ID_RE.fullmatch(state.run_id) is None
@@ -202,6 +251,7 @@ class RunState:
             raise StateError("run-state notification_outbox must be an object list")
         if not isinstance(state.validation_evidence, dict):
             raise StateError("run-state validation_evidence must be an object")
+        validate_execution_record(state.execution)
         if not isinstance(state.checkpoint_error, str):
             raise StateError("run-state checkpoint_error must be text")
         if not isinstance(state.checkpoint_remote_commit, str) or (
@@ -209,11 +259,177 @@ class RunState:
             and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", state.checkpoint_remote_commit) is None
         ):
             raise StateError("run-state checkpoint_remote_commit must be a commit digest")
-        for name in ("candidate_fingerprint", "candidate_base_ref", "approved_product"):
+        for name in ("candidate_fingerprint", "candidate_base_ref", "published_fingerprint"):
             value = getattr(state, name)
             if value and re.fullmatch(r"[0-9a-f]{40,64}", value) is None:
                 raise StateError(f"run-state {name} must be a hexadecimal digest")
         return state
+
+
+# HELPER FUNCTIONS
+
+
+def validate_execution_record(record: object) -> None:
+    """
+    @brief Validate an additive closed execution identity/recovery record.
+    @param[in] record Persisted untrusted execution mapping or legacy empty mapping.
+    @exception StateError For corrupt identity, plan, status or preparation evidence.
+    """
+    if not isinstance(record, dict):
+        raise StateError("run-state execution must be an object")
+    if not record:
+        return
+    keys = {"plan", "resource", "status", "attempts", "steps", "history", "reprepare"}
+    try:
+        if set(record) != keys:
+            raise ValueError("closed structure")
+        validate_plan(record["plan"])
+        if record["plan"]["backend"] == "local":
+            from adore.local_execution import validate_local_resource
+            from adore.local_process import LocalExecutionError
+
+            if (record["status"] != "not-required" or type(record["attempts"]) is not int
+                    or record["attempts"] != 0 or record["steps"] != []
+                    or record["history"] != [] or record["reprepare"] is not False
+                    or not isinstance(record["resource"], dict)):
+                raise ValueError("local preparation evidence is unsupported")
+            if record["resource"]:
+                try:
+                    validate_local_resource(record["resource"])
+                except LocalExecutionError as exc:
+                    raise ValueError("local resource identity") from exc
+            return
+        if (
+            record["status"]
+            not in {
+                "pending",
+                "running",
+                "success",
+                "failed",
+                "interrupted",
+                "cancelled",
+                "not-required",
+            }
+            or type(record["attempts"]) is not int
+            or not 0 <= record["attempts"] <= 3
+            or type(record["reprepare"]) is not bool
+            or not isinstance(record["steps"], list)
+            or len(record["steps"]) > 32
+            or not isinstance(record["history"], list)
+            or len(record["history"]) > 3
+        ):
+            raise ValueError("status/attempts/evidence")
+        if len(record["steps"]) > len(record["plan"]["steps"]):
+            raise ValueError("step count")
+        if record["status"] != "not-required" and not record["plan"]["selection"]:
+            raise ValueError("recipe status without selection")
+        if record["attempts"] > record["plan"]["policy"]["execution"]["preparation_max_attempts"]:
+            raise ValueError("attempt bound")
+        if record["status"] in {"running", "success", "failed", "interrupted", "cancelled"} and (
+            record["attempts"] < 1 or not record["resource"]
+        ):
+            raise ValueError("preparation without resource/attempt")
+        resource = record["resource"]
+        if not isinstance(resource, dict):
+            raise ValueError("resource")
+        if resource and (
+            set(resource) != {"container_id", "image_id"}
+            or not isinstance(resource["container_id"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", resource["container_id"])
+            or not isinstance(resource["image_id"], str)
+            or not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", resource["image_id"])
+        ):
+            raise ValueError("resource identity")
+        step_keys = {
+            "index",
+            "name",
+            "started_at",
+            "finished_at",
+            "exit_code",
+            "timed_out",
+            "cancelled",
+        }
+        for index, step in enumerate(record["steps"]):
+            if (
+                not isinstance(step, dict)
+                or set(step) != step_keys
+                or type(step["index"]) is not int
+                or step["index"] != index
+                or step["name"] != record["plan"]["steps"][index]["name"]
+                or type(step["exit_code"]) is not int
+                or not -255 <= step["exit_code"] <= 255
+                or type(step["timed_out"]) is not bool
+                or type(step["cancelled"]) is not bool
+                or iso_to_datetime(step["started_at"]) is None
+                or iso_to_datetime(step["finished_at"]) is None
+            ):
+                raise ValueError("step evidence")
+            stamps = [datetime.fromisoformat(step[key].replace("Z", "+00:00"))
+                      for key in ("started_at", "finished_at")]
+            if any(stamp.tzinfo is None for stamp in stamps) or stamps[1] < stamps[0]:
+                raise ValueError("step timestamp order/timezone")
+        if record["status"] == "success" and (
+            not resource
+            or record["attempts"] < 1
+            or len(record["steps"]) != len(record["plan"]["steps"])
+            or any(
+                step["exit_code"] != 0 or step["timed_out"] or step["cancelled"]
+                for step in record["steps"]
+            )
+        ):
+            raise ValueError("success without complete evidence")
+        if record["status"] == "not-required" and (
+            record["plan"]["selection"] or record["attempts"] or record["steps"]
+            or resource and not record["plan"]["policy"]["container"].get("system_packages")
+        ):
+            raise ValueError("legacy preparation mismatch")
+        last_attempt = 0
+        for history in record["history"]:
+            if not isinstance(history, dict) or set(history) != {
+                "attempt",
+                "status",
+                "resource",
+                "steps",
+            }:
+                raise ValueError("history")
+            if (
+                type(history["attempt"]) is not int
+                or not last_attempt < history["attempt"] <= record["attempts"]
+                or history["status"] in {"pending", "not-required"}
+            ):
+                raise ValueError("history ordering")
+            last_attempt = history["attempt"]
+            historic = {
+                **record,
+                "attempts": history["attempt"],
+                "status": history["status"],
+                "resource": history["resource"],
+                "steps": history["steps"],
+                "history": [],
+                "reprepare": False,
+            }
+            validate_execution_record(historic)
+    except (
+        PreparationError,
+        ValueError,
+        TypeError,
+        KeyError,
+        IndexError,
+        AttributeError,
+        OverflowError,
+    ) as exc:
+        raise StateError("run-state execution record is corrupt") from exc
+
+
+def _run_id_stem(platform: str, project: str) -> str:
+    """
+    @brief      The ticket-independent start of every run-id of one project.
+    @param[in]  platform Git-platform kind (for example "gitlab").
+    @param[in]  project  Project slug/path.
+    @return     "<platform>-<project with / as - and spaces removed>-".
+    """
+    safe_project = project.replace("/", "-").replace(" ", "")
+    return f"{platform}-{safe_project}-"
 
 
 # PUBLIC API
@@ -230,8 +446,21 @@ def derive_run_id(platform: str, project: str, ticket_iid: int) -> str:
     @param[in]  ticket_iid Ticket internal id.
     @return     A stable run-id reused across restart and resume.
     """
-    safe_project = project.replace("/", "-").replace(" ", "")
-    return f"{platform}-{safe_project}-{ticket_iid}"
+    return f"{_run_id_stem(platform, project)}{ticket_iid}"
+
+
+def run_id_pattern(platform: str, project: str) -> re.Pattern[str]:
+    """
+    @brief      Match exactly the run-ids `derive_run_id` makes for one project.
+    @details    The ticket part must be digits only, so a project whose path
+                merely extends this one ("owner/repo-tools" for "owner/repo")
+                never matches. The pattern is anchored at the end, so `match`
+                and `fullmatch` agree.
+    @param[in]  platform Git-platform kind (for example "gitlab").
+    @param[in]  project  Project slug/path.
+    @return     Compiled pattern for this project's run-ids.
+    """
+    return re.compile(re.escape(_run_id_stem(platform, project)) + r"[0-9]+\Z")
 
 
 def content_hash(title: str, description: str) -> str:
@@ -308,15 +537,77 @@ class StateStore:
         """
         return (self.run_dir(run_id) / STATE_FILE).is_file()
 
+    def cancel_requested(self, run_id: str) -> bool:
+        """
+        @brief Check a durable request to stop a running executor gate.
+        @param[in] run_id Valid run identifier.
+        @return True when a cancellation marker exists.
+        @exception StateError For an invalid run ID or malformed marker.
+        """
+        marker = self._cancel_marker(run_id)
+        try:
+            info = marker.lstat()
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise StateError(f"cannot read cancel request for run {run_id!r}") from exc
+        if not stat.S_ISREG(info.st_mode) or info.st_size != 0:
+            raise StateError(f"invalid cancel request for run {run_id!r}")
+        return True
+
+    def request_cancel(self, run_id: str) -> bool:
+        """
+        @brief Persist an idempotent cancellation request for a live run.
+        @param[in] run_id Valid run identifier.
+        @return False if the run became terminal before the request.
+        @exception StateError For an invalid run ID or malformed state/marker.
+        """
+        marker = self._cancel_marker(run_id)
+        pending = self.cancel_requested(run_id)
+        run = self.load(run_id)
+        if run.lifecycle in ("done", "failed", "cancelled",
+                             "handoff-pending", "handed-off"):
+            return False
+        if pending:
+            return True
+        try:
+            with marker.open("x", encoding="utf-8"):
+                pass
+        except FileExistsError:
+            if not self.cancel_requested(run_id):
+                raise StateError(f"invalid cancel request for run {run_id!r}") from None
+        return True
+
+    def clear_cancel_request(self, run_id: str) -> None:
+        """
+        @brief Remove a processed cancellation request.
+        @param[in] run_id Valid run identifier.
+        @exception StateError For an invalid run ID or malformed marker.
+        """
+        marker = self._cancel_marker(run_id)
+        self.cancel_requested(run_id)
+        marker.unlink(missing_ok=True)
+
     # -- run state ------------------------------------------------------------
 
     def save(self, state: RunState) -> None:
         """
-        @brief      Persist a run's state atomically, stamping timestamps.
+        @brief      Persist state atomically, stamping timestamps and freezing inactive work time.
         @param[in]  state The RunState to write (updated_at is refreshed;
                           created_at is set on first save).
         """
         now = utc_now_iso()
+        path = self.run_dir(state.run_id) / STATE_FILE
+        if path.exists():
+            previous = self.load(state.run_id)
+            # Move the effective anchor over waiting time, including repeated
+            # inactive saves. Resume keeps all work consumed before the wait.
+            if previous.lifecycle != "working":
+                waiting = max(0.0, (_clock_stamp(now)
+                                   - _clock_stamp(previous.updated_at)).total_seconds())
+                state.active_started_at = (
+                    _clock_stamp(previous.active_started_at) + timedelta(seconds=waiting)
+                ).isoformat()
         state.schema_version = STATE_SCHEMA_VERSION
         if not state.created_at:
             state.created_at = now
@@ -337,29 +628,36 @@ class StateStore:
         path = self.run_dir(run_id) / STATE_FILE
         with path.open(encoding="utf-8") as handle:
             try:
-                data = json.load(handle)
-            except json.JSONDecodeError as exc:
+                data = strict_json_loads(handle.read())
+            except ValueError as exc:
                 raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
         if not isinstance(data, dict):
             raise StateError(f"corrupt state.json for run {run_id!r}: not a JSON object")
         try:
-            return RunState.from_dict(data)
+            state = RunState.from_dict(data)
+            _clock_stamp(state.active_started_at)
+            return state
         except TypeError as exc:
             raise StateError(f"corrupt state.json for run {run_id!r}: {exc}") from exc
+        except StateError as exc:
+            raise StateError(
+                f"{exc} (run {run_id!r}; delete {self.run_dir(run_id)} to remove it)"
+            ) from exc
 
     def list_runs(self) -> list[RunState]:
         """
         @brief   Load every readable run, sorted by run-id.
         @details Corrupt runs are skipped here so operational commands keep
                  working; they stay visible through invalid_runs() and are
-                 never silently deleted or reinitialized.
+                 never silently deleted or reinitialized. State removed after
+                 enumeration is omitted; unrelated I/O errors still propagate.
         @return  All loadable runs found under `<root>/runs`.
         """
         runs: list[RunState] = []
         for entry in self._run_dirs():
             try:
                 runs.append(self.load(entry.name))
-            except StateError:
+            except (StateError, FileNotFoundError):
                 continue
         return runs
 
@@ -368,12 +666,16 @@ class StateStore:
         @brief   Run-ids whose state exists on disk but fails to load.
         @details The fail-closed counterpart of list_runs(): these runs need a
                  human (or `adore cleanup`); the poller must not touch them.
+                 State removed after enumeration is not corrupt and is omitted;
+                 unrelated I/O errors still propagate.
         @return  Sorted run-ids with corrupt state.json.
         """
         invalid: list[str] = []
         for entry in self._run_dirs():
             try:
                 self.load(entry.name)
+            except FileNotFoundError:
+                continue
             except StateError:
                 invalid.append(entry.name)
         return invalid
@@ -446,7 +748,7 @@ class StateStore:
         """
         path = self.run_dir(run_id) / "handoff-request.json"
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = strict_json_loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return False
         except (OSError, ValueError) as exc:
@@ -626,6 +928,12 @@ class StateStore:
         return (self.root / PAUSE_FILE).is_file()
 
     # -- internals ------------------------------------------------------------------
+
+    def _cancel_marker(self, run_id: str) -> Path:
+        """@brief Keep cancellation markers inside a validated run directory."""
+        if not isinstance(run_id, str) or _RUN_ID_RE.fullmatch(run_id) is None:
+            raise StateError(f"invalid run ID for cancellation: {run_id!r}")
+        return self.run_dir(run_id) / "cancel.request"
 
     def _run_dirs(self) -> list[Path]:
         """

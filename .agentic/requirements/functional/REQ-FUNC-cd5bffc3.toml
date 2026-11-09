@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-cd5bffc3"
+title = "Installed native executor discovery"
+status = "active"
+requirement = "When an administrator requests installed local executors, ADORE shall return bounded native launch suggestions for supported agents from the current Windows or Linux service account PATH and supported installation directories, excluding project-local executables, relative search roots and Windows shell wrappers, without running tools, installing software or reading credentials."
+verification = "Offline filesystem fixtures prove native Windows/Linux and npm detection, rejected unsafe or missing files, bounded deduplication and admin-only HTTP access."
+affected_paths = ["04_Software/adore/executor_discovery.py", "04_Software/adore/web/app.py", "02_Tools/verify_package.py"]
+linked_tests = ["04_Software/tests/test_executor_discovery.py::test_admin_discovers_host_executors_without_running_commands", "04_Software/tests/test_executor_discovery.py::test_executor_discovery_requires_administrator", "04_Software/tests/test_executor_discovery.py::test_native_and_npm_installations_are_detected_and_deduplicated", "04_Software/tests/test_executor_discovery.py::test_unsafe_or_unavailable_installations_are_omitted"]
+priority = "normal"
+created = 2026-10-15
+updated = 2026-10-15

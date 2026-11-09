@@ -1,0 +1,26 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-PLAT-989c6478"
+title = "Run automated commands without interactive pagers"
+status = "active"
+requirement = """When ADORE launches an automated host or executor command, the child process environment shall disable Git and generic pagers, overriding ambient or profile pager values while preserving explicitly selected account, PATH and approved credentials without modifying the caller environment."""
+verification = """Automated: inject subprocess, native controller and container exec runners; verify GIT_PAGER and PAGER are cat even with conflicting case variants; explicit empty environment excludes ambient variables and caller mappings remain unchanged."""
+affected_paths = ["04_Software/adore/util.py", "04_Software/adore/local_execution.py", "04_Software/adore/local_process.py", "04_Software/adore/local_child.py", "04_Software/adore/isolation.py", "04_Software/adore/web/commands.py", "04_Software/adore/config.py"]
+linked_tests = [
+    "04_Software/tests/test_automatic_processes.py::test_automatic_runner_background_environment",
+    "04_Software/tests/test_automatic_processes.py::test_automatic_runner_keeps_failed_spawn_outcomes",
+    "04_Software/tests/test_local_execution.py::test_local_environment_preserves_auth_without_forge_credentials",
+    "04_Software/tests/test_local_execution.py::test_native_launch_records_ownership_before_release_and_redacts",
+    "04_Software/tests/test_isolation.py::test_container_exec_passes_safe_env_inline_and_secret_env_bare",
+    "04_Software/tests/test_isolation.py::test_container_verify_required_tools_execs_checks",
+    "04_Software/tests/test_web_commands.py::test_default_worker_runner_carries_manual_outcome",
+]
+priority = "normal"
+created = 2026-10-21
+updated = 2026-10-21

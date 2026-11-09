@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-dc4bd0c3"
+title = "Secret-reference-only administrator draft operations"
+status = "active"
+requirement = "When guided draft preview, verification or guarded creation is requested, the backend shall require administrator CSRF authorization and accept credential reference names only, with redacted fail-closed rejection of invalid references or secret values."
+verification = "Admin happy calls and Dev/no-session/missing-CSRF failures for all draft routes; inject bad credential names and inspect redacted findings with no probes/artifacts."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py","04_Software/tests/test_web_readiness.py"]
+spec = "specs/REQ-DATA-e1eaf583.md"
+created = 2026-10-05
+updated = 2026-10-05

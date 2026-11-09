@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-5b0fa167"
+
+title = "Signal horizontal table scrolling on narrow screens"
+
+status = "active"
+
+requirement = """
+While a data table is wider than its container, the web interface shall show a visible cue on the side that has hidden columns, and the cue shall disappear when the user has scrolled to that edge.
+"""
+
+verification = "Manual: at 390px, open Projects, Jobs and Audit with data; confirm a right-edge cue while columns are hidden, scroll horizontally and confirm the cue moves or disappears at each edge; at 1440px with no overflow confirm no cue."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

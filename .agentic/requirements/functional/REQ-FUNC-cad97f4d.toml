@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-cad97f4d"
+title = "Refresh budget limits between attempts"
+status = "active"
+requirement = "Before each executor attempt, ADORE shall reread validated budgets from the selected configuration file and apply only those limits without resetting saved progress or consumption."
+verification = "Change the selected file after one attempt; assert next attempt uses raised limit and original iterations/task; a running attempt keeps its launch timeout."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/config.py", "04_Software/adore/state.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_retry_rereads_only_budgets_between_attempts"]
+priority = "normal"
+created = 2026-11-05
+updated = 2026-11-05

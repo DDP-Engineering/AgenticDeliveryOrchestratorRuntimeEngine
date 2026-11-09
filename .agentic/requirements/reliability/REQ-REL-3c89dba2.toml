@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-3c89dba2"
+title = "Preserve concurrent consumption snapshots"
+status = "active"
+requirement = "When a consumption snapshot precedes a concurrently projected longer journal, the projection shall preserve that snapshot only after verifying the current source and saved cursor prefix without rolling back the cursor."
+verification = "Public reconcile_usage test projects long then short source; verify old totals and durable cursor, and reject changed or truncated current prefixes."
+affected_paths = ["04_Software/adore/web/analytics.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_metrics.py", "04_Software/tests/test_drift_recovery.py"]
+created = 2026-11-05
+updated = 2026-11-05

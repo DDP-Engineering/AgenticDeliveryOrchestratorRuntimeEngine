@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-3184cc48"
+
+title = "Keep the Change evidence Refresh control on the global view"
+
+status = "active"
+
+requirement = """
+The interface shall show the Change evidence panel's manual Refresh control exclusively on global Change history.
+"""
+
+verification = "Chromium refreshes the global panel manually and verifies the project panel has no Refresh control."
+
+affected_paths = ["04_Software/web/src/AuditHistory.tsx"]
+
+linked_tests = ["04_Software/web/e2e/audit.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

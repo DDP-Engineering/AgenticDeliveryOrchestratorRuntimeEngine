@@ -31,9 +31,9 @@ resolution order that lets every command target a chosen profile.
   `_home_for(os_name, environ)`): `ADORE_HOME` override, else Windows
   `%APPDATA%`/`%LOCALAPPDATA%`\\adore, else POSIX `$XDG_CONFIG_HOME`/`~/.config`
   /adore.
-- `Profile` - the `profile.json` metadata (name, description, created/updated/
+- `Profile` - the `profile.json` metadata (immutable `project_id`, name, description, created/updated/
   last-used timestamps, use_count, platform/host/repo/runtime/host_os,
-  adore_version, config_path, store_root). **No secret values ever**.
+  adore_version, config_path, store_root, archived). **No secret values ever**.
 - `ProfileStore` - `create/save/load/list_profiles/invalid_profiles/touch/
   rename/delete`, the active pointer (`get_active/set_active/clear_active`), and
   path helpers (`profile_dir/config_path/default_store_root`).
@@ -52,13 +52,19 @@ components use this store; they do not duplicate its persistence rules.
 - **Profile-owned state (D2):** `default_store_root(name)` is
   `<home>/profiles/<name>/state`, so a project's runs/metrics/lock stay isolated
   and its statistics are trivially findable.
-- **Fail-closed, same as StateStore:** `load()` raises `ProfileError` only when
-  metadata exists but is unreadable/not-an-object; a missing profile is a
-  distinct error. `list_profiles()` skips corrupt entries; `invalid_profiles()`
+- **Fail-closed, same as StateStore:** `load()` raises `ProfileError` when
+  metadata exists but is unreadable, not an object, written by another build or
+  invalid; a missing profile is a distinct error. `list_profiles()` skips corrupt entries; `invalid_profiles()`
   reports them - never a silent reinitialize.
 - **Atomic writes:** `profile.json` is written to a `.tmp` file then `replace()`d.
-- **Forward compatible:** unknown keys in `profile.json` are dropped on load and
-  the directory name is the authoritative identity (overrides any stored `name`).
+- **No migrations:** `profile.json` must carry exactly the `Profile` fields.
+  Unknown or missing keys are refused with `profile.json of project X was
+  written by another ADORE build (unknown keys [...], missing keys [...]);
+  delete or fix that file`. The directory name is the authoritative profile
+  label (overrides any stored `name`). `create()` assigns a random 128-bit
+  project ID; `save()` requires one and refuses a malformed ID. Renaming
+  retains the stored ID. A malformed stored ID or a non-boolean `archived` is
+  corrupt metadata and raises `ProfileError`.
 - **Deletes** use the read-only/reparse-point-tolerant `force_rmtree` and clear
   the active pointer when they remove the active profile; **renames** move the
   whole directory and repoint the active pointer.
@@ -110,7 +116,10 @@ store.touch("<profile-name>")               # record a use (use_count, last_used
   (never patches `os.name`, which would break pathlib); CRUD round-trip;
   duplicate-create refusal; rename + delete with active-pointer consistency;
   active-pointer lifecycle; the full resolution-order matrix; and fail-closed on
-  corrupt/missing `profile.json` plus unknown-key tolerance.
+  corrupt/missing `profile.json`, refusal of a `profile.json` of another build
+  (`test_profile_json_of_another_build_is_refused`), the directory name
+  overriding the stored name and stable project identity across renames
+  (`test_profile_identity_survives_rename_and_bad_ids_fail`).
 - Minimum validation after a change:
   `uv run --group dev pytest tests/test_profiles.py` + `ruff check .`.
 
@@ -118,6 +127,30 @@ store.touch("<profile-name>")               # record a use (use_count, last_used
 
 - The wizard, `adore profile` CLI, `--profile` global flag, and per-profile
   statistics are implemented in their respective components.
-- No cross-process locking on the profile store itself (profiles are edited by a
-  single operator, unlike the per-run state lock); revisit if concurrent setup
-  ever matters.
+- ProfileStore provides atomic metadata replacement. Web enrollment serializes
+  creation with its home-wide enrollment lock; display edits use the shared
+  config edit lock. Direct host/CLI writes must respect their operator ownership.
+
+## Web display identity and ID availability
+
+`Profile.display_name` is a human label independent of directory `name` and the
+immutable `project_id`. The key is required like every other `profile.json`
+key; an invalid value makes metadata corrupt. `save()` stores the profile name
+when no display name is given. Labels contain 1–120 Unicode
+characters, are trimmed, and contain no Unicode control/format characters.
+`validate_display_name()` raises `ProfileError` with `invalid_display_name` and
+field `display_name`, without including input values.
+
+`validate_profile_id()` validates web IDs: lowercase ASCII letters/digits first,
+then letters/digits/dot/underscore/hyphen, at most 64 characters. Trailing dots,
+Windows device stems (including extensions), 32-hex identity aliases and reserved
+route names (including `setup-check`, `setup-create`, `transfer-source`, `transfer-preview`,
+`transfer-check` and `transfer-create`) are rejected.
+`ProfileStore.id_availability()` checks complete and incomplete filesystem
+entries case-insensitively, immutable IDs and corrupt or
+duplicate metadata. Availability is advisory; the web publication lock rechecks
+it before creating a directory. CLI rename retains its separate behavior.
+
+Public transfer route-name coverage: `test_web_transfer.py`.
+Public contract coverage: `test_web_enrollment.py` exercises display edits that
+keep membership, operations and paths, corrupt labels, portable IDs, incomplete ownership and preserved grants/operations.

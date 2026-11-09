@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-c369cfa6"
+
+title = "Stable web project identity"
+
+status = "active"
+
+requirement = """
+When a web project is created, imported, or relabeled, ADORE web shall retain an immutable project identifier for its grants, commands, history and API references independently of the profile display name; replacing a profile or reusing its name must not inherit another project's access.
+"""
+
+verification = "Create and import projects, grant a developer one project, relabel that project, and verify its ID, grant, command scope and history persist. Replace a profile under an old name and verify the former grant cannot access it; reject duplicate or corrupt IDs."
+
+affected_paths = ["04_Software/adore/profiles.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_projects.py", "04_Software/tests/test_web_import.py", "04_Software/tests/test_web_archive.py", "04_Software/tests/test_web_auth.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-11-01

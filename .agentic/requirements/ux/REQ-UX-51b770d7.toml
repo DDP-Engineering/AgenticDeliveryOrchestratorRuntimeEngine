@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-51b770d7"
+
+title = "Keep Jobs project selection within page with ticket guidance"
+
+status = "active"
+
+requirement = """
+On Jobs, the interface shall show authorized project selection beside the ticket/start controls inside page content, keeping the top header free of project selection. The ticket field shall provide localized Help describing the repository issue number, positive integer format and example. Changing the project clears the ticket draft; archived projects permit history selection without a start control. Empty, zero and fractional ticket values fail browser form validation. The existing API authorization and job eligibility rules remain in force.
+"""
+
+verification = "Manual: Inspect Jobs at desktop and 390px viewport and supported locales; open ticket Help, check positive and empty/zero/fractional native validation, change projects after entering a number, and select an archived profile. Offline API tests retain operation scope, CSRF, target and archived-project boundaries."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/styles.css"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

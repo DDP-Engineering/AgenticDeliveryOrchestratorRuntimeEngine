@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-b3ac688c"
+
+title = "Reporting timezone and period trends"
+
+status = "active"
+
+requirement = """
+When an authorized user selects a reporting period and daily, weekly or monthly granularity in a reporting timezone (UTC unless the statistics URL supplies another IANA timezone), ADORE web shall bucket observed job and usage timestamps in that timezone, preserve separate all-time totals, and show the selected period with explicit coverage through daylight-saving changes.
+"""
+
+verification = "Use UTC events around midnight and DST transitions to compare day/week/month JSON, charts and CSV in two timezones; verify a later checkpoint does not redate a terminal job, empty, reversed or unsupported ranges fail explicitly, and summary-only usage, which has no consumption date, remains outside the period buckets."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/tests/test_web_metrics.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-09-30
+updated = 2026-11-01

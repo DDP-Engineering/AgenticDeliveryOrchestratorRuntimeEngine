@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-8136f3ae"
+
+title = "Indicate unchanged factory administrator credentials"
+
+status = "active"
+
+requirement = """
+When the authenticated factory administrator still has the initial password, the web session shall report that condition without exposing the password hash.
+"""
+
+verification = "Automated: compare initial session and refreshed session with changed, reset, other and corrupt accounts."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
+
+linked_tests = ["04_Software/tests/test_web_auth.py", "04_Software/web/e2e/factoryPassword.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

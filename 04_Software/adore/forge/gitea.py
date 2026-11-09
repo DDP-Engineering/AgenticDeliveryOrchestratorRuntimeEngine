@@ -364,7 +364,7 @@ class GiteaForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a DRAFT pull request via the REST API. Never merges.
+        @brief      Open a draft or ready pull request via the REST API. Never merges.
         @details    Draft on Gitea is the `WIP: ` title prefix (tea's own
                     `--draft` does the same); the prefix is added only when the
                     title has none. The response JSON carries `html_url` and
@@ -372,22 +372,22 @@ class GiteaForge(Forge):
                     Reviewer requests are a SEPARATE endpoint on Gitea and are
                     best-effort: a rejected reviewer (for example no repo
                     access) must not lose the already-created PR, so that
-                    follow-up failure is swallowed - the draft PR itself is the
-                    delivery. `remove_source_branch` is ignored (a repository
-                    setting on Gitea) and `cwd` is not needed (pure API call,
+                    follow-up failure is swallowed - the created PR itself is the
+                    delivery. The conductor owns branch cleanup after human merge.
+                    `cwd` is not needed (pure API call,
                     no local remote resolution).
         @param[in]  source Head branch.
         @param[in]  target Base branch.
         @param[in]  title PR title.
         @param[in]  body PR description.
-        @param[in]  draft Open as draft (ADORE always passes true).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer usernames (best-effort on Gitea).
-        @param[in]  remove_source_branch Ignored (a repo setting on Gitea).
+        @param[in]  remove_source_branch Conductor cleans up after human merge.
         @param[in]  cwd Ignored (tea resolves everything from --repo/--login).
         @return     PR web URL.
         @exception  ForgeError When tea fails or the response has no html_url.
         """
-        del remove_source_branch  # branch deletion is a repo setting on Gitea
+        del remove_source_branch  # The conductor owns leased post-merge cleanup.
         del cwd  # pure API call; no local checkout involved
         wip_title = title if not draft or _WIP_RE.match(title) else f"WIP: {title}"
         result = self._api(
@@ -411,6 +411,24 @@ class GiteaForge(Forge):
         return url
 
     # -- internals ------------------------------------------------------------------
+
+    def list_labels(self) -> list[str]:
+        """@brief Repository label names, read page by page through `tea api`."""
+        names: list[str] = []
+        page = 1
+        while True:
+            result = self._api("GET", f"repos/{self.repo}/labels?limit={_PAGE_SIZE}&page={page}")
+            batch = self._parse_json(result, list)
+            names.extend(str(item["name"]) for item in batch
+                         if isinstance(item, dict) and item.get("name"))
+            if len(batch) < _PAGE_SIZE or page >= _MAX_LIST_PAGES:
+                return names
+            page += 1
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """@brief Create a repository label (Gitea takes the colour with #)."""
+        self._api("POST", f"repos/{self.repo}/labels", fields=[
+            ("name", name), ("color", f"#{color}"), ("description", description)])
 
     def _login_argv(self) -> list[str]:
         """
@@ -469,7 +487,21 @@ class GiteaForge(Forge):
                              result.argv, result.stdout or result.stderr)
         return result
 
-    def _get_paged(self, path: str, query: dict[str, str]) -> list[dict[str, Any]]:
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List open issues (never pull requests) without a label filter.
+        @param[in]  limit Maximum number of tickets to return.
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When tea fails or a record is malformed.
+        """
+        items = self._get_paged(
+            f"repos/{self.repo}/issues", {"state": "open", "type": "issues"}, max_items=limit
+        )
+        return self._open_tickets(items, limit)
+
+    def _get_paged(
+        self, path: str, query: dict[str, str], max_items: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         @brief      GET a list endpoint page by page until it is exhausted.
         @details    Pages are `_PAGE_SIZE` (the Gitea MAX_RESPONSE_ITEMS floor).
@@ -479,6 +511,7 @@ class GiteaForge(Forge):
                     the header is absent, and `_MAX_LIST_PAGES` bounds runaways.
         @param[in]  path Endpoint path (no query string, no leading /).
         @param[in]  query Extra query parameters (page/limit are added here).
+        @param[in]  max_items Optional bound: stop once this many items are read.
         @return     The concatenated item list.
         @exception  ForgeError When tea fails or a page is malformed.
         """
@@ -489,7 +522,8 @@ class GiteaForge(Forge):
             result = self._api("GET", f"{path}?{urllib.parse.urlencode(params)}")
             batch = self._parse_json(result, list)
             items.extend(batch)
-            if not batch or page >= _MAX_LIST_PAGES:
+            enough = max_items is not None and len(items) >= max_items
+            if not batch or page >= _MAX_LIST_PAGES or enough:
                 return items
             total_match = _TOTAL_COUNT_RE.search(result.stderr)
             if total_match is not None:
@@ -575,7 +609,9 @@ class GiteaForge(Forge):
         @exception  ForgeError When the record misses the pull number.
         """
         state = str(data.get("state", "open")).lower()
-        if data.get("merged"):
+        if "merged" in data and type(data["merged"]) is not bool:
+            raise ForgeError("Gitea pull merged must be a boolean")
+        if data.get("merged", False):
             state = "merged"
         elif state == "open":
             state = "opened"

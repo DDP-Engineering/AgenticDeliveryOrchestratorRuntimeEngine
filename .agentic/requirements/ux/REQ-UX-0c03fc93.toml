@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-0c03fc93"
+
+title = "Separate headings and preference controls from fields"
+
+status = "active"
+
+requirement = """
+The web interface shall leave at least 12 CSS pixels between a panel heading and the content below it and between the sign-in card's language and theme controls.
+"""
+
+verification = "Inspection: measure the gap below the headings of Add user, Appearance, Change password, Audit retention and Estimated prices and between the sign-in Language select and Theme label at 1440px and 390px; each is at least 12px."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-03
+updated = 2026-10-03

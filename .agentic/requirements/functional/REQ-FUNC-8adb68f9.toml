@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-FUNC-8adb68f9"
+title = "Guide executor journal edits with the installed AEGIS authoring contract"
+status = "active"
+requirement = "When handing a governed stage to an executor, ADORE shall direct it to the installed journal authoring guide and preserve the existing task identity, legal prologue, retained authoring link and append-only history while maintaining the conductor's one-stage and publication limits."
+verification = "Offline shared-prompt tests observe authoring-guide instructions on each workflow stage while existing no-publication, no-child-task and one-stage tests remain valid."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_stage_prompt_preserves_aegis_journal_authoring_contract", "04_Software/tests/test_orchestrator.py::test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint", "04_Software/tests/test_orchestrator.py::test_executor_prompt_forbids_child_task_journals", "04_Software/tests/test_orchestrator.py::test_executor_prompt_does_not_contradict_itself_about_stopping"]
+priority = "normal"
+created = 2026-10-22
+updated = 2026-10-22

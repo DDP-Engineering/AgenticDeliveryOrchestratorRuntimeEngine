@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-772cb418"
+
+title = "Confirm project deletion by typing its name"
+
+status = "active"
+
+requirement = """
+On dedicated project Summary, administrators shall see a Delete action only for the selected archived project, and choosing it shall open a localized modal popup confirmation with keyboard focus containment, Escape/cancel dismissal and trigger focus restoration that states what is removed and what is kept and enables deletion only after the exact project name is typed; after confirmation the page shall show the queued and final status and the project shall leave the directory when deletion succeeds.
+"""
+
+verification = "Offline jobs.spec.ts project hub lifecycle journey archives/restores via intercepted writes, checks Delete availability only when archived, disabled wrong name/exact name enables, modal Escape/focus restoration, CSRF and scoped command payload, and confirmation reset on another project. Developer journey excludes Delete. Existing API/operation tests cover queue completion and authoritative deletion preconditions; human live deletion acceptance remains separate."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-04
+updated = 2026-10-06

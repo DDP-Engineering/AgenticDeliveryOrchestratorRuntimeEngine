@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-c6c71dbd"
+
+title = "Report each project setting's ADORE default"
+
+status = "active"
+
+requirement = """
+When a signed-in user opens an authorized project's configuration, the web API shall return for every effective setting the value ADORE uses when the project's file does not set it, after ADORE's name derivation and redaction, or null when ADORE has no default for that key.
+"""
+
+verification = "Automated web API tests check the default of a scalar setting, of a derived path such as metrics.db_path, and null for an executor command field the default configuration does not define."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/config.py"]
+
+linked_tests = ["04_Software/tests/test_web_config.py::test_config_view_reports_each_settings_source_and_editability"]
+
+
+spec = "specs/REQ-UX-b0e9a434.md"
+
+priority = "normal"
+rationale = "A Default badge is only useful when the default value itself is visible."
+
+created = 2026-10-04
+updated = 2026-10-04

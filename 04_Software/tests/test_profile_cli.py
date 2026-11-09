@@ -33,9 +33,9 @@ repo = "grp/proj"
 [worktree]
 repo_path = "x"
 
-[executor.opencode]
-command = "opencode run --dir {{worktree}} -m {{model}} {{prompt}}"
-model = "openai/gpt-5.5"
+[executor]
+provider = "openai"
+model = "gpt-5.5"
 
 [delivery]
 reviewers = ["dan.pasare"]
@@ -45,6 +45,29 @@ store_root = "{state}"
 """
 
 # HELPER FUNCTIONS
+
+
+def test_cli_previews_reviewed_plan_without_setup(tmp_path, monkeypatch, capsys) -> None:
+    """@brief CLI preview uses exact Git source and executes no project commands."""
+    import adore.cli as cli_module
+
+    from tests.test_preparation import SourceRunner
+
+    home = _home(tmp_path, monkeypatch)
+    store = _ready_profile(home)
+    path = store.config_path("proj")
+    with path.open("a") as handle:
+        handle.write('[execution]\npreparation = "prepare.yml#setup@' + "a" * 40 + '"\n')
+    runner = SourceRunner()
+    monkeypatch.setattr(cli_module, "run_command", runner, raising=False)
+    try:
+        code = main(["--profile", "proj", "config", "plan"])
+    except SystemExit:
+        pytest.fail("CLI has no execution-plan preview action")
+    assert code == EXIT_OK
+    output = capsys.readouterr().out
+    assert "project:1" in output and "recipe" in output and "uv sync --locked" in output
+    assert all(argv[0] == "git" for argv in runner.calls)
 
 
 def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -218,3 +241,111 @@ def test_explicit_config_still_wins(tmp_path: Path, monkeypatch, capsys) -> None
 
 
 # END OF FILE
+
+
+def _purge_stub(monkeypatch: pytest.MonkeyPatch, calls: list[str]) -> None:
+    """@brief Replace the container/worktree sweep with a recorder (no Docker in tests)."""
+    from adore.orchestrator import Orchestrator
+
+    def purge(self) -> dict:
+        calls.append(self.identity.slug)
+        return {"containers_removed": ["c1"], "worktrees_removed": ["run-1"],
+                "worktrees_retained": ["run-h"]}
+
+    monkeypatch.setattr(Orchestrator, "purge_resources", purge)
+
+
+def test_profile_delete_remove_resources_sweeps_then_deletes(tmp_path: Path, monkeypatch,
+                                                             capsys) -> None:
+    """@brief Resource removal runs under the lock before the profile disappears."""
+    import json
+
+    from adore.state import RunState, StateStore
+
+    home = _home(tmp_path, monkeypatch)
+    store = _ready_profile(home)
+    StateStore(store.default_store_root("proj")).save(
+        RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    calls: list[str] = []
+    _purge_stub(monkeypatch, calls)
+    assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_OK
+    report = json.loads(capsys.readouterr().out)
+    assert calls and not store.exists("proj")
+    assert report["deleted"] == "proj" and report["worktrees_retained"] == ["run-h"]
+    assert report["state_retained"] is None
+
+
+def test_profile_delete_remove_resources_keeps_external_state(tmp_path: Path, monkeypatch,
+                                                              capsys) -> None:
+    """@brief A state folder outside ADORE home is reported and left in place."""
+    import json
+
+    home = _home(tmp_path, monkeypatch)
+    store = ProfileStore(home)
+    external = tmp_path / "external-state"
+    cfg = store.config_path("proj")
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(MINIMAL_CONFIG.format(state=external.as_posix()), encoding="utf-8")
+    store.create("proj", config_path=str(cfg), store_root=str(external))
+    external.mkdir(parents=True, exist_ok=True)
+    (external / "keep.txt").write_text("history", encoding="utf-8")
+    _purge_stub(monkeypatch, [])
+    assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_OK
+    report = json.loads(capsys.readouterr().out)
+    assert not store.exists("proj")
+    assert (external / "keep.txt").is_file()
+    assert Path(report["state_retained"]) == external
+
+
+def test_profile_delete_remove_resources_refuses_unsafe_states(tmp_path: Path, monkeypatch,
+                                                               capsys) -> None:
+    """@brief Unfinished runs, a held lock or an invalid config delete nothing."""
+    from adore.state import RunState, StateStore
+
+    home = _home(tmp_path, monkeypatch)
+    store = _ready_profile(home)
+    calls: list[str] = []
+    _purge_stub(monkeypatch, calls)
+    state = StateStore(store.default_store_root("proj"))
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="working"))
+    assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR
+    assert store.exists("proj") and not calls
+    state.save(RunState(run_id="run-1", ticket_iid=1, lifecycle="done"))
+    assert state.acquire_lock()
+    try:
+        assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR
+    finally:
+        state.release_lock()
+    assert store.exists("proj") and not calls
+    corrupt = state.root / "runs" / "broken"
+    corrupt.mkdir(parents=True)
+    (corrupt / "state.json").write_text("{not json", encoding="utf-8")
+    assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR
+    assert store.exists("proj") and not calls
+    (corrupt / "state.json").unlink()
+    corrupt.rmdir()
+    store.config_path("proj").write_text("[platform]\nkind = 'nope'\n", encoding="utf-8")
+    assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR
+    assert store.exists("proj") and not calls
+    capsys.readouterr()
+
+
+def test_profile_delete_remove_resources_reports_failed_profile_removal(tmp_path: Path,
+                                                                       monkeypatch,
+                                                                       capsys) -> None:
+    """@brief If the profile folder cannot be removed, the report says so and exit fails."""
+    import json
+
+    home = _home(tmp_path, monkeypatch)
+    store = _ready_profile(home)
+    _purge_stub(monkeypatch, [])
+
+    def locked(self, name):
+        raise PermissionError("file in use")
+
+    monkeypatch.setattr(ProfileStore, "delete", locked)
+    assert main(["profile", "delete", "proj", "--force", "--remove-resources"]) == EXIT_ERROR
+    report = json.loads(capsys.readouterr().out)
+    assert report["deleted"] is None and "file in use" in report["error"]
+    assert report["worktrees_removed"] == ["run-1"]
+    assert store.exists("proj")

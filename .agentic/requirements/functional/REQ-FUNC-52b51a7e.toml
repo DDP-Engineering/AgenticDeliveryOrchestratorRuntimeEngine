@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-52b51a7e"
+
+title = "Show actual operation outcomes in history"
+
+status = "active"
+
+requirement = """
+When a queued operation completes, History shall show its observed applied, rejected, failed or uncertain outcome.
+"""
+
+verification = "Execute successful, refused, failed and malformed-result fake commands and inspect persisted History."
+
+affected_paths = ["04_Software/adore/web/commands.py", "04_Software/adore/start_result.py", "04_Software/adore/web/store.py"]
+
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py::test_history_reflects_retry_failure_and_refusal", "04_Software/tests/test_web_commands.py::test_engine_fault_is_failed_in_history", "04_Software/tests/test_drift_recovery.py::test_restart_zero_exit_requires_matching_admission", "04_Software/tests/test_drift_recovery.py::test_restart_history_distinguishes_refusal_and_failure", "04_Software/tests/test_drift_recovery.py::test_restart_history_requires_bound_terminal_evidence", "04_Software/tests/test_drift_recovery.py::test_cli_restart_emits_bound_refusal"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-08
+updated = 2026-11-08

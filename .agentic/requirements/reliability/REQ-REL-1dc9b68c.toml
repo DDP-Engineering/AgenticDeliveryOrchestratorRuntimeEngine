@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-1dc9b68c"
+
+title = "Truthful audit rollback and replay"
+
+status = "active"
+
+requirement = """
+When a mutation fails, rolls back or is interrupted, the service shall preserve truthful non-applied or uncertain evidence and make asynchronous completion replay idempotent with its durable owning operation.
+"""
+
+verification = "Inject transactional audit faults, interrupted filesystem attempts and worker completion replay; assert no false or duplicate applied row."
+
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/app.py", "04_Software/adore/web/commands.py"]
+
+linked_tests = ["04_Software/tests/test_web_audit_evidence.py", "04_Software/tests/test_web_user_creation.py", "04_Software/tests/test_web_enrollment.py", "04_Software/tests/test_web_commands.py"]
+
+
+spec = "specs/REQ-DATA-34ed1530.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-10-06

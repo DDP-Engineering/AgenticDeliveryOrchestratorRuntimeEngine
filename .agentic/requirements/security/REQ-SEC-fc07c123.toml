@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-fc07c123"
+
+title = "Disable unsafe forge Markdown destinations"
+
+status = "active"
+
+requirement = """
+If a forge Markdown link destination is malformed or is not an absolute http, https or mailto URL, the Tickets view shall retain its readable label as inert text without a navigable anchor.
+"""
+
+verification = "Automated: render javascript, data, vbscript, file, protocol-relative, relative and malformed destinations including mixed case, encoded and control-character scheme tricks; assert visible readable labels and absence of unsafe hrefs/navigation; valid absolute https links remain navigable as the control."
+
+affected_paths = ["04_Software/web/src/forgeMarkdown.ts", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
+
+linked_tests = ["04_Software/web/tests/forgeMarkdown.test.mjs", "04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

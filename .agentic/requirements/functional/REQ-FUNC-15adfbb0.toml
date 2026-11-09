@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-FUNC-15adfbb0"
+
+title = "External technical settings remain informational in web"
+
+status = "active"
+
+requirement = "When an authorized user reads or attempts to edit state.store_root, workflow.aegis_python, worktree.repo_path or worktree.root through the web, ADORE shall expose their effective values as externally configured informational settings with installation guidance and refuse generic web mutations without altering active configuration or creating a candidate."
+
+verification = "Authenticated API tests verify unchanged effective values, read-only metadata and refusal of direct and candidate edits for all four keys; browser and localized-copy checks verify external-configuration guidance and absent editors."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/settingsCopy.ts", "04_Software/tests/test_web_config.py", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/settings.test.mjs"]
+
+linked_tests = ["04_Software/tests/test_web_config.py::test_installation_settings_are_external_and_cannot_be_mutated", "04_Software/web/e2e/settings.spec.ts", "04_Software/web/tests/settings.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-09
+updated = 2026-10-09

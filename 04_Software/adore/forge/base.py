@@ -120,6 +120,14 @@ class ForgeError(RuntimeError):
         self.stderr = stderr
 
 
+class ForgeResponseError(ForgeError):
+    """
+    @brief   Raised when a platform CLI succeeded but its output has the wrong shape.
+    @details Distinguishes untrusted malformed output (a forge or CLI defect)
+             from an unavailable or failing CLI, so callers can report each.
+    """
+
+
 # PUBLIC API
 
 
@@ -147,6 +155,48 @@ class Forge(ABC):
         @param[in]  ready_label The opt-in label (for example "agent-ready").
         @return     Eligible tickets.
         """
+
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List the repository's open issues, labelled or not, for browsing.
+        @details    Unlike `list_ready`, this is not a selection boundary: callers
+                    apply the shared eligibility rules to every returned ticket.
+                    Adapters return at most `limit` tickets so a caller asking for
+                    one more than it shows can tell that the backlog was truncated.
+        @param[in]  limit Maximum number of tickets to return (positive).
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When the CLI fails or an issue record is malformed.
+        """
+        raise ForgeError(f"{type(self).__name__} cannot list open tickets")
+
+    def _open_tickets(self, items: list[Any], limit: int) -> list[Ticket]:
+        """
+        @brief      Map raw issue records for browsing, failing closed on bad input.
+        @details    The selection mappers tolerate missing optional fields; browsing
+                    shows every field to a person, so each record must be a mapping
+                    with a list of labels and must map to well-typed text fields.
+        @param[in]  items Raw issue records from the CLI.
+        @param[in]  limit Maximum number of tickets to keep.
+        @return     The mapped tickets, at most `limit`.
+        @exception  ForgeError When any kept record is malformed.
+        """
+        tickets: list[Ticket] = []
+        for item in items[:limit]:
+            if not isinstance(item, dict) or not isinstance(item.get("labels") or [], list):
+                raise ForgeResponseError("malformed issue record")
+            try:
+                ticket = self._to_ticket(item)  # type: ignore[attr-defined]
+            except (KeyError, ValueError, TypeError, AttributeError) as exc:
+                raise ForgeResponseError("malformed issue record") from exc
+            text = (ticket.title, ticket.description, ticket.author, ticket.state,
+                    ticket.web_url, ticket.created_at, ticket.updated_at)
+            well_typed = all(isinstance(value, str) for value in text) and all(
+                isinstance(label, str) for label in ticket.labels
+            )
+            if isinstance(ticket.iid, bool) or ticket.iid < 1 or not well_typed:
+                raise ForgeResponseError("malformed issue record")
+            tickets.append(ticket)
+        return tickets
 
     @abstractmethod
     def get_ticket(self, iid: int) -> Ticket | None:
@@ -189,6 +239,23 @@ class Forge(ABC):
         @param[in]  iid Ticket id.
         @param[in]  labels Label names to add.
         """
+
+    def list_labels(self) -> list[str]:
+        """
+        @brief      Names of the labels defined in the repository.
+        @exception  ForgeError When the adapter cannot list labels.
+        """
+        raise ForgeError("this forge cannot list labels")
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """
+        @brief      Create one repository label.
+        @param[in]  name Label name.
+        @param[in]  color Six hexadecimal digits, without #.
+        @param[in]  description Short explanation shown by the forge.
+        @exception  ForgeError When the forge refuses or the adapter cannot create labels.
+        """
+        raise ForgeError("this forge cannot create labels")
 
     @abstractmethod
     def remove_labels(self, iid: int, labels: list[str]) -> None:
@@ -281,14 +348,14 @@ class Forge(ABC):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a DRAFT merge/pull request. Never merges.
+        @brief      Open a draft or ready merge/pull request. Never merges.
         @param[in]  source Source branch.
         @param[in]  target Target branch.
         @param[in]  title MR/PR title.
         @param[in]  body MR/PR description.
-        @param[in]  draft Open as draft (always true in ADORE).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Human reviewers to assign.
-        @param[in]  remove_source_branch Delete the branch on merge (GitLab).
+        @param[in]  remove_source_branch Native deletion hint; conductor also cleans up after merge.
         @param[in]  cwd Git checkout to run in - the platform CLIs resolve
                         remotes from a local repo even with --repo (live
                         finding 2026-07-04: "No git remotes found"); pass the
@@ -341,9 +408,9 @@ class Forge(ABC):
         try:
             payload = json.loads(result.stdout or "null")
         except json.JSONDecodeError as exc:
-            raise ForgeError(f"invalid JSON from CLI: {exc}", result.argv) from exc
+            raise ForgeResponseError(f"invalid JSON from CLI: {exc}", result.argv) from exc
         if not isinstance(payload, expected):
-            raise ForgeError(
+            raise ForgeResponseError(
                 f"unexpected JSON shape (wanted {expected.__name__})", result.argv
             )
         return payload

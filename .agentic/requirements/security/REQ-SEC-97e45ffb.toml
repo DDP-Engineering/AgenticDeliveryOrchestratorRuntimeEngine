@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-97e45ffb"
+title = "Expose bounded operational executor evidence"
+status = "active"
+requirement = "When an authorized user requests the latest recorded completed executor launch, the service shall return only bounded host-captured operational diagnostics with concrete missing-module errors and test totals, excluding transcripts, reasoning, prompts, scripts, configuration, credentials and financial amounts."
+verification = "Fake RPC preserves missing yaml and pytest totals while suppressing configured/recognized credentials and thinking/prompts/scripts. Public Retry binds host snapshots to attempts, including missing later captures. Scoped API validates both roles and exact digest-bound canonical content."
+affected_paths = ["04_Software/adore/executor/base.py", "04_Software/adore/executor/diagnostics.py", "04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/executor_evidence.py", "04_Software/adore/web/app.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/tests/test_pi_rpc.py"]
+created = 2026-11-05
+updated = 2026-11-05

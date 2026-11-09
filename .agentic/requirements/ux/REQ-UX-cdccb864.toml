@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-cdccb864"
+
+title = "Show each Statistics per-project family in its own tab"
+
+status = "active"
+
+requirement = """
+While an administrator views Statistics for All projects, the interface shall show one per-project table per metric family in its own tab - Summary: started, completed and failed jobs and average elapsed time; Usage: usage events, tokens, reported and estimated cost and unpriced usage events; Quality: reviewer rework, MR/PR revisions, pipeline repairs and review rounds - each project named with its repository as a hint, without a separate Projects tab, a repository table, project identifiers or a scope explanation line.
+"""
+
+verification = "Automated: e2e opens global Statistics as administrator and finds Summary, Usage, Quality and Trends tabs only (an old ?tab=projects link lands on Summary), no scope explanation, the Summary per-project table with job counts and average elapsed and no project identifier, the Usage per-project table with cost and unpriced columns, and the Quality per-project table with rework, revisions, repairs and review rounds; a route unit test normalizes tab=projects for administrators too."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

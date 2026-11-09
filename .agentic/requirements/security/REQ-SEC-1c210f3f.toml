@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-SEC-1c210f3f"
+
+title = "Project provider API credential lifecycle"
+
+status = "active"
+
+requirement = """
+When an administrator saves or removes a provider API key for an idle project, ADORE shall atomically update only the credential variable of the configured provider (its Pi key variable, or ADORE_ENDPOINT_API_KEY for an endpoint), preserve other credentials, return secret-free presence/source information, and reject unauthorized, stale, active-work or corrupt input without changing credentials.
+"""
+
+verification = "Offline API saves/deletes the configured provider's key, refuses another provider's variable and chatgpt, and proves their use through the existing environment contract; negative CSRF/role/key/config/env/active/pending inputs preserve bytes and expose no secret."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/executor_settings.py"]
+
+linked_tests = ["04_Software/tests/test_executor_settings.py::test_provider_credentials_are_private_scoped_and_reversible", "04_Software/tests/test_executor_settings.py::test_credential_boundary_preserves_original_bytes", "04_Software/tests/test_executor_settings.py::test_private_write_failure_preserves_credentials", "04_Software/tests/test_executor_settings.py::test_credential_follows_the_configured_provider"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-06
+updated = 2026-11-02

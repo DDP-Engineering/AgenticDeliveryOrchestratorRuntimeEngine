@@ -8,21 +8,52 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Environment guide
 
+Offline web control proof uses isolated temporary homes and fake external runners. Worker activity evidence is advisory and requires a current heartbeat.
+
+Portable user delivery is built natively with `python 02_Tools/create_package.py`
+with automatic frontend compilation/licensing. It includes managed CPython and locked
+web dependencies; uv and network access are needed only on the build host.
+Windows ZIP/Linux TAR.GZ output goes to repository-relative `07_Delivery/`.
+Run `python 02_Tools/verify_package.py <archive>` on each matching host; it uses
+an isolated home and empty host PATH, and removes temporary data on exit; results go to the console only.
+User startup uses Start-ADORE.cmd/start-adore.sh with no host Python setup.
+
 ## Toolchain
 
 Python 3.11 or later with `uv`; the runtime itself uses only the standard
 library. Verification uses pytest and Ruff from the `dev` dependency group in
 `04_Software/pyproject.toml`. Git is required. Live operation additionally
 needs Docker or rootless Podman, natively or as Docker Engine inside WSL2 on
-Windows, and an authenticated `glab`, `gh` or `tea`. Node.js is needed only
-inside the executor image, where the executors are installed as npm packages.
+Windows, and an authenticated `glab`, `gh` or `tea`. Node.js runs Pi in container images
+(the base image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0) or an
+installed Pi under the native local service account.
+The optional web extra uses FastAPI, Uvicorn and Argon2id. Node.js/npm are
+also needed on the web **build** machine for `04_Software/web/npm run build`;
+the installed web runtime serves local assets without Node.js.
 
 ## Setup
 
-From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
+Native Python children receive managed UTF-8 standard-stream settings, independent
+of ambient Python flags or the Windows account code page. Native evidence
+decoding remains strict. Explicit Retry revalidates the effective environment
+fingerprint and existing process ownership.
+
+Run `python 02_Tools/setup_environment.py` to prepare the source environment
+without tests or service installation. From `04_Software`, `uv sync` creates `.venv` with the locked dependencies and
 the `dev` group and installs the `adore` command in editable mode. Operator
 installation on a host follows `01_Documentation/Getting_Started.md`;
-unattended installation follows `04_Software/deploy/README.md`.
+unattended installation follows `02_Tools/deploy/README.md`.
+Frontend calculation tests use Node.js 22.18 or later for native TypeScript loading.
+For web development use `uv sync --extra web --group dev` from `04_Software`,
+then `npm ci` and `npx playwright install chromium` in `04_Software/web`.
+`npm run validate` runs helper tests, UI/E2E TypeScript checks, an isolated
+Vite build and offline Chromium journeys with a temporary API/worker home and
+simulated external commands. The build uses `.e2e-dist`; failure screenshots,
+traces and the HTML report are Git-ignored. `npm run build` produces the
+deployable build. Every Vite build emits `BUNDLED_LICENSES.json` with the full
+licenses for bundled dependencies, including the isolated forge GFM renderer;
+retain it alongside the copied third-party notice inventory. See `01_Documentation/Web_Interface.md` for test isolation,
+timeouts and diagnostic commands. Direct validation requires no AEGIS task.
 
 ## Configuration and services
 
@@ -30,7 +61,8 @@ Runtime configuration is `config.toml`, started from
 `04_Software/config.example.toml` and documented in
 `01_Documentation/Configuration_Reference.md`. `adore init <profile>` creates
 it under the profile home, `%APPDATA%\adore` on Windows or `~/.config/adore`
-on Linux, unless `ADORE_HOME` overrides the location. Executor provider keys
+on Linux, unless `ADORE_HOME` overrides the location. The executor provider key
+(the variable Pi reads for `[executor].provider`) and any additional secrets
 named by `[executor].env_keys` live only in a gitignored `.env` beside the
 configuration or in the process environment; forge authentication belongs to
 the host CLI. Run state, the conductor lock and metrics live under the
@@ -51,9 +83,15 @@ The package has no build step: run `adore` from the synced `.venv`
 (`.venv\Scripts\adore.exe` on Windows, `.venv/bin/adore` on Linux) with
 `run --dry-run`, `run --once` or `run --loop`. Executor images are built from
 `04_Software/docker/` as its README documents: the generic
-`adore-executor-base:1.0.0`, the optional `adore-egress-proxy:1.0.0`, and one
+`adore-executor-base:1.0.0`, `adore-egress-proxy:1.0.0` (needed by every container project with
+`[executor] internet = false`, the default), and one
 project image per runtime project. Runtime bundles are produced by
 `02_Tools/package_runtime.ps1` or `package_runtime.sh` into `07_Delivery/`.
+The optional host-specific offline web media comes from
+`02_Tools/package_web_offline.py`; its installer uses local locked wheels with
+`pip --no-index`, and its launcher starts API and worker processes.
+For web service monitoring, `/api/v1/health` checks the API listener and
+`/api/v1/ready` requires a recent heartbeat from the separate control worker.
 
 ## Verification
 
@@ -62,7 +100,7 @@ commands, run from `workdir = "04_Software"`; the suite is fully offline.
 Focused work runs `pytest -q tests/test_<component>.py` from `04_Software`.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
-additionally passes `python 02_Tools/check_release_consistency.py
+additionally passes `python 02_Tools/internal/check_release_consistency.py
 --require-artifacts`. Outcomes belong in task evidence, not here.
 
 ## Platform details
@@ -83,6 +121,144 @@ runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
   first poll.
 - `01_Documentation/Security_And_Credentials.md` - where every credential
   lives.
-- `04_Software/deploy/README.md` - systemd and Task Scheduler installation.
+- `02_Tools/deploy/README.md` - systemd and Task Scheduler installation.
 - `04_Software/docker/README.md` - executor and proxy image build commands.
 - `02_Tools/README.md` - release check and packaging scripts.
+- `01_Documentation/Web_Interface.md` - optional web setup and offline media.
+
+Admin Project Summary Connect repository provides scoped Gitea/GitHub/GitLab
+authentication. See repository-auth.md knowledge and Security_And_Credentials.md.
+Protected per-profile tokens are used only by forge CLI commands and explicit
+web host checks, with external CLI auth as the missing-record default. Corrupt
+or mismatched scoped records fail closed.
+
+Explicit administrator model connectivity uses Pi through a bounded backend-native disposable workspace; see knowledge/model-connection.md. Real provider acceptance is operator-triggered and may incur cost.
+
+Project Settings → Agent and model owns the Pi model setting, reviewed backend-specific launch command and approved provider key save/remove within one panel, with a credential-name dropdown, plus Test AI connection; strict durable credential-bound model access evidence is reused in Summary/host presentation. See knowledge/executor-configuration.md. Native Pi uses a managed installation and injected provider credentials. Subscription sign-in is for containers.
+
+## Reviewed container preparation
+
+Selected preparation profiles use `execution.preparation = "path.yml#job@full-commit"`; preview with `adore --profile <name> config plan`. The locally available effective image supplies `python3`, `sh`, executor and declared image-tool checks. Project dependencies use existing egress/cache/env; expose installed tools through explicit runtime PATH. Source/limits/recovery are documented in `01_Documentation/Container_Preparation.md`. Offline focused recipe/source/recovery tests use injected runners; live container/model/forge acceptance is operator-authorized.
+
+## Native local prerequisites
+
+Native child environments preserve the account's PATH and inherited PATHEXT so
+Windows shells resolve installed executable names. Forge credential variables
+remain filtered; project tools are still installed by the operator.
+
+Local profiles require independently installed CLI/native Python under the ADORE
+service account. Windows needs executable entrypoints (or installed Node/JS argv)
+and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
+preparation, reuses auth, rejects a container egress allowlist and is not restricted by
+`[executor] internet`. Tools remain
+independently prepared. See 01_Documentation/Local_Execution.md.
+
+## Project image build clients
+
+The server administrator builds and verifies executor images externally with the installed Docker/Podman runtime, then selects it in enrollment or the reviewed Settings flow, or updates the existing profile. The GUI supplies a read-only Dockerfile/profile guide and image suggestions from the server's local images. Existing native owned process scopes and delegated Linux `ADORE_BUILD_CGROUP_ROOT` remain available for retained interrupted build cleanup; queued requests are refused. See `01_Documentation/Project_Executor_Images.md`. Full run/model/forge acceptance has separate authority.
+
+Local enrollment and Agent and model command editing detect installed native
+executors and known npm entrypoints on the actual Windows/Linux ADORE host,
+with explicit manual executable paths. Discovery reads files without executing
+CLIs; existing auth/model checks and native isolation remain separate. See
+`01_Documentation/Local_Execution.md` and knowledge/executor-discovery.md.
+
+Native enrollment uses a read-only detected account with automatic home/PATH.
+Full commands and environment overrides stay under Advanced. Clone destinations
+have automatic/custom selection and an administrator host folder navigator;
+selection is read-only and actual clone publication retains its existing checks.
+See knowledge/host-folders.md and 01_Documentation/Web_Interface.md.
+
+Reviewed web configuration saves preserve the active file and unsaved settings on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.
+
+## Automatic command presentation
+
+ADORE applies GIT_PAGER=cat/PAGER=cat per automatic child process, including
+native executors and container exec. Windows host/supervisor/executor launches
+use CREATE_NO_WINDOW. No global Git settings are required. The defaults affect
+new launches; existing services/jobs retain the version and environment already
+loaded. Ordinary children inherit the environment; explicitly requested GUI or
+new-console windows are controlled by the tool that creates them.
+Focused offline proof: test_automatic_processes.py and runner/native/worker/
+container environment tests. See 01_Documentation/Local_Execution.md.
+
+## Portable repository authentication
+
+Gitea CLI auth belongs to the account running ADORE on each machine. Standard
+XDG/account configuration discovery is shared by runtime, web probes and
+enrollment. Existing project connections retain priority; no private application
+cache paths or credentials belong in delivery archives. Missing/ambiguous auth
+uses Project Summary -> Connect repository -> Repository server / Access token ->
+Verify and connect -> Check host prerequisites. See Security_And_Credentials.md.
+Focused tests: test_gitea_auth.py and repository connection/source cases.
+
+## Native check diagnostics
+
+Check host prerequisites uses the same managed Pi, account and provider credential and accepts
+version output on stdout or stderr. Closed diagnostic causes include native
+permission/scope/cleanup boundaries. Test AI connection reuses saved native argv
+in an empty temporary folder and reports model/provider errors without raw output.
+Targeted tests inject native/process/CLI boundaries and do not contact a model.
+
+Windows no-console executor launch needs explicit stdout/stderr bindings from
+the supervisor to its child. The native helper closes stdin and retains the
+existing parent capture pipes; no global terminal/Git/Pi settings are needed.
+
+## Agent package image readiness
+
+Opted-in container.system_packages jobs require a rebuilt compatible Linux image with root-owned OS Python/id, sudo/visudo and a supported package manager. ADORE configures sudo permission but installs no bootstrap tools on job start. Native execution rejects the permission. Agent package downloads obey container.egress. See 01_Documentation/Agent_Dependency_Installation.md; live package acceptance is separate from offline injected tests.
+
+
+## Container Git context
+
+Fresh repository containers use a read-only container-native Git pointer while
+the host keeps its own pointer. Git selects independent and nested repositories
+normally; managed repository-selection environment fields are provisioning
+metadata. Warm containers preserve their creation-time binding and installed
+contents. WSL container commands use direct argument execution; custom wrappers
+identify their command boundary explicitly. See knowledge/isolation.md and
+01_Documentation/Operations_Guide.md for ownership and recovery contracts.
+
+## Container timeout recovery
+
+Shared container commands address observed immutable IDs. Actual timeouts require
+verified same-resource interruption before output retention, with deferred verified
+restart at the next command/provision. Dependencies/files/user/egress are retained.
+Unconfirmed recovery blocks active admission and becomes terminal infrastructure
+failure; cancellation and explicit owned release keep authority. No new runtime
+package or state schema is required. See knowledge/execution.md and Operations_Guide.
+
+Native server prerequisite setup uses `adore pi install` and `adore pi verify` under
+the ADORE account, with Node 22.23.4+ in the 22.x line. The service sets
+`ADORE_NODE` for an explicit executable and `ADORE_LOCAL_CGROUP_ROOT` for Linux.
+
+
+## Native ChatGPT prerequisites
+
+Native subscription projects use the same verified managed Pi/Node installation
+as other native projects. Their trusted helper performs Pi OAuth without Docker,
+using the ADORE-owned credential directory and filtered service environment.
+Windows requires owned Jobs. Linux/WSL2 requires a delegated cgroup v2
+subtree containing the service process, with writable process and kill controls.
+The container internet switch does not restrict native host networking.
+
+## Confirmed recovery after drift
+
+Failed-job abandonment uses confirmed state revisions, verified owned native/container/worktree cleanup and leased remote-branch deletion before normal manual admission with monitoring pause preserved. Explicit native cleanup uses saved ownership without resolving current tools; ordinary execution/Retry identity checks remain strict. Proof: tests/test_drift_recovery.py and web/e2e/driftRecovery.spec.ts. No stored schema changes or live resource acceptance are required.
+
+Previously orphaned unproven refs are preserved through bounded fresh branch generations, with actual naming-rule checks and atomic initial local ref creation. Verified own branches remain reusable; known changed checkpoints refuse before cleanup.
+
+
+## Budget verification boundaries
+
+Budget rereads are pure local parsing/budget validation plus binding to already
+validated non-budget settings; no repeated branch-rule/host probe is run. The
+one-second real matcher contract remains in test_branch_naming.py; wizard assembly
+injects its trusted fixture process. Budget/state/HTTP/browser proof uses isolated
+homes and the existing 18765 browser listener, with no live model, forge, runtime
+job or user-service acceptance. See orchestrator.md and web-interface.md knowledge.
+
+
+Focused History and CLI deletion verification uses temporary home/profile stores and fake engines; it performs no live forge, model or runtime operation.
+
+Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.

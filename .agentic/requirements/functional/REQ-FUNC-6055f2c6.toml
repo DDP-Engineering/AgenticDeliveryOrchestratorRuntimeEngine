@@ -1,0 +1,20 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-6055f2c6"
+title = "Record why the engine refused a queued ticket Start"
+status = "active"
+requirement = """
+When the engine command of a queued start operation exits non-zero after printing `error: ticket #N not started: <code>` for that operation's ticket with a known code, the worker shall finish the operation failed with that code as its reason, which GET /api/v1/operations/{id} returns and which stays empty when no such line was printed.
+"""
+verification = "Automated worker tests: a fake engine printing the line with each known code for the queued ticket yields a failed operation with that reason; a line naming another ticket, an unknown code or no line leaves the reason empty while the detail is still kept; the operation API returns the reason."
+affected_paths = ["04_Software/adore/web/commands.py", "04_Software/adore/web/store.py", "04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_web_commands.py::test_refused_start_records_the_engine_reason", "04_Software/tests/test_web_commands.py::test_operation_api_returns_reason_and_detail"]
+spec = ""
+priority = "normal"
+rationale = "A stable code lets the interface say the cause in the user's language."
+created = 2026-11-01
+updated = 2026-11-01

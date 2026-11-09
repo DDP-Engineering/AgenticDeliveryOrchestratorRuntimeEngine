@@ -94,6 +94,24 @@ class GitHubForge(Forge):
         )
         return [self._to_ticket(item) for item in self._parse_json(result, list)]
 
+    def list_open(self, limit: int) -> list[Ticket]:
+        """
+        @brief      List open issues without a label filter via `gh issue list`.
+        @param[in]  limit Maximum number of tickets (gh paginates up to it).
+        @return     Open tickets, at most `limit`.
+        @exception  ForgeError When gh fails or a record is malformed.
+        """
+        result = self._run(
+            [
+                "gh", "issue", "list",
+                "--repo", self.repo,
+                "--state", "open",
+                "--json", _ISSUE_JSON_FIELDS,
+                "--limit", str(limit),
+            ]
+        )
+        return self._open_tickets(self._parse_json(result, list), limit)
+
     def get_ticket(self, iid: int) -> Ticket | None:
         """
         @brief      Fetch one issue; None when it was deleted.
@@ -379,21 +397,21 @@ class GitHubForge(Forge):
         cwd: str | None = None,
     ) -> str:
         """
-        @brief      Open a draft PR via `gh pr create --draft`. Never merges.
+        @brief      Open a draft or ready PR via `gh pr create`. Never merges.
         @param[in]  source Head branch.
         @param[in]  target Base branch.
         @param[in]  title PR title.
         @param[in]  body PR description.
-        @param[in]  draft Open as draft (ADORE always passes true).
+        @param[in]  draft Open as draft when true, otherwise ready for review.
         @param[in]  reviewers Reviewer logins.
-        @param[in]  remove_source_branch Ignored (a repo setting on GitHub).
+        @param[in]  remove_source_branch Conductor cleans up after human merge.
         @param[in]  cwd Git checkout to run in; gh resolves remotes from a
                         local repo even with --repo, so the run's worktree is
                         passed (see the Forge base contract).
         @return     PR web URL.
         @exception  ForgeError When gh fails or no URL is printed.
         """
-        del remove_source_branch  # branch deletion is a repo setting on GitHub
+        del remove_source_branch  # The conductor owns leased post-merge cleanup.
         argv = [
             "gh", "pr", "create",
             "--repo", self.repo,
@@ -413,6 +431,17 @@ class GitHubForge(Forge):
         return match.group(0)
 
     # -- internals ------------------------------------------------------------------
+
+    def list_labels(self) -> list[str]:
+        """@brief Repository label names, read page by page."""
+        return [str(item["name"]) for item in self._paged(f"repos/{self.repo}/labels")
+                if isinstance(item, dict) and item.get("name")]
+
+    def create_label(self, name: str, color: str, description: str) -> None:
+        """@brief Create a repository label (GitHub takes the colour without #)."""
+        self._run(["gh", "api", "--method", "POST", f"repos/{self.repo}/labels",
+                   "-f", f"name={name}", "-f", f"color={color}",
+                   "-f", f"description={description}"])
 
     def _paged(self, path: str) -> list[dict[str, Any]]:
         """

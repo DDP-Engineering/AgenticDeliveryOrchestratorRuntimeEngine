@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-62052e16"
+
+title = "Preserve the original timeout result after container recovery"
+
+status = "active"
+
+requirement = "After successful timeout recovery, the execution backend shall return the original command's timeout status and result data unchanged."
+
+verification = "Public bound-target tests compare timeout, exit and captured stream fields before and after successful recovery, including a timeout carrying a nonstandard exit; normal non-timeout exit 124 remains a non-timeout result."
+
+affected_paths = ["04_Software/adore/execution.py"]
+
+linked_tests = ["04_Software/tests/test_container_timeout.py::test_recovery_preserves_timeout_result_fields", "04_Software/tests/test_container_timeout.py::test_ordinary_exits_do_not_trigger_timeout_recovery"]
+
+
+spec = "specs/REQ-FUNC-bff135e2.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-10-30

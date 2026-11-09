@@ -116,25 +116,50 @@ def test_auth_status_authenticated_unauth_and_missing() -> None:
     assert not missing.present and not missing.authenticated
 
 
-def test_auth_status_gitea_probes_whoami_not_auth_status() -> None:
+def test_auth_status_gitea_probes_verified_account_api() -> None:
     """
-    @brief   The gitea probe must be `tea whoami`: tea has no `auth status`
-             subcommand AND exits 0 for unknown subcommands ("No help topic"),
-             so the generic probe would fake an authenticated state.
+    @brief   Gitea authentication requires a successful account API, not CLI exit alone.
     """
     runner = FakeRunner({
-        "tea whoami": _ok("# dpasare"),
+        "tea api -i --method GET user": CommandResult(
+            stdout='{"login":"dpasare"}', stderr="HTTP/1.1 200 OK"),
         # what the WRONG probe would see: tea exits 0 with a help-topic error
         "tea auth status": _ok("No help topic for 'auth'"),
     })
     good = doctor.auth_status("gitea", runner)
     assert good.cli == "tea"
     assert good.present and good.authenticated
-    assert runner.calls == [["tea", "whoami"]]
-    bad = doctor.auth_status("gitea", FakeRunner({"tea whoami": _fail("Error: no login")}))
+    assert runner.calls == [["tea", "api", "-i", "--method", "GET", "user"]]
+    bad = doctor.auth_status("gitea", FakeRunner({
+        "tea api -i --method GET user": _fail("Error: no login")}))
     assert bad.present and not bad.authenticated
     missing = doctor.auth_status("gitea", FakeRunner({}))
     assert not missing.present and not missing.authenticated
+
+
+@pytest.mark.parametrize("result", [
+    CommandResult(stdout='{"login":"alice"}', stderr="HTTP/1.1 401 Unauthorized"),
+    CommandResult(stdout='{"login":"alice","login":"bob"}', stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"alice","bad":NaN}', stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout="PRIVATE-OUTPUT", stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"bad identity"}', stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"alice"}'),
+    CommandResult(stdout=" " * 1000001, stderr="HTTP/1.1 200 OK"),
+    CommandResult(stdout='{"login":"alice"}', stderr="HTTP/1.1 200 OK", timed_out=True),
+])
+def test_auth_status_gitea_rejects_unverified_identity(result) -> None:
+    """@brief Malformed identities, missing HTTP proof and timeout never authenticate."""
+    status = doctor.auth_status("gitea", FakeRunner({"tea api": result}))
+    assert status.present and not status.authenticated
+    assert "Connect repository" in status.detail
+    assert "PRIVATE" not in status.detail
+
+
+def test_auth_status_gitea_respects_caller_credential_authority() -> None:
+    """@brief A caller-owned credential scope disables external-login discovery."""
+    runner = FakeRunner({"tea api": _fail("Error: no available login")})
+    assert not doctor.auth_status("gitea", runner, external_auth=False).authenticated
+    assert len(runner.calls) == 1
 
 
 def test_detect_runtimes_windows_lists_wsl_distros() -> None:
@@ -165,23 +190,32 @@ def test_detect_runtimes_linux_skips_wsl() -> None:
     assert ["wsl", "-l", "-q"] not in runner.calls   # never called on Linux
 
 
-def test_detect_executor_default_opencode() -> None:
-    """
-    @brief   The executor probe defaults to opencode.
-    """
-    status = doctor.detect_executor(runner=FakeRunner({"opencode --version": _ok("opencode 1.0")}))
-    assert status.name == "opencode" and status.present
+def test_detect_executor_reports_missing_node_without_global_pi(tmp_path, monkeypatch) -> None:
+    """@brief Doctor gives an actionable result before running any command."""
+    monkeypatch.setenv("ADORE_NODE", str(tmp_path / "missing"))
+    runner = FakeRunner({})
+    status = doctor.detect_executor(runner=runner)
+    assert status.name == "pi" and not status.present
+    assert "Node" in status.detail and not runner.calls
 
 
-def test_detect_all_aggregate() -> None:
+def test_detect_all_aggregate(tmp_path, monkeypatch) -> None:
     """
     @brief   detect_all runs one probe of each and returns a full report.
     """
+    from adore import pi_installation as managed
+
+    from tests.test_pi_installation import fake_node, write_fake_packages
+
+    node = fake_node(tmp_path, monkeypatch)
+    pi = managed.ManagedPi(node, managed.adore_home() / "tools/pi" / managed.PI_VERSION)
+    write_fake_packages(pi)
     runner = FakeRunner({
         "git --version": _ok("git version 2.43.0"),
         "glab --version": _ok("glab 1.105.0"),
         "glab auth status": _ok("Logged in"),
-        "opencode --version": _ok("opencode 1.0"),
+        f"{node} --version": _ok("v22.23.4"),
+        f"{node} {pi.cli} --version": _ok(managed.PI_VERSION),
     })
     report = doctor.detect_all("gitlab", runner)
     assert report.git.present and report.platform_cli.present
@@ -308,14 +342,14 @@ def _aegis_repo(tmp_path: Path) -> Path:
     return root
 
 
-def test_aegis_probe_accepts_a_valid_05_schema_1_payload(tmp_path: Path) -> None:
+def test_aegis_probe_accepts_a_valid_015_schema_1_payload(tmp_path: Path) -> None:
     """
-    @brief   Version 0.5.x plus schema-1 status proves target readiness.
+    @brief   Version 0.15.x plus schema-1 status proves target readiness.
     """
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.5.2\n",
+            exit_code=0, stdout="aegis 0.15.2\n",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
@@ -330,7 +364,7 @@ def test_aegis_probe_accepts_a_valid_05_schema_1_payload(tmp_path: Path) -> None
 
     assert status.ok
     assert status.wrapper_present and status.config_valid
-    assert status.schema_version == 1 and status.version == "aegis 0.5.2"
+    assert status.schema_version == 1 and status.version == "aegis 0.15.2"
     assert runner.calls[0] == ["python", ".agentic/aegis.py", "--version"]
 
 
@@ -357,7 +391,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
     root = _aegis_repo(tmp_path)
     blocked = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.5.0",
+            exit_code=0, stdout="aegis 0.15.0",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=1,
@@ -372,7 +406,7 @@ def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
 
     garbage = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.5.0",
+            exit_code=0, stdout="aegis 0.15.0",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=2,
@@ -390,7 +424,7 @@ def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     root = _aegis_repo(tmp_path)
     status = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.5.0",
+            exit_code=0, stdout="aegis 0.15.0",
         ),
         "python .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
@@ -404,13 +438,13 @@ def test_aegis_probe_rejects_wrong_schema_or_version(tmp_path: Path) -> None:
     assert status.schema_version == 2
     assert "requires schema 1" in status.detail
 
-    # below the command floor: `anchor`/`evolution` do not exist there
+    # below the floor: AEGIS before 0.15.0 ends in a deliver stage
     too_old = doctor.detect_aegis(root, FakeRunner({
         "python .agentic/aegis.py --version": CommandResult(
-            exit_code=0, stdout="aegis 0.4.0",
+            exit_code=0, stdout="aegis 0.14.9",
         ),
     }))
-    assert not too_old.ok and "0.4.0" in too_old.detail
+    assert not too_old.ok and "0.14.9" in too_old.detail
 
     # a different major means the companion contract itself changed
     other_major = doctor.detect_aegis(root, FakeRunner({
@@ -428,9 +462,10 @@ def test_aegis_doctor_shares_one_gate_with_the_client() -> None:
              stale when the client's supported range moved. It now derives the
              answer from the client's constants, so this holds for any minor.
     """
-    assert doctor.aegis_version_supported("aegis 0.5.0")
+    assert doctor.aegis_version_supported("aegis 0.15.0")
     assert doctor.aegis_version_supported("aegis 0.99.7")
-    assert not doctor.aegis_version_supported("aegis 0.4.9")
+    assert not doctor.aegis_version_supported("aegis 0.14.9")
+    assert not doctor.aegis_version_supported("aegis 0.5.0")
     assert not doctor.aegis_version_supported("aegis 1.0.0")
     assert not doctor.aegis_version_supported("nonsense")
 

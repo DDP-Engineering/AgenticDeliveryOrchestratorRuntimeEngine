@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-fa9e0efa"
+
+title = "Select metrics project within reporting controls"
+
+status = "active"
+
+requirement = """
+On Metrics, authorized project selection shall appear inside the common reporting controls and be absent from the top header. Changing the project shall preserve reporting parameters and the selected category while updating selected-project metrics, usage and CSV links. Phone layouts shall show project selection above the compact period controls without clipping; accounts with no projects shall have no project picker or project CSV links.
+"""
+
+verification = "Manual: Inspect Metrics header/content at desktop and phone sizes, switch between disposable projects, inspect project CSV routes and tab/period retention. Inspect the existing projects-length guard and offline metrics/usage/RBAC tests for accounts without access."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-01
+updated = 2026-10-01

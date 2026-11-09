@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-50474528"
+title = "Control only verified local process trees during recovery"
+status = "active"
+requirement = "When local commands time out, cancel, park or recover, ADORE shall control only a verified run-owned native process scope with durable machine/run/PID-birth/scope identity, fail closed on corrupt or reused evidence and preserve archives/worktrees until explicit cleanup."
+verification = "Injected Windows/Linux process-control tests observe full owned-scope termination and typed refusal for reused PID, scope drift, malformed lease and failed control."
+affected_paths = ["04_Software/adore/local_execution.py", "04_Software/adore/local_process.py", "04_Software/adore/local_child.py", "04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_local_scope_control_refuses_reused_process_identity", "04_Software/tests/test_local_execution.py::test_linux_control_checks_delegated_scope_identity_before_kill", "04_Software/tests/test_local_execution.py::test_local_conductor_pins_target_parks_retries_and_never_lists_containers"]
+spec = "specs/REQ-FUNC-ffb9ed29.md"
+priority = "high"
+created = 2026-10-07
+updated = 2026-10-07

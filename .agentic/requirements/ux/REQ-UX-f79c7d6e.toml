@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-f79c7d6e"
+
+title = "Operate ticket body mode with the keyboard"
+
+status = "active"
+
+requirement = """
+When a keyboard user focuses the ticket body mode control, the Tickets view shall provide an accessible name, exposed current selection, visible focus and keyboard-only selection of both modes without losing focus on rerender.
+"""
+
+verification = "Automated offline browser journey: Tab to the named control, use its native keyboard interaction to select source and Rendered, assert selected state, body changes and retained focus; repeat with long descriptions and multiple open details to detect focus loss or inaccessible duplicate controls."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/tickets.spec.ts"]
+
+linked_tests = ["04_Software/web/e2e/tickets.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-04
+updated = 2026-11-04

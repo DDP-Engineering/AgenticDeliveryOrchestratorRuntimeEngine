@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-DATA-71853fbc"
+
+title = "Clear import draft when leaving the page"
+
+status = "active"
+
+requirement = """When an administrator changes the selected file or closes the raw import dialog, the interface shall invalidate older validation evidence and discard the memory draft when the dialog closes."""
+
+verification = "Chromium replaces a file during validation, rejects late responses and changed files, and reopens a blank dialog after cancellation."
+
+affected_paths = ["04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/App.tsx"]
+
+linked_tests = ["04_Software/web/e2e/import.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = "Discard browser-held configuration text and prevent stale preview confirmation after navigation."
+
+created = 2026-10-01
+updated = 2026-11-09

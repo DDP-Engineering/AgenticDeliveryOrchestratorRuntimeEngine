@@ -1,0 +1,33 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-UX-f41b88d4"
+
+title = "Show System status compactly with current limits and shared volumes"
+
+status = "active"
+
+requirement = """
+While an administrator views System status, the interface shall show the saved audit retention limits as named current values (Unlimited for an absent limit) beside the prefilled form with one short impact sentence, show control-worker and storage status as one row of compact colored indicators without explanatory paragraphs, and group storage by physical volume so that one line describes a volume shared by ADORE home and every project and a table lists each distinct volume with the items stored on it only when there is more than one.
+"""
+
+verification = "Automated: pytest returns a volume_id per measured volume (equal for paths on the same device); e2e opens System status and finds Keep for days and Audit data limit shown as Unlimited, the short impact sentence without the old paragraphs, Control worker and Storage indicators in one row, and a single shared-volume line without a per-project storage table for the one-volume fixture."
+
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/auditCopy.ts", "04_Software/web/src/styles.css", "04_Software/adore/web/static/"]
+
+linked_tests = ["04_Software/tests/test_web_storage.py", "04_Software/web/e2e/audit.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-12
+updated = 2026-10-12

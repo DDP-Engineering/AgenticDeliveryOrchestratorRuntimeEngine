@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt in the .agentic folder for full license details.
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+
+id = "REQ-REL-ea593cbb"
+
+title = "Reject unsafe container timeout recovery evidence"
+
+status = "active"
+
+requirement = "If container identity or timeout recovery cannot be confirmed, the execution backend shall reject further bound execution with a typed recovery error."
+
+verification = "Injected runtime tests provide changed resource/image identities, corrupt receipts and failed interruption or restart; observe a typed recovery error without signalling a replacement or dispatching a later bound command."
+
+affected_paths = ["04_Software/adore/execution.py", "04_Software/adore/orchestrator.py"]
+
+linked_tests = ["04_Software/tests/test_container_timeout.py::test_unconfirmed_timeout_cleanup_blocks_later_bound_execution", "04_Software/tests/test_container_timeout.py::test_unconfirmed_restart_blocks_the_next_executor", "04_Software/tests/test_container_timeout.py::test_untrusted_initial_identity_dispatches_no_command", "04_Software/tests/test_container_timeout.py::test_unconfirmed_recovery_is_terminal_without_another_executor_attempt", "04_Software/tests/test_container_timeout.py::test_changed_caller_pins_cannot_restart_pending_recovery", "04_Software/tests/test_container_timeout.py::test_failed_admission_stays_blocked_until_operator_uses_a_fresh_backend", "04_Software/tests/test_container_timeout.py::test_operator_interrupt_during_restart_prevents_executor_dispatch"]
+
+
+spec = "specs/REQ-FUNC-bff135e2.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-10-30
+updated = 2026-10-30

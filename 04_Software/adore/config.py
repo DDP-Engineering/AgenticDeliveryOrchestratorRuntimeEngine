@@ -21,11 +21,14 @@ from __future__ import annotations
 
 # IMPORTS
 from dataclasses import asdict, dataclass, field, fields
+import json
 import math
 from pathlib import Path
 import re
 import shlex
 from string import Formatter
+import subprocess
+import sys
 import tomllib
 from typing import Any
 
@@ -35,11 +38,30 @@ from adore.branding import (
     EGRESS_PROXY_IMAGE,
     EXECUTOR_BASE_IMAGE,
     NPM_CACHE_VOLUME,
+    PI_NATIVE_COMMAND,
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
-from adore.util import parse_duration
+from adore.chatgpt import MAX_STAGE_SECONDS as CHATGPT_MAX_STAGE_SECONDS
+from adore.pi_providers import (
+    CHATGPT,
+    CUSTOM,
+    DEFAULT_ENDPOINT_API,
+    ENDPOINT_APIS,
+    MODEL_ID_RE,
+    WEB_SEARCH_CHOICES,
+    CatalogError,
+    provider_hosts,
+    provider_ids,
+    thinking_levels,
+    valid_endpoint_url,
+)
+from adore.util import (
+    automatic_environment,
+    background_process_options,
+    parse_duration,
+)
 
 # CONSTANTS
 
@@ -54,7 +76,6 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "GIT_AUTHOR_EMAIL",
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
-    "CODEX_HOME",
     "HTTP_PROXY",
     "HTTPS_PROXY",
     "ALL_PROXY",
@@ -65,6 +86,9 @@ _MANAGED_CONTAINER_ENV = frozenset({
     "no_proxy",
 })
 _SHELL_CONTROL_CHARS = frozenset("|&;<>")
+#: Environment names of the coding agents ADORE no longer supports; Pi is the
+#: only one. A variable with one of these prefixes is refused, not ignored.
+REMOVED_AGENT_ENV_PREFIXES = ("OPENCODE_", "CODEX_", "QWEN_")
 _FORGE_CREDENTIAL_ENV = frozenset({
     "GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN", "GITEA_TOKEN",
     "TEA_TOKEN",
@@ -85,10 +109,11 @@ _FORGE_CREDENTIAL_ENV = frozenset({
 SELINUX_RELABEL_OPTIONS = {"off": "", "shared": "z"}
 SELINUX_RELABEL_MODES = tuple(SELINUX_RELABEL_OPTIONS)
 
-# The AEGIS task stages a per-stage timeout override may target. Declared
-# here rather than imported from the orchestrator so configuration validation
-# stays free of the engine.
-AEGIS_STAGES = ("frame", "specify", "design", "build", "validate", "deliver")
+# The AEGIS task stages a per-stage timeout override may target: the stages
+# that launch an executor session. Validate closes the task in AEGIS 0.15.0,
+# so no deliver stage remains to bound. Declared here rather than imported
+# from the orchestrator so configuration validation stays free of the engine.
+AEGIS_STAGES = ("frame", "specify", "design", "build", "validate")
 _HOST_LABEL_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 KNOWN_SECTIONS = frozenset(
@@ -100,6 +125,8 @@ KNOWN_SECTIONS = frozenset(
         "readiness",
         "labels",
         "executor",
+        "execution",
+        "local",
         "clarification",
         "container",
         "worktree",
@@ -148,12 +175,11 @@ class PlatformConfig:
 @dataclass
 class StateConfig:
     """
-    @brief   [state] - how run state is signaled on the ticket.
-    @details The status comment is always one comment edited in place; there
-             is no per-change mode.
+    @brief   [state] - where run state lives.
+    @details The status comment is always one comment edited in place, with the
+             lifecycle labels; there is no per-change mode.
     """
 
-    channel: str = "comments"
     store_root: str = ""
 
 
@@ -177,9 +203,8 @@ class ReadinessConfig:
     @brief   [readiness] - selection filter applied after eligibility.
     """
 
-    require_acceptance_criteria: bool = True
+    require_acceptance_criteria: bool = False
     require_priority_label: bool = True
-    require_known_component: bool = True
     max_scope_hint: str = "small"
 
 
@@ -209,6 +234,7 @@ class SelectionLabels:
     priority_low: str = "P3"
     type_feature: str = "feature"
     type_bug: str = "bug"
+    type_epic: str = "epic"
 
     def priority_order(self) -> list[str]:
         """
@@ -229,15 +255,6 @@ class ControlLabels:
 
 
 @dataclass
-class ExecutorLabels:
-    """
-    @brief   [labels.executor] - optional per-ticket executor pin.
-    """
-
-    prefix: str = "agent-exec:"
-
-
-@dataclass
 class LabelsConfig:
     """
     @brief   [labels.*] - all label categories; roles, never hard-coded strings.
@@ -246,49 +263,88 @@ class LabelsConfig:
     lifecycle: LifecycleLabels = field(default_factory=LifecycleLabels)
     selection: SelectionLabels = field(default_factory=SelectionLabels)
     control: ControlLabels = field(default_factory=ControlLabels)
-    executor: ExecutorLabels = field(default_factory=ExecutorLabels)
 
 
 @dataclass
-class ExecutorCommand:
+class ExecutorEndpointConfig:
     """
-    @brief   One [executor.<name>] entry: command template plus model.
+    @brief   [executor.endpoint] - an OpenAI-compatible endpoint for `provider = "custom"`.
+    @details `base_url` is the address as seen from where Pi runs (inside the
+             container); `api` is the Pi API type the endpoint speaks. Its
+             optional key is a credential (ADORE_ENDPOINT_API_KEY), never a
+             value here.
     """
 
-    command: str = ""
-    model: str = ""
+    base_url: str = ""
+    api: str = DEFAULT_ENDPOINT_API
+
+
+@dataclass
+class ExecutorWebConfig:
+    """
+    @brief   [executor.web] - the web search Pi uses while internet access is on.
+    @details `search` is exa (no key), brave or tavily (key in the project's
+             credential store as BRAVE_API_KEY or TAVILY_API_KEY) or none (no
+             web tools; downloads through bash still work).
+    """
+
+    search: str = "exa"
 
 
 @dataclass
 class ExecutorConfig:
     """
-    @brief   [executor] - which executor to launch and how.
-    @details env_keys names the secret subset injected into the container
-             (from the environment / .env); only these keys ever reach the
-             executor (design 12b: scope minimally). stage_host_auth copies
-             the HOST's opencode auth.json into the run container at
-             provision - a pilot-only bridge for OAuth (ChatGPT-account)
-             sessions that have no API key (Security_And_Credentials.md);
-             production should use a real provider key instead.
+    @brief   [executor] - how ADORE launches Pi, its only coding agent.
+    @details `provider` is a Pi API-key provider id, `chatgpt` or `custom`
+             (an OpenAI-compatible endpoint described by [executor.endpoint]);
+             `model` is the model id within that provider. `internet` is the
+             project's "Internet access for the agent": false limits a
+             container run to the model provider's hosts, true opens the
+             network and loads Pi's web tools ([executor.web]). `command` is the
+             retained container preset. Native runs omit it and use managed
+             Pi RPC. Container runs use the image's pinned Pi. The provider's key
+             variable always reaches Pi; env_keys names additional secrets
+             injected into the executor (from the environment / .env); only
+             these keys ever reach it (design 12b: scope minimally).
     """
 
-    default: str = "opencode"
+    provider: str = ""
+    model: str = ""
+    thinking: str = ""
+    internet: bool = False
+    endpoint: ExecutorEndpointConfig = field(default_factory=ExecutorEndpointConfig)
+    web: ExecutorWebConfig = field(default_factory=ExecutorWebConfig)
+    command: str = PI_NATIVE_COMMAND
     mode: str = "thick"
     questions_file: str = ""
-    env_keys: list[str] = field(
-        default_factory=lambda: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
-    )
-    stage_host_auth: bool = False
-    commands: dict[str, ExecutorCommand] = field(default_factory=dict)
+    env_keys: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ContainerEgressConfig:
     """
-    @brief   [container.egress] - outbound network policy for executor runs.
-    @details open provides unrestricted egress; none disables container
-             networking; allowlist-proxy routes HTTP/HTTPS through a per-run
-             ADORE proxy with exact/wildcard hostname allowlists.
+    @brief   [container.egress] - the proxy behind which an internet-off run sits.
+    @details `[executor] internet` decides the run's network access
+             (`egress_policy`); this section holds the per-run proxy's image,
+             port and network prefix, the hosts reached without the proxy and
+             `allowlist`, extra hosts an internet-off run may reach besides
+             the model provider (exact names or `*.` wildcards).
+    """
+
+    allowlist: list[str] = field(default_factory=list)
+    no_proxy: list[str] = field(default_factory=lambda: ["localhost", "127.0.0.1", "::1"])
+    proxy_image: str = EGRESS_PROXY_IMAGE
+    proxy_port: int = 3128
+    network_prefix: str = EGRESS_NETWORK_PREFIX
+
+
+@dataclass
+class EgressPolicy:
+    """
+    @brief   The network access of one run's executor container.
+    @details Derived from the configuration by `egress_policy`, never read
+             from a file. open: unrestricted; allowlist-proxy: HTTP/HTTPS only
+             through a per-run proxy that admits `allowlist`; none: no network.
     """
 
     mode: str = "open"
@@ -326,6 +382,33 @@ class ClarificationConfig:
 
 
 @dataclass
+class ExecutionConfig:
+    """
+    @brief   [execution] - shared backend and reviewed container preparation.
+    @details Preparation is path#job@full-commit; empty retains legacy behavior.
+             Bounds apply to setup independently of the total run budget.
+    """
+
+    backend: str = "container"
+    preparation: str = ""
+    preparation_step_timeout_seconds: int = 300
+    preparation_total_timeout_seconds: int = 900
+    preparation_max_attempts: int = 2
+
+
+@dataclass
+class LocalConfig:
+    """
+    @brief   [local] - managed Pi under the current server account.
+    @details Optionally overrides PATH for project tools. Scope delegation is
+             configured by the server operator.
+    """
+
+    account: str = "current"
+    path: str = ""
+
+
+@dataclass
 class ContainerConfig:
     """
     @brief   [container] - execution isolation and parked-container TTL.
@@ -349,6 +432,7 @@ class ContainerConfig:
 
     runtime: str = "docker"
     image: str = EXECUTOR_BASE_IMAGE
+    system_packages: bool = False
     keep_parked: bool = True
     parked_ttl_mode: str = "polls"
     parked_ttl_seconds: int = 7200
@@ -418,7 +502,7 @@ class BudgetsConfig:
     @brief   [budgets] - hard bounds so a run can never thrash forever.
     @details `per_gate_timeout_seconds` bounds ONE executor launch (the
              wall-clock a single gate/fix relaunch may take);
-             `max_wall_clock_seconds` bounds the WHOLE run since pickup. They
+             `max_wall_clock_seconds` bounds cumulative active work, excluding waits. They
              are independent knobs - a generous per-gate limit no longer forces
              an equally generous total, and a tight total no longer throttles
              every individual gate.
@@ -445,7 +529,7 @@ class DeliveryConfig:
     reviewers: list[str] = field(default_factory=list)
     remove_source_branch: bool = True
     approval_label: str = "agent-approved"
-    publish_checkpoints: bool = False
+    publish_checkpoints: bool = True
 
 
 @dataclass
@@ -462,7 +546,7 @@ class ReviewConfig:
 
     trigger: str = "label"
     revise_label: str = "agent-revise"
-    max_review_rounds: int = 3
+    max_review_rounds: int = 5
     review_reminder_after: str = "48h"
     on_pipeline_failure: str = "revise"
 
@@ -508,6 +592,8 @@ class Config:
     readiness: ReadinessConfig = field(default_factory=ReadinessConfig)
     labels: LabelsConfig = field(default_factory=LabelsConfig)
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
+    execution: ExecutionConfig = field(default_factory=ExecutionConfig)
+    local: LocalConfig = field(default_factory=LocalConfig)
     clarification: ClarificationConfig = field(default_factory=ClarificationConfig)
     container: ContainerConfig = field(default_factory=ContainerConfig)
     worktree: WorktreeConfig = field(default_factory=WorktreeConfig)
@@ -519,6 +605,7 @@ class Config:
     reconcile: ReconcileConfig = field(default_factory=ReconcileConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     raw: dict[str, Any] = field(default_factory=dict)
+    source_path: Path | None = field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -535,6 +622,8 @@ class Config:
                 "readiness",
                 "labels",
                 "executor",
+                "execution",
+                "local",
                 "clarification",
                 "container",
                 "worktree",
@@ -556,7 +645,7 @@ class Config:
 def _build_section(cls: type, data: Any) -> Any:
     """
     @brief      Build one section dataclass from a raw mapping.
-    @details    Unknown keys are ignored here (reported by validate_config);
+    @details    Unknown keys are left out here and refused by validate_config;
                 known keys override the documented defaults.
     @param[in]  cls The section dataclass type.
     @param[in]  data Raw mapping from tomllib (or anything else -> defaults).
@@ -581,27 +670,23 @@ def _build_labels(data: Any) -> LabelsConfig:
         lifecycle=_build_section(LifecycleLabels, data.get("lifecycle")),
         selection=_build_section(SelectionLabels, data.get("selection")),
         control=_build_section(ControlLabels, data.get("control")),
-        executor=_build_section(ExecutorLabels, data.get("executor")),
     )
 
 
 def _build_executor(data: Any) -> ExecutorConfig:
     """
-    @brief      Build [executor] including the per-executor command tables.
-    @details    Scalar keys configure the launcher; every dict-valued key is an
-                [executor.<name>] command/model entry.
+    @brief      Build [executor] including [executor.endpoint] and [executor.web].
+    @details    A non-table endpoint or web value is left at its defaults and
+                refused by validate_config.
     @param[in]  data Raw [executor] mapping.
     @return     A populated ExecutorConfig.
     """
     if not isinstance(data, dict):
         return ExecutorConfig()
-    scalars = {key: value for key, value in data.items() if not isinstance(value, dict)}
-    section = _build_section(ExecutorConfig, scalars)
-    section.commands = {
-        name: _build_section(ExecutorCommand, table)
-        for name, table in data.items()
-        if isinstance(table, dict)
-    }
+    section = _build_section(ExecutorConfig, {key: value for key, value in data.items()
+                                              if key not in ("endpoint", "web")})
+    section.endpoint = _build_section(ExecutorEndpointConfig, data.get("endpoint"))
+    section.web = _build_section(ExecutorWebConfig, data.get("web"))
     return section
 
 
@@ -619,35 +704,32 @@ def _build_container(data: Any) -> ContainerConfig:
     return section
 
 
-def _command_placeholder_issues(default: str, command: str) -> list[str]:
+def _command_placeholder_issues(command: str) -> list[str]:
     """
     @brief      Reject a command template whose braces the launcher cannot fill.
     @details    The launcher renders the template with `str.format`, so any
                 brace the executor does not supply raises `KeyError` at GATE
                 time - after provisioning, once per attempt, until the stage
                 budget is spent - with nothing pointing at the real cause.
-                Only Codex supplies `{resume}`; a shell brace such as
-                `${HOME}` or an inline JSON argument fails the same way.
+                A shell brace such as `${HOME}` or an inline JSON argument
+                fails the same way.
                 Catching it here turns an opaque runtime failure into a setup
                 message.
-    @param[in]  default The selected executor kind.
     @param[in]  command The configured command template.
     @return     One issue per unsupported or malformed placeholder.
     """
     supported = {"prompt", "model", "worktree"}
-    if default == "codex":
-        supported.add("resume")
     try:
         fields = {
             name for _, name, _, _ in Formatter().parse(command) if name is not None
         }
     except ValueError as exc:
         return [
-            f"[executor.{default}] command has malformed placeholder braces: {exc}"
+            f"[executor] command has malformed placeholder braces: {exc}"
         ]
     unsupported = sorted(name for name in fields if name.split(".")[0] not in supported)
     return [
-        f"[executor.{default}] command uses a placeholder the launcher cannot "
+        "[executor] command uses a placeholder the launcher cannot "
         f"fill: {{{name}}} (supported: {', '.join(sorted(supported))}). A literal "
         "brace must be doubled."
         for name in unsupported
@@ -709,14 +791,26 @@ def _derive_names(config: Config) -> None:
 # PUBLIC API
 
 
+def default_config() -> Config:
+    """
+    @brief   ADORE's built-in configuration, as a file that sets nothing gets it.
+    @details Name-derived defaults are resolved from the default agent name
+             (slug `adore`, `.adore` state root and the paths under it).
+    @return  A new default configuration.
+    """
+    config = Config()
+    _derive_names(config)
+    return config
+
+
 def load_config(path: str | Path) -> Config:
     """
     @brief      Load configuration from a TOML file into typed sections.
-    @details    Lenient by design: unknown keys are skipped and missing keys
-                default, so `adore config validate` can report all problems in
-                one pass instead of dying on the first.
+    @details    Missing keys take the documented defaults and unknown keys
+                are left out, so `adore config validate` reports every problem,
+                unknown keys included, in one pass instead of dying on the first.
     @param[in]  path Path to config.toml.
-    @return     A populated Config instance.
+    @return     Config with runtime-only absolute source_path metadata.
     @exception  FileNotFoundError When the file does not exist.
     @exception  tomllib.TOMLDecodeError When the file is not valid TOML.
     """
@@ -730,6 +824,8 @@ def load_config(path: str | Path) -> Config:
         readiness=_build_section(ReadinessConfig, raw.get("readiness")),
         labels=_build_labels(raw.get("labels")),
         executor=_build_executor(raw.get("executor")),
+        execution=_build_section(ExecutionConfig, raw.get("execution")),
+        local=_build_section(LocalConfig, raw.get("local")),
         clarification=_build_section(ClarificationConfig, raw.get("clarification")),
         container=_build_container(raw.get("container")),
         worktree=_build_section(WorktreeConfig, raw.get("worktree")),
@@ -741,9 +837,292 @@ def load_config(path: str | Path) -> Config:
         reconcile=_build_section(ReconcileConfig, raw.get("reconcile")),
         metrics=_build_section(MetricsConfig, raw.get("metrics")),
         raw=raw,
+        source_path=Path(path).resolve(),
     )
     _derive_names(config)
     return config
+
+
+def valid_reviewers(value: object) -> bool:
+    """
+    @brief Validate a list of forge account names before CLI submission; empty requests no review.
+    @param[in] value Human-authored reviewer list.
+    @return True for bounded names without whitespace, controls or option prefixes.
+    """
+    return isinstance(value, list) and all(
+        isinstance(name, str) and 1 <= len(name) <= 255 and not name.startswith("-")
+        and not any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in name)
+        for name in value
+    )
+
+
+def branch_naming_preview(template: str, rule: str, slug: str, *,
+                          run_id: str = "sample-run-1", iid: int = 1) -> dict[str, Any]:
+    """
+    @brief Render an example or actual job branch and check the optional Python regex.
+    @param[in] template Branch template using only slug, run_id and iid fields.
+    @param[in] rule Optional repository naming regex; empty disables this check.
+    @param[in] slug Effective agent slug from the selected configuration.
+    @param[in] run_id Actual identity for bounded admission checks; defaults to the example.
+    @param[in] iid Actual positive ticket identity; defaults to the example.
+    @return Explicit sample identity, name, match result and closed issue codes.
+    @note An example proves this identity only; it creates no branch or config.
+          Regex execution is isolated and bounded to one second, failing closed.
+    """
+    result: dict[str, Any] = {"template": template, "rule": rule, "slug": slug,
+                              "iid": iid, "run_id": run_id, "name": None,
+                              "valid": False, "rule_matches": None, "issues": []}
+    issues = result["issues"]
+    if (not isinstance(template, str) or not isinstance(slug, str)
+            or not isinstance(run_id, str) or type(iid) is not int or iid < 1):
+        issues.append("invalid_template")
+        return result
+    if not isinstance(rule, str):
+        issues.append("invalid_rule")
+        return result
+    if len(template) > 512 or len(rule) > 512 or len(slug) > 255:
+        issues.append("too_long")
+        return result
+    try:
+        names = []
+        for _text, name, spec, conversion in Formatter().parse(template):
+            if name is not None:
+                if name not in ("slug", "run_id", "iid") or spec or conversion:
+                    raise ValueError("unsupported branch field")
+                names.append(name)
+        if not {"iid", "run_id"}.intersection(names):
+            issues.append("missing_identity")
+        name = template.format(slug=slug, run_id=result["run_id"], iid=result["iid"])
+    except (ValueError, KeyError, IndexError):
+        issues.append("invalid_template")
+        return result
+    result["name"] = name
+    if (not name or len(name) > 255 or name == "@" or name.startswith(("-", "/"))
+            or name.endswith(("/", ".")) or any(part in name for part in ("..", "@{", "//"))
+            or any(ord(char) <= 32 or ord(char) == 127 or char in "~^:?*[\\" for char in name)
+            or any(part.startswith(".") or part.endswith(".lock") for part in name.split("/"))):
+        issues.append("invalid_branch")
+    if rule:
+        try:
+            re.compile(rule)
+        except (re.error, RecursionError):
+            issues.append("invalid_rule")
+            return result
+        # JSON on stdin keeps human regex/source out of executable Python text.
+        code = ("import json,re,sys; rule,name=json.load(sys.stdin); "
+                "print(json.dumps(re.match(rule,name) is not None))")
+        try:
+            checked = subprocess.run([sys.executable, "-I", "-c", code],
+                                     input=json.dumps([rule, name]), capture_output=True,
+                                     text=True, timeout=1,
+                                     env=automatic_environment(), **background_process_options())
+            if checked.returncode != 0:
+                raise ValueError("regex process failed")
+            matched = json.loads(checked.stdout)
+            if type(matched) is not bool:
+                raise ValueError("invalid regex result")
+            result["rule_matches"] = matched
+            if not matched:
+                issues.append("rule_mismatch")
+        except subprocess.TimeoutExpired:
+            issues.append("rule_timeout")
+        except (OSError, ValueError):
+            issues.append("rule_check_failed")
+    result["valid"] = not issues
+    return result
+
+
+def _unknown_key_issues(raw: dict) -> list[str]:
+    """
+    @brief      Name every config.toml key this build does not read.
+    @details    There is no compatibility while ADORE is in development: a key
+                left by an earlier build is refused, not silently ignored.
+                [local] and [execution] are checked by their own validators.
+    @param[in]  raw Parsed config.toml mapping.
+    @return     One issue per unknown key, naming the key to remove.
+    """
+    issues: list[str] = []
+
+    def check(where: str, table: Any, cls: type) -> None:
+        if not isinstance(table, dict):
+            return
+        allowed = {item.name for item in fields(cls)}
+        for key in sorted(set(table) - allowed):
+            issues.append(f"[{where}] unknown key {key!r}: remove it from config.toml")
+
+    for name, cls in (
+        ("agent", AgentConfig), ("platform", PlatformConfig), ("state", StateConfig),
+        ("polling", PollingConfig), ("readiness", ReadinessConfig),
+        ("clarification", ClarificationConfig), ("worktree", WorktreeConfig),
+        ("workflow", WorkflowConfig), ("recovery", RecoveryConfig),
+        ("delivery", DeliveryConfig),
+        ("review", ReviewConfig), ("reconcile", ReconcileConfig),
+        ("metrics", MetricsConfig),
+    ):
+        check(name, raw.get(name), cls)
+    labels = raw.get("labels")
+    if isinstance(labels, dict):
+        tables = {"lifecycle": LifecycleLabels, "selection": SelectionLabels,
+                  "control": ControlLabels}
+        for key in sorted(set(labels) - tables.keys()):
+            issues.append(f"[labels] unknown key {key!r}: remove it from config.toml")
+        for name, cls in tables.items():
+            check(f"labels.{name}", labels.get(name), cls)
+    # A table of a removed coding agent ([executor.<name>]) is a key of
+    # [executor] here, so it is refused by name like any other key.
+    check("executor", raw.get("executor"), ExecutorConfig)
+    if isinstance(raw.get("executor"), dict):
+        check("executor.endpoint", raw["executor"].get("endpoint"), ExecutorEndpointConfig)
+        check("executor.web", raw["executor"].get("web"), ExecutorWebConfig)
+    container = raw.get("container")
+    if isinstance(container, dict):
+        check("container", {key: value for key, value in container.items()
+                            if key != "egress"}, ContainerConfig)
+        egress = container.get("egress")
+        if isinstance(egress, dict) and "mode" in egress:
+            issues.append("[container.egress] unknown key 'mode': remove it from config.toml; "
+                          "[executor] internet decides the agent's network access")
+            egress = {key: value for key, value in egress.items() if key != "mode"}
+        check("container.egress", egress, ContainerEgressConfig)
+    return issues
+
+
+def _chatgpt_issues(config: Config) -> list[str]:
+    """
+    @brief      Refuse what a ChatGPT subscription cannot run.
+    @details    ADORE mints a ChatGPT access token before every stage through
+                the trusted helper and pinned Pi; the token
+                lasts about an hour and is not refreshed during a stage, so a
+                stage limit above MAX_STAGE_SECONDS is refused too.
+    @param[in]  config Loaded configuration with `provider = "chatgpt"`.
+    @return     One issue per problem, naming the key.
+    """
+    issues: list[str] = []
+    overrides = config.workflow.stage_timeout_overrides
+    for stage, seconds in (overrides.items() if isinstance(overrides, dict) else ()):
+        if isinstance(seconds, int) and not isinstance(seconds, bool) \
+                and seconds > CHATGPT_MAX_STAGE_SECONDS:
+            issues.append(f"[workflow] stage_timeout_overrides.{stage} must be at most "
+                          f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": a ChatGPT "
+                          "access token lasts about an hour")
+    return issues
+
+
+def _provider_issues(config: Config) -> list[str]:
+    """
+    @brief      Validate [executor] provider, model and [executor.endpoint].
+    @details    The provider is a Pi API-key provider from the shipped catalog,
+                `chatgpt` or `custom`; [executor.endpoint] is present exactly
+                for `custom`, with an http(s) base URL that carries no user
+                info, query or fragment (a key is a credential, never a URL
+                part) and a supported Pi API type. A local run cannot use an
+                endpoint: it has no ADORE-owned agent directory for models.json.
+    @param[in]  config Loaded configuration (with its raw mapping).
+    @return     One issue per problem, naming the key.
+    """
+    executor = config.executor
+    issues: list[str] = []
+    try:
+        known = provider_ids()
+    except CatalogError as exc:
+        return [f"[executor] provider cannot be checked: {exc}"]
+    if not isinstance(executor.provider, str) or not executor.provider.strip():
+        issues.append('[executor] provider is required: a Pi API-key provider id, '
+                      '"chatgpt" or "custom"')
+    elif executor.provider not in known:
+        issues.append(f"[executor] provider {executor.provider!r} is not a Pi API-key provider, "
+                      '"chatgpt" or "custom"')
+    if not isinstance(executor.model, str) or not executor.model.strip():
+        issues.append("[executor] model is required")
+    elif not MODEL_ID_RE.fullmatch(executor.model):
+        issues.append(f"[executor] model {executor.model!r} must be one model id without "
+                      "spaces, quotes or control characters (at most 200 characters)")
+    if not isinstance(executor.thinking, str) or (executor.thinking and
+            executor.thinking not in thinking_levels(executor.provider, executor.model)):
+        issues.append("[executor] thinking is unsupported for this provider and model")
+    if executor.provider == CHATGPT:
+        issues.extend(_chatgpt_issues(config))
+    if type(executor.internet) is not bool:
+        issues.append(f"[executor] internet must be true or false: {executor.internet!r}")
+    raw_executor = config.raw.get("executor")
+    raw_web = raw_executor.get("web") if isinstance(raw_executor, dict) else None
+    if raw_web is not None and not isinstance(raw_web, dict):
+        issues.append("[executor.web] must be a table")
+    if executor.web.search not in WEB_SEARCH_CHOICES:
+        issues.append(f"[executor.web] search must be one of {', '.join(WEB_SEARCH_CHOICES)}: "
+                      f"{executor.web.search!r}")
+    raw_endpoint = raw_executor.get("endpoint") if isinstance(raw_executor, dict) else None
+    if executor.provider != CUSTOM:
+        if raw_endpoint is not None:
+            issues.append('[executor.endpoint] is used only with provider = "custom": '
+                          "remove it from config.toml")
+        return issues
+    if not isinstance(raw_endpoint, dict):
+        issues.append('[executor.endpoint] base_url is required for provider = "custom"')
+        return issues
+    base_url = executor.endpoint.base_url
+    if not valid_endpoint_url(base_url):
+        issues.append("[executor.endpoint] base_url must be an http(s) address with a host and "
+                      "no user name, password, query, fragment, spaces or quotes (the address "
+                      f"as seen from Pi): {base_url!r}")
+    if executor.endpoint.api not in ENDPOINT_APIS:
+        issues.append(f"[executor.endpoint] api must be one of {', '.join(ENDPOINT_APIS)}: "
+                      f"{executor.endpoint.api!r}")
+    return issues
+
+
+def egress_policy(config: Config) -> EgressPolicy:
+    """
+    @brief      The network access of the project's executor containers.
+    @details    Internet off: the per-run allowlist proxy admitting the
+                provider's hosts (`provider_hosts`) and `[container.egress]
+                allowlist`, deduplicated and sorted. Internet on: open egress.
+                Used for every stage container and the Test AI connection; a
+                local run is not restricted by it.
+    @param[in]  config Validated configuration.
+    @return     The derived EgressPolicy.
+    """
+    egress = config.container.egress
+    if config.executor.internet is True:
+        return EgressPolicy(mode="open", no_proxy=list(egress.no_proxy),
+                            proxy_image=egress.proxy_image, proxy_port=egress.proxy_port,
+                            network_prefix=egress.network_prefix)
+    hosts = sorted({*provider_hosts(config.executor), *egress.allowlist})
+    return EgressPolicy(mode="allowlist-proxy", allowlist=hosts,
+                        no_proxy=list(egress.no_proxy), proxy_image=egress.proxy_image,
+                        proxy_port=egress.proxy_port, network_prefix=egress.network_prefix)
+
+
+def validate_budgets(config: Config) -> list[str]:
+    """
+    @brief Validate only the closed budget table and its provider timeout bound.
+    @param[in] config Typed configuration; other settings are separately validated/pinned.
+    @return Human-readable issues, without subprocesses or host/runtime checks.
+    """
+    issues = []
+    raw = config.raw.get("budgets", {})
+    allowed = {item.name for item in fields(BudgetsConfig)}
+    if not isinstance(raw, dict):
+        issues.append("[budgets] must be a table")
+    else:
+        issues.extend(f"[budgets] unknown key {key!r}: remove it from config.toml"
+                      for key in sorted(set(raw) - allowed))
+    for key in sorted(allowed - {"max_cost_usd"}):
+        value = getattr(config.budgets, key)
+        if type(value) is not int or value < 1:
+            issues.append(f"[budgets] {key} must be an integer >= 1")
+    cap = config.budgets.max_cost_usd
+    if (type(cap) not in {int, float} or cap < 0
+            or isinstance(cap, float) and not math.isfinite(cap)):
+        issues.append("[budgets] max_cost_usd must be a finite nonnegative number "
+                      "(0 disables the cap)")
+    limit = config.budgets.per_gate_timeout_seconds
+    if (config.executor.provider == CHATGPT and type(limit) is int
+            and limit > CHATGPT_MAX_STAGE_SECONDS):
+        issues.append(f"[budgets] per_gate_timeout_seconds must be at most "
+                      f"{CHATGPT_MAX_STAGE_SECONDS} with provider \"chatgpt\": "
+                      "a ChatGPT access token lasts about an hour")
+    return issues
 
 
 def validate_config(config: Config) -> list[str]:
@@ -751,7 +1130,7 @@ def validate_config(config: Config) -> list[str]:
     @brief      Validate a Config and return a list of human-readable issues.
     @details    Structural and cross-field checks per Configuration_Reference:
                 enum values, positive bounds, parseable durations, and a
-                matching [executor.<default>] entry. Run at startup so typos
+                Pi model and launch template. Run at startup so typos
                 are caught before the poll loop starts.
     @param[in]  config The configuration to validate.
     @return     Empty list when valid; otherwise one message per issue.
@@ -764,6 +1143,7 @@ def validate_config(config: Config) -> list[str]:
 
     for section in config.raw:
         check(section in KNOWN_SECTIONS, f"unknown section: [{section}]")
+    issues.extend(_unknown_key_issues(config.raw))
 
     check(bool(config.agent.name.strip()), "[agent] name must not be empty")
     check(
@@ -792,11 +1172,6 @@ def validate_config(config: Config) -> list[str]:
         )
 
     check(
-        config.state.channel in ("comments", "labels", "both"),
-        f"[state] channel must be comments/labels/both: {config.state.channel!r}",
-    )
-
-    check(
         config.polling.mode in ("loop", "once"),
         f"[polling] mode must be loop/once: {config.polling.mode!r}",
     )
@@ -818,58 +1193,16 @@ def validate_config(config: Config) -> list[str]:
         "[executor] env_keys must not expose forge credentials to executors: "
         f"{sorted(_FORGE_CREDENTIAL_ENV & set(config.executor.env_keys))}",
     )
-    default = config.executor.default
-    entry = config.executor.commands.get(default)
-    if entry is None:
-        issues.append(f"[executor] default {default!r} has no [executor.{default}] table")
-    else:
-        issues.extend(_command_placeholder_issues(default, entry.command))
-        check(bool(entry.command.strip()), f"[executor.{default}] command is required")
-        check(bool(entry.model.strip()), f"[executor.{default}] model is required")
-        check(
-            "{prompt}" in entry.command,
-            f"[executor.{default}] command must contain a {{prompt}} placeholder",
-        )
-        check(
-            "--auto" not in entry.command.split(),
-            f"[executor.{default}] command must not use --auto (it would "
-            "auto-approve the push/pr/merge permissions that keep the "
-            "executor off the remote)",
-        )
-        if default == "codex":
-            command = entry.command
-            check(
-                "--json" in command
-                and (
-                    "--sandbox workspace-write" in command
-                    or "--dangerously-bypass-approvals-and-sandbox" in command
-                    or "--full-auto" in command
-                ),
-                "[executor.codex] command must run non-interactively: add "
-                "--json with --sandbox workspace-write, --full-auto, or "
-                "--dangerously-bypass-approvals-and-sandbox so Codex does not "
-                "block waiting for approval headless",
-            )
-            check(
-                "--ignore-user-config" in command.split(),
-                "[executor.codex] command must include --ignore-user-config so "
-                "headless runs use ADORE's staged CODEX_HOME instead of a "
-                "machine-local desktop config/plugin state",
-            )
-            check(
-                "--disable plugins" in command,
-                "[executor.codex] command must include --disable plugins so "
-                "Codex does not materialize its bundled plugin marketplace "
-                "inside the target worktree",
-            )
-        if default == "qwen":
-            command = entry.command
-            check(
-                "--yolo" not in command.split() and "--approval-mode yolo" not in command,
-                "[executor.qwen] command must not use --yolo / --approval-mode yolo "
-                "(auto-approves all tools; rely on the .qwen deny-hooks + "
-                "container isolation)",
-            )
+    issues.extend(_provider_issues(config))
+    command = config.executor.command
+    issues.extend(_command_placeholder_issues(command))
+    check(bool(command.strip()), "[executor] command is required")
+    check("{prompt}" in command, "[executor] command must contain a {prompt} placeholder")
+    check(
+        "--auto" not in command.split(),
+        "[executor] command must not use --auto (it would auto-approve the "
+        "push/pr/merge permissions that keep the executor off the remote)",
+    )
 
     check(config.clarification.max_rounds >= 1, "[clarification] max_rounds must be >= 1")
     durations_ok = True
@@ -883,13 +1216,8 @@ def validate_config(config: Config) -> list[str]:
                 f"{getattr(config.clarification, key)!r}"
             )
     if durations_ok:
-        # a reminder that fires at or after the hard timeout can never nudge
-        # before the run is released - reject the ordering, not just the format
-        check(
-            config.clarification.reminder_after_seconds()
-            < config.clarification.answer_timeout_seconds(),
-            "[clarification] reminder_after must be shorter than answer_timeout",
-        )
+        check(config.clarification.answer_timeout_seconds() > 0,
+              "[clarification] answer_timeout must be positive")
     check(
         config.clarification.timeout_state in ("failed", "stale"),
         f"[clarification] timeout_state must be failed/stale: "
@@ -908,6 +1236,19 @@ def validate_config(config: Config) -> list[str]:
             "[container] run_args entries must be single option tokens "
             f'starting with "-" (e.g. "--userns=keep-id"): {arg!r}',
         )
+    check(type(config.container.system_packages) is bool,
+          "[container] system_packages must be a boolean")
+    if config.container.system_packages is True:
+        check(config.execution.backend == "container",
+              "[container] system_packages is unavailable for local execution")
+        # This managed mode cannot inherit host exposure from arbitrary runtime
+        # overrides. Ordinary resource limits and rootless keep-id remain valid.
+        allowed_options = {"--memory", "--memory-swap", "--cpus", "--cpu-shares",
+                           "--pids-limit", "--shm-size", "--userns", "--cpuset-cpus"}
+        for arg in config.container.run_args:
+            check(isinstance(arg, str) and arg.split("=", 1)[0] in allowed_options
+                  and (not arg.startswith("--userns") or arg == "--userns=keep-id"),
+                  "[container] system_packages refuses unsafe run_args overrides")
     check(
         config.container.selinux_relabel in SELINUX_RELABEL_MODES,
         "[container] selinux_relabel must be "
@@ -932,6 +1273,11 @@ def validate_config(config: Config) -> list[str]:
             check(
                 key not in _MANAGED_CONTAINER_ENV,
                 f"[container] runtime_env.{key} is managed by ADORE and cannot be overridden",
+            )
+            check(
+                not str(key).upper().startswith(REMOVED_AGENT_ENV_PREFIXES),
+                f"[container] runtime_env.{key} configures a removed coding agent: "
+                "remove it from config.toml",
             )
     check(
         isinstance(config.container.required_tool_checks, list),
@@ -975,23 +1321,70 @@ def validate_config(config: Config) -> list[str]:
         f"[container] parked_ttl_mode must be seconds/polls: "
         f"{config.container.parked_ttl_mode!r}",
     )
-    check(bool(config.container.image.strip()), "[container] image is required")
+    check(config.execution.backend in ("container", "local"),
+          "[execution] backend must be container/local")
+    local = config.local
+    if "local" in config.raw:
+        declaration = config.raw["local"]
+        check(isinstance(declaration, dict), "[local] must be a table")
+        if isinstance(declaration, dict):
+            for key in set(declaration) - {item.name for item in fields(LocalConfig)}:
+                issues.append(f"[local] unknown field: {key}; remove it from config.toml")
+    check(local.account == "current", '[local] account must be "current"')
+    check(isinstance(local.path, str) and not any(ord(c) < 32 for c in local.path),
+          "[local] path must be plain text")
+    if config.execution.backend == "local":
+        check(not config.execution.preparation, "[local] container preparation is unsupported")
+        check(not config.container.egress.allowlist,
+              "[local] container egress allowlist is unsupported: a local run is not "
+              "network-restricted")
+        check(not config.container.run_args and not config.container.required_tool_checks
+              and config.container.selinux_relabel == "off",
+              "[local] container runtime options/tool checks are unsupported")
+        check(config.container.runtime_env == ContainerConfig().runtime_env,
+              "[local] [container] runtime_env is unsupported")
+        raw_executor = config.raw.get("executor", {})
+        check(config.executor.command == PI_NATIVE_COMMAND
+              and not (isinstance(raw_executor, dict) and "command" in raw_executor),
+              "[local] remove [executor] command from config.toml: local Pi is managed by ADORE")
+        check(all(not str(name).upper().startswith(("PI_", "NODE_", "NPM_", "PYTHON", "GIT_",
+                                                   "LD_", "DYLD_"))
+                  and str(name).upper() not in _FORGE_CREDENTIAL_ENV | {
+                      "PATH", "HOME", "USERPROFILE", "COMSPEC", "SYSTEMROOT",
+                      "BASH_ENV", "ENV", "SSH_AUTH_SOCK", "SSH_AGENT_PID",
+                  }
+                  for name in config.executor.env_keys),
+              "[local] executor env_keys cannot override the managed launch environment")
+    if "execution" in config.raw:
+        declaration = config.raw["execution"]
+        check(isinstance(declaration, dict), "[execution] must be a table")
+        if isinstance(declaration, dict):
+            for key in set(declaration) - {item.name for item in fields(ExecutionConfig)}:
+                issues.append(f"[execution] unknown field: {key}")
+    if not isinstance(config.execution.preparation, str):
+        issues.append("[execution] preparation must be text")
+    elif config.execution.preparation:
+        from adore.preparation import PreparationError, parse_selection
+
+        try:
+            parse_selection(config.execution.preparation)
+        except PreparationError as exc:
+            issues.append(f"[execution] preparation: {exc}")
+    for key, maximum in (("preparation_step_timeout_seconds", 1800),
+                         ("preparation_total_timeout_seconds", 3600),
+                         ("preparation_max_attempts", 3)):
+        value = getattr(config.execution, key)
+        check(type(value) is int and 1 <= value <= maximum,
+              f"[execution] {key} must be an integer in 1..{maximum}")
+    check(config.execution.backend == "local" or bool(config.container.image.strip())
+          or bool(config.execution.preparation),
+          "[container] image is required without preparation")
     egress = config.container.egress
-    check(
-        egress.mode in ("open", "allowlist-proxy", "none"),
-        f'[container.egress] mode must be "open", "allowlist-proxy", or "none": '
-        f"{egress.mode!r}",
-    )
     check(
         isinstance(egress.allowlist, list),
         "[container.egress] allowlist must be a list of hostnames",
     )
     if isinstance(egress.allowlist, list):
-        if egress.mode == "allowlist-proxy":
-            check(
-                bool(egress.allowlist),
-                "[container.egress] allowlist-proxy requires a non-empty allowlist",
-            )
         for item in egress.allowlist:
             if not isinstance(item, str):
                 issues.append(
@@ -1059,26 +1452,20 @@ def validate_config(config: Config) -> list[str]:
         "[worktree] repo_path is required (local clone the run worktrees are created from)",
     )
     check(bool(config.worktree.root.strip()), "[worktree] root must not be empty")
-    check(
-        "{run_id}" in config.worktree.branch_template
-        or "{iid}" in config.worktree.branch_template,
-        "[worktree] branch_template must contain {run_id} or {iid} so branches "
-        f"stay unique per ticket: {config.worktree.branch_template!r}",
-    )
-    if config.worktree.branch_rule:
-        sample = config.worktree.branch_template.format(
-            slug=config.agent.slug, run_id="sample-run-1", iid=1
-        )
-        try:
-            rule = re.compile(config.worktree.branch_rule)
-        except re.error as exc:
-            issues.append(f"[worktree] branch_rule is not a valid regex: {exc}")
-        else:
-            check(
-                rule.match(sample) is not None,
-                f"[worktree] branch_template renders {sample!r}, which the "
-                f"repo push rule {config.worktree.branch_rule!r} would REJECT",
-            )
+    branch = branch_naming_preview(config.worktree.branch_template,
+                                   config.worktree.branch_rule, config.agent.slug)
+    branch_messages = {
+        "missing_identity": "branch_template must contain {run_id} or {iid}",
+        "invalid_template": ("branch_template accepts only {slug}, {run_id}, {iid} "
+                             "without format modifiers"),
+        "invalid_branch": "branch_template renders an invalid Git branch name",
+        "invalid_rule": "branch_rule is not a valid regex",
+        "rule_mismatch": "branch_template renders a name the repo push rule would REJECT",
+        "rule_timeout": "branch_rule evaluation exceeded one second",
+        "rule_check_failed": "branch_rule evaluation failed",
+        "too_long": "branch_template and branch_rule must be at most 512 characters",
+    }
+    issues.extend("[worktree] " + branch_messages[code] for code in branch["issues"])
 
     workflow = config.workflow
     check(
@@ -1109,7 +1496,9 @@ def validate_config(config: Config) -> list[str]:
     check(
         isinstance(workflow.aegis_python, str)
         and bool(workflow.aegis_python.strip())
-        and not any(char.isspace() for char in workflow.aegis_python),
+        and (config.execution.backend == "local"
+             or not any(char.isspace() for char in workflow.aegis_python))
+        and not any(char in workflow.aegis_python for char in "\x00\r\n"),
         "[workflow] aegis_python must be one executable token",
     )
     check(
@@ -1155,36 +1544,28 @@ def validate_config(config: Config) -> list[str]:
                 isinstance(value, int) and not isinstance(value, bool) and value >= 0,
                 f"[recovery] retry_backoff_seconds entries must be >= 0: {value!r}",
             )
-    check(config.budgets.max_iterations >= 1, "[budgets] max_iterations must be >= 1")
-    check(
-        config.budgets.max_wall_clock_seconds >= 1,
-        "[budgets] max_wall_clock_seconds must be >= 1",
-    )
-    check(
-        config.budgets.per_gate_timeout_seconds >= 1,
-        "[budgets] per_gate_timeout_seconds must be >= 1",
-    )
-    cost_cap = config.budgets.max_cost_usd
-    check(
-        isinstance(cost_cap, (int, float)) and not isinstance(cost_cap, bool)
-        and cost_cap >= 0
-        and (not isinstance(cost_cap, float) or math.isfinite(cost_cap)),
-        "[budgets] max_cost_usd must be a finite nonnegative number (0 disables the cap)",
-    )
-    check(config.budgets.max_files_touched >= 1, "[budgets] max_files_touched must be >= 1")
+    issues.extend(validate_budgets(config))
 
     check(bool(config.delivery.target_branch.strip()), "[delivery] target_branch is required")
     check(
         type(config.delivery.publish_checkpoints) is bool,
         "[delivery] publish_checkpoints must be a boolean",
     )
-    check(bool(config.delivery.reviewers), "[delivery] reviewers must list at least one human")
-    check(config.delivery.draft, "[delivery] draft must stay true: ADORE never opens ready MRs")
+    check(valid_reviewers(config.delivery.reviewers),
+          "[delivery] reviewers must list valid human account names (empty requests no review)")
+    check(type(config.delivery.draft) is bool, "[delivery] draft must be a boolean")
+    check(
+        type(config.delivery.remove_source_branch) is bool,
+        "[delivery] remove_source_branch must be a boolean",
+    )
     check(
         isinstance(config.delivery.approval_label, str)
         and bool(config.delivery.approval_label.strip()),
         "[delivery] approval_label must be a non-empty label",
     )
+    check(isinstance(config.labels.selection.type_epic, str) and
+          bool(config.labels.selection.type_epic.strip()),
+          "[labels.selection] type_epic must be a non-empty label")
     lifecycle_labels = set(asdict(config.labels.lifecycle).values())
     control_labels = set(asdict(config.labels.control).values())
     check(
@@ -1219,6 +1600,10 @@ def validate_config(config: Config) -> list[str]:
         f"{config.reconcile.on_trigger_removed!r}",
     )
 
+    check(
+        type(config.metrics.capture_tokens) is bool,
+        "[metrics] capture_tokens must be a boolean",
+    )
     if config.metrics.enabled:
         check(bool(config.metrics.db_path.strip()), "[metrics] db_path is required when enabled")
 
