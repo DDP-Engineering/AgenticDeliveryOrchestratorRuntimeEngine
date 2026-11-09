@@ -117,6 +117,8 @@ USER adore
 
 Pour utiliser l’image, choisissez le **Moteur de conteneur** (Docker ou Podman) et l’**Image de l'exécuteur** à l’étape 2 de l’inscription, ou modifiez ces mêmes lignes dans Paramètres. L’image est un champ libre avec des suggestions tirées des images du serveur ADORE pour ce moteur (administrateurs uniquement) ; un avis s’affiche quand l’image saisie n’est pas sur le serveur, un autre quand la liste ne peut pas être lue.
 
+Dans Paramètres, modifiez **Moteur de conteneur** pour choisir Docker ou Podman détecté sur le serveur, y compris dans WSL sous Windows. Choisissez **Commande de conteneur manuelle** pour saisir la vôtre, puis utilisez **Enregistrer**. La vérification des prérequis recherche Pi dans l’image choisie.
+
 Pour une commande WSL personnalisée, placez `--` ou `--exec` avant la commande du conteneur. Les entrées Docker et Podman standard sont traitées automatiquement.
 
 Confirmez ensuite avec **Vérifier les prérequis de l’hôte** et **Tester la connexion IA**.

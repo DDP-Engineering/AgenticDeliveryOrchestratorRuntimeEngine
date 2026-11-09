@@ -54,7 +54,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Browse tickets with a compact, saved Markdown/source choice and buttons that keep words whole.", fr = "Tickets avec choix Markdown/source compact mémorisé et boutons sans mots coupés.", de = "Tickets mit kompakter, gespeicherter Markdown/Quelltext-Wahl und ungeteilten Schaltflächenwörtern.", ro = "Tichete cu selector compact Markdown/sursă, alegere salvată și butoane fără cuvinte rupte." }
+text = { en = "Compact number column, saved Markdown/source choice, and action labels that keep words whole.", fr = "Colonne numéro étroite, choix Markdown/source mémorisé et boutons sans mots coupés.", de = "Schmale Nummernspalte, gemerkte Markdown/Quelltext-Wahl und ungeteilte Buttontexte.", ro = "Coloană de număr îngustă, alegere Markdown/sursă salvată și butoane fără cuvinte rupte." }
 
 [[release.entry]]
 category = "new"
@@ -104,7 +104,7 @@ text = { en = "Choose clone folders and remote branches easily, with the reposit
 [[release.entry]]
 category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
-text = { en = "Pi is the only coding agent: choose where it runs, with image suggestions; it stops at once.", fr = "Pi est le seul agent : choisissez où il tourne, avec suggestions d'images ; il s'arrête net.", de = "Pi ist der einzige Agent: wählen Sie, wo er läuft, mit Image-Vorschlägen; er stoppt sofort.", ro = "Pi este singurul agent: alegeți unde rulează, cu sugestii de imagini; se oprește imediat." }
+text = { en = "Choose where Pi runs. Pick detected runtimes and images in WSL too, or enter a command.", fr = "Choisissez où Pi tourne, avec moteurs et images détectés aussi dans WSL ou une commande.", de = "Wählen Sie Pi-Laufzeit und Image auch in WSL oder geben Sie einen eigenen Befehl ein.", ro = "Alege unde rulează Pi, cu runtime și imagini detectate și în WSL sau cu o comandă manuală." }
 
 [[release.entry]]
 category = "improved"

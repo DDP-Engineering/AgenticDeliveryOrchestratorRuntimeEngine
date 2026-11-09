@@ -31,10 +31,12 @@ import json
 from pathlib import Path
 import platform
 import re
+import shlex
+from time import monotonic
 
 from adore.aegis import MINIMUM_SERIES, SUPPORTED_MAJOR, VERSION_RE
 from adore.gitea_auth import GiteaAuthError, portable_tea_runner
-from adore.util import CommandRunner, run_command, strict_json_loads
+from adore.util import CommandResult, CommandRunner, run_command, strict_json_loads
 
 # CONSTANTS
 
@@ -53,6 +55,13 @@ PI = "pi"
 AEGIS = "aegis"
 GIT_PUSH = "git-push"
 GITIGNORE = "gitignore"
+_CONTAINER_CLIS = (DOCKER, PODMAN)
+_WSL_DISTRO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_. -]{0,79}")
+_WSL_INTERNAL_DISTROS = {"docker-desktop", "docker-desktop-data"}
+_RUNTIME_DISCOVERY_SECONDS = 30
+_RUNTIME_PROBE_SECONDS = 5
+_WSL_RUNTIME_PROBE_SECONDS = 18
+_RUNTIME_DISCOVERY_DISTROS = 8
 
 # The AEGIS payload contract the target repository must satisfy.
 AEGIS_WRAPPER = ".agentic/aegis.py"
@@ -389,6 +398,52 @@ def detect_runtimes(
     podman = _probe(runner, PODMAN, ["podman", "--version"])
     distros = detect_wsl_distros(runner) if key == "windows" else []
     return RuntimeDetection(docker=docker, podman=podman, wsl_distros=distros)
+
+
+def inventory_runtime_argv(command: str) -> list[str] | None:
+    """@brief Resolve a standard runtime command for read-only inventory probes.
+    @param[in] command Configured runtime command.
+    @return Fixed native or WSL prefix, or None for unsupported commands.
+    """
+    if command in _CONTAINER_CLIS:
+        return [command]
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return None
+    if (len(argv) != 5 or argv[:2] != [WSL, "-d"]
+            or not _WSL_DISTRO_NAME.fullmatch(argv[2])
+            or argv[2].lower() in _WSL_INTERNAL_DISTROS
+            or argv[3] not in {"--", "--exec", "-e"} or argv[4] not in _CONTAINER_CLIS):
+        return None
+    return [WSL, "-d", argv[2], "--exec", argv[4]]
+
+
+def discover_container_commands(runner: CommandRunner = run_command) -> list[str]:
+    """@brief Suggest Docker and Podman commands whose version probes succeed.
+    @param[in] runner Injectable host command runner.
+    @return Native commands first, then commands in detected Windows WSL distros.
+    @note Both the number of distros and the total probe duration are bounded.
+    """
+    deadline = monotonic() + _RUNTIME_DISCOVERY_SECONDS
+
+    def probe(argv: list[str], *, limit: int = _RUNTIME_PROBE_SECONDS) -> CommandResult:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return CommandResult(argv=argv, exit_code=124, timed_out=True)
+        return runner(argv, timeout=min(remaining, limit))
+
+    found = [cli for cli in _CONTAINER_CLIS if probe([cli, "--version"]).ok]
+    if detect_os() == "windows":
+        distros = [name for name in dict.fromkeys(detect_wsl_distros(probe))
+                   if _WSL_DISTRO_NAME.fullmatch(name)
+                   and name.lower() not in _WSL_INTERNAL_DISTROS]
+        for distro in distros[:_RUNTIME_DISCOVERY_DISTROS]:
+            for cli in _CONTAINER_CLIS:
+                argv = [WSL, "-d", distro, "--exec", cli, "--version"]
+                if probe(argv, limit=_WSL_RUNTIME_PROBE_SECONDS).ok:
+                    found.append(shlex.join([WSL, "-d", distro, "--", cli]))
+    return found
 
 
 def detect_platform_cli(kind: str, runner: CommandRunner = run_command) -> ToolStatus:

@@ -33,6 +33,12 @@ corporate instance. Gitea continues to route through its selected tea login.
 
 ## 4. Validation and Tests
 
+`discover_container_commands` runs bounded Docker and Podman version probes
+on the host and up to eight Windows WSL distributions. It filters distro names
+and returns command strings only for successful probes. `inventory_runtime_argv`
+admits only fixed native and standard WSL prefixes for the web image inventory.
+`test_executor_environment_choice.py` covers the resulting API contracts offline.
+
 `tests/test_doctor.py` covers valid version/schema-1 detection, missing payload,
 malformed/blocked status, wrong version/schema, and guidance.
 

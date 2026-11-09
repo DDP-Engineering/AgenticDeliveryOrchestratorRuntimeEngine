@@ -27,6 +27,9 @@ All command execution uses CommandRunner; tests fake external CLIs.
 for one `aegis --version` text, and `guidance_for()` returns the per-platform
 remedy text, which names the supported range (`AEGIS_SUPPORTED_TEXT`) and
 schema 1. `detect_executor()` probes Pi (`doctor.PI`) with `pi --version`.
+`discover_container_commands()` returns successful native and Windows WSL
+Docker and Podman version probes. `inventory_runtime_argv()` resolves the
+standard read-only inventory command form into a fixed argument list.
 
 ## Invariants
 
@@ -45,6 +48,7 @@ version floor; malformed version/schema/status and nonzero commands fail readine
 | Authentication | auth_status | test_doctor.py and test_gitea_auth.py |
 | AEGIS compatibility | detect_aegis | test_doctor.py |
 | Tool guidance | detect_all and guidance_for | test_doctor.py |
+| Web runtime discovery | discover_container_commands and inventory_runtime_argv | test_executor_environment_choice.py |
 
 ## Key behaviors
 
@@ -52,6 +56,7 @@ version floor; malformed version/schema/status and nonzero commands fail readine
 - REQ-FUNC-8a2e5904: injected host/forge/runtime/executor reporting.
 - REQ-FUNC-cacfa8b2: portable current-account Gitea discovery and verified identity.
 - REQ-UX-163a1c99: safe Connect repository recovery steps.
+- REQ-FUNC-72081f3b and REQ-SEC-548f27ce: fixed, bounded runtime probes with validated distro names.
 
 ## Files
 

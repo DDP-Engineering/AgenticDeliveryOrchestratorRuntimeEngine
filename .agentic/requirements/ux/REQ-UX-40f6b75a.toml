@@ -1,0 +1,14 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-40f6b75a"
+title = "Choose a detected runtime or enter a manual command"
+status = "active"
+requirement = "When an administrator edits Container runtime command in project Settings, ADORE shall offer detected commands and manual entry while preserving the existing value and the reviewed Save boundary."
+verification = "Use Chromium to select a WSL command, cancel, save a manual command and edit when discovery fails."
+affected_paths = ["04_Software/web/src/App.tsx","04_Software/web/src/ContainerRuntimePicker.tsx"]
+linked_tests = ["04_Software/web/e2e/images.spec.ts"]
+updated = "2026-11-09"

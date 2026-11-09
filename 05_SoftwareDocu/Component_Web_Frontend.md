@@ -287,6 +287,10 @@ shared `jobsSubtabs` (Tickets via `TicketWorkspace`, Jobs via `JobWorkspace`);
 projects it reads each active project with `Promise.allSettled`, keys rows by
 project and ticket, adds a Project column and reports read failures per project. `JobWorkspace` has no
 scope panel or ticket-number form and shows worker status only as an alert.
+The Tickets table assigns a compact width to the number header at desktop and
+narrow widths. The other flexible columns share the space. The style targets
+the outer table header, so details can span all columns and nested tables size
+independently.
 Manual start goes through Tickets Start. Archived projects retain history and hide
 start. Retry is available for failed current jobs; cancel excludes terminal and
 pending/completed human handoffs. Effects stay visible beside each control.
@@ -929,6 +933,8 @@ Project Settings purpose categories are collapsed on entry. Opening a category s
 Native execution is selected with **Runs in → Installed on the server** at enrollment or in the reviewed Settings flow, in the server profile, or through server TOML enrollment. Existing native executor/model and explicit host checks use that prepared environment. The container notice is omitted for local projects. See [Local execution](../01_Documentation/Local_Execution.md) for machine/account, authentication and process ownership.
 
 ## Project image workspace
+
+`ContainerRuntimePicker.tsx` loads administrator runtime suggestions when the Settings editor opens. The select and manual input share the active draft, including on unavailable discovery. `serverImages.ts` sends the selected runtime as a URL query value for image suggestions. The reviewed Save path remains the persistence boundary. `images.spec.ts` covers WSL selection, image lookup, cancel and manual save.
 
 Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image; **Executor image** (enrollment step 2 and Settings) selects one that the administrator prepared on the server. Specialized profiles use server TOML enrollment. The retired image-build routes are removed and answer 404. See [Project executor images](../01_Documentation/Project_Executor_Images.md).
 

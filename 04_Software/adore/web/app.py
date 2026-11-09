@@ -2045,7 +2045,10 @@ def _valid_environment_value(key: str, value: object) -> bool:
     if key == "container.image":
         return isinstance(value, str) and bool(_IMAGE_REFERENCE.fullmatch(value))
     if key == "container.runtime":
-        return isinstance(value, str) and bool(_RUNTIME_COMMAND.fullmatch(value))
+        return isinstance(value, str) and (
+            bool(_RUNTIME_COMMAND.fullmatch(value))
+            or doctor.inventory_runtime_argv(value) is not None
+        )
     return True
 
 
@@ -3257,15 +3260,25 @@ def create_app(home: str | Path | None = None,
         except ValueError as exc:
             raise _error(503, "provider_catalog_unavailable") from exc
 
+    @app.get("/api/v1/executor-runtimes")
+    def executor_runtimes(response: Response,
+                          _user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief List bounded host container CLI suggestions for administrators."""
+        response.headers["Cache-Control"] = "no-store"
+        return {"commands": doctor.discover_container_commands(probe_runner)}
+
     @app.get("/api/v1/executor-images")
-    def executor_images(runtime: Literal["docker", "podman"],
+    def executor_images(runtime: Annotated[str, Query(max_length=160)],
                         _user: Annotated[dict, Depends(administrator)]) -> dict:
         """
         @brief Tagged container images on the ADORE server, for image suggestions.
         @details Read-only and bounded; a runtime that cannot be queried is reported
                  as unavailable rather than as an error.
         """
-        result = probe_runner([runtime, "images", "--format", "{{.Repository}}:{{.Tag}}"],
+        prefix = doctor.inventory_runtime_argv(runtime)
+        if prefix is None or (prefix[0] == doctor.WSL and doctor.detect_os() != "windows"):
+            raise _error(422, "invalid_request", "Unsupported runtime for image listing.")
+        result = probe_runner([*prefix, "images", "--format", "{{.Repository}}:{{.Tag}}"],
                               timeout=_IMAGE_LIST_TIMEOUT)
         if not result.ok:
             return {"runtime": runtime, "available": False, "images": []}

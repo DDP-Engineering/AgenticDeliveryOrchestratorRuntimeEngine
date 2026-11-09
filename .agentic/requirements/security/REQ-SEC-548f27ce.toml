@@ -1,0 +1,14 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-548f27ce"
+title = "Restrict runtime inventory to authorized fixed probes"
+status = "active"
+requirement = "When a runtime inventory is requested, ADORE shall restrict access to administrators and use only fixed Docker or Podman probes with validated WSL arguments."
+verification = "Assert unauthorized callers cannot launch commands and malformed distro names and inventory prefixes never reach the runner."
+affected_paths = ["04_Software/adore/doctor.py","04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_executor_environment_choice.py"]
+updated = "2026-11-09"

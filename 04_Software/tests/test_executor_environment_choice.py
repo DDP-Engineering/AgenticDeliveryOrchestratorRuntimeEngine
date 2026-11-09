@@ -21,6 +21,7 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 
+from adore import doctor
 from adore.config import load_config
 from adore.profiles import ProfileStore
 from adore.state import StateStore
@@ -80,6 +81,94 @@ def _login(client: TestClient, user: str = "admin", password: str = "admin") -> 
 
 
 # TESTS
+@pytest.mark.parametrize("system", ["windows", "linux"])
+def test_runtime_inventory_lists_successful_probes_only(tmp_path, monkeypatch, system):
+    """@brief Discover working host and WSL CLI commands from fixed bounded probes."""
+    monkeypatch.setattr(doctor, "detect_os", lambda: system)
+    calls = []
+
+    def probe(argv, *, timeout):
+        if argv[:2] == ["wsl", "-d"]:
+            assert 8 < timeout <= 18
+        else:
+            assert 0 < timeout <= 5
+        calls.append(argv)
+        if argv == ["wsl", "-l", "-q"]:
+            return CommandResult(argv=argv, exit_code=0, stdout=(
+                "\ufeffU\x00b\x00u\x00n\x00t\x00u\x00\nTeam Linux\nUbuntu\n"
+                "--system\nbad;cmd\ndocker-desktop\n"
+            ))
+        if argv == ["docker", "--version"]:
+            return CommandResult(argv=argv, exit_code=124, timed_out=True)
+        if argv in (["podman", "--version"],
+                    ["wsl", "-d", "Ubuntu", "--exec", "docker", "--version"],
+                    ["wsl", "-d", "Team Linux", "--exec", "podman", "--version"]):
+            return CommandResult(argv=argv, exit_code=0, stdout="version")
+        return CommandResult(argv=argv, exit_code=127)
+
+    with TestClient(create_app(tmp_path, probe_runner=probe)) as client:
+        assert client.get("/api/v1/executor-runtimes").status_code == 401
+        assert not calls
+        _login(client)
+        response = client.get("/api/v1/executor-runtimes")
+        expected = ["podman"]
+        if system == "windows":
+            expected += ["wsl -d Ubuntu -- docker", "wsl -d 'Team Linux' -- podman"]
+        assert response.status_code == 200, response.text
+        assert response.json() == {"commands": expected}
+        assert response.headers["Cache-Control"] == "no-store"
+    assert sum(argv[:4] == ["wsl", "-d", "Ubuntu", "--exec"] for argv in calls) == (
+        2 if system == "windows" else 0
+    )
+    assert not any(value in argv for argv in calls
+                   for value in ("--system", "bad;cmd", "docker-desktop"))
+
+
+def test_runtime_inventory_empty_and_developer_cannot_probe(tmp_path, monkeypatch):
+    """@brief Probe failures are empty suggestions and developer requests launch nothing."""
+    monkeypatch.setattr(doctor, "detect_os", lambda: "linux")
+    runner = Runner()
+    app = create_app(tmp_path, probe_runner=runner)
+    app.state.web_store.create_user("dev", "longer-password", "developer")
+    with TestClient(app) as client:
+        _login(client, "dev", "longer-password")
+        assert client.get("/api/v1/executor-runtimes").status_code == 403
+        assert runner.calls == []
+        _login(client)
+        assert client.get("/api/v1/executor-runtimes").json() == {"commands": []}
+
+
+def test_wsl_image_listing_executes_only_the_fixed_inventory_prefix(tmp_path, monkeypatch):
+    """@brief WSL inventory maps the selected distro to direct argv and refuses extra flags."""
+    monkeypatch.setattr(doctor, "detect_os", lambda: "windows")
+    calls = []
+    valid = "wsl -d 'Team Linux' -- docker"
+
+    def probe(argv, *, timeout):
+        calls.append(argv)
+        return CommandResult(argv=argv, exit_code=1 if len(calls) > 1 else 0,
+                             stdout=LISTING)
+
+    with TestClient(create_app(tmp_path, probe_runner=probe)) as client:
+        _login(client)
+        response = client.get("/api/v1/executor-images", params={"runtime": valid})
+        assert response.status_code == 200, response.text
+        assert response.json()["images"] == [
+            "adore-executor-base:pi-0.87.1", "adore-executor-python:pi-0.87.1"
+        ]
+        assert calls == [["wsl", "-d", "Team Linux", "--exec", "docker",
+                          "images", "--format", "{{.Repository}}:{{.Tag}}"]]
+        for rejected in ("wsl -u root -d Ubuntu -- docker", "wsl -d --system -- docker",
+                         valid + " --host evil", "wsl -d Ubuntu -- sh", "docker --debug"):
+            assert client.get("/api/v1/executor-images", params={
+                "runtime": rejected
+            }).status_code == 422
+        assert len(calls) == 1
+        assert client.get("/api/v1/executor-images", params={"runtime": valid}).json() == {
+            "runtime": valid, "available": False, "images": [],
+        }
+
+
 @pytest.mark.parametrize("runtime", ["docker", "podman"])
 def test_administrators_list_the_server_images(tmp_path, runtime):
     """@brief Tagged images come back sorted and unique; untagged entries are dropped."""
@@ -117,7 +206,10 @@ def test_image_listing_fails_soft_and_is_restricted(tmp_path):
 
 @pytest.mark.parametrize(
     "key,value",
-    [("container.image", "adore-executor-base:pi-0.87.1"), ("container.runtime", "podman")],
+    [("container.image", "adore-executor-base:pi-0.87.1"),
+     ("container.runtime", "podman"),
+     ("container.runtime", "wsl -d 'Team Linux' -- docker"),
+     ("container.runtime", "wsl -d Ubuntu --exec docker")],
 )
 def test_chosen_environment_keys_apply_through_review(tmp_path, key, value):
     """@brief The image and runtime change through a reviewed candidate."""

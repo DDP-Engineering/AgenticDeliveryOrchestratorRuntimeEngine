@@ -71,6 +71,9 @@ The dedicated header combines name/repository and Summary, Settings, Jobs, Stati
 Jobs and Statistics render inside the hub; the identity band appears only there.
 The Jobs tab opens on a Tickets sub-tab (read on request, Start that can add the
 ready/priority labels, Retry, Stop and Details per ticket; more than 10 tickets are paged 10/25/50/All with page X of Y) beside a Jobs sub-tab with the job table and detail. Administrators record estimated prices in Settings > Agent and model. Deletion confirmation clears on page or project changes.
+The Tickets table reserves a compact number column in both scopes and uses
+the other flexible columns for content. A narrower mobile width keeps the
+number and full-width details usable at 360 px (REQ-UX-5c5c19cd).
 
 Implementation settings support reviewed edits for human-answer waiting time (positive integer plus seconds/minutes/hours/days), positive question-round count, a nonempty retry schedule (one nonnegative integer per line), and the complete stage-timeout map. The five stage rows choose either the general attempt limit or a positive custom limit in seconds; choosing general removes the override. Retry and timeout collections accept only safe integers and their declared keys; other lists/maps remain read-only except the existing reviewer list. Admins edit several settings, choose Save, confirm important effects and save only at the existing idle boundary; developers remain read-only. Names, help and controls share four locales. The answer deadline is independent of the reserved reminder; reminder format is still checked and no reminder is sent.
 
@@ -984,6 +987,13 @@ Editable settings place **Edit** beside **Active value** in the value column, in
 Project Settings purpose categories are collapsed on entry. Opening a category shows desktop description and control columns in a 3:2 ratio separated by 32px, with values/actions aligned to the right; below 640px they stack at full width. Native disclosures retain keyboard operation. Agent and model groups AI connection, the Pi provider, model, endpoint and launch command, closed Authentication (additional credential variables and Provider API key, or for a `chatgpt` project the ChatGPT sign-in panel `ChatGptSignIn.tsx` shown to Admins of a non-archived project) and external environment guidance. The panel shows the status, Sign in with ChatGPT (Sign in again unless not signed in), Disconnect ChatGPT (disabled while not signed in) and, while a sign-in waits, the OpenAI link (new tab, `noopener noreferrer`), a 15-minute validity note, the redirect address field, Complete sign-in and Cancel. The link and the address live only in component memory; the field is cleared on every attempt, and the panel rereads the status after every action. Its inline field editors retain the existing row columns and stack using the normal mobile layout; the credential-name dropdown and removable selections wrap within the value column.
 
 ## External executor environment seam
+
+Settings uses `ContainerRuntimePicker.tsx` to list detected native and WSL
+commands from the administrator-only `GET /api/v1/executor-runtimes` and to edit
+the same draft manually on demand or when discovery is unavailable. Standard
+WSL commands also resolve image suggestions. The reviewed Save flow owns all
+configuration writes. Proof: `test_executor_environment_choice.py` and
+`images.spec.ts`.
 
 ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 

@@ -47,7 +47,7 @@ Optionale Labels formen den Auftrag: `bug` oder `fix` ergibt eine Fehlerbehebung
 
 Öffnen Sie ein Projekt unter Projekte, wählen Sie seinen Reiter **Aufträge** und bleiben Sie im Unterreiter **Tickets**. Die globale Seite **Aufträge** in der Seitenleiste hat dieselben beiden Unterreiter und eine Auswahl **Jobbereich**. Bei **Alle Projekte** erhält die Tabelle eine Spalte Projekt, und jede Zeile wirkt auf ihr eigenes Projekt.
 
-Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt Nummer, Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
+Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
 
 | Status | Bedeutung |
 |---|---|

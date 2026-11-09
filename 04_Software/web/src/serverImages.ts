@@ -24,9 +24,10 @@ export function proposeImage(names: string[], executor: string): string {
 /** Read the server's images; a runtime that cannot be listed (or any failure) is unavailable. */
 export async function readServerImages(runtime: string): Promise<ServerImages> {
   const unavailable = { runtime, available: false, images: [] };
-  if (!["docker", "podman"].includes(runtime)) return unavailable;
+  if (!runtime.trim()) return unavailable;
   try {
-    const response = await fetch("/api/v1/executor-images?runtime=" + runtime, { credentials: "same-origin", cache: "no-store" });
+    const query = new URLSearchParams({ runtime });
+    const response = await fetch("/api/v1/executor-images?" + query, { credentials: "same-origin", cache: "no-store" });
     const value: unknown = response.ok ? await response.json() : null;
     return validServerImages(value) && value.runtime === runtime ? value : unavailable;
   } catch { return unavailable; }

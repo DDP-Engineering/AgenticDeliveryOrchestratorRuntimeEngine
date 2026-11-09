@@ -1,0 +1,14 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-ec8e382f"
+title = "List local images for standard WSL runtime commands"
+status = "active"
+requirement = "When an administrator edits the image for a standard Docker or Podman command, including an offered WSL command, ADORE shall return the tagged images from that runtime or an unavailable inventory on probe failure."
+verification = "Request WSL image suggestions with a fake runner, check direct argv and image filtering, then simulate a failed listing."
+affected_paths = ["04_Software/adore/doctor.py","04_Software/adore/web/app.py","04_Software/web/src/serverImages.ts"]
+linked_tests = ["04_Software/tests/test_executor_environment_choice.py::test_wsl_image_listing_executes_only_the_fixed_inventory_prefix"]
+updated = "2026-11-09"

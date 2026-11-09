@@ -55,6 +55,7 @@ import { ticketCopy, operationResultText } from "./ticketCopy";
 import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
 import { readServerImages, type ServerImages } from "./serverImages";
+import { ContainerRuntimePicker } from "./ContainerRuntimePicker";
 import { ForgeLabelsAction } from "./ForgeLabels";
 import { settingDisplayLabel } from "./settingLabels";
 import { enrollmentCopy } from "./enrollmentCopy";
@@ -1805,6 +1806,8 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     try { const parsed=JSON.parse(draft);if(parsed && typeof parsed==="object" && !Array.isArray(parsed)) stageValues=parsed; } catch { /* Incomplete input remains local. */ }
     return <div className="setting-editor">
           {row.input === "connection" ? <AgentConnectionEditor value={draft} locale={locale} disabled={disabled} onChange={setDraft}/>
+          : row.key === "container.runtime" ? <ContainerRuntimePicker value={draft} label={label(row)}
+            descriptionId={`help-${row.key}`} locale={locale} disabled={disabled} onChange={setDraft} />
           : row.input === "credential-names" ? <CredentialNamesEditor value={draft} choices={row.choices} locale={locale} disabled={disabled} onChange={setDraft}/>
           : row.input === "duration" ? <div className="duration-inputs">
             <label>{editorCopy.amount}<input type="number" min={1} step={1} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={durationParts(draft).amount} onChange={event => setDraft(event.target.value + durationParts(draft).unit)} /></label>

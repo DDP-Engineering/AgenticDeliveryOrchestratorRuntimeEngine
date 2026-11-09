@@ -117,6 +117,8 @@ USER adore
 
 To use the image, choose the **Container runtime** (Docker or Podman) and the **Executor image** on step 2 of enrollment, or edit **Container runtime command** and **Agent container image** in Settings. The image is free text with suggestions read from the images on the ADORE server for that runtime (administrators only); a notice appears when the typed image is not on the server and another when the list cannot be read.
 
+In Settings, edit **Container runtime command** to choose Docker or Podman detected on the server, including commands in Windows WSL. Choose **Manual runtime command** to type your own, then use **Save**. The host prerequisites check looks for Pi in the selected image.
+
 For a custom WSL runtime command, place `--` or `--exec` before the container command. Standard Docker and Podman entries are handled automatically.
 
 Then confirm with **Check host prerequisites** and **Test AI connection**.

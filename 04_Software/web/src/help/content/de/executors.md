@@ -117,6 +117,8 @@ USER adore
 
 Um das Image zu verwenden, wählen Sie in Schritt 2 der Registrierung die **Container-Laufzeit** (Docker oder Podman) und das **Executor-Image**, oder bearbeiten Sie dieselben Zeilen in den Einstellungen. Das Image ist ein freies Textfeld mit Vorschlägen aus den Images auf dem ADORE-Server für diese Laufzeit (nur für Administratoren); ein Hinweis erscheint, wenn das eingegebene Image nicht auf dem Server ist, ein weiterer, wenn die Liste nicht gelesen werden kann.
 
+Bearbeiten Sie in den Einstellungen **Container-Laufzeit**, um auf dem Server erkanntes Docker oder Podman zu wählen, auch in Windows-WSL. Wählen Sie **Manueller Container-Befehl** für einen eigenen Befehl und danach **Speichern**. Die Host-Prüfung sucht Pi im gewählten Image.
+
 Setzen Sie bei einem eigenen WSL-Laufzeitbefehl `--` oder `--exec` vor den Containerbefehl. Die Standardeinträge für Docker und Podman werden automatisch behandelt.
 
 Bestätigen Sie anschließend mit **Host-Voraussetzungen prüfen** und **KI-Verbindung testen**.

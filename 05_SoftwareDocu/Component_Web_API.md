@@ -562,7 +562,8 @@ All routes below require administrator authorization and mutation CSRF:
 | Route | Input | Result |
 | --- | --- | --- |
 | `POST /api/v1/projects/id-availability` | `name` | Advisory `available` plus structured `issues`; never reserves an ID |
-| `GET /api/v1/executor-images?runtime=docker\|podman` | `runtime` | Read-only; runs `<runtime> images --format {{.Repository}}:{{.Tag}}` with a 15 s timeout, drops `<none>` entries and returns `{runtime, available, images}` for image suggestions |
+| `GET /api/v1/executor-runtimes` | None | Administrator-only discovery of native and WSL CLI commands. Returns `{commands}` from bounded version probes. |
+| `GET /api/v1/executor-images` | `runtime` | Administrator-only image inventory for native Docker or Podman and standard Windows WSL commands. Uses fixed argv and a 15 s timeout, drops untagged entries and returns `{runtime, available, images}`. Unsupported inventory commands return 422. |
 | `POST /api/v1/projects/{name}/labels/ensure` | none | Reads the repository's labels once and creates only the project's missing ADORE labels (colour and description); returns `{created, existing, failed[{name, reason}]}` and audits `labels-ensured`; 503 `forge_read_failed` (or the repository-auth code) when the labels cannot be read |
 | `POST /api/v1/projects/repository-source` | `url` | Detected `kind` (or null), `login`, `repo`, `default_branch`, validated sorted `branches`, derived `name`, `display_name`, `repo_path` (`<home>/repos/<name>`) and `clone` (`new`/`existing`); `repository_url_invalid` 400, `repository_unreachable` / `repository_branches_invalid` 502; no writes |
 | `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` and `clone_url` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |

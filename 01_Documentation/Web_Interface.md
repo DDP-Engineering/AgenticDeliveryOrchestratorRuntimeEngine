@@ -452,6 +452,8 @@ lifecycle, stage or outcome; **Status** narrows the list to active, waiting,
 in-review or finished jobs; there are no further filters.
 A changed page revision hides previous results and offers **Reload first page**.
 
+The Tickets table uses a narrow number column to give the other columns more room in both project scopes.
+
 To start an existing ticket, use **Start** in the Tickets sub-tab, for one
 project or for All projects. The worker applies existing readiness, ready/hold/exclude and
 approval gates; archived projects retain history with start hidden. Manual Start
@@ -1211,6 +1213,8 @@ and missing credentials. **Test AI connection** uses the same native RPC path
 in an empty working directory. See [Local execution](Local_Execution.md).
 
 ## Project executor images
+
+In **Settings → Agent and model**, edit **Container runtime command** to choose a detected Docker or Podman command, including commands in Windows WSL. Choose **Manual runtime command** to type a command. The active value is preserved until you save. **Check host prerequisites** looks for Pi in the selected image. Standard WSL commands can also list images for **Agent container image**.
 
 Settings → Agent and model shows a compact container notice with the effective image and one expandable instruction disclosure. It identifies standard `executor/Dockerfile`, optional `executor/README.md`, a non-root example, external Docker/Podman build and verification, and the existing profile fields. Only administrators see the actual resolved server `config.toml` path. No controls define or build an image; **Executor image** (enrollment step 2 and Settings) selects one that the administrator prepared on the server. Specialized profiles use server TOML enrollment. ADORE has no image-build routes or records: the former `/api/v1/projects/{name}/image-build` routes answer 404, and a pending candidate with an image-build binding returns 503 `pending_config_corrupt` until an administrator discards it. See [Project executor images](Project_Executor_Images.md).
 

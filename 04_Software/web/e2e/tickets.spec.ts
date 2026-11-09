@@ -27,6 +27,34 @@ test.beforeEach(async ({ context }) => {
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
 });
 
+test("the ticket number column leaves room for content in both scopes", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((row: { name: string }) => row.name === "alpha").id;
+  const table = page.locator(".ticket-table");
+  const number = table.getByRole("columnheader", { name: "#", exact: true });
+  const title = table.getByRole("columnheader", { name: "Title", exact: true });
+  for (const url of ["/jobs", `/projects/${alpha}/jobs`]) {
+    await page.goto(url);
+    await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    await expect(number).toBeVisible();
+    const numberWidth = await number.evaluate(cell => cell.getBoundingClientRect().width);
+    const titleWidth = await title.evaluate(cell => cell.getBoundingClientRect().width);
+    expect(numberWidth).toBeLessThanOrEqual(90);
+    expect(titleWidth).toBeGreaterThan(numberWidth * 2);
+  }
+  await page.setViewportSize({ width: 360, height: 800 });
+  const firstTicket = table.locator(".ticket-row").first();
+  const firstNumber = firstTicket.getByRole("cell").first();
+  expect(await firstNumber.evaluate(cell => cell.scrollWidth)).toBeLessThanOrEqual(
+    await firstNumber.evaluate(cell => cell.clientWidth)
+  );
+  await firstTicket.getByRole("button", { name: "Details", exact: true }).click();
+  await expect(table.locator(".ticket-detail")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+});
+
 test("tickets sub-tab reads open tickets on request and controls them safely", async ({ page }) => {
   await signIn(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();

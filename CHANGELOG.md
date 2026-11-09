@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Narrow the ticket number column to leave more room for the other columns.
+
 - Show the native Pi check and its Node error in enrollment for server execution.
 
 - Use even spacing and keep the empty project card focused on enrollment or access.
@@ -45,6 +47,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
 
 ### Changed
+
+- Offer detected Docker and Podman commands in project Settings, including Windows WSL, with manual entry and WSL image suggestions.
 
 - Open raw TOML import in a Projects dialog with automatic file validation. Remove the browser project configuration clone workflow.
 

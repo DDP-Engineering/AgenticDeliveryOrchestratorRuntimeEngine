@@ -788,6 +788,7 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-workspace { display: grid; gap: 18px; min-width: 0; }
 .ticket-toolbar { justify-content: flex-start; gap: 12px; }
 .ticket-table { table-layout: fixed; }
+.ticket-table > thead > tr > th:first-child { width: 4.5rem; }
 .ticket-table th:last-child { width: 24%; }
 .ticket-table td, .ticket-table th { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
 .ticket-workspace > .panel, .ticket-workspace .table-scroll { min-width: 0; max-width: 100%; }
@@ -815,6 +816,7 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .forge-markdown th, .forge-markdown td { white-space: nowrap; padding: .5rem .75rem; }
 .forge-image-placeholder { color: var(--muted); font-style: italic; }
 @media (max-width: 720px) {
+  .ticket-table > thead > tr > th:first-child { width: 3.25rem; }
   .ticket-table th:last-child { width: 8rem; }
   .ticket-table > thead > tr > th, .ticket-table > tbody > tr > td { padding: 8px 4px; }
   .ticket-table .ticket-label { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

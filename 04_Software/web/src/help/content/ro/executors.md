@@ -117,6 +117,8 @@ USER adore
 
 Pentru a folosi imaginea, alegeți **Motor de containere** (Docker sau Podman) și **Imagine executor** la pasul 2 al înrolării sau modificați aceleași rânduri în Setări. Imaginea este un câmp liber cu sugestii citite din imaginile de pe serverul ADORE pentru acel motor (doar administratori); apare un aviz când imaginea introdusă nu este pe server și altul când lista nu poate fi citită.
 
+În Setări, editează **Motor de containere** ca să alegi Docker sau Podman detectat pe server, inclusiv în WSL pe Windows. Alege **Comandă manuală pentru container** ca să introduci propria comandă, apoi apasă **Salvează**. Verificarea cerințelor gazdei caută Pi în imaginea aleasă.
+
 Pentru o comandă WSL personalizată, puneți `--` sau `--exec` înaintea comenzii containerului. Opțiunile standard Docker și Podman sunt tratate automat.
 
 Apoi confirmați cu **Verifică cerințele gazdei** și **Testează conexiunea AI**.

@@ -30,7 +30,9 @@ operations, operation status and cancel) answer 404. Config environment
 PUT/stage return 400 environment_managed_externally, except execution.backend,
 container.runtime, container.image and local.account/home/path/cgroup_root
 (reviewed flow; direct PUT 409 pending_config_required). GET
-/api/v1/executor-images (Admin, read-only) lists server images per runtime.
+/api/v1/executor-images (Admin, read-only) lists server images for standard
+native and Windows WSL runtime commands. Settings opens the runtime picker
+with Admin-only `GET /api/v1/executor-runtimes` suggestions and manual entry.
 Config GET executor_environment contains backend, effective image (or null if
 unresolvable), and resolved config_path only for Admin.
 
