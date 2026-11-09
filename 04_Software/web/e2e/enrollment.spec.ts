@@ -223,6 +223,33 @@ const validate = async (page: Page) => {
   await expect(page.getByText("Structural setup valid", { exact: true })).toBeVisible();
 };
 
+test("native enrollment reports the Node failure under Pi on the server", async ({ page }) => {
+  await enter(page);
+  await repository(page, "e2e-native-node");
+  await environment(page);
+  await page.getByLabel(/^Runs in/).selectOption("local");
+  for (let step = 0; step < 2; step++) {
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+  }
+  await expect(page.getByText(/Pi and Node installations on the server/)).toBeVisible();
+  const previewResponse = page.waitForResponse(response => response.url().endsWith("/setup-preview"));
+  await validate(page);
+  const preview = await (await previewResponse).json();
+  const checks = { git: true, forge_cli: true, forge_auth: true, container_runtime: true,
+    executor_cli: false, aegis_files: "not-checked" };
+  await page.route("**/setup-check", route => route.fulfill({ json: {
+    status: "failed", auth_bound: false, draft_revision: preview.revision,
+    revision: preview.config_revision, evidence_token: "e".repeat(64),
+    checked_at: "2026-01-01T00:00:00Z", required_checks: Object.keys(checks), checks,
+    local_probe: { ready: false, reason: "node-incompatible", exit_code: 0 },
+  } }));
+  await page.getByRole("button", { name: "Check environment", exact: true }).click();
+  const piCheck = page.getByRole("listitem").filter({ has: page.getByText("Pi on the server", { exact: true }) });
+  await expect(piCheck).toContainText("Failed");
+  await expect(piCheck).toContainText("Managed Pi requires Node 22.23.4 or later in the 22.x line.");
+  await expect(page.getByText(/disposable executor container|Coding agent in image|Use a local image/)).toHaveCount(0);
+});
+
 test("complete reviewed draft creates once with stopped pickup and honest failed checks", async ({ page }, info) => {
   let previewBody: Record<string, unknown> = {};
   let submitted: Record<string, unknown> = {};

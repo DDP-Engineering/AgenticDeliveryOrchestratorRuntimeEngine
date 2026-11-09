@@ -27,7 +27,7 @@ In the **Users** list each account offers these actions.
 
 ## Project access {#project-access}
 
-A project's **Access** tab lists every developer account with **Has access** or **No access**. Choose **Grant access** or **Remove access** beside a developer, compare **Before** and **After**, then choose **Apply reviewed access**. The change leaves the developer's other projects alone and is recorded in Change history.
+A project's **Access** tab lists every developer account with **Has access** or **No access**. Choose **Grant access** or **Remove access** beside a developer, compare **Before** and **After**, then choose **Apply reviewed access**. The change leaves the developer's other projects alone and is recorded in Change history. The access list refreshes every 15 seconds while the browser tab is visible.
 
 A developer with access sees the project and can start, retry or cancel its jobs. Administrators always have access.
 
@@ -41,7 +41,7 @@ Under **Administration**, open [System status](/admin/status). It refreshes by i
 
 ## Change history {#change-history}
 
-Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Use **Refresh** to reload.
+Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Both views refresh every 15 seconds while visible and keep your filters, page and open evidence. On the global Change history page, **Refresh** reloads the list immediately.
 
 History identifies ticket and job targets separately from operation numbers. A failed operation is shown as **Failed**; a refused operation is **Rejected**. CLI deletions identify the actor as CLI and remain visible after the job is removed. An interrupted deletion stays **Uncertain** until its result is confirmed.
 

@@ -27,7 +27,7 @@ Choose **Enroll new project** on [Projects](/projects). The guided wizard starts
 | Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
 | Agent and model | Choose **Provider**, **Model** and endpoint details, when needed. Select **Runs in**, the runtime and image for a container. Save the provider key in Settings after creation. For **Installed on the server**, only the current OS account and optional **Project tools PATH** are shown. |
 | Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
-| Verification | **Validate setup** checks structure and server folders. **Check environment** then tests Git, the forge tool and sign-in, the container engine, Pi in the image and the AEGIS files. Nothing is published. Each result appears beside its button; **Continue** opens the review once the setup is valid. |
+| Verification | **Validate setup** checks structure and server folders. **Check environment** tests Git, forge access and the AEGIS files. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |
 | Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks AEGIS and the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |
 
 For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.
@@ -38,15 +38,10 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 
 **Target branch** lists the remote branches for GitHub, GitLab and Gitea, including self-hosted repositories. The repository’s default branch is selected and marked **default**. Choose another branch if needed. **Read repository** refreshes the list and keeps an explicit selection while that branch still exists. Changing the URL clears the previous choices. If no default is reported, choose a branch yourself; if the repository has no branches, add one there and read it again. This uses the ADORE account’s Git access; unknown forge types still need manual selection.
 
-## Import project config {#import-project}
+## Import raw configuration {#import-project}
 
-Choose **Import project config** on [Projects](/projects) to enroll an existing ADORE `config.toml` exactly as it is, for example one created with the command line or saved earlier with **Download raw configuration** in a project's Settings. The file (UTF-8, up to 512 KiB) needs absolute server paths and no inline secrets: the review lists any it finds, so replace them with environment references first. Its project ID and state folder must not belong to an enrolled project. ADORE copies the file byte for byte and ends with **Enroll with pickup stopped**. History appears only if its data already exists at the declared state folder.
+In [Projects](/projects), choose **Import raw configuration** and select an exported UTF-8 `config.toml` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact file bytes.
 
-## Clone project config {#clone-project}
-
-Choose **Clone project config** on [Projects](/projects) to start a new project with the working rules of another. **From a project on this server** reads a project you can access; **From a portable settings file** reads a portable JSON file (up to 64 KiB) from the same ADORE version. Only 15 working rules (polling, readiness, recovery, job budgets) are carried; identity, repository, labels, credentials, endpoints, images and history are never copied. Choose **Review source rules**, then **Set up new target** and answer the guided steps. Review unknown files: the checksum detects edits but does not prove authorship.
-
-## After creation {#after-creation}
 
 A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
 

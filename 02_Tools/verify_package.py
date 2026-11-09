@@ -186,7 +186,7 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
     # An inert native fixture verifies host discovery without using a real agent.
     tools_directory = Path(resources.enter_context(
         tempfile.TemporaryDirectory(prefix="adore-installed-executor-check-")))
-    executor_fixture = tools_directory / ("opencode.exe" if WINDOWS else "opencode")
+    executor_fixture = tools_directory / ("pi.exe" if WINDOWS else "pi")
     executor_fixture.write_text(
         "# Copyright (c) 2026 DDP Engineering\n"
         "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
@@ -220,7 +220,9 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
                 time.sleep(0.2)
             check(browser_result.exists(),
                   "automatic browser opens after real API/worker readiness")
-            check(json.loads(browser_result.read_text()) == {"status": "ready", "worker": "ready"},
+            readiness = json.loads(browser_result.read_text())
+            check(isinstance(readiness, dict) and readiness.get("status") == "ready"
+                  and readiness.get("worker") == "ready",
                   "browser sees a ready worker, not merely an HTTP listener")
             with opener.open(url, timeout=3) as response:
                 check(response.status == 200 and b"<html" in response.read().lower(),
@@ -244,16 +246,16 @@ def test_archive(argv: list[str] | None, resources: ExitStack) -> int:
                 check(response.status == 200, "isolated administrator can sign in")
             with authenticated.open(url + "api/v1/local-executors", timeout=10) as response:
                 listing = json.load(response)
-            installed = next(item["installations"] for item in listing["executors"]
-                             if item["agent"] == "opencode")
+            check([item["agent"] for item in listing["executors"]] == ["pi"],
+                  "packaged API lists Pi as its supported agent")
+            installed = listing["executors"][0]["installations"]
             check(any(Path(item["executable"]) == executor_fixture.resolve()
-                      and "{prompt}" in item["command"] for item in installed),
-                  "packaged API detects native executor and supplies its command")
-            pi_installed = next(item["installations"] for item in listing["executors"]
-                                if item["agent"] == "pi")
+                      and item["entrypoint"] is None and "{prompt}" in item["command"]
+                      for item in installed),
+                  "packaged API detects a native Pi executable and supplies its command")
             check(any(item["entrypoint"] and Path(item["entrypoint"]) == pi_fixture.resolve()
                       and Path(item["executable"]) == node_fixture.resolve()
-                      for item in pi_installed),
+                      for item in installed),
                   "packaged API detects installed npm agent with native Node entrypoint")
             folder_query = urllib.parse.urlencode({"path": str(tools_directory)})
             with authenticated.open(url + "api/v1/host-folders?" + folder_query,

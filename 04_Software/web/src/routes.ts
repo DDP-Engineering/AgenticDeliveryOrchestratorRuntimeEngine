@@ -8,7 +8,7 @@ import { isHelpTopic, type HelpTopic } from "./help/topics.ts";
 
 export type ProjectTab = "overview" | "configuration" | "executor" | "prices" | "access" | "jobs" | "statistics" | "history";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
-type PlainView = "projects" | "createProject" | "importProject" | "cloneProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
+type PlainView = "projects" | "createProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
 export type ReportingRoute = { from: string; through: string; timezone: string; granularity: string };
 export type Route =
   | { view: "overview"; project?: string }
@@ -19,12 +19,12 @@ export type Route =
   | { view: "help"; topic?: HelpTopic };
 
 const PLAIN: Record<string, PlainView> = {
-  "/projects": "projects", "/projects/new": "createProject", "/projects/import": "importProject", "/projects/clone": "cloneProject",
+  "/projects": "projects", "/projects/new": "createProject",
   "/admin/status": "administration", "/admin/users": "adminUsers", "/admin/audit": "adminAudit",
   "/account": "settings",
 };
 const PLAIN_PATHS = Object.fromEntries(Object.entries(PLAIN).map(([path, view]) => [view, path])) as Record<PlainView, string>;
-const ADMIN_ONLY = new Set<string>(["createProject", "importProject", "cloneProject", "administration", "adminUsers", "adminAudit"]);
+const ADMIN_ONLY = new Set<string>(["createProject", "administration", "adminUsers", "adminAudit"]);
 const PROJECT_TABS: ProjectTab[] = ["overview", "configuration", "executor", "prices", "access", "jobs", "statistics", "history"];
 const ADMIN_PROJECT_TABS = new Set<ProjectTab>(["access"]);
 /** Retired tab paths whose content now lives in Settings; links to them open Settings. */
@@ -50,6 +50,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
     try { new Intl.DateTimeFormat("en", { timeZone: reporting.timezone }); } catch { return null; }
   }
   if (path === "/" || path === "") return project ? { view: "overview", project } : { view: "overview" };
+  if (path === "/projects/import" || path === "/projects/clone") return { view: "projects" };
   if (path in PLAIN) return { view: PLAIN[path] };
   if (path === "/help") return { view: "help" };
   const help = /^\/help\/([^/]+)$/.exec(path);

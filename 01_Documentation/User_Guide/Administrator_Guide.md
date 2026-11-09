@@ -37,8 +37,9 @@ tool directories. ADORE starts the pinned Pi installation through its managed
 Node executable and ignores the account's personal Pi settings and sign-in.
 
 Windows uses an owned Job Object. On Linux, set `ADORE_LOCAL_CGROUP_ROOT` in
-the service environment to a writable delegated cgroup v2 root that supports
-`cgroup.kill`. See [Local execution](../Local_Execution.md) for setup and checks.
+the service environment to the absolute path of a writable, delegated cgroup v2
+root. Run the service inside that subtree with permission to create child cgroups
+and use `cgroup.kill`. Setting the path alone does not grant those permissions.
 
 Project code can access what that OS account permits. Prepare tools, versions,
 SDKs and libraries on the execution machine and use an appropriately restricted

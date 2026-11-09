@@ -6,7 +6,9 @@ L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’AD
 
 Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Statistiques, Historique et, pour les administrateurs, Accès.
 
-Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet a ses propres paramètres ; la capacité globale et la conservation de l’audit relèvent de l’Administration. Les Paramètres ne s’actualisent pas seuls : utilisez Actualiser dans l’en-tête pour les relire.
+Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT.
+
+Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet a ses propres paramètres ; la capacité globale et la conservation de l’audit relèvent de l’Administration.
 
 ## Groupes de paramètres {#groups}
 
@@ -39,16 +41,16 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 Règles applicables :
 
 - **Annuler les modifications** efface toutes les modifications non enregistrées. Annuler la confirmation les conserve sans créer de candidat enregistré.
-- L’enregistrement est lié à la configuration modifiée. Une révision périmée bloque l’enregistrement et conserve vos saisies ; abandonnez et actualisez avant de recommencer. Les modifications concurrentes provoquent un conflit.
+- L’enregistrement est lié à la configuration modifiée. Une révision périmée bloque l’enregistrement et conserve vos saisies . Abandonnez vos modifications pour recharger les paramètres enregistrés avant de recommencer. Les modifications concurrentes provoquent un conflit.
 - Le serveur vérifie toute la configuration et enregistre les changements ensemble. Un enregistrement révisé des seuls budgets permet aussi les tâches en attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres exigent des tâches terminées. Un échec conserve vos saisies et le candidat préparé.
 - Les changements d’identité ou d’environnement exigent aussi la surveillance en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la pause n’interrompt pas une tâche.
 - Les budgets s’appliquent avant la prochaine tentative ou reprise, en conservant consommation et progression. Voir [Budgets du travail](#budgets).
 
-La navigation ou Actualiser demande confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
+La navigation et le rechargement de la page demandent confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
 
 ## TOML d’origine {#toml}
 
-À côté du titre Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Télécharger la configuration brute**. L’aperçu ouvre une boîte de dialogue fermable et ne garde le texte qu’en mémoire. Le téléchargement fournit le `config.toml` enregistré exactement tel que stocké, avec ses commentaires, sa mise en forme et d’éventuels secrets en clair : traitez-le comme un secret. Ni l’un ni l’autre n’inclut un candidat en attente, les valeurs par défaut résolues, les fichiers `.env` séparés ou les identifiants externes. Les développeurs ne peuvent pas les utiliser. Un fichier téléchargé peut être inscrit de nouveau avec [Importer une configuration de projet](/help/projects#import-project) une fois ses secrets remplacés par des références d’environnement.
+À côté du titre Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu ouvre une boîte de dialogue fermable et ne garde le texte qu’en mémoire. Le téléchargement fournit le `config.toml` enregistré exactement tel que stocké, avec ses commentaires, sa mise en forme et d’éventuels secrets en clair : traitez-le comme un secret. Ni l’un ni l’autre n’inclut un candidat en attente, les valeurs par défaut résolues, les fichiers `.env` séparés ou les identifiants externes. Les développeurs ne peuvent pas les utiliser. Sélectionnez le fichier exporté dans [Importer la configuration brute](/help/projects#import-project) et ADORE vérifie automatiquement les chemins du serveur, le dossier d’état et les secrets en clair avant l’inscription.
 
 ## Paquets système de l’agent {#system-packages}
 

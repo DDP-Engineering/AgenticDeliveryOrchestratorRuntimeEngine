@@ -10,7 +10,7 @@ requirement = """When an administrator runs the readiness check for a project wh
 
 verification = "API test: a chatgpt project with a fake signed-in credential reports executor_sign_in true, without one false; an API-key project's record has no executor_sign_in key; the web readiness parser accepts the key only as a boolean."
 
-affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/readiness.ts", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/ImportWizard.tsx"]
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/readiness.ts", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/EnrollmentWizard.tsx"]
 
 linked_tests = ["04_Software/tests/test_web_chatgpt.py::test_readiness_reports_the_sign_in_for_chatgpt_projects_only", "04_Software/web/tests/readiness.test.mjs"]
 

@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { PasswordField } from "./PasswordField";
@@ -34,9 +34,10 @@ import { type ExecutionPlan } from "./executionPlan";
 import { settingHelp } from "./settingHelp";
 import { durationParts, executionStages, implementationEditorCopy } from "./implementationSettings";
 import { compactReviewCopy, settingsCopy, technicalSettingsHelp, publicationValue, pipelineFailureValue, lifecycleCopy, branchNamingCopy } from "./settingsCopy";
-import { ImportWizard } from "./ImportWizard";
+import { RawImportDialog } from "./RawImportDialog";
+import { importCopy } from "./importCopy";
 import { RawConfiguration } from "./RawConfiguration";
-import { TransferWizard } from "./TransferWizard";
+import { EnrollmentWizard } from "./EnrollmentWizard";
 import { readStatistics, readConsumption } from "./statistics";
 import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
@@ -75,7 +76,8 @@ function readOperation(value: unknown, expected?: number): Operation {
   return item;
 }
 type Price = { id: number; executor: string; model: string; effective_from: string; input_usd_per_million: string; output_usd_per_million: string };
-type Page = "overview" | "projects" | "createProject" | "importProject" | "cloneProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
+type SettingsBlocker = "settings" | "prices" | "credentials" | "chatgpt";
+type Page = "overview" | "projects" | "createProject" | "projectDetails" | "jobs" | "metrics" | "administration" | "adminUsers" | "adminAudit" | "settings" | "help";
 type MetricsTab = "summary" | "usage" | "quality" | "trends" | "projects";
 type ProjectSortKey = "name" | "repo" | "readiness" | "runs" | "last_activity";
 const metricsTabLabels: Record<MetricsTab, MessageKey> = {
@@ -94,11 +96,11 @@ const initialLocale = (): Locale => {
   return browser in messages ? browser : "en";
 };
 
-async function request<T>(path: string, method = "GET", body?: unknown, csrf?: string): Promise<T> {
+async function request<T>(path: string, method = "GET", body?: unknown, csrf?: string, signal?: AbortSignal): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api/v1${path}`, {
-      method, credentials: "same-origin", cache: "no-store",
+      method, credentials: "same-origin", cache: "no-store", signal,
       headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -115,6 +117,17 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
     throw new ApiError("unexpected_response", `${path} (HTTP ${response.status})`);
   }
   return response.json() as Promise<T>;
+}
+
+async function readPrices(path: string): Promise<Price[]> {
+  const prices = await request<Price[]>(path + "/prices", "GET", undefined, undefined, AbortSignal.timeout(15000));
+  const validRate = (value: unknown) => typeof value === "string" && /^\d+(?:\.\d{1,6})?$/.test(value) && Number(value) <= 1000000;
+  if (!Array.isArray(prices) || prices.some(row => !row || !Number.isSafeInteger(row.id) || row.id < 1 ||
+    typeof row.executor !== "string" || typeof row.model !== "string" ||
+    typeof row.effective_from !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.effective_from) ||
+    !validRate(row.input_usd_per_million) || !validRate(row.output_usd_per_million)) ||
+    new Set(prices.map(row => row.id)).size !== prices.length) throw new ApiError("unexpected_response");
+  return prices;
 }
 
 export default function App() {
@@ -202,6 +215,7 @@ export default function App() {
   const routedProject = useRef<string | null>(null);
   const preserveError = useRef(false);
   const [notice, setNotice] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [operation, setOperation] = useState<Operation | null>(null);
   const operationId = useRef<number | null>(null);
@@ -234,6 +248,32 @@ export default function App() {
   const configMutation = useRef(false);
   const configView = useRef("");
   configView.current = `${page}:${selected}`;
+  const settingsVisible = page === "projectDetails" && projectTab === "configuration";
+  const settingsPoll = useRef({ blocked: new Set<SettingsBlocker>(), visible: false });
+  const invalidateSettingsPoll = () => { settingsPoll.current = { ...settingsPoll.current }; };
+  const setSettingsPollBlocked = useCallback((source: SettingsBlocker, block: boolean) => {
+    if (settingsPoll.current.blocked.has(source) === block) return;
+    const blocked = new Set(settingsPoll.current.blocked);
+    if (block) blocked.add(source);
+    else blocked.delete(source);
+    settingsPoll.current = { ...settingsPoll.current, blocked };
+  }, []);
+  const blockSettingsEdits = useCallback((block: boolean) => setSettingsPollBlocked("settings", block), [setSettingsPollBlocked]);
+  const blockCredentials = useCallback((block: boolean) => setSettingsPollBlocked("credentials", block), [setSettingsPollBlocked]);
+  const blockChatGpt = useCallback((block: boolean) => setSettingsPollBlocked("chatgpt", block), [setSettingsPollBlocked]);
+  const priceSaving = useRef<HTMLFormElement | null>(null);
+  const priceWrite = useRef(0);
+  const priceFormRef = useCallback((form: HTMLFormElement | null) => {
+    if (!form) setSettingsPollBlocked("prices", false);
+  }, [setSettingsPollBlocked]);
+  const updatePriceDraft = (form: HTMLFormElement) => {
+    const edited = Array.from(form.querySelectorAll<HTMLInputElement>("input:not([type=hidden])"))
+      .some(input => input.value !== input.defaultValue || input.validity.badInput);
+    setSettingsPollBlocked("prices", priceSaving.current === form || edited);
+  };
+  useLayoutEffect(() => {
+    settingsPoll.current = { ...settingsPoll.current, visible: settingsVisible };
+  }, [settingsVisible]);
   const [configBusy, setConfigBusy] = useState(false);
   const configDiscardFocus = useRef<(() => void) | null>(null);
   useEffect(() => {
@@ -582,21 +622,62 @@ export default function App() {
     if (page === "projectDetails" && selected) {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
+      let active = true;
+      let reading = false;
+      let readingPrices = false;
       setConfigState({ key: selected, state: "loading" });
       setPendingReadFailed(false); setPendingReady(false); setSettingsStale(false);
       setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
-      request<Config>("/projects/" + encodeURIComponent(selected) + "/config").then(value => {
-        if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues) || !validSettingCatalog(value.settings)) throw new ApiError("unexpected_response");
-        const model=String(settingValue(value.config,"executor.model"));
-        if(value.model_connection && !validModelEvidence(value.model_connection,selected,value.revision,"pi",model)) throw new ApiError("unexpected_response");
-        if (generation === viewGeneration.current && revision === configRequest.current) { setConfig(value); setConfigScope(selected); setConfigState({ key: selected, state: "ready" }); }
-      }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) { setConfigState({ key: selected, state: "error" }); setError(cause); } });
-      if (isAdmin) {
-        request<PendingConfig | null>(`/projects/${encodeURIComponent(selected)}/config/pending`).then(value => { if (!validPendingConfig(value)) throw new ApiError("unexpected_response"); if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(value); setPendingConfigScope(selected); setPendingReady(true); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) { setPendingConfig(null); setPendingReadFailed(true); setError(cause); } });
-        request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`).then(value => { if (generation === viewGeneration.current && revision === configRequest.current) { setPrices(value); setPricesScope(selected); } }).catch(cause => { if (generation === viewGeneration.current && revision === configRequest.current) setError(cause); });
-      }
+      const path = `/projects/${encodeURIComponent(selected)}`;
+      const load = async (background = false) => {
+        const poll = settingsPoll.current;
+        if (background && (!poll.visible || poll.blocked.size > 0 || configMutation.current)) return;
+        const current = () => active && generation === viewGeneration.current && revision === configRequest.current &&
+          (!background || poll === settingsPoll.current && !configMutation.current);
+        if (isAdmin && !readingPrices) {
+          readingPrices = true;
+          const write = priceWrite.current;
+          const currentPrices = () => current() && write === priceWrite.current;
+          void readPrices(path).then(value => {
+            if (currentPrices()) { setPrices(value); setPricesScope(selected); }
+          }).catch(cause => {
+            if (currentPrices()) { setPrices([]); setError(cause); }
+          }).finally(() => { readingPrices = false; });
+        }
+        if (reading) return;
+        reading = true;
+        const signal = AbortSignal.timeout(30000);
+        const [configuration, pending] = await Promise.allSettled([
+          request<Config>(path + "/config", "GET", undefined, undefined, signal).then(value => {
+            if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues) || !validSettingCatalog(value.settings)) throw new ApiError("unexpected_response");
+            const model = String(settingValue(value.config, "executor.model"));
+            if (value.model_connection && !validModelEvidence(value.model_connection, selected, value.revision, "pi", model)) throw new ApiError("unexpected_response");
+            return value;
+          }),
+          isAdmin ? request<PendingConfig | null>(path + "/config/pending", "GET", undefined, undefined, signal).then(value => {
+            if (!validPendingConfig(value)) throw new ApiError("unexpected_response");
+            return value;
+          }) : Promise.resolve(null),
+        ]);
+        reading = false;
+        if (!current()) return;
+        if (configuration.status === "fulfilled") {
+          setConfig(configuration.value); setConfigScope(selected); setConfigState({ key: selected, state: "ready" });
+        } else {
+          setConfig(null); setConfigState({ key: selected, state: "error" }); setError(configuration.reason);
+        }
+        if (!isAdmin) return;
+        setPendingConfigScope(selected);
+        setPendingReady(pending.status === "fulfilled");
+        setPendingReadFailed(pending.status === "rejected");
+        if (pending.status === "fulfilled") setPendingConfig(pending.value);
+        else { setPendingConfig(null); setError(pending.reason); }
+      };
+      void load();
+      const stop = startVisiblePolling(() => void load(true), 15000);
+      return () => { active = false; stop(); };
     }
-  }, [page, isAdmin, selected, viewRefresh]);
+  }, [page, isAdmin, selected, viewRefresh, session?.user.id]);
 
   useEffect(() => {
     if (page !== "administration" || !isAdmin) return;
@@ -719,6 +800,7 @@ export default function App() {
   };
 
   const applyRoute = (route: Route) => {
+    setImportOpen(false);
     setRequestedRun(route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs" ? route.run || "" : "");
     setPage(route.view); setMenuOpen(false);
     if (route.view === "jobs" || route.view === "overview") setJobScope(route.project || "");
@@ -736,7 +818,8 @@ export default function App() {
 
   const applyLocation = () => {
     const { route, replaced } = normalizeRoute(parseRoute(window.location.pathname, window.location.search), { isAdmin });
-    if (replaced) window.history.replaceState(null, "", formatRoute(route));
+    if (replaced || route.view === "projects" && window.location.pathname !== "/projects")
+      window.history.replaceState(null, "", formatRoute(route));
     applyRoute(route);
   };
 
@@ -779,6 +862,7 @@ export default function App() {
   }, [projects, projectsLoaded]);
 
   const clearPrivateView = () => {
+    setImportOpen(false);
     viewGeneration.current += 1;
     ticketModePending.current = false; setTicketModeBusy(false);
     confirmedTicketMode.current = "rendered"; setTicketBodyMode("rendered");
@@ -1046,12 +1130,25 @@ export default function App() {
     event.preventDefault(); setError("");
     if (!selected) return;
     const form = event.currentTarget;
+    if (priceSaving.current === form) return;
+    const generation = viewGeneration.current;
+    const current = () => generation === viewGeneration.current && form.isConnected;
+    const path = `/projects/${encodeURIComponent(selected)}`;
+    priceSaving.current = form;
+    priceWrite.current += 1;
+    setSettingsPollBlocked("prices", true);
     try {
-      await request(`/projects/${encodeURIComponent(selected)}/prices`, "POST",
-        Object.fromEntries(new FormData(form)), session?.csrf);
-      setPrices(await request<Price[]>(`/projects/${encodeURIComponent(selected)}/prices`)); setPricesScope(selected);
-      setNotice(t("priceSaved")); form.reset();
-    } catch (cause) { setError(cause); }
+      await request(path + "/prices", "POST", Object.fromEntries(new FormData(form)), session?.csrf);
+      const rates = await readPrices(path);
+      if (current()) {
+        setPrices(rates); setPricesScope(selected);
+        setNotice(t("priceSaved")); form.reset();
+      }
+    } catch (cause) { if (current()) setError(cause); }
+    finally {
+      if (priceSaving.current === form) priceSaving.current = null;
+      if (current()) updatePriceDraft(form);
+    }
   };
 
   if (loading) return <main className="splash" aria-busy="true">ADORE</main>;
@@ -1091,8 +1188,7 @@ export default function App() {
     onClose: () => setRequestedRun("") };
   const hubWorkspaceProps = { ...workspaceProps, scope: selected,
     onOpen: (id: string, runId: string) => { setSelected(id); setRequestedRun(runId); setJobsView("jobs"); setProjectTab("jobs"); } };
-  // Pages that poll while visible need no manual Refresh; these load only on open or on Refresh.
-  const manualRefresh = page === "adminUsers" || page === "adminAudit" || page === "projectDetails" && ["configuration", "access", "history"].includes(projectTab);
+  const manualRefresh = page === "adminUsers";
   const nav: Page[] = ["overview", "projects", "jobs", "metrics"];
   const adminPages: Page[] = ["administration", "adminUsers", "adminAudit"];
 
@@ -1117,7 +1213,7 @@ export default function App() {
     id: target, label: t(target === "settings" ? "myAccount" : target === "administration" ? "systemStatus" : target),
     href: target === "overview" ? formatRoute({ view: "overview" }) : formatRoute(target === "jobs" || target === "metrics" ?
       { view: target, ...(target === "jobs" ? (jobScope ? { project: jobScope } : ["projectDetails", "metrics"].includes(page) && selectedProject ? { project: selectedProject.id } : {}) : selectedProject ? { project: selectedProject.id } : {}) } : { view: target as Exclude<Page, "overview" | "jobs" | "metrics" | "projectDetails"> }),
-    active: target === page || (target === "projects" && ["createProject", "importProject", "cloneProject", "projectDetails"].includes(page)),
+    active: target === page || (target === "projects" && ["createProject", "projectDetails"].includes(page)),
     onNavigate: () => navigatePage(target),
   });
   const pageTitle = isAdmin && adminPages.includes(page) ? t(page === "administration" ? "systemStatus" : page) : t(page === "settings" ? "myAccount" : page);
@@ -1263,7 +1359,7 @@ export default function App() {
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
-          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("importProject"); }}>{t("importProject")}</button><button className="ghost" onClick={() => { setError(""); setPage("cloneProject"); }}>{t("cloneProject")}</button></>}</div>
+          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => setImportOpen(true)}>{t("importProject")}</button></>}</div>
           {projects.length > 0 && <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -1280,16 +1376,15 @@ export default function App() {
           </section>}
         </>}
 
-        {(page === "createProject" || page === "cloneProject") && isAdmin && <TransferWizard key={page} mode={page === "createProject" ? "enroll" : "clone"} locale={locale} csrf={session.csrf} t={t}
-          projects={projects}
-          registerGuard={guard => { enrollmentGuard.current = guard; }}
+        {page === "createProject" && isAdmin && <EnrollmentWizard locale={locale} csrf={session.csrf} t={t}
+          registerGuard={registerSettingsGuard}
           onCancel={() => { setError(""); setPage("projects"); }}
           onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
 
-        {page === "importProject" && isAdmin && <ImportWizard locale={locale} csrf={session.csrf} t={t}
-          registerGuard={guard => { enrollmentGuard.current = guard; }}
-          onCancel={() => { setError(""); setPage("projects"); }}
-          onCreated={() => { void refreshProjects(); }} onOpen={id => openProject(id)} />}
+        {page === "projects" && importOpen && isAdmin && <RawImportDialog key={session.user.id} locale={locale} csrf={session.csrf}
+          registerGuard={registerSettingsGuard}
+          onClose={() => setImportOpen(false)}
+          onImported={() => { setImportOpen(false); setNotice(importCopy[locale].imported); void refreshProjects(); }} />}
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
@@ -1329,7 +1424,7 @@ export default function App() {
             </form>
           </section></ProjectDeleteDialog>}
           </>}
-          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}:${viewRefresh}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={path => request(path)} />}
+          {projectTab === "history" && selectedProject?.id && <AuditHistory key={`${session.user.id}:${selected}:${viewRefresh}`} locale={locale} projects={projects} fixedProject={selectedProject?.id} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
           {projectTab === "jobs" && selectedProject && <>
             {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
@@ -1341,10 +1436,10 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={selected} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>setConfig(current=>current?{...current,model_connection:value}:current)} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
-                  <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <>{String(settingValue(projectConfig.config, "executor.provider") ?? "") === CHATGPT && <ChatGptSignIn key={`${session.user.id}:chatgpt`} locale={locale} read={() => request("/chatgpt-sign-in")} start={() => request(`/projects/${encodeURIComponent(selected)}/chatgpt-sign-in`, "POST", undefined, session.csrf)} complete={(redirect_url: string) => request("/chatgpt-sign-in", "PUT", {redirect_url}, session.csrf)} cancel={() => request("/chatgpt-sign-in/pending", "DELETE", undefined, session.csrf)} disconnect={() => request("/chatgpt-sign-in", "DELETE", undefined, session.csrf)} />}{(String(settingValue(projectConfig.config, "executor.provider") ?? "") !== CHATGPT || searchKeyNeeded(projectConfig.config)) && <ExecutorCredentials embedded key={`${session.user.id}:${selected}:${projectConfig.revision}`} provider={String(settingValue(projectConfig.config, "executor.provider") ?? "")} project={selectedProject.id} revision={projectConfig.revision} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>setConfig(current=>current?{...current,model_connection:null}:current)} />}</>}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
+          {projectConfig && <SettingsList key={selected} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} setPollBlocked={blockSettingsEdits} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:value}:current); }} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+                  <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <>{String(settingValue(projectConfig.config, "executor.provider") ?? "") === CHATGPT && <ChatGptSignIn setPollBlocked={blockChatGpt} key={`${session.user.id}:chatgpt`} locale={locale} read={() => request("/chatgpt-sign-in")} start={() => request(`/projects/${encodeURIComponent(selected)}/chatgpt-sign-in`, "POST", undefined, session.csrf)} complete={(redirect_url: string) => request("/chatgpt-sign-in", "PUT", {redirect_url}, session.csrf)} cancel={() => request("/chatgpt-sign-in/pending", "DELETE", undefined, session.csrf)} disconnect={() => request("/chatgpt-sign-in", "DELETE", undefined, session.csrf)} />}{(String(settingValue(projectConfig.config, "executor.provider") ?? "") !== CHATGPT || searchKeyNeeded(projectConfig.config)) && <ExecutorCredentials embedded setPollBlocked={blockCredentials} key={`${session.user.id}:${selected}:${projectConfig.revision}`} provider={String(settingValue(projectConfig.config, "executor.provider") ?? "")} project={selectedProject.id} revision={projectConfig.revision} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:null}:current); }} />}</>}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
-                    {priceModel ? <form key={selected} className="form-grid" onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
+                    {priceModel ? <form key={`${selected}:${priceModel}`} ref={priceFormRef} className="form-grid" onChange={event=>updatePriceDraft(event.currentTarget)} onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
                     {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
                   </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
@@ -1354,7 +1449,7 @@ export default function App() {
             </>}
           </SettingsList>}
           </>}
-          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={selected + ":" + viewRefresh} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
+          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={`${session.user.id}:${selected}:${viewRefresh}`} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
           </div>
         </>}
 
@@ -1405,7 +1500,7 @@ export default function App() {
             onClose={() => setAccountAction(null)} />}
         </>}
 
-        {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${viewRefresh}`} locale={locale} projects={projects} read={path => request(path)} />}
+        {page === "adminAudit" && isAdmin && <AuditHistory key={`${session.user.id}:${viewRefresh}`} locale={locale} projects={projects} read={(path, signal) => request(path, "GET", undefined, undefined, signal)} />}
 
         {page === "help" && <HelpCenter locale={locale} topic={helpTopic} onNavigate={navigateHref} />}
         {page === "settings" && <div className="two-column"><section className="panel"><h2>{t("appearance")}</h2><div className="form-stack"><label>{t("language")}<select aria-label={t("language")} value={locale} onChange={event => updatePreference("language", event.target.value)}>{Object.entries(localeNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label><label>{t("theme")}<select aria-label={t("theme")} value={theme} onChange={event => updatePreference("theme", event.target.value)}><option value="system">{t("system")}</option><option value="light">{t("light")}</option><option value="dark">{t("dark")}</option></select></label></div></section><section className="panel"><h2>{t("changePassword")}</h2><form className="form-stack" onSubmit={changePassword} onInput={() => setPasswordMismatch(false)}><FormLegend t={t} /><PasswordChangeFields t={t} mismatch={passwordMismatch} /><button className="primary">{t("save")}</button></form></section>
@@ -1468,18 +1563,39 @@ function ProjectAccess({ project, csrf, locale, t, onError, onNotice }: { projec
   const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
   const changing = useRef(false);
+  const accessMutation = useRef(0);
   const [review, setReview] = useState<ProjectDeveloper | null>(null);
   const copy = userCopy[locale];
   const path = `/projects/${encodeURIComponent(project)}/access`;
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     let live = true;
+    let reading = false;
     setDevelopers(null); setFailed(false);
-    request<{ developers: ProjectDeveloper[] }>(path).then(value => { if (!validDevelopers(value)) throw new ApiError("unexpected_response"); if (live) setDevelopers(value.developers); }).catch(cause => { if (live) { setFailed(true); onError(cause); } });
-    return () => { live = false; };
-  }, [path]);
+    const load = async () => {
+      if (reading || changing.current) return;
+      reading = true;
+      const mutation = accessMutation.current;
+      const current = () => live && mutation === accessMutation.current;
+      try {
+        const value = await request<{ developers: ProjectDeveloper[] }>(path);
+        if (!validDevelopers(value)) throw new ApiError("unexpected_response");
+        if (current()) {
+          setDevelopers(value.developers); setFailed(false);
+          setReview(previous => previous && value.developers.some(row => row.id === previous.id &&
+            row.granted === previous.granted && row.disabled === previous.disabled && row.username === previous.username) ? previous : null);
+        }
+      } catch (cause) {
+        if (current()) { setDevelopers(null); setReview(null); setFailed(true); onError(cause); }
+      } finally { reading = false; }
+    };
+    void load();
+    const stop = startVisiblePolling(() => void load(), 15000);
+    return () => { live = false; stop(); };
+  }, [path, onError]);
   const change = async (developer: ProjectDeveloper) => {
     if (changing.current) return;
+    accessMutation.current += 1;
     changing.current = true; setBusy(true); onError("");
     try {
       const result = await request<{ id: number; granted: boolean }>(`${path}/${developer.id}`, "PUT", { granted: !developer.granted }, csrf);
@@ -1548,7 +1664,7 @@ function SettingsImpactDialog({config, candidate, edits, project, paused, locale
   </dialog>;
 }
 
-function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
+function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, setPollBlocked, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
   executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode;
   project?:string; revision?:string; csrf?:string; branchCandidate?:PendingConfig|null;
   header?:ReactNode; actions?:ReactNode; children?:ReactNode; executorOnly?:boolean;
@@ -1556,6 +1672,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   t:(key:MessageKey)=>string; locale:Locale; canEdit:boolean; disabled:boolean; stale?:boolean; readFailed?:boolean;
   onSave:(edits:SettingEdit[],base:string)=>Promise<boolean>; onDiscard:()=>Promise<boolean>;
   registerGuard:(guard:(()=>boolean)|null)=>void;
+  setPollBlocked:(blocked:boolean)=>void;
 }) {
   const rows = settingRows(config, settings);
   const recoveryBackend=branchCandidate?.key===BATCH_KEY
@@ -1583,25 +1700,25 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const prepared = prepareSettingDrafts(base.current.config,base.current.rows,drafts);
   const dirty = prepared.edits.length + prepared.invalid.length > 0;
   const alreadyApplied = !!branchCandidate && branchCandidate.candidate_revision === revision;
+  useLayoutEffect(() => { setPollBlocked(dirty || saving || !!branchCandidate && !alreadyApplied); });
+  useLayoutEffect(() => () => setPollBlocked(false), [setPollBlocked]);
   const stale = externallyStale || conflict || dirty && base.current.revision !== revision
     || !!branchCandidate && branchCandidate.base_revision !== revision && !alreadyApplied;
   const saveCopy = settingsSaveCopy[locale];
   useEffect(() => {
     const next = branchCandidate?.candidate_revision || "";
-    if (next && next !== pendingRevision.current && !saving) {
+    if (saving) return;
+    const revisionChanged = base.current.revision !== revision;
+    if (!dirty && revisionChanged) base.current = live.current;
+    if (next && (next !== pendingRevision.current || revisionChanged && !dirty)) {
       if (!dirty) {
         const recovered=exactRecovery ? {} : recoverSettingDrafts(config,rows,branchCandidate);
         setDrafts(recovered);setEditing(recoveredEditors(recovered));
       }
       else if (pendingRevision.current) setConflict(true);
-    }
+    } else if (!dirty && revisionChanged) { setDrafts({}); setEditing(new Set()); }
     pendingRevision.current = next;
-  }, [branchCandidate?.candidate_revision, saving]);
-  useEffect(() => {
-    if (!dirty && !saving && base.current.revision !== revision) {
-      base.current = live.current; setDrafts({}); setEditing(new Set());
-    }
-  }, [revision, dirty, saving]);
+  }, [branchCandidate?.candidate_revision, revision, dirty, saving]);
   useEffect(() => {
     registerGuard(dirty || saving ? ()=>!saving && window.confirm(saveCopy.leave) : null);
     const unload = (event:BeforeUnloadEvent) => { if (dirty || saving) {event.preventDefault();event.returnValue="";} };
@@ -1609,7 +1726,10 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
     return () => {registerGuard(null);window.removeEventListener("beforeunload",unload);};
   }, [dirty,saving,saveCopy.leave,registerGuard]);
   const draftFor = (row:SettingRow) => drafts[row.editKey] ?? settingDraftValue(row,config);
-  const updateDraft = (row:SettingRow,value:string) => setDrafts(previous=>({...previous,[row.editKey]:value}));
+  const updateDraft = (row:SettingRow,value:string) => {
+    setPollBlocked(true);
+    setDrafts(previous=>({...previous,[row.editKey]:value}));
+  };
   const beginEdit = (row:SettingRow) => {
     setEditing(previous=>{
       const next=new Set(previous);
@@ -1623,6 +1743,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   };
   const saveAll = async () => {
     if (disabled || stale || prepared.invalid.length || branchInvalid || !base.current.revision) return;
+    setPollBlocked(true);
     setSaving(true);
     try {
       if (await onSave(prepared.edits,base.current.revision)) {
@@ -1632,6 +1753,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   };
   const discardAll = async () => {
     if (externallyDisabled || saving) return;
+    setPollBlocked(true);
     setSaving(true);
     try {
       if (await onDiscard()) {

@@ -37,7 +37,7 @@ Die Weboberfläche zeigt, was gerade läuft und was Aufmerksamkeit braucht. Sie 
 | Administrator (Admin) | Alle aktuellen und künftigen Projekte sowie Verwaltung und Kosten | Alles, was ein Dev kann, und zusätzlich Projekte einrichten, Projekteinstellungen über geprüfte Änderungen bearbeiten, die Überwachung pausieren oder aktivieren, Projekte archivieren oder wiederherstellen, Benutzer und Projektzugriff verwalten, die Audit-Aufbewahrung festlegen, den Änderungsverlauf lesen sowie Kosten sehen und festlegen |
 | Dev | Nur die Projekte, die ein Administrator zugewiesen hat | Tickets starten und stoppen, Aufträge wiederholen oder abbrechen, Statistiken zugewiesener Projekte lesen und Projekteinstellungen lesen (schreibgeschützt, ohne Geheimnisse und Finanzeinstellungen) |
 
-Ein Dev sieht nie Geldbeträge und kann die Verwaltungsseiten nicht öffnen. Ein Dev ohne zugewiesenes Projekt kann [Mein Konto](/account) weiterhin nutzen und wird gebeten, einen Administrator um Zugriff zu bitten.
+Ein Dev sieht nie Geldbeträge und kann die Verwaltungsseiten nicht öffnen. Ohne zugewiesenes Projekt bittet die Übersicht den Dev, bei einem Administrator Zugriff anzufordern. Sind keine Projekte vorhanden, kann ein Admin in der Übersicht **Neues Projekt registrieren** wählen.
 
 ## Erste Schritte {#getting-started}
 

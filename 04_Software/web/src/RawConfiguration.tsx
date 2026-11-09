@@ -9,10 +9,10 @@ import { ApiError, describeError } from "./errors";
 import type { Locale } from "./i18n";
 
 const labels = {
-  en: { preview: "Preview raw configuration", download: "Download raw configuration", close: "Close" },
-  fr: { preview: "Voir la configuration brute", download: "Télécharger la configuration brute", close: "Fermer" },
-  de: { preview: "Originalkonfiguration anzeigen", download: "Originalkonfiguration herunterladen", close: "Schließen" },
-  ro: { preview: "Previzualizare configurație originală", download: "Descarcă configurația originală", close: "Închide" },
+  en: { preview: "Preview raw configuration", download: "Export raw configuration", close: "Close" },
+  fr: { preview: "Voir la configuration brute", download: "Exporter la configuration brute", close: "Fermer" },
+  de: { preview: "Originalkonfiguration anzeigen", download: "Originalkonfiguration exportieren", close: "Schließen" },
+  ro: { preview: "Previzualizare configurație originală", download: "Exportă configurația brută", close: "Închide" },
 };
 
 /** Admin-only controls: original bytes live in memory until dismissed/unmounted. */

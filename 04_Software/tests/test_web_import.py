@@ -57,6 +57,52 @@ def _csrf(client):
 
 
 # PUBLIC API / CONTRACT TESTS
+def test_raw_import_preview_derives_identity_and_binds_exact_file(tmp_path):
+    """@brief Preview without an ID and publish only the reviewed raw TOML."""
+    home = tmp_path / "home"
+    text = _document(tmp_path).replace("group/subgroup/project", "group/Raw-Import")
+    with TestClient(create_app(home)) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        response = client.post("/api/v1/projects/import-preview",
+                               json={"config_text": text}, headers=headers)
+        assert response.status_code == 200, response.text
+        preview = response.json()
+        assert preview["validation"]["structural_valid"]
+        assert preview["name"] == "raw-import"
+        assert preview["display_name"] == "Raw-Import"
+        assert preview["config_revision"] == sha256(text.encode("utf-8")).hexdigest()
+        body = {key: preview[key] for key in ("name", "display_name", "revision")}
+        changed = client.post("/api/v1/projects/import", headers=headers,
+                              json={**body, "config_text": text + "\n# changed\n"})
+        assert changed.status_code == 409
+        assert not ProfileStore(home).config_path("raw-import").exists()
+        created = client.post("/api/v1/projects/import", headers=headers,
+                              json={**body, "config_text": text})
+        assert created.status_code == 200, created.text
+        assert created.json()["pickup_state"] == "stopped"
+        assert ProfileStore(home).config_path("raw-import").read_bytes() == text.encode("utf-8")
+        duplicate = client.post("/api/v1/projects/import-preview",
+                                json={"config_text": text}, headers=headers).json()
+        assert duplicate["name"] == "raw-import-2"
+        assert "state_root_already_owned" in duplicate["issues"]
+        assert duplicate["review"] is None
+
+
+def test_raw_import_preview_never_derives_an_identity_from_secret_url(tmp_path):
+    """@brief A malformed repository URL cannot expose credentials as an identity."""
+    private = "fixture-private-value"
+    text = _document(tmp_path).replace("group/subgroup/project",
+                                       f"https://user:{private}@example.test")
+    with TestClient(create_app(tmp_path / "home")) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        response = client.post("/api/v1/projects/import-preview",
+                               json={"config_text": text}, headers=headers)
+        assert response.status_code == 200
+        assert private not in response.text
+        assert response.json()["review"] is None
+        assert response.json()["issues"] == ["secret_value:platform.repo"]
+
+
 @pytest.mark.parametrize("revision", ["é", "", "0" * 65])
 def test_import_confirmation_rejects_malformed_revision_as_typed_conflict(tmp_path, revision):
     """@brief Unicode and malformed untrusted revisions produce a safe conflict."""

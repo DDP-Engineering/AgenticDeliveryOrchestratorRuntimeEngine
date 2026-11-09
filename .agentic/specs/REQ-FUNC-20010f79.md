@@ -25,4 +25,4 @@ All POST routes require Admin + CSRF. `transfer-source` takes `{method: "file"|"
 
 ## Acceptance
 
-Public API tests compare all settings for both methods, independent IDs/paths, stopped pickup and omitted data, unchanged source, exact source/file byte binding, missing/replaced/corrupt/unknown/version/duplicates/secrets, source permissions/session/CSRF, invalid reference/clone, target collisions, injected rollback and replay. Browser tests cover visible source/mapping/exclusions, target steps/reconfirmation, review/back/change, conflict/re-review, double submit, Dev denial, malformed/late transport and memory scope, four locales, keyboard/390px themes. Existing exact TOML byte-copy regression remains required.
+Public API tests compare all settings for both methods, independent IDs/paths, stopped pickup and omitted data, unchanged source, exact source/file byte binding, missing/replaced/corrupt/unknown/version/duplicates/secrets, source permissions/session/CSRF, invalid reference/clone, target collisions, injected rollback and replay. Exact TOML byte-copy is verified separately.

@@ -51,8 +51,8 @@ SSH users or hosts starting with `-` and control characters, and git runs with
 `GIT_ALLOW_PROTOCOL=ssh:https:http`.
 
 The response adds a sorted `branches` list alongside `default_branch`. Enrollment
-and Clone project config show a required target-branch dropdown, mark and initially
-select the remote default, and preserve an explicit selection on rereading the same
+shows a required target-branch dropdown, marks and initially
+selects the remote default, and preserves an explicit selection on rereading the same
 URL only while that branch still exists. With no default the administrator chooses;
 with no branches continuation stays disabled. Editing the URL or a failed reread
 clears old discovery; stale asynchronous responses cannot restore it. Creation

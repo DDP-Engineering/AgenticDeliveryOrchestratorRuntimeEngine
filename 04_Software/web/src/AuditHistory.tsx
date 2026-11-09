@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Fragment, useEffect, useRef, useState } from "react";
 import { messages, type Locale } from "./i18n";
 import { auditCopy } from "./auditCopy";
+import { startVisiblePolling } from "./polling";
 
 type Row = { id: number; actor_id: number | null; actor: string | null; action: string; project: string;
   project_id: string | null; resource_type: string | null; resource_id: string | null; created_at: string;
@@ -53,7 +54,7 @@ const short = (hex: string) => <code title={hex}>{hex.slice(0, 12)}</code>;
 /** Filtered server pages are isolated by principal and project via the parent key. */
 export function AuditHistory({ locale, projects, fixedProject, read }: {
   locale: Locale; projects: Array<{ id: string; name: string; display_name?: string }>;
-  fixedProject?: string; read: (path: string) => Promise<unknown>;
+  fixedProject?: string; read: (path: string, signal: AbortSignal) => Promise<unknown>;
 }) {
   const c = auditCopy[locale];
   const [draft, setDraft] = useState<Filters>({ ...empty, project: fixedProject || "" });
@@ -69,6 +70,7 @@ export function AuditHistory({ locale, projects, fixedProject, read }: {
   const reader = useRef(read); reader.current = read;
   useEffect(() => {
     let active = true;
+    let cancelRead: (() => void) | null = null;
     setState("loading"); setRows([]); setTotal(0);
     const query = new URLSearchParams({ limit: size, offset: String(offset) });
     if (filters.actor) query.set("actor_id", filters.actor);
@@ -76,20 +78,30 @@ export function AuditHistory({ locale, projects, fixedProject, read }: {
     if (filters.type) query.set("action", filters.type);
     if (filters.from) query.set("from", filters.from + ":00Z");
     if (filters.to) query.set("to", filters.to + ":00Z");
-    reader.current(`/audit-page?${query}`).then(value => {
-      const page = value as { items: unknown[]; total: number; offset: number; limit: number | null };
-      if (!page || !Array.isArray(page.items) || !Number.isSafeInteger(page.total) || page.total < 0 ||
-          page.offset !== offset || page.limit !== (size === "all" ? null : Number(size)) ||
-          page.items.length > page.total || size !== "all" && page.items.length > Number(size) ||
-          page.items.some(row => !validRow(row) || filters.project && row.project_id !== filters.project) ||
-          new Set(page.items.map(row => (row as Row).id)).size !== page.items.length) throw new Error("invalid evidence");
-      if (active) { setRows(page.items as Row[]); setTotal(page.total); setState("ready"); }
-    }).catch(() => { if (active) { setRows([]); setTotal(0); setState("error"); } });
-    return () => { active = false; };
+    const load = async () => {
+      if (cancelRead) return;
+      const controller = new AbortController();
+      const deadline = window.setTimeout(() => controller.abort(), 10000);
+      cancelRead = () => { window.clearTimeout(deadline); controller.abort(); };
+      try {
+        const page = await reader.current(`/audit-page?${query}`, controller.signal) as { items: unknown[]; total: number; offset: number; limit: number | null };
+        if (!page || !Array.isArray(page.items) || !Number.isSafeInteger(page.total) || page.total < 0 ||
+            page.offset !== offset || page.limit !== (size === "all" ? null : Number(size)) ||
+            page.items.length > page.total || size !== "all" && page.items.length > Number(size) ||
+            page.items.some(row => !validRow(row) || filters.project && row.project_id !== filters.project) ||
+            new Set(page.items.map(row => (row as Row).id)).size !== page.items.length) throw new Error("invalid evidence");
+        if (active) { setRows(page.items as Row[]); setTotal(page.total); setState("ready"); }
+      } catch {
+        if (active) { setRows([]); setTotal(0); setState("error"); }
+      } finally { window.clearTimeout(deadline); cancelRead = null; }
+    };
+    void load();
+    const stop = startVisiblePolling(() => void load(), 15000);
+    return () => { active = false; stop(); cancelRead?.(); };
   }, [filters, size, offset, refresh]);
   const input = (key: keyof Filters, label: string, type = "text") => <label>{label}<input type={type} value={draft[key]} onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))} /></label>;
   return <section className="panel wide-panel audit-evidence" aria-label={c.title}>
-    <div className="panel-heading"><h2>{c.title}</h2><button type="button" className="ghost" onClick={() => setRefresh(value => value + 1)}>{c.refresh}</button></div>
+    <div className="panel-heading"><h2>{c.title}</h2>{!fixedProject && <button type="button" className="ghost" onClick={() => setRefresh(value => value + 1)}>{c.refresh}</button>}</div>
     <form className="audit-filters" onSubmit={event => {
       event.preventDefault();
       if (draft.actor && !/^[1-9][0-9]*$/.test(draft.actor) || draft.type && !/^[a-z][a-z0-9-]{0,79}$/.test(draft.type) ||

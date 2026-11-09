@@ -87,6 +87,77 @@ test("expanding evidence keeps the columns still and shortens identifiers", asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
 
+for (const view of ["global", "project"] as const) {
+test(`${view} change history background reads keep the active filters and open evidence`, async ({ page }) => {
+  await page.clock.install();
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const project = view === "project" ? projects.find((item: { name: string }) => item.name === "alpha").id : "";
+  await page.goto(project ? `/projects/${project}/history` : "/admin/audit");
+  const panel = page.locator(".audit-evidence");
+  const baseline = await (await page.request.get("/api/v1/audit-page?limit=10&offset=0")).json();
+  const event = baseline.items[0];
+  const expectedProjectId = project || event.project_id;
+  let actor = event.actor;
+  let projectId = expectedProjectId;
+  let query = new URLSearchParams();
+  await page.route("**/api/v1/audit-page?*", route => {
+    query = new URL(route.request().url()).searchParams;
+    return route.fulfill({ json: { ...baseline, items: [{ ...event, actor, project_id: projectId }], total: 1 } });
+  });
+  const action = page.getByLabel("Change type", { exact: true });
+  await action.fill(event.action);
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(panel.getByRole("status")).toContainText("1 ");
+  const evidence = panel.getByRole("button", { name: /Evidence/ });
+  await evidence.click();
+  await action.fill("unapplied-filter");
+  actor = "updated_actor";
+  await page.clock.fastForward(15000);
+  await expect(panel.getByRole("cell").filter({ hasText: actor })).toBeVisible();
+  await expect(evidence).toHaveAttribute("aria-expanded", "true");
+  await expect(action).toHaveValue("unapplied-filter");
+  expect(query.get("action")).toBe(event.action);
+  expect(query.get("project_id")).toBe(project || null);
+  await expect(panel.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(project ? 0 : 1);
+  if (project) projectId = "0".repeat(32);
+  else actor = "invalid actor!";
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(panel.getByRole("alert")).toContainText("Could not load data");
+  await expect(panel.getByRole("table")).toHaveCount(0);
+  actor = "recovered_actor";
+  projectId = expectedProjectId;
+  await page.clock.fastForward(15000);
+  await expect(panel.getByRole("cell").filter({ hasText: actor })).toBeVisible();
+});
+}
+
+test("project change history background recovers from a stalled read", async ({ page }) => {
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const project = projects.find((item: { name: string }) => item.name === "alpha").id;
+  const baseline = await (await page.request.get("/api/v1/audit-page?limit=10&offset=0")).json();
+  await page.clock.install();
+  let reads = 0;
+  let release = () => {};
+  const stalled = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/v1/audit-page?*", async route => {
+    if (++reads === 1) {
+      await stalled;
+      await route.abort().catch(() => undefined);
+      return;
+    }
+    await route.fulfill({ json: { ...baseline, items: [{ ...baseline.items[0], project_id: project }], total: 1 } });
+  });
+  try {
+    await page.goto(`/projects/${project}/history`);
+    await expect.poll(() => reads).toBe(1);
+    const panel = page.locator(".audit-evidence");
+    await page.clock.fastForward(10000);
+    await expect(panel.getByRole("alert")).toContainText("Could not load data");
+    await page.clock.fastForward(15000);
+    await expect(panel.getByRole("status")).toContainText("1 ");
+  } finally { release(); }
+});
+
 test("malformed or failed projections hide evidence and retry recovers", async ({ page }) => {
   await page.goto("/admin/audit");
   await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();

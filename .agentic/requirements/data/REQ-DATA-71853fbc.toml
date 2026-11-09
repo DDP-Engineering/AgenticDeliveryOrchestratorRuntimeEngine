@@ -13,11 +13,11 @@ title = "Clear import draft when leaving the page"
 
 status = "active"
 
-requirement = """When an administrator navigates Back or corrects an exact enrollment step, the interface shall retain its memory draft while invalidating obsolete preview/probe/review; leaving the wizard warns about draft loss, clears file contents and ignores in-flight reads on unmount/session change, reopening a blank draft."""
+requirement = """When an administrator changes the selected file or closes the raw import dialog, the interface shall invalidate older validation evidence and discard the memory draft when the dialog closes."""
 
-verification = "Offline browser tests retain identity/file on internal Back/Change, invalidate preview after edits or Back from review, reject late responses and changed files, warn on navigation/refresh, and reopen blank after leaving."
+verification = "Chromium replaces a file during validation, rejects late responses and changed files, and reopens a blank dialog after cancellation."
 
-affected_paths = ["04_Software/web/src/ImportWizard.tsx", "04_Software/web/src/App.tsx"]
+affected_paths = ["04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/App.tsx"]
 
 linked_tests = ["04_Software/web/e2e/import.spec.ts"]
 
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = "Discard browser-held configuration text and prevent stale preview confirmation after navigation."
 
 created = 2026-10-01
-updated = 2026-10-05
+updated = 2026-11-09

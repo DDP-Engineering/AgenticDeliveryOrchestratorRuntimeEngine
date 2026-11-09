@@ -433,6 +433,12 @@ class ProjectImportInput(BaseModel):
     revision: str = ""
 
 
+class ProjectImportPreviewInput(ProjectImportInput):
+    """@brief A raw import preview may ask the server to suggest the project ID."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 class ConfigEdit(BaseModel):
     """@brief One validated scalar or complete settings-batch edit."""
 
@@ -2276,6 +2282,62 @@ def _secret_config_keys(value: object, prefix: str = "") -> list[str]:
     return found
 
 
+def _import_preview_identity(profiles: ProfileStore,
+                             body: ProjectImportPreviewInput) -> ProjectImportInput:
+    """@brief Resolve an optional preview ID without changing the submitted TOML.
+    @param[in] profiles Current ownership store.
+    @param[in] body Preview text and optional identity overrides.
+    @return Exact preview input with an explicit project identity.
+    @exception HTTPException Invalid encoding, oversized text or unavailable identity.
+    """
+    if body.name is not None:
+        return body
+    try:
+        if len(body.config_text.encode("utf-8")) > MAX_SOURCE_BYTES:
+            raise _error(413, "config_too_large")
+    except UnicodeError as exc:
+        raise _error(400, "config_invalid") from exc
+    try:
+        platform = tomllib.loads(body.config_text).get("platform")
+    except (ValueError, RecursionError):
+        platform = None  # The exact inspection returns the file's structural findings.
+    repo = platform.get("repo") if isinstance(platform, dict) else None
+    # Suggest names only from repository identifiers, never from URLs or userinfo.
+    label = (repo.rsplit("/", 1)[-1]
+             if isinstance(repo, str) and re.fullmatch(r"[\w.-]+(?:/[\w.-]+)*", repo)
+             else "project")
+
+    def available(name: str) -> bool:
+        """@brief Skip reserved ID spellings and propagate ownership errors."""
+        try:
+            return profiles.id_availability(name)
+        except ProfileError as exc:
+            if exc.code == "invalid_project_name":
+                return False
+            raise
+
+    try:
+        name = suggest_id(label, available)
+    except RepositorySourceError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "project_exists",
+                    "issues": [_finding("project_exists", "name", "Choose another ID.")]},
+        ) from exc
+    except ProfileError as exc:
+        raise _identity_error(exc) from exc
+    except OSError as exc:
+        raise _contract_rejection("project_creation_failed", "config",
+                                  "Check server profile storage.") from exc
+    identity = {"name": name}
+    if "display_name" not in body.model_fields_set:
+        try:
+            identity["display_name"] = validate_display_name(label)
+        except ProfileError:
+            identity["display_name"] = name
+    return body.model_copy(update=identity)
+
+
 def _inspect_project_import(
     profiles: ProfileStore, body: ProjectImportInput, *, own_state_lock: bool = False,
 ) -> tuple[dict, object]:
@@ -2366,7 +2428,7 @@ def _inspect_project_import(
                                                 else config.container.runtime),
                                     "image": config.container.image,
                                     "egress": egress_policy(config).mode}}
-    except (AttributeError, TypeError, ValueError, tomllib.TOMLDecodeError):
+    except (AttributeError, TypeError, ValueError, RecursionError):
         findings = [_finding("config_invalid", "config", "Supply a valid UTF-8 TOML document.")]
         config, review = None, None
     except (OSError, StateError, ProfileError) as exc:
@@ -3583,18 +3645,19 @@ def create_app(home: str | Path | None = None,
 
     @app.post("/api/v1/projects/import-preview")
     def preview_project_import(
-        body: ProjectImportInput,
+        body: ProjectImportPreviewInput,
         _user: Annotated[dict, Depends(admin_mutation)],
     ) -> dict:
         """@brief Review an unchanged TOML import before saving it."""
-        preview, _config = _inspect_project_import(profiles, body)
+        candidate = _import_preview_identity(profiles, body)
+        preview, _config = _inspect_project_import(profiles, candidate)
         web.audit(
             _user["id"],
             "toml-import-prepared",
             phase="prepare",
             result="prepared",
             resource_type="project",
-            resource_id=body.name,
+            resource_id=candidate.name,
             candidate_revision=preview.get("revision"),
         )
         return preview

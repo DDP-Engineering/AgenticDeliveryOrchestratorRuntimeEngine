@@ -27,7 +27,7 @@ Contul și accesul lui se creează împreună sau deloc. Un nume de utilizator d
 
 ## Accesul la proiecte {#project-access}
 
-Fila **Acces** a unui proiect listează fiecare cont de dezvoltator cu **Are acces** sau **Fără acces**. Alegeți **Acordă acces** sau **Retrage accesul** lângă un dezvoltator, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. Modificarea nu afectează celelalte proiecte ale dezvoltatorului și este înregistrată în Istoricul modificărilor.
+Fila **Acces** a unui proiect listează fiecare cont de dezvoltator cu **Are acces** sau **Fără acces**. Alegeți **Acordă acces** sau **Retrage accesul** lângă un dezvoltator, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. Modificarea nu afectează celelalte proiecte ale dezvoltatorului și este înregistrată în Istoricul modificărilor. Lista de acces se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă.
 
 Un dezvoltator cu acces vede proiectul și îi poate porni, reîncerca sau anula lucrările. Administratorii au întotdeauna acces.
 
@@ -41,7 +41,7 @@ Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actuali
 
 ## Istoricul modificărilor {#change-history}
 
-Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Folosiți **Actualizează** pentru a reîncărca.
+Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În Istoricul modificărilor global, **Actualizează** reîncarcă imediat lista.
 
 Istoricul identifică tichetele și lucrările separat de numerele operațiilor. O operație eșuată apare ca **Eșuat**, iar una refuzată ca **Respins**. Ștergerile din CLI au autorul CLI și rămân vizibile după eliminarea lucrării. O ștergere întreruptă rămâne **Incert** până la confirmarea rezultatului.
 

@@ -57,8 +57,11 @@ ADORE's only coding agent.
   authorized attention/active tables, one header Project selector and Details navigation;
   its primary link resets all-project scope and polling updates valid rows quietly;
   worker faults remain visible, with reporting/technical evidence in dedicated views.
-  Header help discloses localized delivery meanings beside Refresh/About; sidebar
-  Jobs supplies scoped full-history navigation.
+  Settings, Access, global Change history and project History refresh while
+  visible. Unsaved settings pause updates. Header Refresh is available on Users.
+  Sidebar Jobs supplies scoped full-history navigation.
+  Project Settings exports the saved TOML bytes. Projects imports exact TOML
+  from a dialog that validates file selection automatically and publishes with stopped pickup.
   Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
   Settings → Agent and model unifies the Pi provider, model and OpenAI-compatible endpoint (one coherent `executor.connection` member in the settings batch; models from the pinned Pi catalog), launch command, the provider's API key and RPC model testing
   (no agent choice; the native command is fixed); a ChatGPT-subscription project shows the server's one ChatGPT sign-in instead of the key (admin-only Pi OAuth through the selected container or managed native helper, a temporary access token per stage; container and native Windows/Linux runs with stage limits up to 3000 s), with the exact launch preset for container projects through reviewed apply, inline field editors retaining row columns and a names-only credential dropdown with removable selections.

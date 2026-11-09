@@ -7,40 +7,15 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Portable project settings
 
-An administrator can open a project's **Settings → Export portable settings**,
-read the included/excluded data, choose **Preview active rules**, then
-**Download portable JSON**. The server validates the active configuration before
-exporting. Pending configuration changes stay outside the download. A changed
-portable preview requires a fresh preview; a failed read disables download.
-Developers and invalid sessions cannot export or discover project metadata
-through this endpoint. No live forge, container or credential check runs.
+The administrator API exports and transfers a fixed set of working rules. Export
+validates the active project configuration and excludes pending changes. For a
+transfer, supply a portable JSON document or an authorized source project, then
+provide independent target identity, paths, repository, runtime and references.
+The API binds the reviewed source and target revisions and creates the project
+with monitoring paused. See the API section for the exact requests.
 
-The package transfers working rules as defaults for a **new project** on a
-compatible ADORE installation. On Projects, choose **Clone project config**, then
-**From a portable settings file** for a JSON file or **From a project on this
-server** for an authorized source project. Review recognized rules and exclusions, then **Set up new target**.
-Supply a new display name/stable ID, repository identifier and existing server
-clone, runtime/image/model, reviewers/labels and target credential environment
-names. Reconfirm the target environment and credential references explicitly.
-Provider connections use the selected Pi model. All source references are
-excluded.
-
-Validate setup to see **Source value / This server value / Effect** for all 15
-rules. This server value is the installed default; the source rule becomes the
-new project's rule. Copied budget controls are read-only. Review includes
-independent allocated config/state/worktree/metrics locations. Confirm **Create
-project with pickup stopped**, then open the new project. Checks and activation
-remain explicit separate actions. No repository is cloned and no existing project
-is replaced. Jobs/history, access, audit, pending changes, secrets and source
-ownership stay at the source.
-
-Changing target answers invalidates review/checks; Back retains corrections.
-Source/file revision changes block confirmation with a typed conflict and
-**Review source again**. Selected files are reread before target operations.
-Returning to source or changing method discards target corrections after the loss
-warning. Missing/corrupt/incompatible sources, unresolved references, occupied or
-overlapping ownership and duplicate confirmation create no partial profile.
-SHA-256 revision binding detects changes and does not authenticate a file.
+Projects offers raw import of a server-ready TOML file in the browser. Use
+[Web Interface](Web_Interface.md) for that workflow.
 
 ## Exact format and allowed values
 

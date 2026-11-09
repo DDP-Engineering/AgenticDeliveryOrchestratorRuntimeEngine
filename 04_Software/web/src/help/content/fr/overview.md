@@ -37,7 +37,7 @@ Si le candidat ou sa branche cible change après l’approbation, celle-ci ne s�
 | Administrateur (Admin) | Tous les projets actuels et futurs, ainsi que l’Administration et les coûts | Tout ce qu’un Dev peut faire, et inscrire des projets, modifier les paramètres d’un projet par des changements vérifiés, suspendre ou reprendre la surveillance, archiver ou restaurer des projets, gérer les utilisateurs et l’accès aux projets, définir la conservation de l’audit, lire l’historique des changements, et voir et définir les coûts |
 | Dev | Uniquement les projets attribués par un administrateur | Démarrer et arrêter des tickets, relancer ou annuler des tâches, lire les statistiques des projets attribués et lire les paramètres d’un projet (en lecture seule, sans secrets ni paramètres financiers) |
 
-Un Dev ne voit jamais de valeurs monétaires et ne peut pas ouvrir les pages d’Administration. Un Dev sans projet attribué peut tout de même utiliser [Mon compte](/account) ; il lui est indiqué de demander l’accès à un administrateur.
+Un Dev ne voit jamais de valeurs monétaires et ne peut pas ouvrir les pages d’Administration. Sans projet attribué, la Vue d’ensemble invite le Dev à demander l’accès à un administrateur. S’il n’y a aucun projet, un Admin peut choisir **Inscrire un nouveau projet** dans la Vue d’ensemble.
 
 ## Premiers pas {#getting-started}
 

@@ -347,8 +347,10 @@ poll also blocks archive.
 `POST /api/v1/projects/{name}/restore` re-enables pickup. Both return the project
 view, including `archived`; archived projects remain in project, job and metrics
 reads. New job and pickup operations return 409 while archived.
-`POST /api/v1/projects/import-preview` accepts bounded UTF-8 `config_text`,
-profile ID, display name and description. It returns separate `config_revision`
+`POST /api/v1/projects/import-preview` accepts bounded UTF-8 `config_text`
+and optional profile ID, display name and description. With the ID omitted,
+the server suggests an available ID from the declared repository name. The
+response returns the resolved identity and separate `config_revision`
 (raw-byte SHA-256), opaque `revision` binding file/identity/current ownership and
 terminal state, structured `validation`, unverified status and an allowlisted
 `review`. Review includes config destination, declared and resolved repository/worktree/state and all
@@ -565,7 +567,7 @@ All routes below require administrator authorization and mutation CSRF:
 | `POST /api/v1/projects/repository-source` | `url` | Detected `kind` (or null), `login`, `repo`, `default_branch`, validated sorted `branches`, derived `name`, `display_name`, `repo_path` (`<home>/repos/<name>`) and `clone` (`new`/`existing`); `repository_url_invalid` 400, `repository_unreachable` / `repository_branches_invalid` 502; no writes |
 | `POST /api/v1/projects/setup-preview` | Existing guided fields, optional `display_name` and `clone_url` | Local `structural_valid`, findings, `pickup: stopped-on-create`, unverified environment; no writes/probes |
 | `POST /api/v1/projects` | Same guided fields | Complete profile with pickup already stopped |
-| `POST /api/v1/projects/import-preview` | Exact TOML and identity | Full candidate revision, config digest, structured validation and safe review |
+| `POST /api/v1/projects/import-preview` | Exact TOML and optional identity | Resolved identity, candidate revision, config digest, structural findings and safe review |
 | `POST /api/v1/projects/import` | Exact TOML plus preview revision | Stopped complete profile; existing server history retained |
 | `PUT /api/v1/projects/{name}/identity` | Only `display_name` | Updated label, unchanged directory, config/state paths, immutable ID, grants and queued operation ownership |
 

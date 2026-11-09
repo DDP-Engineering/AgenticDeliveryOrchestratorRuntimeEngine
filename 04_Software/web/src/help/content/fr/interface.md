@@ -7,7 +7,7 @@ L’interface comprend une barre latérale sombre pour passer d’une page à l�
 | Page | Ce que vous y faites |
 |---|---|
 | Vue d'ensemble | Consulter **À traiter** et **Tâches actives** pour les projets auxquels vous avez accès. **Détails** ouvre une tâche dans Tâches. |
-| [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Inscrire un nouveau projet**, **Importer une configuration de projet** et **Cloner une configuration de projet**. |
+| [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Inscrire un nouveau projet** ou **Importer la configuration brute**. |
 | [Tâches](/jobs) | Choisir un **Périmètre des travaux**, puis utiliser le sous-onglet **Tickets** pour lire les tickets de la forge et les démarrer, ou le sous-onglet **Tâches** pour rechercher des tâches et ouvrir leurs détails. |
 | [Statistiques](/metrics) | Consulter l’utilisation, la qualité et les tendances sur une période de rapport. Voir [Statistiques et coûts](/help/statistics). |
 | Administration | Réservée aux administrateurs. Elle ouvre trois pages : [État du système](/admin/status), [Utilisateurs](/admin/users) et [Historique des changements](/admin/audit). Voir [Administration](/help/administration). |
@@ -22,7 +22,7 @@ Un Dev ne voit que les projets attribués par un administrateur et n’a pas d�
 La barre supérieure affiche le titre de la page et ces commandes.
 
 - **Projet** : un sélecteur, uniquement sur la Vue d’ensemble. Il limite **À traiter** et **Tâches actives** à un projet ; par défaut, ce sont tous les projets accessibles. Tâches a son propre sélecteur **Périmètre des travaux** et Statistiques a un sélecteur **Projet** dans sa ligne de période de rapport.
-- **Actualiser** : affiché, avec l’heure **Actualisé le**, uniquement sur les pages qui ne se mettent pas à jour seules : Utilisateurs, Historique des changements, et les onglets Paramètres, Accès et Historique d’un projet.
+- **Actualiser** et l’heure **Actualisé le** figurent dans l’en-tête sur Utilisateurs.
 - **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.
 - **Comment fonctionne ADORE** : ouvre ce centre d’aide.
 
@@ -65,7 +65,7 @@ Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la co
 
 ## Mises à jour automatiques, langue et thème {#preferences}
 
-La Vue d’ensemble, Projets et Tâches rechargent leurs données toutes les 15 secondes tant que l’onglet du navigateur est visible ; Statistiques et État du système s’actualisent aussi seuls. Un onglet masqué cesse de se mettre à jour et s’actualise dès votre retour. Si une mise à jour échoue, les chiffres concernés restent masqués jusqu’à la prochaine mise à jour réussie.
+Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet, ainsi que l’Historique des changements, rechargent leurs données toutes les 15 secondes quand l’onglet du navigateur est visible. Les Paramètres suspendent l’actualisation pendant une modification non enregistrée, un enregistrement ou un abandon. Statistiques et État du système s’actualisent aussi automatiquement. Les mises à jour reprennent au retour dans l’onglet. Si une mise à jour échoue, les données concernées restent masquées jusqu’à la prochaine réussite.
 
 Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.
 

@@ -7,7 +7,7 @@ The interface has a dark sidebar for moving between pages and a top bar that nam
 | Page | What you do there |
 |---|---|
 | Overview | See **Needs attention** and **Active jobs** for the projects you can access. **Details** opens a job in Jobs. |
-| [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Enroll new project**, **Import project config** and **Clone project config**. |
+| [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Enroll new project** or **Import raw configuration**. |
 | [Jobs](/jobs) | Pick a **Job scope**, then use the **Tickets** sub-tab to read forge tickets and start them, or the **Jobs** sub-tab to search jobs and open their details. |
 | [Statistics](/metrics) | Read usage, quality and trends for a reporting period. See [Statistics and costs](/help/statistics). |
 | Administration | Administrators only. It opens three pages: [System status](/admin/status), [Users](/admin/users) and [Change history](/admin/audit). See [Administration](/help/administration). |
@@ -22,7 +22,7 @@ A Dev sees only the projects an administrator assigned and has no Administration
 The top bar shows the page title and these controls.
 
 - **Project**: a selector on Overview only. It narrows **Needs attention** and **Active jobs** to one project; the default is all projects you can access. Jobs has its own **Job scope** selector and Statistics has a **Project** selector in its reporting period row.
-- **Refresh**: shown, with the **Last refreshed** time, only on pages that do not update themselves: Users, Change history, and a project's Settings, Access and History tabs.
+- **Refresh** and the **Last refreshed** time appear in the header on Users.
 - **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.
 - **How ADORE works**: opens this help center.
 
@@ -65,7 +65,7 @@ After **Start**, **Retry** or **Cancel**, a notice reports the command as queued
 
 ## Automatic updates, language and theme {#preferences}
 
-Overview, Projects and Jobs reload their data every 15 seconds while the browser tab is visible; Statistics and System status also refresh by themselves. A hidden tab stops updating and refreshes as soon as you return. If an update fails, the affected figures stay hidden until the next one succeeds.
+Overview, Projects, Jobs, project Settings, project Access, project History and Change history reload their data every 15 seconds while the browser tab is visible. Settings pauses while you have unsaved changes or a save or discard is in progress. Statistics and System status also refresh automatically. Background updates pause while the browser tab is hidden and resume when you return. If an update fails, the affected data stays hidden until the next successful update.
 
 In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
 

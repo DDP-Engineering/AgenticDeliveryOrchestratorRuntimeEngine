@@ -27,7 +27,7 @@ Dans la liste **Utilisateurs**, chaque compte propose ces actions.
 
 ## Accès aux projets {#project-access}
 
-L’onglet **Accès** d’un projet liste chaque compte développeur avec **A accès** ou **Pas d’accès**. Choisissez **Donner l’accès** ou **Retirer l’accès** à côté d’un développeur, comparez **Avant** et **Après**, puis choisissez **Appliquer les accès vérifiés**. Le changement laisse intacts les autres projets du développeur et est consigné dans l’Historique des changements.
+L’onglet **Accès** d’un projet liste chaque compte développeur avec **A accès** ou **Pas d’accès**. Choisissez **Donner l’accès** ou **Retirer l’accès** à côté d’un développeur, comparez **Avant** et **Après**, puis choisissez **Appliquer les accès vérifiés**. Le changement laisse intacts les autres projets du développeur et est consigné dans l’Historique des changements. La liste des accès s’actualise toutes les 15 secondes quand l’onglet du navigateur est visible.
 
 Un développeur qui a accès voit le projet et peut démarrer, relancer ou annuler ses tâches. Les administrateurs ont toujours accès.
 
@@ -41,7 +41,7 @@ Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actua
 
 ## Historique des changements {#change-history}
 
-Sous **Administration**, ouvrez [Historique des changements](/admin/audit) pour voir qui a changé quoi, quand, et avec quel résultat. L’onglet **Historique** d’un projet montre les mêmes preuves pour ce projet seul, avec ses tâches terminées. Utilisez **Actualiser** pour recharger.
+Sous **Administration**, ouvrez [Historique des changements](/admin/audit) pour voir qui a changé quoi, quand, et avec quel résultat. L’onglet **Historique** d’un projet montre les mêmes preuves pour ce projet seul, avec ses tâches terminées. Les deux vues s’actualisent toutes les 15 secondes quand elles sont visibles et conservent vos filtres, la page et les preuves ouvertes. Dans l’Historique des changements global, **Actualiser** recharge la liste immédiatement.
 
 L’historique distingue les tickets et les tâches des numéros d’opération. Une opération échouée affiche **Échec**, une opération refusée **Refusé**. Les suppressions par CLI indiquent CLI comme auteur et restent visibles après suppression de la tâche. Une suppression interrompue reste **Incertain** jusqu’à confirmation.
 

@@ -34,7 +34,7 @@ text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, inc
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Local sign-in and enrollment checks persist; older refreshes preserve host results.", fr = "Connexion locale et contrôles conservés ; les anciens rafraîchissements préservent les résultats.", de = "Lokale Anmeldung und Einrichtungsprüfungen bleiben; ältere Updates wahren Host-Ergebnisse.", ro = "Autentificarea locală și verificările persistă; actualizările vechi păstrează rezultatele gazdei." }
+text = { en = "Local sign-in persists. Stale refreshes keep host checks. Enrollment shows native Pi errors.", fr = "Connexion locale et contrôles conservés. L’inscription affiche les erreurs de Pi sur le serveur.", de = "Lokale Anmeldung und Prüfungen bleiben erhalten. Die Einrichtung zeigt native Pi-Fehler.", ro = "Autentificarea locală și verificările persistă. Înrolarea arată erorile Pi de pe server." }
 
 [[release.entry]]
 category = "fixed"
@@ -109,7 +109,7 @@ text = { en = "Pi is the only coding agent: choose where it runs, with image sug
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Projects offers three clear actions: enroll a new project, import a config, clone a config.", fr = "Projets propose trois actions : inscrire un projet, importer ou cloner une configuration.", de = "Projekte bietet drei Aktionen: Projekt registrieren, Konfiguration importieren oder klonen.", ro = "Proiecte oferă trei acțiuni: înrolează un proiect, importă sau clonează o configurație." }
+text = { en = "Import raw configuration in a dialog that validates the file automatically.", fr = "Importez la configuration brute dans un dialogue qui valide le fichier automatiquement.", de = "Originalkonfiguration im Dialog importieren. Die Datei wird automatisch geprüft.", ro = "Importă configurația brută într-un dialog care validează automat fișierul." }
 
 [[release.entry]]
 category = "improved"
@@ -134,7 +134,7 @@ text = { en = "System status shows retention and storage; Users lists each accou
 [[release.entry]]
 category = "improved"
 topic = { en = "Navigation", fr = "Navigation", de = "Navigation", ro = "Navigare" }
-text = { en = "Refresh appears only where pages do not update themselves; evidence opens below its event.", fr = "Actualiser n'apparaît que sur les pages non automatiques ; les preuves s'ouvrent sous l'événement.", de = "Aktualisieren nur auf Seiten ohne Selbstaktualisierung; Nachweise öffnen sich unter dem Ereignis.", ro = "Reîmprospătează apare doar unde paginile nu se actualizează; dovezile se deschid sub eveniment." }
+text = { en = "Settings, Access and both history views refresh automatically. Settings pauses during edits.", fr = "Paramètres, Accès et les deux historiques s’actualisent. La saisie suspend les Paramètres.", de = "Einstellungen, Zugriff und beide Verläufe aktualisieren sich. Beim Bearbeiten pausiert es.", ro = "Setări, Acces și paginile de istoric se actualizează automat. Editarea pune Setările în pauză." }
 
 [[release.entry]]
 category = "improved"

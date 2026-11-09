@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import {useEffect, useRef, useState, type FormEvent} from "react";
+import {useEffect, useLayoutEffect, useRef, useState, type FormEvent} from "react";
 import type {Locale} from "./i18n";
 import {CHATGPT, connectionCopy} from "./agentConnection";
 
@@ -23,10 +23,12 @@ const variableName=(name:unknown)=>typeof name==="string" && /^[A-Z][A-Z0-9_]{0,
 export const isExecutorSetting = (key:string) => key.startsWith("executor.");
 
 /** Secret drafts stay in component memory and are cleared after every mutation attempt. */
-export function ExecutorCredentials({project,revision,locale,read,write,onChanged,disabled,embedded=false,provider=""}: {embedded?:boolean;provider?:string;project:string;revision:string;locale:Locale;read:()=>Promise<unknown>;write:(method:string,body:unknown)=>Promise<unknown>;onChanged:()=>void;disabled:boolean}) {
+export function ExecutorCredentials({project,revision,locale,read,write,onChanged,disabled,setPollBlocked,embedded=false,provider=""}: {embedded?:boolean;provider?:string;project:string;revision:string;locale:Locale;read:()=>Promise<unknown>;write:(method:string,body:unknown)=>Promise<unknown>;onChanged:()=>void;disabled:boolean;setPollBlocked:(blocked:boolean)=>void}) {
  const c=executorCopy[locale];
  const [value,setValue]=useState<Credentials|null>(null), [variable,setVariable]=useState(""), [token,setToken]=useState(""), [busy,setBusy]=useState(false), [notice,setNotice]=useState(""), [error,setError]=useState(false);
  const active=useRef(true), pending=useRef(false);
+ useLayoutEffect(()=>{setPollBlocked(busy || token !== "");},[busy,token,setPollBlocked]);
+ useLayoutEffect(()=>()=>setPollBlocked(false),[setPollBlocked]);
  const parse=(raw:unknown):Credentials=>{
   const item=raw as Credentials;
   if (!item || Object.keys(item).sort().join()!=="project_id,revision,variables" || item.project_id!==project || item.revision!==revision || !Array.isArray(item.variables) || item.variables.some(v=>!v || Object.keys(v).sort().join()!=="name,source" || !variableName(v.name) || !["project","environment","missing"].includes(v.source)) || new Set(item.variables.map(v=>v.name)).size!==item.variables.length) throw Error("invalid response");
@@ -36,7 +38,7 @@ export function ExecutorCredentials({project,revision,locale,read,write,onChange
  const current=value?.variables.find(v=>v.name===variable);
  const mutate=async(method:string)=>{
   if(pending.current || disabled || !value || !variable)return;
-  pending.current=true;setBusy(true);setError(false);setNotice("");
+  pending.current=true;setPollBlocked(true);setBusy(true);setError(false);setNotice("");
   try {const raw=await write(method,{revision,variable,...(method==="PUT"?{token}: {})}); if(!active.current)return;setValue(parse(raw));setNotice(method==="PUT"?c.saved:c.removed);onChanged();}
   catch {if(active.current)setError(true);}
   finally {if(active.current){setToken("");setBusy(false);pending.current=false;}}
@@ -46,7 +48,10 @@ export function ExecutorCredentials({project,revision,locale,read,write,onChange
   {value?.variables.length===0 ? <p role="note">{provider===CHATGPT ? connectionCopy[locale].chatgptNote : emptyCredentialCopy[locale]}</p> : <form className="form-stack" onSubmit={submit}><fieldset disabled={disabled||busy||!value}>
    <label>{c.variable}<select aria-label={c.variable} value={variable} onChange={e=>{setVariable(e.target.value);setToken("");setNotice("");}}>{value?.variables.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></label>
    {current&&<p>{c[current.source]}</p>}
-   <label>{c.key}<input aria-label={c.key} type="password" value={token} onChange={e=>setToken(e.target.value)} autoComplete="new-password" maxLength={4096} required disabled={current?.source==="environment"}/></label>
+   <label>{c.key}<input aria-label={c.key} type="password" value={token} onChange={e=>{
+    if (e.target.value) setPollBlocked(true);
+    setToken(e.target.value);
+   }} autoComplete="new-password" maxLength={4096} required disabled={current?.source==="environment"}/></label>
    <div className="button-row"><button className="primary" disabled={!variable||current?.source==="environment"}>{c.save}</button><button className="ghost" type="button" disabled={current?.source!=="project"} onClick={()=>void mutate("DELETE")}>{c.remove}</button></div>
   </fieldset></form>}
   {notice&&<p role="status">{notice}</p>}{error&&<p role="alert" className="alert">{c.error}</p>}

@@ -37,7 +37,7 @@ If the candidate or its target branch changes after approval, the approval no lo
 | Administrator (Admin) | All current and future projects, plus Administration and costs | Everything a Dev can do, and enroll projects, edit project settings through reviewed changes, pause or resume Monitoring, archive or restore projects, manage users and project access, set audit retention, read change history, and see and set costs |
 | Dev | Only the projects an administrator assigned | Start and stop tickets, retry or cancel jobs, read statistics for assigned projects, and read project settings (read-only, with secrets and financial settings omitted) |
 
-A Dev never sees monetary values and cannot open the Administration pages. A Dev with no assigned project can still use [My account](/account) and is told to ask an administrator for access.
+A Dev never sees monetary values and cannot open the Administration pages. When no project is assigned, Overview asks the Dev to request access from an administrator. If there are no projects, an Admin can select **Enroll new project** on Overview.
 
 ## Getting started {#getting-started}
 

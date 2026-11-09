@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+
+schema = 1
+id = "REQ-UX-d64b7511"
+
+title = "Refresh change history while visible"
+
+status = "active"
+
+requirement = """
+While global Change history or project History is visible, the interface shall reread the current page of audit events every 15 seconds while preserving filters and expanded evidence.
+"""
+
+verification = "Chromium updates both history views with an active filter and expanded evidence, withholds malformed or cross-project results, and retries a stalled read after its deadline."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/AuditHistory.tsx"]
+
+linked_tests = ["04_Software/web/e2e/audit.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

@@ -6,7 +6,9 @@ A project's Settings tab lists the working rules ADORE applies to it: which tick
 
 Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Statistics, History and, for administrators, Access.
 
-Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project has its own settings; global capacity and audit retention belong to Administration. Settings does not refresh itself, so use the header Refresh to reread it.
+Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in.
+
+Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project has its own settings; global capacity and audit retention belong to Administration.
 
 ## Setting groups {#groups}
 
@@ -39,16 +41,16 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 Rules that apply:
 
 - **Discard changes** clears all unsaved edits. Cancelling the confirmation keeps them without creating a saved candidate.
-- Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs; discard and refresh before editing again. Concurrent administrators get a conflict.
+- Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs. Discard your changes to reload the saved settings before editing again. Concurrent administrators get a conflict.
 - The server checks the complete configuration and saves all edits together. A budget-only reviewed save also allows jobs waiting for clarification, with no active conductor or unfinished operation. Other settings require finished jobs. A failed save retains your inputs and any prepared candidate for retry.
 - Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
 - Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).
 
-Navigation or Refresh asks before discarding unsaved edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
+Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
 
 ## Original TOML {#toml}
 
-Beside the Project settings heading, administrators have **Preview raw configuration** and **Download raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. A downloaded file can be enrolled again with [Import project config](/help/projects#import-project) once its secrets are replaced with environment references.
+Beside the Project settings heading, administrators have **Preview raw configuration** and **Export raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. Select the exported file in [Import raw configuration](/help/projects#import-project) and ADORE automatically checks server paths, state-folder ownership and inline secrets before enrollment.
 
 ## Agent system packages {#system-packages}
 

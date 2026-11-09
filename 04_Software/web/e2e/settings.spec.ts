@@ -465,6 +465,119 @@ test("unpaused identity candidate is blocked in the browser without an apply req
   await discardSettings(page);
 });
 
+test("settings background reads pause for edits and ignore a delayed invalid response", async ({ page }) => {
+  await page.clock.install();
+  await openSettings(page);
+  const path = "**/api/v1/projects/*/config";
+  const config = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  let reads = 0;
+  let release = () => {};
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  await page.route(path, async route => {
+    if (++reads === 1) {
+      await delayed;
+      return route.fulfill({ json: {} });
+    }
+    return route.fulfill({ json: { ...config, config: { ...config.config,
+      budgets: { ...config.config.budgets, max_iterations: 19 } } } });
+  });
+  const tick = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  const edit = page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true });
+  await tick();
+  try {
+    await expect.poll(() => reads).toBe(1);
+    await edit.click();
+    const input = page.locator(".setting-editor").getByRole("spinbutton");
+    await input.fill("17");
+    const response = page.waitForResponse(response => response.url().endsWith("/config"));
+    release();
+    await response;
+    await page.clock.fastForward(15000);
+    await tick();
+    await expect(input).toHaveValue("17");
+    await expect(settingsSave(page)).toBeEnabled();
+    expect(reads).toBe(1);
+    await discardSettings(page);
+    await page.clock.fastForward(15000);
+    await expect(page.locator('[id="setting-budgets.max_iterations"] .setting-control > code')).toHaveText("19");
+    expect(reads).toBe(2);
+  } finally { release(); }
+});
+
+test("settings background keeps unsaved prices and credentials on the original model", async ({ page }) => {
+  await page.clock.install();
+  let release = () => {};
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  let priceReads = 0;
+  let savedModel = "";
+  let malformedRates = false;
+  const price = { id: 1, executor: "pi", model: "", effective_from: "2026-01-01",
+    input_usd_per_million: "1.25", output_usd_per_million: "2" };
+  await page.route("**/api/v1/projects/*/prices", async route => {
+    if (route.request().method() === "POST") {
+      savedModel = route.request().postDataJSON().model;
+      return route.fulfill({ json: { ...price, model: savedModel } });
+    }
+    const snapshot = malformedRates ? { length: 1 } : savedModel ? [{ ...price, model: savedModel }] : [];
+    if (++priceReads === 1) await delayed;
+    return route.fulfill({ json: snapshot });
+  });
+  try {
+    await openSettings(page);
+    const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+    const model = current.config.executor.model;
+    const prices = page.locator(".executor-prices");
+    const auth = page.locator('[data-setting-topic="authentication"]');
+    await auth.locator("summary").click();
+    const key = auth.getByLabel("API key", { exact: true });
+    await key.fill("offline-key-draft");
+    const form = prices.locator("form");
+    await form.locator('[name="input_usd_per_million"]').fill("1.25");
+    await form.locator('[name="output_usd_per_million"]').fill("2");
+    let reads = 0;
+    const next = { ...current, revision: "b".repeat(64), model_connection: null,
+      config: { ...current.config, executor: { ...current.config.executor, model: "updated-model" } } };
+    await page.route("**/api/v1/projects/*/config", route => { reads += 1; return route.fulfill({ json: next }); });
+    const tick = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await tick();
+    await expect(key).toHaveValue("offline-key-draft");
+    await key.clear();
+    await tick();
+    await expect(form.locator('[name="model"]')).toHaveValue(model);
+    expect(reads).toBe(0);
+    await form.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(prices.locator("tbody")).toContainText(model);
+    expect(savedModel).toBe(model);
+    const initialRates = page.waitForResponse(response => response.url().endsWith("/prices"));
+    release();
+    await (await initialRates).finished();
+    await expect(prices.locator("tbody")).toContainText(model);
+    malformedRates = true;
+    await page.clock.fastForward(15000);
+    await expect(form.locator('[name="model"]')).toHaveValue("updated-model");
+    await expect(prices.locator("tbody")).toHaveCount(0);
+  } finally { release(); }
+});
+
+test("settings background restores a prepared edit with a newer saved revision", async ({ page }) => {
+  await page.clock.install();
+  await openSettings(page);
+  const current = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const session = await (await page.request.get("/api/v1/me")).json();
+  const preview = await page.request.post("/api/v1/projects/alpha/config/preview", {
+    headers: { "X-CSRF-Token": session.csrf },
+    data: { key: "settings.batch", revision: current.revision, value: JSON.stringify([{ key: "budgets.max_iterations", value: "23" }]) },
+  });
+  expect(preview.ok()).toBe(true);
+  const candidate = await preview.json();
+  const next = { ...current, revision: "b".repeat(64), model_connection: null };
+  await page.route("**/api/v1/projects/*/config", route => route.fulfill({ json: next }));
+  await page.route("**/api/v1/projects/*/config/pending", route => route.fulfill({ json: { ...candidate, base_revision: next.revision } }));
+  await page.clock.fastForward(15000);
+  await expect(page.locator('[id="setting-budgets.max_iterations"]').getByRole("spinbutton")).toHaveValue("23");
+  await expect(settingsSave(page)).toBeEnabled();
+});
+
 test("stale Save and malformed restored candidate fail closed while retaining edits", async ({ page }) => {
   await openSettings(page);
   await page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true }).click();
@@ -482,9 +595,10 @@ test("stale Save and malformed restored candidate fail closed while retaining ed
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({json:{candidate_revision:"broken"}});
   });
-  await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
-  await page.locator('[data-setting-purpose="implementation"] > summary').click();
+  const implementation = page.locator('[data-setting-purpose="implementation"]');
+  if (await implementation.getAttribute("open") === null) await implementation.locator("summary").first().click();
   await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
   await page.unroute("**/projects/*/config/pending");
   await discardSettings(page);

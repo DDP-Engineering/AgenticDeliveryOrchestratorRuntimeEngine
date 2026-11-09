@@ -162,11 +162,8 @@ SQLite bytes, authorization, scope and financial redaction.
   during existing locked atomic publication. All 15 rules transfer, while target
   identity/repository/environment/references are supplied anew. Allocated state,
   worktrees and derived metrics remain independent; corrupt/overlapping ownership,
-  stale sources, rollback and replay fail closed. `TransferWizard` reviews the
-  selected source; optional `EnrollmentWizard` mode shows complete source/default/
-  effect mapping, required reconfirmation and retained memory-only correction.
-  Selected files are reread at target boundaries. Tests: `test_web_transfer.py`
-  and `web/e2e/transfer.spec.ts`; exact TOML/export remain separate contracts.
+  stale sources, rollback and replay fail closed. API tests are in
+  `test_web_transfer.py`. Exact TOML import uses a separate endpoint contract.
 
 - Admin-only `/projects/{name}/config/portable-settings` validates a bounded
   active snapshot through `portable-settings.md`; canonical no-store JSON and
@@ -176,7 +173,7 @@ SQLite bytes, authorization, scope and financial redaction.
   after snapshot export; changed identity rejects. Exact TOML/CSV contracts retain
   their behavior. Portable parser/API tests remain offline.
 - `GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
-- Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
+- Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
 
 - `/api/v1/jobs-page` provides complete globally ordered authorized current and
@@ -186,8 +183,9 @@ SQLite bytes, authorization, scope and financial redaction.
   JSONL bytes without altering operational journal recovery. See
   `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
 
-- Exact Admin/CSRF import-preview returns config/candidate revisions, structured
-  local findings and allowlisted review. import-check reuses bounded probes with
+- Exact Admin/CSRF import-preview suggests an available ID when omitted and
+  returns the resolved identity, config/candidate revisions, local findings and
+  allowlisted review. import-check reuses bounded probes with
   ephemeral revision/time-bound status; import confirms unchanged bytes after
   full identity/ownership/state reinspection within enrollment/conductor locks.
 
@@ -289,7 +287,7 @@ SQLite bytes, authorization, scope and financial redaction.
   lock as CLI `config set`; direct host file changes do not use that lock.
   Staged, applied and direct edits write bytes and keep the
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
-- The administrator UI edits multiple settings and uses one dirty-aware Save. Important effects receive a no-write canonical preview and native modal; cancellation retains inputs without a new stored draft. Confirmed preparation/apply binds exact hashes and plans. Ordinary changes save directly. Drafts survive errors and stale revisions; navigation and Refresh guard abandonment. Apply retains atomic idle/lock/pause authority and interrupted-apply reconciliation.
+- The administrator UI edits multiple settings and uses one dirty-aware Save. Important effects receive a no-write canonical preview and native modal; cancellation retains inputs without a new stored draft. Confirmed preparation/apply binds exact hashes and plans. Ordinary changes save directly. Drafts survive errors and stale revisions. Navigation and browser reload guard abandonment. Apply retains atomic idle/lock/pause authority and interrupted-apply reconciliation.
 - Explicit administrator readiness checks use bounded doctor probes from the
   API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
   executing repository code. The stored checks are exactly `git`, `forge_cli`,
@@ -373,8 +371,12 @@ SQLite bytes, authorization, scope and financial redaction.
   context and tables. Primary Overview href/action defaults all authorized projects;
   explicit scoped reload/Back retain URL identity. Visible15s background polling
   retains validated same-scope rows while pending and clears them on failed reads;
-  the header Refresh and stamp appear only on non-polled pages (Users, Change history,
-  project Settings/Access/History). Strict complete active reads and scope/render guards withhold
+  the header Refresh and stamp appear on Users.
+  Settings, Access, global Change history and project History also use 15-second visible polling.
+  Settings suspends reads for configuration, pricing and authentication drafts
+  or writes. Price reads are validated and independent of configuration reads. Access protects
+  confirmed changes from older reads, and audit refresh preserves filters and
+  open evidence. Strict complete active reads and scope/render guards withhold
   invalid data; Overview performs no usage reads. Worker faults are visible and
   Details opens the existing composite Jobs route; browser-local dates and
   reporting/technical evidence belong to dedicated views.
@@ -399,15 +401,15 @@ SQLite bytes, authorization, scope and financial redaction.
   and prices routes open Settings. Every save stamps a run's created_at and
   updated_at; a project summary over a run whose updated_at is empty or corrupt
   fails closed with 503 `run_state_corrupt`.
-  Enroll new project (and Clone project config) start from a repository URL: Read
+  Enroll new project starts from a repository URL: Read
   repository (`/api/v1/projects/repository-source`, `adore/web/repository_source.py`)
   fills forge, repository, login, branch and the derived ID and prefills an editable
   clone path `<home>/repos/<ID>`; Continue waits for a successful read; the clone is
   made only at creation (exclusive folder, reused if its origin matches, removed on failure);
   no existing-clone mode (a matching clone at the path is reused); no Stable project ID field;
   reviewers are optional (empty list = no review request) in the wizard and Settings.
-  Projects offers Enroll new project, Import project config and Clone project config
-  as separate pages (/projects/new, /projects/import, /projects/clone).
+  Projects offers Enroll new project at `/projects/new` and Import raw
+  configuration in a dialog. Former import and clone URLs resolve to Projects.
   Administrators open Enroll new project as a five-step guided page with visible localized
   instructions. Clone paths identify existing Git clones on the ADORE host;
   step 2 asks Provider, Model (with Pi's models as a datalist) and, for an
@@ -416,13 +418,10 @@ SQLite bytes, authorization, scope and financial redaction.
   "Credential to save after creation"; environment setup is external. Back retains
   the memory draft, Cancel warns about loss, and completion confirms stopped pickup
   before the explicit Open project action.
-  Exact configuration enrollment mounts ImportWizard with four-locale visible file
-  source, unchanged-copy and server-history guidance. Six ordered steps show all
-  consequential locations and recognized settings; internal Back/Change retains
-  memory drafts and invalidates old checks/review. File requests reread fatal UTF-8
-  bytes, changed disk files fail closed, leaving warns and unmount clears drafts.
-  Frozen confirmation uses a ref lock; failures preserve corrections and success
-  confirms stopped pickup with a separate Open project action.
+  RawImportDialog validates each selected file and enables Import for its
+  current reviewed identity and bytes. Replacement and dismissal abort validation.
+  Confirmation rereads the file, rejects changed bytes and serializes publication.
+  Success closes the dialog and refreshes Projects with stopped pickup.
   Pending and completed human handoffs have localized lifecycle labels and
   filters. Cancel is unavailable during and after human ownership transfer.
 - The React session switch clears private caches and increments a generation
@@ -615,9 +614,9 @@ for Add and Import project. Primary buttons take their text colour from the
 | One settings Save, draft recovery, important effects, responsive rows | `App.tsx` SettingsList/SettingsImpactDialog/saveSettings, `settingsSave.ts`, `web/settings_batch.py`, config preview/pending/apply | `test_web_settings_batch.py`, `settingsSave.test.mjs`, `settings-save.spec.ts`, `settings.spec.ts` |
 | Atomic reviewed accounts and access edits | `UserCreation.tsx`, `userCopy.ts`, `create_user_with_access`, `/users/with-access` | `test_web_user_creation.py`, auth/access/RBAC suites, `web/e2e/users.spec.ts` |
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
-| Portable new-project file/copy, mapping and source revision | `TransferWizard.tsx`, `EnrollmentWizard.tsx`, `_prepare_transfer`, `transfer_source` | `test_web_transfer.py`, `web/e2e/transfer.spec.ts` |
+| Portable new-project file/copy API and source revision | `_prepare_transfer`, `transfer_source` | `test_web_transfer.py` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
-| Exact TOML enrollment, safe review and probe | `web/src/ImportWizard.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
+| Exact TOML enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
@@ -629,6 +628,7 @@ for Add and Import project. Primary buttons take their text colour from the
 | Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
 | Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
+| Settings, Access and Change history refresh | `settingsPoll` and `ProjectAccess` in `App.tsx`, `AuditHistory.tsx` | `e2e/settings.spec.ts`, `e2e/shell.spec.ts`, `e2e/audit.spec.ts` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
 | ChatGPT sign-in routes, panel and readiness | `adore/chatgpt.py`, sign-in routes and `_probe_setup` in `adore/web/app.py`, `web/src/ChatGptSignIn.tsx`, `chatgptCopy.ts`, `readiness.ts` | `test_chatgpt.py`, `test_web_chatgpt.py`, `npm test` (`chatgpt.test.mjs`, `readiness.test.mjs`), `web/e2e/executor-config.spec.ts` |
 | Project developer access | `/api/v1/projects/{name}/access` routes in `adore/web/app.py`, `project_members` and `set_membership` in `adore/web/store.py`, `ProjectAccess` in `App.tsx`, `web/src/routes.ts` | `test_web_project_access.py`, `npm test` (`routes.test.mjs`), browser check |
@@ -797,7 +797,7 @@ Native control/auth route to local-execution.md. Focused proof:
 - `04_Software/web/tests/statistics.test.mjs` and `web/e2e/statistics.spec.ts` -
   deterministic analytical values, stale/grant/export/mobile and locale proof.
 
-- `web/src/TransferWizard.tsx`, `transferCopy.ts`, optional `EnrollmentWizard` transfer mode and `tests/test_web_transfer.py`, `web/e2e/transfer.spec.ts` own portable new-project enrollment.
+- `tests/test_web_transfer.py` covers the portable new-project enrollment API.
 
 - `04_Software/web/src/JobWorkspace.tsx` â€” scoped attention/jobs/detail, observed
   paging and queued command feedback; `jobModel.ts` validates transport evidence,
@@ -810,7 +810,7 @@ Native control/auth route to local-execution.md. Focused proof:
 - `04_Software/tests/test_web_jobs.py`
 - `05_SoftwareDocu/Component_Web_Jobs.md`
 
-- `04_Software/web/src/ImportWizard.tsx`, `importCopy.ts` and `web/e2e/import.spec.ts` - exact enrollment flow, localized guidance and offline browser boundaries.
+- `04_Software/web/src/RawImportDialog.tsx`, `importCopy.ts` and `web/e2e/import.spec.ts` - modal exact enrollment, localized guidance and offline browser boundaries.
 
 - `04_Software/web/src/EnrollmentWizard.tsx` and `enrollmentCopy.ts` - memory-only
   guided setup and supported locale copy; `web/e2e/enrollment.spec.ts` - real API

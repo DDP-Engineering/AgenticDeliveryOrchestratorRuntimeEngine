@@ -7,7 +7,7 @@ Interfața are o bară laterală întunecată pentru navigarea între pagini și
 | Pagină | Ce faceți acolo |
 |---|---|
 | Prezentare generală | Vedeți **Necesită intervenție** și **Lucrări active** pentru proiectele la care aveți acces. **Detalii** deschide o lucrare în Lucrări. |
-| [Proiecte](/projects) | Parcurgeți proiectele înrolate cu repository-ul, forge-ul, starea monitorizării, numărul de lucrări și ultima activitate. Deschideți un proiect pentru a ajunge la pagina lui. Administratorii văd și **Înrolează un proiect nou**, **Importă configurația proiectului** și **Clonează configurația proiectului**. |
+| [Proiecte](/projects) | Parcurgeți proiectele înrolate cu repository-ul, forge-ul, starea monitorizării, numărul de lucrări și ultima activitate. Deschideți un proiect pentru a ajunge la pagina lui. Administratorii văd și **Înrolează un proiect nou** sau **Importă configurația brută**. |
 | [Lucrări](/jobs) | Alegeți din **Domeniul joburilor**, apoi folosiți sub-fila **Tichete** pentru a citi tichetele de pe forge și a le porni, sau sub-fila **Lucrări** pentru a căuta lucrări și a deschide detaliile lor. |
 | [Statistici](/metrics) | Citiți utilizarea, calitatea și tendințele pentru o perioadă de raportare. Vezi [Statistici și costuri](/help/statistics). |
 | Administrare | Doar pentru administratori. Deschide trei pagini: [Starea sistemului](/admin/status), [Utilizatori](/admin/users) și [Istoricul modificărilor](/admin/audit). Vezi [Administrare](/help/administration). |
@@ -22,7 +22,7 @@ Un Dev vede doar proiectele atribuite de un administrator și nu are intrarea Ad
 Bara de sus afișează titlul paginii și aceste comenzi.
 
 - **Proiect**: un selector doar în Prezentare generală. Restrânge **Necesită intervenție** și **Lucrări active** la un singur proiect; implicit sunt toate proiectele la care aveți acces. Lucrări are propriul selector **Domeniul joburilor**, iar Statistici are un selector **Proiect** în rândul perioadei de raportare.
-- **Reîmprospătează**: afișat, împreună cu ora **Ultima actualizare**, doar pe paginile care nu se actualizează singure: Utilizatori, Istoricul modificărilor și filele Setări, Acces și Istoric ale unui proiect.
+- **Reîmprospătează** și ora **Ultima actualizare** apar în antet pe pagina Utilizatori.
 - **Despre**: versiunea ADORE, cu **Noutăți** (notele de versiune pe versiuni, cele mai noi primele, grupate în Nou, Îmbunătățit și Corectat), **Licență** și **Notificări despre componente terțe**.
 - **Cum funcționează ADORE**: deschide acest centru de ajutor.
 
@@ -65,7 +65,7 @@ După **Pornește**, **Reîncearcă** sau **Anulează**, o notificare raporteaz�
 
 ## Actualizări automate, limbă și temă {#preferences}
 
-Prezentare generală, Proiecte și Lucrări își reîncarcă datele la fiecare 15 secunde cât timp fila browserului este vizibilă; Statistici și Starea sistemului se actualizează și ele singure. O filă ascunsă nu se mai actualizează și se reîmprospătează imediat ce reveniți. Dacă o actualizare eșuează, cifrele afectate rămân ascunse până la următoarea reușită.
+Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiectului și Istoricul modificărilor își actualizează datele la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea Setărilor se oprește cât timp aveți modificări nesalvate sau cât timp se salvează ori se renunță la ele. Statistici și Starea sistemului se actualizează și ele automat. Actualizările se reiau când reveniți la filă. Dacă o actualizare eșuează, datele afectate rămân ascunse până la următoarea actualizare reușită.
 
 În [Contul meu](/account), **Aspect** conține **Limbă** (English, Français, Deutsch, Română) și **Temă** (**Sistem**, **Luminoasă**, **Întunecată**). Fiecare alegere este salvată în contul dumneavoastră și vă urmează în toate browserele; înainte de autentificare, pagina de autentificare reține alegerea în browser. **Schimbă parola** cere parola curentă și una nouă de cel puțin 8 caractere.
 

@@ -6,7 +6,9 @@ Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE 
 
 Öffnen Sie [Projekte](/projects), wählen Sie ein Projekt und dann den Reiter **Einstellungen**. Die Reiter sind Zusammenfassung, Einstellungen, Aufträge, Statistiken, Verlauf und, für Administratoren, Zugriff.
 
-Administratoren können bearbeiten. Entwickler mit Zugriff auf das Projekt sehen **Schreibgeschützte Einstellungen**, ohne Schaltflächen zum Bearbeiten und ohne Geheimnisse oder Finanzeinstellungen. Jedes Projekt hat eigene Einstellungen; die globale Kapazität und die Audit-Aufbewahrung gehören zur Verwaltung. Die Einstellungen aktualisieren sich nicht selbst, lesen Sie sie daher mit Aktualisieren in der Kopfzeile neu.
+Die gespeicherten Einstellungen werden alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist. Bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen pausiert die Aktualisierung. Auch bei der Eingabe eines Preises oder API-Schlüssels und bei der ChatGPT-Anmeldung pausiert die Aktualisierung.
+
+Administratoren können bearbeiten. Entwickler mit Zugriff auf das Projekt sehen **Schreibgeschützte Einstellungen**, ohne Schaltflächen zum Bearbeiten und ohne Geheimnisse oder Finanzeinstellungen. Jedes Projekt hat eigene Einstellungen; die globale Kapazität und die Audit-Aufbewahrung gehören zur Verwaltung.
 
 ## Einstellungsgruppen {#groups}
 
@@ -39,16 +41,16 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 Es gelten folgende Regeln:
 
 - **Änderungen verwerfen** entfernt alle ungespeicherten Eingaben. Das Abbrechen der Bestätigung behält sie ohne einen gespeicherten Kandidaten.
-- Speichern ist an die bearbeitete Konfiguration gebunden. Eine veraltete Revision sperrt das Speichern und behält die Eingaben; verwerfen und aktualisieren Sie vor neuen Änderungen. Gleichzeitige Änderungen führen zu einem Konflikt.
+- Speichern ist an die bearbeitete Konfiguration gebunden. Eine veraltete Revision sperrt das Speichern und behält die Eingaben. Verwerfen Sie Ihre Änderungen, um die gespeicherten Einstellungen vor dem Bearbeiten neu zu laden. Gleichzeitige Änderungen führen zu einem Konflikt.
 - Der Server prüft die gesamte Konfiguration und speichert alles gemeinsam. Geprüfte reine Budgetänderungen erlauben auch wartende Rückfragen, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen erfordern beendete Jobs. Ein Fehler behält Eingaben und vorbereitete Kandidaten.
 - Identitäts- und Laufzeitänderungen erfordern zusätzlich pausierte Überwachung. Wählen Sie **Überwachung pausieren** in Übersicht und lassen Sie aktive Arbeit enden; die Pause unterbricht keinen Auftrag.
 - Budgets gelten vor dem nächsten Versuch oder Fortsetzen bei erhaltenem Verbrauch und Fortschritt. Siehe [Jobbudgets](#budgets).
 
-Navigation und Aktualisieren fragen vor dem Verwerfen ungespeicherter Eingaben. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
+Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
 
 ## Original-TOML {#toml}
 
-Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration herunterladen**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Eine heruntergeladene Datei lässt sich mit [Projektkonfiguration importieren](/help/projects#import-project) erneut registrieren, sobald ihre Geheimnisse durch Umgebungsreferenzen ersetzt sind.
+Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Wählen Sie die exportierte Datei unter [Originalkonfiguration importieren](/help/projects#import-project) und ADORE prüft automatisch Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse.
 
 ## Systempakete des Agenten {#system-packages}
 

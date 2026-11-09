@@ -104,10 +104,8 @@ worker needs no banner. Overview reads no consumption and displays no reporting
 period, dates or timezone. Jobs holds technical evidence and Statistics owns
 reporting filters; displayed timestamps use the browser/device local timezone.
 
-Projects offers administrators three separate actions: **Enroll new project**
-(`/projects/new`, the guided wizard), **Import project config** (`/projects/import`,
-an existing `config.toml`) and **Clone project config** (`/projects/clone`, the
-working rules of a project on this server or of a portable settings file).
+Projects offers administrators **Enroll new project** for guided setup and
+**Import raw configuration** to select an existing `config.toml` in a dialog.
 Enroll new project starts from the repository URL (https or ssh): **Read repository**
 detects the forge (github.com, gitlab.com or a matching server `tea` login), the
 repository, the Gitea login and the default branch, derives the project ID from the
@@ -161,8 +159,10 @@ Visible guidance explains units, eligibility and approval. Existing hold/exclude
 rules remain applicable.
 
 Validate setup performs local structural validation without external probes.
-Check environment is a separate explicit action after its effects are explained:
-bounded host tool/auth checks and a disposable container using the existing local image.
+**Check environment** checks the host tools and repository authentication. For a
+server-installed agent, **Pi on the server** reports native prerequisites, including
+Node version errors. For container execution, the check uses a disposable container
+from the existing local image.
 AEGIS files are inspected without execution. Failed, partial and unverified
 evidence stays explicit with correction and recheck controls. Stopped enrollment
 can be created with incomplete verification; check prerequisites before activation.
@@ -347,8 +347,10 @@ be explicitly redacted. Passwords/environment values and raw error text are omit
 Project **History** combines jobs with change evidence for that immutable project.
 Dev receives assigned-project operational changes; administrative account/access,
 price and policy events remain Admin-only. Revoked or replaced grants cannot expose another project's events.
-An empty filter result explains that no changes match; failed reads hide data and
-can be retried with **Refresh**. There is no audit download/export action.
+Global **Change history** and project **History** reload the current evidence page
+every 15 seconds while visible. They keep the applied filters, current page and open evidence. An empty result
+explains that no changes match. Failed reads hide data until a successful update.
+The global **Change history** panel's **Refresh** button retries immediately. There is no audit export.
 
 In **System status**, administrators set **Audit retention**; the current limits
 are shown above the prefilled form (Unlimited when no limit is set). Zero/blank means
@@ -636,11 +638,10 @@ matching package alongside its backup.
 
 ## Portable working rules
 
-Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
+Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export downloads the saved `config.toml` bytes, including comments, formatting and any inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
 Portable working rules remain available through the transfer API.
-**Clone project config** offers both portable sources, with recognized rules,
-independent target setup and mandatory reference reconfirmation. See
+See
 [Portable project settings](Portable_Project_Settings.md) for the enumerated
 allowlist, source/parser rejection rules, target-host limitations and API.
 Exact server TOML enrollment and statistics CSV remain separate formats.
@@ -677,40 +678,22 @@ Its CLI cost number is an estimate and is not presented as billed cost;
 administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
 budget cannot be enforced from a provider charge that is not reported.
-To enroll an existing configuration, open **Import project config** from
-Projects. This exact mode uses `config.toml` from an existing ADORE profile, a
-file saved earlier with **Download raw configuration** (once no enrolled project
-owns its ID or state folder and its inline secrets are replaced with environment
-references) or an operator-prepared `config.example.toml`.
-Prepare it for this server before selecting the UTF-8 file (maximum 512 KiB).
+Open the **Import raw configuration** dialog in Projects and select the UTF-8
+`config.toml` downloaded with **Export raw configuration**, or a file prepared
+for this server. Files may be up to 512 KiB.
 
-1. Select the file. The browser keeps it in memory and preserves its exact bytes,
-   including line endings, comments and unknown keys.
-2. Declare a stable lowercase project ID and separate display name/description.
-   Read declared locations to inspect the server paths; correct paths in the source
-   file and select it again. Repository clones already exist on this server.
-3. Validate structure and local ownership/state. Every repository, worktree,
-   state and metrics path must be absolute, below a volume root; state roots are
-   unowned, with no active/corrupt runs or conductor lock.
-4. Optionally select Check environment after reading its effects. The server runs
-   bounded Git/forge/authentication and disposable local-image container checks.
-   Repository AEGIS files are inspected. Nothing is published or activated.
-   Failed, partial and unverified evidence stays visible; Recheck is explicit.
-5. Review identity, config destination, repository/worktree/state/metrics paths,
-   resolved physical paths, agent and executor/model/runtime/image/egress plus credential reference names.
-   Enroll with pickup stopped confirms that exact candidate. Stale file/identity,
-   state/ownership or concurrent lock changes reject confirmation.
-6. Completion confirms stopped pickup and offers Open project. Activation is a
-   separate administrator action after credentials and environment are ready.
+1. Selecting the file validates it automatically. ADORE suggests an available
+   project ID from the repository name.
+2. Correct flagged fields in the source file and select it again. The file must declare absolute server paths below a volume
+   root. The state folder must be unowned, with valid terminal runs and no
+   conductor lock. Supply secret values through protected server stores.
+3. Choose **Import** to create the project with monitoring
+   paused. ADORE revalidates the reviewed bytes, identity and ownership before
+   saving. The exact file keeps its comments and line endings.
 
-The file alone transfers no historical jobs: completed history is visible only
-where underlying data already exists at the declared state location on this
-server. Secret values in TOML are rejected; provide values through protected
-server environment/profile stores. Corrections show configuration keys and
-server locations. Internal Back/Change keeps the draft and invalidates old
-checks; changing the disk file requires reselection/revalidation/review.
-Cancel, leaving or refresh warns before losing the memory-only draft. Failure
-keeps correction available and never displays a successful enrollment.
+Existing terminal history is visible when its job data already exists at the
+declared state location. Host checks are available from the imported project's
+Summary. Closing the dialog discards the selected file and its validation.
 
 Config edits include a SHA-256 revision so stale browser pages receive a
 conflict. CLI `config set` and web edits also share a local process lock;
@@ -772,7 +755,12 @@ always uses the status comment and lifecycle labels; there is no setting for it.
 
 Administrators can edit several settings across groups and use one **Save** above the groups. Save is disabled for unchanged or invalid edits. Ordinary changes save directly; identity, execution, network, package permissions, budgets and publication effects open **Confirm important changes** with the project and exact changed values. **Save changes** publishes after the server rechecks; **Keep editing** retains the inputs and creates no new stored candidate.
 
-**Discard changes** clears all local edits and the prepared candidate, if present, without changing active settings. Validation, write and stale-revision failures preserve inputs. Stale settings require explicit discard and reload. Navigation and Refresh ask before abandoning edits. Budget limits apply at the next attempt or resume while retaining consumption; other settings require finished jobs.
+**Discard changes** clears all local edits and the prepared candidate, if present, without changing active settings. Validation, write and stale-revision failures preserve inputs. Stale settings require explicit discard and reload. Navigation and browser reload ask before abandoning edits. Budget limits apply at the next attempt or resume while retaining consumption; other settings require finished jobs.
+
+Project **Settings** and **Access** reload saved data every 15 seconds while
+visible. Settings pauses for unsaved settings, prices and API keys. It also
+pauses during saves, discards and ChatGPT sign-in. Once these finish, the next
+background update can run.
 
 The server validates the final combined configuration and applies one exact candidate atomically, bound to both active and candidate revisions. It rechecks configuration/conductor locks, nonterminal or corrupt runs, unfinished operations and paused monitoring for identity/runtime changes. Reviewed candidates containing only the five budget settings also allow parked-clarification runs; mixed batches and direct edits retain the idle boundary. Pause monitoring and wait for active work to finish before saving those changes. Invalid or corrupt pending evidence disables editing until explicit discard. Developers retain scoped read-only access with financial and secret redaction.
 
@@ -891,10 +879,9 @@ The help center's **Glossary** topic (How ADORE works) defines the delivery voca
 Guided fields display essential instructions beside the control.
 Loading, an empty result and a failed request have distinct presentations.
 Failed requests withhold totals until the next automatic update. The header
-**Refresh** (with the last refresh time) appears only on pages that do not update
-themselves: Users, Change history and a project's Settings, Access and History. Missing measurements
-remain unavailable. A successful empty Projects result provides enrollment or
-access guidance according to your role.
+**Refresh** and the last refresh time appear in the header on Users. Missing measurements
+remain unavailable. When the project list is empty, the card explains the next
+step for your role. Admins can select **Enroll new project** on Overview.
 
 ## Status and metrics
 
@@ -1050,13 +1037,11 @@ reconciliation rather than being blindly replayed.
 
 ## Backend project enrollment and verification
 
-**Clone project config** offers **From a project on this server** and **From a portable settings file**.
-Sources supply only the strict 15-rule allowlist. The localized wizard requires
-fresh target identity/repository/environment/references, shows source/default/effect
-mapping and independently allocated locations, and confirms pickup-stopped
-creation. Exact source/candidate revisions, Admin/CSRF, current source authority,
-ownership collision checks and rollback/replay guards remain server-enforced.
-**Import project config** retains host-specific exact-copy behavior.
+The portable transfer API accepts a source project or a portable settings file.
+Sources supply the strict 15-rule allowlist. The API requires fresh target
+identity, repository, environment and references, and binds source and target
+revisions through ownership checks and atomic publication. Raw import copies the
+host-specific TOML exactly.
 See [Portable project settings](Portable_Project_Settings.md) for the workflow,
 format, exclusions, error recovery and target endpoint setup.
 
@@ -1280,7 +1265,7 @@ the detected list. Optional re-detection, manual paths/commands and environment
 overrides live under Advanced. Existing manually entered commands remain intact.
 
 
-During enrollment and Clone project config, **Read repository** reads remote
+During guided enrollment, **Read repository** reads remote
 branches through Git for GitHub, GitLab and Gitea, including self-hosted instances,
 using the ADORE account’s existing Git credentials. **Target branch** offers a
 dropdown with the repository’s default branch selected and marked. Rereading

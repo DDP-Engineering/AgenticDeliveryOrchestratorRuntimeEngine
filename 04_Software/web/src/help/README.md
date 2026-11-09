@@ -45,7 +45,7 @@ Only these constructs are allowed; the test rejects anything else.
 - Link targets: `/help/<topic>`, `/help/<topic>#<id>`, `#<id>` (same topic) or an
   interface address such as `/projects`, `/jobs`, `/metrics`, `/admin/users`,
   `/admin/status`, `/admin/audit`, `/account`, `/projects/new`,
-  `/projects/import`. No external URLs, images or HTML.
+  `/projects`. No external URLs, images or HTML.
 
 ## Writing
 

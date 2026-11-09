@@ -7,7 +7,7 @@ Die Oberfläche hat eine dunkle Seitenleiste zum Wechseln zwischen den Seiten un
 | Seite | Was Sie dort tun |
 |---|---|
 | Übersicht | **Handlungsbedarf** und **Aktive Aufträge** für die Projekte sehen, auf die Sie Zugriff haben. **Details** öffnet einen Auftrag unter Aufträge. |
-| [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Neues Projekt registrieren**, **Projektkonfiguration importieren** und **Projektkonfiguration klonen**. |
+| [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Neues Projekt registrieren** oder **Originalkonfiguration importieren**. |
 | [Aufträge](/jobs) | Einen **Jobbereich** wählen und dann im Unterreiter **Tickets** Forge-Tickets lesen und starten oder im Unterreiter **Aufträge** Aufträge suchen und ihre Details öffnen. |
 | [Statistiken](/metrics) | Nutzung, Qualität und Trends für einen Berichtszeitraum lesen. Siehe [Statistiken und Kosten](/help/statistics). |
 | Verwaltung | Nur für Administratoren. Sie öffnet drei Seiten: [Systemstatus](/admin/status), [Benutzer](/admin/users) und [Änderungsverlauf](/admin/audit). Siehe [Verwaltung](/help/administration). |
@@ -22,7 +22,7 @@ Ein Dev sieht nur die Projekte, die ein Administrator zugewiesen hat, und hat ke
 Die obere Leiste zeigt den Seitentitel und diese Bedienelemente.
 
 - **Projekt**: eine Auswahl, nur auf der Übersicht. Sie beschränkt **Handlungsbedarf** und **Aktive Aufträge** auf ein Projekt; Standard sind alle Projekte, auf die Sie Zugriff haben. Aufträge hat eine eigene Auswahl **Jobbereich**, und Statistiken hat in der Zeile des Berichtszeitraums eine Auswahl **Projekt**.
-- **Aktualisieren**: wird zusammen mit der Zeit **Zuletzt aktualisiert** nur auf Seiten angezeigt, die sich nicht selbst aktualisieren: Benutzer, Änderungsverlauf sowie die Reiter Einstellungen, Zugriff und Verlauf eines Projekts.
+- **Aktualisieren** und **Zuletzt aktualisiert** stehen im Kopfbereich der Seite Benutzer.
 - **Über ADORE**: die ADORE-Version mit **Neuigkeiten** (Versionshinweise je Version, die neueste zuerst, gruppiert nach Neu, Verbessert und Behoben), **Lizenz** und **Hinweise zu Drittanbietern**.
 - **So funktioniert ADORE**: öffnet dieses Hilfezentrum.
 
@@ -65,7 +65,7 @@ Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befe
 
 ## Automatische Aktualisierung, Sprache und Design {#preferences}
 
-Übersicht, Projekte und Aufträge laden ihre Daten alle 15 Sekunden neu, solange der Browser-Tab sichtbar ist; Statistiken und Systemstatus aktualisieren sich ebenfalls selbst. Ein verborgener Tab hört auf zu aktualisieren und lädt sofort neu, wenn Sie zurückkehren. Schlägt eine Aktualisierung fehl, bleiben die betroffenen Zahlen ausgeblendet, bis die nächste gelingt.
+Übersicht, Projekte, Aufträge, Einstellungen, Zugriff und Verlauf eines Projekts sowie der Änderungsverlauf laden ihre Daten alle 15 Sekunden neu, solange der Browser-Tab sichtbar ist. Die Einstellungen pausieren bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen. Statistiken und Systemstatus aktualisieren sich ebenfalls automatisch. Beim Wechsel zurück zum Tab werden die Aktualisierungen fortgesetzt. Nach einem Fehler bleiben die betroffenen Daten bis zur nächsten erfolgreichen Aktualisierung ausgeblendet.
 
 Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.
 

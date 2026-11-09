@@ -37,7 +37,7 @@ Dacă după aprobare se schimbă candidatul sau ramura sa țintă, aprobarea nu 
 | Administrator (Admin) | Toate proiectele curente și viitoare, plus Administrare și costurile | Tot ce poate face un Dev, precum și: înrolează proiecte, modifică setările proiectelor prin modificări revizuite, pune în pauză sau reia monitorizarea, arhivează sau restaurează proiecte, gestionează utilizatorii și accesul la proiecte, setează păstrarea auditului, citește istoricul modificărilor și vede și setează costurile |
 | Dev | Doar proiectele atribuite de un administrator | Pornește și oprește tichete, reîncearcă sau anulează lucrări, citește statisticile proiectelor atribuite și citește setările proiectului (doar pentru citire, fără secrete și fără setări financiare) |
 
-Un Dev nu vede niciodată valori monetare și nu poate deschide paginile de Administrare. Un Dev fără niciun proiect atribuit poate folosi în continuare [Contul meu](/account) și i se spune să ceară acces unui administrator.
+Un Dev nu vede niciodată valori monetare și nu poate deschide paginile de Administrare. Dacă nu are proiecte atribuite, Prezentarea generală îi indică să ceară acces unui administrator. Dacă nu există proiecte, un Admin poate alege **Înrolează un proiect nou** din Prezentare generală.
 
 ## Primii pași {#getting-started}
 

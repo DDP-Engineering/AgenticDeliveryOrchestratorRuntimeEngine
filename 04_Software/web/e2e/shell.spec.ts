@@ -237,7 +237,7 @@ test("configuration and administration request failures have explicit feedback",
   await page.goto("/projects/alpha/configuration");
   await expect(page.getByText("Could not load data", { exact: true }).first()).toBeVisible();
   await page.unroute("**/api/v1/projects/*/config");
-  await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
   await page.route("**/api/v1/users", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"request_failed"}}' }));
   await page.goto("/admin/users");
@@ -249,7 +249,7 @@ test("configuration and administration request failures have explicit feedback",
   await page.goto("/admin/audit");
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await page.unroute("**/api/v1/audit-page?*");
-  await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
 });
 
@@ -257,19 +257,62 @@ test("header Refresh appears only on pages that do not refresh themselves", asyn
   await signIn(page);
   const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: { name: string }) => item.name === "alpha").id;
   const refresh = page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true });
-  for (const path of ["/admin/users", "/admin/audit", `/projects/${alpha}/configuration`, `/projects/${alpha}/access`, `/projects/${alpha}/history`]) {
-    await page.goto(path); await expect(refresh, path).toBeVisible();
-    await expect(page.locator(".topbar .refresh-stamp"), path).toContainText("Last refreshed");
-  }
-  // On History the header Refresh re-reads the change history, which does not poll.
-  let reads = 0;
-  page.on("request", request => { if (request.url().includes("/api/v1/audit-page?") && request.url().includes(`project_id=${alpha}`)) reads += 1; });
-  await page.reload(); await expect.poll(() => reads).toBe(1);
-  await refresh.click(); await expect.poll(() => reads).toBeGreaterThan(1);
-  for (const path of ["/", "/projects", "/jobs", "/metrics", "/admin/status", `/projects/${alpha}`, `/projects/${alpha}/jobs`, `/projects/${alpha}/statistics`]) {
+  await page.goto("/admin/users");
+  await expect(refresh).toBeVisible();
+  await expect(page.locator(".topbar .refresh-stamp")).toContainText("Last refreshed");
+  for (const path of ["/", "/projects", "/jobs", "/metrics", "/admin/status", "/admin/audit", `/projects/${alpha}`, `/projects/${alpha}/jobs`, `/projects/${alpha}/statistics`, `/projects/${alpha}/configuration`, `/projects/${alpha}/access`, `/projects/${alpha}/history`]) {
     await page.goto(path); await expect(page.locator(".topbar").getByRole("button", { name: "About", exact: true }), path).toBeVisible();
     await expect(refresh, path).toHaveCount(0);
+    await expect(page.locator(".topbar .refresh-stamp"), path).toHaveCount(0);
   }
+});
+
+test("access background reads update grants, preserve confirmed changes and reject malformed data", async ({ page }) => {
+  await signIn(page);
+  const grants = (granted: boolean | string) => ({ developers: [{ id: 2, username: "developer", granted, disabled: false }] });
+  let json = grants(false);
+  let hold = false, held = false;
+  let release = () => {};
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/v1/projects/*/access", async route => {
+    const snapshot = json;
+    if (hold) { hold = false; held = true; await delayed; }
+    return route.fulfill({ json: snapshot });
+  });
+  await page.route("**/api/v1/projects/*/access/2", route => {
+    expect(route.request().method()).toBe("PUT");
+    expect(route.request().postDataJSON()).toEqual({ granted: false });
+    json = grants(false);
+    return route.fulfill({ json: { id: 2, granted: false } });
+  });
+  await page.clock.install();
+  await page.goto("/projects/alpha/access");
+  const grant = page.getByRole("button", { name: "Grant access: developer" });
+  const remove = page.getByRole("button", { name: "Remove access: developer" });
+  const tick = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(grant).toBeVisible();
+  json = grants(true);
+  await page.clock.fastForward(15000);
+  await expect(remove).toBeVisible();
+  hold = true;
+  await tick();
+  try {
+    await expect.poll(() => held).toBe(true);
+    await remove.click();
+    await page.getByRole("button", { name: "Apply reviewed access" }).click();
+    await expect(grant).toBeEnabled();
+    const old = page.waitForResponse(response => response.url().endsWith("/access"));
+    release();
+    await (await old).finished();
+    await expect(grant).toBeEnabled();
+  } finally { release(); }
+  json = grants("true");
+  await expect.poll(async () => {
+    await tick();
+    return await page.getByText("Could not load data", { exact: true }).count();
+  }).toBe(1);
+  await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
+  await expect(grant.or(remove)).toHaveCount(0);
 });
 
 test("About shows the logo and version with folded licenses and a What's new window", async ({ page }) => {
@@ -366,54 +409,31 @@ test("closing a job removes its deep-link identity and refresh cannot reopen it"
 });
 
 
-test("Projects offers separate Enroll, Import and Clone project actions", async ({ page }) => {
+test("Projects offers guided enrollment and modal raw import", async ({ page }) => {
   await signIn(page);
-  const projects = async () => { await page.goto("/projects"); return page.locator(".section-actions"); };
-  let actions = await projects();
-  await expect(actions.getByRole("button")).toHaveText(["Enroll new project", "Import project config", "Clone project config"]);
-  // Enroll starts the guided wizard directly, without a method chooser.
+  await page.goto("/projects");
+  const actions = page.locator(".section-actions");
+  await expect(actions.getByRole("button")).toHaveText(["Enroll new project", "Import raw configuration"]);
   await actions.getByRole("button", { name: "Enroll new project", exact: true }).click();
   await expect(page).toHaveURL(/\/projects\/new$/);
   await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Enrollment method", exact: true })).toHaveCount(0);
-  for (const old of ["Guided new project", "Import portable settings", "Copy project settings", "Advanced: unchanged server TOML copy"]) {
-    await expect(page.getByRole("button", { name: old, exact: true })).toHaveCount(0);
-  }
-  actions = await projects();
-  await actions.getByRole("button", { name: "Import project config", exact: true }).click();
-  await expect(page).toHaveURL(/\/projects\/import$/);
-  await expect(page.getByRole("heading", { name: "Import project config", exact: true })).toBeVisible();
-  await expect(page.locator("#import-file")).toHaveAttribute("type", "file");
-  actions = await projects();
-  await actions.getByRole("button", { name: "Clone project config", exact: true }).click();
-  await expect(page).toHaveURL(/\/projects\/clone$/);
-  const sources = page.getByRole("group", { name: "Clone from", exact: true });
-  await expect(sources.getByRole("button")).toHaveText(["From a project on this server", "From a portable settings file"]);
-  await expect(sources.getByRole("button", { name: "From a project on this server", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Source project", { exact: true })).toBeVisible();
-  // Pressing the active source keeps the choice; a refused Back keeps the clone page and its input.
-  await page.getByLabel("Source project", { exact: true }).selectOption({ label: "alpha" });
-  // An accepted loss prompt would reset the form, so record whether one is shown.
-  let asked = false;
-  const accept = (dialog: import("@playwright/test").Dialog) => { asked = true; void dialog.accept(); };
-  page.once("dialog", accept);
-  await sources.getByRole("button", { name: "From a project on this server", exact: true }).click();
-  await expect(page.getByLabel("Source project", { exact: true })).not.toHaveValue("");
-  expect(asked).toBe(false);
-  page.off("dialog", accept);
-  page.once("dialog", dialog => dialog.dismiss()); await page.evaluate(() => history.back());
-  await expect(page).toHaveURL(/\/projects\/clone$/);
-  await expect(page.getByLabel("Source project", { exact: true })).not.toHaveValue("");
-  page.once("dialog", dialog => dialog.accept());
-  await sources.getByRole("button", { name: "From a portable settings file", exact: true }).click();
-  await expect(page.getByLabel("Portable JSON file", { exact: true })).toBeVisible();
+  await page.goto("/projects");
+  await actions.getByRole("button", { name: "Import raw configuration", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByRole("dialog", { name: "Import raw configuration" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.goto("/projects/clone");
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(actions.getByRole("button")).toHaveCount(2);
 });
 
 test("empty administrator enrollment has an actionable explanation", async ({ page }) => {
   await page.route("**/api/v1/projects", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await signIn(page);
   await expect(page.getByText("No projects available", { exact: true })).toBeVisible();
-  await expect(page.getByText("Add a repository from Projects with Enroll new project, Import project config or Clone project config.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Add a repository from Projects with Enroll new project or Import raw configuration.", { exact: true })).toBeVisible();
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await expect(page.getByRole("button", { name: "Enroll new project", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start job", exact: true })).toHaveCount(0);

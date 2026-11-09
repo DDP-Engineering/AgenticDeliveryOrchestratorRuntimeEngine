@@ -133,6 +133,8 @@ a.text-button:hover { text-decoration: underline; }
 .project-context .nav-item.active, .project-context .nav-item:hover { background: var(--accent-soft); color: var(--accent-deep); }
 .data-feedback { display: flex; gap: 16px; align-items: flex-start; }
 .data-feedback p { margin: 10px 0 0; line-height: 1.5; }
+.project-empty-content { display: grid; justify-items: start; gap: 10px; min-width: 0; }
+.project-empty-content p { margin: 0; }
 .feedback-icon { border-radius: 50%; background: var(--accent-soft); color: var(--accent-deep); width: 32px; height: 32px; flex: none; display: grid; place-items: center; font-weight: 800; }
 .data-error .feedback-icon { background: var(--danger-soft); color: var(--danger); }
 summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -539,8 +541,6 @@ td.strong { font-weight: 800; }
 /* Only the name to type stands out in the confirmation label. */
 .delete-confirm-label { font-weight: 400; }
 .delete-confirm-name { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--danger-soft); color: var(--text); border-radius: 5px; padding: 1px 6px; overflow-wrap: anywhere; }
-.clone-sources .enrollment-actions { margin-top: 10px; }
-.clone-sources [aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
 .enrollment-review { border-top: 1px solid var(--border); padding-block: 16px; }
 .enrollment-review dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin-block: 8px; }
 .enrollment-review dt { font-weight: 600; }

@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { Locale } from "./i18n";
 import { describeError } from "./errors";
 import { chatgptCopy, readChatGptStart, readChatGptView, type ChatGptView } from "./chatgptCopy";
@@ -15,13 +15,14 @@ import { startVisiblePolling } from "./polling";
  * redirect address, Cancel and Disconnect. The link and the pasted address live
  * only in component memory; the address is cleared after every attempt.
  */
-export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnect }: {
+export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnect, setPollBlocked }: {
   locale: Locale;
   read: () => Promise<unknown>;
   start: () => Promise<unknown>;
   complete: (redirectUrl: string) => Promise<unknown>;
   cancel: () => Promise<unknown>;
   disconnect: () => Promise<unknown>;
+  setPollBlocked: (blocked: boolean) => void;
 }) {
   const c = chatgptCopy[locale];
   const [view, setView] = useState<ChatGptView | null>(null);
@@ -30,6 +31,9 @@ export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnec
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const waiting = !!link && !!view?.pending;
+  useLayoutEffect(() => { setPollBlocked(busy || waiting); }, [busy, waiting, setPollBlocked]);
+  useLayoutEffect(() => () => setPollBlocked(false), [setPollBlocked]);
   const active = useRef(true);
   const acting = useRef(false);
   const readStatus = useRef(read);
@@ -84,6 +88,7 @@ export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnec
   const act = async (work: () => Promise<unknown>, after: (raw: unknown) => void, completing = false) => {
     if (acting.current) return;
     acting.current = true;
+    setPollBlocked(true);
     setBusy(true); setError(""); setNotice("");
     try {
       // A failed status read does not replace the mutation's own authority.
@@ -113,8 +118,6 @@ export function ChatGptSignIn({ locale, read, start, complete, cancel, disconnec
   };
   const stop = () => act(cancel, raw => { setView(readChatGptView(raw)); setLink(""); });
   const remove = () => act(disconnect, raw => { setView(readChatGptView(raw)); setLink(""); setNotice(c.disconnected); });
-  const waiting = !!link && !!view?.pending;
-
   return <section className="executor-credentials-embedded" id="chatgpt-sign-in">
     <h3>{c.title}</h3>
     <p className="muted">{c.help}</p>

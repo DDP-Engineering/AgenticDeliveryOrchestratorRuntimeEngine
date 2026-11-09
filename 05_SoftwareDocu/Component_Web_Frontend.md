@@ -190,8 +190,9 @@ existing exports and query parameters.
 Loading and failed requests have separate status/error panels. Numeric
 cards and data tables render after successful scoped responses. A failed
 refresh withholds prior totals until the next automatic update. A successful
-empty project list explains enrollment for administrators and access requests
-for Dev users, while My account remains available. Pending detail responses
+empty project card uses equal spacing for its title, guidance and any enrollment
+action. Its guidance explains enrollment for administrators or access requests
+for Dev users. Pending detail responses
 are checked against both project identity and request revision. Session
 generation guards prevent the previous account from refilling data.
 
@@ -258,9 +259,16 @@ scope; the primary Overview URL/action resets it to all authorized projects.
 Explicit scoped deep links remain supported. Overview's visible15s job polling
 retains validated same-render-key rows until a successful replacement; failures,
 incomplete evidence and scope/access changes still hide them. Its refresh timestamp
-is omitted. The header Refresh and stamp render only when `manualRefresh` holds
-(Users, Change history, project Settings/Access/History); polled pages recover on
-their next visible poll.
+is omitted. The header Refresh and stamp render on Users.
+Settings, Access, global Change history and project History use visible 15-second reads and
+retain validated data while the response is pending. The Settings draft barrier
+tracks configuration, pricing and authentication independently and invalidates
+reads that overlap edits or writes. Price reads have a separate lifecycle and
+validate the rate list before rendering. Access invalidates older reads
+at the start of a grant change. The audit read stays bound to the applied
+filters and page, and keeps evidence open for the same event IDs. The audit
+panel's manual Refresh is available in global Change history. Audit requests
+have a 10-second deadline and cancel when the query or view changes.
 Overview skips consumption reads and reporting/date/technical prose. Only worker
 faults appear above the job tables. Details retains the existing composite Jobs route
 and browser-local timestamp formatting. Source errors or
@@ -299,15 +307,16 @@ dialog with Back: each release from `/api/v1/about` `release_notes`, newest
 first (`Unreleased` as In development, released ones with version and date),
 grouped New, Improved, Fixed and by topic in the user's locale with English
 fallback (`src/releaseNotes.ts`).
-Projects shows three administrator actions: Enroll new project (`/projects/new`,
-`TransferWizard` mode `enroll`, the guided `EnrollmentWizard` directly), Import
-project config (`/projects/import`, `ImportWizard`) and Clone project config
-(`/projects/clone`, `TransferWizard` mode `clone` with a Clone from group of two
-sources). A browser Back refused by a guarded wizard restores the URL of the page
+Projects shows two administrator actions. Enroll new project opens
+`EnrollmentWizard` at `/projects/new`. Import raw configuration opens
+`RawImportDialog` on Projects. A browser Back refused by a guarded wizard restores the URL of the page
 shown (`shownUrl`). Enroll new project opens the administrator-only `EnrollmentWizard`.
 It presents five ordered steps, starting at repository/identity, with shared visible,
 associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
 review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
+The verification step uses the draft's execution mode for the introduction and
+check labels. For server execution, the Pi row uses the validated local probe
+reason for its remediation text.
 Step 1 reads a repository URL by default: **Read repository** calls
 `/api/v1/projects/repository-source` and fills forge, repository, Gitea login,
 target branch and the derived project ID (`name`, never an input), and prefills an
@@ -361,22 +370,14 @@ About displays, on request, the project license text and the bundled third-party
 Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
-Import project config opens the administrator
-`ImportWizard` from Projects. `importCopy.ts` supplies EN/FR/DE/RO source,
-unchanged-copy, server-path and existing-data-only history guidance. Ordered steps
-cover file, declared identity/paths, structural validation, explicit environment
-checks, canonical review/enrollment and stopped completion. Recognized settings
-and all consequential declared/resolved server paths are reviewed without raw TOML or secrets.
-The selected File and draft stay in memory. Fatal UTF-8 decoding preserves bytes
-and rejects empty/oversized/invalid encoding. Each request rereads the File;
-changed or unreadable disk bytes require reselection. Internal Back/Change retains
-values but invalidates preview/probe/review; leaving or refreshing warns about
-loss, and unmount/session change discards the draft and ignores late responses.
-Structured findings point to form fields or source keys/server locations and move
-focus to correction. Failed/partial/unverified probe results remain explicit in
-review. Confirmation submits a frozen candidate with an immediate ref lock;
-failure invalidates review and never displays completion. Success clears file
-contents, confirms stopped pickup and offers Open project. Activation is separate.
+**Import raw configuration** opens a native dialog on Projects. Selecting a file
+validates UTF-8 and automatically calls the preview endpoint for the exact bytes
+and suggested identity. Replacing the file or closing the dialog aborts validation
+and invalidates its result. Import rereads the selected file and sends the exact
+reviewed identity and revision to locked publication. The synchronous submission
+guard blocks duplicates and prevents leaving during publication. Success closes
+the dialog, restores focus and refreshes Projects. Former standalone import and
+clone links resolve to Projects.
 Long page titles wrap in the shared top bar, including at 390px.
 The Projects directory lists authorized projects in a sortable, paged table
 with project, repository path, Repo forge provider (Gitea/GitHub/GitLab),
@@ -536,7 +537,7 @@ transport fails closed. English labels clarify catalog keys; other locales retai
 localized common labels and localized setting guidance for remaining headings.
 `settingsCopy.ts` supplies four-locale category, effect and recovery copy.
 
-`settingsSave.ts` normalizes a project-scoped raw draft into a bounded batch, with structural equality (object key order ignored; array order significant), typed controls and explicit important-effect classification. `SettingsList` retains multiple editors and raw invalid inputs. One Save bar owns Save/Discard, dirty and invalid state, recovered candidates and stale-revision feedback. Navigation, Refresh and before-unload guard abandonment.
+`settingsSave.ts` normalizes a project-scoped raw draft into a bounded batch, with structural equality (object key order ignored; array order significant), typed controls and explicit important-effect classification. `SettingsList` retains multiple editors and raw invalid inputs. One Save bar owns Save/Discard, dirty and invalid state, recovered candidates and stale-revision feedback. Navigation and browser reload guard abandonment.
 
 `SettingsImpactDialog` is a native modal for important saves only. It compares the server's no-write preview to the active snapshot and shows changed values and concise effects; connection edits expand to changed provider/model/endpoint fields. Initial focus is Keep editing; Escape cancels and focus returns to Save. Cancellation creates no new persistent candidate. Ordinary saves proceed without a dialog. App prepares and applies the exact confirmed batch, comparing preview/prepared hashes and runtime plans. Scoped mutation identities prevent duplicate submissions and late cross-project completions. Failed saves retain editable inputs; corrupt pending reads disable editing with explicit discard recovery. The server's idle/lock/pause/revision checks remain decisive. Developers see read-only settings with financial/secret values omitted.
 
@@ -563,35 +564,14 @@ those views after the switch.
 
 ## 3. Implementation Overview
 
-`TransferWizard.tsx` runs guided creation (mode `enroll`) or cloning (mode `clone`:
-from a project on this server or a portable settings file). File/source selection
-reviews all 15 recognized rules and explicit exclusions before target setup.
-`EnrollmentWizard` receives optional memory-only source context and uses the same
-identity/repository/environment/eligibility/verification/review steps. Copied
-budget controls are read-only; canonical review shows every source rule, installed
-server default and effect, with independent allocated config/state/worktree/metrics
-paths. Target reference/environment reconfirmation is required and invalidated by
-identity/environment edits. Source credential references never seed the target.
-
-Target/source edits invalidate reviews and checks; ref/generation guards prevent
-repeated submits and superseded responses. Selected files are reread before review
-and every target operation; changed/unreadable bytes block action and expose source
-re-review. Back/Change retains target corrections; returning to source or switching
-method warns and resets the target draft. Sources/drafts stay in memory and are
-cleared on leaving. `transferCopy.ts` supplies EN/FR/DE/RO explanations. Completion
-confirms stopped pickup and separate activation. Existing exact TOML and export
-panel boundaries retain their distinct wording/behavior.
-
-`e2e/transfer.spec.ts` covers both real-API methods, required reconfirmation,
-visible mapping/exclusions/paths, stopped success/double click, correction/back,
-actual source/file changes, failed/late transport, role denial, four locales and
-keyboard/390px themes. External commands remain faked; participant/live/full-WCAG
-acceptance remains human work.
+`EnrollmentWizard.tsx` runs guided setup with the setup preview, check and
+create endpoints. Portable transfer has its own API contract, exercised by
+`tests/test_web_transfer.py`.
 
 
 `RawConfiguration.tsx` owns four-locale Admin raw actions, bounded fetch, exact-byte download and native dialog with Escape/Close/focus restoration. Abort and pending-ref guards discard late results on unmount. Errors use localized safe codes; TOML is escaped text and never stored in browser storage. `e2e/portable.spec.ts` covers bytes, failures, role denial, late responses and four locales at 390px.
 
-Administrators use **Preview raw configuration** or **Download raw configuration** beside Project settings. Preview opens a closable dialog; download preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings and cannot access raw configuration. Candidate review/apply/discard remains inside Settings.
+Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
@@ -669,9 +649,8 @@ diagnostic `message`; an unknown code shows a localized generic sentence that
 names it, and network failures have their own message. The banner keeps the
 raw failure and localizes it when rendered, so a language switch updates it.
 Each user action and each view change clears the previous error banner;
-background refreshes do not. EnrollmentWizard and ImportWizard validate stable lowercase
-profile IDs before sending requests; the server remains authoritative for reserved
-IDs and ownership conflicts. Primary buttons use the `--on-accent` token, which
+background refreshes do not. EnrollmentWizard validates stable lowercase profile
+IDs. RawImportDialog uses the server-validated suggested identity. Primary buttons use the `--on-accent` token, which
 is dark text on the light accent in both system-dark and explicit Dark themes.
 
 
@@ -760,12 +739,9 @@ keyboard/390px/both themes/four locales. Retained screenshots support bounded
 visual inspection. These checks do not establish live or novice acceptance.
 
 
-`e2e/import.spec.ts` covers explanatory exact enrollment, full safe review,
-stopped success, duplicate-submit protection, invalid file/encoding/response,
-failed/stale verification, source disk mutation, correction/invalidation,
-late responses, loss/navigation/refresh, Dev denial, four locales and keyboard
-focus. Desktop/390px screenshots cover both themes; this is bounded visual
-inspection, with novice/live acceptance and full accessibility audits separate.
+`e2e/import.spec.ts` covers modal selection and automatic validation, exact
+stopped import, duplicate-submit protection, invalid or stale evidence, a changed
+disk file, Dev denial, keyboard focus and four locales at 390px.
 
 `tests/shell.test.mjs` checks glossary/catalog parity across EN/FR/DE/RO
 and exact approved logo bytes, dimensions and PNG alpha format.

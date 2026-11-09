@@ -42,7 +42,7 @@ test("raw configuration preview and download are original and Settings stays com
   expect(original.status()).toBe(200);
   const expected = await original.body();
   const download = page.waitForEvent("download");
-  await panel.getByRole("button", { name: "Download raw configuration", exact: true }).click();
+  await panel.getByRole("button", { name: "Export raw configuration", exact: true }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe("config.toml");
   expect(await readFile((await file.path())!)).toEqual(expected);

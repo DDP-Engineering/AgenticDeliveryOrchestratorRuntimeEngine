@@ -82,7 +82,19 @@ test("empty project overview offers enrollment without an empty table", async ({
   await page.getByLabel("Username", {exact:false}).fill("admin");
   await page.getByLabel("Password", {exact:false}).fill("admin");
   await page.getByRole("button", {name:"Sign in",exact:true}).click();
-  await expect(page.getByRole("button", {name:"Enroll new project",exact:true})).toBeVisible();
+  const card = page.getByRole("status").filter({has: page.getByRole("heading", {name:"No projects available",exact:true})});
+  await expect(card.getByRole("button", {name:"Enroll new project",exact:true})).toBeVisible();
+  await expect(card.getByText("Your account preferences", {exact:false})).toHaveCount(0);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({width, height:844});
+    const [afterTitle, afterDescription] = await card.locator(".project-empty-content").evaluate(content => {
+      const [title, description, action] = Array.from(content.children, element => element.getBoundingClientRect());
+      return [description.top - title.bottom, action.top - description.bottom];
+    });
+    expect(afterTitle).toBeGreaterThan(0);
+    expect(afterDescription).toBeCloseTo(afterTitle, 0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  }
   await page.goto("/projects");
   await expect(page.locator(".projects-table")).toHaveCount(0);
   await expect(page.locator(".section-actions + section.panel")).toHaveCount(0);

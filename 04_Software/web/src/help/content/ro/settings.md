@@ -6,7 +6,9 @@ Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică
 
 Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Statistici, Istoric și, pentru administratori, Acces.
 
-Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Fiecare proiect are propriile setări; capacitatea globală și păstrarea auditului aparțin Administrării. Setări nu se reîmprospătează singure, așa că folosiți Reîmprospătează din antet pentru a le citi din nou.
+Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT.
+
+Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Fiecare proiect are propriile setări; capacitatea globală și păstrarea auditului aparțin Administrării.
 
 ## Grupuri de setări {#groups}
 
@@ -39,16 +41,16 @@ Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent
 Reguli aplicabile:
 
 - **Renunță la modificări** elimină toate editările nesalvate. Anularea confirmării le păstrează fără să creeze un candidat salvat.
-- Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse; renunță și reîmprospătează înainte de o nouă editare. Modificările simultane produc un conflict.
+- Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse. Renunțați la modificări pentru a reîncărca setările salvate înainte de a edita din nou. Modificările simultane produc un conflict.
 - Serverul verifică întreaga configurație și salvează toate modificările împreună. Salvarea revizuită doar a bugetelor permite și joburi în așteptarea clarificărilor, fără conductor activ sau operații neterminate. Alte setări cer joburi încheiate. O eroare păstrează datele introduse și candidatul pregătit.
 - Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.
 - Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).
 
-Navigarea sau Reîmprospătează cere confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
+Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
 
 ## TOML original {#toml}
 
-Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Descarcă configurația originală**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Un fișier descărcat poate fi înrolat din nou cu [Importă configurația proiectului](/help/projects#import-project) după ce secretele lui sunt înlocuite cu referințe la variabile de mediu.
+Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Selectați fișierul exportat în [Importă configurația brută](/help/projects#import-project) iar ADORE verifică automat înainte de înrolare căile de pe server, dosarul de stare și secretele incluse în fișier.
 
 ## Pachetele de sistem ale agentului {#system-packages}
 

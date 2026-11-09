@@ -167,8 +167,9 @@ def _ready(port: int) -> bool:
     try:
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         with opener.open(f"http://127.0.0.1:{port}/api/v1/ready", timeout=1) as response:
-            return (response.status == 200
-                    and json.loads(response.read(8192)) == {"status": "ready", "worker": "ready"})
+            readiness = json.loads(response.read(8192))
+            return (response.status == 200 and isinstance(readiness, dict)
+                    and readiness.get("status") == "ready" and readiness.get("worker") == "ready")
     except (OSError, ValueError, urllib.error.URLError):
         return False
 

@@ -27,7 +27,7 @@ In der Liste **Benutzer** bietet jedes Konto diese Aktionen.
 
 ## Projektzugriff {#project-access}
 
-Der Reiter **Zugriff** eines Projekts listet jedes Entwicklerkonto mit **Hat Zugriff** oder **Kein Zugriff**. Wählen Sie neben einem Entwickler **Zugriff gewähren** oder **Zugriff entziehen**, vergleichen Sie **Vorher** und **Nachher** und wählen Sie dann **Geprüften Zugriff anwenden**. Die Änderung lässt die anderen Projekte des Entwicklers unberührt und wird im Änderungsverlauf festgehalten.
+Der Reiter **Zugriff** eines Projekts listet jedes Entwicklerkonto mit **Hat Zugriff** oder **Kein Zugriff**. Wählen Sie neben einem Entwickler **Zugriff gewähren** oder **Zugriff entziehen**, vergleichen Sie **Vorher** und **Nachher** und wählen Sie dann **Geprüften Zugriff anwenden**. Die Änderung lässt die anderen Projekte des Entwicklers unberührt und wird im Änderungsverlauf festgehalten. Die Zugriffsliste wird alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist.
 
 Ein Entwickler mit Zugriff sieht das Projekt und kann dessen Aufträge starten, wiederholen oder abbrechen. Administratoren haben immer Zugriff.
 
@@ -41,7 +41,7 @@ Ein Entwickler mit Zugriff sieht das Projekt und kann dessen Aufträge starten, 
 
 ## Änderungsverlauf {#change-history}
 
-Öffnen Sie unter **Verwaltung** den [Änderungsverlauf](/admin/audit), um zu sehen, wer was wann geändert hat und mit welchem Ergebnis. Der Reiter **Verlauf** eines Projekts zeigt dieselben Nachweise nur für dieses Projekt, zusammen mit seinen abgeschlossenen Aufträgen. Mit **Aktualisieren** laden Sie neu.
+Öffnen Sie unter **Verwaltung** den [Änderungsverlauf](/admin/audit), um zu sehen, wer was wann geändert hat und mit welchem Ergebnis. Der Reiter **Verlauf** eines Projekts zeigt dieselben Nachweise nur für dieses Projekt, zusammen mit seinen abgeschlossenen Aufträgen. Beide Ansichten aktualisieren sich alle 15 Sekunden, solange sie sichtbar sind. Filter, Seite und geöffnete Nachweise bleiben erhalten. Im globalen Änderungsverlauf lädt **Aktualisieren** die Liste sofort neu.
 
 Der Verlauf unterscheidet Tickets und Aufträge von Vorgangsnummern. Fehlgeschlagene Vorgänge zeigen **Fehlgeschlagen**, abgelehnte **Abgelehnt**. Löschungen per CLI zeigen CLI als Akteur und bleiben nach dem Entfernen des Auftrags sichtbar. Eine unterbrochene Löschung bleibt bis zur Bestätigung **Ungewiss**.
 

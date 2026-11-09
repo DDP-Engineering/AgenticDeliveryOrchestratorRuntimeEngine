@@ -8,8 +8,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
-import { transferCopy, validTransferSettings, type TransferSource } from "./transferCopy";
-import { portableFields } from "./portable";
 import { localCopy } from "./localExecution";
 import { setupCopy } from "./setupCopy";
 import { CloneLocation } from "./HostFolderPicker";
@@ -37,8 +35,7 @@ type Draft = {
 type FieldName = keyof Draft;
 type Finding = { code: string; field: string; remediation: string };
 type Preview = { structural_valid: boolean; issues: Finding[]; revision: string | null;
-  config_revision: string | null; review: Record<string, unknown> | null; source_revision?: string;
-  mapping?: { key: string; source_value: unknown; server_value: unknown; effect: string }[];
+  config_revision: string | null; review: Record<string, unknown> | null;
   defaults?: { key: string; value: unknown }[] };
 type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string; local_probe?: LocalProbe;
   checked_at: string; evidence_token: string; required_checks: string[]; auth_bound: boolean; checks: Record<string, boolean | null | "not-checked"> };
@@ -128,19 +125,15 @@ const fieldFor = (path: string): FieldName | undefined => {
 };
 
 /** Mounted memory-only enrollment; server owns canonical setup and stopped publication. */
-export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated, registerGuard, transfer, onSourceReview, checkSource }: {
+export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated, registerGuard }: {
   locale: Locale; csrf: string; t: (key: MessageKey) => string; onCancel: () => void;
   onOpen: (id: string) => void; onCreated: () => void;
   registerGuard: (guard: (() => boolean) | null) => void;
-  transfer?: TransferSource; onSourceReview?: () => void; checkSource?: () => Promise<void>;
 }) {
   const c = enrollmentCopy[locale];
-  const tc = transferCopy[locale];
-  const [draft, setDraft] = useState<Draft>(() => ({ ...initial, ...(transfer ?
-    Object.fromEntries(numeric.map(key => [key, String(transfer.settings.budgets[key])])) : {}) }));
+  const [draft, setDraft] = useState<Draft>(initial);
   // Enrollment starts at Repository and identity; the clone requirement is that step's clone-path help.
   const [step, setStep] = useState(1);
-  const [referencesConfirmed, setReferencesConfirmed] = useState(false);
   // Step 1 reads a repository URL; an existing clone is reused when its path is the clone path.
   const [detected, setDetected] = useState<Detected | null>(null);
   const [detecting, setDetecting] = useState(false);
@@ -224,7 +217,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     dirty.current = true; generation.current++;
     if (preview || verification || reviewed) setStale(true);
     setPreview(null); setVerification(null); setReviewed(null); setFindings([]); setFailure(null);
-    if (fields[1].includes(field) || fields[2].includes(field)) setReferencesConfirmed(false);
     operation.current = null; setBusy(null);
     const prefilled = field === "clone_url" && detected ? detected.display_name : null;
     if (field === "clone_url") { setDetected(null); selectedBranch.current = null; }
@@ -267,13 +259,10 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       }
       if (!valid) errors.push({ code: "invalid_input", field: key, remediation: c.invalid });
     }
-    if (transfer && groups.includes(2) && !referencesConfirmed)
-      errors.push({ code: "invalid_input", field: "references_confirmed", remediation: tc.confirm });
     setFindings(errors); setFailure(null);
     return errors.length === 0;
   };
-  const call = async (path: string, body: unknown, recheckSource = true): Promise<unknown> => {
-    if (transfer && recheckSource) await checkSource?.();
+  const call = async (path: string, body: unknown): Promise<unknown> => {
     let response: Response;
     try {
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin",
@@ -286,13 +275,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     }
     return value;
   };
-  const targetPayload = () => ({ ...payload(draft), ...(transfer ? {
-    max_iterations: 20, max_wall_clock_seconds: 5400, max_cost_usd: 5, max_files_touched: 120,
-  } : {}) });
-  const requestBody = (target: unknown, revision?: string) => transfer ? {
-    ...transfer.selection, source_revision: transfer.source_revision, target,
-    references_confirmed: referencesConfirmed, ...(revision ? { revision } : {}),
-  } : { ...(target as object), ...(revision ? { revision } : {}) };
   const reject = (cause: unknown) => {
     setFailure(cause);
     setFindings(cause instanceof SetupError ? cause.findings : []);
@@ -328,7 +310,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       if (!validDetected(value) || value.url !== draft.clone_url.trim()) throw new ApiError("unexpected_response");
       dirty.current = true; generation.current++;
       if (preview || verification || reviewed) setStale(true);
-      setPreview(null); setVerification(null); setReviewed(null); setReferencesConfirmed(false);
+      setPreview(null); setVerification(null); setReviewed(null);
       setDetected(value);
       const selected = selectedBranch.current;
       const keepBranch = selected?.url === value.url && value.branches.includes(selected.branch);
@@ -346,7 +328,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     operation.current = "preview"; setBusy("preview"); setFailure(null); setReviewed(null);
     setPreview(null); setVerification(null);
     try {
-      const value = await call(transfer ? "transfer-preview" : "setup-preview", requestBody(targetPayload())) as Preview;
+      const value = await call("setup-preview", payload(draft)) as Preview;
       if (!alive.current || token !== generation.current) return;
       if (typeof value?.structural_valid !== "boolean" || !isFindings(value.issues) ||
         value.structural_valid !== (value.issues.length === 0) ||
@@ -354,18 +336,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           !value.review || value.review.name !== draft.name || value.review.display_name !== draft.display_name ||
           ["config_path", "store_root", "worktree_root"].some(key => typeof value.review?.[key] !== "string")))
         throw new ApiError("unexpected_response");
-      if (transfer && value.structural_valid) {
-        const expected = Object.entries(portableFields).flatMap(([section, keys]) => keys.map(key => section + "." + key));
-        if (value.source_revision !== transfer.source_revision || !Array.isArray(value.mapping) || value.mapping.length !== expected.length ||
-          expected.some(key => value.mapping!.filter(row => row.key === key).length !== 1) ||
-          value.mapping.some(row => row.effect !== "copy-rule" || !Object.hasOwn(row, "server_value") ||
-            JSON.stringify(row.source_value) !== JSON.stringify(transfer.settings[row.key.split(".")[0]][row.key.split(".")[1]])) ||
-          ["metrics_db", "metrics_jsonl", "metrics_html"].some(key => typeof value.review?.[key] !== "string"))
-          throw new ApiError("unexpected_response");
-        const server = Object.fromEntries(Object.entries(portableFields).map(([section, keys]) => [section,
-          Object.fromEntries(keys.map(key => [key, value.mapping!.find(row => row.key === section + "." + key)!.server_value]))]));
-        if (!validTransferSettings(server)) throw new ApiError("unexpected_response");
-      }
       setPreview(value); setFindings(value.issues); setStale(false);
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
@@ -375,7 +345,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     const token = generation.current;
     operation.current = "probe"; setBusy("probe"); setVerification(null); setFailure(null); setFindings([]);
     try {
-      const value = await call(transfer ? "transfer-check" : "setup-check", requestBody(targetPayload(), preview.revision)) as Verification;
+      const value = await call("setup-check", { ...payload(draft), revision: preview.revision }) as Verification;
       if (!alive.current || token !== generation.current) return;
       const expected = ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files",
         ...(draft.provider === CHATGPT ? ["executor_sign_in"] : []), ...(draft.execution_backend === "container" ? ["egress_proxy"] : [])];
@@ -400,7 +370,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     operation.current = "create"; setBusy("create"); setFailure(null); setFindings([]);
     const token = generation.current;
     try {
-      const value = await call(transfer ? "transfer-create" : "setup-create", { ...requestBody(reviewed.draft, reviewed.preview.revision), ...(verification ? { evidence_token: verification.evidence_token } : {}) }) as Created;
+      const value = await call("setup-create", { ...reviewed.draft, revision: reviewed.preview.revision,
+        ...(verification ? { evidence_token: verification.evidence_token } : {}) }) as Created;
       if (!alive.current || token !== generation.current) return;
       if (!value || !/^[0-9a-f]{32}$/.test(value.id) || value.name !== reviewed.draft.name ||
         value.display_name !== reviewed.draft.display_name || !value.paused || value.pickup_state !== "stopped")
@@ -409,7 +380,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       if (createLabels) {
         // A label failure is shown; the project stays created.
         // The project exists now; a changed clone source must not block its labels.
-        void call(encodeURIComponent(value.id) + "/labels/ensure", {}, false)
+        void call(encodeURIComponent(value.id) + "/labels/ensure", {})
           .then(result => { if (alive.current) setLabelResult(validLabelReport(result) ? { report: result } : { error: new ApiError("unexpected_response") }); })
           .catch(cause => { if (alive.current) setLabelResult({ error: cause }); });
       }
@@ -462,7 +433,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         {options[key]?.map(value => <option value={value} key={value}>{key === "target_branch" && value === detected?.default_branch ? `${value} (${setupCopy[locale].defaultBranch})`
         : value === "" ? (key === "thinking" ? thinkingCopy[locale].default : c.chooseForge)
         : key === "execution_backend" ? (value === "local" ? c.installed : c.container) : key === "provider" ? providerName(value, catalog, locale) : value}</option>)}</select> :
-        <input {...common} readOnly={!!transfer && numeric.includes(key as typeof numeric[number])} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
+        <input {...common} type={numeric.includes(key as typeof numeric[number]) ? "number" : "text"}
           step={key === "max_cost_usd" ? "any" : "1"} autoComplete="off"
           placeholder={(key === "display_name" ? c.exampleDisplay : key === "description" ? c.exampleDescription : examples[key]) ? t("examplePrefix") + " " +
             (key === "display_name" ? c.exampleDisplay : key === "description" ? c.exampleDescription : examples[key]) : undefined}
@@ -505,7 +476,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     {(failure || findings.length > 0) && <div ref={summary} tabIndex={-1} role="alert" className="enrollment-errors">
       <h3>{c.errorTitle}</h3>{!!failure && <p>{describeError(locale, failure)} {c.failed}</p>}
       <ul>{findings.map((item, index) => <li key={index}>
-        <button className="text-button" onClick={() => correct(item)}>{item.field === "references_confirmed" ? tc.confirm : fieldFor(item.field) ?
+        <button className="text-button" onClick={() => correct(item)}>{fieldFor(item.field) ?
           labels[fieldFor(item.field)!] : c.steps[3]} — {c.correction}</button>
         <p>{item.code === "project_exists" ? c.idExists :
           item.code === "reserved_project_name" ? c.idReserved :
@@ -515,8 +486,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         <span> · {item.code}</span>
       </li>)}</ul>
       {!findings.length && <button className="text-button" onClick={() => move(4)}>{c.validate}</button>}
-      {transfer && <>{failure instanceof ApiError && failure.code === "portable_settings_changed" && <p>{tc.changed}</p>}
-        <button type="button" className="text-button" onClick={onSourceReview}>{tc.back}</button></>}
     </div>}
     <form onSubmit={submit} noValidate>
       <fieldset disabled={busy === "create"} className="enrollment-fields">
@@ -556,13 +525,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             </div>
           </div> : <div className="enrollment-grid">{fields[step].filter(key=>!key.startsWith("local_")).map(control)}</div>}
 
-          {transfer && step === 2 && <><p id="transfer-reference-help">{tc.references}</p><label><input id="transfer-references" aria-describedby="transfer-reference-help" type="checkbox" checked={referencesConfirmed}
-            onChange={event => { dirty.current = true; generation.current++; setReferencesConfirmed(event.target.checked);
-              setPreview(null); setVerification(null); setReviewed(null); setFindings([]); setFailure(null);
-              operation.current = null; setBusy(null); }} /> {tc.confirm}</label></>}
         </>}
         {step === 4 && <>
-          <p>{c.effects}</p><p>{c.noSecrets}</p>
+          <p>{draft.execution_backend === "local" ? c.localEffects : c.effects}</p><p>{c.noSecrets}</p>
           <div className="verify-action">
             <button type="button" className="primary" disabled={!!busy} onClick={() => void runPreview()}>{c.validate}</button>
             <span role="status">{preview?.structural_valid && <span className="action-result ok">{c.valid}</span>}</span>
@@ -573,16 +538,21 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             <span role="status"><span className={"action-result " + (stale ? "warn" : !verification ? "muted"
               : verification.status === "failed" ? "fail" : verification.status === "partial" ? "warn" : "ok")}>{status}</span></span>
           </div>
-          {transfer && preview?.structural_valid && <Mapping preview={preview} locale={locale} />}
           {verification && <>{!verification.auth_bound && verification.status === "partial" && <p>{({ en: "External CLI sign-in can change outside ADORE; the result remains partial until repository access is connected.", fr: "La connexion CLI externe peut changer hors d’ADORE ; le résultat reste partiel jusqu’à la connexion du dépôt.", de: "Die externe CLI-Anmeldung kann sich außerhalb von ADORE ändern; das Ergebnis bleibt bis zur Repository-Verbindung teilweise.", ro: "Autentificarea CLI externă se poate schimba în afara ADORE; rezultatul rămâne parțial până la conectarea repository-ului." })[locale]}</p>}<p>{c.checked}: {new Date(verification.checked_at).toLocaleString(locale)}</p><ul>{Object.entries(verification.checks).filter(([key]) => draft.execution_backend !== "local" || key !== "container_runtime").map(([key, result]) =>
-            <li key={key}><strong>{readinessCheckLabel(locale, key)}</strong>: {result === true ? "✓" : result === false ? "✕" : "?"} {result === true ? c.checkPassed : result === false ? c.checkFailed : c.notChecked}
-              {result !== true && <p>{key === "aegis_files" && result === "not-checked" ? c.aegisAtCreate : c.checkHelp[key as keyof typeof c.checkHelp]}</p>}
-              {result !== true && result !== "not-checked" && <button type="button" className="text-button" onClick={() => move(["git", "aegis_files", "forge_cli", "forge_auth"].includes(key) ? 1 : 2)}>{c.correction}</button>}
-            </li>)}</ul>{verification.local_probe?.ready === false && <p>{localFailureText(locale, verification.local_probe)}</p>}</>}
+            {
+              const nativeExecutor = draft.execution_backend === "local" && key === "executor_cli";
+              const guidance = nativeExecutor ? localFailureText(locale, verification.local_probe)
+                : key === "aegis_files" && result === "not-checked" ? c.aegisAtCreate
+                : c.checkHelp[key as keyof typeof c.checkHelp];
+              return <li key={key}>
+                <strong>{nativeExecutor ? c.localExecutor : readinessCheckLabel(locale, key)}</strong>: {result === true ? "✓" : result === false ? "✕" : "?"} {result === true ? c.checkPassed : result === false ? c.checkFailed : c.notChecked}
+                {result !== true && guidance && <p>{guidance}</p>}
+                {result !== true && result !== "not-checked" && <button type="button" className="text-button" onClick={() => move(["git", "aegis_files", "forge_cli", "forge_auth"].includes(key) ? 1 : 2)}>{c.correction}</button>}
+              </li>;
+            })}</ul></>}
         </>}
         {step === 5 && reviewed && <>
           <p>{c.reviewHelp}</p><p>{c.status}: {status}</p>
-          {transfer && <><p>{tc.exclusions}</p><p>{tc.confirm}</p><Mapping preview={reviewed.preview} locale={locale} /></>}
           {reviewed.draft.execution_backend === "local" && <section className="enrollment-review"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].notice}</p><p>{localCopy[locale].machine}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.machine ?? "—")} · {localCopy[locale].account}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.account ?? "—")}</p></section>}
           {fields.slice(1).map((group, index) => <section className="enrollment-review" key={index}>
             <h3>{c.steps[index]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index]}</button>
@@ -593,9 +563,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
                   <div key={key}><dt>{label}</dt><dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}
             </dl>
           </section>)}
-          <section className="enrollment-review"><h3>{transfer ? tc.paths : c.paths}</h3><dl>{["config_path", "store_root", "worktree_root", "repo_path", ...(transfer ? ["metrics_db", "metrics_jsonl", "metrics_html"] : [])].map(key =>
+          <section className="enrollment-review"><h3>{c.paths}</h3><dl>{["config_path", "store_root", "worktree_root", "repo_path"].map(key =>
             <div key={key}><dt>{{ config_path: c.configFile, store_root: c.jobState,
-              worktree_root: c.worktrees, repo_path: t("clonePath"), metrics_db: "metrics.db", metrics_jsonl: "metrics JSONL", metrics_html: "metrics HTML" }[key]}</dt>
+              worktree_root: c.worktrees, repo_path: t("clonePath") }[key]}</dt>
               <dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}</dl></section>
           <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
           <DefaultSettings defaults={reviewed.preview.defaults} locale={locale} backend={reviewed.draft.execution_backend} />
@@ -605,7 +575,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       </fieldset>
       {busy && <p role="status">{c.busy} {c.checkingHelp}</p>}
       <div className="enrollment-actions">
-        {(step > 1 || transfer) && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => transfer && step === 1 ? onSourceReview?.() : move(step - 1)}>{c.back}</button>}
+        {step > 1 && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => move(step - 1)}>{c.back}</button>}
         {/* From a URL, the wizard cannot continue until the repository has been read. */}
         {/* Until the repository is read, Read repository is the primary action. */}
         {step < 4 && <button className={step === 1 && !detected ? "ghost" : "primary"} type="submit"
@@ -613,24 +583,11 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         {/* Every step reads Back, Continue (Create on the last step), Cancel in one row. */}
         {step === 4 && <button type="button" className="primary" disabled={!!busy || !preview?.structural_valid} onClick={() => {
           if (!preview?.structural_valid || !preview.revision) return;
-          setReviewed({ draft: structuredClone(targetPayload()), preview: structuredClone(preview) }); move(5);
+          setReviewed({ draft: payload(draft), preview: structuredClone(preview) }); move(5);
         }}>{c.continue}</button>}
         {step === 5 && reviewed && <button type="button" className="primary" onClick={() => void confirm()} disabled={!!busy}>{c.create}</button>}
         <button type="button" className="ghost" disabled={busy === "create"} onClick={() => { if (guard()) onCancel(); }}>{c.cancel}</button>
       </div>
     </form>
-  </section>;
-}
-
-/** Exact source/installed-default mapping; long values stack in the existing responsive review. */
-function Mapping({ preview, locale }: { preview: Preview; locale: Locale }) {
-  const c = transferCopy[locale];
-  return <section className="enrollment-review"><h3>{c.recognized}</h3><p>{c.defaults}</p>
-    <p className="enrollment-digest">{c.revision}: {preview.source_revision}</p>
-    {preview.mapping?.map(row => <div key={row.key}><h4>{row.key}</h4><dl>
-      <div><dt>{c.sourceValue}</dt><dd>{JSON.stringify(row.source_value)}</dd></div>
-      <div><dt>{c.serverValue}</dt><dd>{JSON.stringify(row.server_value)}</dd></div>
-      <div><dt>{c.effect}</dt><dd>{c.copied}</dd></div>
-    </dl></div>)}
   </section>;
 }

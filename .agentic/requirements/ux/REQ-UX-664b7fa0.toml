@@ -9,19 +9,19 @@ schema = 1
 
 id = "REQ-UX-664b7fa0"
 
-title = "Offer Enroll, Import and Clone project actions on Projects"
+title = "Offer guided enrollment and modal raw import on Projects"
 
 status = "active"
 
 requirement = """
-When an administrator opens Projects, the page shall offer three separate actions - Enroll new project (the guided wizard for a new configuration), Import project config (upload an existing ADORE config.toml, such as one saved with Download raw configuration, copied unchanged) and Clone project config (start a new project from the working rules of a project on this server or of a portable settings file) - each on its own page (/projects/new, /projects/import, /projects/clone) without a further method chooser.
+When an administrator opens Projects, the page shall offer Enroll new project on its own route and Import raw configuration in a dialog as the two project creation actions.
 """
 
-verification = "Automated: e2e checks the three Projects buttons open their pages, /projects/new starts the guided wizard with no method buttons, /projects/clone offers the project and file sources, Dev cannot reach them; node routes test for /projects/clone."
+verification = "Chromium checks the two actions, guided enrollment and modal import; Node route tests direct former import and clone URLs to Projects."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TransferWizard.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/transferCopy.ts", "04_Software/web/src/importCopy.ts", "04_Software/web/src/help/content/"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/routes.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/importCopy.ts", "04_Software/web/src/help/content/"]
 
-linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/transfer.spec.ts", "04_Software/web/tests/routes.test.mjs"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/import.spec.ts", "04_Software/web/tests/routes.test.mjs"]
 
 
 spec = ""

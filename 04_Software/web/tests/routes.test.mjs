@@ -28,8 +28,6 @@ const table = [
   [`/?project=${ID}`, { view: "overview", project: ID }],
   ["/projects", { view: "projects" }],
   ["/projects/new", { view: "createProject" }],
-  ["/projects/import", { view: "importProject" }],
-  ["/projects/clone", { view: "cloneProject" }],
   [`/projects/${ID}`, { view: "projectDetails", project: ID, tab: "overview" }],
   [`/projects/${ID}/configuration`, { view: "projectDetails", project: ID, tab: "configuration" }],
   [`/projects/${ID}/access`, { view: "projectDetails", project: ID, tab: "access" }],
@@ -67,6 +65,14 @@ test("trailing slashes and unknown query parameters are ignored", () => {
   assert.deepEqual(parseRoute("/metrics", "?tab=bogus"), { view: "metrics" });
 });
 
+test("former raw import and configuration clone paths open Projects", () => {
+  for (const path of ["/projects/import", "/projects/clone"]) {
+    const route = parseRoute(path);
+    assert.deepEqual(route, { view: "projects" });
+    assert.equal(formatRoute(route), "/projects");
+  }
+});
+
 test("unknown or malformed paths are not routes", () => {
   for (const path of ["/nope", "/projects/a/b/c", "/projects/bad%20id", "/admin", "/Projects", "/projects/x/settings", "/help/nope", "/help/tickets/x"]) {
     assert.equal(parseRoute(path, ""), null, path);
@@ -75,7 +81,7 @@ test("unknown or malformed paths are not routes", () => {
 
 test("normalization replaces unknown and role-restricted routes", () => {
   assert.deepEqual(normalizeRoute(null, { isAdmin: true }), { route: { view: "overview" }, replaced: true });
-  for (const view of ["createProject", "importProject", "cloneProject", "administration", "adminUsers", "adminAudit"]) {
+  for (const view of ["createProject", "administration", "adminUsers", "adminAudit"]) {
     assert.deepEqual(normalizeRoute({ view }, { isAdmin: false }), { route: { view: "overview" }, replaced: true }, view);
     assert.deepEqual(normalizeRoute({ view }, { isAdmin: true }), { route: { view }, replaced: false }, view);
   }
