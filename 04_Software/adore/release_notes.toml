@@ -24,7 +24,7 @@ text = { en = "Save all edits in wider rows with effect confirmation; optional r
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Jobs keep progress and dependencies; Retry checks tools; expired container commands stop safely.", fr = "Progrès et dépendances conservés ; Relancer vérifie les outils ; arrêt sûr des commandes expirées.", de = "Aufträge behalten Fortschritt und Pakete; Wiederholen prüft Werkzeuge; abgelaufene Befehle stoppen.", ro = "Lucrările păstrează progresul și dependențele; Reia verifică uneltele; comenzile expirate se opresc." }
+text = { en = "Jobs preserve progress and stop checkpoints containing suspicious new paths.", fr = "Les tâches gardent leur progrès et arrêtent les points de contrôle aux chemins suspects.", de = "Jobs bewahren Fortschritt und stoppen Prüfpunkte bei verdächtigen neuen Pfaden.", ro = "Joburile păstrează progresul și opresc punctele de control cu căi noi suspecte." }
 
 [[release.entry]]
 category = "fixed"

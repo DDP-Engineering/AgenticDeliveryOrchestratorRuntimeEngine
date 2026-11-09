@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Stop checkpoints containing suspicious new system-cache or literal environment-variable paths.
+
 - Open Add user and account password resets from the Users list with shared confirmation and eye buttons. Own-password changes also use confirmation and eye buttons.
 
 - Announce the initial web account and remind its administrator to change the factory password.

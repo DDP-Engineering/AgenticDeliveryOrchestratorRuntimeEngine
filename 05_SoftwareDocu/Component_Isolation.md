@@ -409,3 +409,14 @@ Interactive Pi RPC spawn shares exec environment filtering: inherited repository
 ## Fresh branch generations
 
 `fresh_branch` checks local and exact remote absence for the configured base and at most three random `-g` plus twelve lowercase hexadecimal alternatives. Occupied refs are preserved; malformed output, failed Git status and naming-policy refusal are typed errors. `create(..., new_branch=True)` refuses existing worktree paths and uses atomic `git worktree add -b`, preventing adoption of a local ref appearing after the checks. Saved-run recovery retains its established reattachment behavior. Remote empty/exact publication leases remain mandatory. Proof: tests/test_drift_recovery.py.
+
+## Checkpoint path guard
+
+Before staging, `commit_all_if_dirty` queries untracked non-ignored files and
+staged additions with NUL-delimited Git output and rename detection disabled.
+It inspects staged additions again after staging and before committing.
+A whole `%NAME%` segment or case-insensitive `ProgramData/Microsoft/Windows/Caches`
+sequence raises `SuspiciousCheckpointPathError` with the path for operator
+inspection; no file is deleted. Invalid or incomplete bounded Git evidence
+raises `IsolationError`. Existing tracked modifications and ignored paths keep
+Git semantics. This common host checkpoint applies to both execution backends.

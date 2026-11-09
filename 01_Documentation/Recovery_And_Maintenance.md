@@ -65,6 +65,13 @@ The terminal comment for this failure names that command. Reset changes only
 ADORE's record; the AEGIS journal stays untouched, and the run re-verifies from
 the stage you chose rather than trusting the executor's claim.
 
+A checkpoint also stops when a newly added path contains a whole literal
+`%NAME%` segment or the Windows `ProgramData/Microsoft/Windows/Caches` path.
+The error identifies the path. Inspect the preserved worktree and staged changes,
+then remove or relocate unintended files before Retry. Git-ignored files and
+modifications to already tracked files retain their usual Git behavior. An
+invalid Git response also stops the checkpoint; resolve the Git error first.
+
 A failed stage checkpoint reports `CHECKPOINT_FAILED` at the stage recorded by
 AEGIS and keeps the worktree. Correct the Git failure before Retry. Existing
 failed jobs remain failed until an explicit Retry; updating the application does

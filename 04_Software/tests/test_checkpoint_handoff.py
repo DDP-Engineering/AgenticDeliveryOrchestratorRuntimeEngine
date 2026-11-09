@@ -117,6 +117,26 @@ def test_checkpoint_handoff_progress_push_retains_approval_boundary(tmp_path, en
         assert any(e["event"] == "checkpoint-pushed" for e in engine.store.read_journal(run.run_id))
 
 
+
+@pytest.mark.parametrize("backend", ["container", "local"])
+def test_checkpoint_guard_stops_publication_for_both_backends(tmp_path, backend):
+    """@brief A guard refusal preserves the run and prevents checkpoint publication."""
+    engine, run, forge, worktrees, _, _ = setup_run(tmp_path)
+    engine.config.execution.backend = backend
+    engine.config.delivery.publish_checkpoints = True
+    runner = FakeRunner(_ok("?? accidental\0"), _ok("%TEMP%/bad.db\0"), _ok())
+    real_manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    worktrees.commit_all_if_dirty = real_manager.commit_all_if_dirty
+    run.stage = "build"
+    engine.store.save(run)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("build"), task("validate")]), "")
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed"
+    assert not worktrees.remote_pushes
+    assert not any("commit" in call or "push" in call for call in runner.calls)
+    assert "suspicious" in saved.outcome.lower()
+
+
 def test_checkpoint_handoff_transport_failure_is_visible_and_recovers(tmp_path):
     """@brief Failed progress uploads retain local commits and report stale remote state."""
     engine, run, forge, worktrees, _, _ = setup_run(tmp_path)

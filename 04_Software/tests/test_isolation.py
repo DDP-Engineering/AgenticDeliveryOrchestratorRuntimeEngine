@@ -1104,9 +1104,142 @@ def test_worktree_relative_root_resolves_against_cwd(
     assert "wt-root/r1" not in add_argv and "wt-root\\r1" not in add_argv
 
 
+@pytest.mark.parametrize("listing", [
+    "%SystemDrive%/ProgramData/Microsoft/Windows/Caches/test.db\0",
+    "ProgramData/Microsoft/Windows/Caches/\u00e9 space.db\0",
+])
+def test_checkpoint_rejects_suspicious_new_path(tmp_path: Path, listing: str) -> None:
+    """@brief Suspicious untracked paths stop before staging and identify the path."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(listing), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="suspicious") as error:
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert listing[:-1] in str(error.value)
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+def test_checkpoint_rejects_staged_suspicious_path(tmp_path: Path) -> None:
+    """@brief Already staged additions are inspected before checkpointing."""
+    runner = FakeRunner(_ok("A  file\0"), _ok(), _ok("%TEMP%/file\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="suspicious"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+@pytest.mark.parametrize("listing", ["unterminated", "../escape\0", "a\0\0"])
+def test_checkpoint_rejects_invalid_git_path_evidence(tmp_path: Path, listing: str) -> None:
+    """@brief Malformed Git evidence fails closed before staging."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(listing), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+
+def test_checkpoint_accepts_ordinary_names(tmp_path: Path) -> None:
+    """@brief Names with spaces, Unicode, percent signs and ordinary caches remain eligible."""
+    runner = FakeRunner(_ok("?? file\0"), _ok("docs/100% done/é.txt\0.cache/data\0"),
+                        _ok(), _ok(), _ok(), _ok("A  file\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert runner.calls[1][-4:] == ["ls-files", "--others", "--exclude-standard", "-z"]
+    assert runner.calls[2][-6:] == [
+        "diff", "--cached", "--no-renames", "--name-only", "--diff-filter=A", "-z",
+    ]
+
+
+
+def test_checkpoint_accepts_tracked_type_change(tmp_path: Path) -> None:
+    """@brief A valid Git type-change status remains checkpointable."""
+    runner = FakeRunner(_ok(" T file\0"), _ok(), _ok(), _ok(), _ok(),
+                        _ok("T  file\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+
+@pytest.mark.parametrize("status", ["?? new/nested.txt\0", "AA conflict\0",
+                                    " R new\0old\0"])
+def test_checkpoint_accepts_other_valid_statuses(tmp_path: Path, status: str) -> None:
+    """@brief Nested untracked, conflict and rename statuses follow normal Git behavior."""
+    runner = FakeRunner(_ok(status), _ok(), _ok(), _ok(), _ok(),
+                        _ok("M  file\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert "--untracked-files=all" in runner.calls[0]
+
+
+
+def test_checkpoint_accepts_untracked_embedded_repository(tmp_path: Path) -> None:
+    """@brief Git can list an embedded repository with a trailing slash."""
+    runner = FakeRunner(_ok("?? nested/\0"), _ok("nested/\0"), _ok(),
+                        _ok(), _ok("nested\0"), _ok("A  nested\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+def test_checkpoint_git_listing_failure_stops(tmp_path: Path) -> None:
+    """@brief Git failure is distinct from a suspicious path and prevents commit."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(), _fail("broken index"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="git diff failed"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("add" not in call and "commit" not in call for call in runner.calls)
+
+
+
+@pytest.mark.parametrize("result", [CommandResult(exit_code=False),
+                                    CommandResult(exit_code=0, timed_out=True),
+                                    _ok("?? incomplete"),
+                                    _ok(" M ../escape\0"),
+                                    _ok("?M file\0"),
+                                    _ok("TU file\0"),
+                                    _ok("R  dest\0../source\0")])
+def test_checkpoint_rejects_invalid_status(tmp_path: Path, result: CommandResult) -> None:
+    """@brief Bad status evidence cannot produce a clean checkpoint."""
+    runner = FakeRunner(result)
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert len(runner.calls) == 1
+
+
+def test_checkpoint_rechecks_additions_before_commit(tmp_path: Path) -> None:
+    """@brief A suspicious addition discovered after staging stops the commit."""
+    runner = FakeRunner(_ok("?? file\0"), _ok(), _ok(), _ok(),
+                        _ok("%TEMP%/new\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="suspicious"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+    assert all("commit" not in call for call in runner.calls)
+
+
+
+def test_checkpoint_corrupt_evidence_takes_priority_over_suspicion(tmp_path: Path) -> None:
+    """@brief Partial evidence is reported as invalid rather than as a path finding."""
+    runner = FakeRunner(_ok("?? file\0"), _ok("%TEMP%/file\0"), _ok("partial"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
+@pytest.mark.parametrize("index", [3, 6])
+def test_checkpoint_rejects_corrupt_mutation_exit(tmp_path: Path, index: int) -> None:
+    """@brief Invalid add and commit exit evidence fails closed."""
+    results = [_ok("?? file\0"), _ok(), _ok(), _ok(), _ok(),
+               _ok("A  file\0"), _ok()]
+    results[index] = CommandResult(exit_code=False)
+    runner = FakeRunner(*results)
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "worktrees", runner)
+    with pytest.raises(IsolationError, match="invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint")
+
+
 def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path) -> None:
     """@brief A fresh clone needs no global Git identity for ADORE commits."""
-    runner = FakeRunner(_ok(" M file.py"), _ok(), _ok("M  file.py"), _ok())
+    runner = FakeRunner(_ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"), _ok())
     manager = WorktreeManager(
         tmp_path / "repo", tmp_path / "worktrees", runner,
         git_name="ADORE Bot", git_email="adore@example.invalid",
@@ -1121,7 +1254,7 @@ def test_checkpoint_commit_uses_configured_git_identity(tmp_path: Path) -> None:
 def test_checkpoint_commit_reports_git_failure(tmp_path: Path) -> None:
     """@brief Git commit failure remains a typed isolation error."""
     runner = FakeRunner(
-        _ok(" M file.py"), _ok(), _ok("M  file.py"),
+        _ok(" M file.py\0"), _ok(), _ok(), _ok(), _ok(), _ok("M  file.py\0"),
         _fail("commit rejected"),
     )
     manager = WorktreeManager(

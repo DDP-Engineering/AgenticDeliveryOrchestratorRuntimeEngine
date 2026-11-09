@@ -356,6 +356,10 @@ def _admit_git_pointer(path: Path, payload: bytes, *, create: bool = False) -> N
         raise IsolationError("container Git pointer evidence unavailable or corrupt") from exc
 
 
+class SuspiciousCheckpointPathError(IsolationError):
+    """@brief A new checkpoint path needs operator inspection."""
+
+
 class CheckpointConflictError(IsolationError):
     """@brief Remote ticket branch changed outside the conductor's ownership."""
 
@@ -906,12 +910,82 @@ class WorktreeManager:
         @exception  IsolationError When git fails.
         """
         wt = str(self.path_for(run_id))
-        if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
+        staged = ("diff", "--cached", "--no-renames", "--name-only", "--diff-filter=A", "-z")
+
+        def git(*args: str) -> str:
+            """@brief Run one checkpoint Git command and validate its result."""
+            result = self._run_wt(wt, *args)
+            output = result.stdout
+            if (type(result.exit_code) is not int or result.timed_out
+                    or not isinstance(output, str) or len(output) > 4_000_000
+                    or "\ufffd" in output):
+                raise IsolationError("invalid Git checkpoint evidence")
+            return output
+
+        def records(output: str) -> list[str]:
+            """@brief Validate a bounded, complete NUL-delimited Git response."""
+            if output and not output.endswith("\0"):
+                raise IsolationError("invalid Git checkpoint path evidence")
+            entries = output[:-1].split("\0") if output else []
+            if len(entries) > 100_000 or any(not item for item in entries):
+                raise IsolationError("invalid Git checkpoint path evidence")
+            return entries
+
+        def status() -> bool:
+            """@brief Validate porcelain status including rename source records."""
+            entries = records(git("status", "--porcelain", "--untracked-files=all", "-z"))
+            valid = {"??", " D", "D ", "DD", "AU", "UD", "UA", "DU", "AA", "UU"}
+            valid.update(x + y for x in " MTARC" for y in " MTDRC" if x + y != "  ")
+            i = 0
+            while i < len(entries):
+                entry = entries[i]
+                if (len(entry) < 4 or entry[2] != " "
+                        or entry[:2] not in valid):
+                    raise IsolationError("invalid Git checkpoint status evidence")
+                paths = [entry[3:]]
+                if "R" in entry[:2] or "C" in entry[:2]:
+                    i += 1
+                    if i >= len(entries):
+                        raise IsolationError("invalid Git checkpoint status evidence")
+                    paths.append(entries[i])
+                if entry[:2] == "??" and paths[0].endswith("/"):
+                    paths[0] = paths[0][:-1]
+                if any(any(part in ("", ".", "..") for part in path.split("/"))
+                       for path in paths):
+                    raise IsolationError("invalid Git checkpoint status evidence")
+                i += 1
+            return bool(entries)
+
+        def inspect_paths(*outputs: str) -> None:
+            """@brief Refuse suspicious new paths after validating all entries."""
+            entries = [path for output in outputs for path in records(output)]
+            for path in entries:
+                parts = path.removesuffix("/").split("/")
+                if any(part in ("", ".", "..") for part in parts):
+                    raise IsolationError("invalid Git checkpoint path evidence")
+            for path in entries:
+                parts = path.split("/")
+                lowered = [part.casefold() for part in parts]
+                variable = any(re.fullmatch(r"%[A-Za-z_][A-Za-z0-9_]*%", part)
+                               for part in parts)
+                system_cache = any(lowered[i:i + 4] ==
+                                   ["programdata", "microsoft", "windows", "caches"]
+                                   for i in range(len(parts) - 3))
+                if variable or system_cache:
+                    raise SuspiciousCheckpointPathError(
+                        f"suspicious checkpoint path {path!r}; inspect and remove or relocate "
+                        "the unintended file before retrying")
+
+        if not status():
             return False
-        self._run_wt(wt, "add", "-A")
-        if not self._run_wt(wt, "status", "--porcelain").stdout.strip():
+        untracked = git("ls-files", "--others", "--exclude-standard", "-z")
+        additions = git(*staged)
+        inspect_paths(untracked, additions)
+        git("add", "-A")
+        inspect_paths(git(*staged))
+        if not status():
             return False
-        self._run_wt(wt, "commit", "-m", message)
+        git("commit", "-m", message)
         return True
 
     def scrub_container_worktree_config(self) -> None:

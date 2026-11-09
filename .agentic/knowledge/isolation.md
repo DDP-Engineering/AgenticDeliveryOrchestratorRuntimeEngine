@@ -116,3 +116,12 @@ Interactive Pi RPC spawn shares exec environment filtering: inherited repository
 WorktreeManager.verify_removal checks unaliased paths, actual Git common directory, branch and top-level directory before deletion. ContainerManager.release_owned verifies dedicated executor/proxy mounts and actual internal network membership independently of current backend/egress policy; only immutable IDs are removed and absence is verified. remove_remote_branch allow_absent=True permits an empty checkpoint only for an absent ref, never a present branch. Recorded commits always retain exact leases and absence verification. Proof: tests/test_drift_recovery.py and test_merged_branch_cleanup.py.
 
 `fresh_branch` preserves occupied local/remote refs and chooses the base or at most three `-g` twelve-hex alternatives, subject to actual-name policy. Fresh `create(new_branch=True)` refuses an existing path and atomically creates the ref through Git, so a late local ref is never adopted. Existing recovery reattachment remains separate. Proof: tests/test_drift_recovery.py.
+
+## Checkpoint path guard
+
+`REQ-REL-d31b1a6e`: before staging, the shared host checkpoint inspects Git's
+untracked non-ignored paths and staged additions (including rename destinations), and rechecks additions after staging.
+Literal environment-variable segments and the Windows system cache path stop
+with a path-specific `SuspiciousCheckpointPathError`; invalid bounded Git
+evidence raises `IsolationError`. The operator inspects preserved files.
+Focused offline proof: `tests/test_isolation.py`.

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-d31b1a6e"
+
+title = "Refuse suspicious new checkpoint paths"
+
+status = "active"
+
+requirement = """
+When a checkpoint would include a new path with a literal environment-variable segment or a recognized system cache path, ADORE shall refuse the checkpoint and identify the path while preserving the worktree.
+"""
+
+verification = "Offline injected Git output tests cover normal, suspicious, staged and corrupt evidence; refusal precedes staging or commit."
+
+affected_paths = ["04_Software/adore/isolation.py"]
+
+linked_tests = ["04_Software/tests/test_isolation.py", "04_Software/tests/test_checkpoint_handoff.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09
