@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+The authenticated factory administrator sees a persistent localized password reminder linking to My account. A guarded visible-tab refresh checks the session while the reminder is active; stale responses cannot replace a newer session. The existing password form revokes sessions on success.
+
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
 
 ## Host-check response ordering

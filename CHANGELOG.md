@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Announce the initial web account and remind its administrator to change the factory password.
+
 - Clarify enrollment and project settings, preserve current readiness evidence, and support Pi reasoning effort.
 
 - Correct History targets and outcomes, and retain CLI job deletion evidence after removal.

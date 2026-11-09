@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web identity and command store
 
+The new identity store announces its factory administrator credentials on creation. The authenticated factory administrator’s password status is derived by verifying the public initial password against the current hash, with no new stored field. Missing or corrupt credential evidence fails closed. Password changes and resets retain session revocation.
+
 ## 1. Purpose
 
 `adore.web.store.WebStore` owns local web accounts, sessions, project grants,

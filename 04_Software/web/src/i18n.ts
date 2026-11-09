@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const messages = {
   en: {
+    factoryPasswordNotice: "The initial administrator password is still in use. Change it now.",
     configurationVersion: "Configuration version", configurationVersionHelp: "Identifies the saved project configuration used by this check. Configuration changes require a new check; this is not a Git commit or the ADORE release version.",
     containerType: "Container type", checkHostPrerequisites: "Check host prerequisites",
     glossary: "How ADORE works", help: "Help", helpTopics: "Help topics", searchHelp: "Search help", helpNoMatch: "No topic matches your search.", onThisPage: "On this page", helpFor: "Help: {topic}",
@@ -88,6 +89,7 @@ export const messages = {
     cancelled: "Cancelled", working: "Working", parked: "Parked", review: "In review", done: "Done", pause: "Stop pickup", resume: "Start pickup", paused: "Pickup stopped", pickupEnabled: "Pickup enabled",
   },
   fr: {
+    factoryPasswordNotice: "Le mot de passe initial de l’administrateur est encore utilisé. Changez-le.",
     configurationVersion: "Version de configuration", configurationVersionHelp: "Identifie la configuration du projet enregistrée pour ce contrôle. Une modification nécessite un nouveau contrôle ; ce n’est ni un commit Git ni la version d’ADORE.",
     containerType: "Type de conteneur", checkHostPrerequisites: "Vérifier les prérequis de l’hôte",
     glossary: "Comment fonctionne ADORE", help: "Aide", helpTopics: "Rubriques d'aide", searchHelp: "Rechercher dans l'aide", helpNoMatch: "Aucune rubrique ne correspond à votre recherche.", onThisPage: "Sur cette page", helpFor: "Aide : {topic}",
@@ -169,6 +171,7 @@ export const messages = {
     cancelled: "Annulée", working: "En cours", parked: "En pause", review: "En revue", done: "Terminée", pause: "Suspendre la sélection", resume: "Reprendre la sélection", paused: "Prise en charge arrêtée", pickupEnabled: "Sélection active",
   },
   de: {
+    factoryPasswordNotice: "Das ursprüngliche Administratorkennwort ist noch aktiv. Ändern Sie es.",
     configurationVersion: "Konfigurationsversion", configurationVersionHelp: "Identifiziert die gespeicherte Projektkonfiguration dieser Prüfung. Änderungen erfordern eine neue Prüfung; dies ist weder ein Git-Commit noch die ADORE-Version.",
     containerType: "Containertyp", checkHostPrerequisites: "Host-Voraussetzungen prüfen",
     glossary: "So funktioniert ADORE", help: "Hilfe", helpTopics: "Hilfethemen", searchHelp: "Hilfe durchsuchen", helpNoMatch: "Kein Thema passt zu Ihrer Suche.", onThisPage: "Auf dieser Seite", helpFor: "Hilfe: {topic}",
@@ -250,6 +253,7 @@ export const messages = {
     cancelled: "Abgebrochen", working: "In Arbeit", parked: "Pausiert", review: "In Prüfung", done: "Fertig", pause: "Aufnahme pausieren", resume: "Aufnahme fortsetzen", paused: "Übernahme gestoppt", pickupEnabled: "Aufnahme aktiv",
   },
   ro: {
+    factoryPasswordNotice: "Parola inițială a administratorului este încă activă. Schimb-o.",
     configurationVersion: "Versiunea configurației", configurationVersionHelp: "Identifică configurația salvată a proiectului folosită la această verificare. Modificările cer o nouă verificare; nu este un commit Git sau versiunea ADORE.",
     containerType: "Tip container", checkHostPrerequisites: "Verifică cerințele gazdei",
     glossary: "Cum funcționează ADORE", help: "Ajutor", helpTopics: "Subiecte de ajutor", searchHelp: "Caută în ajutor", helpNoMatch: "Niciun subiect nu se potrivește căutării.", onThisPage: "Pe această pagină", helpFor: "Ajutor: {topic}",

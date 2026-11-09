@@ -29,6 +29,7 @@ export const repositoryConnectionHelp: Record<Locale, string> = {
 /** Localized sentences for every API and client error code. */
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
+    account_credentials_corrupt: "Account credentials could not be read.",
     host_folder_unavailable: "The server folder cannot be read. Choose an accessible folder or try again.",
     local_host_identity_unavailable: "The server account identity is unavailable. Ask the administrator to check the ADORE service account.",
     gitea_auth_missing: "No local Gitea sign-in was found. " + repositoryConnectionHelp.en,
@@ -154,6 +155,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "The server sent an unexpected response.",
   },
   fr: {
+    account_credentials_corrupt: "Impossible de lire les identifiants du compte.",
     host_folder_unavailable: "Le dossier du serveur est illisible. Choisissez un dossier accessible ou réessayez.",
     local_host_identity_unavailable: "L’identité du compte serveur est indisponible. Demandez à l’administrateur de vérifier le compte ADORE.",
     gitea_auth_missing: "Aucune connexion Gitea locale trouvée. " + repositoryConnectionHelp.fr,
@@ -279,6 +281,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Le serveur a envoyé une réponse inattendue.",
   },
   de: {
+    account_credentials_corrupt: "Kontodaten konnten nicht gelesen werden.",
     host_folder_unavailable: "Der Serverordner kann nicht gelesen werden. Wählen Sie einen zugänglichen Ordner oder versuchen Sie es erneut.",
     local_host_identity_unavailable: "Die Identität des Serverkontos ist nicht verfügbar. Lassen Sie das ADORE-Dienstkonto prüfen.",
     gitea_auth_missing: "Keine lokale Gitea-Anmeldung gefunden. " + repositoryConnectionHelp.de,
@@ -404,6 +407,7 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
     unexpected_response: "Der Server hat eine unerwartete Antwort gesendet.",
   },
   ro: {
+    account_credentials_corrupt: "Datele contului nu au putut fi citite.",
     host_folder_unavailable: "Directorul serverului nu poate fi citit. Alegeți un director accesibil sau încercați din nou.",
     local_host_identity_unavailable: "Identitatea contului serverului nu este disponibilă. Cereți administratorului să verifice contul serviciului ADORE.",
     gitea_auth_missing: "Nu a fost găsită o autentificare Gitea locală. " + repositoryConnectionHelp.ro,

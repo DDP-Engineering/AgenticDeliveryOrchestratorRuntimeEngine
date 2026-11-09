@@ -68,3 +68,5 @@ After **Start**, **Retry** or **Cancel**, a notice reports the command as queued
 Overview, Projects and Jobs reload their data every 15 seconds while the browser tab is visible; Statistics and System status also refresh by themselves. A hidden tab stops updating and refreshes as soon as you return. If an update fails, the affected figures stay hidden until the next one succeeds.
 
 In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
+
+The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account.

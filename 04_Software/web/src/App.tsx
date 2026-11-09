@@ -58,7 +58,7 @@ import { enrollmentCopy } from "./enrollmentCopy";
 import { DeleteCloneOption } from "./DeleteCloneOption";
 import { CONTEXT_TOPICS, type HelpTopic } from "./help/topics.ts";
 
-type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; projects?: string[] };
+type User = { id: number; username: string; role: "admin" | "developer"; disabled: boolean; password_change_required?: boolean; factory_password?: boolean; projects?: string[] };
 type AccountUser = User & Account;
 type Session = { user: User; csrf: string };
 type Project = { display_name: string; pickup_state: string; verification: { status: string; checked_at?: string | null; revision?: string | null; checks?: { forge_auth?: boolean } }; validation: { structural_valid: boolean }; verification_requirements: string[]; id: string; name: string; description: string; platform: string; repo: string; runtime: string; executor: string; readiness: string; last_activity: string | null; paused: boolean; archived: boolean; runs: number; invalid_runs: string[] };
@@ -392,6 +392,29 @@ export default function App() {
     }).catch(() => { if (currentView()) setSession(null); }).finally(() => { if (currentView()) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user.factory_password) return;
+    let active = true, serial = 0;
+    const csrf = session.csrf;
+    const refreshFactoryState = async () => {
+      if (document.hidden) return;
+      const requestId = ++serial;
+      try {
+        const current = await request<Session>("/me");
+        if (active && requestId === serial && current.csrf === csrf) {
+          setSession(previous => previous?.csrf === csrf ? current : previous);
+        }
+      } catch (cause) {
+        if (active && requestId === serial && cause instanceof ApiError && cause.code === "authentication_required") {
+          setSession(previous => previous?.csrf === csrf ? null : previous);
+        }
+      }
+    };
+    const timer = window.setInterval(refreshFactoryState, 15000);
+    document.addEventListener("visibilitychange", refreshFactoryState);
+    return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshFactoryState); };
+  }, [session?.csrf, session?.user.factory_password]);
 
   const updatePreference = (key: "language" | "theme", value: string) => {
     const previous = key === "language" ? locale : theme;
@@ -1193,7 +1216,7 @@ export default function App() {
   return <DashboardShell t={t} title={pageTitle} links={nav.map(shellLink)} adminLinks={isAdmin ? adminPages.map(shellLink) : []}
     account={shellLink("settings")} username={session.user.username} role={t(session.user.role)}
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
-    onSignOut={signOut} context={projectContext}
+    onSignOut={signOut} context={<>{session.user.factory_password && <p className="notice" role="status">{t("factoryPasswordNotice")} <a href="/account" onClick={event => { event.preventDefault(); navigatePage("settings"); }}>{t("changePassword")}</a></p>}{projectContext}</>}
     controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
     actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
       <button className="ghost" onClick={() => { if (refreshView(true)) void refreshProjects().catch(setError); }}>{t("refresh")}</button></>}

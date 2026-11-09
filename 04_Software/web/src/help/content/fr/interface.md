@@ -68,3 +68,5 @@ Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la co
 La Vue d’ensemble, Projets et Tâches rechargent leurs données toutes les 15 secondes tant que l’onglet du navigateur est visible ; Statistiques et État du système s’actualisent aussi seuls. Un onglet masqué cesse de se mettre à jour et s’actualise dès votre retour. Si une mise à jour échoue, les chiffres concernés restent masqués jusqu’à la prochaine mise à jour réussie.
 
 Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.
+
+L’administrateur initial voit un rappel jusqu’au changement du mot de passe initial. Choisissez **Changer le mot de passe** dans le rappel pour ouvrir Mon compte.

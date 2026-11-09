@@ -68,3 +68,5 @@ După **Pornește**, **Reîncearcă** sau **Anulează**, o notificare raporteaz�
 Prezentare generală, Proiecte și Lucrări își reîncarcă datele la fiecare 15 secunde cât timp fila browserului este vizibilă; Statistici și Starea sistemului se actualizează și ele singure. O filă ascunsă nu se mai actualizează și se reîmprospătează imediat ce reveniți. Dacă o actualizare eșuează, cifrele afectate rămân ascunse până la următoarea reușită.
 
 În [Contul meu](/account), **Aspect** conține **Limbă** (English, Français, Deutsch, Română) și **Temă** (**Sistem**, **Luminoasă**, **Întunecată**). Fiecare alegere este salvată în contul dumneavoastră și vă urmează în toate browserele; înainte de autentificare, pagina de autentificare reține alegerea în browser. **Schimbă parola** cere parola curentă și una nouă de cel puțin 8 caractere.
+
+Administratorul inițial vede un memento până la schimbarea parolei inițiale. Alegeți **Schimbă parola** din memento pentru a deschide Contul meu.

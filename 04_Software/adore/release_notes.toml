@@ -149,7 +149,7 @@ text = { en = "Jobs on projects with AEGIS 0.15.0, now the minimum, reach approv
 [[release.entry]]
 category = "fixed"
 topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
-text = { en = "Buttons, dialogs and multilingual statuses display correctly; deleting jobs no longer breaks lists.", fr = "Boutons, dialogues et accents corrects ; supprimer une tâche ne perturbe plus les listes.", de = "Schaltflächen, Dialoge und Umlaute korrekt; Aufträge löschen stört keine Listen mehr.", ro = "Butoane, dialoguri și diacritice corecte; ștergerea lucrărilor nu mai întrerupe listele." }
+text = { en = "Interface fixes and a reminder to change the initial administrator password.", fr = "Corrections de l’interface et rappel pour changer le mot de passe administrateur initial.", de = "Oberflächenkorrekturen und Erinnerung zum Ändern des ersten Administratorkennworts.", ro = "Corecții de interfață și memento pentru schimbarea parolei inițiale de administrator." }
 
 [[release.entry]]
 category = "fixed"

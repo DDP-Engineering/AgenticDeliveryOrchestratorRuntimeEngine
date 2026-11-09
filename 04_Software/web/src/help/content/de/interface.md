@@ -68,3 +68,5 @@ Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befe
 Übersicht, Projekte und Aufträge laden ihre Daten alle 15 Sekunden neu, solange der Browser-Tab sichtbar ist; Statistiken und Systemstatus aktualisieren sich ebenfalls selbst. Ein verborgener Tab hört auf zu aktualisieren und lädt sofort neu, wenn Sie zurückkehren. Schlägt eine Aktualisierung fehl, bleiben die betroffenen Zahlen ausgeblendet, bis die nächste gelingt.
 
 Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.
+
+Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto.

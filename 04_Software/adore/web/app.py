@@ -2863,12 +2863,20 @@ def create_app(home: str | Path | None = None,
         response.set_cookie(_COOKIE, token, httponly=True, secure=request.url.scheme == "https",
                             samesite="strict", max_age=43200, path="/")
         web.audit(user["id"], "login")
+        try:
+            user["factory_password"] = web.factory_password(user["id"])
+        except WebStoreError as exc:
+            raise _error(503, "account_credentials_corrupt") from exc
         return {"user": user, "csrf": csrf}
 
     @app.get("/api/v1/me")
     def me(user: Annotated[dict, Depends(account_principal)]) -> dict:
-        return {"user": {key: value for key, value in user.items() if key != "csrf"},
-                "csrf": user["csrf"]}
+        try:
+            factory_password = web.factory_password(user["id"])
+        except WebStoreError as exc:
+            raise _error(503, "account_credentials_corrupt") from exc
+        return {"user": {**{key: value for key, value in user.items() if key != "csrf"},
+                         "factory_password": factory_password}, "csrf": user["csrf"]}
 
     @app.get("/api/v1/me/preferences")
     def get_preferences(user: Annotated[dict, Depends(account_principal)]) -> dict:

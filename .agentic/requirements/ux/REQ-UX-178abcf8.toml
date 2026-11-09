@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-178abcf8"
+
+title = "Remind initial administrator to change password"
+
+status = "active"
+
+requirement = """
+While the authenticated factory administrator retains the initial password, the web interface shall show a persistent localized reminder linking to the existing password-change form.
+"""
+
+verification = "Offline browser: inspect all four locales and narrow layout, change password, refresh and verify the reminder disappears."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/i18n.ts"]
+
+linked_tests = ["04_Software/tests/test_web_auth.py", "04_Software/web/e2e/factoryPassword.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-09
+updated = 2026-11-09

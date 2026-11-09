@@ -32,7 +32,7 @@ import sqlite3
 from typing import Any
 
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from adore import metrics
 from adore.deletion_audit import NAME as DELETION_AUDIT_NAME
@@ -221,6 +221,7 @@ class WebStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         new = not self.path.exists()
+        created = False
         self.path.parent.mkdir(parents=True, exist_ok=True)
         marker = self.path.with_name(self.path.name + ".initialized")
         if new and marker.exists():
@@ -239,6 +240,7 @@ class WebStore:
                         ("admin", _HASHER.hash("admin"), "admin", _now()),
                     )
                     connection.execute(f"PRAGMA user_version={_SCHEMA_VERSION}")
+                    created = True
                 elif version != _SCHEMA_VERSION:
                     # No migrations while ADORE is in development (AGENTS.md).
                     raise WebStoreError(
@@ -315,6 +317,9 @@ class WebStore:
                     raise WebStoreError("web database has no active administrator")
             if not marker.exists():
                 marker.write_text("ADORE web identity store initialized\n", encoding="utf-8")
+            if created:
+                print("ADORE: initial web administrator is admin/admin; "
+                      "change the password in My account.")
         except sqlite3.DatabaseError as exc:
             raise WebStoreError(f"web database is corrupt: {exc}") from exc
 
@@ -642,6 +647,28 @@ class WebStore:
         except (VerifyMismatchError, InvalidHashError):
             return None
         return _user(row)
+
+    def factory_password(self, user_id: int) -> bool:
+        """@brief Identify the authenticated factory account's unchanged password.
+        @param[in] user_id Authenticated account identity.
+        @return Whether the public initial password remains in use.
+        @exception WebStoreError Missing account or corrupt password hash.
+        """
+        try:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT username, role, password_hash FROM users WHERE id=?", (user_id,)
+                ).fetchone()
+            if row is None:
+                raise WebStoreError("account missing")
+            if row["username"] != "admin" or row["role"] != "admin":
+                return False
+            try:
+                return _HASHER.verify(row["password_hash"], "admin")
+            except VerifyMismatchError:
+                return False
+        except (sqlite3.DatabaseError, InvalidHashError, VerificationError, TypeError) as exc:
+            raise WebStoreError("account credentials corrupt") from exc
 
     def create_user(
         self, username: str, password: str, role: str, *, actor_id: int | None = None

@@ -1053,3 +1053,5 @@ Readiness schema 2 includes a private machine/account binding and configuration-
 A private authentication-context fingerprint binds managed, environment and CLI credential inputs; changes stale previous evidence. Probes recheck it under publication locks and reject old or corrupt readiness before replacing records. Public check sets declare required keys and the browser validates them.
 
 Unobservable external CLI identity remains partial even if its probe passed; a validated project-scoped credential is required for verified. Probe values are validated before writes; list requirements are independently derived from active config.
+
+Factory administrator guidance: store initialization announces the initial credentials once; login and own-session reads derive a boolean from the current factory password hash. The authenticated shell shows a four-locale reminder with a link to My account until the password changes. Password changes and resets revoke sessions; the reminder periodically rechecks the current session while visible. Corrupt credential evidence fails closed. No schema changes.

@@ -260,3 +260,5 @@ job or user-service acceptance. See orchestrator.md and web-interface.md knowled
 
 
 Focused History and CLI deletion verification uses temporary home/profile stores and fake engines; it performs no live forge, model or runtime operation.
+
+Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.

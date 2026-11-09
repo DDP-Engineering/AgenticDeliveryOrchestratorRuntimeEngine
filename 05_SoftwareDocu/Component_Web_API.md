@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
+
 Cancellation and ticket Stop require strict explicit confirmation before any queue or forge effects. Readiness includes advisory busy/idle/unknown activity gated by the worker heartbeat; operation outcomes remain authoritative.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.

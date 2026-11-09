@@ -357,3 +357,62 @@ def test_password_change_required_session_can_sign_out(tmp_path):
         assert client.delete("/api/v1/session", headers={
             "X-CSRF-Token": login.json()["csrf"]}).status_code == 200
         assert client.get("/api/v1/me").status_code == 401
+
+
+def test_factory_admin_status_and_first_boot_notice(tmp_path, capsys):
+    """@brief First boot and own session expose only the current factory state."""
+    app = create_app(tmp_path / "home")
+    assert "admin/admin" in capsys.readouterr().out
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        assert login.json()["user"]["factory_password"] is True
+        assert client.get("/api/v1/me").json()["user"]["factory_password"] is True
+        response = client.post(
+            "/api/v1/me/password", headers={"X-CSRF-Token": login.json()["csrf"]},
+            json={"current": "admin", "replacement": "new-long-password"})
+        assert response.status_code == 200
+        login = client.post("/api/v1/session", json={
+            "username": "admin", "password": "new-long-password"})
+        assert login.json()["user"]["factory_password"] is False
+    create_app(tmp_path / "home")
+    assert "admin/admin" not in capsys.readouterr().out
+
+
+def test_factory_password_status_is_private_and_corruption_fails_closed(tmp_path):
+    """@brief Other accounts and reset credentials do not inherit the reminder."""
+    app = create_app(tmp_path / "home")
+    web = app.state.web_store
+    other = web.create_user("otheradmin", "long-password", "admin")
+    with TestClient(app) as client:
+        login = client.post("/api/v1/session", json={
+            "username": "otheradmin", "password": "long-password"})
+        assert login.json()["user"]["factory_password"] is False
+        assert "password_hash" not in login.text
+        client.delete("/api/v1/session", headers={"X-CSRF-Token": login.json()["csrf"]})
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        admin_id = login.json()["user"]["id"]
+        web.reset_password(admin_id, "recovery-long-password", actor_id=other["id"])
+        assert client.get("/api/v1/me").status_code == 401
+        login = client.post("/api/v1/session", json={
+            "username": "admin", "password": "recovery-long-password"})
+        assert login.json()["user"]["factory_password"] is False
+        assert login.json()["user"]["password_change_required"] is True
+        with sqlite3.connect(web.path) as connection:
+            connection.execute("UPDATE users SET password_hash='broken' WHERE id=?", (admin_id,))
+        assert client.get("/api/v1/me").status_code == 503
+
+
+def test_factory_notice_requires_actual_creation(tmp_path, capsys, monkeypatch):
+    """@brief A stale pre-open existence observation cannot announce an existing account."""
+    path = tmp_path / "web.db"
+    store = WebStore(path)
+    admin = store.authenticate("admin", "admin")
+    store.change_password(admin["id"], "admin", "new-long-password")
+    capsys.readouterr()
+    real_exists = type(path).exists
+    marker = path.with_name(path.name + ".initialized")
+    monkeypatch.setattr(type(path), "exists", lambda self: False if self in (path, marker)
+                        else real_exists(self))
+    reopened = WebStore(path)
+    assert "admin/admin" not in capsys.readouterr().out
+    assert reopened.authenticate("admin", "new-long-password") is not None

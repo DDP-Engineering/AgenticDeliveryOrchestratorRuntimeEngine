@@ -224,7 +224,10 @@ accessibility audits are separate checks.
 
 The API binds to `127.0.0.1:8765` by default. Access it at
 `http://127.0.0.1:8765`. A new identity store creates `admin` / `admin` once.
-Change that password immediately in Settings. Passwords are stored as Argon2id
+The server announces these credentials when it creates the store. While that account retains
+the factory password, a persistent reminder links to **My account → Change password**.
+Change it immediately. A password change or administrator reset ends existing sessions.
+Passwords are stored as Argon2id
 hashes, not recoverable ciphertext. An initialized database that is deleted or
 corrupt stops startup instead of recreating the default account. Back up both
 `web.db` and `web.db.initialized` with the ADORE home and project state.
