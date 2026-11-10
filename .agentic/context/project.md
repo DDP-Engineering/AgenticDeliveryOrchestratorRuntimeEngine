@@ -56,7 +56,9 @@ ADORE's only coding agent.
   keeps authorized project context explicit and distinguishes pending, empty
   and failed reads in the supported locales and themes. Overview presents compact
   authorized attention/active tables, one header Project selector and Details navigation;
-  its primary link resets all-project scope and polling updates valid rows quietly;
+  its primary link resets all-project scope and polling updates valid rows quietly.
+  Unreadable job state produces a warning naming the affected project in Needs
+  attention, while verified job rows from other projects remain visible;
   worker faults remain visible, with reporting/technical evidence in dedicated views.
   Settings, Access, global Change history and project History refresh while
   visible. Unsaved settings pause updates. Header Refresh is available on Users.
@@ -273,8 +275,9 @@ See knowledge/host-folders.md and 01_Documentation/Web_Interface.md.
 Reviewed web configuration saves preserve the active file and pending review on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.
 
 The clone folder chooser uses compact selectable directory rows, address/Back/Parent
-navigation and exact existing-folder confirmation; new destinations remain editable
-in the main form. Agent and model uses independent field columns. Local executor
+navigation and exact existing-folder confirmation. A listing preserves edits to
+the address made while it loads. New destinations remain editable in the main
+form. Agent and model uses independent field columns. Local executor
 discovery is automatic, with optional re-detection under closed Advanced controls.
 
 

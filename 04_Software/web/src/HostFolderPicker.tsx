@@ -29,7 +29,8 @@ function HostFolderDialog({locale,onSelect,onClose}:{locale:Locale;onSelect:(pat
   if(result){
    if(back)history.current.pop();
    else if(previous && previous!==result.path)history.current.push(previous);
-   setListing(result);setLocation(result.path);
+   setListing(result);
+   setLocation(current=>current===path?result.path:current);
   }
  };
  useEffect(()=>{

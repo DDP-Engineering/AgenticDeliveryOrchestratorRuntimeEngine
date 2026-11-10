@@ -40,6 +40,17 @@ test("a stage this build does not conduct fails closed", () => {
   for (const locale of ["en", "fr", "de", "ro"]) assert.equal(messages[locale].deliverStage, undefined, locale);
 });
 
+test("Overview accepts only authorized, unique unreadable project IDs with no returned jobs", () => {
+  const unreadable = "c".repeat(32), authorized = [id, unreadable];
+  const partial = { ...page(), unreadable_projects: [unreadable] };
+  assert.deepEqual(readJobPage(partial, authorized, true).unreadable_projects, [unreadable]);
+  assert.throws(() => readJobPage(partial, authorized));
+  for (const value of [null, [id], [unreadable, unreadable], ["d".repeat(32)], "alpha"]) {
+    assert.throws(() => readJobPage({ ...page(), unreadable_projects: value }, authorized, true));
+  }
+  assert.throws(() => readJobPage({ ...page(), items: [], unreadable_projects: [id] }, [id], true));
+});
+
 test("incomplete malformed unauthorized and colliding duplicates fail closed", () => {
   for (const mutate of [p => p.total = -1, p => p.counts.working = NaN,
     p => p.snapshot = "bad", p => p.items[0].status_group = "terminal",

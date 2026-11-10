@@ -14,10 +14,10 @@ title = "Single transient operation notification"
 status = "active"
 
 requirement = """
-The GUI presents at most one dismissible ordinary or operation notification, updating the operation status without a duplicate queued banner. Pending/running operations remain visible until dismissed or completed; terminal and ordinary notices disappear after five seconds. Dismissal never cancels operation polling, and replacement cancels older dismissal timers.
+The GUI presents at most one dismissible ordinary or operation notification, updating the operation status in place. Pending and running operations remain visible until dismissed or completed. Successful and ordinary notices disappear after five seconds. Failed and uncertain outcomes remain visible until dismissed. Dismissal keeps operation polling active, and replacement cancels older dismissal timers.
 """
 
-verification = "Offline Chromium tests cover success/failure, pending polling after dismissal, and replacement timer ownership."
+verification = "Offline Chromium tests cover timed dismissal of success, explicit dismissal of failure, pending polling after dismissal, and replacement timer ownership."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/e2e/dashboard.spec.ts", "04_Software/adore/web/static/"]
 

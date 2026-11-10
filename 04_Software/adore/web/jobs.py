@@ -429,6 +429,34 @@ def _current_budget_limits(path: Path) -> dict:
         raise JobReadError("config_corrupt") from exc
 
 
+def _job_rows(item: Profile, sources: dict) -> list[dict]:
+    """@brief Validate saved evidence for one project in a captured snapshot."""
+    return [_view(item, key[1], sources) for key in sorted(sources)
+            if key[0] == item.project_id and key[2] == "state.json"]
+
+
+def _source_revision(sources: dict) -> str:
+    """@brief Bind the captured keys and exact bytes into a stable revision."""
+    digest = sha256()
+    for key, value in sorted(sources.items()):
+        digest.update(json.dumps(key).encode())
+        digest.update(b"missing" if value is None else sha256(value).digest())
+    return digest.hexdigest()
+
+
+def _overview_sources(profiles: ProfileStore, items: list[Profile]) -> dict[str, dict | None]:
+    """@brief Capture each project's evidence or its unreadable run-state status."""
+    captured = {}
+    for item in items:
+        try:
+            captured[item.project_id] = _sources(profiles, [item])
+        except JobReadError as exc:
+            if exc.code != "run_state_corrupt":
+                raise
+            captured[item.project_id] = None
+    return captured
+
+
 # PUBLIC API
 def redact_text(value: str) -> str:
     """
@@ -453,14 +481,9 @@ def read_jobs(profiles: ProfileStore, items: list[Profile]) -> tuple[list[dict],
     if len({item.project_id for item in items}) != len(items):
         raise JobReadError("project_identity_ambiguous")
     sources = _sources(profiles, items)
-    rows = [_view(item, key[1], sources) for item in items
-            for key in sorted(sources) if key[0] == item.project_id and key[2] == "state.json"]
+    rows = [row for item in items for row in _job_rows(item, sources)]
     if sources != _sources(profiles, items):
         raise JobReadError("job_snapshot_changed", 409)
-    digest = sha256()
-    for key, value in sorted(sources.items()):
-        digest.update(json.dumps(key).encode())
-        digest.update(b"missing" if value is None else sha256(value).digest())
     # Normalize offsets before comparing; textual ISO offsets do not order UTC instants.
     rows.sort(key=lambda row: row["run_id"])
     rows.sort(key=lambda row: row["project_id"])
@@ -468,7 +491,43 @@ def read_jobs(profiles: ProfileStore, items: list[Profile]) -> tuple[list[dict],
                               datetime.fromisoformat(row["last_activity_at"])
                               if row["last_activity_at"] else datetime.min.replace(tzinfo=UTC)),
               reverse=True)
-    return rows, digest.hexdigest()
+    return rows, _source_revision(sources)
+
+
+def read_overview_jobs(
+    profiles: ProfileStore, items: list[Profile],
+) -> tuple[list[dict], str, list[str]]:
+    """
+    @brief Project verified jobs and isolate projects with unreadable run state.
+    @param[in] profiles Profile home used to resolve default state locations.
+    @param[in] items Already authorized current and archived profiles.
+    @return Verified rows, optimistic projection revision and unreadable project IDs.
+    @exception JobReadError For ambiguous identity, racing reads or other corrupt evidence.
+    """
+    if len({item.project_id for item in items}) != len(items):
+        raise JobReadError("project_identity_ambiguous")
+    selected = sorted(items, key=lambda item: item.project_id)
+    captured = _overview_sources(profiles, selected)
+    rows: list[dict] = []
+    revisions: dict[str, str | None] = {}
+    for item in selected:
+        sources = captured[item.project_id]
+        if sources is None:
+            revisions[item.project_id] = None
+            continue
+        try:
+            project_rows = _job_rows(item, sources)
+        except JobReadError as exc:
+            if exc.code != "run_state_corrupt":
+                raise
+            revisions[item.project_id] = None
+        else:
+            rows.extend(project_rows)
+            revisions[item.project_id] = _source_revision(sources)
+    if captured != _overview_sources(profiles, selected):
+        raise JobReadError("job_snapshot_changed", 409)
+    unreadable = [project_id for project_id, revision in revisions.items() if revision is None]
+    return rows, sha256(json.dumps(revisions).encode()).hexdigest(), unreadable
 
 
 _GROUP_ORDER = ("active", "waiting", "review", "terminal")

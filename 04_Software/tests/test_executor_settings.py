@@ -274,6 +274,7 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
                     "container_runtime": True,
                     "executor_cli": True,
                     "aegis_files": True,
+                    "egress_proxy": True,
                 },
             },
         )

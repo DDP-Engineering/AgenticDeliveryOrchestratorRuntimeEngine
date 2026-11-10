@@ -117,13 +117,20 @@ def test_global_projected_timeline_corruption_fails_closed(tmp_path, field, valu
 @pytest.mark.parametrize("stamp", ["", "malformed", "2026-10-05T10:00:00"])
 def test_project_summary_refuses_a_run_without_an_aware_activity_time(tmp_path, stamp):
     """@brief Every save stamps updated_at in UTC; anything else is corrupt run state."""
-    _, _, stores, app = _fixture(tmp_path)
+    _, items, stores, app = _fixture(tmp_path)
     _state(stores[0], "same", updated_at=stamp)
     with TestClient(app) as client:
         _login(client)
         response = client.get("/api/v1/projects")
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "run_state_corrupt"
+        overview = client.get("/api/v1/projects?overview=true")
+        assert overview.status_code == 200
+        affected, healthy = overview.json()
+        assert affected["id"] == items[0].project_id
+        assert affected["readiness"] == "invalid-state" and affected["invalid_runs"] == ["same"]
+        assert affected["runs"] == 1 and affected["last_activity"] == "2026-10-05T10:00:00+00:00"
+        assert healthy["id"] == items[1].project_id and healthy["runs"] == 2
 
 
 def test_global_pages_search_groups_and_collision_identity(tmp_path):
@@ -178,6 +185,53 @@ def test_developer_scope_precedes_reads_counts_search_and_details(tmp_path):
         assert changed.status_code == 409
         assert _get(client)["total"] == 0
         assert client.get(f"/api/v1/jobs/{items[0].project_id}/same").status_code == 404
+
+
+def test_overview_isolates_incompatible_project_state(tmp_path):
+    """@brief Isolate only authorized unreadable projects and bind the recovery revision."""
+    _, items, stores, app = _fixture(tmp_path)
+    alpha, beta = (item.project_id for item in items)
+    _state(stores[1], "old", lifecycle="failed")
+    path = stores[0].run_dir("same") / "state.json"
+    original = path.read_bytes()
+    _state(stores[0], "same", approved_product="private legacy value")
+    incompatible = path.read_bytes()
+    dev = app.state.web_store.create_user("dev", "longer-password", "developer")
+    app.state.web_store.set_memberships(dev["id"], ["beta"])
+    with TestClient(app) as client:
+        assert client.get("/api/v1/jobs-page?overview=true").status_code == 401
+        _login(client)
+        assert len(client.get("/api/v1/projects").json()) == 2
+        attention = _get(client, "?overview=true&attention=true")
+        active = _get(client, "?overview=true&status_group=active")
+        assert attention["unreadable_projects"] == active["unreadable_projects"] == [alpha]
+        assert attention["snapshot"] == active["snapshot"]
+        assert attention["counts"] == {"working": 1, "failed": 1}
+        assert [(row["project_id"], row["lifecycle"]) for row in attention["items"]] == [
+            (beta, "failed"),
+        ]
+        assert [(row["project_id"], row["lifecycle"]) for row in active["items"]] == [
+            (beta, "working"),
+        ]
+        assert "private legacy value" not in str(attention)
+        affected = _get(client, f"?overview=true&project_id={alpha}")
+        assert affected["unreadable_projects"] == [alpha] and not affected["items"]
+        healthy = _get(client, f"?overview=true&project_id={beta}")
+        assert not healthy.get("unreadable_projects")
+        for path_suffix in ("jobs-page", f"jobs/{alpha}/same"):
+            response = client.get(f"/api/v1/{path_suffix}")
+            assert response.status_code == 503
+            assert response.json() == {"detail": {"code": "run_state_corrupt"}}
+        assert path.read_bytes() == incompatible
+        path.write_bytes(original)
+        stale_url = f"/api/v1/jobs-page?overview=true&snapshot={active['snapshot']}"
+        assert client.get(stale_url).status_code == 409
+        recovered = _get(client, "?overview=true")
+        assert recovered["total"] == 4 and not recovered.get("unreadable_projects")
+        path.write_bytes(incompatible)
+        _login(client, "dev", "longer-password")
+        assert _get(client, "?overview=true").get("unreadable_projects", []) == []
+        assert client.get(f"/api/v1/jobs-page?overview=true&project_id={alpha}").status_code == 404
 
 
 def test_persisted_wait_evidence_unknowns_archive_and_last_activity(tmp_path):
@@ -371,6 +425,31 @@ def test_source_mutation_during_read_is_rejected(tmp_path, monkeypatch):
         response = client.get("/api/v1/jobs-page")
         assert response.status_code == 409
         assert response.json()["detail"]["code"] == "job_snapshot_changed"
+
+
+def test_overview_rejects_mutation_in_a_previously_read_project(tmp_path, monkeypatch):
+    """@brief Recheck the full authorized scope after reading every project."""
+    _, items, stores, app = _fixture(tmp_path)
+    (_, first), (_, second) = sorted(zip(items, stores, strict=True),
+                                     key=lambda pair: pair[0].project_id)
+    trigger_path = second.run_dir("same") / "state.json"
+    read_bytes = Path.read_bytes
+    changed = False
+
+    def mutate(self):
+        nonlocal changed
+        value = read_bytes(self)
+        if self == trigger_path and not changed:
+            changed = True
+            _state(first, "same", outcome="new evidence")
+        return value
+
+    monkeypatch.setattr(Path, "read_bytes", mutate)
+    with TestClient(app) as client:
+        _login(client)
+        response = client.get("/api/v1/jobs-page?overview=true")
+        assert response.status_code == 409
+        assert response.json() == {"detail": {"code": "job_snapshot_changed"}}
 
 
 @pytest.mark.parametrize("platform,anchor", [("gitlab", "#note_7"),

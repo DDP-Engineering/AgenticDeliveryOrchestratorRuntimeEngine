@@ -88,7 +88,7 @@ Utilisez **Enregistrer** pour les deux paramètres et confirmez les effets impor
 | Isolation | Conteneur ; avec l’accès Internet désactivé, il n’atteint que le fournisseur du modèle | Uniquement le worktree ; les commandes peuvent atteindre tout ce que le compte peut atteindre, utilisez donc un compte dédié aux privilèges minimaux |
 | Choisi | **Exécution** → **Conteneur**, par défaut, à l’étape 2 de l’inscription ou dans Paramètres → Agent et modèle | **Exécution** → **Installé sur le serveur**, ou le profil du serveur ou l’inscription TOML |
 
-**Installé sur le serveur** utilise le compte système actuel et propose un **PATH des outils du projet** facultatif. La commande de lancement est fixe.
+**Installé sur le serveur** lance Pi sous le compte système du service ADORE. Le **PATH des outils du projet** indique où Pi trouve les outils. Laissez-le vide pour utiliser le PATH du compte de service. La commande de lancement est fixe.
 
 **Vérifier les prérequis de l’hôte** ignore le moteur de conteneur et vérifie Node, l’installation gérée de Pi et les identifiants du fournisseur choisi.
 

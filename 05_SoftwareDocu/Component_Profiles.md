@@ -56,7 +56,10 @@ components use this store; they do not duplicate its persistence rules.
   metadata exists but is unreadable, not an object, written by another build or
   invalid; a missing profile is a distinct error. `list_profiles()` skips corrupt entries; `invalid_profiles()`
   reports them - never a silent reinitialize.
-- **Atomic writes:** `profile.json` is written to a `.tmp` file then `replace()`d.
+- **Atomic writes:** `profile.json` is written to a unique temporary file in the
+  profile directory and replaced in one operation. Windows access and sharing
+  errors receive five bounded retries. A persistent failure keeps the previous
+  file and removes the temporary file.
 - **No migrations:** `profile.json` must carry exactly the `Profile` fields.
   Unknown or missing keys are refused with `profile.json of project X was
   written by another ADORE build (unknown keys [...], missing keys [...]);

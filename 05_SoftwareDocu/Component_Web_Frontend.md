@@ -252,7 +252,7 @@ use their own status, membership and preference controls. Jobs and Statistics
 keep their project selectors in page content. Overview leads with Needs attention:
 clarification, candidate approval, draft review, failed, stale and pending handoff
 jobs. A separate Active jobs table shows actual working/publishing rows from a
-complete authorized active response. Both compact tables show title/project/ticket,
+verified authorized active response. Both compact tables show title/project/ticket,
 status and Details; App places one Project selector in DashboardShell's optional
 header-controls slot, before selected context and job tables. The sidebar Jobs link retains
 scope; the primary Overview URL/action resets it to all authorized projects.
@@ -269,8 +269,13 @@ at the start of a grant change. The audit read stays bound to the applied
 filters and page, and keeps evidence open for the same event IDs. The audit
 panel's manual Refresh is available in global Change history. Audit requests
 have a 10-second deadline and cancel when the query or view changes.
-Overview skips consumption reads and reporting/date/technical prose. Only worker
-faults appear above the job tables. Details retains the existing composite Jobs route
+Overview skips consumption reads and reporting/date/technical prose. Worker
+faults appear above the job tables. When both Overview responses identify the
+same unreadable projects, Needs attention names them and both tables show jobs
+from verified projects. The affected Project Summary leaves its job counts
+unavailable. Overview and Project Summary retry the project directory in
+Overview mode if invalid job activity prevents the strict directory read.
+Details retains the existing composite Jobs route
 and browser-local timestamp formatting. Source errors or
 incomplete responses hide rows and totals; a changed continuation offers explicit
 Reload first page. Jobs filters by search, project and status group only.
@@ -541,9 +546,9 @@ transport fails closed. English labels clarify catalog keys; other locales retai
 localized common labels and localized setting guidance for remaining headings.
 `settingsCopy.ts` supplies four-locale category, effect and recovery copy.
 
-`settingsSave.ts` normalizes a project-scoped raw draft into a bounded batch, with structural equality (object key order ignored; array order significant), typed controls and explicit important-effect classification. `SettingsList` retains multiple editors and raw invalid inputs. One Save bar owns Save/Discard, dirty and invalid state, recovered candidates and stale-revision feedback. Navigation and browser reload guard abandonment.
+`settingsSave.ts` normalizes a project-scoped raw draft into a bounded batch, with structural equality (object key order ignored; array order significant), typed controls and explicit important-effect classification. The connection wire carries the chosen or default reasoning effort with provider, model and endpoint. `SettingsList` retains multiple editors and raw invalid inputs. One Save bar owns Save/Discard, dirty and invalid state, recovered candidates and stale-revision feedback. Navigation and browser reload guard abandonment.
 
-`SettingsImpactDialog` is a native modal for important saves only. It compares the server's no-write preview to the active snapshot and shows changed values and concise effects; connection edits expand to changed provider/model/endpoint fields. Initial focus is Keep editing; Escape cancels and focus returns to Save. Cancellation creates no new persistent candidate. Ordinary saves proceed without a dialog. App prepares and applies the exact confirmed batch, comparing preview/prepared hashes and runtime plans. Scoped mutation identities prevent duplicate submissions and late cross-project completions. Failed saves retain editable inputs; corrupt pending reads disable editing with explicit discard recovery. The server's idle/lock/pause/revision checks remain decisive. Developers see read-only settings with financial/secret values omitted.
+`SettingsImpactDialog` is a native modal for important saves only. It compares the server's no-write preview to the active snapshot and shows changed values and concise effects. Connection edits expand to the changed provider, model, reasoning effort and endpoint fields. Initial focus is Keep editing; Escape cancels and focus returns to Save. Cancellation creates no new persistent candidate. Ordinary saves proceed without a dialog. App prepares and applies the exact confirmed batch, comparing preview/prepared hashes and runtime plans. Scoped mutation identities prevent duplicate submissions and late cross-project completions. Failed saves retain editable inputs; corrupt pending reads disable editing with explicit discard recovery. The server's idle/lock/pause/revision checks remain decisive. Developers see read-only settings with financial/secret values omitted.
 
 Statistics also shows reviewer-requested MR/PR revisions and automatic pipeline
 repairs as distinct counts; unknown revision triggers appear as an Unclassified
@@ -960,7 +965,7 @@ executorSettings.ts supplies four-locale labels and row help for the Pi settings
 
 ## Managed native Pi
 
-Native enrollment and Settings show the current account and optional project tools PATH. The host checks render closed managed Node/Pi causes in all four locales, and local projects explicitly state that network restrictions are unenforced on the server.
+Native enrollment and Settings show the current account and optional project tools PATH. The setting catalog describes the fixed `current` account and service PATH fallback, and includes `executor.thinking` with the Pi default and supported-level constraints in all four locales. The host checks render closed managed Node/Pi causes in all four locales, and local projects explicitly state that network restrictions are unenforced on the server.
 
 The four-locale repository connection browser journey waits for successful
 language and theme preference writes before full document navigation. This
@@ -1010,7 +1015,7 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Operational Job details
 
-JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
+JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
 
 ExecutorOutputView fetches only on demand and rejects stale/unmounted or identity-mismatched responses. The viewer displays host-normalized diagnostics and explains omitted private content and unavailable provenance. Browser regressions exercise four locales, safe Markdown, concrete output, refresh and 390px dark-theme local scrolling.
 

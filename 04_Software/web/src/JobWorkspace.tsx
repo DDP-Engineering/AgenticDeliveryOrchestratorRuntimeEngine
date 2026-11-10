@@ -87,6 +87,7 @@ export function JobWorkspace(props: Props) {
   const detailKey = `${scope}/${run || ""}`;
   const [loadedDetailKey, setLoadedDetailKey] = useState("");
   const visible = dataKey === renderKey && state === "ready" ? page : null;
+  const unreadable = visible?.unreadable_projects ?? [];
   const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && state !== "changed" ? detail : null;
   const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
   const consumptionKey = JSON.stringify([consumptionProjects, ids, renderKey, detailKey]);
@@ -136,20 +137,23 @@ export function JobWorkspace(props: Props) {
       setDataKey(renderKey); setFailure(null);
       const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
       if (scope) query.set("project_id", scope);
-      if (mode === "overview") query.set("attention", "true");
+      if (compactOverview) { query.set("overview", "true"); query.set("attention", "true"); }
       for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group })) if (value) query.set(key, value);
       if (mode !== "overview") { query.set("sort", filters.sort); query.set("order", filters.descending ? "desc" : "asc"); }
       if (offset > 0) query.set("snapshot", revision.current.snapshot);
       try {
-        const result = readJobPage(await request(`/jobs-page?${query}`), ids.split(","));
-        if (result.offset !== offset || result.items.some(row => scope && row.project_id !== scope)) throw new ApiError("unexpected_response");
+        const authorized = ids.split(",").filter(id => !scope || id === scope);
+        const result = readJobPage(await request(`/jobs-page?${query}`), authorized, compactOverview);
+        if (result.offset !== offset) throw new ApiError("unexpected_response");
         let activeResult: JobPage | null = null;
         if (compactOverview) {
-          const activeQuery = new URLSearchParams({ limit: "all", offset: "0", status_group: "active" });
+          const activeQuery = new URLSearchParams({ overview: "true", limit: "all", offset: "0", status_group: "active" });
           if (scope) activeQuery.set("project_id", scope);
-          activeResult = readJobPage(await request(`/jobs-page?${activeQuery}`), ids.split(","));
+          activeResult = readJobPage(await request(`/jobs-page?${activeQuery}`), authorized, true);
           if (activeResult.offset !== 0 || activeResult.items.length !== activeResult.total ||
-            activeResult.items.some(row => scope && row.project_id !== scope || !["working", "publishing"].includes(row.lifecycle))) throw new ApiError("unexpected_response");
+            activeResult.items.some(row => !["working", "publishing"].includes(row.lifecycle))) throw new ApiError("unexpected_response");
+          if ((result.unreadable_projects ?? []).slice().sort().join() !==
+            (activeResult.unreadable_projects ?? []).slice().sort().join()) throw new ApiError("job_snapshot_changed");
         }
         if (!active || sequence !== current) return;
         revision.current = { key: baseKey, snapshot: result.snapshot };
@@ -254,7 +258,7 @@ export function JobWorkspace(props: Props) {
   const pager = visible && <div className="table-pagination"><label>{t("rowsPerPage")}<select value={filters.size} onChange={event => change("size", event.target.value === "all" ? "all" : Number(event.target.value))}>{[10, 25, 50].map(size => <option key={size} value={size}>{size}</option>)}<option value="all">{t("all")}</option></select></label><span>{visible.total === 0 ? "0" : `${offset + 1}–${Math.min(offset + visible.items.length, visible.total)}`} / {visible.total}</span><div className="button-row"><button className="ghost" disabled={offset === 0} onClick={() => setFilters(current => ({ ...current, offset: Math.max(0, offset - visible.limit) }))}>{t("previous")}</button><button className="ghost" disabled={offset + visible.items.length >= visible.total || filters.size === "all"} onClick={() => setFilters(current => ({ ...current, offset: offset + visible.limit }))}>{t("next")}</button></div></div>;
 
   return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}${props.summaryHeader ? " project-summary-window" : ""}`}>
-    {props.summaryHeader?.(visible)}
+    {props.summaryHeader?.(unreadable.length ? null : visible)}
     {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
     {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>}
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
@@ -296,9 +300,12 @@ export function JobWorkspace(props: Props) {
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
       {mode === "history" && <p className="muted">{copy.historyHelp}</p>}
-      {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
+      {projects.filter(item => unreadable.includes(item.id)).map(item => <p key={item.id} className="alert" role="alert">
+        <strong>{item.display_name || item.name}</strong>{" · "}{describeError(locale, new ApiError("run_state_corrupt"))}
+      </p>)}
+      {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : unreadable.length === 0 && <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
     </section>
-    {compactOverview && visible && activePage && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
+    {compactOverview && visible && activePage && (activePage.items.length > 0 || unreadable.length === 0) && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
 
     </div>
   </div>;

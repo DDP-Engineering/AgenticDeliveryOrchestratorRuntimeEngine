@@ -264,7 +264,7 @@ export function validBatchValues(value: unknown): value is BatchValues {
   const keys = entries.map(([key]) => key);
   if (keys.some(key => key === BATCH_KEY || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(key)
     || keys.some(other => key !== other && key.startsWith(other + ".")))) return false;
-  if (keys.includes(CONNECTION_KEY) && keys.some(key => ["executor.provider", "executor.model", "executor.endpoint.base_url", "executor.endpoint.api"].includes(key))) return false;
+  if (keys.includes(CONNECTION_KEY) && keys.some(key => ["executor.provider", "executor.model", "executor.thinking", "executor.endpoint.base_url", "executor.endpoint.api"].includes(key))) return false;
   return entries.every(([key, item]) => {
     if (key === CONNECTION_KEY) return validConnection(item);
     if (key === "executor.env_keys") return validCredentialNames(item);

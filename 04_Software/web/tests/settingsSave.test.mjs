@@ -35,6 +35,23 @@ const row=(key,value,input="number",extra={})=>({
  source:"project",restart:false,common:false,defaultValue:value,step:"1",...extra,
 });
 
+test("reviewed connection edits retain reasoning effort, including Pi default",()=>{
+ const key="executor.connection";
+ const connection={provider:"openai",model:"gpt-5.5",thinking:"high",base_url:"",api:""};
+ const config={executor:{provider:connection.provider,model:connection.model,thinking:"low"}};
+ const rows=[row("executor.model",connection.model,"connection",{editKey:key})];
+ for (const thinking of ["high",""]) {
+  const proposed={...connection,thinking};
+  const result=prepareSettingDrafts(config,rows,{[key]:JSON.stringify(proposed)});
+  assert.deepEqual(result,{edits:[{key,value:JSON.stringify(proposed)}],invalid:[]});
+  assert.equal(candidateMatchesEdits({...candidate,proposed_value:{[key]:proposed}},result.edits,rows),true);
+ }
+ const {thinking,...incomplete}=connection;
+ assert.deepEqual(prepareSettingDrafts(config,rows,{[key]:JSON.stringify(incomplete)}),{edits:[],invalid:[key]});
+ const overlapping={[key]:connection,"executor.thinking":"low"};
+ assert.equal(validPendingConfig({...candidate,proposed_value:overlapping,value:JSON.stringify(overlapping)}),false);
+});
+
 test("one settings draft retains multiple edits and omits unchanged values",()=>{
  const rows=[row("polling.poll_interval_seconds",60),row("polling.poll_jitter_seconds",5),row("polling.poll_backoff",true,"boolean")];
  const draft=prepareSettingDrafts({},rows,{

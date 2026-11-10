@@ -15,6 +15,8 @@ ADORE beobachtet die Projekte, die ein Administrator eingerichtet hat. Ist ein T
 
 Die Weboberfläche zeigt, was gerade läuft und was Aufmerksamkeit braucht. Sie erlaubt es außerdem, Tickets zu starten, Aufträge zu wiederholen oder abzubrechen und, als Administrator, Projekte und Konten einzurichten.
 
+Wenn sich der Auftragsstatus eines Projekts nicht lesen lässt, nennt **Handlungsbedarf** das betroffene Projekt. Auftragsdaten der anderen ausgewählten Projekte bleiben sichtbar.
+
 ## Vom Ticket zum Merge {#flow}
 
 | Schritt | Angezeigter Status | Wer handelt | Was geschieht |

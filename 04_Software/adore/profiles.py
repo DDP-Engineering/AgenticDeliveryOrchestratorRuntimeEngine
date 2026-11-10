@@ -32,6 +32,8 @@ import json
 import os
 from pathlib import Path
 import re
+from tempfile import mkstemp
+from time import sleep
 import unicodedata
 from uuid import uuid4
 
@@ -528,15 +530,31 @@ class ProfileStore:
     def _write_json(self, path: Path, data: dict) -> None:
         """
         @brief      Write JSON atomically (tmp file + replace).
+        @details    Bound retries for Windows file sharing and keep the previous
+                    file until the complete replacement succeeds.
         @param[in]  path Destination file.
         @param[in]  data JSON-serializable mapping.
+        @exception  OSError When the destination remains unwritable.
         """
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        with tmp.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-        tmp.replace(path)
+        descriptor, name = mkstemp(dir=path.parent, prefix=f".{path.name}-", suffix=".tmp")
+        tmp = Path(name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            for delay in (0.02, 0.05, 0.1, 0.2, 0.4):
+                try:
+                    tmp.replace(path)
+                    return
+                except PermissionError as exc:
+                    # An open reader on Windows can deny replacement of its target.
+                    if getattr(exc, "winerror", None) not in (5, 32, 33):
+                        raise
+                    sleep(delay)
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 # END OF FILE

@@ -54,6 +54,8 @@ deployable build. Every Vite build emits `BUNDLED_LICENSES.json` with the full
 licenses for bundled dependencies, including the isolated forge GFM renderer;
 retain it alongside the copied third-party notice inventory. See `01_Documentation/Web_Interface.md` for test isolation,
 timeouts and diagnostic commands. Direct validation requires no AEGIS task.
+The Overview isolation checks use incompatible job state in temporary profiles,
+with API fixtures and the existing Chromium test server.
 
 ## Configuration and services
 
@@ -167,6 +169,8 @@ Native enrollment uses a read-only detected account with automatic home/PATH.
 Full commands and environment overrides stay under Advanced. Clone destinations
 have automatic/custom selection and an administrator host folder navigator;
 selection is read-only and actual clone publication retains its existing checks.
+The offline browser suite delays the initial folder read to verify that the
+typed address survives the response before submitting it to the host API.
 See knowledge/host-folders.md and 01_Documentation/Web_Interface.md.
 
 Reviewed web configuration saves preserve the active file and unsaved settings on write errors; brief Windows replacement contention uses six attempts with at most 250ms total scheduled delay and explicit localized failure.

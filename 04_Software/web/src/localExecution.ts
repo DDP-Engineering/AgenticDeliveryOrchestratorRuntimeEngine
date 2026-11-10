@@ -8,7 +8,9 @@ export const localCopy = {
   "en": {
     "title": "Local execution",
     "account": "Current OS account",
+    "accountHelp": "Native Pi runs under the operating system account running the ADORE service. The only supported value is current.",
     "path": "Project tools PATH (optional)",
+    "pathHelp": "Sets the PATH that native Pi uses to find project tools. Leave it empty to use the ADORE service account’s PATH.",
     "machine": "Execution machine",
     "notice": "Pi uses the ADORE service account on the server. It has no permission prompts. Use a dedicated OS account and install project tools there. ADORE does not enforce internet restrictions on the server.",
     "agentPurpose": "Checks managed Pi and Node, the native process scope and the selected provider credential.",
@@ -21,7 +23,9 @@ export const localCopy = {
   "fr": {
     "title": "Exécution locale",
     "account": "Compte système actuel",
+    "accountHelp": "Pi s’exécute en mode natif sous le compte système du service ADORE. La seule valeur admise est current.",
     "path": "PATH des outils du projet (facultatif)",
+    "pathHelp": "Définit le PATH utilisé par Pi en mode natif pour trouver les outils du projet. Laissez-le vide pour utiliser le PATH du compte du service ADORE.",
     "machine": "Machine d’exécution",
     "notice": "Pi utilise le compte du service ADORE sur le serveur. Il ne demande pas d’autorisation. Utilisez un compte système dédié et installez-y les outils du projet. ADORE ne limite pas l’accès Internet sur le serveur.",
     "agentPurpose": "Vérifie Pi et Node, le contrôle des processus locaux et les identifiants du fournisseur choisi.",
@@ -34,7 +38,9 @@ export const localCopy = {
   "de": {
     "title": "Lokale Ausführung",
     "account": "Aktuelles Systemkonto",
+    "accountHelp": "Das native Pi läuft unter dem Systemkonto des ADORE-Dienstes. Der einzige zulässige Wert ist current.",
     "path": "PATH für Projektwerkzeuge (optional)",
+    "pathHelp": "Legt den PATH fest, unter dem das native Pi die Projektwerkzeuge findet. Leer verwendet den PATH des ADORE-Dienstkontos.",
     "machine": "Ausführungsrechner",
     "notice": "Pi läuft auf dem Server unter dem ADORE-Dienstkonto. Pi fragt nicht nach Berechtigungen. Verwenden Sie ein eigenes Systemkonto und installieren Sie dort die Projektwerkzeuge. ADORE beschränkt den Internetzugang auf dem Server nicht.",
     "agentPurpose": "Prüft Pi und Node, die lokale Prozesskontrolle und die Zugangsdaten des gewählten Anbieters.",
@@ -47,7 +53,9 @@ export const localCopy = {
   "ro": {
     "title": "Execuție locală",
     "account": "Contul curent al sistemului",
+    "accountHelp": "Pi rulează nativ sub contul de sistem al serviciului ADORE. Singura valoare acceptată este current.",
     "path": "PATH pentru uneltele proiectului (opțional)",
+    "pathHelp": "Stabilește variabila PATH pe care Pi o folosește în modul nativ pentru a găsi uneltele proiectului. Un câmp gol folosește PATH-ul contului serviciului ADORE.",
     "machine": "Mașina de execuție",
     "notice": "Pi rulează pe server sub contul serviciului ADORE. Pi nu cere permisiuni. Folosiți un cont dedicat și instalați acolo uneltele proiectului. ADORE nu impune restricții de internet pe server.",
     "agentPurpose": "Verifică Pi și Node, controlul proceselor locale și credențialele furnizorului ales.",
@@ -60,6 +68,6 @@ export const localCopy = {
 };
 
 export const localSettingHelp = Object.fromEntries(Object.entries(localCopy).map(([locale, copy]) => [locale, {
-  "local.account": copy.account,
-  "local.path": copy.path,
+  "local.account": copy.accountHelp,
+  "local.path": copy.pathHelp,
 }])) as unknown as Record<keyof typeof localCopy, Record<string, string>>;

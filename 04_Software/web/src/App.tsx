@@ -505,12 +505,16 @@ export default function App() {
       });
   };
 
+  const overviewProjects = page === "overview" || page === "projectDetails" && projectTab === "overview";
   const refreshProjects = useCallback(async () => {
     const generation = viewGeneration.current;
     const revision = ++projectsRequest.current;
     if (!projectsLoaded) setProjectsState("loading");
     try {
-      const items = await request<Project[]>("/projects");
+      const items = await request<Project[]>("/projects").catch((cause: unknown) => {
+        if (!overviewProjects || !(cause instanceof ApiError) || cause.code !== "run_state_corrupt") throw cause;
+        return request<Project[]>("/projects?overview=true");
+      });
       if (generation !== viewGeneration.current || revision !== projectsRequest.current) return;
       if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
         typeof item.repo !== "string" || typeof item.display_name !== "string" || !/^[a-f0-9]{32}$/.test(item.id) ||
@@ -529,7 +533,7 @@ export default function App() {
         setProjectsState("error"); setError(cause);
       }
     }
-  }, [projectsLoaded]);
+  }, [projectsLoaded, overviewProjects]);
 
   useEffect(() => {
     if (!session) return;

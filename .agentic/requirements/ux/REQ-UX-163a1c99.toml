@@ -7,11 +7,11 @@
 
 schema = 1
 id = "REQ-UX-163a1c99"
-title = "Guide missing Gitea authentication to Connect repository"
+title = "Guide missing Gitea authentication to Repository access"
 status = "active"
-requirement = "When Gitea authentication is unavailable or ambiguous, ADORE shall provide safe localized guidance to open Project Summary and Connect repository, enter the repository server and access token, verify the connection and rerun host checks; messages shall expose closed causes rather than raw credentials or CLI output."
+requirement = "When Gitea authentication is unavailable or ambiguous, ADORE shall provide safe localized guidance to open Repository access in Project Summary, enter the repository server and access token, choose Verify and connect and rerun host checks; messages shall expose closed causes rather than raw credentials or CLI output."
 verification = "Offline API and four-locale error/helper/help checks prove missing/ambiguous/corrupt discovery guidance, existing role authorization and scoped secret handling."
-affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/web/app.py", "04_Software/web/src/errors.ts", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/RepositoryConnection.tsx", "04_Software/web/src/help/content/", "04_Software/adore/release_notes.toml"]
+affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/web/app.py", "04_Software/web/src/errors.ts", "04_Software/web/src/ReadinessEvidence.tsx", "04_Software/web/src/RepositoryConnection.tsx", "04_Software/web/src/help/content/", "04_Software/adore/release_notes.toml", "04_Software/web/tests/errors.test.mjs"]
 linked_tests = ["04_Software/tests/test_repository_connection.py", "04_Software/tests/test_doctor.py", "04_Software/web/tests/errors.test.mjs", "04_Software/web/tests/help.test.mjs"]
 created = 2026-10-22
-updated = 2026-10-22
+updated = 2026-11-10

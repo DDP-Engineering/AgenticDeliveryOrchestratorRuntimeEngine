@@ -88,7 +88,7 @@ Use **Save** for both settings and confirm important effects. With internet acce
 | Isolation | Container; with internet access Off it reaches only the model provider | Only the worktree; commands can reach whatever the account can, so use a dedicated least-privilege account |
 | Chosen | **Runs in** → **Container**, the default, on enrollment step 2 or in Settings → Agent and model | **Runs in** → **Installed on the server**, or the server profile or TOML enrollment |
 
-**Installed on the server** uses the current OS account and offers an optional **Project tools PATH**. The launch command is fixed.
+**Installed on the server** runs Pi under the operating system account running the ADORE service. **Project tools PATH** controls where Pi finds project tools. Leave it empty to use the service account’s PATH. The launch command is fixed.
 
 **Check host prerequisites** skips the container engine and checks Node, the managed Pi installation and the selected provider credential.
 

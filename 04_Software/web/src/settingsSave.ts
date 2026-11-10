@@ -40,7 +40,7 @@ export function normalizeSettingDraft(row: SettingRow, raw: string): string | nu
     try {
       const parsed=JSON.parse(raw);
       if (row.input==="connection") return validConnection(parsed) ? JSON.stringify({
-        provider:parsed.provider,model:parsed.model,base_url:parsed.base_url,api:parsed.api,
+        provider:parsed.provider,model:parsed.model,thinking:parsed.thinking,base_url:parsed.base_url,api:parsed.api,
       }) : null;
       return validCredentialNames(parsed) ? JSON.stringify(parsed) : null;
     } catch { return null; }

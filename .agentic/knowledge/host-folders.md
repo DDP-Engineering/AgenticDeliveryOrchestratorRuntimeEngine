@@ -53,18 +53,8 @@ a single address bar, starting locations, selectable rows and Select folder/Canc
 Single click selects; double-click/Enter opens; arrows/Home/End move selection;
 Back and Parent use successful read-only navigation. Pending/error/address-mismatch
 state disables confirmation and stale results cannot modify history or draft.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  Admin([Enrollment administrator]) --> Choice[CloneLocation]
-  Choice --> Modal[HostFolderDialog]
-  Modal --> API[Admin host-folders GET]
-  API --> List[list_host_folders]
-  List --> OS([Native directory metadata])
-  Choice --> Draft[Existing enrollment draft and reviewed create]
-```
+A successful listing normalizes the requested address only if the operator has
+left it in the address bar. The reviewed enrollment flow owns clone creation.
 
 ## Files
 

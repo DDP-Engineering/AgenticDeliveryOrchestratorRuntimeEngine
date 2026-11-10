@@ -88,9 +88,11 @@ def main() -> None:
         home = Path(directory)
         os.environ["ADORE_HOME"] = str(home)
         # Browser fixtures must never inspect the operator's CLI authentication files.
-        for key in ("USERPROFILE", "LOCALAPPDATA", "APPDATA", "XDG_CONFIG_HOME",
+        isolated_home = home / "isolated-cli"
+        isolated_home.mkdir()
+        for key in ("HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "XDG_CONFIG_HOME",
                     "GH_CONFIG_DIR", "GLAB_CONFIG_DIR"):
-            os.environ[key] = str(home / "isolated-cli")
+            os.environ[key] = str(isolated_home)
         for key in ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
                     "GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN", "OPENAI_API_KEY",
                     "BRAVE_API_KEY", "TAVILY_API_KEY"):
@@ -290,17 +292,20 @@ def main() -> None:
             @exception HTTPException For missing authorization or unsupported fixture mode.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
-                "seed", "reset", "mutate", "corrupt",
+                "seed", "reset", "mutate", "corrupt", "legacy-timestamp",
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
             roots = [StateStore(home / "state" / name) for name in ("alpha", "beta")]
-            if mode in {"mutate", "corrupt"}:
+            if mode in {"mutate", "corrupt", "legacy-timestamp"}:
                 path = roots[0].run_dir("ux-working") / "state.json"
                 if mode == "corrupt":
                     path.write_text("BROKEN_FIXTURE_SECRET", encoding="utf-8")
                 else:
                     value = json.loads(path.read_text(encoding="utf-8"))
-                    value["outcome"] = "Actual source changed"
+                    if mode == "legacy-timestamp":
+                        value["updated_at"] = "2026-10-05T01:00:00"
+                    else:
+                        value["outcome"] = "Actual source changed"
                     path.write_text(json.dumps(value), encoding="utf-8")
                 return {"mode": mode}
             for state in roots:

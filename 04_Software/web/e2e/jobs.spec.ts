@@ -511,7 +511,8 @@ test("project hub shows verification state and rejects corrupt stamps", async ({
     const response = await route.fetch(); const rows = await response.json();
     const alpha = rows.find((row: { name: string }) => row.name === "alpha");
     expect(alpha).toBeTruthy();
-    alpha.verification = { status: "stale", checked_at: corrupt ? "bad-timestamp" : "2026-10-05T01:00:00Z", revision: "a".repeat(64) };
+    alpha.verification = { ...readinessFixture(alpha.id), status: "stale",
+      checked_at: corrupt ? "bad-timestamp" : "2026-10-05T01:00:00Z" };
     await route.fulfill({ response, json: rows });
   });
   await signIn(page);
@@ -554,6 +555,38 @@ test("overview header selector precedes job tables without a duplicate context b
   await nav(page).getByRole("link", { name: "Overview", exact: true }).click();
   await expect(selector).toHaveValue("");
 });
+
+for (const mode of ["corrupt", "legacy-timestamp"]) {
+test(`overview keeps healthy jobs visible and names only the unreadable project (${mode})`, async ({ page, request }) => {
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((row: { name: string }) => row.name === "alpha");
+  const beta = projects.find((row: { name: string }) => row.name === "beta");
+  const corrupted = await request.post(`/__e2e__/jobs?mode=${mode}`, { headers: { "X-ADORE-E2E": "local-test" } });
+  expect(corrupted.ok()).toBe(true);
+  await page.reload();
+  const selector = page.getByLabel("Project", { exact: true });
+  const attention = page.getByRole("region", { name: "Needs attention", exact: true });
+  const warning = attention.getByRole("alert");
+  const active = page.getByRole("region", { name: "Active jobs", exact: true });
+  await expect(warning).toContainText(alpha.display_name);
+  await expect(warning).toContainText("The job state cannot be read");
+  await expect(warning).not.toContainText(beta.display_name);
+  await expect(active).toContainText("Actual beta collision");
+  await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
+  await selector.selectOption(beta.id);
+  await expect(active).toContainText("Actual beta collision");
+  await expect(warning).toHaveCount(0);
+  await selector.selectOption(alpha.id);
+  await expect(warning).toContainText(alpha.display_name);
+  await expect(attention.getByRole("table")).toHaveCount(0);
+  await expect(attention.getByRole("status")).toHaveCount(0);
+  await expect(active).toHaveCount(0);
+  await page.goto("/projects/alpha");
+  await expect(warning).toContainText(alpha.display_name);
+  await expect(page.locator(".summary-fact").filter({ hasText: "Active jobs" }).locator("dd")).toHaveText("—");
+});
+}
 
 test("overview background poll stays visible while pending and fails closed", async ({ page }) => {
   await page.clock.install();
@@ -662,6 +695,8 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   expect(writes.every(write => !!write.csrf)).toBe(true);
   expect(writes.at(-1)?.data?.confirm_name).toBe("alpha");
   expect(writes.at(-1)?.data?.remove_clone).toBe(true);
+  // Deletion refreshes the directory after the modal closes.
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 
@@ -711,14 +746,22 @@ for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as co
 }
 
 test("local host prerequisites state the local notice once and give the agent row its own fix", async ({ page }) => {
-  await page.route("**/api/v1/projects/*/readiness-check", route => route.fulfill({ status: 200,
-    json: {...readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { executor_cli: false }),
-      local_probe: {ready: false, reason: "node-incompatible", exit_code: 0}} }));
+  await page.route("**/api/v1/projects/*/readiness-check", route => {
+    const project = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]);
+    const evidence = readinessFixture(project, { container_runtime: null, executor_cli: false });
+    const { egress_proxy, ...checks } = evidence.checks;
+    return route.fulfill({ status: 200, json: { ...evidence, checks, required_checks: Object.keys(checks),
+      local_probe: { ready: false, reason: "node-incompatible", exit_code: 0 } } });
+  });
   // The project directory reports the local backend as the project's runtime.
   await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
     const response = await route.fetch();
     const rows = await response.json();
-    for (const row of rows) if (row.name === "alpha") row.runtime = "local";
+    for (const row of rows) if (row.name === "alpha") {
+      row.runtime = "local";
+      row.verification_requirements = row.verification_requirements.filter((key: string) => key !== "egress_proxy");
+      row.verification = { status: "unverified", checked_at: null, revision: null };
+    }
     await route.fulfill({ response, json: rows });
   });
   await signIn(page);
@@ -772,7 +815,8 @@ test("host check result survives an older project snapshot but accepts a fresh p
   await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
     const response = await route.fetch();
     const rows = await response.json();
-    for (const row of rows) if (row.name === "alpha") row.verification = { status: hold ? "unverified" : "verified" };
+    for (const row of rows) if (row.name === "alpha") row.verification = hold
+      ? { status: "unverified", checked_at: null, revision: null } : readinessFixture(row.id);
     if (hold) { snapshotReady(); await gate; }
     await route.fulfill({ response, json: rows });
   });

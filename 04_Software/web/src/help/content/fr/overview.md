@@ -15,6 +15,8 @@ ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticke
 
 L’interface web montre ce qui s’exécute et ce qui demande de l’attention. Elle permet aussi de démarrer des tickets, de relancer ou d’annuler des tâches et, pour un administrateur, de configurer les projets et les comptes.
 
+Si l’état des tâches d’un projet est illisible, **À traiter** nomme le projet concerné. Les données des tâches des autres projets sélectionnés restent visibles.
+
 ## Du ticket à la fusion {#flow}
 
 | Étape | État affiché | Qui agit | Ce qui se passe |

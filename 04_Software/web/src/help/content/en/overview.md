@@ -15,6 +15,8 @@ ADORE watches the projects an administrator has enrolled. When a ticket on the f
 
 The web interface shows what is running and what needs attention. It also lets you start tickets, retry or cancel jobs, and, as an administrator, set up projects and accounts.
 
+If a project's job state cannot be read, **Needs attention** names that project. Job data from the other selected projects remains visible.
+
 ## From ticket to merge {#flow}
 
 | Step | Status shown | Who acts | What happens |

@@ -40,6 +40,8 @@ state defaults beneath that profile so run data and statistics stay isolated.
 Writes are atomic, corrupt metadata fails closed and is reported, and deletion
 clears a matching active pointer. The store deliberately persists metadata
 only, never credentials or `.env` values.
+Metadata replacement uses a unique temporary file and bounded Windows sharing
+retries. A persistent error preserves the previous metadata file.
 Each profile has an immutable 32-hex `project_id` distinct from its directory
 label: `create()` assigns a random one and `save()` requires one. A rename
 persists that ID, while a malformed ID fails closed. A `profile.json` with
@@ -61,19 +63,6 @@ route set; `test_web_transfer.py` proves the portable route boundary.
 
 - `REQ-FUNC-db248962` - deterministic config-path precedence and corrupt-profile rejection.
 - `REQ-FUNC-41265a32` - atomic profile metadata and active-pointer consistency.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    cli([CLI or Web API]) --> profiles[ProfileStore]
-    profiles --> home[(ADORE home)]
-    home --> metadata[(profile.json and config.toml)]
-    home --> active[(active_profile)]
-```
-
-Profile metadata identifies a project; the run state remains in its configured
-state root and web grants remain in the separate identity store.
 
 ## Files
 

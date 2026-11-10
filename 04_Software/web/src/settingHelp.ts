@@ -67,6 +67,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "executor.mode": "Reserved: thick or headless are accepted, but ADORE always uses thick executor sessions.",
     "executor.internet": "Off (default): a container run reaches only the model provider; web search, page reading and downloads are unavailable. On: open network, web search and page reading, downloads with curl, npm or pip.",
     "executor.model": "Model id within the provider, such as gpt-5.5 for openai, from Pi's list or typed. ADORE passes it to Pi for every stage and to Test AI connection.",
+    "executor.thinking": "Reasoning effort for Pi stages and Test AI connection. Choose a level supported by the provider and model or leave it empty for Pi default. Custom endpoints support only off.",
     "executor.web.search": "Search service used while internet access for the agent is on: exa (no key), brave or tavily (key saved in Agent and model) or none (no web search or page reading).",
     "executor.questions_file": "File the executor writes in the worktree to ask a person a question, which parks the run. Empty means <SLUG>_QUESTIONS.md.",
     "labels.control.exclude": "Name of the label that blocks ADORE from picking up a ticket while the label is present, even if the ticket also has the ready label. Default: no-agent. Removing it allows pickup if the other eligibility conditions are met. Adding it does not stop a job that has already started.",
@@ -128,6 +129,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   },
   fr: {
     ...localSettingHelp.fr,
+    "executor.thinking": "Effort de raisonnement pour les étapes Pi et Tester la connexion IA. Choisissez un niveau pris en charge par le fournisseur et le modèle, ou laissez vide pour garder la valeur par défaut de Pi. Les points de terminaison personnalisés acceptent uniquement off.",
     "execution.backend": "Où tourne l’exécuteur : container (une image du serveur ADORE, choisie dans Image de l'exécuteur) ou local (installé sur le serveur). Le changement s’applique après revue.",
     "execution.preparation": "Recette examinée : chemin.yml#job@commit Git complet. Vide désactive la préparation. Examinez les commandes ; les sources périmées sont refusées.",
     "execution.preparation_step_timeout_seconds": "Durée maximale par étape, secondes : 1–1800. Les budgets restants s’appliquent aussi.",
@@ -239,6 +241,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   },
   de: {
     ...localSettingHelp.de,
+    "executor.thinking": "Denkaufwand für Pi-Phasen und den KI-Verbindungstest. Wählen Sie eine vom Anbieter und Modell unterstützte Stufe oder lassen Sie das Feld für den Pi-Standard leer. Benutzerdefinierte Endpunkte unterstützen nur off.",
     "execution.backend": "Wo der Executor läuft: container (ein Image auf dem ADORE-Server, gewählt unter Executor-Image) oder local (auf dem Server installiert). Änderungen gelten nach Prüfung.",
     "execution.preparation": "Geprüftes Rezept: relativ.yml#Job@vollständiger Git-Commit. Leer deaktiviert die Vorbereitung. Prüfen Sie alle Befehle; veraltete Quellen werden abgelehnt.",
     "execution.preparation_step_timeout_seconds": "Maximale Schrittdauer in Sekunden: 1–1800. Verbleibende Job- und Vorbereitungsbudgets gelten ebenfalls.",
@@ -350,6 +353,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
   },
   ro: {
     ...localSettingHelp.ro,
+    "executor.thinking": "Efort de raționament pentru etapele Pi și testul conexiunii AI. Alegeți un nivel acceptat de furnizor și model sau lăsați câmpul gol pentru valoarea implicită Pi. Endpointurile personalizate acceptă doar off.",
     "execution.backend": "Unde rulează executorul: container (o imagine de pe serverul ADORE, aleasă la Imagine executor) sau local (instalat pe server). Schimbarea se aplică după revizuire.",
     "execution.preparation": "Rețetă revizuită: relativ.yml#job@commit Git complet. Valoarea goală dezactivează pregătirea. Revizuiți comenzile; sursele expirate sunt respinse.",
     "execution.preparation_step_timeout_seconds": "Durata maximă per pas, secunde: 1–1800. Se aplică și bugetele rămase ale jobului și pregătirii.",

@@ -15,6 +15,8 @@ ADORE urmărește proiectele înrolate de un administrator. Când un tichet de p
 
 Interfața web arată ce rulează și ce necesită atenție. Vă permite, de asemenea, să porniți tichete, să reîncercați sau să anulați lucrări și, ca administrator, să configurați proiecte și conturi.
 
+Dacă starea lucrărilor unui proiect nu poate fi citită, secțiunea **Necesită intervenție** indică proiectul afectat. Datele lucrărilor din celelalte proiecte selectate rămân vizibile.
+
 ## De la tichet la integrare {#flow}
 
 | Pas | Starea afișată | Cine acționează | Ce se întâmplă |
