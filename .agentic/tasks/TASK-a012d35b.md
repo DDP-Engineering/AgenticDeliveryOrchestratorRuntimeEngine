@@ -23,16 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
+- [x] diff reviewed against scope, requirements, design, error paths,
       portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [x] knowledge pages of changed components current with the reviewed code
+- [x] project and environment context reconciled with the candidate
+- [x] requirements re-read: status, prose, verification, paths and links true
+- [x] manual or inspection verification recorded where applicable
+- [x] explicit review approved, when enabled
+- [x] final `check --strict --run` result logged truthfully after the last edit
 - [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [x] `report` appended
 
 ## Frame
 
@@ -185,19 +185,43 @@ Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 - 2026-11-10 build: Inspection: reviewed evolution's seven modified paths against Design, plus doctor tests (written before anchor), eight requirement updates, doctor/wizard knowledge and journal in git diff. No additions/removals or out-of-design product edits. Docstrings and both component pages describe configured interpreter and confirmed/validated pre-save probe timing; existing usage/setup commands unchanged. Added the four-locale fix to the related AEGIS release note to retain the existing 10-fixed-entry cap. release checker --since f651cd23e3a98a6ae0fd5c0145ec6dc1a5677874 and git diff --check exit 0.
 - 2026-11-10 build: Final focused proof: cd 04_Software && UV_NO_SYNC=1 uv run --frozen --extra web python -m pytest -q tests/test_doctor.py tests/test_wizard.py exit 0 (70 passed); UV_NO_SYNC=1 uv run --frozen ruff check adore tests exit 0. check and check --full exit 0, errors=0 warnings=40 notes=24; task-scoped check exit 0, errors=0 warnings=36 notes=24. Remaining findings concern unrelated existing stale-path/ticket-ref requirements, historical journal headers/deliver checklists, baseline static-asset secret heuristic and delivery archive layout; none names this task or its requirements, and those files are unchanged. They do not weaken this scoped proof; leave unrelated records untouched. Strict test/lint/frontend and explicit review reserved for validate.
 - 2026-11-10 build: completed; next validate
+- 2026-11-10 validate: Inspection: reviewed candidate diff against all eight active requirements and design, including argv/cwd, exit-127, rejected version/JSON, real validated wizard Config, default and informational save assertions. Both component knowledge pages and component docs match code. No requirement uses Manual:/Inspection: verification. Project context remains accurate; environment readiness now documents configured probes and its stale Windows-only verification claim is corrected to current portable commands. No new prompt, help workflow, direct-workflow, storage or publication changes. Release-note checker --since task base and git diff --check exit 0. Independent read-only specification and quality reviewers both approved product candidate; final strict proof remains pending.
+- 2026-11-10 validate: Explicit review round 1: two independent read-only Pi reviewer sessions approved specification compliance and implementation quality on the final candidate, including reconciled environment context. Both inspected actual code/test assertions and reported no findings; focused proof is recorded in build, full strict proof follows. No product corrections needed in validate.
+- 2026-11-10 validate: final: UV_NO_SYNC=1 python .agentic/aegis.py check --task TASK-a012d35b --strict --run exit 1; test exit 1 (78 failed, 2664 passed, 2 skipped, 1 warning; 716.6s), lint exit 0, frontend exit 1 (148 helper tests passed, 2 failed; build/browser checks not reached). errors=2 warnings=36 notes=24. Existing advisory stale-path/ticket-ref/historical-journal findings remain outside task; uncovered-source for release_notes.toml is data metadata with release checker passing, not an implementing behavior. Strict proof is NOT green; no candidate edits after proof.
+- 2026-11-10 validate: Failure investigation: npm test exit 1 reproduces missing react in forgeMarkdown.test.mjs and missing esbuild in localDiagnostics.test.mjs; web/node_modules is absent. No downloads attempted. Narrow pytest test_web_readiness.py::test_unbound_cli_identity_stays_partial exit 1 reproduces KeyError status; diagnostic rerun with pdb exit 2 shows HTTP 503 readiness_probe_failed. This does not establish causes or baseline status of all 78 Python failures. Product unchanged; further bounded diagnosis, frontend dependency provisioning from permitted sources and a successful strict gate remain required. Independent reviews approved; task must not close on this evidence.
+- 2026-11-10 validate: Read appended report: its checks errors=0 is advisory/static only and must not be mistaken for the failed strict --run (2 command errors) logged above. Checklist leaves failure explanation unresolved; validation incomplete. Session bounds reached after one strict full-suite attempt and narrow failure reproductions; preserve candidate for conductor continuation.
 
 ## Rulings
 
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
+status: waiting
+reported: validate - paused
+next: Diagnose Python strict-gate failures, provision missing frontend dependencies from permitted sources, and rerun strict proof after resolution
 must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/5_validate.md
-changed: Configured interpreter wired through doctor/wizard; offline regressions, component docs, knowledge, active requirements, changelog and four-locale release fix updated
-evidence: Focused doctor/wizard pytest: 70 passed; Ruff, release-note checker, git diff --check exit 0; advisory check has zero errors
-issues: Editable build backend fetch unavailable; locked dependencies installed, UV_NO_SYNC=1 required for verification. Unrelated advisory warnings remain; full strict gate deferred to validate.
-spec_compliance:
-implementation_quality:
-review_round:
+changed: Reviewed candidate; independent spec/quality approvals round 1; environment context reconciled; final failure evidence and report recorded; product candidate preserved
+evidence: Strict --run exit 1: Python 78 failed/2664 passed/2 skipped; Ruff exit 0; frontend 148 passed/2 failed (missing react/esbuild); release checker exit 0
+issues: Validate incomplete: Python failure causes/baseline not established; reproduced readiness HTTP 503; frontend dependencies absent and build/browser proof not reached; UV_NO_SYNC=1 still needed
+spec_compliance: approved
+implementation_quality: approved
+review_round: 1
+
+## Delivery report (2026-11-10)
+
+- stage: validate; type: fix; path: full; branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-61
+- requirements:
+  - REQ-FUNC-f47c612e - Probe the AEGIS version with the selected interpreter
+  - REQ-FUNC-a1603c88 - Probe AEGIS status with the selected interpreter
+  - REQ-FUNC-7081a87e - Name the unavailable AEGIS interpreter
+  - REQ-FUNC-fe08018c - Report unsupported AEGIS versions as not ready
+  - REQ-FUNC-d04bc2e0 - Report malformed AEGIS status JSON as not ready
+  - REQ-FUNC-c9e616d4 - Pass the effective workflow interpreter from init
+  - REQ-FUNC-9b2bb293 - Keep init AEGIS readiness informational
+  - REQ-FUNC-69bfe896 - Detect runtime environment readiness
+- deviations: 1 recorded
+  - build: verification uses uv --no-sync after uv sync --frozen --extra web --no-install-project --offline installed all 27 locked test/web dependencies - full editable-project sync could not fetch hatchling (timeout); no retries or system installs. Current-directory imports prove the candidate without changing dependencies or payload. Validate should set UV_NO_SYNC=1 for canonical strict commands if build backend remains unavailable; full suite not run in build.
+- explicit review: enabled; spec_compliance=approved; implementation_quality=approved; review_round=1
+- diff vs task base f651cd2: 21 file(s) changed, 649 line(s) added
+- checks: errors=0 warnings=36 notes=24
+- checklist: 6/9 done; open: final `check --strict --run` result logged truthfully after the last edit; remaining warnings and pre-existing failures explained; `report` appended
