@@ -7,7 +7,7 @@ schema = 1
 
 id = "REQ-FUNC-c9e616d4"
 title = "Pass the effective workflow interpreter from init"
-status = "draft"
+status = "active"
 
 requirement = """
 When adore init probes the target repository for AEGIS readiness, the wizard shall pass the effective profile configuration value workflow.aegis_python, defaulting to "python", to detect_aegis.
@@ -16,7 +16,7 @@ When adore init probes the target repository for AEGIS readiness, the wizard sha
 verification = "Offline wizard test: drive valid setup with the existing scripted asker and fake command runner, observe both AEGIS argv lists against the effective profile interpreter, and verify python when workflow.aegis_python is omitted; arrange an effective python3 value through the existing configuration seam and assert propagation without introducing a new user setting."
 
 affected_paths = ["04_Software/adore/wizard.py", "04_Software/adore/doctor.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_wizard.py::test_wizard_probes_with_effective_interpreter"]
 spec = ""
 priority = "normal"
 

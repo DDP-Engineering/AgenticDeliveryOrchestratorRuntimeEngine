@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-a012d35b - [Direct] adore init probes AEGIS with the configured Python
 
-stage: build
+stage: validate
 type: fix
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -173,6 +175,16 @@ Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 - 2026-11-10 specify: completed; next design
 - 2026-11-10 design: Design audit completed: retain the validated candidate Config from _validate_or_raise; move the existing clone report after prepare-only return and before persistence; pass workflow.aegis_python explicitly into doctor for both probes and exit-127 detail. No new prompt/setting; python3 wizard proof injects the existing interpreter key at candidate assembly while retaining real load/validation and fake command execution. Eight coverage rows map to decisions/test seams; affected_paths already match implementing sources and remain unchanged. Added structure/sequence diagrams; no state diagram because no lifecycle change. check and check --full exited 0 with errors=0 warnings=83 notes=24 and no task/new-requirement findings; git diff --check exited 0. Product tests not run in design; knowledge and product files unchanged.
 - 2026-11-10 design: completed; next build
+- 2026-11-10 build: red: cd 04_Software && uv run --frozen --no-sync --extra web python -m pytest -q tests/test_doctor.py -k 'accepts_a_valid or names_unavailable or preserves_' exit 1 - 14 cases fail on missing aegis_python input, the required interpreter contract (REQ-FUNC-f47c612e, REQ-FUNC-a1603c88, REQ-FUNC-7081a87e, REQ-FUNC-fe08018c, REQ-FUNC-d04bc2e0).
+- 2026-11-10 build: green: cd 04_Software && uv run --frozen --no-sync --extra web python -m pytest -q tests/test_doctor.py exit 0 - 45 passed, configured/default argv/cwd, missing interpreter, bounded version/JSON diagnostics and existing acceptance regressions (REQ-FUNC-f47c612e, REQ-FUNC-a1603c88, REQ-FUNC-7081a87e, REQ-FUNC-fe08018c, REQ-FUNC-d04bc2e0, REQ-FUNC-69bfe896).
+- 2026-11-10 build: red: cd 04_Software && uv run --frozen --no-sync --extra web python -m pytest -q tests/test_wizard.py -k effective_interpreter --tb=short exit 1 - four cases show probes precede candidate confirmation/validation, so effective workflow interpreter is not yet available (REQ-FUNC-c9e616d4, REQ-FUNC-9b2bb293).
+- 2026-11-10 build: green: cd 04_Software && uv run --frozen --no-sync --extra web python -m pytest -q tests/test_doctor.py tests/test_wizard.py exit 0 - 70 passed; uv run --frozen --no-sync ruff check adore tests exit 0. Real wizard validation proves python/python3 propagation and informational exit-127 profile saving (REQ-FUNC-c9e616d4, REQ-FUNC-9b2bb293); existing doctor acceptance remains green. All eight requirements active with current affected_paths/linked_tests.
+- 2026-11-10 build: release-notes: added
+- 2026-11-10 build: help: none (no interface change)
+- 2026-11-10 build: DEVIATION build: verification uses uv --no-sync after uv sync --frozen --extra web --no-install-project --offline installed all 27 locked test/web dependencies - full editable-project sync could not fetch hatchling (timeout); no retries or system installs. Current-directory imports prove the candidate without changing dependencies or payload. Validate should set UV_NO_SYNC=1 for canonical strict commands if build backend remains unavailable; full suite not run in build.
+- 2026-11-10 build: Inspection: reviewed evolution's seven modified paths against Design, plus doctor tests (written before anchor), eight requirement updates, doctor/wizard knowledge and journal in git diff. No additions/removals or out-of-design product edits. Docstrings and both component pages describe configured interpreter and confirmed/validated pre-save probe timing; existing usage/setup commands unchanged. Added the four-locale fix to the related AEGIS release note to retain the existing 10-fixed-entry cap. release checker --since f651cd23e3a98a6ae0fd5c0145ec6dc1a5677874 and git diff --check exit 0.
+- 2026-11-10 build: Final focused proof: cd 04_Software && UV_NO_SYNC=1 uv run --frozen --extra web python -m pytest -q tests/test_doctor.py tests/test_wizard.py exit 0 (70 passed); UV_NO_SYNC=1 uv run --frozen ruff check adore tests exit 0. check and check --full exit 0, errors=0 warnings=40 notes=24; task-scoped check exit 0, errors=0 warnings=36 notes=24. Remaining findings concern unrelated existing stale-path/ticket-ref requirements, historical journal headers/deliver checklists, baseline static-asset secret heuristic and delivery archive layout; none names this task or its requirements, and those files are unchanged. They do not weaken this scoped proof; leave unrelated records untouched. Strict test/lint/frontend and explicit review reserved for validate.
+- 2026-11-10 build: completed; next validate
 
 ## Rulings
 
@@ -180,12 +192,12 @@ Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 ## State
 
 status: ready
-reported: design - completed
-next: start build: read .agentic/steps/4_build.md
-must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/4_build.md
-changed: Completed Design and coverage mapping in .agentic/tasks/TASK-a012d35b.md; added .agentic/tasks/diagram_TASK-a012d35b.md; resolved wizard interpreter provenance within doctor/wizard; no product changes
-evidence: check and check --full exited 0: errors=0 warnings=83 notes=24, no task/new-requirement findings; git diff --check exited 0; source/test/requirements inspected, no product tests run
-issues: Existing unrelated advisory warnings remain; dependency availability and implementation proof deferred to build/validate; clone report moves after confirmation/validation as documented
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/5_validate.md
+changed: Configured interpreter wired through doctor/wizard; offline regressions, component docs, knowledge, active requirements, changelog and four-locale release fix updated
+evidence: Focused doctor/wizard pytest: 70 passed; Ruff, release-note checker, git diff --check exit 0; advisory check has zero errors
+issues: Editable build backend fetch unavailable; locked dependencies installed, UV_NO_SYNC=1 required for verification. Unrelated advisory warnings remain; full strict gate deferred to validate.
 spec_compliance:
 implementation_quality:
 review_round:

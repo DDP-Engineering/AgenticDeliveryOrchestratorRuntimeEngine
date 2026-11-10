@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "ADORE must not pretend an incompatible governance payload can conduct a run."
 
 created = 2026-08-15
-updated = 2026-10-25
+updated = 2026-11-10

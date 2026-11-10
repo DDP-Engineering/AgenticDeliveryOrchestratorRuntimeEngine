@@ -7,7 +7,7 @@ schema = 1
 
 id = "REQ-FUNC-9b2bb293"
 title = "Keep init AEGIS readiness informational"
-status = "draft"
+status = "active"
 
 requirement = """
 If the AEGIS readiness probe reports a not-ready target during otherwise valid confirmed adore init setup, the wizard shall report CHECK with available diagnostic and AEGIS guidance without preventing profile creation.
@@ -16,7 +16,7 @@ If the AEGIS readiness probe reports a not-ready target during otherwise valid c
 verification = "Offline wizard test: drive otherwise valid confirmed setup with a missing target payload and assert CHECK, missing-payload detail, AEGIS guidance and a saved validated profile; repeat with an existing wrapper and version-probe exit 127 for the effective interpreter, proving unavailable Python is informational too."
 
 affected_paths = ["04_Software/adore/wizard.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_wizard.py::test_wizard_probes_with_effective_interpreter", "04_Software/tests/test_wizard.py::test_wizard_reports_a_missing_aegis_payload"]
 spec = ""
 priority = "normal"
 

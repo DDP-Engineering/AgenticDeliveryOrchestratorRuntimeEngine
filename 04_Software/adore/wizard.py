@@ -41,7 +41,7 @@ from adore.branding import (
     PRODUCT_ACRONYM,
     PRODUCT_SLUG,
 )
-from adore.config import load_config, validate_config
+from adore.config import Config, load_config, validate_config
 from adore.pi_providers import (
     CHATGPT,
     CUSTOM,
@@ -477,8 +477,6 @@ def run_wizard(
     ), asker, out)
     if not pending_clone and not (Path(repo_path).expanduser() / ".git").exists():
         out("  note: that path has no .git - make sure it is the clone root.")
-    if not prepare_only:
-        _report_aegis(out, runner, repo_path, key)
     worktree_root = ask(FieldSpec(
         "worktree_root", "Worktree root (host dir holding per-run worktrees):",
         "relative to the run, or an absolute path", "worktrees", default="worktrees",
@@ -725,7 +723,7 @@ def run_wizard(
 
     stamp = store._now()
     document = _emit_config_toml(sections, name, stamp)
-    _validate_or_raise(document, out)
+    config = _validate_or_raise(document, out)
 
     if prepare_only:
         return WizardSetup(name, document, {
@@ -733,6 +731,8 @@ def run_wizard(
             "runtime": "local" if execution_backend == "local" else runtime, "host_os": key,
             "config_path": str(store.config_path(name)), "store_root": store_root,
         })
+
+    _report_aegis(out, runner, repo_path, key, config.workflow.aegis_python)
 
     config_path = store.config_path(name)
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -774,6 +774,7 @@ def _report_aegis(
     runner: CommandRunner,
     repo_path: str,
     os_key: str,
+    aegis_python: str,
 ) -> None:
     """
     @brief      Report whether the target clone carries usable AEGIS.
@@ -786,8 +787,9 @@ def _report_aegis(
     @param[in]  runner Command runner for the probe.
     @param[in]  repo_path Local clone to probe.
     @param[in]  os_key Host OS key (selects guidance wording).
+    @param[in]  aegis_python Interpreter from the validated candidate configuration.
     """
-    status = doctor.detect_aegis(repo_path, runner)
+    status = doctor.detect_aegis(repo_path, runner, aegis_python=aegis_python)
     out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS payload"
         + (f" (schema {status.schema_version})" if status.ok else ""))
     if not status.ok:
@@ -936,7 +938,7 @@ def _endpoint_url_ok(value: str) -> str | None:
     return None if valid_endpoint_url(value) else "enter an http(s) address such as http://192.168.1.20:1234/v1"
 
 
-def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
+def _validate_or_raise(document: str, out: Callable[[str], None]) -> Config:
     """
     @brief      Load + validate the emitted config; raise on any issue.
     @details    Validates the ACTUAL written document (via a temp file) the same
@@ -944,6 +946,7 @@ def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
                 loadable and valid (never save an invalid one).
     @param[in]  document The config.toml text.
     @param[in]  out Output sink for the issue list.
+    @return     The loaded, validated candidate configuration.
     @exception  WizardError When validation finds issues.
     """
     with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False,
@@ -951,7 +954,8 @@ def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
         handle.write(document)
         tmp_path = Path(handle.name)
     try:
-        issues = validate_config(load_config(tmp_path))
+        config = load_config(tmp_path)
+        issues = validate_config(config)
     finally:
         tmp_path.unlink(missing_ok=True)
     if issues:
@@ -959,6 +963,7 @@ def _validate_or_raise(document: str, out: Callable[[str], None]) -> None:
         for issue in issues:
             out(f"  - {issue}")
         raise WizardError(f"config validation failed with {len(issues)} issue(s)")
+    return config
 
 
 def _print_summary(

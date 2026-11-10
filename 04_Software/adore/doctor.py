@@ -509,15 +509,19 @@ def auth_status(
 def detect_aegis(
     repo_path: str | Path,
     runner: CommandRunner = run_command,
+    *,
+    aegis_python: str = "python",
 ) -> AegisStatus:
     """
     @brief      Probe a target repository for a usable AEGIS payload.
-    @details    Requires `.agentic/aegis.py`, exact a supported `aegis` version version
+    @details    Uses the configured workflow interpreter for both probes.
+                Requires `.agentic/aegis.py`, supported `aegis` version
                 output, and a schema-1 `status --all --json` document. ADORE
                 refuses malformed output, unknown versions/schemas and any
                 unreadable journal before ticket pickup.
     @param[in]  repo_path Local clone the runs are created from.
     @param[in]  runner Injectable command runner.
+    @param[in]  aegis_python Workflow interpreter executable (default: python).
     @return     The AegisStatus.
     """
     root = Path(repo_path).expanduser()
@@ -526,12 +530,12 @@ def detect_aegis(
             repo_path=str(root), wrapper_present=False, config_valid=False,
             detail=f"{AEGIS_WRAPPER} is missing",
         )
-    version_result = runner(["python", AEGIS_WRAPPER, "--version"], cwd=str(root))
+    version_result = runner([aegis_python, AEGIS_WRAPPER, "--version"], cwd=str(root))
     version = version_result.stdout.strip()
     if version_result.exit_code == 127:
         return AegisStatus(
             repo_path=str(root), wrapper_present=True, config_valid=False,
-            detail="python is not available to run the AEGIS companion CLI",
+            detail=f"{aegis_python} is not available to run the AEGIS companion CLI",
         )
     if not version_result.ok or not aegis_version_supported(version):
         return AegisStatus(
@@ -541,7 +545,7 @@ def detect_aegis(
                     or "AEGIS returned no version")[:400],
         )
     result = runner(
-        ["python", AEGIS_WRAPPER, "status", "--all", "--json"], cwd=str(root)
+        [aegis_python, AEGIS_WRAPPER, "status", "--all", "--json"], cwd=str(root)
     )
     try:
         payload = json.loads(result.stdout)

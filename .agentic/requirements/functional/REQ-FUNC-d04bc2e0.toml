@@ -7,7 +7,7 @@ schema = 1
 
 id = "REQ-FUNC-d04bc2e0"
 title = "Report malformed AEGIS status JSON as not ready"
-status = "draft"
+status = "active"
 
 requirement = """
 If the AEGIS status probe returns malformed JSON after a supported version, doctor shall return a not-ready AegisStatus with the existing diagnostic derived from stderr, stdout or the no-JSON fallback, bounded to 400 characters.
@@ -16,7 +16,7 @@ If the AEGIS status probe returns malformed JSON after a supported version, doct
 verification = "Offline fake-runner test: supply python3, return a supported version then malformed JSON at exit zero, and assert not-ready status with the returned diagnostic; repeat with stderr and with empty streams to verify precedence and the no-JSON fallback, retaining the existing nonzero-status regression."
 
 affected_paths = ["04_Software/adore/doctor.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_preserves_malformed_status_diagnostic", "04_Software/tests/test_doctor.py::test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer"]
 spec = ""
 priority = "normal"
 

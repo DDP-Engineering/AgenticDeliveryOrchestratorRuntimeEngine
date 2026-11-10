@@ -7,7 +7,7 @@ schema = 1
 
 id = "REQ-FUNC-a1603c88"
 title = "Probe AEGIS status with the selected interpreter"
-status = "draft"
+status = "active"
 
 requirement = """
 When the AEGIS version probe succeeds with a supported version, doctor shall invoke [interpreter, ".agentic/aegis.py", "status", "--all", "--json"] in the target repository through its command runner using the same supplied interpreter executable.
@@ -16,7 +16,7 @@ When the AEGIS version probe succeeds with a supported version, doctor shall inv
 verification = "Offline fake-runner test: create a wrapper and return a supported version plus valid schema-1 status; supply python3, invoke detect_aegis, assert the exact status argv and cwd and ready result; repeat with python and verify no status probe occurs after an unsupported version."
 
 affected_paths = ["04_Software/adore/doctor.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_015_schema_1_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_preserves_version_diagnostic"]
 spec = ""
 priority = "normal"
 
