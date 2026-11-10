@@ -240,14 +240,17 @@ list are in `04_Software/web/src/help/README.md`. Agents keep it current.
 
 ## Status
 
-ADORE is the companion orchestrator for repository-installed AEGIS. It invokes
-`python .agentic/aegis.py`, accepts AEGIS JSON schema 1, and persists its own
-run state as schema 1. The supported AEGIS range is declared once in
+ADORE conducts a team's opt-in forge tickets and persists its own run state as
+schema 1. For a repository with AEGIS installed it is the companion
+orchestrator: it invokes `python .agentic/aegis.py` and accepts AEGIS JSON
+schema 1. The supported AEGIS range is declared once in
 `04_Software/adore/aegis.py`, never in prose. Executors advance the durable AEGIS
 task journals; ADORE independently owns ticket selection, worktree/container
 isolation, bounded recovery, validation, candidate-bound human approval, Git
 publication, forge comments, and configured draft or ready MR/PR creation. ADORE never
-merges, and migrates no earlier run state.
+merges, and migrates no earlier run state. Repositories without AEGIS get the
+direct workflow planned in
+`00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md`.
 
 The runnable implementation under `04_Software/` supports GitLab, GitHub and
 Gitea adapters; Docker, Podman and WSL-wrapped runtimes; open/none/allowlisted

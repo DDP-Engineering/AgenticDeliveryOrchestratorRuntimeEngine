@@ -18,9 +18,10 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 ## Purpose and users
 
-ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts
-AEGIS-governed repositories for a team. It selects opt-in GitHub, GitLab or
-Gitea tickets, runs one fresh executor session per AEGIS stage inside an
+ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
+opt-in GitHub, GitLab or Gitea tickets. Repositories without AEGIS get the direct
+workflow planned in `00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md`.
+In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
 Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
