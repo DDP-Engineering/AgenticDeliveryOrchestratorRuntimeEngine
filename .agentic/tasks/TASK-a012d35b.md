@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-a012d35b - [Direct] adore init probes AEGIS with the configured Python
 
-stage: validate
+stage: done
 type: fix
 path: full
 interaction: autopilot
@@ -23,16 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
+- [x] diff reviewed against scope, requirements, design, error paths,
       portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [x] knowledge pages of changed components current with the reviewed code
+- [x] project and environment context reconciled with the candidate
+- [x] requirements re-read: status, prose, verification, paths and links true
+- [x] manual or inspection verification recorded where applicable
+- [x] explicit review approved, when enabled
+- [x] final `check --strict --run` result logged truthfully after the last edit
+- [x] remaining warnings and pre-existing failures explained
+- [x] `report` appended
 
 ## Frame
 
@@ -198,21 +198,24 @@ Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 - 2026-11-10 validate: completed; next done
 - 2026-11-10 done: Conductor recovery evidence (STATED, independent verification; not rerun in this session): strict exit 1, errors=1 warnings=36 promoted_warnings=0; test passed exit 0 (508.7s), lint passed exit 0, frontend failed exit 1 (612.2s). This later independent failure prevents relying on the earlier recorded green proof for closure. Frontend output/root cause is not supplied and remains unknown. Return to validate for bounded diagnosis and fresh strict proof; preserve candidate and append-only history. This session is limited to the backward routing, not validation or implementation.
 - 2026-11-10 done: returned to validate - Conductor independent strict verification failed frontend (exit 1); closure requires diagnosis and fresh passing strict evidence
+- 2026-11-10 validate: Resumed validate inspection: candidate diff, all eight active requirements, doctor/wizard knowledge and context remain consistent with accepted design; no candidate edits. Restore round-1 independent approvals recorded earlier in this journal (same candidate), not a new review. Release-note checker against task base and git diff --check exit 0. Retained Playwright artifact identifies the independent frontend failure as jobs.spec.ts:806 host-check snapshot test: expected Verification failed but saw Unverified. This frontend seam is unchanged by this ticket; root cause not yet established. Machine identity and frontend dependencies present. Bound continuation to one fresh strict gate (up to 40 minutes), with prior child-only credential isolation and candidate PYTHONPATH; no test selection or acceptance weakening.
+- 2026-11-10 validate: final: env -u OPENAI_API_KEY UV_NO_SYNC=1 PYTHONPATH=/adore/work/04_Software python .agentic/aegis.py check --task TASK-a012d35b --strict --run exit 0; test passed (595.8s), lint passed (0.2s), frontend passed (647.6s), errors=0 warnings=36 notes=24. No candidate edits after proof. Previously failing host-check snapshot browser test passed unchanged in this complete gate; its intermittent failure mechanism remains unknown, not claimed fixed by this ticket. Existing advisory stale-path/ticket-ref/historical-journal warnings are unrelated unchanged records; release_notes.toml uncovered-source is data metadata validated by the passing release-note checker. No task requirement has manual verification. Prior machine/import/credential blockers resolved by established environment isolation; no gate omitted or weakened.
+- 2026-11-10 validate: completed; next done
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: validate - paused
-next: Diagnose independent frontend failure, reconcile review/evidence, and complete validate with a fresh strict test/lint/frontend proof
-must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/5_validate.md
-changed: Journal records later independent failure and reopens validation; product candidate unchanged
-evidence: Conductor-supplied strict exit 1: test exit 0 (508.7s), lint exit 0, frontend exit 1 (612.2s); no tests rerun in routing session
-issues: Independent frontend failure unresolved; root cause unknown without command output; earlier green proof does not settle later failure
-spec_compliance:
-implementation_quality:
+status: done
+reported: validate - completed
+next: implementation guidance complete; commit, push and integration belong to the developer
+must_read: .agentic/tasks/TASK-a012d35b.md
+changed: Validation completed; product candidate unchanged, journal evidence and checklist reconciled
+evidence: Isolated strict check --task TASK-a012d35b --strict --run exit 0: test, lint and frontend passed; release-note checker exit 0
+issues: 36 existing advisory warnings; prior unchanged browser snapshot test passed this run but intermittent cause remains unknown
+spec_compliance: approved
+implementation_quality: approved
 review_round: 1
 
 ## Delivery report (2026-11-10)
@@ -273,3 +276,23 @@ review_round: 1
 - diff vs task base f651cd2: 21 file(s) changed, 694 line(s) added
 - checks: errors=0 warnings=36 notes=24
 - checklist: 9/9 done
+
+## Delivery report (2026-11-10)
+
+- stage: validate; type: fix; path: full; branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-61
+- requirements:
+  - REQ-FUNC-f47c612e - Probe the AEGIS version with the selected interpreter
+  - REQ-FUNC-a1603c88 - Probe AEGIS status with the selected interpreter
+  - REQ-FUNC-7081a87e - Name the unavailable AEGIS interpreter
+  - REQ-FUNC-fe08018c - Report unsupported AEGIS versions as not ready
+  - REQ-FUNC-d04bc2e0 - Report malformed AEGIS status JSON as not ready
+  - REQ-FUNC-c9e616d4 - Pass the effective workflow interpreter from init
+  - REQ-FUNC-9b2bb293 - Keep init AEGIS readiness informational
+  - REQ-FUNC-69bfe896 - Detect runtime environment readiness
+- deviations: 2 recorded
+  - build: verification uses uv --no-sync after uv sync --frozen --extra web --no-install-project --offline installed all 27 locked test/web dependencies - full editable-project sync could not fetch hatchling (timeout); no retries or system installs. Current-directory imports prove the candidate without changing dependencies or payload. Validate should set UV_NO_SYNC=1 for canonical strict commands if build backend remains unavailable; full suite not run in build.
+  - validate: no repeat full strict gate while known environment blockers persist; narrowest candidate proof rerun instead - UV_NO_SYNC=1 uv run --frozen --extra web python -m pytest -q tests/test_doctor.py tests/test_wizard.py exit 0 (70 passed), UV_NO_SYNC=1 uv run --frozen ruff check adore tests exit 0, release checker --since task base exit 0, git diff --check exit 0. This proves ticket behavior only, not full Python regression, frontend build or browser journeys. Prior strict exit 1 remains authoritative; validation incomplete.
+- explicit review: enabled; spec_compliance=approved; implementation_quality=approved; review_round=1
+- diff vs task base f651cd2: 21 file(s) changed, 719 line(s) added
+- checks: errors=0 warnings=36 notes=24
+- checklist: 8/9 done; open: `report` appended
