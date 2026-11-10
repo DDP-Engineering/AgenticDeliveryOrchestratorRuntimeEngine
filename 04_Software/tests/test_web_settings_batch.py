@@ -94,7 +94,8 @@ def test_batch_validates_the_combined_configuration(project):
     state.pause()
     response = stage(project, [
         {"key": "executor.connection", "value": json.dumps({
-            "provider": "chatgpt", "model": "gpt-5.6-luna", "thinking": "", "base_url": "", "api": "",
+            "provider": "chatgpt", "model": "gpt-5.6-luna", "thinking": "",
+            "base_url": "", "api": "",
         })},
         {"key": "budgets.per_gate_timeout_seconds", "value": "300"},
     ])
