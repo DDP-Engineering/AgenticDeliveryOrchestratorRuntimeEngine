@@ -190,19 +190,21 @@ Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 - 2026-11-10 validate: final: UV_NO_SYNC=1 python .agentic/aegis.py check --task TASK-a012d35b --strict --run exit 1; test exit 1 (78 failed, 2664 passed, 2 skipped, 1 warning; 716.6s), lint exit 0, frontend exit 1 (148 helper tests passed, 2 failed; build/browser checks not reached). errors=2 warnings=36 notes=24. Existing advisory stale-path/ticket-ref/historical-journal findings remain outside task; uncovered-source for release_notes.toml is data metadata with release checker passing, not an implementing behavior. Strict proof is NOT green; no candidate edits after proof.
 - 2026-11-10 validate: Failure investigation: npm test exit 1 reproduces missing react in forgeMarkdown.test.mjs and missing esbuild in localDiagnostics.test.mjs; web/node_modules is absent. No downloads attempted. Narrow pytest test_web_readiness.py::test_unbound_cli_identity_stays_partial exit 1 reproduces KeyError status; diagnostic rerun with pdb exit 2 shows HTTP 503 readiness_probe_failed. This does not establish causes or baseline status of all 78 Python failures. Product unchanged; further bounded diagnosis, frontend dependency provisioning from permitted sources and a successful strict gate remain required. Independent reviews approved; task must not close on this evidence.
 - 2026-11-10 validate: Read appended report: its checks errors=0 is advisory/static only and must not be mistaken for the failed strict --run (2 command errors) logged above. Checklist leaves failure explanation unresolved; validation incomplete. Session bounds reached after one strict full-suite attempt and narrow failure reproductions; preserve candidate for conductor continuation.
+- 2026-11-10 validate: Continuation diagnosis: /etc/machine-id is a root-owned zero-byte file; direct native_context() exits 1 with LocalExecutionError (empty machine identity). app.py::_readiness_host maps this exception to HTTP 503 readiness_probe_failed, explaining the reproduced readiness failure independently of doctor/wizard changes, not all 78 failures. npm ci --offline --ignore-scripts exits 1 ENOTCACHED for zwitch-2.0.4.tgz; frontend dependencies unavailable locally. No network download, system edits, test bypass or product correction attempted. Blocking environment question recorded in ADORE_QUESTIONS.md.
+- 2026-11-10 validate: DEVIATION validate: no repeat full strict gate while known environment blockers persist; narrowest candidate proof rerun instead - UV_NO_SYNC=1 uv run --frozen --extra web python -m pytest -q tests/test_doctor.py tests/test_wizard.py exit 0 (70 passed), UV_NO_SYNC=1 uv run --frozen ruff check adore tests exit 0, release checker --since task base exit 0, git diff --check exit 0. This proves ticket behavior only, not full Python regression, frontend build or browser journeys. Prior strict exit 1 remains authoritative; validation incomplete.
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: validate - paused
-next: Diagnose Python strict-gate failures, provision missing frontend dependencies from permitted sources, and rerun strict proof after resolution
+status: blocked
+reported: validate - blocked
+next: Conductor: answer ADORE_QUESTIONS.md by supplying valid container machine identity and locally available locked frontend dependencies; resume validate and rerun strict proof
 must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/5_validate.md
-changed: Reviewed candidate; independent spec/quality approvals round 1; environment context reconciled; final failure evidence and report recorded; product candidate preserved
-evidence: Strict --run exit 1: Python 78 failed/2664 passed/2 skipped; Ruff exit 0; frontend 148 passed/2 failed (missing react/esbuild); release checker exit 0
-issues: Validate incomplete: Python failure causes/baseline not established; reproduced readiness HTTP 503; frontend dependencies absent and build/browser proof not reached; UV_NO_SYNC=1 still needed
+changed: Product candidate unchanged; diagnosed empty machine identity and offline frontend cache miss; added ADORE_QUESTIONS.md and journal evidence/report
+evidence: Focused pytest exit 0 (70 passed); Ruff exit 0; release checker exit 0; diff check exit 0; native_context exit 1; offline npm ci exit 1 ENOTCACHED
+issues: Strict gate remains failed: 78 Python failures not fully classified; readiness requires nonempty /etc/machine-id; locked frontend dependencies absent; frontend build/browser proof outstanding
 spec_compliance: approved
 implementation_quality: approved
 review_round: 1
@@ -225,3 +227,23 @@ review_round: 1
 - diff vs task base f651cd2: 21 file(s) changed, 649 line(s) added
 - checks: errors=0 warnings=36 notes=24
 - checklist: 6/9 done; open: final `check --strict --run` result logged truthfully after the last edit; remaining warnings and pre-existing failures explained; `report` appended
+
+## Delivery report (2026-11-10)
+
+- stage: validate; type: fix; path: full; branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-61
+- requirements:
+  - REQ-FUNC-f47c612e - Probe the AEGIS version with the selected interpreter
+  - REQ-FUNC-a1603c88 - Probe AEGIS status with the selected interpreter
+  - REQ-FUNC-7081a87e - Name the unavailable AEGIS interpreter
+  - REQ-FUNC-fe08018c - Report unsupported AEGIS versions as not ready
+  - REQ-FUNC-d04bc2e0 - Report malformed AEGIS status JSON as not ready
+  - REQ-FUNC-c9e616d4 - Pass the effective workflow interpreter from init
+  - REQ-FUNC-9b2bb293 - Keep init AEGIS readiness informational
+  - REQ-FUNC-69bfe896 - Detect runtime environment readiness
+- deviations: 2 recorded
+  - build: verification uses uv --no-sync after uv sync --frozen --extra web --no-install-project --offline installed all 27 locked test/web dependencies - full editable-project sync could not fetch hatchling (timeout); no retries or system installs. Current-directory imports prove the candidate without changing dependencies or payload. Validate should set UV_NO_SYNC=1 for canonical strict commands if build backend remains unavailable; full suite not run in build.
+  - validate: no repeat full strict gate while known environment blockers persist; narrowest candidate proof rerun instead - UV_NO_SYNC=1 uv run --frozen --extra web python -m pytest -q tests/test_doctor.py tests/test_wizard.py exit 0 (70 passed), UV_NO_SYNC=1 uv run --frozen ruff check adore tests exit 0, release checker --since task base exit 0, git diff --check exit 0. This proves ticket behavior only, not full Python regression, frontend build or browser journeys. Prior strict exit 1 remains authoritative; validation incomplete.
+- explicit review: enabled; spec_compliance=approved; implementation_quality=approved; review_round=1
+- diff vs task base f651cd2: 22 file(s) changed, 702 line(s) added
+- checks: errors=0 warnings=37 notes=24
+- checklist: 8/9 done; open: remaining warnings and pre-existing failures explained
