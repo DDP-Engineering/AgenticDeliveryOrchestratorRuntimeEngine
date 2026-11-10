@@ -85,8 +85,10 @@ def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
     with TestClient(create_app(profiles.home)) as client:
         headers = {"X-CSRF-Token": _login(client)}
         cancel = "/api/v1/projects/alpha/operations/cancel"
-        body = {"run_id": "run-1", "idempotency_key": "pending-cancel"}
-        assert client.post(cancel, headers=headers, json=body).status_code == 409
+        body = {"run_id": "run-1", "idempotency_key": "pending-cancel", "confirmed": True}
+        response = client.post(cancel, headers=headers, json=body)
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "run_already_finished"
         assert client.post("/api/v1/projects/alpha/archive",
                            headers=headers).status_code == 409
         state.save(RunState(run_id="run-1", ticket_iid=42,
@@ -95,7 +97,9 @@ def test_human_handoff_is_visible_and_preserves_web_ownership(tmp_path):
         assert page.status_code == 200, page.text
         assert [row["run_id"] for row in page.json()["items"]] == ["run-1"]
         body["idempotency_key"] = "terminal-cancel"
-        assert client.post(cancel, headers=headers, json=body).status_code == 409
+        response = client.post(cancel, headers=headers, json=body)
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "run_already_finished"
         assert client.post("/api/v1/projects/alpha/archive",
                            headers=headers).status_code == 200
 

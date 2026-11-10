@@ -29,9 +29,9 @@ test("compact chooser selects the exact current host folder without extra fields
  const dialog=page.getByRole("dialog",{name:setupCopy.en.dialog});
  await expect(dialog).toBeVisible();
  await expect(dialog.locator("input")).toHaveCount(1);
+ await expect(dialog.getByRole("button",{name:setupCopy.en.use,exact:true})).toBeEnabled();
  const home=await dialog.getByLabel(setupCopy.en.location,{exact:true}).inputValue();
  await page.screenshot({path:"test-results/compact-folder-desktop.png",fullPage:true});
- await expect(dialog.getByRole("button",{name:setupCopy.en.use,exact:true})).toBeEnabled();
  await dialog.getByRole("button",{name:setupCopy.en.use,exact:true}).click();
  await expect(dialog).not.toBeVisible();
  await expect(path).toHaveValue(home);
@@ -45,12 +45,21 @@ test("compact chooser selects the exact current host folder without extra fields
 
 test("failed folder navigation and cancellation preserve a manually typed destination",async({page})=>{
  await enter(page);
+ let releaseInitialRead!:()=>void;
+ const initialRead=new Promise<void>(resolve=>{releaseInitialRead=resolve;});
+ await page.route("**/api/v1/host-folders",async route=>{await initialRead;await route.continue();});
  await page.getByLabel(setupCopy.en.custom,{exact:true}).check();
  const path=page.getByLabel("Local clone path",{exact:false});
  await path.fill("/manual/project");
- await page.getByRole("button",{name:setupCopy.en.choose,exact:true}).click();
  const dialog=page.getByRole("dialog");
- await dialog.getByLabel(setupCopy.en.location,{exact:true}).fill("relative-folder");
+ const location=dialog.getByLabel(setupCopy.en.location,{exact:true});
+ try {
+  await page.getByRole("button",{name:setupCopy.en.choose,exact:true}).click();
+  await expect(dialog.getByText(setupCopy.en.loading,{exact:true})).toBeVisible();
+  await location.fill("relative-folder");
+ } finally {releaseInitialRead();}
+ await expect(dialog.getByText(setupCopy.en.loading,{exact:true})).not.toBeVisible();
+ await expect(location).toHaveValue("relative-folder");
  await dialog.getByRole("button",{name:setupCopy.en.go,exact:true}).click();
  await expect(dialog.getByRole("alert")).toContainText(setupCopy.en.unavailable);
  await expect(dialog.getByRole("button",{name:setupCopy.en.use,exact:true})).toBeDisabled();

@@ -34,7 +34,7 @@ text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, inc
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Local sign-in persists. Stale refreshes keep host checks. Enrollment shows native Pi errors.", fr = "Connexion locale et contrôles conservés. L’inscription affiche les erreurs de Pi sur le serveur.", de = "Lokale Anmeldung und Prüfungen bleiben erhalten. Die Einrichtung zeigt native Pi-Fehler.", ro = "Autentificarea locală și verificările persistă. Înrolarea arată erorile Pi de pe server." }
+text = { en = "Keep sign-in and host checks. Show native Pi errors. Retry brief Windows file locks.", fr = "Connexion et contrôles conservés. Erreurs Pi natif visibles. Réessai si Windows verrouille.", de = "Anmeldung und Prüfungen bleiben erhalten. Native Pi-Fehler und Wiederholung bei Windows-Sperren.", ro = "Păstrează autentificarea și verificările. Arată erorile Pi. Reîncearcă blocările Windows." }
 
 [[release.entry]]
 category = "fixed"
@@ -54,7 +54,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Compact number column, saved Markdown/source choice, and action labels that keep words whole.", fr = "Colonne numéro étroite, choix Markdown/source mémorisé et boutons sans mots coupés.", de = "Schmale Nummernspalte, gemerkte Markdown/Quelltext-Wahl und ungeteilte Buttontexte.", ro = "Coloană de număr îngustă, alegere Markdown/sursă salvată și butoane fără cuvinte rupte." }
+text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and unbroken action labels.", fr = "Numéros compacts, mode Markdown/source mémorisé, défilement local et boutons sans mots coupés.", de = "Schmale Nummernspalte, gemerkter Markdown/Quelltext-Modus, lokales Scrollen, ganze Buttontexte.", ro = "Numere compacte, mod Markdown/sursă salvat, derulare locală și butoane fără cuvinte rupte." }
 
 [[release.entry]]
 category = "new"
@@ -79,7 +79,7 @@ text = { en = "Prepare project images and let agents install system packages ins
 [[release.entry]]
 category = "new"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "Choose the AI provider, model and supported reasoning effort, with API key or ChatGPT sign-in.", fr = "Choisissez fournisseur, modèle et effort de raisonnement, avec clé API ou connexion ChatGPT.", de = "KI-Anbieter, Modell und unterstützten Denkaufwand mit API-Schlüssel oder ChatGPT-Anmeldung wählen.", ro = "Alegeți furnizorul, modelul și efortul de raționament, cu cheie API sau autentificare ChatGPT." }
+text = { en = "Save provider, model and reasoning effort together. Use an API key or ChatGPT sign-in.", fr = "Enregistrez fournisseur, modèle et raisonnement ensemble. Clé API ou connexion ChatGPT.", de = "Anbieter, Modell und Denkaufwand gemeinsam speichern. API-Schlüssel oder ChatGPT-Anmeldung.", ro = "Salvați împreună furnizorul, modelul și efortul de raționament. Cheie API sau cont ChatGPT." }
 
 [[release.entry]]
 category = "new"
@@ -99,7 +99,7 @@ text = { en = "How ADORE works opens a help center; What's new lists each releas
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Choose clone folders and remote branches easily, with the repository’s default branch selected.", fr = "Choisissez dossier et branche distante ; la branche par défaut du dépôt est présélectionnée.", de = "Klonordner und Remote-Branch einfach wählen; der Standardbranch ist vorausgewählt.", ro = "Alegeți simplu folderul clonei și ramura remote, cu ramura implicită preselectată." }
+text = { en = "Pick folders without losing typed paths. Choose remote branches with the default preselected.", fr = "Le sélecteur garde le chemin saisi. La branche distante par défaut est présélectionnée.", de = "Eingegebene Ordnerpfade bleiben erhalten. Der Standardbranch ist vorausgewählt.", ro = "Selectorul păstrează calea tastată. Ramura remote implicită este preselectată." }
 
 [[release.entry]]
 category = "improved"
@@ -160,7 +160,7 @@ text = { en = "Draft reviews, busy-ticket resumes and retries after brief push f
 [[release.entry]]
 category = "fixed"
 topic = { en = "Messages", fr = "Messages", de = "Meldungen", ro = "Mesaje" }
-text = { en = "Errors read as sentences in your language; a stalled agent or a refused Start shows its last lines.", fr = "Erreurs en phrases dans votre langue ; agent bloqué ou démarrage refusé montre ses dernières lignes.", de = "Fehler als Sätze in Ihrer Sprache; blockierter Agent oder abgelehnter Start zeigt letzte Zeilen.", ro = "Erori ca propoziții în limba aleasă; un agent blocat sau o pornire refuzată arată ultimele linii." }
+text = { en = "Localized errors name affected projects. Stalled agents and refused starts show recent output.", fr = "Erreurs traduites par projet. Agents bloqués et démarrages refusés affichent leur dernière sortie.", de = "Lokale Fehler nennen Projekte. Blockierte Agenten und abgelehnte Starts zeigen letzte Zeilen.", ro = "Erorile traduse indică proiectul. Agenții blocați și pornirile refuzate afișează ultimele linii." }
 
 [[release.entry]]
 category = "fixed"

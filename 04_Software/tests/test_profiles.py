@@ -142,6 +142,44 @@ def test_profile_create_rejects_duplicate_without_overwrite(tmp_path: Path) -> N
     assert store.load("dup").repo == "g/p2"
 
 
+@pytest.mark.parametrize(
+    "winerror, failures, recovered", [(5, 2, True), (32, 6, False), (None, 1, False)],
+)
+def test_profile_save_keeps_metadata_atomic_during_sharing_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror, failures, recovered,
+) -> None:
+    """@brief Recover transient Windows locks and retain prior metadata on refusal."""
+    store = _store(tmp_path)
+    profile = store.create("shared", description="Before")
+    path = store.profile_dir(profile.name) / "profile.json"
+    original = path.read_bytes()
+    replace = Path.replace
+    attempts = 0
+
+    def sharing_error(source, target):
+        """@brief Deny replacements while checking that the original stays readable."""
+        nonlocal attempts
+        assert target == path
+        assert path.read_bytes() == original
+        attempts += 1
+        if attempts <= failures:
+            error = PermissionError("simulated file sharing error")
+            error.winerror = winerror
+            raise error
+        return replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", sharing_error)
+    profile.description = "After"
+    if recovered:
+        store.save(profile)
+        assert attempts == failures + 1 and store.load(profile.name) == profile
+    else:
+        with pytest.raises(PermissionError):
+            store.save(profile)
+        assert attempts == failures and path.read_bytes() == original
+    assert list(path.parent.glob("*.tmp")) == []
+
+
 def test_profile_rename_and_delete(tmp_path: Path) -> None:
     """
     @brief   rename moves the directory and keeps identity; delete removes it

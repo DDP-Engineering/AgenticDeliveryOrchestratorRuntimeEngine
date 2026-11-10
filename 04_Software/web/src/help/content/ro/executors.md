@@ -88,7 +88,7 @@ Folosește **Salvează** pentru ambele setări și confirmă efectele importante
 | Izolare | Container; cu accesul la internet dezactivat ajunge doar la furnizorul modelului | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
 | Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |
 
-**Instalat pe server** folosește contul curent al sistemului și oferă opțional **PATH pentru uneltele proiectului**. Comanda de lansare este fixă.
+**Instalat pe server** rulează Pi sub contul de sistem al serviciului ADORE. **PATH pentru uneltele proiectului** stabilește unde caută Pi uneltele. Un câmp gol folosește PATH-ul contului serviciului. Comanda de lansare este fixă.
 
 **Verifică cerințele gazdei** omite motorul de containere și verifică Node, instalarea Pi administrată și credențialele furnizorului ales.
 

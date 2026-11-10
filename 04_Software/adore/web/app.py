@@ -129,7 +129,7 @@ from adore.web.executor_settings import (
     update_credential,
 )
 from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
-from adore.web.jobs import JobReadError, read_job_budget, read_jobs, sort_jobs
+from adore.web.jobs import JobReadError, read_job_budget, read_jobs, read_overview_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.repository_source import (
     RepositorySourceError,
@@ -1686,24 +1686,36 @@ def _csv_text(value: str) -> str:
     return value
 
 
-def _profile_view(profiles: ProfileStore, profile) -> dict:
+def _profile_view(profiles: ProfileStore, profile, *, overview: bool = False) -> dict:
+    """
+    @brief Project profile metadata and verified job activity.
+    @param[in] profiles Profile storage.
+    @param[in] profile Authorized profile.
+    @param[in] overview Keep the profile available when a job has invalid activity.
+    @return Project metadata with only verified activity and run counts.
+    """
     if any(not isinstance(value, str) for value in (
         profile.name, profile.description, profile.platform, profile.repo,
         profile.runtime, profile.display_name,
     )):
         raise _error(503, "project_corrupt")
     store = _store_for(profiles, profile)
-    invalid_runs = store.invalid_runs()
+    invalid_runs = set(store.invalid_runs())
     runs = store.list_runs()
+    run_count = len(runs)
     last_activity: datetime | None = None
     for run in runs:
         try:
             changed = datetime.fromisoformat(run.updated_at)
             if changed.tzinfo is None or changed.utcoffset() is None:
                 raise ValueError("naive activity timestamp")
-        except (TypeError, ValueError) as exc:
-            raise _error(503, "run_state_corrupt") from exc
-        changed = changed.astimezone(UTC)
+            changed = changed.astimezone(UTC)
+        except (TypeError, ValueError, OverflowError) as exc:
+            if not overview:
+                raise _error(503, "run_state_corrupt") from exc
+            invalid_runs.add(run.run_id)
+            run_count -= 1
+            continue
         if last_activity is None or changed > last_activity:
             last_activity = changed
     raw = None
@@ -1753,8 +1765,8 @@ def _profile_view(profiles: ProfileStore, profile) -> dict:
         "last_activity": last_activity.isoformat() if last_activity else None,
         "archived": profile.archived,
         "paused": paused,
-        "invalid_runs": invalid_runs,
-        "runs": len(runs),
+        "invalid_runs": sorted(invalid_runs),
+        "runs": run_count,
     }
 
 
@@ -3171,6 +3183,7 @@ def create_app(home: str | Path | None = None,
         q: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
         state: Literal["configured", "needs-config", "paused", "archived",
                        "invalid-state"] | None = None,
+        overview: bool = False,
     ) -> list[dict]:
         if profiles.invalid_profiles():
             raise _error(503, "project_corrupt")
@@ -3184,7 +3197,7 @@ def create_app(home: str | Path | None = None,
                 allowed is not None and item.name not in allowed
             ):
                 continue
-            view = _profile_view(profiles, item)
+            view = _profile_view(profiles, item, overview=overview)
             if needle is not None and not any(
                 needle in view[key].casefold()
                 for key in ("name", "description", "repo")
@@ -4622,19 +4635,26 @@ def create_app(home: str | Path | None = None,
         except (ProfileError, OSError, UnicodeError, RecursionError) as exc:
             raise JobReadError("project_corrupt") from exc
 
-    def job_snapshot(user: dict, project_id: str | None = None) -> tuple[list, str]:
+    def job_snapshot(
+        user: dict, project_id: str | None = None, *, overview: bool = False,
+    ) -> tuple[list, str, list[str]]:
         """
         @brief Recheck authorization/profile identity after the complete local read.
         @param[in] user Current authenticated principal.
         @param[in] project_id Optional immutable single-project selector.
-        @return Complete authorized rows and optimistic source revision.
+        @param[in] overview Isolate projects with unreadable job state for Overview.
+        @return Authorized rows, optimistic source revision and unreadable project IDs.
         @exception JobReadError For corrupt or changed authorized source evidence.
         """
         selected = job_projects(user, project_id)
-        rows, revision = read_jobs(profiles, selected)
+        if overview:
+            rows, revision, unreadable = read_overview_jobs(profiles, selected)
+        else:
+            rows, revision = read_jobs(profiles, selected)
+            unreadable = []
         if selected != job_projects(user, project_id):
             raise JobReadError("job_snapshot_changed", 409)
-        return rows, revision
+        return rows, revision, unreadable
 
     @app.get("/api/v1/jobs-page")
     def jobs_page(
@@ -4643,6 +4663,7 @@ def create_app(home: str | Path | None = None,
         q: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
         status_group: Literal["active", "waiting", "review", "terminal"] | None = None,
         attention: bool = False,
+        overview: bool = False,
         limit: str = "25",
         offset: Annotated[int, Query(ge=0)] = 0,
         snapshot: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
@@ -4656,12 +4677,13 @@ def create_app(home: str | Path | None = None,
         @param[in] q Optional bounded case-insensitive search text.
         @param[in] status_group Optional lifecycle group.
         @param[in] attention Select jobs awaiting intervention or recovery.
+        @param[in] overview Include verified projects and report unreadable ones.
         @param[in] limit Bounded page size or all.
         @param[in] offset Nonnegative matched-row offset.
         @param[in] snapshot Optional expected source-content revision.
         @param[in] sort Column ordering every matched job before paging.
         @param[in] order Direction; newest activity first, otherwise ascending, by default.
-        @return Complete matched page, scoped counts and source revision.
+        @return Matched page, verified counts, source revision and any unreadable projects.
         """
         if limit != "all" and (len(limit) > 3 or not limit.isascii() or not limit.isdecimal()
                                or not 1 <= int(limit) <= 100):
@@ -4669,7 +4691,7 @@ def create_app(home: str | Path | None = None,
         needle = q.strip().casefold() if q is not None else None
         if needle == "":
             raise _error(422, "invalid_job_search")
-        rows, revision = job_snapshot(user, project_id)
+        rows, revision, unreadable = job_snapshot(user, project_id, overview=overview)
         if snapshot is not None and snapshot != revision:
             raise JobReadError("job_snapshot_changed", 409)
         searched = [row for row in rows if needle is None or any(
@@ -4695,7 +4717,8 @@ def create_app(home: str | Path | None = None,
         return {"items": visible, "total": len(matched),
                 "counts": counts, "groups": groups, "limit": page_limit, "offset": offset,
                 "complete": True, "snapshot": revision,
-                "snapshot_semantics": "optimistic-source-revision"}
+                "snapshot_semantics": "optimistic-source-revision",
+                **({"unreadable_projects": unreadable} if unreadable else {})}
 
     @app.get("/api/v1/jobs/{project_id}/{run_id}")
     def job_detail(project_id: str, run_id: str,
@@ -4709,7 +4732,7 @@ def create_app(home: str | Path | None = None,
         """
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
             raise _error(404, "run_not_found")
-        rows, revision = job_snapshot(user, project_id)
+        rows, revision, _ = job_snapshot(user, project_id)
         row = next((row for row in rows if row["run_id"] == run_id), None)
         if row is None:
             raise _error(404, "run_not_found")
@@ -4726,7 +4749,7 @@ def create_app(home: str | Path | None = None,
         """@brief Read only authorized journal-bound operational executor evidence."""
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id):
             raise _error(404, "run_not_found")
-        rows, revision = job_snapshot(user, project_id)
+        rows, revision, _ = job_snapshot(user, project_id)
         row = next((row for row in rows if row["run_id"] == run_id), None)
         if row is None:
             raise _error(404, "run_not_found")

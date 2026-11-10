@@ -89,7 +89,7 @@ test("admin stages and applies a budget change without changing live config duri
   expect(staged.config.budgets.max_iterations).toBe(before.config.budgets.max_iterations);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Confirm important changes", exact: true })).toHaveCount(0);
-  await expect(page.locator(".notice[role=status]")).toContainText("Configuration applied");
+  await expect(page.locator("main div.notice[role=status]")).toContainText("Configuration applied");
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.budgets.max_iterations).toBe(value);
   expect(applied.revision).not.toBe(before.revision);
@@ -213,7 +213,7 @@ for (const finalStatus of ["succeeded", "failed"]) {
       id: 7001, status, result: status === "failed" ? "engine rejected operation" : "completed",
     } }));
     await monitoring.click();
-    const notice = page.locator("main .notice[role=status]");
+    const notice = page.locator("main div.notice[role=status]");
     await expect(notice).toHaveCount(1);
     await expect(notice).toContainText("pending");
     await page.clock.fastForward(6000);
@@ -221,8 +221,11 @@ for (const finalStatus of ["succeeded", "failed"]) {
     status = finalStatus;
     await page.clock.fastForward(2000);
     await expect(notice).toContainText(finalStatus);
-    if (status === "failed") await expect(notice).toContainText("engine rejected operation");
     await page.clock.fastForward(5000);
+    if (status === "failed") {
+      await expect(notice).toContainText("engine rejected operation");
+      await notice.getByRole("button", { name: "Close", exact: true }).click();
+    }
     await expect(notice).toHaveCount(0);
   });
 }
@@ -242,7 +245,7 @@ test("single transient operation notification preserves polling and replacement"
     return route.fulfill({ json: { id, status } });
   });
   await monitoring.click();
-  const notice = page.locator("main .notice[role=status]");
+  const notice = page.locator("main div.notice[role=status]");
   await expect(notice).toHaveCount(1);
   await notice.getByRole("button", { name: "Close", exact: true }).click();
   await expect(notice).toHaveCount(0);
@@ -276,7 +279,7 @@ test("single transient ordinary notification replaces operation feedback", async
   await page.route("**/api/v1/projects/*/operations/*", route => route.fulfill({ json: { id: 7201, status: "succeeded" } }));
   await page.route("**/api/v1/projects/*/archive", route => route.fulfill({ json: {} }));
   await monitoring.click();
-  const notice = page.locator("main .notice[role=status]");
+  const notice = page.locator("main div.notice[role=status]");
   await expect(notice).toContainText("succeeded");
   await page.clock.fastForward(4000);
   await page.getByRole("button", { name: "Archive project", exact: true }).click();

@@ -88,7 +88,7 @@ Verwenden Sie **Speichern** für beide Einstellungen und bestätigen Sie wichtig
 | Isolation | Container; bei ausgeschaltetem Internetzugang erreicht er nur den Modellanbieter | Nur der Worktree; Befehle erreichen alles, was das Konto erreicht, verwenden Sie daher ein eigenes Konto mit minimalen Rechten |
 | Gewählt | **Ausführung** → **Container**, Standard, in Schritt 2 der Registrierung oder unter Einstellungen → Agent und Modell | **Ausführung** → **Auf dem Server installiert**, oder im Serverprofil oder per TOML-Registrierung |
 
-**Auf dem Server installiert** nutzt das aktuelle Systemkonto und bietet einen optionalen **PATH für Projektwerkzeuge**. Der Startbefehl ist fest.
+**Auf dem Server installiert** startet Pi unter dem Systemkonto des ADORE-Dienstes. Der **PATH für Projektwerkzeuge** legt fest, wo Pi die Werkzeuge findet. Ein leeres Feld verwendet den PATH des Dienstkontos. Der Startbefehl ist fest.
 
 **Host-Voraussetzungen prüfen** überspringt die Container-Engine und prüft Node, das verwaltete Pi und die Zugangsdaten des gewählten Anbieters.
 

@@ -96,6 +96,9 @@ and **Active jobs** from the ADORE/Overview header, followed by the job tables. 
 **Overview** link resets to all authorized projects; a scoped URL/reload retains
 its explicit selection. Automatic job reads run every 15 seconds while visible,
 retaining validated current-scope rows while the background response is pending.
+If a project's job state cannot be read, **Needs attention** names that project
+and continues to show verified jobs from other projects. Selecting the affected
+project shows its warning and leaves its job counts unavailable in Project Summary.
 A failed or malformed update hides the rows until the next automatic update;
 Overview displays no Refresh or refresh timestamp. Compact rows show the job title, project/ticket, observed
 status and **Details**. Details opens Jobs with the owning project and run.
@@ -1193,7 +1196,7 @@ The names-only additional credential selector offers Pi's provider variables and
 
 ### Transient application notifications
 
-The application shows one dismissible notification for ordinary feedback or the current operation. Operation status replaces the queued confirmation. Pending/running operations stay visible until completion or dismissal; terminal results and ordinary notices disappear after five seconds. Closing the banner keeps worker polling and final project refresh active. Replacement/unmount cancels earlier dismissal timers; persisted outcomes remain available in History. Error alerts retain their existing presentation.
+The application shows one dismissible notification for ordinary feedback or the current operation. Operation status replaces the queued confirmation. Pending and running operations stay visible until completion or dismissal. Successful results and ordinary notices disappear after five seconds. Failed and uncertain results stay visible until dismissed. Closing the banner keeps worker polling and the final project refresh active. Replacing a notification cancels its earlier dismissal timer. History retains recorded outcomes.
 
 Editable settings place **Edit** beside **Active value** in the value column, including narrow screens. Administrators retain candidate review/apply/discard and disabled-state safeguards; developers have read-only rows.
 
@@ -1259,7 +1262,8 @@ Reviewed configuration apply retries only Windows replace errors 5/32/33, at mos
 
 Custom clone location opens a compact web folder chooser on the ADORE host.
 One click selects a row; double-click or Enter opens it. Back, Parent and the
-address bar navigate; Select folder confirms the exact existing folder. New
+address bar navigate; Select folder confirms the exact existing folder. Paths
+typed while a listing loads stay in the address bar. New
 destinations are typed in the main clone-path field. Cancel preserves the draft.
 The chooser performs no writes.
 

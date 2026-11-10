@@ -17,9 +17,9 @@ When an operator selects a supported Pi thinking level for a project, ADORE shal
 
 verification = "Offline configuration and fake Pi tests select a supported level and assert the exact launch arguments for native and container stages."
 
-affected_paths = ["04_Software/adore/config.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/web/model_connection.py"]
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/web/model_connection.py", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/settings.ts"]
 
-linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_passes_the_provider_and_model_id", "04_Software/tests/test_model_connection.py::test_connection_probe_passes_thinking_to_pi", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_the_managed_rpc_installation"]
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_executor_passes_the_provider_and_model_id", "04_Software/tests/test_model_connection.py::test_connection_probe_passes_thinking_to_pi", "04_Software/tests/test_local_execution.py::test_local_model_challenge_uses_the_managed_rpc_installation", "04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/executor-config.spec.ts"]
 
 
 spec = ""
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-09
-updated = 2026-11-09
+updated = 2026-11-10

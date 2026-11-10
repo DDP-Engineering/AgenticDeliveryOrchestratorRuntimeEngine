@@ -1,0 +1,37 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-7556495e"
+
+title = "Isolate unreadable job state in Overview"
+
+status = "active"
+
+requirement = """
+When Overview encounters incompatible saved job state in an authorized project, ADORE shall identify that project as unreadable and show verified job data for the other selected projects.
+"""
+
+verification = "In offline API and browser fixtures with legacy state or activity timestamps and healthy jobs, verify healthy rows and named warnings in each project scope; exercise authorization, a cross-project read race, a stale continuation and the strict directory and history boundaries."
+
+affected_paths = [
+  "04_Software/adore/release_notes.toml",
+  "04_Software/adore/web/app.py", "04_Software/adore/web/jobs.py", "04_Software/adore/web/static/",
+  "04_Software/web/src/App.tsx", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx",
+  "04_Software/web/src/help/content/*/overview.md",
+  "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py", "04_Software/web/tests/jobs.test.mjs",
+]
+
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-10
+updated = 2026-11-10

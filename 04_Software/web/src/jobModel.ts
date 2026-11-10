@@ -29,7 +29,8 @@ export type Job = {
   timeline?: Array<{ ts: string | null; event: string; stage: string | null }>;
 };
 export type JobPage = { items: Job[]; total: number; counts: Record<string, number>; groups: Record<string, number>;
-  limit: number; offset: number; complete: true; snapshot: string; snapshot_semantics: "optimistic-source-revision" };
+  limit: number; offset: number; complete: true; snapshot: string; snapshot_semantics: "optimistic-source-revision";
+  unreadable_projects?: string[] };
 export class IncompleteJobs extends Error { constructor() { super("incomplete"); } }
 const lifecycleGroup = (value: string) => ["working", "publishing"].includes(value) ? "active" :
   ["parked-clarification", "awaiting-approval", "handoff-pending"].includes(value) ? "waiting" : value === "in-review" ? "review" : "terminal";
@@ -100,7 +101,7 @@ export function readJob(value: unknown, authorized: string[]): Job {
 }
 
 /** Validate complete counts, composite identity and optimistic source revision. */
-export function readJobPage(value: unknown, authorized: string[]): JobPage {
+export function readJobPage(value: unknown, authorized: string[], overview = false): JobPage {
   const page = object(value);
   if (page.complete === false) throw new IncompleteJobs();
   if (page.complete !== true || !Array.isArray(page.items) || !count(page.total) || !count(page.limit) || !count(page.offset) ||
@@ -116,6 +117,14 @@ export function readJobPage(value: unknown, authorized: string[]): JobPage {
   const items = (page.items as unknown[]).map(row => readJob(row, authorized));
   if (items.length > Number(page.limit) || items.length > Number(page.total) ||
     new Set(items.map(row => `${row.project_id}/${row.run_id}`)).size !== items.length) invalid();
+  if (page.unreadable_projects !== undefined) {
+    const unreadable = page.unreadable_projects;
+    if (!overview || !Array.isArray(unreadable) ||
+      unreadable.some(id => !string(id) || !/^[a-f0-9]{32}$/.test(id) || !authorized.includes(id)) ||
+      new Set(unreadable).size !== unreadable.length ||
+      items.some(row => unreadable.includes(row.project_id)) ||
+      (authorized.every(id => unreadable.includes(id)) && Object.values(counts).some(value => Number(value) > 0))) invalid();
+  }
   return { ...page, items } as JobPage;
 }
 

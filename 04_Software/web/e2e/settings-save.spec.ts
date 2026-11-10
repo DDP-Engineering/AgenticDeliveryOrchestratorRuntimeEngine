@@ -88,7 +88,7 @@ test("important multi-setting Save confirms exact values and keeps cancelled edi
 });
 
 
-test("dirty settings guard navigation and Refresh without losing invalid inputs",async({page})=>{
+test("dirty settings guard navigation and background refresh without losing invalid inputs",async({page})=>{
  await page.context().route("**/*",route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
  await page.goto("/");await page.getByLabel("Username",{exact:false}).fill("admin");await page.getByLabel("Password",{exact:false}).fill("admin");await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("heading",{name:"Overview",exact:true})).toBeVisible();
@@ -98,8 +98,13 @@ test("dirty settings guard navigation and Refresh without losing invalid inputs"
  const url=page.url();let prompts=0;
  page.on("dialog",async dialog=>{prompts++;expect(dialog.type()).toBe("confirm");await dialog.dismiss();});
  await page.getByRole("tab",{name:"Summary",exact:true}).click();await expect(page).toHaveURL(url);
- await page.locator(".topbar").getByRole("button",{name:"Refresh",exact:true}).click();
- await expect(row.getByRole("spinbutton")).toHaveValue("");await expect(settingsSave(page)).toBeDisabled();expect(prompts).toBe(2);
+ let reads=0;
+ page.on("request", request=>{if(request.method()==="GET"&&request.url().endsWith("/config"))reads++;});
+ const projectPoll=page.waitForResponse(response=>response.url().endsWith("/api/v1/projects"));
+ await page.evaluate(()=>document.dispatchEvent(new Event("visibilitychange")));
+ await projectPoll;
+ await expect(row.getByRole("spinbutton")).toHaveValue("");await expect(settingsSave(page)).toBeDisabled();
+ expect(reads).toBe(0);expect(prompts).toBe(1);
  await discardSettings(page);await page.getByRole("tab",{name:"Summary",exact:true}).click();await expect(page).not.toHaveURL(url);
 });
 

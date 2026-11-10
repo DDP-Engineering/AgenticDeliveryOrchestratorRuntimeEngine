@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep healthy projects visible in Overview when another project's job state cannot be read.
+
 - Narrow the ticket number column to leave more room for the other columns.
 
 - Show the native Pi check and its Node error in enrollment for server execution.
@@ -27,6 +29,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Announce the initial web account and remind its administrator to change the factory password.
 
 - Clarify enrollment and project settings, preserve current readiness evidence, and support Pi reasoning effort.
+
+- Complete localized setting help for Pi reasoning effort and native execution.
+
+- Preserve reasoning effort when saving the agent connection and keep wide ticket source in its own scroll region.
+
+- Retry brief Windows profile file locks while saving project settings.
+
+- Keep typed folder paths when a directory listing finishes loading.
 
 - Correct History targets and outcomes, and retain CLI job deletion evidence after removal.
 

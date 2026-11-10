@@ -5,9 +5,14 @@ schema = 1
 
 [commands]
 # `aegis test` runs `test`; `aegis check --run` runs every entry here.
-test = ".\\.venv\\Scripts\\python.exe -m pytest -q"
+# One command per entry serves Windows and ADORE's Linux container alike: uv
+# finds the platform's own `.venv` and syncs it from uv.lock (--frozen never
+# rewrites the lockfile). Do not put OS-specific paths here. `python -m pytest`
+# rather than `pytest`: uv's Windows script launcher can fail to resolve its own
+# path on some drives, while the interpreter itself always starts.
+test = "uv run --frozen --extra web python -m pytest -q"
 # test_impacted = "pytest -q {tests}"   # {tests} = the focused regression set
-lint = ".\\.venv\\Scripts\\ruff.exe check adore tests"
+lint = "uv run --frozen ruff check adore tests"
 frontend = "npm --prefix web run validate"
 # timeout = 0                           # seconds allowed per command; 0 or
 #                                       # absent means no limit at all

@@ -50,6 +50,7 @@
   "executor.model",
   "executor.provider",
   "executor.questions_file",
+  "executor.thinking",
   "executor.web.search",
   "labels.control.exclude",
   "labels.control.hold",

@@ -14,10 +14,10 @@ const clientCodes = ["network_error", "unexpected_response", "request_failed"];
 
 test("portable Gitea authentication explains the repository connection flow in four locales", () => {
   const terms = {
-    en: ["Connect repository", "Repository server", "Access token"],
-    ro: ["Conectează depozitul", "Serverul depozitului", "Token de acces"],
-    fr: ["Connecter le dépôt", "Serveur du dépôt", "Jeton d’accès"],
-    de: ["Repository verbinden", "Repository-Server", "Zugriffstoken"],
+    en: ["Repository access", "Repository server", "Access token", "Verify and connect"],
+    ro: ["Acces la repository", "Serverul depozitului", "Token de acces", "Verifică și conectează"],
+    fr: ["Accès au dépôt", "Serveur du dépôt", "Jeton d’accès", "Vérifier et connecter"],
+    de: ["Repository-Zugang", "Repository-Server", "Zugriffstoken", "Prüfen und verbinden"],
   };
   for (const locale of locales) {
     for (const code of ["gitea_auth_missing", "gitea_auth_login_missing", "gitea_auth_ambiguous", "gitea_auth_invalid"]) {

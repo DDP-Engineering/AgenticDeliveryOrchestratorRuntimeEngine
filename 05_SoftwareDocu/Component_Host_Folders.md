@@ -60,7 +60,8 @@ and a read-only path field. Custom location enables manual text and Choose folde
 The modal starts at account home. Address entry/Enter, starting locations, Back
 and Parent navigate; arrow/Home/End keys select/focus directory rows. The compact
 footer contains Select folder and Cancel. Cancel/Escape/selection restore focus. An AbortController and generation guard prevent
-late or cancelled reads from replacing navigation. Failed reads disable selection;
+late or cancelled reads from replacing navigation. A successful read normalizes
+its requested path only if the address still matches it. Failed reads disable selection;
 manual clone text and the automatic reset remain available. Creation still
 requires exact review and existing clone/origin/AEGIS/branch checks.
 

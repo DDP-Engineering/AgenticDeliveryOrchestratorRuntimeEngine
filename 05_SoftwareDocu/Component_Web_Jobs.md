@@ -39,7 +39,7 @@ provided by `app.py`. There is no new runtime dependency or persisted schema.
 
 ## 5. Inputs And Outputs
 
-`GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `attention`,
+`GET /api/v1/jobs-page` accepts `project_id`, `q`, `status_group`, `attention`, `overview`,
 `limit`, `offset`, `snapshot`, `sort` (`activity`, `ticket`, `project`, `status`;
 default `activity`) and `order` (`asc`/`desc`; default newest activity first,
 otherwise ascending); every matched job is sorted before paging, unknown values
@@ -55,6 +55,13 @@ The response contains `items`, matching `total`, `counts`, `groups`, `limit`,
 `snapshot_semantics: "optimistic-source-revision"`. Counts and groups describe
 the authorized, project-filtered, searched population before status-group and
 attention selection. Archived jobs are included and each row carries `project_archived`.
+
+With `overview=true`, each authorized project is validated independently.
+Projects with `run_state_corrupt` contribute no rows or counts. Their IDs appear
+in `unreadable_projects` when present, and paging applies to the combined verified
+rows. The revision binds readable project revisions and unreadable IDs. A change
+in coverage invalidates continuations. A second capture rechecks the complete
+scope for changes during the read. Other errors still fail the request.
 
 `GET /api/v1/jobs/{project_id}/{run_id}` returns
 `{job, complete: true, snapshot}` for the composite identity. Its strict read
@@ -122,11 +129,11 @@ source bytes or partial totals. Invalid query bounds return 422.
 
 ## 7. Workflow Integration
 
-Global pages use a complete in-memory projection, never concatenated per-project
-pages. Clients pass the returned `snapshot` on continuations. Any selected-source
-addition/deletion, evidence change, profile rename/archive or authorization change
-invalidates the continuation; restart at offset zero. Search/page parameters do
-not alter a source revision. Project-scoped revisions cover that selected profile.
+Global pages sort and page an in-memory projection of verified rows. Clients
+pass the returned `snapshot` on continuations. A change to included sources or
+profile metadata, or a change in authorization or Overview coverage, invalidates
+the continuation. Restart at offset zero. Search and page parameters share the
+same source revision. Project-scoped revisions cover the selected profile.
 A deleted profile is unavailable; an archived profile retains history. An absent
 runs root is an empty collection; unreadable sources and orphan run folders
 are integrity errors. No source is repaired or reset by reading.

@@ -120,6 +120,9 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+The settings help catalog includes Pi reasoning effort and describes the native
+service account and optional tools PATH in all four locales.
+
 Statistics displays **Statistics database file** as an informational row with
 four-locale guidance. Server `config.toml` owns `metrics.db_path`,
 `metrics.export_jsonl` and `metrics.html_out`; web candidate preparation rejects
@@ -179,9 +182,13 @@ SQLite bytes, authorization, scope and financial redaction.
 - Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves original saved `config.toml` bytes including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
 
-- `/api/v1/jobs-page` provides complete globally ordered authorized current and
+- `/api/v1/jobs-page` provides globally ordered authorized current and
   archived job history, optional project/search/attention/status filters and optimistic
-  content revisions. `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
+  content revisions. Overview requests `overview=true` to report authorized
+  `unreadable_projects` with verified rows and counts from the remaining projects.
+  Its metadata fallback `/api/v1/projects?overview=true` excludes runs with
+  invalid activity timestamps while keeping authorized project identities.
+  `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
   `adore/web/jobs.py` strictly validates schema-1 state, saved ticket metadata and
   JSONL bytes without altering operational journal recovery. See
   `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
@@ -366,7 +373,7 @@ SQLite bytes, authorization, scope and financial redaction.
   ADORE home. ADORE uses the configured agent identity for host-side checkpoint
   commits, even when the fresh clone has no local Git identity.
 - The audit trail is available only on the administrator API and page.
-- JobWorkspace reads `/jobs-page` for complete authorized attention/jobs/history
+- JobWorkspace reads `/jobs-page` for authorized attention/jobs/history
   and composite `/jobs/{project_id}/{run_id}` for detail. Overview leads with
   human-action/failure/handoff attention and actual working/publishing rows in
   compact title/project/ticket, status and Details tables. App supplies one header
@@ -379,8 +386,10 @@ SQLite bytes, authorization, scope and financial redaction.
   Settings suspends reads for configuration, pricing and authentication drafts
   or writes. Price reads are validated and independent of configuration reads. Access protects
   confirmed changes from older reads, and audit refresh preserves filters and
-  open evidence. Strict complete active reads and scope/render guards withhold
-  invalid data; Overview performs no usage reads. Worker faults are visible and
+  open evidence. Both Overview tables validate scope and agree on unreadable
+  project IDs before displaying verified rows. Needs attention names the
+  affected projects. Their Summary job counters are unavailable. Overview
+  performs no usage reads. Worker faults are visible and
   Details opens the existing composite Jobs route; browser-local dates and
   reporting/technical evidence belong to dedicated views.
   Jobs keeps search/project/status group visible and advanced exact filters

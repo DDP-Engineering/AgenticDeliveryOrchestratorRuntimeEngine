@@ -17,7 +17,7 @@ It connects four areas that are normally handled manually:
 
 1. a GitHub, GitLab, or Gitea ticket and its human discussion;
 2. an isolated Git worktree and Docker/Podman executor container;
-3. the repository-installed AEGIS engineering workflow;
+3. the repository's AEGIS engineering workflow, when the repository has one;
 4. human approval, draft MR/PR publication, review, and merge.
 
 ADORE automates the repeatable coordination around engineering work. It does
@@ -39,7 +39,10 @@ clear human control points.
 
 ## Relationship Between ADORE and AEGIS
 
-ADORE is a companion to repository-installed AEGIS. It conducts the AEGIS
+For a repository with AEGIS installed, ADORE is its companion. Repositories
+without AEGIS get the direct workflow planned in
+[2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md](2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md).
+For AEGIS repositories, ADORE conducts the AEGIS
 Python companion CLI on the major-0 line from 0.5.0 upward over JSON schema 1,
 a range declared once in `04_Software/adore/aegis.py`. A different major, a
 payload below the floor, or any other contract is refused at probe rather than

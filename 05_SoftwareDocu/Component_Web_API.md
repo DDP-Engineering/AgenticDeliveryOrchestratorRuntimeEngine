@@ -233,8 +233,13 @@ metrics CSV retain their distinct existing contracts. Tests:
 
 Global persisted job reads use `/api/v1/jobs-page` and composite
 `/api/v1/jobs/{project_id}/{run_id}`. Grants are resolved before reading run
-sources; all selected projects must validate for complete totals. Current and
-archived projects share deterministic global pagination/search and lifecycle
+sources. The default projection requires all selected projects to validate.
+Overview opts into verified totals for readable projects with
+`unreadable_projects` identifying the authorized projects with invalid run state.
+When an invalid activity timestamp blocks the strict project directory,
+`/api/v1/projects?overview=true` retains project identity for Overview and
+excludes the invalid activity and its run from the metadata totals.
+Current and archived projects share deterministic global pagination/search and lifecycle
 groups. Source revisions reject changed continuations with 409. Existing
 project run clients retain their contracts. See
 [Persisted Web Job Reads](Component_Web_Jobs.md) for the exact evidence,
