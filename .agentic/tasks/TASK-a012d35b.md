@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-a012d35b - [Direct] adore init probes AEGIS with the configured Python
 
-stage: design
+stage: build
 type: fix
 path: full
 interaction: autopilot
@@ -23,12 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] design note written under the five headings, or its skip justified
-- [ ] each decision cites a requirement ID or a named technical constraint
-- [ ] every requirement maps to a decision and test seam, or no design impact
-- [ ] risks and open decisions recorded
-- [ ] `affected_paths` match the expected files
-- [ ] knowledge pages unchanged
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -100,13 +102,13 @@ Evidence labels: STATED refers to ticket #61 Decisions/Done when and the accepte
 
 | Frame outcome | Atomic behavior | Requirement | Verification | Design decision or no impact |
 |---|---|---|---|---|
-| STATED: configured Python controls version probing | Invoke the version probe with the supplied interpreter | REQ-FUNC-f47c612e | Fake wrapper/runner; python3 version argv and cwd; repeat with python | Pending design |
-| STATED: configured Python controls status probing | After a supported version, invoke status with the same interpreter | REQ-FUNC-a1603c88 | Fake supported version/schema-1 status; python3 status argv/cwd and ready; python boundary and no status after version rejection | Pending design |
-| STATED: exit 127 names configured interpreter | Return not-ready with the supplied executable in the unavailable diagnostic | REQ-FUNC-7081a87e | Fake version exit 127; python3/python diagnostics; no status command | Pending design |
-| STATED: unsupported version still reported as before | Return not-ready with the existing bounded version diagnostic | REQ-FUNC-fe08018c | Fake older/wrong-major versions under python3; preserved detail/no status; stderr/empty boundaries | Pending design |
-| STATED: malformed status JSON still reported as before | Return not-ready with the existing bounded status diagnostic | REQ-FUNC-d04bc2e0 | Fake supported version then malformed JSON at exit zero; stderr/stdout/empty diagnostic boundaries and existing nonzero regression | Pending design |
-| STATED: caller uses effective workflow configuration, default python | Pass workflow.aegis_python into detect_aegis from init | REQ-FUNC-c9e616d4 | Offline run_wizard with scripted answers/fake runner; effective python3 propagation and omitted-value python default | Pending design |
-| STATED: readiness remains informational | Report CHECK/detail/guidance and still create an otherwise valid confirmed profile | REQ-FUNC-9b2bb293 | Offline wizard missing payload and version exit 127; inspect output and validate saved profile | Pending design |
+| STATED: configured Python controls version probing | Invoke the version probe with the supplied interpreter | REQ-FUNC-f47c612e | Fake wrapper/runner; python3 version argv and cwd; repeat with python | Explicit keyword aegis_python feeds version argv[0] unchanged |
+| STATED: configured Python controls status probing | After a supported version, invoke status with the same interpreter | REQ-FUNC-a1603c88 | Fake supported version/schema-1 status; python3 status argv/cwd and ready; python boundary and no status after version rejection | Reuse the supplied executable for status after the existing version gate |
+| STATED: exit 127 names configured interpreter | Return not-ready with the supplied executable in the unavailable diagnostic | REQ-FUNC-7081a87e | Fake version exit 127; python3/python diagnostics; no status command | Interpolate aegis_python only in the existing version-exit-127 response |
+| STATED: unsupported version still reported as before | Return not-ready with the existing bounded version diagnostic | REQ-FUNC-fe08018c | Fake older/wrong-major versions under python3; preserved detail/no status; stderr/empty boundaries | Keep the current version rejection and 400-character diagnostic precedence |
+| STATED: malformed status JSON still reported as before | Return not-ready with the existing bounded status diagnostic | REQ-FUNC-d04bc2e0 | Fake supported version then malformed JSON at exit zero; stderr/stdout/empty diagnostic boundaries and existing nonzero regression | Keep current JSON failure handling and 400-character diagnostic precedence |
+| STATED: caller uses effective workflow configuration, default python | Pass workflow.aegis_python into detect_aegis from init | REQ-FUNC-c9e616d4 | Offline run_wizard with scripted answers/fake runner; effective python3 propagation and omitted-value python default | Return loaded Config from validation; probe after prepare-only return using config.workflow.aegis_python |
+| STATED: readiness remains informational | Report CHECK/detail/guidance and still create an otherwise valid confirmed profile | REQ-FUNC-9b2bb293 | Offline wizard missing payload and version exit 127; inspect output and validate saved profile | Keep CHECK/guidance and unconditional valid-profile persistence after the report |
 | STATED: existing readiness rules unchanged | Accept only a supported AEGIS version with schema-1 status | REQ-FUNC-69bfe896 (reuse unchanged) | Existing doctor happy schema-1, missing payload, blocked/unreadable status, wrong-schema/version and shared-client-gate regressions | No new version/schema policy |
 
 Specify analysis and challenge:
@@ -123,6 +125,45 @@ Specify analysis and challenge:
 
 ## Design
 
+### Approach
+- OBSERVED (`wizard.py::run_wizard`, `_validate_or_raise`): the early clone report runs before a Config exists; the candidate is loaded only during final validation. The minimal wizard currently emits no interpreter key, so ordinary init uses the config default.
+- INFERRED (REQ-FUNC-c9e616d4): retain the loaded, validated candidate Config by returning it from `_validate_or_raise`; move the existing `_report_aegis` call after the prepare-only return and before profile persistence. Pass `config.workflow.aegis_python` through the helper to doctor.
+- INFERRED (REQ-FUNC-f47c612e, REQ-FUNC-a1603c88): add keyword-only `aegis_python: str = "python"` after the existing runner argument on `detect_aegis`; use it verbatim as argv[0] for both commands. No shell, lookup, command splitting or new dependency.
+- INFERRED (REQ-FUNC-c9e616d4; ticket scope/no-new-setting constraint): reject constructing a default Config at the old early call because it can diverge from the emitted candidate; reject a new prompt, answers key or run_wizard config parameter as unnecessary scope expansion.
+
+### Interfaces and data
+- INFERRED (REQ-FUNC-c9e616d4): `_validate_or_raise(document, out) -> Config` loads once, validates that object, deletes its temporary file as before, raises WizardError on issues as before, and returns the object only on success. No caller uses the temporary config path for further reads.
+- INFERRED (REQ-FUNC-c9e616d4): `_report_aegis` receives the interpreter explicitly and passes `aegis_python=...`; its existing gitignore/push checks move with the report, with their content and logic unchanged. Environment/runtime discovery keeps its current placement.
+- INFERRED (REQ-FUNC-7081a87e): only version exit 127 changes detail to name the supplied interpreter; return the same not-ready AegisStatus and do not invoke status.
+- INFERRED (REQ-FUNC-fe08018c, REQ-FUNC-d04bc2e0, REQ-FUNC-69bfe896): preserve missing-wrapper short circuit, version gate, cwd, status shape/schema checks, diagnostic precedence and 400-character bounds; no new status-exit-127 policy or exception.
+- INFERRED (REQ-FUNC-9b2bb293; prepare-only invariant): valid confirmed CLI setup reports CHECK/OK then saves regardless of readiness; prepare-only returns before all clone probes. No stored schema, ownership or publication changes.
+
+### Files and test seams
+- INFERRED (requirements above): implementation changes only `04_Software/adore/doctor.py` and `04_Software/adore/wizard.py`; tests only `04_Software/tests/test_doctor.py` and `04_Software/tests/test_wizard.py`.
+- INFERRED (REQ-FUNC-f47c612e, REQ-FUNC-a1603c88): parameterize doctor happy-path fake runner over python/python3; record exact argv and cwd for both probes. Keep missing-payload/no-command regression.
+- INFERRED (REQ-FUNC-7081a87e, REQ-FUNC-fe08018c, REQ-FUNC-d04bc2e0): test version exit 127 and exact executable detail/no status, unsupported versions and stderr/empty/bounded diagnostics, and malformed exit-zero status JSON with stderr/stdout/empty/bounded diagnostics; retain existing nonzero/wrong-schema/unreadable regressions.
+- INFERRED (REQ-FUNC-c9e616d4): exercise public run_wizard with real candidate loading/validation; in the python3 case wrap `_assemble_sections` in the test to add the existing workflow.aegis_python key to the candidate (merge with any workflow table). Verify the saved profile actually loads python3 and the fake runner sees both python3 commands. The default case uses unmodified assembly and verifies python. Do not stub doctor or the validator; injection arranges candidate data, not the result under test.
+- INFERRED (REQ-FUNC-9b2bb293): retain missing-payload informational wizard test and add an existing-wrapper/exit-127 case; assert CHECK, interpreter detail, guidance, saved config and successful validation. Retain prepare-only no-probe, invalid-config/no-save and confirmation safeguards.
+- STATED (ticket delivery obligations): build updates `05_SoftwareDocu/Component_Doctor.md`, `05_SoftwareDocu/Component_Wizard.md` (interpreter provenance and report placement), `CHANGELOG.md` Fixed and `04_Software/adore/release_notes.toml` four-locale fixed note; records `release-notes: added` and `help: none (no interface change)`. Knowledge pages stay unchanged in design and are reconciled at validate.
+- OBSERVED (all eight requirement files): affected_paths already name their implementing doctor/wizard sources; retain those lists, including the reused readiness client's unchanged aegis.py path. Test/doc files are seams/deliverables, not additional implementing source paths.
+
+### Risks and open decisions
+- INFERRED (source ordering and REQ-FUNC-c9e616d4): clone guidance now appears after confirmation/validation rather than immediately after clone entry, including bundled gitignore/push output. This is the smallest local plumbing change that uses the actual candidate; it introduces no prompt, gate or setting. Document this timing rather than reconstructing unrelated partial configuration early.
+- OBSERVED (`_assemble_sections` workflow map): current production wizard only sets workflow labels; python3 testing therefore needs candidate-assembly injection, not a claim that a new interpreter answer exists. Existing-profile force setup remains regeneration, not config import/preservation.
+- INFERRED (ticket Decisions, plan sections 1/4 and inspected seams): no conflict or decision-blocking question found; no interpreter change outside doctor/wizard required. No new security/concurrency/storage surface, migration or compatibility machinery is needed.
+- UNKNOWN: build/validate dependency availability and actual test results; no product tests run during design. Bound this session to journal/diagram edits, one advisory audit and one stage transition; no product implementation.
+
+### Requirement map
+- REQ-FUNC-f47c612e: explicit interpreter on version argv; doctor fake-runner happy/default/cwd seam.
+- REQ-FUNC-a1603c88: same interpreter on status argv behind unchanged version gate; doctor happy and no-status-on-rejection seams.
+- REQ-FUNC-7081a87e: configured executable in existing exit-127 diagnostic; doctor negative and wizard informational seams.
+- REQ-FUNC-fe08018c: no version-policy change; preserve bounded diagnostic and early return; doctor version rejection seams.
+- REQ-FUNC-d04bc2e0: no JSON-policy change; preserve bounded diagnostic and not-ready response; doctor malformed status seams.
+- REQ-FUNC-c9e616d4: use the actual validated Config after assembly via report helper; public wizard candidate-injection/default seams.
+- REQ-FUNC-9b2bb293: readiness does not gate creation; public wizard missing/unavailable probe seams.
+- REQ-FUNC-69bfe896: no design impact on acceptance policy; existing shared-client/schema/version regressions remain authoritative.
+
+Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 
 ## Log
 
@@ -130,6 +171,8 @@ Specify analysis and challenge:
 - 2026-11-10 frame: completed; next specify - Frame scope recorded in autopilot; full path because interpreter input/diagnostic contract lacks established requirement coverage
 - 2026-11-10 specify: Specify audit: seven draft atomic requirements plus unchanged REQ-FUNC-69bfe896 cover configured version/status argv, exit-127 interpreter diagnostic, preserved unsupported-version/malformed-JSON responses, wizard propagation/default and informational reporting. No separate spec needed. check and check --full exited 0 with errors=0, warnings=83, notes=24; no findings name this task or its new requirements. Existing unrelated warnings remain outside scope. Wizard configuration provenance/test seam remains a design concern within doctor/wizard; no product tests run.
 - 2026-11-10 specify: completed; next design
+- 2026-11-10 design: Design audit completed: retain the validated candidate Config from _validate_or_raise; move the existing clone report after prepare-only return and before persistence; pass workflow.aegis_python explicitly into doctor for both probes and exit-127 detail. No new prompt/setting; python3 wizard proof injects the existing interpreter key at candidate assembly while retaining real load/validation and fake command execution. Eight coverage rows map to decisions/test seams; affected_paths already match implementing sources and remain unchanged. Added structure/sequence diagrams; no state diagram because no lifecycle change. check and check --full exited 0 with errors=0 warnings=83 notes=24 and no task/new-requirement findings; git diff --check exited 0. Product tests not run in design; knowledge and product files unchanged.
+- 2026-11-10 design: completed; next build
 
 ## Rulings
 
@@ -137,12 +180,12 @@ Specify analysis and challenge:
 ## State
 
 status: ready
-reported: specify - completed
-next: start design: read .agentic/steps/3_design.md
-must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/3_design.md
-changed: Created seven draft functional requirements and eight coverage rows; reused readiness requirement unchanged; completed specify checklist; no product changes
-evidence: brief, explain for doctor/wizard, components, check and check --full exited 0; check reports errors=0 warnings=83 notes=24 with no task/new-requirement findings; branch matches; git status shows only journal and seven new requirement files; source/test inspection only, no product tests run
-issues: Unrelated existing advisory warnings remain; design must resolve effective wizard configuration plumbing/test seam within doctor/wizard; dependency availability not yet verified
+reported: design - completed
+next: start build: read .agentic/steps/4_build.md
+must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/4_build.md
+changed: Completed Design and coverage mapping in .agentic/tasks/TASK-a012d35b.md; added .agentic/tasks/diagram_TASK-a012d35b.md; resolved wizard interpreter provenance within doctor/wizard; no product changes
+evidence: check and check --full exited 0: errors=0 warnings=83 notes=24, no task/new-requirement findings; git diff --check exited 0; source/test/requirements inspected, no product tests run
+issues: Existing unrelated advisory warnings remain; dependency availability and implementation proof deferred to build/validate; clone report moves after confirmation/validation as documented
 spec_compliance:
 implementation_quality:
 review_round:
