@@ -1,0 +1,24 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-f47c612e"
+title = "Probe the AEGIS version with the selected interpreter"
+status = "draft"
+
+requirement = """
+When detect_aegis probes a target repository containing .agentic/aegis.py, doctor shall invoke [interpreter, ".agentic/aegis.py", "--version"] in that repository through its command runner using the supplied interpreter executable.
+"""
+
+verification = "Offline fake-runner test: create a target wrapper, supply python3 and a supported version response, invoke detect_aegis, and assert the version command argv and cwd; repeat with python to prove the default workflow executable is honored without substitution."
+
+affected_paths = ["04_Software/adore/doctor.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+
+created = 2026-11-10
+updated = 2026-11-10

@@ -7,11 +7,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-a012d35b - [Direct] adore init probes AEGIS with the configured Python
 
-stage: specify
+stage: design
 type: fix
 path: full
 interaction: autopilot
-requirements:
+requirements: REQ-FUNC-f47c612e, REQ-FUNC-a1603c88, REQ-FUNC-7081a87e, REQ-FUNC-fe08018c, REQ-FUNC-d04bc2e0, REQ-FUNC-c9e616d4, REQ-FUNC-9b2bb293, REQ-FUNC-69bfe896
 parent:
 branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-61
 base: f651cd23e3a98a6ae0fd5c0145ec6dc1a5677874
@@ -23,14 +23,12 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] every accepted behavior is one coverage row with exactly one requirement
-- [ ] each error or failure response has its own requirement
-- [ ] each requirement is one self-contained "shall" sentence
-- [ ] verification names setup, trigger, oracle and a boundary or failure
-- [ ] specs written only where the requirement cannot carry the detail
-- [ ] conflicts, assumptions and unknowns resolved or recorded
-- [ ] every ID on the journal's `requirements:` line; `check` shows no
-      format errors
+- [ ] design note written under the five headings, or its skip justified
+- [ ] each decision cites a requirement ID or a named technical constraint
+- [ ] every requirement maps to a decision and test seam, or no design impact
+- [ ] risks and open decisions recorded
+- [ ] `affected_paths` match the expected files
+- [ ] knowledge pages unchanged
 
 ## Frame
 
@@ -98,6 +96,30 @@ Path and reason:
 
 ## Requirement coverage
 
+Evidence labels: STATED refers to ticket #61 Decisions/Done when and the accepted Frame; OBSERVED refers to the source/tests named below. Requirements describe the accepted contract, not a claim that new behavior is implemented.
+
+| Frame outcome | Atomic behavior | Requirement | Verification | Design decision or no impact |
+|---|---|---|---|---|
+| STATED: configured Python controls version probing | Invoke the version probe with the supplied interpreter | REQ-FUNC-f47c612e | Fake wrapper/runner; python3 version argv and cwd; repeat with python | Pending design |
+| STATED: configured Python controls status probing | After a supported version, invoke status with the same interpreter | REQ-FUNC-a1603c88 | Fake supported version/schema-1 status; python3 status argv/cwd and ready; python boundary and no status after version rejection | Pending design |
+| STATED: exit 127 names configured interpreter | Return not-ready with the supplied executable in the unavailable diagnostic | REQ-FUNC-7081a87e | Fake version exit 127; python3/python diagnostics; no status command | Pending design |
+| STATED: unsupported version still reported as before | Return not-ready with the existing bounded version diagnostic | REQ-FUNC-fe08018c | Fake older/wrong-major versions under python3; preserved detail/no status; stderr/empty boundaries | Pending design |
+| STATED: malformed status JSON still reported as before | Return not-ready with the existing bounded status diagnostic | REQ-FUNC-d04bc2e0 | Fake supported version then malformed JSON at exit zero; stderr/stdout/empty diagnostic boundaries and existing nonzero regression | Pending design |
+| STATED: caller uses effective workflow configuration, default python | Pass workflow.aegis_python into detect_aegis from init | REQ-FUNC-c9e616d4 | Offline run_wizard with scripted answers/fake runner; effective python3 propagation and omitted-value python default | Pending design |
+| STATED: readiness remains informational | Report CHECK/detail/guidance and still create an otherwise valid confirmed profile | REQ-FUNC-9b2bb293 | Offline wizard missing payload and version exit 127; inspect output and validate saved profile | Pending design |
+| STATED: existing readiness rules unchanged | Accept only a supported AEGIS version with schema-1 status | REQ-FUNC-69bfe896 (reuse unchanged) | Existing doctor happy schema-1, missing payload, blocked/unreadable status, wrong-schema/version and shared-client-gate regressions | No new version/schema policy |
+
+Specify analysis and challenge:
+- OBSERVED (`doctor.py::detect_aegis`, `tests/test_doctor.py:345-456`): version/status use hard-coded python today; exit 127 has a dedicated version-probe diagnostic. Unsupported-version and JSON decoding failures already return typed AegisStatus evidence, not exceptions. New error requirements preserve those responses; no new status-exit-127 special case is introduced.
+- OBSERVED (`.agentic/requirements/functional/REQ-FUNC-69bfe896.toml`): the existing requirement governs the overall supported-version/schema acceptance gate. Reuse it unchanged for that acceptance behavior; the narrower diagnostic-response rows above do not change its policy. Other doctor/wizard governing requirements listed by explain concern independent tooling, configuration validation or enrollment and do not match interpreter selection.
+- OBSERVED (`wizard.py:481,712-727,944-954`): the current early report has no effective loaded configuration, while candidate validation later loads the assembled document. INFERRED: interpreter provenance/plumbing belongs to design within doctor/wizard; no new prompt, answer key or configuration setting is authorized by this specification. The test seam for effective python3 must follow that design, not manufacture a new public interface.
+- STATED (ticket Decisions and Scope): default remains python; missing payload, supported version range, schema acceptance, nonzero/blocked/unreadable status handling and prepare-only no-probe behavior are unchanged. OBSERVED: existing doctor/wizard tests establish these regressions. No new input validation, shell parsing, interpreter discovery, direct workflow or stored-format behavior is specified.
+- INFERRED (the self-contained requirement sentences and existing status contract): no separate spec is needed; there is no new protocol, format, state machine or detailed error policy to define.
+- INFERRED (table audit against Frame): every accepted product behavior maps to one row; independently observable requested error responses each have their own requirement. Command-specific rows deliberately separate version and status, and wizard propagation is a distinct caller contract. There are seven new draft requirements and one unchanged active acceptance requirement; new linked_tests remain empty until build.
+- STATED (ticket and repository process): build must also update Component_Doctor.md and relevant Component_Wizard.md, component knowledge as needed, CHANGELOG Fixed, and a four-locale fixed release note; record `release-notes: added` and `help: none (no interface change)`. These are delivery obligations, not additional runtime behaviors requiring product requirements.
+- UNKNOWN: exact wizard configuration/test seam awaits design; validation dependency availability awaits build/validate. Neither changes the specified observable contract. No decision-blocking conflict with plan sections 1/4 or ticket scope was found.
+- INFERRED (bounded specify session): edits are limited to this journal and seven requirement files; no product code, tests, planning documents or installed AEGIS payload are changed; no product tests run in specify.
+
 
 ## Design
 
@@ -106,6 +128,8 @@ Path and reason:
 
 - 2026-11-10 frame: journal opened
 - 2026-11-10 frame: completed; next specify - Frame scope recorded in autopilot; full path because interpreter input/diagnostic contract lacks established requirement coverage
+- 2026-11-10 specify: Specify audit: seven draft atomic requirements plus unchanged REQ-FUNC-69bfe896 cover configured version/status argv, exit-127 interpreter diagnostic, preserved unsupported-version/malformed-JSON responses, wizard propagation/default and informational reporting. No separate spec needed. check and check --full exited 0 with errors=0, warnings=83, notes=24; no findings name this task or its new requirements. Existing unrelated warnings remain outside scope. Wizard configuration provenance/test seam remains a design concern within doctor/wizard; no product tests run.
+- 2026-11-10 specify: completed; next design
 
 ## Rulings
 
@@ -113,12 +137,12 @@ Path and reason:
 ## State
 
 status: ready
-reported: frame - completed
-next: start specify: read .agentic/steps/2_specify.md
-must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/2_specify.md
-changed: Completed Frame and criteria table; preserved autopilot/full; no product changes
-evidence: brief and components exited 0; git branch --show-current and git status --short exited 0 with matching branch and initially clean checkout; inspected doctor/wizard source, tests, requirements and plan sections 1/4; no tests run (frame only)
-issues: No blocking questions; wizard probes before assembled config loading, so specify/design must resolve effective interpreter plumbing within ticket scope
+reported: specify - completed
+next: start design: read .agentic/steps/3_design.md
+must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/3_design.md
+changed: Created seven draft functional requirements and eight coverage rows; reused readiness requirement unchanged; completed specify checklist; no product changes
+evidence: brief, explain for doctor/wizard, components, check and check --full exited 0; check reports errors=0 warnings=83 notes=24 with no task/new-requirement findings; branch matches; git status shows only journal and seven new requirement files; source/test inspection only, no product tests run
+issues: Unrelated existing advisory warnings remain; design must resolve effective wizard configuration plumbing/test seam within doctor/wizard; dependency availability not yet verified
 spec_compliance:
 implementation_quality:
 review_round:
