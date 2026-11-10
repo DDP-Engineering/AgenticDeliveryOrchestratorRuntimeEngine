@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-a012d35b - [Direct] adore init probes AEGIS with the configured Python
 
-stage: done
+stage: validate
 type: fix
 path: full
 interaction: autopilot
@@ -23,16 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [x] diff reviewed against scope, requirements, design, error paths,
+- [ ] diff reviewed against scope, requirements, design, error paths,
       portability, security and unrequested work
-- [x] knowledge pages of changed components current with the reviewed code
-- [x] project and environment context reconciled with the candidate
-- [x] requirements re-read: status, prose, verification, paths and links true
-- [x] manual or inspection verification recorded where applicable
-- [x] explicit review approved, when enabled
-- [x] final `check --strict --run` result logged truthfully after the last edit
-- [x] remaining warnings and pre-existing failures explained
-- [x] `report` appended
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -196,21 +196,23 @@ Diagrams: [diagram_TASK-a012d35b.md](diagram_TASK-a012d35b.md)
 - 2026-11-10 validate: final: UV_NO_SYNC=1 python .agentic/aegis.py check --task TASK-a012d35b --strict --run exit 1; test 5 failed, 2737 passed, 2 skipped, one Starlette deprecation warning; lint passed; frontend helper/type checks and build passed but browser server failed importing adore. Targeted reproduction isolated the five Python failures to inherited OPENAI_API_KEY overriding fake fixture credentials: all five pass with that variable removed from the test child environment. No credential values recorded in journal. Browser child executes from web/e2e and editable install is absent; provide absolute repository PYTHONPATH for candidate imports. No product edits or reduced test selection. Extend bound by one strict run with isolated credential environment and explicit candidate import path (up to 40 minutes), preserving all test/lint/frontend checks.
 - 2026-11-10 validate: final: env -u OPENAI_API_KEY UV_NO_SYNC=1 PYTHONPATH=/adore/work/04_Software python .agentic/aegis.py check --task TASK-a012d35b --strict --run exit 0; full test passed (505.4s), lint passed, full frontend validation including browser journeys passed (613.8s); errors=0 warnings=36 notes=24. No candidate edits after proof. Child-only credential removal isolates offline fixture inputs; PYTHONPATH points browser server at unchanged candidate with editable backend unavailable. Earlier Python failures are resolved by environment isolation, not product changes. Remaining advisory findings are unrelated existing stale paths/ticket references/historical journal records and release_notes.toml coverage metadata; release-note contract checker passed and data metadata adds no implementing behavior. Starlette deprecation and frontend chunk-size advisories do not affect passed contracts. Prior environment blockers and outstanding frontend/browser proof are resolved; no verification waived.
 - 2026-11-10 validate: completed; next done
+- 2026-11-10 done: Conductor recovery evidence (STATED, independent verification; not rerun in this session): strict exit 1, errors=1 warnings=36 promoted_warnings=0; test passed exit 0 (508.7s), lint passed exit 0, frontend failed exit 1 (612.2s). This later independent failure prevents relying on the earlier recorded green proof for closure. Frontend output/root cause is not supplied and remains unknown. Return to validate for bounded diagnosis and fresh strict proof; preserve candidate and append-only history. This session is limited to the backward routing, not validation or implementation.
+- 2026-11-10 done: returned to validate - Conductor independent strict verification failed frontend (exit 1); closure requires diagnosis and fresh passing strict evidence
 
 ## Rulings
 
 
 ## State
 
-status: done
-reported: validate - completed
-next: implementation guidance complete; commit, push and integration belong to the developer
-must_read: .agentic/tasks/TASK-a012d35b.md
-changed: Validation completed; product candidate unchanged; journal records corrected environment, passing strict proof and final report
-evidence: env -u OPENAI_API_KEY UV_NO_SYNC=1 PYTHONPATH=/adore/work/04_Software python .agentic/aegis.py check --task TASK-a012d35b --strict --run exit 0 (test, lint, frontend); release-note checker exit 0; diff check exit 0
-issues: No blocking issues; 36 advisory warnings and 24 notes explained in journal; prior validation environment limitations resolved
-spec_compliance: approved
-implementation_quality: approved
+status: waiting
+reported: validate - paused
+next: Diagnose independent frontend failure, reconcile review/evidence, and complete validate with a fresh strict test/lint/frontend proof
+must_read: .agentic/tasks/TASK-a012d35b.md, .agentic/steps/5_validate.md
+changed: Journal records later independent failure and reopens validation; product candidate unchanged
+evidence: Conductor-supplied strict exit 1: test exit 0 (508.7s), lint exit 0, frontend exit 1 (612.2s); no tests rerun in routing session
+issues: Independent frontend failure unresolved; root cause unknown without command output; earlier green proof does not settle later failure
+spec_compliance:
+implementation_quality:
 review_round: 1
 
 ## Delivery report (2026-11-10)
