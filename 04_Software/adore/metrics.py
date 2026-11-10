@@ -41,6 +41,7 @@ from adore.util import iso_to_datetime
 # CONSTANTS
 
 _TABLE = "run_summaries"
+VALIDATION_EVENTS = frozenset({"strict-verification", "validation-accepted"})
 
 
 class MetricsError(ValueError):
@@ -310,7 +311,7 @@ def summarize_run(store: StateStore, run_id: str,
             summary.gates_passed += 1
         elif name == "stage-failed":
             summary.gate_failures += 1
-        elif name == "strict-verification":
+        elif name in VALIDATION_EVENTS:
             passed = event.get("passed") is True
             summary.governance_outcome = "ok" if passed else "failed"
             if not passed:

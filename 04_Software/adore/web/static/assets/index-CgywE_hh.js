@@ -324,7 +324,7 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Spezifikation | Die Anforderung wird geschrieben. |
 | Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
 | Umsetzung | Zuerst kommt ein fehlschlagender Test, dann die Implementierung, bis die Tests bestehen. |
-| Validierung | Review, die vollständige Testsuite, eine strenge Prüfung und der AEGIS-Bericht; die AEGIS-Aufgabe wird abgeschlossen. ADORE wiederholt die strenge Prüfung danach selbst, bevor es um Freigabe bittet. |
+| Validierung | Review, die vollständige Testsuite, eine strenge Prüfung und der AEGIS-Bericht; die AEGIS-Aufgabe wird abgeschlossen. ADORE erfasst die abgeschlossene Validierung und bittet um die Freigabe des genauen Kandidaten. |
 
 Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
@@ -417,7 +417,7 @@ ADORE beobachtet die Projekte, die ein Administrator eingerichtet hat. Ist ein T
 
 - Es führt einen Coding-Agenten (den Executor) in einer isolierten Umgebung aus: mit eigenem Branch, eigenem Arbeitsordner und eigenem Container.
 - Der Agent folgt dem AEGIS-Workflow des Repositorys Phase für Phase: Rahmen, Spezifikation, Entwurf, Umsetzung und Validierung. Eine kleine Änderung kann einen Schnellpfad ohne Spezifikation und Entwurf nehmen.
-- ADORE prüft das Ergebnis unabhängig und bittet einen Menschen um die Freigabe.
+- Der Executor validiert das Ergebnis. ADORE bittet um die Freigabe genau dieses Kandidaten.
 - Nach der Freigabe veröffentlicht ADORE einen MR/PR-Entwurf, den Menschen prüfen. Ein Projekt kann stattdessen so eingestellt werden, dass ein fertiger MR/PR veröffentlicht wird.
 
 > ADORE führt nie einen Merge aus. Es gibt keine Merge-Operation; ob zusammengeführt wird, entscheidet ein Mensch in der Forge.
@@ -433,7 +433,7 @@ Wenn sich der Auftragsstatus eines Projekts nicht lesen lässt, nennt **Handlung
 | 1. Vorbereiten | Noch kein Auftrag | Ein Mensch | Das Ticket erhält das Bereitschaftslabel und ein Prioritätslabel, oder Sie wählen **Starten** unter Aufträge → Tickets; fehlende Labels werden nach Ihrer Bestätigung ergänzt. |
 | 2. Arbeiten | In Arbeit | ADORE und der Coding-Agent | ADORE legt den Auftrag an und der Agent arbeitet die AEGIS-Phasen ab. |
 | 3. Klären | Wartet auf Klärung | Ein Mensch | Nur wenn der Agent eine Frage hat. Antworten Sie im Repository-Ticket und setzen Sie das Antwortlabel. |
-| 4. Validieren | In Arbeit | ADORE | Strenge, unabhängige Prüfung des Ergebnisses. |
+| 4. Validieren | In Arbeit | Coding-Agent | Der Executor führt die strenge Prüfung des Projekts aus. |
 | 5. Freigeben | Wartet auf Freigabe | Ein Mensch | ADORE stellt den Kandidaten in der Forge vor. Ein Mensch setzt das Freigabelabel. Die Freigabe ist an genau diesen Kandidaten gebunden. |
 | 6. Veröffentlichen | Veröffentlichung | ADORE | ADORE überträgt den Branch und öffnet den MR/PR-Entwurf. |
 | 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitungsanfrage startet eine weitere Überarbeitungsrunde, die eine neue Freigabe braucht. |
@@ -1064,7 +1064,7 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
 | Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE then repeats the strict check itself before it asks for approval. |
+| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE records the completed validation and asks for approval of the exact candidate. |
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
@@ -1157,7 +1157,7 @@ ADORE watches the projects an administrator has enrolled. When a ticket on the f
 
 - It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.
 - The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.
-- ADORE verifies the result independently and asks a person to approve it.
+- The executor validates the result. ADORE asks a person to approve that exact candidate.
 - After approval, ADORE publishes a draft MR/PR for people to review. A project can be set to publish a ready MR/PR instead.
 
 > ADORE never merges. It has no merge operation; a person decides whether to merge on the forge.
@@ -1173,7 +1173,7 @@ If a project's job state cannot be read, **Needs attention** names that project.
 | 1. Prepare | No job yet | A person | The ticket gets the ready label and a priority label, or you press **Start** in Jobs → Tickets, which adds missing labels after you confirm. |
 | 2. Work | Working | ADORE and the coding agent | ADORE creates the job and the agent works through the AEGIS stages. |
 | 3. Clarify | Waiting for clarification | A person | Only if the agent has a question. Answer in the repository issue and add the answered label. |
-| 4. Validate | Working | ADORE | Strict independent verification of the result. |
+| 4. Validate | Working | Coding agent | The executor runs the project's strict verification. |
 | 5. Approve | Waiting for approval | A person | ADORE presents the candidate on the forge. A person adds the approval label. Approval is bound to that exact candidate. |
 | 6. Publish | Publishing | ADORE | ADORE pushes the branch and opens the draft MR/PR. |
 | 7. Review | Human review | A person | People review. Requesting a revision starts another revision round, which needs a fresh approval. |
@@ -1804,7 +1804,7 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Spécification | L’exigence est rédigée. |
 | Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
 | Développement | Un test en échec vient d’abord, puis l’implémentation, jusqu’à ce que les tests passent. |
-| Validation | Revue, suite de tests complète, contrôle strict et rapport AEGIS ; la tâche AEGIS se clôt. ADORE répète ensuite lui-même le contrôle strict avant de demander l’approbation. |
+| Validation | Revue, suite de tests complète, contrôle strict et rapport AEGIS ; la tâche AEGIS se clôt. ADORE enregistre la validation terminée et demande l’approbation du candidat précis. |
 
 Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
@@ -1897,7 +1897,7 @@ ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticke
 
 - Il exécute un agent de programmation (l’exécuteur) dans un environnement isolé : une branche dédiée, un dossier de travail et un conteneur.
 - L’agent suit le workflow AEGIS du dépôt, une étape à la fois : Cadrage, Spécification, Conception, Développement et Validation. Une petite modification peut suivre un chemin rapide sans Spécification ni Conception.
-- ADORE vérifie le résultat de façon indépendante et demande à une personne de l’approuver.
+- L’exécuteur valide le résultat. ADORE demande à une personne d’approuver ce candidat précis.
 - Après l’approbation, ADORE publie une MR/PR en brouillon que des personnes relisent. Un projet peut être configuré pour publier à la place une MR/PR prête pour la revue.
 
 > ADORE ne fusionne jamais. Il n’a aucune opération de fusion ; c’est une personne qui décide de fusionner ou non sur la forge.
@@ -1913,7 +1913,7 @@ Si l’état des tâches d’un projet est illisible, **À traiter** nomme le pr
 | 1. Préparer | Pas encore de tâche | Une personne | Le ticket reçoit l’étiquette de disponibilité et une étiquette de priorité, ou vous appuyez sur **Démarrer** dans Tâches → Tickets, ce qui ajoute les étiquettes manquantes après votre confirmation. |
 | 2. Travailler | En cours | ADORE et l’agent de programmation | ADORE crée la tâche et l’agent parcourt les étapes AEGIS. |
 | 3. Clarifier | En attente de clarification | Une personne | Seulement si l’agent a une question. Répondez dans le ticket du dépôt et ajoutez l’étiquette de réponse. |
-| 4. Valider | En cours | ADORE | Vérification indépendante stricte du résultat. |
+| 4. Valider | En cours | Agent de programmation | L’exécuteur lance la vérification stricte du projet. |
 | 5. Approuver | En attente d'approbation | Une personne | ADORE présente le candidat sur la forge. Une personne ajoute l’étiquette d’approbation. L’approbation est liée à ce candidat précis. |
 | 6. Publier | Publication | ADORE | ADORE pousse la branche et ouvre la MR/PR en brouillon. |
 | 7. Relire | Revue humaine | Une personne | Des personnes relisent. Une demande de révision lance un nouveau tour de révision, qui exige une nouvelle approbation. |
@@ -2544,7 +2544,7 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Specificare | Se scrie cerința. |
 | Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |
 | Construire | Mai întâi un test care eșuează, apoi implementarea, până când testele trec. |
-| Validare | Revizuire, suita completă de teste, o verificare strictă și raportul AEGIS; sarcina AEGIS se închide. ADORE repetă apoi singur verificarea strictă înainte să ceară aprobarea. |
+| Validare | Revizuire, suita completă de teste, o verificare strictă și raportul AEGIS; sarcina AEGIS se închide. ADORE înregistrează validarea și cere aprobarea candidatului exact. |
 
 Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
@@ -2637,7 +2637,7 @@ ADORE urmărește proiectele înrolate de un administrator. Când un tichet de p
 
 - Rulează un agent de programare (executorul) într-un mediu izolat: o ramură dedicată, un folder de lucru și un container.
 - Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire și Validare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.
-- ADORE verifică independent rezultatul și cere unei persoane să îl aprobe.
+- Executorul validează rezultatul. ADORE cere aprobarea candidatului exact.
 - După aprobare, ADORE publică un MR/PR ciornă pe care oamenii îl revizuiesc. Un proiect poate fi setat să publice în schimb un MR/PR pregătit pentru review.
 
 > ADORE nu integrează niciodată modificările. Nu are nicio operație de integrare (merge); decizia de a integra aparține unei persoane, pe forge.
@@ -2653,7 +2653,7 @@ Dacă starea lucrărilor unui proiect nu poate fi citită, secțiunea **Necesit�
 | 1. Pregătire | Încă nicio lucrare | O persoană | Tichetul primește eticheta ready și o etichetă de prioritate, sau apăsați **Pornește** în Lucrări → Tichete, ceea ce adaugă etichetele lipsă după confirmarea dumneavoastră. |
 | 2. Lucru | În lucru | ADORE și agentul de programare | ADORE creează lucrarea, iar agentul parcurge etapele AEGIS. |
 | 3. Clarificare | Așteaptă clarificări | O persoană | Doar dacă agentul are o întrebare. Răspundeți în tichetul din repository și adăugați eticheta de răspuns. |
-| 4. Validare | În lucru | ADORE | Verificare independentă strictă a rezultatului. |
+| 4. Validare | În lucru | Agent de programare | Executorul rulează verificarea strictă a proiectului. |
 | 5. Aprobare | Așteaptă aprobarea | O persoană | ADORE prezintă candidatul pe forge. O persoană adaugă eticheta de aprobare. Aprobarea este legată de exact acel candidat. |
 | 6. Publicare | Publicare | ADORE | ADORE trimite ramura (push) și deschide MR/PR-ul ciornă. |
 | 7. Revizuire | Revizie umană | O persoană | Oamenii revizuiesc. Cererea unei modificări pornește o nouă rundă de revizie, care necesită o aprobare nouă. |

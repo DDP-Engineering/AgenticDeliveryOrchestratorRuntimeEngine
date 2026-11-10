@@ -996,7 +996,7 @@ immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
 
 Review cohorts use first MR opening/adoption in scope; validation cohorts use
-first strict verdict in scope. Human merge uses reviewed jobs with actual done
+first recorded validation verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
 null. Review still open counts reviews open now, independent of the period. Monetary efficiency uses only

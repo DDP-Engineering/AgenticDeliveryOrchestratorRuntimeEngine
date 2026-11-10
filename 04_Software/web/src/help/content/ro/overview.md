@@ -8,7 +8,7 @@ ADORE urmărește proiectele înrolate de un administrator. Când un tichet de p
 
 - Rulează un agent de programare (executorul) într-un mediu izolat: o ramură dedicată, un folder de lucru și un container.
 - Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire și Validare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.
-- ADORE verifică independent rezultatul și cere unei persoane să îl aprobe.
+- Executorul validează rezultatul. ADORE cere aprobarea candidatului exact.
 - După aprobare, ADORE publică un MR/PR ciornă pe care oamenii îl revizuiesc. Un proiect poate fi setat să publice în schimb un MR/PR pregătit pentru review.
 
 > ADORE nu integrează niciodată modificările. Nu are nicio operație de integrare (merge); decizia de a integra aparține unei persoane, pe forge.
@@ -24,7 +24,7 @@ Dacă starea lucrărilor unui proiect nu poate fi citită, secțiunea **Necesit�
 | 1. Pregătire | Încă nicio lucrare | O persoană | Tichetul primește eticheta ready și o etichetă de prioritate, sau apăsați **Pornește** în Lucrări → Tichete, ceea ce adaugă etichetele lipsă după confirmarea dumneavoastră. |
 | 2. Lucru | În lucru | ADORE și agentul de programare | ADORE creează lucrarea, iar agentul parcurge etapele AEGIS. |
 | 3. Clarificare | Așteaptă clarificări | O persoană | Doar dacă agentul are o întrebare. Răspundeți în tichetul din repository și adăugați eticheta de răspuns. |
-| 4. Validare | În lucru | ADORE | Verificare independentă strictă a rezultatului. |
+| 4. Validare | În lucru | Agent de programare | Executorul rulează verificarea strictă a proiectului. |
 | 5. Aprobare | Așteaptă aprobarea | O persoană | ADORE prezintă candidatul pe forge. O persoană adaugă eticheta de aprobare. Aprobarea este legată de exact acel candidat. |
 | 6. Publicare | Publicare | ADORE | ADORE trimite ramura (push) și deschide MR/PR-ul ciornă. |
 | 7. Revizuire | Revizie umană | O persoană | Oamenii revizuiesc. Cererea unei modificări pornește o nouă rundă de revizie, care necesită o aprobare nouă. |

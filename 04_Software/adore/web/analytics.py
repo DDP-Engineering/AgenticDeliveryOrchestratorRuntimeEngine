@@ -200,7 +200,7 @@ def _validate_event(event: dict) -> None:
         raise AnalyticsError("metrics_corrupt")
     if instant(event.get("ts")) is None:  # The journal stamps every event.
         raise AnalyticsError("usage_corrupt" if event["event"] == "usage" else "metrics_corrupt")
-    if event["event"] == "strict-verification" and type(event.get("passed")) is not bool:
+    if event["event"] in metrics.VALIDATION_EVENTS and type(event.get("passed")) is not bool:
         raise AnalyticsError("metrics_corrupt")
     if event["event"] != "usage":
         return
@@ -750,7 +750,7 @@ def metric_report(
             bucket(end)["merged"] += 1
             counters["merged"] += 1
         first_review = next((e for e in events if e["event"] in ("mr-opened", "mr-adopted")), None)
-        first_check = next((e for e in events if e["event"] == "strict-verification"), None)
+        first_check = next((e for e in events if e["event"] in metrics.VALIDATION_EVENTS), None)
         reworked = any(
             e["event"] == "revision-started" and e.get("trigger") == "revise-label" for e in events
         )
@@ -776,8 +776,9 @@ def metric_report(
             stamp = instant(event.get("ts"))
             selected = scope.includes(stamp)
             name = event["event"]
-            if selected and name in ("mr-opened", "mr-adopted", "strict-verification",
-                                      "revision-started", "stage-failed", "operator-retry"):
+            if selected and (name in metrics.VALIDATION_EVENTS or name in (
+                "mr-opened", "mr-adopted", "revision-started", "stage-failed", "operator-retry",
+            )):
                 selected_ids.add(run.run_id)
             if name == "usage-observation" and event["event_id"] not in observations:
                 observations.add(event["event_id"])

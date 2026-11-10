@@ -38,7 +38,6 @@ from uuid import uuid4
 from adore import chatgpt, metrics
 from adore.aegis import (
     FULL_STAGES,
-    AegisCheck,
     AegisClient,
     AegisError,
     AegisProtocolError,
@@ -1148,12 +1147,9 @@ class Orchestrator:
     ) -> None:
         """
         @brief      Run fresh, journal-authoritative stage attempts until approval.
-        @details    Validate closes the AEGIS task by advancing to done. ADORE
-                    verifies that advance itself and presents the candidate. A
-                    step that finds the task at done without verification
-                    evidence sends it back to validate through one fresh session
-                    first; evidence that no longer matches the candidate is
-                    checked again with the strict check at done.
+        @details    The executor validates and closes the AEGIS task. ADORE binds
+                    that transition to the checkpoint it presents for approval.
+                    A done task without matching evidence returns to validate.
         """
         failure_context = ""
         while run.lifecycle == "working":
@@ -1185,7 +1181,11 @@ class Orchestrator:
             if run.lifecycle != "working":
                 return
             if task.done:
-                if not run.validation_evidence:
+                if not self._already_verified(run):
+                    run.validation_evidence = {}
+                    run.candidate_fingerprint = ""
+                    run.candidate_base_ref = ""
+                    self.store.save(run)
                     result = self._launch_stage(
                         run,
                         ticket,
@@ -1229,10 +1229,7 @@ class Orchestrator:
                     )
                     self._successful_transition(run, "done", "validate")
                     continue
-                if self._already_verified(run):
-                    self._refresh_deviations(run, task)
-                elif not self._strict_verification(run, client):
-                    return
+                self._refresh_deviations(run, task)
                 if self._cancel_if_requested(run):
                     return
                 self._present_for_approval(run, ticket)
@@ -1328,7 +1325,7 @@ class Orchestrator:
             if (
                 task.stage == "validate"
                 and updated.done
-                and not self._strict_verification(run, client)
+                and not self._record_executor_validation(run, updated)
             ):
                 return
 
@@ -1715,63 +1712,34 @@ class Orchestrator:
             return False
         return False
 
-    def _strict_verification(self, run: RunState, client: AegisClient) -> bool:
-        """@brief Independently execute and interpret the strict AEGIS verification."""
-        try:
-            check = client.check(
-                run.active_task_id,
-                strict=True,
-                run=True,
-                timeout=self.config.budgets.per_gate_timeout_seconds,
-            )
-        except AegisProtocolError:
-            raise
-        except AegisError as exc:
-            return self._validation_failure(run, "STRICT_CHECK_INVOCATION", exc)
-        executed = check.executed_runs
-        valid = (
-            check.exit_code == 0
-            and check.passed
-            and check.errors == 0
-            and check.promoted_warnings == 0
-            and bool(executed)
-            and all(item.status == "ok" and item.exit_code == 0 for item in executed)
-        )
-        evidence = self._validation_payload(check)
-        self.store.journal(run.run_id, "strict-verification", **evidence)
-        if not valid:
-            return self._validation_failure(run, "STRICT_VERIFICATION_FAILED", evidence)
-        try:
-            task = self._task(client, run)
-        except AegisTaskError as exc:
-            return self._validation_failure(run, "JOURNAL_INVALID", exc)
-        if not task.done:
-            return self._validation_failure(
-                run, "STRICT_STAGE_MISMATCH", f"strict pass left task at {task.stage}"
-            )
-        evidence["deviations"] = list(task.deviations)
-        self._checkpoint(run, f"ADORE verified {run.active_task_id}")
+    def _record_executor_validation(self, run: RunState, task: AegisTask) -> bool:
+        """@brief Bind the executor's completed Validate stage to its checkpoint.
+        @param[in,out] run The working run with the completed stage checkpoint.
+        @param[in] task Validated AEGIS task observed advancing from Validate to Done.
+        @return Whether the exact candidate could be recorded for approval.
+        """
         try:
             fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
             target = self.worktrees.ref_head(run.base_ref)
         except IsolationError as exc:
             self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
             return False
-        run.validation_evidence = evidence
+        run.validation_evidence = {
+            "source": "executor",
+            "task_id": task.task_id,
+            "deviations": list(task.deviations),
+        }
         run.candidate_fingerprint = fingerprint
         run.candidate_base_ref = target
-        run.stage = "done"
         self.store.save(run)
+        self.store.journal(run.run_id, "validation-accepted", passed=True, task_id=task.task_id)
         return True
 
     def _refresh_deviations(self, run: RunState, task: AegisTask) -> None:
         """
         @brief      Re-harvest recorded deviations into the stored evidence.
-        @details    The conduct loop reads the task again before it presents the
-                    candidate, so the approval presentation shows what the
-                    journal records at that moment rather than what it recorded
-                    when the strict check ran. It costs nothing: the task is
-                    already read.
+        @details    The conduct loop reads the task again before presenting it, so
+                    approval shows the deviations recorded at presentation time.
         @param[in]  run The run about to be presented for approval.
         @param[in]  task The task document the conduct loop just read.
         """
@@ -1781,117 +1749,22 @@ class Orchestrator:
     def _already_verified(self, run: RunState) -> bool:
         """
         @brief      Whether the exact candidate on disk was already verified.
-        @details    The validate -> done transition verifies, and the next pass
-                    of the conduct loop reads the task back at done and would
-                    verify again. That ran the whole strict catalogue AND every
-                    configured command a SECOND time on every successful run -
-                    six seconds on a toy repository, a doubled test suite on a
-                    real one (live finding 2026-09-18).
-
-                    Re-verification is skipped only when the candidate hashes
-                    identically to the one the stored evidence describes, so a
-                    tree that moved for any reason is verified again. A
-                    fingerprint failure, including a dirty worktree, answers
-                    "not verified" and the full check runs.
+        @details    The fingerprint includes the clean checkpoint and target.
+                    A mismatch or unreadable candidate requires revalidation.
         @param[in]  run The run sitting at the done stage.
         @return     True when the stored evidence still describes this exact
                     candidate.
         """
         if not run.validation_evidence or not run.candidate_fingerprint:
             return False
+        if (run.validation_evidence.get("source") == "executor"
+                and run.validation_evidence.get("task_id") != run.active_task_id):
+            return False
         try:
             current = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
         except IsolationError:
             return False
         return current == run.candidate_fingerprint
-
-    @staticmethod
-    def _validation_payload(check: AegisCheck) -> dict[str, Any]:
-        """@brief Persist bounded objective evidence without raw unbounded output."""
-        return {
-            "exit_code": check.exit_code,
-            "passed": check.passed,
-            "errors": check.errors,
-            "warnings": check.warnings,
-            "promoted_warnings": check.promoted_warnings,
-            "commands": [
-                {
-                    "name": item.name,
-                    "status": item.status,
-                    "exit_code": item.exit_code,
-                    "seconds": item.seconds,
-                }
-                for item in check.runs
-            ],
-            "findings": [
-                {
-                    "level": item.level,
-                    "check": item.check,
-                    "path": item.path,
-                    "message": _sanitize(item.message, 1000),
-                }
-                for item in check.findings[:20]
-            ],
-        }
-
-    def _validation_failure(self, run: RunState, code: str, evidence: Any) -> bool:
-        """@brief Count one strict invocation, regardless of finding count."""
-        if not self._stage_failure(run, code, evidence, stage="validate"):
-            return False
-        run.stage = "validate"
-        run.validation_evidence = {}
-        run.candidate_fingerprint = ""
-        self.store.save(run)
-        # The journal may still say done. A fresh remediation launch must
-        # return it legally before another validation can pass.
-        ticket = self._ticket_from_snapshot(run)
-        task_id = run.active_task_id or "TASK-unknown"
-        task = AegisTask(
-            task_id=task_id,
-            title=ticket.title,
-            file=f".agentic/tasks/{run.active_task_id}.md",
-            header={
-                "stage": "done", "type": run.aegis_type, "path": run.aegis_path,
-                "requirements": "", "branch": run.branch, "base": "", "opened": "",
-            },
-            stage="done",
-            step_file=None,
-            done=True,
-            checklist=(),
-            log=(),
-        )
-        result = self._launch_stage(
-            run,
-            ticket,
-            task,
-            failure_context=(
-                "Independent strict verification failed. Return the AEGIS task from done "
-                f"with `python .agentic/aegis.py advance {task_id} --to <validate, build, "
-                "design or specify> --reason \"<why>\"` as AEGIS documents, fix the "
-                "evidence below, and stop after that return.\n" + _sanitize(evidence)
-            ),
-        )
-        if self._cancel_if_requested(run):
-            return False
-        if result.has_questions:
-            self._park(run, result.questions)
-            return False
-        if not result.ok:
-            self._stage_failure(run, "VALIDATION_REMEDIATION_EXIT", result.stderr or result.output)
-            return False
-        if run.lifecycle == "working":
-            execute = self._execute(run)
-            self._conduct_task(
-                run,
-                ticket,
-                AegisClient(
-                    execute,
-                    self.config.workflow.aegis_python,
-                    self._io_dir(run.run_id),
-                ),
-                "",
-            )
-        return False
 
     def _present_for_approval(self, run: RunState, ticket: Ticket) -> None:
         """@brief Remove stale approval, present evidence, and release execution capacity."""
@@ -1936,11 +1809,21 @@ class Orchestrator:
         marker = self.identity.make_marker(
             run.run_id, "approval", fingerprint=run.candidate_fingerprint
         )
-        commands = evidence.get("commands", [])
-        command_lines = "\n".join(
-            f"- `{item.get('name')}`: {item.get('status')} (exit {item.get('exit_code')})"
-            for item in commands
-        ) or "- No command evidence (approval is invalid)."
+        if evidence.get("source") == "executor":
+            validation = "- Validation source: executor's completed AEGIS Validate stage.\n"
+            command_section = ""
+        else:
+            warnings = int(evidence.get("warnings", 0) or 0)
+            validation = (
+                f"- Strict errors: {evidence.get('errors', '?')}\n"
+                f"- Warnings: {warnings}; promoted warnings: "
+                f"{evidence.get('promoted_warnings', '?')}\n"
+            )
+            commands = "\n".join(
+                f"- `{item.get('name')}`: {item.get('status')} (exit {item.get('exit_code')})"
+                for item in evidence.get("commands", [])
+            )
+            command_section = f"Verification commands:\n{commands}\n\n" if commands else ""
         try:
             commits = self._commit_list(run)
             diff_files = self.worktrees.changed_files(run.run_id, run.base_ref)
@@ -1948,7 +1831,6 @@ class Orchestrator:
             commits = [f"unavailable: {_sanitize(exc, 500)}"]
             diff_files = -1
         commit_lines = "\n".join(f"- `{item}`" for item in commits) or "- none"
-        warnings = int(evidence.get("warnings", 0) or 0)
         deviations = [str(item) for item in evidence.get("deviations", [])]
         deviation_lines = "\n".join(
             f"- {_sanitize(item, 1000)}" for item in deviations
@@ -1957,15 +1839,13 @@ class Orchestrator:
             f"{self.identity.tag} Candidate validated for ticket #{ticket.iid}.\n\n"
             f"- AEGIS task: `{run.active_task_id}`\n"
             f"- Path: `{run.aegis_path}`\n"
-            f"- Strict errors: {evidence.get('errors', '?')}\n"
-            f"- Warnings: {warnings}; promoted warnings: "
-            f"{evidence.get('promoted_warnings', '?')}\n"
+            f"{validation}"
             f"- Changed files: {diff_files}\n"
             f"- Deviations recorded: {len(deviations)}\n"
             f"- Candidate fingerprint: `{run.candidate_fingerprint}`\n"
             f"- Target commit: `{run.candidate_base_ref}`\n\n"
             f"Recorded deviations:\n{deviation_lines}\n\n"
-            f"Verification commands:\n{command_lines}\n\n"
+            f"{command_section}"
             f"Local commit series:\n{commit_lines}\n\n"
             "Intended outcome: push this exact candidate and open/update an MR/PR; "
             f"new reviews open as {'draft' if self.config.delivery.draft else 'ready for review'}. "

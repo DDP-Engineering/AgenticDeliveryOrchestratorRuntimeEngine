@@ -8,7 +8,7 @@ ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticke
 
 - Il exécute un agent de programmation (l’exécuteur) dans un environnement isolé : une branche dédiée, un dossier de travail et un conteneur.
 - L’agent suit le workflow AEGIS du dépôt, une étape à la fois : Cadrage, Spécification, Conception, Développement et Validation. Une petite modification peut suivre un chemin rapide sans Spécification ni Conception.
-- ADORE vérifie le résultat de façon indépendante et demande à une personne de l’approuver.
+- L’exécuteur valide le résultat. ADORE demande à une personne d’approuver ce candidat précis.
 - Après l’approbation, ADORE publie une MR/PR en brouillon que des personnes relisent. Un projet peut être configuré pour publier à la place une MR/PR prête pour la revue.
 
 > ADORE ne fusionne jamais. Il n’a aucune opération de fusion ; c’est une personne qui décide de fusionner ou non sur la forge.
@@ -24,7 +24,7 @@ Si l’état des tâches d’un projet est illisible, **À traiter** nomme le pr
 | 1. Préparer | Pas encore de tâche | Une personne | Le ticket reçoit l’étiquette de disponibilité et une étiquette de priorité, ou vous appuyez sur **Démarrer** dans Tâches → Tickets, ce qui ajoute les étiquettes manquantes après votre confirmation. |
 | 2. Travailler | En cours | ADORE et l’agent de programmation | ADORE crée la tâche et l’agent parcourt les étapes AEGIS. |
 | 3. Clarifier | En attente de clarification | Une personne | Seulement si l’agent a une question. Répondez dans le ticket du dépôt et ajoutez l’étiquette de réponse. |
-| 4. Valider | En cours | ADORE | Vérification indépendante stricte du résultat. |
+| 4. Valider | En cours | Agent de programmation | L’exécuteur lance la vérification stricte du projet. |
 | 5. Approuver | En attente d'approbation | Une personne | ADORE présente le candidat sur la forge. Une personne ajoute l’étiquette d’approbation. L’approbation est liée à ce candidat précis. |
 | 6. Publier | Publication | ADORE | ADORE pousse la branche et ouvre la MR/PR en brouillon. |
 | 7. Relire | Revue humaine | Une personne | Des personnes relisent. Une demande de révision lance un nouveau tour de révision, qui exige une nouvelle approbation. |

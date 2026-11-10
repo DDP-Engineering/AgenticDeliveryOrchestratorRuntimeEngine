@@ -487,13 +487,13 @@ def test_checkpoint_handoff_delivery_still_requires_fresh_approval(tmp_path, mon
     import adore.orchestrator as conductor
     from adore.util import utc_now_iso
 
-    from .test_orchestrator import passing_check
+    from .test_orchestrator import executor_validation_evidence
 
     engine, run, forge, worktrees, _, executor = setup_run(tmp_path)
     engine.config.delivery.publish_checkpoints = True
     run.stage = "done"
     run.lifecycle = "awaiting-approval"
-    run.validation_evidence = engine._validation_payload(passing_check())
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     run.approval_label_removed = True

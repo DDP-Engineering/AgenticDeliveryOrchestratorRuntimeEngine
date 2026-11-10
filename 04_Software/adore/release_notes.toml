@@ -144,7 +144,7 @@ text = { en = "About shows the DDP Engineering logo and the version, with licens
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Jobs on projects with AEGIS 0.15.0, now the minimum, reach approval and publish again.", fr = "Les tâches sous AEGIS 0.15.0, désormais le minimum, peuvent à nouveau être approuvées et publiées.", de = "Aufträge mit AEGIS 0.15.0, jetzt Mindestversion, erreichen wieder Freigabe und Veröffentlichung.", ro = "Lucrările cu AEGIS 0.15.0, acum versiunea minimă, ajung din nou la aprobare și publicare." }
+text = { en = "Jobs with supported AEGIS validate once before approval. The minimum version is 0.15.0.", fr = "Les tâches sont validées une fois avant approbation. Version minimale d’AEGIS : 0.15.0.", de = "Aufträge werden vor der Freigabe einmal validiert. AEGIS-Mindestversion ist 0.15.0.", ro = "Lucrările trec o singură dată prin validare înainte de aprobare. AEGIS minim 0.15.0." }
 
 [[release.entry]]
 category = "fixed"

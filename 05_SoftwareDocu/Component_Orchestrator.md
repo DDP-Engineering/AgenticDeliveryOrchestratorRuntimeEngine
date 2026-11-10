@@ -57,7 +57,7 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
   characters), and a terminal failure's `run.outcome` keeps the evidence's first
   line when it bounds long evidence (`_head_and_tail` on the unbounded redacted
   evidence, so the 6000-character evidence cut cannot drop it);
-- integrate the target, run independent strict verification and fingerprint the
+- integrate the target, record executor validation and fingerprint the
   candidate/target/commit series;
 - require a fresh approval-label transition after presentation;
 - push the approved candidate once and open or update the configured draft or
@@ -162,18 +162,14 @@ included in a later integration checkpoint.
 
 The conductor integrates `origin/<target>` and runs the validation executor,
 whose session closes the AEGIS task with its own final strict check, `report`
-and `advance` to done. On that validate -> done advance the conductor calls
-`check --task <id> --strict --run --json` itself. It requires at least one
-executed successful verification command and a task at done. The deviations
-that journal recorded are copied into the validation evidence and lead the
-approval presentation; they inform the approver and never block. Approval is
-bound to the candidate fingerprint and target commit. Any candidate or target
-drift invalidates approval. A done task the conductor holds no verification
-evidence for (an invalidated approval, a run-ahead session) gets one fresh
-session that returns it with `advance --to validate`; a failed independent
-check counts one validate failure and a remediation session returns the task
-from done to validate, build, design or specify. The run keeps the stage done
-while it awaits approval, publishes and is in review.
+and `advance` to done. The conductor accepts the transition after the executor
+exits successfully, checkpoints the result and records `validation-accepted`.
+The approval presentation names the executor as the validation source and
+includes the journal's deviations. Approval is bound to the candidate
+fingerprint and target commit. A changed candidate or target invalidates that
+binding. A done task without matching evidence gets a fresh session that
+returns it to Validate before presentation. The run keeps the stage done while
+it awaits approval, publishes and is in review.
 On clarification resume and approval observation, title/body drift refreshes
 the persisted ticket snapshot and content hash and records `ticket content
 changed since pickup`; the observation alone does not invalidate the candidate.

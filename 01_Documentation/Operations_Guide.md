@@ -74,8 +74,8 @@ best-effort telemetry.
 ## Approval Operations
 
 The approval presentation leads with the deviations the AEGIS journal
-recorded, as a count and in full, then lists strict evidence, warnings,
-commands, diff size, exact commits, candidate fingerprint and target commit.
+recorded, as a count and in full, and identifies the validation source, diff
+size, exact commits, candidate fingerprint and target commit.
 Deviations inform the approver; they never block. Do not pre-apply
 `agent-approved`; ADORE removes and verifies it absent before presentation.
 
@@ -143,8 +143,8 @@ A pipeline that is unreadable, or a `gh` too old to report check status, reads
 as `unknown` and is silent. It never blocks the poll and never triggers a
 repair.
 
-ADORE also verifies `check --strict --run` inside the container, which covers
-only the commands the target repository configures for AEGIS. Keep those aligned
+The executor runs `check --strict --run` during Validate, covering the
+commands the target repository configures for AEGIS. Keep those aligned
 with the pipeline if you want local validation to predict the pipeline result
 and avoid spending repair rounds on failures the container could have caught.
 

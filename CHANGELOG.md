@@ -58,6 +58,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Use the executor's completed AEGIS validation for candidate approval, eliminating the duplicate strict run by ADORE.
+
 - Offer detected Docker and Podman commands in project Settings, including Windows WSL, with manual entry and WSL image suggestions.
 
 - Open raw TOML import in a Projects dialog with automatic file validation. Remove the browser project configuration clone workflow.

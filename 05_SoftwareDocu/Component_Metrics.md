@@ -101,7 +101,7 @@ immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
 
 Review cohorts use first MR opening/adoption in scope; validation cohorts use
-first strict verdict in scope. Human merge uses reviewed jobs with actual done
+first recorded validation verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
 null. Open reviews are labeled current state. Monetary efficiency uses only
@@ -147,8 +147,8 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 - `_connect` never alters the table: a `run_summaries` table whose columns
   differ from the current `RunSummary` is refused with `metrics database <path>
   was written by another ADORE build; delete it to start fresh`. The
-  `governance_outcome` value comes only from schema-1 `strict-verification`
-  journal events and is `ok` or `failed`.
+  `governance_outcome` value comes from `validation-accepted` and recorded
+  `strict-verification` journal events and is `ok` or `failed`.
 - Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
   attempt, context: <gate|phase>, executor, model, review_round, tokens_in,
   tokens_out, cost_usd, cost_reported}`. Every usage event carries the
@@ -181,7 +181,7 @@ invented day.
 ## 9. Validation And Tests
 
 - `tests/test_metrics.py`: full catalog computation from a schema-1 journal,
-  including failed and successful strict checks; duplicate-free SQLite
+  including accepted executor validation and recorded strict checks; duplicate-free SQLite
   round-trip + mirror; refusal of a metrics database of another build
   (`test_metrics_database_of_another_build_is_refused_untouched`); since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs

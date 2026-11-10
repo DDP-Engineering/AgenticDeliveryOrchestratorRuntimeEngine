@@ -11,8 +11,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 ADORE turns an opt-in forge ticket into a governed, isolated, human-approved
 draft merge request. It selects a ticket from GitHub, GitLab or Gitea, runs the Pi
 coding agent through the repository's installed AEGIS workflow one stage at
-a time inside a dedicated branch, worktree and container, verifies the result
-independently, and publishes a draft or ready MR/PR according to `delivery.draft` after a fresh human approval.
+a time inside a dedicated branch, worktree and container, and publishes a draft
+or ready MR/PR according to `delivery.draft` after fresh human approval of the
+candidate validated by the executor.
 It never merges.
 
 Current release: **ADORE 0.13.0**.
@@ -26,7 +27,7 @@ eligible ticket
   -> AEGIS task journal
   -> one fresh executor session per stage; validate closes the AEGIS task
   -> local checkpoint after each successful transition
-  -> target integration + strict independent verification
+  -> target integration + executor validation
   -> candidate fingerprint + fresh human approval label
   -> push + draft MR/PR
   -> human review and merge
@@ -42,7 +43,7 @@ label is only a hint.
 - **Bounded, loud failure.** A stage gets a configurable number of attempts,
   three by default; the last one stops with durable JSONL evidence and a
   visible incident comment. Questions park the run without consuming attempts.
-- **A real approval gate.** After strict verification ADORE presents the
+- **A real approval gate.** After the executor completes validation ADORE presents the
   candidate and waits for a fresh `agent-approved` label bound to the exact
   candidate fingerprint and target commit. Drift or mutation invalidates it.
 - **The executor stays off the remote.** Pi runs in a container with no forge

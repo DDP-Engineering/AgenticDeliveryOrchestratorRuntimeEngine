@@ -24,8 +24,8 @@ The target clone must provide:
 
 ### Commands run in the container, not on your machine
 
-ADORE executes `[commands]` from `.agentic/aegis.toml` inside the Linux
-executor container during its own strict verification. A command written for the
+The executor runs `[commands]` from `.agentic/aegis.toml` inside the Linux
+container during Validate. A command written for the
 workstation that authored it fails there, whatever it does locally. A Windows
 entry such as:
 
@@ -39,9 +39,8 @@ must be expressed for the container instead:
 test = "python3 -m unittest discover -s tests -q"
 ```
 
-Every stage passes and the run then dies at validation, because the commands
-ADORE runs to verify the candidate independently are the repository's own. Check
-them by hand before the first run:
+Check the repository's configured commands in the intended executor image
+before the first run:
 
 ```bash
 docker run --rm -v "$PWD:/w" -w /w <your-executor-image> sh -lc "<your test command>"
@@ -164,20 +163,10 @@ recovery a clean tree, and are not remotely visible before approval.
 
 Before final validation ADORE fetches and integrates the current target. It
 then launches validation, whose session ends with AEGIS's own final strict
-check, `report` and `advance` to done. On that validate -> done advance ADORE
-independently runs:
-
-```text
-python .agentic/aegis.py check --task TASK-<id> --strict --run --json
-```
-
-Success requires schema 1, exit zero, `strict.passed == true`, no errors or
-promoted warnings, at least one executed verification command, successful
-completion of every executed command, and a valid task journal at `done`. A
-done task ADORE holds no verification evidence for gets one fresh session that
-returns it with `advance --to validate`; a failed check counts one validate
-failure, and a remediation session returns the task from done to validate,
-build, design or specify.
+check, `report` and `advance` to done. ADORE accepts the observed Validate to
+Done transition from the successful executor session and records it against the
+checkpoint. A done task without matching evidence returns to Validate in a
+fresh executor session.
 
 ADORE fingerprints the target commit, candidate tree and exact local commit
 series. It removes `agent-approved`, verifies absence, posts the evidence together

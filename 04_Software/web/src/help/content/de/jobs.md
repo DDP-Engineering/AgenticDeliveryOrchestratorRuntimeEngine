@@ -15,7 +15,7 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Spezifikation | Die Anforderung wird geschrieben. |
 | Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
 | Umsetzung | Zuerst kommt ein fehlschlagender Test, dann die Implementierung, bis die Tests bestehen. |
-| Validierung | Review, die vollständige Testsuite, eine strenge Prüfung und der AEGIS-Bericht; die AEGIS-Aufgabe wird abgeschlossen. ADORE wiederholt die strenge Prüfung danach selbst, bevor es um Freigabe bittet. |
+| Validierung | Review, die vollständige Testsuite, eine strenge Prüfung und der AEGIS-Bericht; die AEGIS-Aufgabe wird abgeschlossen. ADORE erfasst die abgeschlossene Validierung und bittet um die Freigabe des genauen Kandidaten. |
 
 Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 

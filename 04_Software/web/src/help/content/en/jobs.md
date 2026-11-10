@@ -15,7 +15,7 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
 | Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE then repeats the strict check itself before it asks for approval. |
+| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE records the completed validation and asks for approval of the exact candidate. |
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
