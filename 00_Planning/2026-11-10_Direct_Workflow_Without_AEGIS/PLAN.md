@@ -177,14 +177,15 @@ approval, publication, the review loop, and Pi as the only coding agent.
 
 | ID | Ticket | Depends on | Priority | Labels |
 |---|---|---|---|---|
-| EPIC | Run tickets in repositories without AEGIS | DW-01 to DW-07 | P1 | `P1`, `no-agent` |
+| EPIC | Run tickets in repositories without AEGIS | DW-00 to DW-07 | P1 | `P1`, `no-agent` |
 | DW-01 | `adore init` probes AEGIS with the configured Python (smoke ticket) | - | P1 | `P1`, `fix` |
-| DW-02 | Direct workflow in the orchestrator, unverified candidates | DW-01 | P1 | `P1` |
+| DW-00 | Read the agent prompts from files shipped with ADORE | DW-01 | P1 | `P1`, `change` |
+| DW-02 | Direct workflow in the orchestrator, unverified candidates | DW-00 | P1 | `P1` |
 | DW-03 | Verification command and bounded fix attempts | DW-02 | P1 | `P1` |
 | DW-04 | Enroll repositories without AEGIS in the web interface | DW-03 | P1 | `P1` |
 | DW-05 | Suggest the verification command from repository files | DW-04 | P2 | `P2` |
 | DW-06 | Show direct jobs clearly in Jobs | DW-04 | P2 | `P2` |
-| DW-07 | Live acceptance and documentation audit (owner) | DW-01 to DW-06 | P1 | `P1`, `no-agent` |
+| DW-07 | Live acceptance and documentation audit (owner) | DW-00 to DW-06 | P1 | `P1`, `no-agent` |
 
 Tickets without a type label run as features (`[workflow] default_kind`). DW-05
 and DW-06 may run in either order; everything else is sequential, one ticket at a

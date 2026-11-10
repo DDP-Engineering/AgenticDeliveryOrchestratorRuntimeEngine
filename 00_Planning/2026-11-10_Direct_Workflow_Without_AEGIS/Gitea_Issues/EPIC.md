@@ -58,12 +58,13 @@ Plan with evidence, target design and decisions:
 | ID | Ticket | Depends on | Priority |
 |---|---|---|---|
 | DW-01 | [DW-01 #61](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/61) `adore init` probes AEGIS with the configured Python (smoke ticket) | - | P1 |
-| DW-02 | [DW-02 #62](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/62) Direct workflow in the orchestrator, unverified candidates | DW-01 | P1 |
+| DW-00 | [DW-00 #68](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/68) Read the agent prompts from files shipped with ADORE | DW-01 | P1 |
+| DW-02 | [DW-02 #62](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/62) Direct workflow in the orchestrator, unverified candidates | DW-00 | P1 |
 | DW-03 | [DW-03 #63](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/63) Verification command and bounded fix attempts | DW-02 | P1 |
 | DW-04 | [DW-04 #64](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/64) Enroll repositories without AEGIS in the web interface | DW-03 | P1 |
 | DW-05 | [DW-05 #65](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/65) Suggest the verification command from repository files | DW-04 | P2 |
 | DW-06 | [DW-06 #66](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/66) Show direct jobs clearly in Jobs | DW-04 | P2 |
-| DW-07 | [DW-07 #67](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/67) Live acceptance and documentation audit (owner) | DW-01 to DW-06 | P1 |
+| DW-07 | [DW-07 #67](http://192.168.1.15:3001/dpasare/AgenticDeliveryOrchestratorRuntimeEngine/issues/67) Live acceptance and documentation audit (owner) | DW-00 to DW-06 | P1 |
 
 Native Gitea dependencies mirror this table. ADORE does not read them: add
 `agent-ready` to one ticket at a time, after the previous PR is merged.
@@ -82,6 +83,7 @@ These steps are in plan section 6:
 ## Progress
 
 - [ ] DW-01
+- [ ] DW-00
 - [ ] DW-02
 - [ ] DW-03
 - [ ] DW-04
