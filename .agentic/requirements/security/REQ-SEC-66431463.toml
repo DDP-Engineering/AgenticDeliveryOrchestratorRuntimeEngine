@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-SEC-66431463"
 title = "Insert prompt values as literal data"
-status = "draft"
+status = "active"
 requirement = "When a caller supplies ticket, evidence, human-thread or other render values, the ADORE prompt loader shall insert those values as literal data without interpreting their contents as another template."
 verification = "Render through the loader and stage composition with ticket title/body, sanitized evidence and human thread containing $name, ${name}, $$, a bare dollar and {x}; assert those value bytes survive literally even when a same-named substitution value exists, alongside a plain-data happy case."
 affected_paths = ["04_Software/adore/prompts.py", "04_Software/adore/orchestrator.py", "04_Software/tests/test_prompts.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_prompts.py::test_template_semantics_and_literal_data", "04_Software/tests/test_prompts.py::test_stage_bytes", "04_Software/tests/test_prompts.py::test_recovery_callers_preserve_original_context"]
 priority = "normal"
 created = 2026-11-11
 updated = 2026-11-11

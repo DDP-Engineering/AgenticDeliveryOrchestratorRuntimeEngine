@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-ab48c99a"
 title = "Refuse invalid prompt template syntax"
-status = "draft"
+status = "active"
 requirement = "If a required prompt fragment contains invalid string.Template dollar syntax, the ADORE prompt loader shall fail closed during catalog loading with PromptError naming that file."
 verification = "Load templates with valid named placeholders and escaped dollars, then load required fragments containing a trailing dollar, $9 or an unclosed braced placeholder; assert file-named PromptError before rendering, including an otherwise unused fragment."
 affected_paths = ["04_Software/adore/prompts.py", "04_Software/tests/test_prompts.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_prompts.py::test_bad_resource_refused_eagerly", "04_Software/tests/test_prompts.py::test_template_semantics_and_literal_data"]
 priority = "normal"
 created = 2026-11-11
 updated = 2026-11-11

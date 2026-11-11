@@ -1328,7 +1328,8 @@ def test_clarification_resume_refreshes_changed_ticket_snapshot(
     ]
     assert saved.content_hash == content_hash(forge.ticket.title, forge.ticket.description)
     assert snapshot["description"] == forge.ticket.description
-    assert "ticket content changed since pickup" in threads[0]
+    assert engine.prompts.render("review/ticket-content-changed.md") in threads[0]
+    assert refresh[-1]["note"] == engine.prompts.render("review/ticket-content-changed.md")
     assert refresh[-1]["context"] == "clarification-resume"
 
 
@@ -1657,8 +1658,8 @@ def test_executor_prompt_forbids_remote_and_uses_quick_only_as_hint(tmp_path: Pa
     prompt = engine._stage_prompt(
         run, forge.ticket, task("frame", path="quick", task_type="fix"), "", ""
     )
-    assert "runs in autopilot" in prompt
-    assert "quick-path hint" in prompt
+    assert engine.prompts.render("stage/autopilot.md") in prompt
+    assert engine.prompts.render("stage/quick-label.md", quick_label="agent-quick") in prompt
     assert "Never commit, push, open or merge" in prompt
     assert "python .agentic/aegis.py" in prompt
 

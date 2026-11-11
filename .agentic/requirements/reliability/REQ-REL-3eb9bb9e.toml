@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-3eb9bb9e"
 title = "Refuse non-UTF-8 prompt files"
-status = "draft"
+status = "active"
 requirement = "If a required prompt file contains bytes that cannot be decoded as UTF-8, the ADORE prompt loader shall fail closed with PromptError naming that file."
 verification = "Load a valid non-ASCII UTF-8 fixture successfully, then replace a required fragment with invalid UTF-8 bytes; assert PromptError contains its file name and no replacement-character or alternate-encoding rendering is returned."
 affected_paths = ["04_Software/adore/prompts.py", "04_Software/tests/test_prompts.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_prompts.py::test_bad_resource_refused_eagerly", "04_Software/tests/test_prompts.py::test_header_removal_preserves_body_bytes"]
 priority = "normal"
 created = 2026-11-11
 updated = 2026-11-11

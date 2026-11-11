@@ -24,6 +24,8 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
   rules (open, ready label, no hold/exclude, no existing run, priority and
   acceptance-criteria readiness) and provision worktree/container isolation;
 - create and bind active/historical AEGIS tasks;
+- load every application-owned agent fragment eagerly through `PromptCatalog`
+  at construction; `from_config` shares that one catalog with the Pi launcher;
 - launch a fresh executor session for each stage attempt;
 - journal a versioned telemetry observation for every executor launch, including
   unavailable and administrator-disabled capture; keep the existing numeric
@@ -74,6 +76,16 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
 
 The component never edits AEGIS journals, gives forge credentials to an
 executor, or merges.
+
+Stage, recovery and review text comes from the licensed Markdown files under
+`adore/prompts/`; `_stage_prompt` and its callers still own all conditional
+selection, ordering, sanitization and joins. `description.strip()`, `_sanitize`,
+`author: body` thread rendering and existing whitespace remain unchanged.
+Construction refuses missing/unreadable or malformed resources with a file-named
+`PromptError`; missing render values also fail closed. The leading legal comment
+never reaches Pi. There is no alternate-path setting or render-time file read.
+See [Prompts](Component_Prompts.md) for the resource/template contract and the
+pre-extraction byte-oracle tests in `tests/test_prompts.py`.
 
 ## 3. State Machine
 

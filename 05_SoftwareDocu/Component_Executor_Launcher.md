@@ -53,7 +53,7 @@ executor; the launcher only composes commands and collects outcomes.
   or a cancel, termination after a grace period, failure classification and
   usage summed per turn; returns a `PiRpcResult`.
 - `build_executor(command_template, model, questions_file, *, provider,
-  models, internet, web_search)` - the config selection point; returns a
+  models, internet, web_search, thinking, prompts)` - the config selection point; returns a
   `PiExecutor`. `internet` is `[executor] internet` (default False) and
   `web_search` is `[executor.web] search` (default `exa`).
   `command_template` is the native `[executor] command` (default
@@ -63,6 +63,14 @@ executor; the launcher only composes commands and collects outcomes.
   `pi_providers.pi_provider` (`openai` for `chatgpt`, `adore-endpoint` for
   `custom`, else the id); `models` is the endpoint `models.json` document
   (`pi_providers.models_json`) for `custom`, else None.
+
+`PiExecutor` accepts a conductor-owned `PromptCatalog` through `build_executor`.
+Without injection it eagerly loads the complete catalog at construction. The
+internet-off and native-server notices live under `adore/prompts/system/`, not
+in Python literals. Bad resources fail closed with file-named `PromptError`.
+The native notice is always selected for native RPC; internet-on container RPC
+appends no notice. Selection, argv transport and notice bytes are unchanged.
+See [Prompts](Component_Prompts.md) for the fixed resource and template contract.
 
 Explicitly not owned: *which* gate to run and what to do with the outcome
 (orchestrator, design 7a), container lifecycle (isolation), posting anything
@@ -144,11 +152,11 @@ which verifies the pinned container identity, then calls
    --mode rpc --no-session --no-approve --no-skills --no-extensions
    --no-prompt-templates --no-themes --no-mcp -e /opt/adore/pi/adore-guard.ts
    [-e /opt/pi/lib/node_modules/pi-web-access]
-   [--append-system-prompt <INTERNET_OFF_NOTICE>]
+   [--append-system-prompt <offline notice>]
    --provider <pi provider> --model <model id>` (`pi_rpc_argv(model,
    provider, web=..., notice=...)`). Internet on with a search provider adds
    `-e` pi-web-access (`branding.CONTAINER_PI_WEB_ACCESS`); internet off loads
-   no web tools and appends `INTERNET_OFF_NOTICE`, which tells the agent that
+   no web tools and appends the loaded `system/internet-off.md`, which tells the agent that
    only the model provider is reachable and that web search, page reading and
    downloads (curl, npm install, pip install) are unavailable. No download tool
    is added: with internet on, downloads use bash. The command runs with `PI_CODING_AGENT_DIR=/home/adore/.adore-pi-agent`,
@@ -200,7 +208,7 @@ in depth: the boundary stays that no forge credential is in the container.
 - Internal: `adore.isolation` (mount constants; `ContainerManager.exec` is
   the usual `ExecTarget`, `ContainerManager.spawn` the Pi RPC seam),
   `adore.execution.BoundTarget`, `adore.branding` (Pi paths in the image),
-  `adore.util.CommandResult`; `[executor]` config.
+  `adore.util.CommandResult`, `adore.prompts.PromptCatalog`; `[executor]` config.
 - Executor image: Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0 under
   `/opt/pi`, the guard at `/opt/adore/pi/adore-guard.ts`, ADORE's ChatGPT
   helper at `/opt/adore/pi/adore-chatgpt.mjs` and the agent
@@ -327,7 +335,9 @@ elif run.ok:
 - Live check 2026-11-02 (image built from this Dockerfile in WSL Docker, a
   fake chat-completions endpoint in the container, no key): see the TASK-41fd0159
   journal for the recorded guard and isolation result.
-- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py tests/test_pi_rpc.py tests/test_pi_providers.py`.
+- `tests/test_prompts.py`: original notice-byte oracles through native/container
+  launch branches, complete fragment loading and shared catalog ownership.
+- Minimum validation after a change: `uv run --group dev pytest tests/test_executor.py tests/test_pi_rpc.py tests/test_pi_providers.py tests/test_prompts.py`.
 
 ## 10. Limitations And Future Work
 
