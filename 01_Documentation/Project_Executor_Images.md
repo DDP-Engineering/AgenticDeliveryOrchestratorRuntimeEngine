@@ -48,8 +48,9 @@ per-worktree recipe described in [Container preparation](Container_Preparation.m
 
 ## Retain an image definition in ADORE
 
-In **Project → Settings → Export raw configuration**, container projects select
-**Include Docker build files** by default. ADORE includes the standard executor
+Use **Project → Settings → Technical details → Image definition** to register
+sources when preparing an external executor image. Export is a separate one-click
+save of the complete configuration and image-source ZIP. ADORE includes the standard executor
 base definition automatically. For an externally prepared image, choose its
 Dockerfile or source ZIP under **Definition file**; selection validates it, and
 **Save recipe** retains the source. A Dockerfile alone is sufficient only when

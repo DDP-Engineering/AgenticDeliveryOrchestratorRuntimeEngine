@@ -1098,3 +1098,5 @@ The project lifecycle browser fixture takes one authenticated, validated project
 catalog snapshot and fulfills its local archive flag without an upstream proxy.
 This keeps polling handlers deterministic when unrouteAll removes routing; all
 CSRF, clone ownership and exact-name deletion assertions remain active.
+
+Project Settings exports directly through the optional browser destination picker or ordinary download: complete container ZIP or exact native TOML. Recipe administration is separate under closed Technical details; cancellation and scope changes invalidate pending saves, and write errors abort before commit with localized feedback.

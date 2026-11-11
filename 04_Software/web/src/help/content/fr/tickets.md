@@ -63,7 +63,7 @@ Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela cha
 
 **Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.
 
-Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.
+Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne, alignés à droite avec l’en-tête Actions. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.
 
 ## Lire descriptions et commentaires {#reading-bodies}
 

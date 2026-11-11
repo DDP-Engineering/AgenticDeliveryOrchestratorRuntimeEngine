@@ -32,8 +32,10 @@ missing local images and binding/config revisions. Admin+CSRF POST `.../preview`
 validates Dockerfile/ZIP bytes without writes; PUT retains them with config
 revision and observed binding digest. GET `config/raw?download=true&include_build=true`
 exports complete sources; standalone TOML remains available.
-The compact RawConfiguration export dialog handles automatic validation, explicit
-Save recipe, missing bases and replacement. Normal Settings hides the advanced
+RawConfiguration directly saves complete container exports or exact native TOML,
+using the optional browser destination picker or ordinary download. Recipe
+validation, Save recipe, missing bases and replacement live separately in closed
+Technical details → Image definition. Normal Settings hides the advanced
 Git build-definition field. The old image-build routes answer 404.
 Runtime/image/account choices retain reviewed configuration saves, with detected
 native/WSL runtime suggestions and manual entry.
@@ -67,7 +69,7 @@ native/WSL runtime suggestions and manual entry.
 | Shared sources/effective image/closure | executor_recipes.py | test_executor_recipes.py |
 | Authorization/CAS/config preservation | web/app.py | test_web_executor_recipes.py |
 | Existing Git source export | build_bundle.py | test_web_config_raw.py |
-| Compact export/attachment dialog | RawConfiguration.tsx | portable.spec.ts |
+| Direct export/separate attachment dialog | RawConfiguration.tsx | portable.spec.ts |
 | Runtime selection/external build ownership | app.py/ContainerRuntimePicker | test_executor_environment_choice.py/images.spec.ts |
 
 ## Key behaviors

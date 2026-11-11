@@ -1870,6 +1870,10 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
       {group.name === "executor" && <div className="executor-settings-content executor-connection-area">{executorBefore}</div>}
       {group.name === "executor" && backend === "local" && <p className="field-hint">{localCopy[locale].account}{localIdentity && <>: <strong>{localIdentity.account}</strong> · {localIdentity.machine} · {localIdentity.system}</>}. {localCopy[locale].notice}</p>}
       {group.name === "technical" && <p className="muted">{technicalSettingsHelp[locale]}</p>}
+      {group.name === "technical" && canEdit && backend === "container" && project && revision && csrf &&
+        <RawConfiguration key={`${project}:${revision}`} definitionOnly project={project} locale={locale}
+          dockerBuild image={String(settingValue(config,"container.image") ?? "")} revision={revision} csrf={csrf} />}
+
       {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
         <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
         <a className="text-button" href="#setting-delivery.target_branch" onClick={event => {

@@ -63,7 +63,7 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 
 **Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
 
-On desktop, Start or Retry, Stop and Details or Hide details stay on one row. On narrow screens, the buttons can wrap to keep them within the page.
+On desktop, Start or Retry, Stop and Details or Hide details stay on one row, aligned to the right with the Actions heading. On narrow screens, the buttons can wrap to keep them within the page.
 
 ## Reading descriptions and comments {#reading-bodies}
 

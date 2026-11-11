@@ -94,12 +94,15 @@ observed binding digest. Mutation authorization/CSRF precede source reads/writes
 The target is the selected image or a currently missing dependency of it.
 Responses expose metadata/errors, never source text or credentials.
 
-The existing export dialog loads this status, defaults container exports to
-include the complete definition and offers an explicit TOML-only choice.
-Attachment/replacement and adding a missing local base stay in this dialog;
-file selection validates automatically, Save retains the definition, and
-Export downloads. No recipe hashes, Git manifests or paths must be typed in
-the normal interface. Native projects keep standalone TOML export.
+Export raw configuration directly saves the complete source ZIP for containers
+and exact TOML for native projects. The browser destination picker is used when
+available, otherwise its ordinary download behavior applies. No application
+export wizard or include/omit choice appears. Picker cancellation has no fetch
+or file write; transport/validation/write failures open a concise error dialog.
+The existing administrator recipe dialog lives under closed Technical details,
+separate from export; file selection validates automatically and Save recipe
+retains the revision-bound definition. Missing sources still refuse export,
+never downgrade it to configuration-only or guess image definitions.
 
 ## Complete export
 

@@ -645,19 +645,20 @@ matching package alongside its backup.
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog with exact saved TOML. A standalone TOML download preserves comments, formatting and any inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview and selected attachment bytes are memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
-For container projects, **Include Docker build files** is selected by default
-inside the export dialog. The standard ADORE base is automatic; external images
-use **Definition file** to select a Dockerfile or a source ZIP, automatic file
-validation, then **Save recipe**. The same dialog accepts missing local-base
-definitions and offers **Change definition** for replacement. Definitions are
-image-shared and retained independently of config, pending settings and jobs.
-No Git reference must be typed in the normal interface. Docker, Podman and WSL
-container projects use the same definition flow; native projects export TOML.
+**Export raw configuration** opens the browser destination picker where available
+and saves directly; otherwise the browser's normal download preferences apply.
+Container projects always save the complete ZIP; native projects save exact TOML.
+No application export wizard or include/omit choices appear. Canceling the picker
+starts no request. An unavailable definition or failed save opens a concise error;
+no partial archive or automatic configuration-only fallback is downloaded.
 
-**Export** downloads a ZIP containing exact saved `config.toml`, `recipe.json`,
-Compose, build instructions and every declared local-base context. Missing local
-bases prevent a partial complete export; unchecking the option explicitly keeps
-standalone TOML available. Full build export refuses inline credentials. Extract
+Administrators prepare or replace external image sources under closed **Technical
+details → Image definition**, using the existing automatically checked Dockerfile/ZIP
+input and **Save recipe**. The standard base is included automatically. Definitions
+remain image-shared and independent of configuration, pending edits and jobs.
+
+The ZIP contains exact saved `config.toml`, `recipe.json`, Compose, build instructions
+and every declared local-base context. Full build export refuses inline credentials. Extract
 the ZIP and run `docker compose build` with Docker Engine/BuildKit and Compose
 v2.17+. Public registry/package access is a separate prerequisite. Uploading a
 recipe does not rebuild the selected image or change running jobs. Availability,
@@ -1380,5 +1381,7 @@ Readiness evidence is bound to the server machine and account. Changes to releva
 
 An external CLI sign-in cannot be continuously bound to a project identity when a keyring or helper may change it invisibly. Its successful prerequisite check remains partial; connect project repository access and recheck for a bound verification.
 
-Ticket actions stay on one row on desktop when Details changes to Hide details.
+The Actions heading and ticket buttons align to the right. Ticket actions stay
+on one row on desktop when Details changes to Hide details, with the last
+button anchored to the same right edge.
 On narrow screens they may wrap to keep the controls and description within the page.

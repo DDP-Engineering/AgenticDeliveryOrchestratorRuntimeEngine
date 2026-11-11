@@ -39,6 +39,8 @@ descriptions and comments in Rendered mode; Markdown source uses a focusable
 An empty description uses the existing localized fallback before rendering.
 Ticket actions reserve 26rem on desktop, keeping Start/Retry, Stop and
 Details/Hide details together on one line across the four interface languages.
+The Actions header and button group align to the right; the last button keeps
+the same right edge when details open or close.
 At 1100px and below, whole buttons may wrap; at 720px and below the column uses
 8rem and labels wrap at spaces. Expansion does not change desktop button-row layout.
 
@@ -584,21 +586,19 @@ create endpoints. Portable transfer has its own API contract, exercised by
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
-The Settings toolbar contains two equally sized actions. Export opens a native
-dialog with Cancel and Export. Container projects default **Include Docker build
-files** to on; clearing it explicitly downloads TOML alone. Native projects keep
-TOML export. The dialog reads scoped definition availability; missing sources
-show a Dockerfile/ZIP picker, automatic preview and **Save recipe**. The same
-dialog adds missing local bases or replaces a definition with **Change definition**.
-The legacy Git-reference row is omitted from normal Settings. Source writes use
-CSRF, current config revision and the previewed image-association digest.
+The toolbar keeps two equally sized actions. Export directly opens the optional
+browser save picker in click activation, then validates the complete container ZIP
+or native TOML before writing exact bytes. Unsupported browsers retain ordinary
+Blob downloads. Picker cancellation makes no request; errors show a closable dialog.
+Write failures abort the writable and never silently download a fallback. A ref-based
+single flight and generation guards invalidate late picker/fetch/write results on
+project/account unmount. No inline export options or source-upload wizard exists.
 
-Feedback remains in the dialog. Close/unmount aborts reads and invalidates late
-status/file-preview responses, returning focus to the trigger. A source Save
-cannot be dismissed mid-mutation. Selected sources/credentials are not cached in
-browser storage. The UI accepts only validated response metadata; complete
-export stays blocked while a source is incomplete or being edited. All controls
-and errors are localized in English, French, German and Romanian.
+A separate `RawConfiguration definitionOnly` instance is mounted inside closed
+Technical details for administrator container projects. It retains the existing
+recipe validation, explicit Save recipe, replacement, CAS and CSRF safeguards.
+Dismissal restores focus; a recipe mutation cannot be dismissed mid-save.
+Four locales cover controls, save errors and help; no bytes enter browser storage.
 
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,

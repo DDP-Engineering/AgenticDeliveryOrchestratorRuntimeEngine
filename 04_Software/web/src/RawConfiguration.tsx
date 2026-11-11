@@ -10,45 +10,41 @@ import type { Locale } from "./i18n";
 
 const labels = {
   en: { preview: "Preview raw configuration", download: "Export raw configuration", close: "Close",
-    export: "Export", cancel: "Cancel", loading: "Loading saved configuration…",
+    manage: "Image definition", exporting: "Exporting…", loading: "Loading saved configuration…",
     ready: "The image definition is ready for export.", required: "Definition required for",
     file: "Definition file", format: "Choose a Dockerfile or a ZIP containing its build files.",
     checking: "Checking definition…", save: "Save recipe", saving: "Saving recipe…", change: "Change definition",
     shared: "This definition is shared by projects using the same image. Running jobs stay unchanged.",
     recovery: "On the server, delete the named recipe data to start fresh:",
     reset: "This removes saved image definitions for all projects. Configurations, credentials and jobs stay unchanged.",
-    saved: "Download the saved project configuration.", include: "Include Docker build files",
-    unavailable: "This project's image has no linked build files. The project configuration can still be exported." },
+  },
   fr: { preview: "Voir la configuration brute", download: "Exporter la configuration brute", close: "Fermer",
-    export: "Exporter", cancel: "Annuler", loading: "Chargement de la configuration enregistrée…",
+    manage: "Définition de l’image", exporting: "Exportation…", loading: "Chargement de la configuration enregistrée…",
     ready: "La définition de l’image est prête à être exportée.", required: "Définition requise pour",
     file: "Fichier de définition", format: "Choisissez un Dockerfile ou un ZIP contenant ses fichiers de build.",
     checking: "Vérification de la définition…", save: "Enregistrer la recette", saving: "Enregistrement…", change: "Changer la définition",
     shared: "La définition est partagée par les projets utilisant cette image. Les tâches en cours restent inchangées.",
     recovery: "Sur le serveur, supprimez les données de recette indiquées pour recommencer :",
     reset: "Cela supprime les définitions d’image enregistrées pour tous les projets. Configurations, identifiants et tâches restent inchangés.",
-    saved: "Télécharger la configuration enregistrée du projet.", include: "Inclure les fichiers de build Docker",
-    unavailable: "L’image du projet n’a pas de fichiers de build associés. Sa configuration reste exportable." },
+  },
   de: { preview: "Originalkonfiguration anzeigen", download: "Originalkonfiguration exportieren", close: "Schließen",
-    export: "Exportieren", cancel: "Abbrechen", loading: "Gespeicherte Konfiguration wird geladen…",
+    manage: "Image-Definition", exporting: "Export wird gespeichert…", loading: "Gespeicherte Konfiguration wird geladen…",
     ready: "Die Image-Definition ist zum Export bereit.", required: "Definition erforderlich für",
     file: "Definitionsdatei", format: "Wählen Sie eine Dockerfile oder eine ZIP-Datei mit den Build-Dateien.",
     checking: "Definition wird geprüft…", save: "Rezept speichern", saving: "Rezept wird gespeichert…", change: "Definition ändern",
     shared: "Projekte mit diesem Image teilen die Definition. Laufende Aufträge bleiben unverändert.",
     recovery: "Löschen Sie die genannten Rezeptdaten auf dem Server für einen Neuanfang:",
     reset: "Gespeicherte Image-Definitionen aller Projekte werden entfernt. Konfigurationen, Zugangsdaten und Aufträge bleiben unverändert.",
-    saved: "Gespeicherte Projektkonfiguration herunterladen.", include: "Docker-Build-Dateien einschließen",
-    unavailable: "Dem Projekt-Image sind keine Build-Dateien zugeordnet. Die Projektkonfiguration bleibt exportierbar." },
+  },
   ro: { preview: "Previzualizare configurație originală", download: "Exportă configurația brută", close: "Închide",
-    export: "Exportă", cancel: "Anulează", loading: "Se încarcă configurația salvată…",
+    manage: "Definiția imaginii", exporting: "Se exportă…", loading: "Se încarcă configurația salvată…",
     ready: "Definiția imaginii este pregătită pentru export.", required: "Este necesară definiția pentru",
     file: "Fișier de definiție", format: "Alege un Dockerfile sau un ZIP care conține fișierele de construire.",
     checking: "Se verifică definiția…", save: "Salvează rețeta", saving: "Se salvează rețeta…", change: "Schimbă definiția",
     shared: "Definiția este comună proiectelor care folosesc aceeași imagine. Joburile în curs rămân neschimbate.",
     recovery: "Pe server, șterge datele de rețetă indicate pentru a începe din nou:",
     reset: "Se elimină definițiile de imagine salvate pentru toate proiectele. Configurațiile, autentificările și joburile rămân neschimbate.",
-    saved: "Descarcă configurația salvată a proiectului.", include: "Include fișierele de build Docker",
-    unavailable: "Imaginea proiectului nu are fișiere de build asociate. Configurația proiectului poate fi exportată." },
+  },
 };
 
 type RecipeStatus = { image: string; available: boolean; missing_images: string[];
@@ -75,17 +71,24 @@ async function encodeDefinition(file: File): Promise<string> {
   return btoa(binary);
 }
 
+interface SaveHandle {
+  createWritable(): Promise<{
+    write(data: ArrayBuffer): Promise<void>;
+    close(): Promise<void>;
+    abort(): Promise<void>;
+  }>;
+}
+
 /** Admin dialogs keep saved settings and export feedback scoped to the selected project. */
-export function RawConfiguration({ project, locale, dockerBuild, image, csrf, revision }: {
-  project: string; locale: Locale; dockerBuild?: boolean; image: string; csrf: string; revision: string;
+export function RawConfiguration({ project, locale, dockerBuild, image, csrf, revision, definitionOnly = false }: {
+  project: string; locale: Locale; dockerBuild?: boolean; image: string; csrf: string; revision: string; definitionOnly?: boolean;
 }) {
   const copy = labels[locale];
   const id = useId();
-  const [view, setView] = useState<"preview" | "export" | null>(null);
+  const [view, setView] = useState<"preview" | "definition" | "error" | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [includeBuild, setIncludeBuild] = useState(false);
   const [recipe, setRecipe] = useState<RecipeStatus | null>(null);
   const [recipeBusy, setRecipeBusy] = useState<"load" | "preview" | "save" | null>(null);
   const [editingRecipe, setEditingRecipe] = useState(false);
@@ -117,9 +120,9 @@ export function RawConfiguration({ project, locale, dockerBuild, image, csrf, re
     setRecipe(null); setAttachment(null); setRecipeBusy(null); setEditingRecipe(false);
   }
 
-  function open(next: "preview" | "export") {
+  function open(next: "preview" | "definition") {
     trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setError(null); setPreview(null); setIncludeBuild(dockerBuild === true); setView(next);
+    setError(null); setPreview(null); setView(next);
     setRecipe(null); setAttachment(null); setEditingRecipe(false);
     if (next === "preview") void read(false);
     else if (dockerBuild) void loadRecipe();
@@ -200,13 +203,24 @@ export function RawConfiguration({ project, locale, dockerBuild, image, csrf, re
   }
 
   async function read(download: boolean) {
-    if (pending.current || recipeBusy === "save" || download && includeBuild && dockerBuild && !recipe?.available) return;
+    if (pending.current || recipeBusy === "save") return;
     const current = ++generation.current;
     const isCurrent = () => active.current && current === generation.current;
     pending.current = true; setBusy(true); setError(null);
     controller.current = new AbortController();
+    let phase: "choose" | "read" | "write" = "read";
     try {
-      const bundle = download && dockerBuild === true && includeBuild;
+      const bundle = download && dockerBuild === true;
+      const filename = bundle ? "adore-docker-build.zip" : "config.toml";
+      const picker = (window as Window & {showSaveFilePicker?: (options: {suggestedName:string; types:{description:string; accept:Record<string,string[]>}[]}) => Promise<SaveHandle>}).showSaveFilePicker;
+      const usePicker = download && typeof picker === "function";
+      if (usePicker) phase = "choose";
+      const handle = usePicker ? await picker.call(window, {
+        suggestedName: filename,
+        types: [{description: bundle ? "ZIP" : "TOML", accept: bundle ? {"application/zip":[".zip"]} : {"text/plain":[".toml"]}}],
+      }) : null;
+      phase = "read";
+      if (!isCurrent()) return;
       const query = bundle ? "?download=true&include_build=true" : download ? "?download=true" : "";
       const response = await fetch(`/api/v1/projects/${encodeURIComponent(project)}/config/raw${query}`, {
         credentials: "same-origin", cache: "no-store", signal: controller.current.signal,
@@ -223,65 +237,73 @@ export function RawConfiguration({ project, locale, dockerBuild, image, csrf, re
       if (bundle && (raw.byteLength < 4 || new DataView(raw).getUint32(0) !== 0x504b0304)) throw new ApiError("unexpected_response");
       if (!isCurrent()) return;
       if (download) {
-        const url = URL.createObjectURL(new Blob([raw], { type: mediaType }));
-        const link = document.createElement("a"); link.href = url; link.download = bundle ? "adore-docker-build.zip" : "config.toml";
-        document.body.appendChild(link); link.click(); link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        if (handle) {
+          phase = "write";
+          const writable = await handle.createWritable();
+          try {
+            if (!isCurrent()) { await writable.abort(); return; }
+            await writable.write(raw);
+            if (!isCurrent()) { await writable.abort(); return; }
+            await writable.close();
+          } catch (cause) {
+            await writable.abort().catch(() => undefined);
+            throw cause;
+          }
+        } else {
+          const url = URL.createObjectURL(new Blob([raw], { type: mediaType }));
+          const link = document.createElement("a"); link.href = url; link.download = filename;
+          document.body.appendChild(link); link.click(); link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
         close();
       } else setPreview(text);
     } catch (cause) {
-      if (isCurrent()) { setPreview(null); setError(cause instanceof ApiError ? cause : new ApiError("request_failed")); }
+      if (isCurrent() && !(phase === "choose" && cause instanceof DOMException && cause.name === "AbortError")) {
+        setPreview(null); setError(cause instanceof ApiError ? cause : new ApiError(phase === "read" ? "request_failed" : "export_save_failed"));
+        if (download) setView("error");
+      }
     } finally {
       if (isCurrent()) { pending.current = false; setBusy(false); }
     }
   }
 
-  return <div className="inline-actions raw-config-actions">
-    <button type="button" className="ghost" onClick={() => open("preview")}>{copy.preview}</button>
-    <button type="button" className="ghost" onClick={() => open("export")}>{copy.download}</button>
+  return <div className={definitionOnly ? "recipe-management" : "inline-actions raw-config-actions"}>
+    {definitionOnly ? <button type="button" className="ghost" onClick={() => open("definition")}>{copy.manage}</button> : <>
+      <button type="button" className="ghost" disabled={busy} onClick={() => open("preview")}>{copy.preview}</button>
+      <button type="button" className="ghost" disabled={busy} onClick={() => {
+        trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        void read(true);
+      }}>{busy && view === null ? copy.exporting : copy.download}</button>
+    </>}
     {view !== null && <dialog ref={dialog} className="project-delete-dialog raw-config-dialog"
       aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); close(); }}>
       <div className="panel-heading">
-        <h2 id={`${id}-title`}>{view === "preview" ? copy.preview : copy.download}</h2>
-        {view === "preview" && <button type="button" data-dialog-initial autoFocus className="ghost" onClick={close}>{copy.close}</button>}
+        <h2 id={`${id}-title`}>{view === "preview" ? copy.preview : view === "definition" ? copy.manage : copy.download}</h2>
+        <button type="button" data-dialog-initial autoFocus className="ghost" disabled={recipeBusy === "save"} onClick={close}>{copy.close}</button>
       </div>
-      {view === "preview" ? <>
+      {view === "preview" && <>
         {busy && <p role="status">{copy.loading}</p>}
         {preview !== null && <pre className="config-preview">{preview}</pre>}
-      </> : <>
-        <p className="muted">{copy.saved}</p>
-        {dockerBuild !== undefined && <div className="raw-config-docker">
-          <label className="raw-config-option">
-            <input type="checkbox" checked={includeBuild} disabled={busy || recipeBusy === "save"}
-              onChange={event => setIncludeBuild(event.target.checked)} />{copy.include}
-          </label>
-          {includeBuild && <div className="raw-config-recipe">
-            {recipeBusy === "load" && <p role="status">{copy.checking}</p>}
-            {recipe && !editingRecipe && recipe.source !== "missing" && <>
-              {recipe.available && <p className="field-hint" role="status">{copy.ready}</p>}
-              <button type="button" className="text-button" disabled={busy || recipeBusy !== null}
-                onClick={() => {setEditingRecipe(true);setAttachment(null);setError(null);}}>{copy.change}</button>
-            </>}
-            {recipe && (!recipe.available || editingRecipe) && <>
-              <p>{copy.required} <code>{targetImage}</code></p>
-              <label>{copy.file}<input key={targetImage} type="file" disabled={busy || recipeBusy === "save"}
-                onChange={event => void selectDefinition(event.target.files?.[0] ?? null)} /></label>
-              <p className="field-hint">{copy.format}</p>
-              <p className="field-hint">{copy.shared}</p>
-              {recipeBusy === "preview" && <p role="status">{copy.checking}</p>}
-              <button type="button" className="ghost" disabled={busy || recipeBusy !== null || !attachment}
-                onClick={() => void saveRecipe()}>{recipeBusy === "save"?copy.saving:copy.save}</button>
-            </>}
-          </div>}
-        </div>}
       </>}
-      {error !== null && <p role="alert" className="alert">{describeError(locale, error)}</p>}
-      {view === "export" && <div className="button-row">
-        <button type="button" data-dialog-initial autoFocus className="ghost" disabled={recipeBusy === "save"} onClick={close}>{copy.cancel}</button>
-        <button type="button" className="primary" disabled={busy || recipeBusy === "save" ||
-          includeBuild && dockerBuild === true && (!recipe?.available || recipeBusy !== null || editingRecipe)}
-          onClick={() => void read(true)}>{copy.export}</button>
+      {view === "definition" && <div className="raw-config-recipe">
+        {recipeBusy === "load" && <p role="status">{copy.checking}</p>}
+        {recipe && !editingRecipe && recipe.source !== "missing" && <>
+          {recipe.available && <p className="field-hint" role="status">{copy.ready}</p>}
+          <button type="button" className="text-button" disabled={busy || recipeBusy !== null}
+            onClick={() => {setEditingRecipe(true);setAttachment(null);setError(null);}}>{copy.change}</button>
+        </>}
+        {recipe && (!recipe.available || editingRecipe) && <>
+          <p>{copy.required} <code>{targetImage}</code></p>
+          <label>{copy.file}<input key={targetImage} type="file" disabled={busy || recipeBusy === "save"}
+            onChange={event => void selectDefinition(event.target.files?.[0] ?? null)} /></label>
+          <p className="field-hint">{copy.format}</p>
+          <p className="field-hint">{copy.shared}</p>
+          {recipeBusy === "preview" && <p role="status">{copy.checking}</p>}
+          <button type="button" className="ghost" disabled={busy || recipeBusy !== null || !attachment}
+            onClick={() => void saveRecipe()}>{recipeBusy === "save"?copy.saving:copy.save}</button>
+        </>}
       </div>}
+      {error !== null && <p role="alert" className="alert">{describeError(locale, error)}</p>}
     </dialog>}
   </div>;
 }

@@ -121,6 +121,6 @@ round trips, image graphs, current schemas, explicit source precedence and
 bounded failure recovery. `test_web_executor_recipes.py` proves authorization,
 CSRF, image/config concurrency and byte-preservation of a real parked run,
 pending settings and credentials. Existing raw API tests prove exact Git bytes
-and original TOML. Browser journeys cover attachment, complete/standalone choice,
-mobile widths, focus and four locales. Product wheel assets are also inspected
+and original TOML. Browser journeys cover separate Technical details attachment, direct complete/native
+export, destination cancellation and write errors, mobile widths, focus and four locales. Product wheel assets are also inspected
 using a temporary isolated wheel build; no deployment-script tests are added.

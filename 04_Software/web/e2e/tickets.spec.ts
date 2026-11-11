@@ -57,7 +57,7 @@ test("the ticket number column leaves room for content in both scopes", async ({
 });
 
 for (const locale of ["en", "fr", "de", "ro"] as const) {
-  test(`expanded ticket actions stay on one desktop row in ${locale}`, async ({page},info) => {
+  test(`ticket actions stay right-aligned on one desktop row in ${locale}`, async ({page},info) => {
     await signIn(page);
     const me=await (await page.request.get("/api/v1/me")).json();
     const prefs={headers:{"X-CSRF-Token":me.csrf},data:{language:locale,theme:"light"}};
@@ -72,8 +72,18 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
           await page.goto(url);
           await page.getByRole("button",{name:copy.read,exact:true}).click();
           const row=page.locator(".ticket-row").first();
+          const rightEdge = async () => row.locator(".ticket-actions").evaluate(el => {
+            const last = el.lastElementChild!;
+            return { group: el.getBoundingClientRect().right, button: last.getBoundingClientRect().right };
+          });
+          const collapsed = await rightEdge();
+          expect(Math.abs(collapsed.group - collapsed.button)).toBeLessThan(1);
+          expect(await page.locator(".ticket-table > thead th").last().evaluate(el => getComputedStyle(el).textAlign)).toBe("right");
           await row.getByRole("button",{name:copy.details,exact:true}).click();
           await expect(row.getByRole("button",{name:copy.hide,exact:true})).toBeVisible();
+          const expanded = await rightEdge();
+          expect(Math.abs(expanded.group - expanded.button)).toBeLessThan(1);
+          expect(Math.abs(expanded.button - collapsed.button)).toBeLessThan(1);
           const buttons=row.locator(".ticket-actions button");
           const bounds=await buttons.evaluateAll(nodes=>nodes.map(node=>{
             const box=node.getBoundingClientRect();
@@ -85,6 +95,7 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
           expect(Math.max(...bounds.map(box=>box.right))).toBeLessThanOrEqual(width);
           if(width===1440 && url!=="/jobs") await page.screenshot({path:info.outputPath(`expanded-actions-${locale}.png`),fullPage:true});
           await row.getByRole("button",{name:copy.hide,exact:true}).click();
+          expect(Math.abs((await rightEdge()).button - collapsed.button)).toBeLessThan(1);
         }
       }
       await page.setViewportSize({width:360,height:800});

@@ -18,7 +18,7 @@ version = "Unreleased"
 [[release.entry]]
 category = "improved"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Compact model fields, one Save and a simple export dialog with Docker options.", fr = "Champs compacts, enregistrement groupé et dialogue d’export avec options Docker.", de = "Kompakte Modellfelder, gemeinsam speichern und ein Exportdialog mit Docker-Optionen.", ro = "Câmpuri compacte, salvare comună și un dialog simplu de export cu opțiuni Docker." }
+text = { en = "Compact model fields, one Save and direct complete export; image definitions in Technical details.", fr = "Champs compacts, un enregistrement, export complet direct ; définitions dans Détails techniques.", de = "Kompakte Felder, einmal speichern, direkter Gesamtexport; Definitionen unter Technische Details.", ro = "Câmpuri compacte, un Save, export complet direct; definițiile sunt în Detalii tehnice." }
 
 
 [[release.entry]]
@@ -54,7 +54,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and aligned desktop action buttons.", fr = "Numéros compacts, mode mémorisé, défilement local et actions alignées sur ordinateur.", de = "Schmale Nummern, gespeicherter Anzeigemodus, lokales Scrollen und Desktop-Aktionen in einer Zeile.", ro = "Numere compacte, mod salvat, derulare locală și butoane aliniate pe desktop." }
+text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and right-aligned actions.", fr = "Numéros compacts, mode mémorisé, défilement local et actions alignées à droite.", de = "Schmale Nummern, gespeicherter Anzeigemodus, lokales Scrollen und rechtsbündige Aktionen.", ro = "Numere compacte, mod salvat, derulare locală și butoane aliniate la dreapta." }
 
 [[release.entry]]
 category = "new"

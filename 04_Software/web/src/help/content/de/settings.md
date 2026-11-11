@@ -52,12 +52,9 @@ Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespe
 
 Neben Projekteinstellungen stehen Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren** zur Verfügung. Die Vorschau zeigt die exakt gespeicherte TOML in einem schließbaren Dialog. Ausstehende Änderungen, separate Umgebungsdateien, externe Zugangsdaten und laufende Auftragsdaten sind ausgeschlossen. Eine einzelne TOML kann Klartextwerte enthalten und muss vertraulich behandelt werden; der vollständige Build-Export verweigert eingebettete Zugangsdaten.
 
-Wählen Sie **Originalkonfiguration exportieren**, um den kompakten Dialog zu öffnen:
+Wählen Sie **Originalkonfiguration exportieren**, wählen Sie das Ziel und speichern Sie. Container-Projekte exportieren ein ZIP mit gespeicherter Konfiguration und vollständiger Image-Definition. Native Projekte speichern `config.toml`. Es gibt keinen Export-Einstellungsdialog. Ohne Zielauswahl gelten die normalen Download-Einstellungen des Browsers.
 
-1. Lassen Sie bei Container-Projekten **Docker-Build-Dateien einschließen** aktiviert, um Konfiguration und vollständige Image-Definition zu exportieren. Deaktivieren Sie es für nur `config.toml`. Native Projekte exportieren TOML.
-2. Fehlt eine Definition, wählen Sie unter **Definitionsdatei** eine Dockerfile oder ein ZIP. Eine Dockerfile allein genügt, wenn keine weiteren lokalen Dateien benötigt werden. Die Datei wird automatisch geprüft; wählen Sie **Rezept speichern**.
-3. Benötigt ein lokales Basis-Image ebenfalls eine Definition, ergänzen Sie dessen Quelle im selben Dialog. Die Standard-Executor-Basis von ADORE wird automatisch mitgeliefert.
-4. Wählen Sie **Exportieren** zum Herunterladen oder **Abbrechen** zum Schließen. **Definition ändern** ersetzt ein Rezept nach Prüfung der neuen Datei.
+Administratoren verwalten Quellen separat unter **Technische Details → Image-Definition**. Wählen Sie eine Dockerfile oder ZIP unter **Definitionsdatei**; sie wird automatisch geprüft. **Rezept speichern** speichert sie, **Definition ändern** ersetzt sie. Fehlende lokale Basisdefinitionen werden ebenfalls hier ergänzt. Die Standard-Executor-Basis von ADORE ist automatisch enthalten.
 
 Definitionen werden je Image gespeichert und von Projekten mit diesem Image geteilt. Das Speichern baut kein Image, ändert keine Einstellungen und startet keine Aufträge neu. Das ZIP enthält alle deklarierten lokalen Basisquellen und eine Compose-Datei zum Bauen auf einem anderen Server. Image-Binärdateien und später vom Agenten installierte Pakete sind ausgeschlossen. Registries und Paketquellen müssen dort erreichbar sein.
 

@@ -20,7 +20,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
-- Keep ticket action buttons on one desktop row when details are expanded.
+- Save complete project exports directly, with recipe administration kept in Technical details.
+
+- Align the ticket Actions header and buttons to the right, keeping desktop actions on one row.
 
 - Keep raw configuration export options and feedback in dialogs with symmetric Settings actions.
 

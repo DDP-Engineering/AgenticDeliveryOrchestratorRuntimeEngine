@@ -52,12 +52,9 @@ Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modific
 
 Lângă Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea arată TOML-ul salvat exact, într-un dialog care poate fi închis. Sunt excluse modificările în așteptare, fișierele de mediu separate, credențialele externe și datele joburilor în curs. Un TOML simplu poate conține valori în clar și trebuie tratat ca secret; exportul complet de construire refuză credențialele în clar.
 
-Alege **Exportă configurația brută** pentru a deschide dialogul compact:
+Apasă **Exportă configurația brută**, alege destinația și salvează. Proiectele în container exportă un ZIP cu configurația salvată și definiția completă a imaginii. Proiectele native salvează `config.toml`. Nu există un panou de configurare a exportului. Dacă browserul nu oferă alegerea destinației, se aplică preferințele sale obișnuite de descărcare.
 
-1. Pentru proiectele în container, păstrează **Include fișierele de build Docker** bifat pentru configurație și definiția completă a imaginii. Debifează pentru a descărca doar `config.toml`. Proiectele native exportă TOML.
-2. Dacă lipsește o definiție, selectează un Dockerfile sau un ZIP în **Fișier de definiție**. Un Dockerfile singur este suficient dacă nu sunt necesare alte fișiere locale. Fișierul se verifică automat; alege **Salvează rețeta**.
-3. Dacă o imagine de bază locală necesită și ea o definiție, adaugă sursa în același dialog. Baza standard a executorului ADORE este inclusă automat.
-4. Alege **Exportă** pentru a descărca ZIP-ul sau **Anulează** pentru a închide. **Schimbă definiția** înlocuiește o rețetă după verificarea noului fișier.
+Administratorii gestionează sursele separat în **Detalii tehnice → Definiția imaginii**. Alege un Dockerfile sau ZIP în **Fișier de definiție**; fișierul este verificat automat. **Salvează rețeta** îl păstrează, iar **Schimbă definiția** îl înlocuiește. Tot aici se adaugă bazele locale lipsă. Baza standard a executorului ADORE este inclusă automat.
 
 Definițiile sunt păstrate pe imagine și sunt comune proiectelor care o folosesc. Salvarea unei rețete nu construiește imaginea, nu schimbă setările și nu repornește joburi. ZIP-ul include toate sursele declarate pentru bazele locale și un fișier Compose pentru construire pe alt server. Sunt excluse imaginile binare și pachetele instalate ulterior de agent. Registrele și sursele de pachete trebuie să fie accesibile acolo.
 
