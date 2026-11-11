@@ -28,6 +28,7 @@ from string import Template
 
 from adore import orchestrator as orchestrator_module
 from adore.aegis import AegisError
+from adore.config import egress_policy
 from adore.executor.base import GateRun
 from adore.executor.launcher import PiExecutor, pi_rpc_argv
 from adore.util import CommandResult
@@ -47,6 +48,8 @@ from tests.test_pi_rpc import FakePi, SpawnTarget
 # CONSTANTS
 BASELINE = json.loads((Path(__file__).parent / "fixtures/prompts/baseline.json").read_text(
     encoding="utf-8"))
+NETWORK_BASELINE = json.loads((Path(__file__).parent / "fixtures/prompts/network-baseline.json")
+                              .read_text(encoding="utf-8"))
 
 
 # HELPER FUNCTIONS
@@ -70,7 +73,11 @@ def resources(tmp_path, monkeypatch, prompts):
 @pytest.mark.parametrize("case", BASELINE["cases"], ids=lambda c: (
     f"{c['stage']}-{c['quick']}-{c['packages']}-{c['mode']}-{c['extra']}"))
 def test_stage_bytes(tmp_path, case):
-    """@brief Real composition remains byte-identical across every branch."""
+    """@brief Preserve historical captures; mode here is requested, not effective.
+
+    @note All historical container captures used internet=False, hence the
+          allowlist proxy. The supplemental matrix proves effective policies.
+    """
     engine, forge, *_ = make_engine(tmp_path)
     values = BASELINE["values"]
     forge.ticket.title = values["title"]
@@ -82,6 +89,57 @@ def test_stage_bytes(tmp_path, case):
     actual = engine._stage_prompt(make_run(engine), forge.ticket, task(case["stage"]),
                                  values["context"] if case["extra"] else "",
                                  values["thread"] if case["extra"] else "")
+    assert actual.encode("utf-8") == case["expected"].encode("utf-8")
+
+
+def test_network_oracle_covers_effective_policies():
+    """@brief Captures distinguish reachable policies, native and injected none."""
+    cases = NETWORK_BASELINE["cases"]
+    assert Counter(case["effective_mode"] for case in cases) == {
+        "open": 6, "allowlist-proxy": 6, "native": 2, "none": 2,
+    }
+    assert {(case["requested_mode"], case["internet"], case["packages"])
+            for case in cases if not case["injected_none"]
+            and case["effective_mode"] != "native"} == {
+                (mode, internet, packages)
+                for mode in ("open", "none", "allowlist-proxy")
+                for internet in (False, True) for packages in (False, True)
+            }
+    for case in cases:
+        mode = case["effective_mode"]
+        assert case["injected_none"] == (mode == "none")
+        if mode == "native":
+            assert "Network policy is independently configured as" not in case["expected"]
+        else:
+            assert f"Network policy is independently configured as {mode}." in case["expected"]
+
+
+@pytest.mark.parametrize("case", NETWORK_BASELINE["cases"], ids=lambda c: (
+    f"{c['requested_mode']}-internet-{c['internet']}-packages-{c['packages']}"
+    f"-injected-{c['injected_none']}"))
+def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
+    """@brief Real effective policies match original bytes; none is composition-only."""
+    engine, forge, *_ = make_engine(tmp_path)
+    values = BASELINE["values"]
+    forge.ticket.title = values["title"]
+    forge.ticket.description = " \n" + values["description"] + "\n "
+    forge.ticket.labels = ["agent-quick"]
+    native = case["requested_mode"] == "native"
+    engine.config.execution.backend = "local" if native else "container"
+    engine.config.container.system_packages = case["packages"]
+    engine.config.container.egress.mode = "open" if native else case["requested_mode"]
+    engine.config.executor.internet = case["internet"]
+    effective = "native" if native else egress_policy(engine.config).mode
+    assert effective == ("allowlist-proxy" if case["injected_none"]
+                         else case["effective_mode"])
+    if case["injected_none"]:
+        # The current config derives only open/proxy. Exercise the retained
+        # generic mode interpolation separately, without claiming a real policy.
+        monkeypatch.setattr(orchestrator_module, "egress_policy", lambda config: replace(
+            egress_policy(config), mode="none"))
+        assert orchestrator_module.egress_policy(engine.config).mode == case["effective_mode"]
+    actual = engine._stage_prompt(make_run(engine), forge.ticket, task("frame"),
+                                 values["context"], values["thread"])
     assert actual.encode("utf-8") == case["expected"].encode("utf-8")
 
 

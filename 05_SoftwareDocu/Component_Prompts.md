@@ -111,8 +111,18 @@ No setting or environment variable selects another catalog location.
 outputs in `tests/fixtures/prompts/baseline.json`. The fixture was captured before
 extraction from the original code at `ff76a56088d6d047543e7b544721c60c1b2648a5`;
 do not regenerate it from the file-backed implementation. It covers all stages,
-frame quick-label variants, recovery/thread, package permissions, each egress
-mode and native execution. Each original fragment has its own expected text.
+frame quick-label variants, recovery/thread and package permissions. Its mode
+labels are requested configuration, not effective policies: all original container
+captures used `executor.internet = false`, hence the allowlist proxy. Each original
+fragment has its own expected text.
+
+`network-baseline.json` supplements (never replaces) those captures with outputs
+from the original `_stage_prompt` at the same commit. It covers effective open and
+allowlist-proxy policies for both internet values, every requested container mode,
+both package permissions, and native execution. Tests assert effective policies
+and matrix completeness before byte comparisons. Current configuration derives
+only open or allowlist-proxy; explicitly injected none-policy cases prove generic
+mode interpolation without claiming none is reachable through configuration.
 
 Tests also cover all five recovery callers, review texts, native/container notice
 transport, production catalog sharing and exactly-once reads, literal dollar and
