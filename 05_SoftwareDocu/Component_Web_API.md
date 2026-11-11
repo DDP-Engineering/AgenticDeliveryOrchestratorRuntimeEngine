@@ -7,6 +7,23 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+## Executor source recipes
+
+Admin-only `/api/v1/projects/{name}/executor-recipe` GET reads image definition
+availability. POST `.../preview` validates a Dockerfile/context or complete-source
+ZIP in memory; PUT retains it with same-origin CSRF, config revision and observed
+image binding. The target is the effective selected image or a missing local
+base. Saving source metadata leaves project config, pending changes, credentials
+and job state untouched, including while a job is parked.
+
+The raw config route with `include_build=true` resolves managed, immutable Git
+and bundled definitions. Complete export includes every declared local base;
+it never runs Docker or silently emits a partial image chain. Native raw TOML
+export is unchanged. Typed 400/409/503 failures distinguish invalid or missing
+sources, concurrent changes and corrupt stored records with a deletion recovery
+path. See [Executor recipes](Component_Executor_Recipes.md) for current data and
+offline tests. Recipe-source errors do not affect the ordinary Settings read.
+
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
 Cancellation and ticket Stop require strict explicit confirmation before any queue or forge effects. Readiness includes advisory busy/idle/unknown activity gated by the worker heartbeat; operation outcomes remain authoritative.

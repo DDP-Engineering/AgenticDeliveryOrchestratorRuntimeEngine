@@ -21,6 +21,12 @@ test("technical guidance covers external ownership and existing data in all loca
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "../src/implementationSettings.ts";
 import { SETTING_HELP } from "../src/settingHelp.ts";
 
+test("executor recipe attachment avoids manual Git registration in normal Settings", async () => {
+ const {settingVisible} = await import("../src/settings.ts");
+ assert.equal(settingVisible("container.build_definition"), false);
+ assert.equal(settingVisible("container.image"), true);
+});
+
 test("Settings owns the Pi model row and reviews it as one scalar", async () => {
  const {settingVisible} = await import("../src/settings.ts");
  assert.equal(settingVisible("executor.model"), true);

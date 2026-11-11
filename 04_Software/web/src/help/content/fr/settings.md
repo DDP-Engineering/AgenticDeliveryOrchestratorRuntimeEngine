@@ -50,9 +50,18 @@ La navigation et le rechargement de la page demandent confirmation avant d’aba
 
 ## TOML d’origine {#toml}
 
-À côté du titre Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu ouvre une boîte de dialogue fermable et ne garde le texte qu’en mémoire. Le téléchargement fournit le `config.toml` enregistré exactement tel que stocké, avec ses commentaires, sa mise en forme et d’éventuels secrets en clair : traitez-le comme un secret. Ni l’un ni l’autre n’inclut un candidat en attente, les valeurs par défaut résolues, les fichiers `.env` séparés ou les identifiants externes. Les développeurs ne peuvent pas les utiliser. Sélectionnez le fichier exporté dans [Importer la configuration brute](/help/projects#import-project) et ADORE vérifie automatiquement les chemins du serveur, le dossier d’état et les secrets en clair avant l’inscription.
+À côté de Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu affiche le TOML enregistré exact dans un dialogue refermable. Les modifications en attente, fichiers d’environnement séparés, identifiants externes et données des tâches en cours sont exclus. Un TOML seul peut contenir des valeurs en clair : traitez-le comme un secret ; l’export de build complet refuse les identifiants en clair.
 
-Choisissez **Exporter la configuration brute** pour ouvrir le dialogue d’export. Pour Docker, il propose **Inclure les fichiers de build Docker**. Cette option devient disponible après l’enregistrement d’une **Définition de build Docker** vérifiée dans **Agent et modèle**. Le ZIP contient le même TOML, un fichier Compose et les sources déclarées du commit choisi. Si les fichiers de build manquent, le dialogue l’explique et permet toujours l’export du TOML. Choisissez **Exporter** pour télécharger ou **Annuler** pour fermer.
+Choisissez **Exporter la configuration brute** pour ouvrir le dialogue compact :
+
+1. Pour un projet en conteneur, gardez **Inclure les fichiers de build Docker** coché afin d’exporter la configuration et la définition complète de l’image. Décochez pour télécharger seulement `config.toml`. Les projets natifs exportent le TOML.
+2. Si une définition manque, sélectionnez un Dockerfile ou un ZIP dans **Fichier de définition**. Un Dockerfile seul convient si aucun autre fichier local n’est nécessaire. Le fichier est vérifié automatiquement ; choisissez **Enregistrer la recette**.
+3. Si une image de base locale nécessite aussi une définition, ajoutez sa source dans le même dialogue. La base standard de l’exécuteur ADORE est incluse automatiquement.
+4. Choisissez **Exporter** pour télécharger le ZIP ou **Annuler** pour fermer. **Changer la définition** remplace une recette jointe après vérification du nouveau fichier.
+
+Les définitions sont conservées par image et partagées entre les projets qui l’utilisent. Enregistrer une recette ne reconstruit pas l’image, ne change pas les paramètres et ne redémarre pas les tâches. Le ZIP contient toutes les sources déclarées des bases locales et un fichier Compose pour construire sur un autre serveur. Les images binaires et paquets ajoutés ensuite par l’agent sont exclus. Les registres et sources de paquets doivent y être accessibles.
+
+Si une recette est corrompue, la fenêtre indique quoi supprimer sur le serveur pour recommencer. Réinitialiser le catalogue supprime les définitions d’image enregistrées pour tous les projets ; configurations, identifiants et tâches restent inchangés. ADORE ne supprime jamais ces données automatiquement.
 
 ## Paquets système de l’agent {#system-packages}
 

@@ -74,6 +74,10 @@ with a message to remove them from `config.toml`.
 Validation accepts an empty string or a portable repository-relative JSON path
 with a full Git commit ID. The export reader checks the commit and its contents
 on request. Executor launch uses the configured image independently.
+Managed image definitions are separate records under the ADORE home. The normal
+export dialog retains these sources without changing this optional Git-source
+setting or any execution policy. A managed association takes precedence during
+source export; preparation selects its effective image in memory.
 
 ## 4. Inputs and Outputs
 

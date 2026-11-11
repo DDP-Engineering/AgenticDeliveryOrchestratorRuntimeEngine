@@ -104,8 +104,10 @@ def test_export_docker_build_bundle_contains_only_declared_bytes(docker_project)
         assert response.headers["cache-control"] == "no-store"
         assert response.headers["content-disposition"].endswith('"adore-docker-build.zip"')
         with ZipFile(BytesIO(response.content)) as bundle:
-            assert set(bundle.namelist()) == {"config.toml", "compose.yaml", "BUILD.txt",
-                                             f"context/{_DOCKERFILE}", f"context/{_SOURCE}"}
+            assert set(bundle.namelist()) == {
+                "config.toml", "compose.yaml", "BUILD.txt", "recipe.json",
+                f"context/{_DOCKERFILE}", f"context/{_SOURCE}",
+            }
             assert bundle.read("config.toml") == client.get(url + "?download=true").content == raw
             compose = bundle.read("compose.yaml").decode()
             assert json.loads(compose[compose.index("{"):]) == {"services": {"executor": {
@@ -119,7 +121,7 @@ def test_export_docker_build_bundle_contains_only_declared_bytes(docker_project)
 
 
 @pytest.mark.parametrize(("invalid", "error"), [
-    ("unregistered", "build_definition_unavailable"),
+    ("unregistered", "recipe_base_missing"),
     ("mutable", "build_definition_invalid"),
     ("missing", "build_source_unavailable"),
     ("traversal", "build_definition_invalid"),
@@ -154,7 +156,7 @@ def test_export_docker_build_refuses_unsafe_definition(docker_project, invalid, 
         client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
         response = client.get(url + "?include_build=true")
         assert response.status_code == 400, response.text
-        assert response.json() == {"detail": {"code": error}}
+        assert response.json()["detail"]["code"] == error
         assert client.get(url + "?download=true").content == path.read_bytes()
 
 

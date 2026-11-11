@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-NFR-5e0f55d9"
+title = "Keep recipe management independent of project job state"
+status = "active"
+requirement = "When an administrator manages executor recipes, ADORE shall preserve project configuration, pending settings, credentials and job state unchanged."
+verification = "Attach/replace a definition while a fixture job is parked; compare configuration, pending settings, credential file and job bytes and exercise revision mismatch."
+affected_paths = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/build_bundle.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawConfiguration.tsx"]
+linked_tests = ["04_Software/tests/test_executor_recipes.py", "04_Software/tests/test_web_executor_recipes.py", "04_Software/tests/test_web_config_raw.py"]
+spec = "specs/REQ-FUNC-c2cbfa1b.md"
+created = 2026-11-11
+updated = 2026-11-11

@@ -612,12 +612,18 @@ test("overview background poll stays visible while pending and fails closed", as
 
 
 test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", async ({ page }) => {
+  await signIn(page);
+  const projectResponse = await page.request.get("/api/v1/projects");
+  expect(projectResponse.ok()).toBe(true);
+  const projects = await projectResponse.json();
+  expect(Array.isArray(projects)).toBe(true);
   let archived = false;
   const writes: { path: string; csrf: string; data: Record<string, unknown> | null }[] = [];
-  await page.route("**/api/v1/projects", async route => {
-    const response = await route.fetch(); const projects = await response.json();
-    await route.fulfill({ response, json: projects.map((project: { name: string }) => project.name === "alpha" ? { ...project, archived } : project) });
-  });
+  // A fixed fixture catalog needs no upstream fetch during each poll. Removing
+  // an in-flight async proxy lets routing fall back before its fulfill resumes.
+  await page.route("**/api/v1/projects", route => route.fulfill({
+    json: projects.map((project: { name: string }) => project.name === "alpha" ? { ...project, archived } : project),
+  }));
   await page.route("**/api/v1/projects/*/archive", route => {
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
     archived = true; return route.fulfill({ status: 200, json: {} });
@@ -633,7 +639,6 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: route.request().postDataJSON() });
     return route.fulfill({ status: 202, json: { id: 9001, status: "pending" } });
   });
-  await signIn(page);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("link", { name: "alpha", exact: true }).click();
   const id = new URL(page.url()).pathname.split("/")[2];

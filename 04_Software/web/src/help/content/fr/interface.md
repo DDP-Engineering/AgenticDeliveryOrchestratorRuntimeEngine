@@ -33,7 +33,7 @@ L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son d
 | Onglet | Ce qu’il contient |
 |---|---|
 | Résumé | Type de conteneur, exécuteur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |
-| Paramètres | Les paramètres effectifs du projet, par groupes. Les administrateurs modifient un paramètre à la fois par un changement vérifié ; les Dev les lisent sans les secrets. Voir [Paramètres du projet](/help/settings). |
+| Paramètres | Paramètres effectifs, enregistrement groupé pour les administrateurs et export avec les définitions d’image conservées. Les développeurs lisent sans secrets. Voir [Paramètres du projet](/help/settings). |
 | Tâches | Les sous-onglets Tickets et Tâches de ce projet, sans sélecteur de projet. |
 | Statistiques | La même période de rapport, les mêmes onglets et les mêmes exports que la page Statistiques, pour ce projet seulement. |
 | Historique | Les changements enregistrés du projet et ses tâches terminées. |

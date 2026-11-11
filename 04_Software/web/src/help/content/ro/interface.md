@@ -33,7 +33,7 @@ Deschiderea unui proiect din Proiecte afișează numele și calea repository-ulu
 | Filă | Ce conține |
 |---|---|
 | Rezumat | Tipul de container, executorul, monitorizarea, verificarea mediului, numărul de lucrări și tabele compacte Necesită intervenție și Lucrări active. Administratorii primesc și **Pune monitorizarea în pauză** sau **Activează monitorizarea**, **Arhivează proiectul** sau **Restaurează proiectul**, **Verifică cerințele gazdei** și **Acces la repository**. |
-| Setări | Setările efective ale proiectului, pe grupuri. Administratorii modifică câte o setare pe rând printr-o modificare revizuită; Dev-ii le citesc fără secrete. Vezi [Setările proiectului](/help/settings). |
+| Setări | Setările efective, o singură salvare pentru administratori și exportul cu definițiile păstrate ale imaginilor executorului. Dezvoltatorii citesc fără secrete. Vezi [Setările proiectului](/help/settings). |
 | Lucrări | Sub-filele Tichete și Lucrări pentru acest proiect, fără selector de proiect. |
 | Statistici | Aceeași perioadă de raportare, aceleași file și exporturi ca pagina Statistici, doar pentru acest proiect. |
 | Istoric | Modificările înregistrate ale proiectului și lucrările lui încheiate. |

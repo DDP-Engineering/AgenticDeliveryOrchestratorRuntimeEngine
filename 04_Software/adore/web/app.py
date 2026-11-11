@@ -15,6 +15,8 @@
 """
 
 # IMPORTS
+import base64
+import binascii
 from collections.abc import Callable
 from contextlib import contextmanager
 import csv
@@ -62,6 +64,7 @@ from adore.config import (
     validate_config,
 )
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
+from adore.executor_recipes import RecipeStore, effective_recipe_config, recipe_status
 from adore.forge import ForgeError, ForgeResponseError
 from adore.forge_labels import ensure_labels, project_labels
 from adore.gitea_auth import GiteaAuthError, portable_tea_runner
@@ -91,6 +94,7 @@ from adore.preparation import (
     validate_plan,
 )
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
+from adore.recipe_sources import MAX_ARCHIVE_BYTES, RecipeError, parse_recipe
 from adore.release_notes import ReleaseNotesError, load_release_notes
 from adore.repository_auth import (
     RepositoryAuthError,
@@ -447,6 +451,16 @@ class ConfigEdit(BaseModel):
     value: str
     revision: str
     pending_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class RecipeInput(BaseModel):
+    """@brief Bounded source attachment bound to the project and image association."""
+
+    model_config = ConfigDict(extra="forbid")
+    image: str = Field(min_length=1, max_length=255)
+    source: str = Field(min_length=1, max_length=MAX_ARCHIVE_BYTES * 4 // 3 + 4)
+    revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class BranchPreview(BaseModel):
@@ -4283,6 +4297,114 @@ def create_app(home: str | Path | None = None,
                 raise _error(503, "config_corrupt") from exc
         return {**result, "revision": body.revision}
 
+    def recipe_failure(exc):
+        """@brief Translate closed recipe metadata without exposing uploaded file contents."""
+        if isinstance(exc, BuildBundleError):
+            return _error(400, exc.code)
+        status = (503 if exc.code in {"recipe_store_corrupt", "recipe_builtin_unavailable",
+                                     "recipe_write_failed"} else
+                  409 if exc.code == "recipe_changed" else 400)
+        return HTTPException(status, {"code": exc.code, "missing_images": list(exc.missing),
+                                      "recovery": exc.recovery})
+
+    def recipe_source_bytes(path):
+        """@brief Bound every recipe config read and translate unsafe/missing sources."""
+        try:
+            if path.is_symlink() or not path.is_file():
+                raise ValueError("invalid project source")
+            with path.open("rb") as source:
+                raw = source.read(MAX_SOURCE_BYTES + 1)
+            if not raw or len(raw) > MAX_SOURCE_BYTES or path.is_symlink():
+                raise ValueError("invalid project source")
+            return raw
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+
+    def recipe_config(name, user):
+        """@brief Read one authorized source snapshot before consulting recipe metadata."""
+        item = project(name, user)
+        path = profiles.config_path(item.name)
+        try:
+            raw = recipe_source_bytes(path)
+            config = _config_from_bytes(raw)
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        try:
+            config = effective_recipe_config(config, runner=probe_runner)
+        except RecipeError as exc:
+            raise recipe_failure(exc) from exc
+        return item, path, raw, config
+
+    @app.get("/api/v1/projects/{name}/executor-recipe")
+    def executor_recipe(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Read image-shared definition availability without changing project or jobs."""
+        _, path, raw, config = recipe_config(name, user)
+        try:
+            result = recipe_status(config, home=profiles.home, runner=probe_runner)
+        except (RecipeError, BuildBundleError) as exc:
+            raise recipe_failure(exc) from exc
+        if recipe_source_bytes(path) != raw:
+            raise _error(409, "stale_config_revision")
+        return {**result, "revision": sha256(raw).hexdigest()}
+
+    def inspect_recipe(name, body, user):
+        """@brief Validate one selected/root-or-missing-base attachment before retention."""
+        item, path, raw, config = recipe_config(name, user)
+        if sha256(raw).hexdigest() != body.revision:
+            raise _error(409, "stale_config_revision")
+        if config.execution.backend != "container":
+            raise _error(400, "recipe_native")
+        try:
+            if body.image != config.container.image:
+                current = recipe_status(config, home=profiles.home, runner=probe_runner)
+                if body.image not in current["missing_images"]:
+                    raise RecipeError("recipe_image_mismatch")
+            source = base64.b64decode(body.source, validate=True)
+            if len(source) > MAX_ARCHIVE_BYTES:
+                raise RecipeError()
+            document = parse_recipe(source, body.image)
+            # A selected corrupt association must be recovered explicitly, not replaced silently.
+            catalog = RecipeStore(profiles.home)
+            catalog.get(body.image)
+            observed = catalog.binding_digest(body.image)
+            result = recipe_status(config, home=profiles.home, runner=probe_runner,
+                                   overrides={body.image: document})
+        except (RecipeError, BuildBundleError) as exc:
+            raise recipe_failure(exc) from exc
+        except (binascii.Error, ValueError) as exc:
+            raise _error(400, "recipe_invalid") from exc
+        if recipe_source_bytes(path) != raw or project(name, user).project_id != item.project_id:
+            raise _error(409, "stale_config_revision")
+        return path, raw, config, document, {**result, "expected_digest": observed,
+                                             "upload_image": body.image,
+                                             "revision": sha256(raw).hexdigest()}
+
+    @app.post("/api/v1/projects/{name}/executor-recipe/preview")
+    def preview_executor_recipe(name: str, body: RecipeInput,
+                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Check the selected source and graph in memory; no catalog writes occur."""
+        _, _, _, _, result = inspect_recipe(name, body, user)
+        return result
+
+    @app.put("/api/v1/projects/{name}/executor-recipe")
+    def save_executor_recipe(name: str, body: RecipeInput,
+                             user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Save source metadata with image/config binding, independent of job admission."""
+        item = project(name, user)
+        with _web_config_edit_lock(profiles.config_path(item.name)):
+            _, _, config, document, _ = inspect_recipe(name, body, user)
+            try:
+                saved_digest = RecipeStore(profiles.home).put(
+                    document, expected_digest=body.expected_digest)
+                result = recipe_status(config, home=profiles.home, runner=probe_runner)
+            except (RecipeError, BuildBundleError) as exc:
+                raise recipe_failure(exc) from exc
+        web.audit(user["id"], "executor-recipe-saved", item.name,
+                  resource_type="config", resource_id="executor-recipe", phase="apply",
+                  result="applied", base_revision=body.expected_digest,
+                  candidate_revision=saved_digest)
+        return {**result, "revision": body.revision}
+
     @app.get("/api/v1/projects/{name}/config/raw")
     def raw_config(name: str, user: Annotated[dict, Depends(administrator)],
                    download: bool = False, include_build: bool = False) -> Response:
@@ -4318,11 +4440,13 @@ def create_app(home: str | Path | None = None,
                 raise _error(400, "build_config_has_secrets")
             try:
                 config = _config_from_bytes(raw)
-                bundle = export_build_bundle(config, raw, runner=probe_runner)
+                bundle = export_build_bundle(config, raw, runner=probe_runner, home=profiles.home)
                 with path.open("rb") as source:
                     unchanged = source.read(MAX_SOURCE_BYTES + 1) == raw
             except BuildBundleError as exc:
                 raise _error(400, exc.code) from exc
+            except RecipeError as exc:
+                raise recipe_failure(exc) from exc
             except (OSError, ValueError, TypeError) as exc:
                 raise _error(503, "config_corrupt") from exc
             if (not unchanged or path.is_symlink()

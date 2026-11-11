@@ -32,6 +32,91 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test("attach an executor definition inside export without editing project settings", async ({page}) => {
+  let available = false;
+  const status = () => ({image:"sample-executor:1",available,
+    missing_images:available?[]:["sample-executor:1"],digest:available?"c".repeat(64):null,
+    source:available?"managed":"missing",revision:"b".repeat(64)});
+  await page.route("**/api/v1/projects/*/config", async route => {
+    const response=await route.fetch(), body=await response.json();
+    body.config.execution.backend="container";
+    body.config.container.runtime="podman";
+    body.config.container.image="sample-executor:1";
+    await route.fulfill({response,json:body});
+  });
+  await page.route("**/executor-recipe", async route => {
+    if(route.request().method()==="PUT") {
+      const body=route.request().postDataJSON();
+      expect(Buffer.from(body.source,"base64").toString()).toBe("FROM scratch\n");
+      expect(body.revision).toBe("b".repeat(64));
+      expect(body.expected_digest).toBeNull();
+      available=true;
+    }
+    await route.fulfill({json:status()});
+  });
+  await page.route("**/executor-recipe/preview", route => route.fulfill({json:{...status(),
+    available:true,missing_images:[],upload_image:"sample-executor:1",expected_digest:null}}));
+  await openSettings(page);
+  await page.getByRole("button",{name:"Export raw configuration",exact:true}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByLabel("Definition file",{exact:true}).setInputFiles({name:"Dockerfile",
+    mimeType:"text/plain",buffer:Buffer.from("FROM scratch\n")});
+  await expect(dialog.getByRole("button",{name:"Save recipe",exact:true})).toBeEnabled();
+  await dialog.getByRole("button",{name:"Save recipe",exact:true}).click();
+  await expect(dialog.getByLabel("Include Docker build files")).toBeChecked();
+  await expect(dialog.getByLabel("Definition file",{exact:true})).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("No unsaved changes",{exact:true})).toBeVisible();
+});
+
+test("invalid or stale recipe evidence cannot save or unlock a complete export", async ({page}) => {
+  const status={image:"sample-executor:1",available:false,missing_images:["sample-executor:1"],
+    digest:null,source:"missing",revision:"b".repeat(64)};
+  let saves=0;
+  await page.route("**/api/v1/projects/*/config",async route => {
+    const response=await route.fetch(), body=await response.json();
+    body.config.execution.backend="container";
+    body.config.container.image=status.image;
+    await route.fulfill({response,json:body});
+  });
+  await page.route("**/executor-recipe",route => {
+    if(route.request().method()==="PUT") {
+      saves++;
+      return route.fulfill({status:409,json:{detail:{code:"recipe_changed"}}});
+    }
+    return route.fulfill({json:status});
+  });
+  await openSettings(page);
+  await page.getByRole("button",{name:"Export raw configuration",exact:true}).click();
+  const dialog=page.getByRole("dialog"), save=dialog.getByRole("button",{name:"Save recipe",exact:true});
+  for(const response of [
+    {status:400,json:{detail:{code:"recipe_invalid"}}},
+    {status:503,json:{detail:{code:"recipe_store_corrupt",recovery:"executor-recipes"}}},
+    {status:200,json:{...status,available:true,missing_images:[],upload_image:status.image,
+      expected_digest:"invalid"}},
+  ]) {
+    await page.route("**/executor-recipe/preview",route => route.fulfill(response));
+    await dialog.getByLabel("Definition file",{exact:true}).setInputFiles({name:"Dockerfile",
+      mimeType:"text/plain",buffer:Buffer.from("FROM scratch\n")});
+    await expect(dialog.getByRole("alert")).toBeVisible();
+    if(response.status===503) await expect(dialog.getByRole("alert")).toContainText("all projects");
+    await expect(save).toBeDisabled();
+    await expect(dialog.getByRole("button",{name:"Export",exact:true})).toBeDisabled();
+    await page.unroute("**/executor-recipe/preview");
+  }
+  expect(saves).toBe(0);
+  await page.route("**/executor-recipe/preview",route => route.fulfill({json:{...status,
+    available:true,missing_images:[],upload_image:status.image,expected_digest:null}}));
+  await dialog.getByLabel("Definition file",{exact:true}).setInputFiles({name:"Dockerfile",
+    mimeType:"text/plain",buffer:Buffer.from("FROM scratch\n")});
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByRole("button",{name:"Export",exact:true})).toBeDisabled();
+  expect(saves).toBe(1);
+  await page.keyboard.press("Escape");
+});
+
 test("raw configuration preview and download are original and Settings stays compact", async ({ page }) => {
   await openSettings(page);
   const panel = page.locator("#project-settings");
@@ -43,6 +128,8 @@ test("raw configuration preview and download are original and Settings stays com
   const expected = await original.body();
   const download = page.waitForEvent("download");
   await panel.getByRole("button", { name: "Export raw configuration", exact: true }).click();
+  const include = page.getByRole("dialog").getByLabel("Include Docker build files");
+  if (await include.count()) await include.uncheck();
   await page.getByRole("dialog", { name: "Export raw configuration", exact: true }).getByRole("button", { name: "Export", exact: true }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe("config.toml");
@@ -59,7 +146,7 @@ test("raw configuration preview and download are original and Settings stays com
   await expect(page.locator(".raw-config-actions pre")).toHaveCount(0);
 });
 
-test("Docker export is optional and uses the registered build definition", async ({ page }) => {
+test("container export defaults to a complete definition and offers standalone TOML", async ({ page }) => {
   await openSettings(page);
   const actions = page.locator(".raw-config-actions");
   const option = actions.getByLabel("Include Docker build files");
@@ -72,16 +159,19 @@ test("Docker export is optional and uses the registered build definition", async
     body.config.container.build_definition = `docker/build.json@${"a".repeat(40)}`;
     await route.fulfill({response,json:body});
   });
+  await page.route("**/executor-recipe", route => route.fulfill({json:{image:"sample-executor:1",
+    available:true,missing_images:[],digest:null,source:"git",revision:"b".repeat(64)}}));
   await page.reload();
   const exportButton = actions.getByRole("button",{name:"Export raw configuration",exact:true});
   await exportButton.click();
   const dialog = page.getByRole("dialog",{name:"Export raw configuration",exact:true});
-  await expect(option).not.toBeChecked();
+  await expect(option).toBeChecked();
+  await option.uncheck();
   const standalone = page.waitForEvent("download");
   await dialog.getByRole("button",{name:"Export",exact:true}).click();
   expect((await standalone).suggestedFilename()).toBe("config.toml");
   await exportButton.click();
-  await option.check();
+  await expect(option).toBeChecked();
   const bundle = Buffer.from([0x50,0x4b,0x03,0x04,0x00]);
   await page.route("**/config/raw?download=true&include_build=true", route =>
     route.fulfill({contentType:"application/zip",body:bundle}));
@@ -100,6 +190,8 @@ test("raw export keeps a clean symmetric toolbar and explains unavailable build 
     body.config.container.build_definition = "";
     await route.fulfill({response,json:body});
   });
+  await page.route("**/executor-recipe", route => route.fulfill({json:{image:"sample-executor:1",
+    available:false,missing_images:["sample-executor:1"],digest:null,source:"missing",revision:"b".repeat(64)}}));
   await page.setViewportSize({width:1520,height:900});
   await openSettings(page);
   const actions = page.locator(".raw-config-actions");
@@ -117,8 +209,10 @@ test("raw export keeps a clean symmetric toolbar and explains unavailable build 
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog",{name:"Export raw configuration",exact:true});
     await expect(dialog.getByRole("button",{name:"Cancel",exact:true})).toBeFocused();
-    await expect(dialog.getByLabel("Include Docker build files")).toBeDisabled();
-    await expect(dialog.getByText(/no linked build files/)).toBeVisible();
+    await expect(dialog.getByLabel("Include Docker build files")).toBeChecked();
+    await expect(dialog.getByLabel("Definition file",{exact:true})).toBeVisible();
+    await expect(dialog.getByRole("button",{name:"Export",exact:true})).toBeDisabled();
+    await dialog.getByLabel("Include Docker build files").uncheck();
     await expect(dialog.getByRole("button",{name:"Export",exact:true})).toBeEnabled();
     const bounds = await dialog.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -184,14 +278,21 @@ test("developer cannot view or download original unredacted configuration", asyn
   }
 });
 
-for (const [locale, preview, exportName] of [
-  ["en", "Preview raw configuration", "Export raw configuration"],
-  ["fr", "Voir la configuration brute", "Exporter la configuration brute"],
-  ["de", "Originalkonfiguration anzeigen", "Originalkonfiguration exportieren"],
-  ["ro", "Previzualizare configurație originală", "Exportă configurația brută"],
+for (const [locale, preview, exportName, fileName] of [
+  ["en", "Preview raw configuration", "Export raw configuration", "Definition file"],
+  ["fr", "Voir la configuration brute", "Exporter la configuration brute", "Fichier de définition"],
+  ["de", "Originalkonfiguration anzeigen", "Originalkonfiguration exportieren", "Definitionsdatei"],
+  ["ro", "Previzualizare configurație originală", "Exportă configurația brută", "Fișier de definiție"],
 ]) {
   test(`raw configuration controls support ${locale} at 390px`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.route("**/api/v1/projects/*/config",async route => {
+      const response=await route.fetch(), body=await response.json();
+      body.config.execution.backend="container";
+      await route.fulfill({response,json:body});
+    });
+    await page.route("**/executor-recipe",route => route.fulfill({json:{image:"sample:1",
+      available:false,missing_images:["sample:1"],digest:null,source:"missing",revision:"b".repeat(64)}}));
     await openSettings(page);
     const me = await (await page.request.get("/api/v1/me")).json();
     await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme: "dark" } });
@@ -205,6 +306,7 @@ for (const [locale, preview, exportName] of [
     await page.getByRole("button",{name:exportName,exact:true}).click();
     const exportDialog = page.getByRole("dialog",{name:exportName,exact:true});
     await expect(exportDialog).toBeVisible();
+    await expect(exportDialog.getByLabel(fileName,{exact:true})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.keyboard.press("Escape");
     await expect(exportDialog).toHaveCount(0);

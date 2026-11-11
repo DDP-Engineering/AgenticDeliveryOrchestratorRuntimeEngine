@@ -42,6 +42,8 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 
 Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte UTF-8-Datei `config.toml`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Datei bytegenau.
 
+Ist Ihr Export ein ZIP mit Image-Quellen, entpacken Sie es und wählen Sie hier seine `config.toml`. Hängen Sie nach der Aufnahme dasselbe ZIP unter [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml) an, um die Image-Definitionen zu speichern. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei.
+
 
 Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:
 

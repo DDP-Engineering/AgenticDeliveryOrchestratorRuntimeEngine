@@ -63,7 +63,10 @@ ADORE's only coding agent.
   Settings, Access, global Change history and project History refresh while
   visible. Unsaved settings pause updates. Header Refresh is available on Users.
   Sidebar Jobs supplies scoped full-history navigation.
-  Project Settings exports the saved TOML bytes. Projects imports exact TOML
+  Project Settings exports the saved TOML bytes; container exports default to a
+  complete source ZIP with Dockerfile/context and local base definitions. A compact
+  dialog retains image-shared recipes independently of project/job configuration;
+  the standard executor base is bundled automatically. Projects imports exact TOML
   from a dialog that validates file selection automatically and publishes with stopped pickup.
   Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
   The container runtime editor suggests detected native and Windows WSL commands,

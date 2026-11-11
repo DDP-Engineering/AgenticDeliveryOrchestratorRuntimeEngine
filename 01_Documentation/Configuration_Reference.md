@@ -183,7 +183,12 @@ never places forge credentials in the executor environment.
 `container.build_definition` optionally registers a reviewed Docker build
 manifest as `relative/path.json@full-commit` for the configured image.
 Its default is empty. This setting supplies the raw configuration ZIP export
-and has no effect on executor launch. See [Project executor images](Project_Executor_Images.md).
+when no managed recipe is attached, and has no effect on executor launch.
+Administrators normally retain definitions in **Settings → Export raw
+configuration**, using a Dockerfile or source ZIP; no Git reference is typed.
+Managed recipes are shared by exact image tag and kept outside project config,
+pending changes and jobs. The standard ADORE base is bundled automatically.
+See [Project executor images](Project_Executor_Images.md).
 
 `[container.egress]` holds the per-run proxy of an internet-off run:
 

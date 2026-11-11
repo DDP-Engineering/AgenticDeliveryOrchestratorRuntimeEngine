@@ -337,6 +337,9 @@ td.strong { font-weight: 800; }
 .raw-config-docker { margin: 16px 0; }
 .raw-config-option { flex-direction: row; align-items: center; }
 .raw-config-option input { width: auto; min-height: 0; }
+.raw-config-recipe { margin-top: 16px; overflow-wrap: anywhere; }
+.raw-config-recipe input[type=file] { max-width: 100%; }
+.raw-config-recipe > button { margin-top: 8px; }
 .setting-editor textarea { width: 100%; min-height: 9rem; box-sizing: border-box; padding: 10px; font: inherit; line-height: 1.5; resize: vertical; color: var(--text); background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; }
 .setting-editor textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .setting-editor .button-row { margin: 0; }

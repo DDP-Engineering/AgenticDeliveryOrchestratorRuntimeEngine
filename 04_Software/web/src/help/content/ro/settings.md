@@ -50,9 +50,18 @@ Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modific
 
 ## TOML original {#toml}
 
-Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Selectați fișierul exportat în [Importă configurația brută](/help/projects#import-project) iar ADORE verifică automat înainte de înrolare căile de pe server, dosarul de stare și secretele incluse în fișier.
+Lângă Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea arată TOML-ul salvat exact, într-un dialog care poate fi închis. Sunt excluse modificările în așteptare, fișierele de mediu separate, credențialele externe și datele joburilor în curs. Un TOML simplu poate conține valori în clar și trebuie tratat ca secret; exportul complet de construire refuză credențialele în clar.
 
-Alege **Exportă configurația brută** pentru a deschide dialogul de export. Pentru Docker, dialogul oferă **Include fișierele de build Docker**. Opțiunea devine disponibilă după salvarea unei **Definiții de build Docker** revizuite în **Agent și model**. Arhiva ZIP conține același TOML, un fișier Compose și fișierele declarate din commitul ales. Dacă lipsesc fișierele de build, dialogul explică motivul și permite în continuare exportul TOML. Alege **Exportă** pentru descărcare sau **Anulează** pentru închidere.
+Alege **Exportă configurația brută** pentru a deschide dialogul compact:
+
+1. Pentru proiectele în container, păstrează **Include fișierele de build Docker** bifat pentru configurație și definiția completă a imaginii. Debifează pentru a descărca doar `config.toml`. Proiectele native exportă TOML.
+2. Dacă lipsește o definiție, selectează un Dockerfile sau un ZIP în **Fișier de definiție**. Un Dockerfile singur este suficient dacă nu sunt necesare alte fișiere locale. Fișierul se verifică automat; alege **Salvează rețeta**.
+3. Dacă o imagine de bază locală necesită și ea o definiție, adaugă sursa în același dialog. Baza standard a executorului ADORE este inclusă automat.
+4. Alege **Exportă** pentru a descărca ZIP-ul sau **Anulează** pentru a închide. **Schimbă definiția** înlocuiește o rețetă după verificarea noului fișier.
+
+Definițiile sunt păstrate pe imagine și sunt comune proiectelor care o folosesc. Salvarea unei rețete nu construiește imaginea, nu schimbă setările și nu repornește joburi. ZIP-ul include toate sursele declarate pentru bazele locale și un fișier Compose pentru construire pe alt server. Sunt excluse imaginile binare și pachetele instalate ulterior de agent. Registrele și sursele de pachete trebuie să fie accesibile acolo.
+
+Dacă o rețetă este coruptă, dialogul indică ce trebuie șters pe server pentru a începe din nou. Resetarea catalogului elimină definițiile de imagine salvate pentru toate proiectele; configurațiile, autentificările și joburile rămân neschimbate. ADORE nu șterge niciodată automat aceste date.
 
 ## Pachetele de sistem ale agentului {#system-packages}
 

@@ -42,6 +42,8 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un fichier UTF-8 `config.toml` exporté dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve le fichier exact.
 
+Si votre export est un ZIP avec les sources d’image, extrayez-le et sélectionnez son `config.toml` ici. Après l’inscription, joignez le même ZIP dans [Paramètres → Exporter la configuration brute](/help/settings#toml) pour conserver les définitions d’image. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible.
+
 
 Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :
 

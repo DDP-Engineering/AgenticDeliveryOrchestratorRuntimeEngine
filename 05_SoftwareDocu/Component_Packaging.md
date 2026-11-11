@@ -67,6 +67,13 @@ Package/release verification prints results without retaining technical outputs.
 
 ## Web bundle verification
 
+The application wheel also force-includes the canonical executor base Dockerfile
+and its Pi guard/ChatGPT helper from the existing Docker context. These are
+product assets used by automatic source-recipe export on an installed server;
+source checkouts read the same canonical files. Image rebuilding remains an
+operator action. Portable distributions install that wheel and carry the same
+assets without needing the original repository checkout.
+
 Release consistency checks the committed frontend input/output fingerprint and
 rebuilds the frontend in a temporary directory using the locally installed Vite.
 It rejects missing dependencies, stale inputs, modified output and output that

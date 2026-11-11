@@ -46,7 +46,90 @@ Replace the comment with installation commands for your project. Keep credential
 outside the Dockerfile. Project library preparation remains the optional reviewed
 per-worktree recipe described in [Container preparation](Container_Preparation.md).
 
-## Register a Docker build for export
+## Retain an image definition in ADORE
+
+In **Project → Settings → Export raw configuration**, container projects select
+**Include Docker build files** by default. ADORE includes the standard executor
+base definition automatically. For an externally prepared image, choose its
+Dockerfile or source ZIP under **Definition file**; selection validates it, and
+**Save recipe** retains the source. A Dockerfile alone is sufficient only when
+all its local build inputs are already contained in that file. Otherwise supply
+a ZIP with a root `Dockerfile` and the files it copies. This workflow works with
+Docker, Podman and WSL runtime commands and does not execute a build.
+
+If a local base is missing, the same dialog identifies that image and accepts
+its definition. **Change definition** replaces the selected image's retained
+source. The definition is shared by projects choosing the same image tag.
+Use distinct tags for images with different definitions, including across
+different runtime contexts. Named tags are required for rebuilding; an image ID
+or immutable image digest cannot be recreated exactly from source instructions.
+
+Image recipes live independently under `ADORE_HOME/executor-recipes/`. Saving
+them changes no project TOML, pending settings, authentication or job state and
+requires no job restart. Retained sources take priority over the optional Git
+source described below. A prepared project uses its preparation plan's effective
+image. Plain names follow Docker's implicit `:latest` tag.
+
+### Complete source ZIPs and local bases
+
+A complete export supplies `recipe.json`, exact saved `config.toml`, Compose,
+build instructions and all declared contexts. The same ZIP can attach a recipe
+on another server. A source ZIP can declare several related image definitions:
+
+```json
+{
+  "schema": 1,
+  "image": "project-executor:1",
+  "definitions": [
+    {
+      "image": "project-executor:1",
+      "context": "project",
+      "dockerfile": "Dockerfile",
+      "files": ["Dockerfile", "setup.sh"],
+      "build_args": {},
+      "external_images": []
+    },
+    {
+      "image": "project-base:1",
+      "context": "base",
+      "dockerfile": "Dockerfile",
+      "files": ["Dockerfile"]
+    }
+  ]
+}
+```
+
+Here `project/Dockerfile` starts from `project-base:1`; `base/Dockerfile` supplies
+that local base. All listed files are relative to their context; context paths
+are relative to the ZIP root. Optional `build_args` contains non-secret strings,
+and `target` selects a named Dockerfile stage. An `external_images` list explicitly
+declares other registry-provided bases, for example `company/base:1`. Standard
+Docker Hub base names and explicit registry references are external build
+prerequisites. Use a fully qualified registry name for other external images,
+or declare them in `external_images`, rather than inventing a local base recipe.
+
+Embedded base definitions remain pinned to that reviewed source snapshot. ADORE
+makes previously unregistered embedded bases reusable by other projects, while
+preserving existing image associations and its bundled default. A standalone
+image update does not rewrite another image's explicitly embedded snapshot.
+
+Validation bounds the ZIP to 18 MiB, source files to 128 entries and 16 MiB
+combined (4 MiB per file), and the image graph to 32 definitions. It refuses
+traversal, links, duplicate/case-colliding paths, recognizable credential paths,
+private-key material, secret argument defaults, missing COPY/ADD sources,
+unresolved arguments, unsupported syntax and image cycles. Heredoc COPY/ADD,
+alternate Dockerfile escape directives and ONBUILD instructions are unsupported.
+These checks establish the declared build inputs; they do not execute package
+installation or prove that remote packages are available. Review sources before
+building, and keep credentials outside the ZIP. Agent-installed packages and
+running container/job contents are not retained by this definition export.
+
+An unavailable local base prevents a partial complete export; the dialog names
+the missing image. Clearing **Include Docker build files** explicitly exports
+the standalone TOML. Corrupt saved data is refused with the relative object or
+binding path an operator deletes to start fresh; it is never repaired silently.
+
+## Optional immutable Git build source
 
 Commit the Dockerfile and a manifest in the project repository. The image must
 match the exact tag saved in ADORE. The Dockerfile and every input are paths
@@ -63,11 +146,12 @@ For example, commit `executor/build.json` with this content.
 ```
 
 Review the commit and ensure it exists in the project clone on the ADORE
-server. Under **Settings → Agent and model**, save **Docker build definition**
-as `executor/build.json@<full-commit-id>`. Choose **Export raw configuration**
-in Settings, select **Include Docker build files** in its dialog and choose
-**Export**. The ZIP contains the same saved TOML, Compose file,
-build instructions and the listed files. The manifest can declare up to 128
+server. Set `container.build_definition` in the server's project TOML to
+`executor/build.json@<full-commit-id>`. The normal interface uses file attachment
+instead of asking for this Git reference. Choose **Export raw configuration**
+and keep **Include Docker build files** selected. The ZIP contains the same
+saved TOML, recipe metadata, Compose, build instructions and all resolved local
+base definitions. The Git manifest can declare up to 128
 regular files, 4 MiB per file and 16 MiB combined. List each file explicitly
 using portable paths with letters, digits, dots, underscores and hyphens.
 Include any required ignore files. Keep credentials out of the listed files
@@ -75,10 +159,20 @@ and configure registry or package authentication separately.
 
 Extract the ZIP on a Docker host, arrange access to the Dockerfile's base
 images and package sources, then run `docker compose build` in the extracted
-directory. The Compose build tags the image with the name from the saved
-project. Import `config.toml` separately after reviewing its server paths.
+directory. Docker Engine with BuildKit and Compose v2.17 or later builds local
+bases in dependency order using named service contexts. It tags the image
+selected by the project's effective configuration. Import `config.toml`
+separately after reviewing its server paths, then attach this same ZIP to retain
+the definitions. Registry access and build credentials are configured separately.
 
 ## Build and verify on the execution server
+
+For the ADORE project itself, a synthetic recipe and export manifest are available
+under `02_Tools/containers/adore-executor/`. This reconstructs the DCP executor's
+observed Pi, Node, Python and Playwright tooling from Ubuntu, without requiring
+the original local image. See its `README.md` for versions, build context,
+registration and verification. It reconstructs the toolchain; it is not an image
+backup and does not include agent-installed packages, credentials or job state.
 
 Use the runtime installed on that server, Docker or Podman. From the repository
 root, for Docker:
@@ -132,7 +226,7 @@ TOML enrollment.
 
 ## Environment changes and recovery
 
-ADORE has no image definition or build feature. The routes
+ADORE retains reviewed source definitions but does not build images. The routes
 `/api/v1/projects/{name}/image-build`, `/image-build/export`,
 `/image-build/operations`, `/image-build/operations/{id}` and
 `/image-build/operations/{id}/cancel` answer HTTP 404, and the web worker runs
@@ -150,3 +244,16 @@ returns HTTP 503 `pending_config_corrupt`. An administrator removes it with
 ## Images for adaptive agent installation
 
 Rebuild the current base image to include sudo before enabling `container.system_packages`. No existing image is rebuilt automatically. Compatible images supply root-owned OS Python, id, sudo/visudo and a supported package manager; the default user remains non-root. Agents may then install missing system packages directly, with egress configured separately. See [Agent dependency installation](Agent_Dependency_Installation.md).
+
+Default-context `RUN --mount=type=bind` sources (`source` or `src`) must be
+included in the selected build files. Stage-backed mounts use their declared
+stage/image dependency. Context variables follow stage ARG/ENV scope and ENV
+precedence; an unknown base-image variable used as a source path is refused
+rather than guessed.
+
+If retained recipe data is corrupt, ADORE names what to delete to start fresh.
+A bad image association names its record. A missing or corrupt shared source
+object names `ADORE_HOME/executor-recipes`: deleting that catalog removes saved
+image definitions for all projects, while configurations, credentials and jobs
+stay intact. Nothing is deleted automatically; attach the original source again
+after the explicit reset.

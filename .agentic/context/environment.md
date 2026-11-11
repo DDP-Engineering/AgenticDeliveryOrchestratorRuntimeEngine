@@ -157,7 +157,12 @@ independently prepared. See 01_Documentation/Local_Execution.md.
 
 ## Project image build clients
 
-The server administrator builds and verifies executor images externally with the installed Docker/Podman runtime, then selects it in enrollment or the reviewed Settings flow, or updates the existing profile. The GUI supplies a read-only Dockerfile/profile guide and image suggestions from the server's local images. Existing native owned process scopes and delegated Linux `ADORE_BUILD_CGROUP_ROOT` remain available for retained interrupted build cleanup; queued requests are refused. See `01_Documentation/Project_Executor_Images.md`. Full run/model/forge acceptance has separate authority.
+The server administrator builds and verifies executor images externally with the installed Docker/Podman runtime, then selects it in enrollment or the reviewed Settings flow, or updates the existing profile. The GUI supplies a Dockerfile/profile guide and image suggestions from the server's
+local images. Its export dialog retains validated source definitions by image tag
+and exports configuration with the complete declared local source chain, without
+building. The wheel includes the canonical executor-base Dockerfile, Pi inputs and
+license. Build/export require registry/package access separately; sources live in
+ADORE_HOME/executor-recipes independently of job state. Existing native owned process scopes and delegated Linux `ADORE_BUILD_CGROUP_ROOT` remain available for retained interrupted build cleanup; queued requests are refused. See `01_Documentation/Project_Executor_Images.md`. Full run/model/forge acceptance has separate authority.
 
 Local enrollment and Agent and model command editing detect installed native
 executors and known npm entrypoints on the actual Windows/Linux ADORE host,

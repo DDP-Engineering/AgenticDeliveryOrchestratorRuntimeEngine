@@ -50,9 +50,18 @@ Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespe
 
 ## Original-TOML {#toml}
 
-Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Wählen Sie die exportierte Datei unter [Originalkonfiguration importieren](/help/projects#import-project) und ADORE prüft automatisch Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse.
+Neben Projekteinstellungen stehen Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren** zur Verfügung. Die Vorschau zeigt die exakt gespeicherte TOML in einem schließbaren Dialog. Ausstehende Änderungen, separate Umgebungsdateien, externe Zugangsdaten und laufende Auftragsdaten sind ausgeschlossen. Eine einzelne TOML kann Klartextwerte enthalten und muss vertraulich behandelt werden; der vollständige Build-Export verweigert eingebettete Zugangsdaten.
 
-Wählen Sie **Originalkonfiguration exportieren**, um den Exportdialog zu öffnen. Für Docker bietet er **Docker-Build-Dateien einschließen**. Diese Option ist nach dem Speichern einer geprüften **Docker-Build-Definition** unter **Agent und Modell** verfügbar. Die ZIP-Datei enthält dieselbe TOML-Datei, eine Compose-Datei und die deklarierten Build-Dateien des festgelegten Commits. Fehlen Build-Dateien, erklärt der Dialog den Grund und erlaubt weiterhin den TOML-Export. Wählen Sie **Exportieren** zum Herunterladen oder **Abbrechen** zum Schließen.
+Wählen Sie **Originalkonfiguration exportieren**, um den kompakten Dialog zu öffnen:
+
+1. Lassen Sie bei Container-Projekten **Docker-Build-Dateien einschließen** aktiviert, um Konfiguration und vollständige Image-Definition zu exportieren. Deaktivieren Sie es für nur `config.toml`. Native Projekte exportieren TOML.
+2. Fehlt eine Definition, wählen Sie unter **Definitionsdatei** eine Dockerfile oder ein ZIP. Eine Dockerfile allein genügt, wenn keine weiteren lokalen Dateien benötigt werden. Die Datei wird automatisch geprüft; wählen Sie **Rezept speichern**.
+3. Benötigt ein lokales Basis-Image ebenfalls eine Definition, ergänzen Sie dessen Quelle im selben Dialog. Die Standard-Executor-Basis von ADORE wird automatisch mitgeliefert.
+4. Wählen Sie **Exportieren** zum Herunterladen oder **Abbrechen** zum Schließen. **Definition ändern** ersetzt ein Rezept nach Prüfung der neuen Datei.
+
+Definitionen werden je Image gespeichert und von Projekten mit diesem Image geteilt. Das Speichern baut kein Image, ändert keine Einstellungen und startet keine Aufträge neu. Das ZIP enthält alle deklarierten lokalen Basisquellen und eine Compose-Datei zum Bauen auf einem anderen Server. Image-Binärdateien und später vom Agenten installierte Pakete sind ausgeschlossen. Registries und Paketquellen müssen dort erreichbar sein.
+
+Bei beschädigten Rezeptdaten nennt der Dialog, was auf dem Server für einen Neuanfang zu löschen ist. Ein Zurücksetzen des Rezeptkatalogs entfernt gespeicherte Image-Definitionen aller Projekte; Konfigurationen, Zugangsdaten und Aufträge bleiben unverändert. ADORE löscht diese Daten niemals automatisch.
 
 ## Systempakete des Agenten {#system-packages}
 

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-c2cbfa1b"
+title = "Export complete executor image dependency definitions"
+status = "active"
+requirement = "When an administrator requests a container project's complete configuration export, ADORE shall return saved configuration and all declared executor and locally built base-image definitions in a portable source ZIP."
+verification = "Export a multi-level local-base chain; inspect exact source bytes, recipe metadata, Compose dependency contexts and configuration; confirm no Docker invocation or unrelated files."
+affected_paths = ["04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/build_bundle.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawConfiguration.tsx"]
+linked_tests = ["04_Software/tests/test_executor_recipes.py", "04_Software/tests/test_web_executor_recipes.py", "04_Software/tests/test_web_config_raw.py"]
+spec = "specs/REQ-FUNC-c2cbfa1b.md"
+created = 2026-11-11
+updated = 2026-11-11

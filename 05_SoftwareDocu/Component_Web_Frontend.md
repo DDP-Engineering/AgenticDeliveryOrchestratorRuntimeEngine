@@ -583,11 +583,20 @@ create endpoints. Portable transfer has its own API contract, exercised by
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
 The Settings toolbar contains two equally sized actions. Export opens a native
-dialog with Cancel and Export. Docker projects offer **Include Docker build
-files** inside this dialog, defaulting to off. Projects without a saved build
-definition show a disabled option and explain its availability there. Preview
-and download failures also stay inside the respective dialog. Dismissal aborts
-the request and invalidates late responses before focus returns to its trigger.
+dialog with Cancel and Export. Container projects default **Include Docker build
+files** to on; clearing it explicitly downloads TOML alone. Native projects keep
+TOML export. The dialog reads scoped definition availability; missing sources
+show a Dockerfile/ZIP picker, automatic preview and **Save recipe**. The same
+dialog adds missing local bases or replaces a definition with **Change definition**.
+The legacy Git-reference row is omitted from normal Settings. Source writes use
+CSRF, current config revision and the previewed image-association digest.
+
+Feedback remains in the dialog. Close/unmount aborts reads and invalidates late
+status/file-preview responses, returning focus to the trigger. A source Save
+cannot be dismissed mid-mutation. Selected sources/credentials are not cached in
+browser storage. The UI accepts only validated response metadata; complete
+export stays blocked while a source is incomplete or being edited. All controls
+and errors are localized in English, French, German and Romanian.
 
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
@@ -1045,3 +1054,12 @@ History renders localized ticket/job identities, a CLI actor for CLI deletion, a
 Enrollment and Agent and model expose supported Pi thinking levels. Enrollment displays localized check names and times and transfers only server-issued current evidence; incomplete checks stay partial. Local execution and repository reconnect actions use descriptive labels.
 
 Project-list readiness is parsed as a closed identity/revision/checks verdict before display. The Repository access action does not infer repository access from CLI authentication.
+
+The project lifecycle browser fixture reads an authenticated initial catalog once
+and fulfills its local archive-state view without asynchronous upstream proxies.
+This avoids handler-removal races during polling teardown while preserving all
+lifecycle, scoped CSRF, clone ownership and exact-name deletion assertions.
+
+Recipe recovery errors name the server data to remove explicitly. A whole-catalog
+reset message in all four locales explains that image definitions for all projects
+are removed while configurations, credentials and jobs remain untouched.

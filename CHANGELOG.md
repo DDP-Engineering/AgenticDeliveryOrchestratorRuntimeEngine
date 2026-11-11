@@ -12,6 +12,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Retain shared executor image recipes from Dockerfiles or source ZIPs and export
+  project configuration with complete local-base definitions from one compact dialog.
+- Include the standard executor base definition automatically in source exports.
+
 ### Fixed
 
 - Keep raw configuration export options and feedback in dialogs with symmetric Settings actions.

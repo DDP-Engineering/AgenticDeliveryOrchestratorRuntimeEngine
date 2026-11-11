@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-3534628b"
+title = "Manage executor recipes through a compact project dialog"
+status = "active"
+requirement = "When an administrator opens project configuration export, the interface shall offer complete container export and recipe attachment or replacement within its compact dialog."
+verification = "Offline Chromium covers automatic complete selection, source attachment, missing-base recovery, save/error states, Escape/focus, responsive width and four locales; native export stays TOML."
+affected_paths = ["04_Software/web/src/RawConfiguration.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/styles.css", "04_Software/web/src/help/content", "04_Software/web/e2e/portable.spec.ts", "04_Software/web/tests/settings.test.mjs", "04_Software/adore/web/static"]
+linked_tests = ["04_Software/web/e2e/portable.spec.ts", "04_Software/web/tests/settings.test.mjs"]
+spec = "specs/REQ-FUNC-c2cbfa1b.md"
+created = 2026-11-11
+updated = 2026-11-11

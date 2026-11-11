@@ -9,17 +9,21 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Purpose
 
-Executor image definition and build are operator actions outside ADORE; backend,
+Executor image building is an operator action outside ADORE; backend,
 container runtime and image selection are administrator choices at enrollment and in
 reviewed Settings edits. Executor configuration explains both.
 
 ## 2. Responsibilities
 
-ADORE owns no image definition or build. The retired image-build subsystem (the
+ADORE retains reviewed source definitions for export, as described in
+[Executor recipes](Component_Executor_Recipes.md), and does not build images.
+The retired image-build subsystem (the
 Dockerfile draft store, the build runner and its web routes) is removed.
 `ContainerBackend` owns actual run image identity and reviewed preparation recipe
 authority. The executor environment lists the server's installed images and the
 administrator chooses one.
+The compact export dialog retains Dockerfile/context sources by image and
+automatically supplies the standard base, independently of runtime selection.
 
 ## 3. Implementation Overview
 

@@ -50,9 +50,18 @@ Navigation and browser reload ask before discarding unsaved settings edits. Brie
 
 ## Original TOML {#toml}
 
-Beside the Project settings heading, administrators have **Preview raw configuration** and **Export raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. Select the exported file in [Import raw configuration](/help/projects#import-project) and ADORE automatically checks server paths, state-folder ownership and inline secrets before enrollment.
+Beside Project settings, administrators have **Preview raw configuration** and **Export raw configuration**. Preview shows the exact saved TOML in a closable dialog. Pending changes, separate environment files, external credentials and running job data are excluded. A standalone TOML can contain inline values, so handle it as a secret; complete build export refuses inline credentials.
 
-Choose **Export raw configuration** to open the export dialog. For Docker projects, the dialog offers **Include Docker build files**. This option is available after a reviewed **Docker build definition** is saved in **Agent and model**. The ZIP contains the same TOML, a Compose file and the declared build inputs from the pinned commit. When build files are unavailable, the dialog explains why and keeps the TOML export available. Choose **Export** to download or **Cancel** to close.
+Choose **Export raw configuration** to open the compact export dialog:
+
+1. For container projects, keep **Include Docker build files** selected to export the configuration and the complete image definition. Clear it to download only `config.toml`. Native projects export TOML.
+2. If a definition is missing, select a Dockerfile or a ZIP in **Definition file**. A Dockerfile alone works when no other local build files are needed. The file is checked automatically; choose **Save recipe**.
+3. If a local base image also needs a definition, add its source file in the same dialog. ADORE's standard executor base is included automatically.
+4. Choose **Export** to download the ZIP, or **Cancel** to close. **Change definition** replaces an attached recipe after checking the new file.
+
+Definitions are retained by image and shared by projects using that image. Saving a recipe does not rebuild an image, change settings or restart jobs. The ZIP includes all declared local-base sources and a Compose file for building on another server. Image binaries and packages installed later by an agent are excluded. Registry access and package sources must be available there.
+
+If a recipe is corrupt, the dialog names what to delete on the server to start fresh. Resetting the recipe catalog removes saved image definitions for all projects; configurations, credentials and jobs stay unchanged. ADORE never deletes this data automatically.
 
 ## Agent system packages {#system-packages}
 

@@ -219,6 +219,14 @@ SQLite bytes, authorization, scope and financial redaction.
 - `02_Tools/create_package.py` creates a complete native portable archive;
   `verify_package.py` checks it using automatically cleaned temporary data.
 
+Admin container export defaults to the complete source ZIP. RawConfiguration keeps
+missing-base attachment, replacement, errors and recovery inside one compact dialog;
+file selection previews automatically, Save recipe is explicit and stale/invalid
+responses never enable a complete export. All four locales use the same mobile
+layout. Admin/CSRF/config-revision/digest checks guard source retention independently
+of job admission; no pending or active configuration/job state is rewritten.
+See project-images.md, test_web_executor_recipes.py and portable.spec.ts.
+
 ## Invariants
 
 - Global job reads authorize selected profiles before state IO and recheck
@@ -1004,7 +1012,7 @@ WSL commands also resolve image suggestions. The reviewed Save flow owns all
 configuration writes. Proof: `test_executor_environment_choice.py` and
 `images.spec.ts`.
 
-ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
+ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. Image building remains external; recipe attachment belongs to the export dialog. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 
 External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.
 
@@ -1085,3 +1093,8 @@ password and requires repeating the confirmation.
 The Users list opens one native dialog for Add user or Reset password. The
 selected account is named in reset; both actions share password confirmation.
 The reset result is acknowledged only after a valid response.
+
+The project lifecycle browser fixture takes one authenticated, validated project
+catalog snapshot and fulfills its local archive flag without an upstream proxy.
+This keeps polling handlers deterministic when unrouteAll removes routing; all
+CSRF, clone ownership and exact-name deletion assertions remain active.

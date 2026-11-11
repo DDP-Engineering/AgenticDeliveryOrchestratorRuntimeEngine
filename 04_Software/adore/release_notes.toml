@@ -74,7 +74,7 @@ text = { en = "Administrators create accounts and choose the projects each devel
 [[release.entry]]
 category = "new"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Export Docker build files and let agents install system packages inside their containers.", fr = "Exportez les fichiers Docker. Autorisez les agents à installer des paquets dans leur conteneur.", de = "Docker-Build-Dateien exportieren und Agenten Systempakete in ihren Containern installieren lassen.", ro = "Exportă fișierele Docker și permite agenților să instaleze pachete de sistem în container." }
+text = { en = "Keep image recipes, export complete build sources and allow agent system packages.", fr = "Conservez les recettes, exportez les sources complètes et autorisez les paquets système.", de = "Image-Rezepte speichern, vollständige Build-Quellen exportieren und Systempakete erlauben.", ro = "Păstrează rețetele imaginilor, exportă sursele complete și permite pachete de sistem." }
 
 [[release.entry]]
 category = "new"

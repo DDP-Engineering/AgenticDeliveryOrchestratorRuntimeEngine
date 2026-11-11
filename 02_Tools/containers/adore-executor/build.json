@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "image": "adore-executor-adore:pw1.63.0-b73dae3",
+  "dockerfile": "02_Tools/containers/adore-executor/Dockerfile",
+  "files": [
+    "02_Tools/containers/adore-executor/Dockerfile",
+    "02_Tools/containers/adore-executor/Dockerfile.dockerignore",
+    "02_Tools/containers/adore-executor/README.md",
+    "04_Software/docker/pi/adore-guard.ts",
+    "04_Software/docker/pi/adore-chatgpt.mjs",
+    "LICENSE.txt"
+  ]
+}

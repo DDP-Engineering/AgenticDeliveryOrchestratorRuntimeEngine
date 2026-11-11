@@ -16,39 +16,29 @@
 
 # IMPORTS
 from hashlib import sha1, sha256
-from io import BytesIO
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
-import shlex
 import tarfile
 from tempfile import TemporaryDirectory
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
+from adore.recipe_sources import (
+    MAX_FILE_BYTES,
+    MAX_FILES,
+    MAX_INPUT_BYTES,
+    PRIVATE_KEY,
+    RecipeError,
+    image_reference,
+    source_path,
+)
 from adore.util import CommandResult, CommandRunner, run_command
 
 # CONSTANTS
-MAX_FILES = 128
-MAX_FILE_BYTES = 4 * 1024 * 1024
-MAX_INPUT_BYTES = 16 * 1024 * 1024
 _GIT_DIGEST = re.compile(r"(?:[a-f0-9]{40}|[a-f0-9]{64})")
-_WINDOWS_DEVICE = re.compile(r"(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?", re.I)
-_PRIVATE_KEY = re.compile(rb"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----")
-_IMAGE_COMPONENT = r"[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*"
-_IMAGE_NAME = re.compile(
-    rf"(?:[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]+)?/)?"
-    rf"{_IMAGE_COMPONENT}(?:/{_IMAGE_COMPONENT})*"
-)
 _GIT_SELECTION = {"GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_NAMESPACE",
                   "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"}
-LEGAL_HEADER = (
-    "# Copyright (c) 2026 DDP Engineering\n"
-    "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
-    "# Commercial use requires a separate commercial license.\n"
-    "# See the LICENSE.txt file for full license details. "
-    "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0\n"
-)
+
 
 
 # DATA MODELS / TYPEDEFINITIONS
@@ -64,21 +54,11 @@ class BuildBundleError(ValueError):
 # LOCAL HELPERS
 def _path(value: object) -> str:
     """@brief Accept a portable repository file path and exclude credential paths."""
-    if not isinstance(value, str) or len(value) > 240:
-        raise BuildBundleError()
-    parts = value.split("/")
-    if (not parts or any(not re.fullmatch(r"[A-Za-z0-9_.-]+", part)
-                         or part.endswith(".") or _WINDOWS_DEVICE.fullmatch(part)
-                         for part in parts)
-            or any(part.lower() in {".git", ".ssh", ".aws", ".azure", ".config",
-                                    ".docker", ".npmrc", ".pypirc", ".netrc", ".gitconfig",
-                                    "auth.json", "credentials", "credentials.json",
-                                    "id_rsa", "id_ed25519"}
-                   or part.lower().startswith((".env", "credentials."))
-                   or part.lower().endswith((".key", ".pem", ".p12", ".pfx", ".kdbx"))
-                   for part in parts)):
-        raise BuildBundleError()
-    return value
+    try:
+        return source_path(value)
+    except RecipeError as exc:
+        raise BuildBundleError() from exc
+
 
 
 def _git(runner: CommandRunner, repo: str, *argv: str, timeout: int = 15) -> CommandResult:
@@ -141,7 +121,7 @@ def _inputs(repo: str, revision: str, paths: list[str],
                     git_blob = b"blob " + str(size).encode("ascii") + b"\0" + raw
                     if (len(raw) != size
                             or algorithm(git_blob, usedforsecurity=False).hexdigest() != digest
-                            or _PRIVATE_KEY.search(raw)):
+                            or PRIVATE_KEY.search(raw)):
                         raise BuildBundleError()
                     found[member.name] = (raw, mode)
         except (OSError, tarfile.TarError) as exc:
@@ -179,21 +159,19 @@ def definition_parts(value: str) -> tuple[str, str] | None:
     return _path(path), revision
 
 
-def export_build_bundle(config, raw: bytes, *, runner: CommandRunner = run_command) -> bytes:
+def read_git_recipe(config, *, runner: CommandRunner = run_command):
     """
-    @brief Assemble exact saved TOML and declared Git inputs with Docker Compose.
-    @param[in] config Loaded current project configuration.
-    @param[in] raw Exact standalone raw-export bytes.
-    @param[in] runner Injectable bounded Git runner; never calls Docker or a forge.
-    @return In-memory portable ZIP archive with relative paths.
-    @exception BuildBundleError For absent, unsafe, unavailable or changed build inputs.
-    @note Operators review the Dockerfile, base images and build network prerequisites.
+    @brief Read exact declared Git blobs as an executor source definition.
+    @param[in] config Saved image and immutable build-manifest reference.
+    @param[in] runner Injectable bounded Git command reader.
+    @return Validated in-memory recipe retaining source revision provenance.
+    @exception BuildBundleError For missing, unsafe or transformed Git sources.
     """
+    from adore.recipe_sources import Definition, Recipe, image_dependencies
+
     try:
         parts = definition_parts(config.container.build_definition)
-        runtime = shlex.split(config.container.runtime)
-        if (parts is None or config.execution.backend != "container"
-                or not {"docker", "docker.exe"}.intersection(runtime)):
+        if parts is None:
             raise BuildBundleError("build_definition_unavailable")
         path, revision = parts
         repo = config.worktree.repo_path
@@ -223,38 +201,38 @@ def export_build_bundle(config, raw: bytes, *, runner: CommandRunner = run_comma
                        for name in files for other in files if name != other)):
             raise BuildBundleError()
         image = config.container.image
-        name, colon, tag = image.rpartition(":")
-        if (image != manifest["image"] or not colon or len(image) > 255
-                or not _IMAGE_NAME.fullmatch(name)
-                or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag)):
+        if image != manifest["image"]:
             raise BuildBundleError()
+        image_reference(image, tagged=True)
         inputs = _inputs(repo, revision, files, runner)
-        compose = {"services": {"executor": {"image": image, "build": {
-            "context": "./context", "dockerfile": dockerfile}}}}
-        buffer = BytesIO()
-        with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as output:
-            output.writestr("config.toml", raw)
-            output.writestr("compose.yaml", LEGAL_HEADER + json.dumps(compose, indent=2) + "\n")
-            output.writestr("BUILD.txt", LEGAL_HEADER +
-                "Review the declared Dockerfile before building.\n"
-                "Prerequisites: Docker Engine, Docker Compose v2, access to base images\n"
-                "and any package sources used by the Dockerfile. Configure registry\n"
-                "authentication separately on the destination host.\n"
-                "Run docker compose build from this extracted directory.\n"
-                "This builds the configured image. Enroll config.toml separately after\n"
-                "reviewing server-specific paths and account access.\n"
-                f"Reviewed source commit: {revision}\n")
-            for name, (contents, mode) in sorted(inputs.items()):
-                info = ZipInfo("context/" + name)
-                info.create_system = 3
-                info.external_attr = (0o100000 | mode) << 16
-                info.compress_type = ZIP_DEFLATED
-                output.writestr(info, contents)
-        return buffer.getvalue()
-    except BuildBundleError:
+        definition = Definition(image, dockerfile, inputs)
+        image_dependencies(definition)
+        return Recipe(image, {image: definition}, source="git", revision=revision)
+    except (BuildBundleError, RecipeError):
         raise
     except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
         raise BuildBundleError() from exc
+
+
+
+def export_build_bundle(config, raw: bytes, *, runner: CommandRunner = run_command,
+                        home=None) -> bytes:
+    """
+    @brief Export saved configuration and a complete retained/Git/bundled image graph.
+    @param[in] config Loaded current project configuration.
+    @param[in] raw Exact standalone raw-export bytes.
+    @param[in] runner Injectable bounded Git reader; never invokes a runtime.
+    @param[in] home Trusted ADORE recipe catalog home.
+    @return Portable source ZIP with Compose and every required local base definition.
+    @exception BuildBundleError For unavailable container mode or invalid Git inputs.
+    @exception RecipeError For unsafe, corrupt, cyclic or incomplete recipe sources.
+    """
+    from adore.executor_recipes import resolve_recipe
+    from adore.recipe_sources import recipe_archive
+
+    if config.execution.backend != "container":
+        raise BuildBundleError("build_definition_unavailable")
+    return recipe_archive(resolve_recipe(config, home=home, runner=runner), config_raw=raw)
 
 
 # END OF FILE

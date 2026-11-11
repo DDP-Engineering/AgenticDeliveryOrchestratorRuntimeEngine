@@ -371,8 +371,7 @@ export default function App() {
   const priceExecutor = "pi";
   const configuredPriceModel = projectConfig ? settingValue(projectConfig.config, "executor.model") : undefined;
   const dockerBuild = projectConfig && settingValue(projectConfig.config, "execution.backend") === "container"
-    && /(?:^|\s)docker(?:\.exe)?(?:\s|$)/.test(String(settingValue(projectConfig.config, "container.runtime")))
-    ? Boolean(settingValue(projectConfig.config, "container.build_definition")) : undefined;
+    ? true : undefined;
   const priceModel = typeof configuredPriceModel === "string" && configuredPriceModel.trim() ? configuredPriceModel : "";
   const statisticsText = statisticsCopy[locale];
   const authorizedMetricsKey = JSON.stringify(projects.map(project => [project.id, project.name]).sort());
@@ -1449,7 +1448,7 @@ export default function App() {
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={`${selected}:${priceModel}`} ref={priceFormRef} className="form-grid" onChange={event=>updatePriceDraft(event.currentTarget)} onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
                     {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
-                  </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} dockerBuild={dockerBuild} />}>
+                  </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} dockerBuild={dockerBuild} revision={projectConfig.revision} image={String(settingValue(projectConfig.config, "container.image") ?? "")} csrf={session.csrf} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {settingsConfirmation && settingsConfirmation.project === selected && <SettingsImpactDialog config={settingsConfirmation.config} candidate={settingsConfirmation.candidate} edits={settingsConfirmation.edits} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} locale={locale} onDecision={accepted => settingsConfirmation.resolve(accepted)} />}
