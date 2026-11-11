@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-ab48c99a"
+title = "Refuse invalid prompt template syntax"
+status = "draft"
+requirement = "If a required prompt fragment contains invalid string.Template dollar syntax, the ADORE prompt loader shall fail closed during catalog loading with PromptError naming that file."
+verification = "Load templates with valid named placeholders and escaped dollars, then load required fragments containing a trailing dollar, $9 or an unclosed braced placeholder; assert file-named PromptError before rendering, including an otherwise unused fragment."
+affected_paths = ["04_Software/adore/prompts.py"]
+linked_tests = []
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

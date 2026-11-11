@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-87abf8e4"
+title = "Refuse missing prompt render values"
+status = "draft"
+requirement = "If a caller renders a fragment without supplying one of its named placeholders, the ADORE prompt loader shall fail closed with PromptError naming that fragment's file."
+verification = "Render a valid multi-placeholder fragment with all values successfully, then omit each required value in turn; assert file-named PromptError rather than a KeyError, unresolved placeholder or partial result, while an explicitly supplied empty value remains valid."
+affected_paths = ["04_Software/adore/prompts.py"]
+linked_tests = []
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

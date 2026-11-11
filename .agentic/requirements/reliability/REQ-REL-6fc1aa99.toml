@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-6fc1aa99"
+title = "Refuse missing prompt files"
+status = "draft"
+requirement = "If a required prompt file is missing when loading the catalog, the ADORE prompt loader shall fail closed with PromptError naming that file."
+verification = "Load a complete valid catalog successfully, then remove a required fragment that the next stage would not use; constructing the catalog/orchestrator must raise PromptError containing the missing file name rather than use fallback text or a partial catalog."
+affected_paths = ["04_Software/adore/prompts.py", "04_Software/adore/orchestrator.py"]
+linked_tests = []
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11
