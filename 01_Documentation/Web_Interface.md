@@ -647,12 +647,15 @@ Administrators use **Preview raw configuration** or **Export raw configuration**
 
 In a Docker project, set **Docker build definition** under **Agent and model**
 to a reviewed repository manifest and its full commit ID. Save and confirm
-the change. Select **Include Docker build files** before exporting to get a ZIP
+the change. Choose **Export raw configuration**, then select **Include Docker
+build files** in its dialog and choose **Export** to get a ZIP
 with the same `config.toml`, `compose.yaml`, build instructions and the declared
 inputs. Extract the ZIP and run `docker compose build` there to build the
 configured image tag. Review the Dockerfile and arrange access to its base
 images and package sources on the build host. A project without a registered
-definition offers the standalone export. See [Project executor images](Project_Executor_Images.md).
+definition offers the standalone export. Availability guidance and errors stay
+inside the dialog. The Settings heading has two equally sized actions for
+preview and export. See [Project executor images](Project_Executor_Images.md).
 
 Portable working rules remain available through the transfer API.
 See

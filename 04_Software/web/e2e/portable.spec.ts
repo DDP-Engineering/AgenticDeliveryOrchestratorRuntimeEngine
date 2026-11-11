@@ -43,6 +43,7 @@ test("raw configuration preview and download are original and Settings stays com
   const expected = await original.body();
   const download = page.waitForEvent("download");
   await panel.getByRole("button", { name: "Export raw configuration", exact: true }).click();
+  await page.getByRole("dialog", { name: "Export raw configuration", exact: true }).getByRole("button", { name: "Export", exact: true }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe("config.toml");
   expect(await readFile((await file.path())!)).toEqual(expected);
@@ -73,19 +74,61 @@ test("Docker export is optional and uses the registered build definition", async
   });
   await page.reload();
   const exportButton = actions.getByRole("button",{name:"Export raw configuration",exact:true});
+  await exportButton.click();
+  const dialog = page.getByRole("dialog",{name:"Export raw configuration",exact:true});
   await expect(option).not.toBeChecked();
   const standalone = page.waitForEvent("download");
-  await exportButton.click();
+  await dialog.getByRole("button",{name:"Export",exact:true}).click();
   expect((await standalone).suggestedFilename()).toBe("config.toml");
+  await exportButton.click();
   await option.check();
   const bundle = Buffer.from([0x50,0x4b,0x03,0x04,0x00]);
   await page.route("**/config/raw?download=true&include_build=true", route =>
     route.fulfill({contentType:"application/zip",body:bundle}));
   const download = page.waitForEvent("download");
-  await exportButton.click();
+  await dialog.getByRole("button",{name:"Export",exact:true}).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe("adore-docker-build.zip");
   expect(await readFile((await file.path())!)).toEqual(bundle);
+});
+
+test("raw export keeps a clean symmetric toolbar and explains unavailable build files inside its dialog", async ({ page }, info) => {
+  await page.route("**/api/v1/projects/*/config", async route => {
+    const response = await route.fetch(), body = await response.json();
+    body.config.execution.backend = "container";
+    body.config.container.runtime = "docker";
+    body.config.container.build_definition = "";
+    await route.fulfill({response,json:body});
+  });
+  await page.setViewportSize({width:1520,height:900});
+  await openSettings(page);
+  const actions = page.locator(".raw-config-actions");
+  await expect(actions.locator(":scope > button")).toHaveCount(2);
+  await expect(actions.locator(":scope > small, :scope > p, :scope > label")).toHaveCount(0);
+  const open = actions.getByRole("button",{name:"Export raw configuration",exact:true});
+  for (const width of [1520,390]) {
+    await page.setViewportSize({width,height:900});
+    const buttons = await actions.locator(":scope > button").all();
+    const first = await buttons[0].boundingBox(), second = await buttons[1].boundingBox();
+    expect(Math.abs(first!.width-second!.width)).toBeLessThan(1);
+    expect(Math.abs(first!.height-second!.height)).toBeLessThan(1);
+    expect(Math.abs(first!.y-second!.y)).toBeLessThan(1);
+    await open.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog",{name:"Export raw configuration",exact:true});
+    await expect(dialog.getByRole("button",{name:"Cancel",exact:true})).toBeFocused();
+    await expect(dialog.getByLabel("Include Docker build files")).toBeDisabled();
+    await expect(dialog.getByText(/no linked build files/)).toBeVisible();
+    await expect(dialog.getByRole("button",{name:"Export",exact:true})).toBeEnabled();
+    const bounds = await dialog.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(width);
+    await page.screenshot({path:info.outputPath(`raw-export-${width}.png`),fullPage:true});
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(open).toBeFocused();
+    await expect(actions).not.toContainText("Docker");
+  }
 });
 
 test("raw configuration failures and malformed transports expose no preview", async ({ page }) => {
@@ -98,8 +141,10 @@ test("raw configuration failures and malformed transports expose no preview", as
   ]) {
     await page.route("**/config/raw*", route => route.fulfill(response));
     await preview.click();
-    await expect(page.locator(".raw-config-actions [role=alert]")).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("dialog").locator("pre")).toHaveCount(0);
+    await expect(page.locator(".raw-config-actions > [role=alert]")).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await page.unroute("**/config/raw*");
   }
   await preview.click();
@@ -124,6 +169,7 @@ test("raw configuration inline secrets render as text and are cleared on scope c
   await page.route("**/config/raw*", async route => { captured(); await held; await route.fulfill({ contentType: "text/plain", body: original }).catch(() => undefined); });
   await page.getByRole("button", { name: "Preview raw configuration", exact: true }).click();
   await started;
+  await page.keyboard.press("Escape");
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Overview", exact: true }).click();
   release();
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -138,9 +184,11 @@ test("developer cannot view or download original unredacted configuration", asyn
   }
 });
 
-for (const [locale, preview] of [
-  ["en", "Preview raw configuration"], ["fr", "Voir la configuration brute"],
-  ["de", "Originalkonfiguration anzeigen"], ["ro", "Previzualizare configurație originală"],
+for (const [locale, preview, exportName] of [
+  ["en", "Preview raw configuration", "Export raw configuration"],
+  ["fr", "Voir la configuration brute", "Exporter la configuration brute"],
+  ["de", "Originalkonfiguration anzeigen", "Originalkonfiguration exportieren"],
+  ["ro", "Previzualizare configurație originală", "Exportă configurația brută"],
 ]) {
   test(`raw configuration controls support ${locale} at 390px`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -154,5 +202,11 @@ for (const [locale, preview] of [
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
+    await page.getByRole("button",{name:exportName,exact:true}).click();
+    const exportDialog = page.getByRole("dialog",{name:exportName,exact:true});
+    await expect(exportDialog).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(exportDialog).toHaveCount(0);
   });
 }

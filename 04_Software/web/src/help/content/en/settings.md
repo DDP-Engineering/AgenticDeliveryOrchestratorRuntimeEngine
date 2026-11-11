@@ -52,7 +52,7 @@ Navigation and browser reload ask before discarding unsaved settings edits. Brie
 
 Beside the Project settings heading, administrators have **Preview raw configuration** and **Export raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. Select the exported file in [Import raw configuration](/help/projects#import-project) and ADORE automatically checks server paths, state-folder ownership and inline secrets before enrollment.
 
-For Docker projects, save a reviewed **Docker build definition** in **Agent and model**, then select **Include Docker build files** before exporting. The ZIP contains the same TOML, a Compose file and the declared build inputs from the pinned commit. Extract it and follow the build instructions. If no definition was registered, export the TOML alone.
+Choose **Export raw configuration** to open the export dialog. For Docker projects, the dialog offers **Include Docker build files**. This option is available after a reviewed **Docker build definition** is saved in **Agent and model**. The ZIP contains the same TOML, a Compose file and the declared build inputs from the pinned commit. When build files are unavailable, the dialog explains why and keeps the TOML export available. Choose **Export** to download or **Cancel** to close.
 
 ## Agent system packages {#system-packages}
 

@@ -52,7 +52,7 @@ Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modific
 
 Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Selectați fișierul exportat în [Importă configurația brută](/help/projects#import-project) iar ADORE verifică automat înainte de înrolare căile de pe server, dosarul de stare și secretele incluse în fișier.
 
-Pentru proiectele Docker, salvează o **Definiție de build Docker** revizuită în **Agent și model**, apoi bifează **Include fișierele de build Docker** înainte de export. Arhiva ZIP conține același TOML, un fișier Compose și fișierele declarate din commitul ales. Dezarhivează și urmează instrucțiunile de build. Fără o definiție înregistrată, poți exporta doar TOML-ul.
+Alege **Exportă configurația brută** pentru a deschide dialogul de export. Pentru Docker, dialogul oferă **Include fișierele de build Docker**. Opțiunea devine disponibilă după salvarea unei **Definiții de build Docker** revizuite în **Agent și model**. Arhiva ZIP conține același TOML, un fișier Compose și fișierele declarate din commitul ales. Dacă lipsesc fișierele de build, dialogul explică motivul și permite în continuare exportul TOML. Alege **Exportă** pentru descărcare sau **Anulează** pentru închidere.
 
 ## Pachetele de sistem ale agentului {#system-packages}
 

@@ -64,8 +64,9 @@ For example, commit `executor/build.json` with this content.
 
 Review the commit and ensure it exists in the project clone on the ADORE
 server. Under **Settings → Agent and model**, save **Docker build definition**
-as `executor/build.json@<full-commit-id>`. Select **Include Docker build files**
-in Settings and export. The ZIP contains the same saved TOML, Compose file,
+as `executor/build.json@<full-commit-id>`. Choose **Export raw configuration**
+in Settings, select **Include Docker build files** in its dialog and choose
+**Export**. The ZIP contains the same saved TOML, Compose file,
 build instructions and the listed files. The manifest can declare up to 128
 regular files, 4 MiB per file and 16 MiB combined. List each file explicitly
 using portable paths with letters, digits, dots, underscores and hyphens.

@@ -582,10 +582,12 @@ create endpoints. Portable transfer has its own API contract, exercised by
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
-For Docker projects with a saved build definition, **Include Docker build
-files** switches the download to a bounded ZIP response. The checkbox defaults
-to off. Projects without a registered definition explain why the ZIP is
-unavailable. Preview always reads plain TOML.
+The Settings toolbar contains two equally sized actions. Export opens a native
+dialog with Cancel and Export. Docker projects offer **Include Docker build
+files** inside this dialog, defaulting to off. Projects without a saved build
+definition show a disabled option and explain its availability there. Preview
+and download failures also stay inside the respective dialog. Dismissal aborts
+the request and invalidates late responses before focus returns to its trigger.
 
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,

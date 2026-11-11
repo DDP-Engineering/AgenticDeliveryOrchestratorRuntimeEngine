@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep raw configuration export options and feedback in dialogs with symmetric Settings actions.
+
 - Keep Provider, Model and other single-line Settings controls at normal height.
 - Retain verified executor output through live read conflicts and summarize completed launches.
 
