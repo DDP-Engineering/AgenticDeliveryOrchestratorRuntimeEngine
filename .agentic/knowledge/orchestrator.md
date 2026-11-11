@@ -38,6 +38,8 @@ ADORE never merges or gives forge credentials to an executor.
 `Orchestrator.from_config()` constructs the conductor from validated settings
 and binds project-scoped forge credentials through repository-auth.md using
 the env-file directory. Worktree/container/executor credentials stay separate.
+`from_config` loads one `PromptCatalog` and shares it with the Pi launcher;
+direct construction accepts `prompts=` or eagerly loads the shipped catalog.
 
 ## Invariants
 
@@ -75,12 +77,21 @@ requests do not conduct in the HTTP process.
 |---|---|---|
 | Stage flow, verification trigger, return to validate | `_conduct_task_impl`, `_strict_verification`, `_validation_failure` | `test_orchestrator.py` path, route and remediation tests |
 | Approval and publication | `_present_for_approval`, `_approval_ready`, `_publish_impl` | `test_orchestrator.py` publication tests, `test_checkpoint_handoff.py` |
-| Executor prompts | `_stage_prompt` | `test_orchestrator.py` prompt tests |
+| Executor prompts | `_stage_prompt`, `adore/prompts/`; see `prompts.md` for loading/rendering | `test_prompts.py` original-byte/caller matrix; `test_orchestrator.py` prompt tests |
 | Retry and reset | `retry`, `_published`, `reset`, `RESETTABLE_STAGES` | `test_orchestrator.py` reset tests, `test_smoke.py` |
 | Checkpoints and human handoff | `_checkpoint`, `_push_checkpoint`, `handoff` | `test_checkpoint_handoff.py` |
 | Cleanup | `cleanup`, `purge_resources` | `test_orchestrator.py` cleanup tests |
 
 ## Key behaviors
+
+- `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`, `REQ-FUNC-14872c0d`: stage,
+  recovery and review text comes from the eagerly checked shipped catalog.
+  Python retains conditional selection, order, joins, description stripping,
+  sanitization and thread rendering. Missing/malformed resources fail with
+  file-named `PromptError` at construction; missing render values fail closed.
+  Original byte captures prove stages, hints, recovery/review callers, package
+  permissions and effective open/proxy/native policies; injected none cases
+  cover interpolation only. See `prompts.md` for resource/error contracts.
 
 - REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b / REQ-DATA-0c65db9f: before provision and each executor attempt, reread the selected source, validate budgets and pin parsed/resolved non-budget settings. Only budgets are rebound; no branch matcher/host probe is rerun. Missing/corrupt/unknown input or non-budget drift fails BUDGET_CONFIG_INVALID before another launch. Active time, sessions and saved task/worktree progress stay cumulative across resume/retry/revision. An in-flight launch retains its timeout. Proof includes public Retry boundaries and HTTP parked-budget save followed by same-job resume in test_orchestrator.py.
 
@@ -168,6 +179,8 @@ Container profiles without recipes or enabled package permission retain the exis
 
 
 - `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
+- `04_Software/adore/prompts.py`, `adore/prompts/` - shared catalog and text resources.
+- `04_Software/tests/test_prompts.py` - byte oracles, real recovery/review callers and catalog sharing.
 - `04_Software/tests/test_orchestrator.py` - selection, recovery and delivery.
 - `04_Software/tests/test_checkpoint_handoff.py` - checkpoint and handoff edges.
 
