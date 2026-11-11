@@ -52,6 +52,8 @@ La navigation et le rechargement de la page demandent confirmation avant d’aba
 
 À côté du titre Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu ouvre une boîte de dialogue fermable et ne garde le texte qu’en mémoire. Le téléchargement fournit le `config.toml` enregistré exactement tel que stocké, avec ses commentaires, sa mise en forme et d’éventuels secrets en clair : traitez-le comme un secret. Ni l’un ni l’autre n’inclut un candidat en attente, les valeurs par défaut résolues, les fichiers `.env` séparés ou les identifiants externes. Les développeurs ne peuvent pas les utiliser. Sélectionnez le fichier exporté dans [Importer la configuration brute](/help/projects#import-project) et ADORE vérifie automatiquement les chemins du serveur, le dossier d’état et les secrets en clair avant l’inscription.
 
+Pour un projet Docker, enregistrez une **Définition de build Docker** vérifiée dans **Agent et modèle**, puis cochez **Inclure les fichiers de build Docker** avant l’export. Le ZIP contient le même TOML, un fichier Compose et les sources déclarées du commit choisi. Extrayez-le et suivez les instructions de build. Sans définition enregistrée, exportez le TOML seul.
+
 ## Paquets système de l’agent {#system-packages}
 
 **Autoriser l’installation de paquets système par l’agent**

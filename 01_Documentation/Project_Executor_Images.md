@@ -46,6 +46,37 @@ Replace the comment with installation commands for your project. Keep credential
 outside the Dockerfile. Project library preparation remains the optional reviewed
 per-worktree recipe described in [Container preparation](Container_Preparation.md).
 
+## Register a Docker build for export
+
+Commit the Dockerfile and a manifest in the project repository. The image must
+match the exact tag saved in ADORE. The Dockerfile and every input are paths
+relative to the repository root, which becomes the exported build context.
+For example, commit `executor/build.json` with this content.
+
+```json
+{
+  "schema": 1,
+  "image": "my-project-executor:1.0.0",
+  "dockerfile": "executor/Dockerfile",
+  "files": ["executor/Dockerfile", "executor/setup.sh"]
+}
+```
+
+Review the commit and ensure it exists in the project clone on the ADORE
+server. Under **Settings → Agent and model**, save **Docker build definition**
+as `executor/build.json@<full-commit-id>`. Select **Include Docker build files**
+in Settings and export. The ZIP contains the same saved TOML, Compose file,
+build instructions and the listed files. The manifest can declare up to 128
+regular files, 4 MiB per file and 16 MiB combined. List each file explicitly
+using portable paths with letters, digits, dots, underscores and hyphens.
+Include any required ignore files. Keep credentials out of the listed files
+and configure registry or package authentication separately.
+
+Extract the ZIP on a Docker host, arrange access to the Dockerfile's base
+images and package sources, then run `docker compose build` in the extracted
+directory. The Compose build tags the image with the name from the saved
+project. Import `config.toml` separately after reviewing its server paths.
+
 ## Build and verify on the execution server
 
 Use the runtime installed on that server, Docker or Podman. From the repository

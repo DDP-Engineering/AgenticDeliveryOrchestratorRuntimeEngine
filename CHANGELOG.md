@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep Provider, Model and other single-line Settings controls at normal height.
+- Retain verified executor output through live read conflicts and summarize completed launches.
+
 - Keep healthy projects visible in Overview when another project's job state cannot be read.
 
 - Narrow the ticket number column to leave more room for the other columns.
@@ -78,6 +81,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 
 ### Added
+
+- Export a reviewed Docker build bundle alongside the raw project configuration.
 
 - Support ChatGPT subscription sign-in and scoped Pi execution natively on Windows and Linux/WSL2, with temporary stage tokens.
 

@@ -43,6 +43,7 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
+from adore.build_bundle import BuildBundleError, definition_parts
 from adore.chatgpt import MAX_STAGE_SECONDS as CHATGPT_MAX_STAGE_SECONDS
 from adore.pi_providers import (
     CHATGPT,
@@ -432,6 +433,7 @@ class ContainerConfig:
 
     runtime: str = "docker"
     image: str = EXECUTOR_BASE_IMAGE
+    build_definition: str = ""
     system_packages: bool = False
     keep_parked: bool = True
     parked_ttl_mode: str = "polls"
@@ -1144,6 +1146,11 @@ def validate_config(config: Config) -> list[str]:
     for section in config.raw:
         check(section in KNOWN_SECTIONS, f"unknown section: [{section}]")
     issues.extend(_unknown_key_issues(config.raw))
+    try:
+        definition_parts(config.container.build_definition)
+    except BuildBundleError:
+        issues.append("[container] build_definition must be a safe relative "
+                      "manifest.json@full-commit")
 
     check(bool(config.agent.name.strip()), "[agent] name must not be empty")
     check(

@@ -70,6 +70,11 @@ container.
 removed coding agent's prefix (`OPENCODE_`, `CODEX_`, `QWEN_`) are refused
 with a message to remove them from `config.toml`.
 
+`container.build_definition` is an optional scalar for Docker build export.
+Validation accepts an empty string or a portable repository-relative JSON path
+with a full Git commit ID. The export reader checks the commit and its contents
+on request. Executor launch uses the configured image independently.
+
 ## 4. Inputs and Outputs
 
 Input is a TOML file plus derived profile paths. Output is a `Config` dataclass

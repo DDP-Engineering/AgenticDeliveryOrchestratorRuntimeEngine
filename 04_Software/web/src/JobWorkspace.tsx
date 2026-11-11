@@ -173,9 +173,10 @@ export function JobWorkspace(props: Props) {
   useEffect(() => {
     if (!run || !scope || !ids.split(",").includes(scope)) { setDetail(null); return; }
     let active = true, sequence = 0;
-    const fetchDetail = async () => {
+    const fetchDetail = async (background = false) => {
       const current = ++sequence;
-      setDetail(null); setDetailState("loading"); setDetailFailure(null); setLoadedDetailKey(detailKey);
+      if (!background) { setDetail(null); setDetailState("loading"); }
+      setDetailFailure(null); setLoadedDetailKey(detailKey);
       try {
         const result = readJobDetail(await request(`/jobs/${encodeURIComponent(scope)}/${encodeURIComponent(run)}`), scope, run);
         if (active && sequence === current) { setDetail(result); setDetailState("ready"); }
@@ -184,7 +185,7 @@ export function JobWorkspace(props: Props) {
       }
     };
     void fetchDetail();
-    const stop = startVisiblePolling(() => void fetchDetail(), 15000);
+    const stop = startVisiblePolling(() => void fetchDetail(true), 15000);
     return () => { active = false; stop(); };
   }, [detailKey, ids, refresh, reload]);
 
@@ -293,7 +294,7 @@ export function JobWorkspace(props: Props) {
       {visibleDetail.preparation && <PreparationResults evidence={visibleDetail.preparation} locale={locale} />}
       <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}
       <h3>{copy.artifacts}</h3><div className="button-row">{visibleDetail.ticket_url && <a className="ghost link-button" href={visibleDetail.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}{visibleDetail.mr_url && <a className="ghost link-button" href={visibleDetail.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>{!visibleDetail.ticket_url && !visibleDetail.mr_url && <p>{copy.unknown}</p>}
-      <ExecutorOutputView key={`${detailKey}/${visibleDetail.state_revision}`} job={visibleDetail} locale={locale} request={request} t={t} />
+      <ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />
       <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
     </section>}
     <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
@@ -327,29 +328,47 @@ function ObservedTimeline({ events, date, t, unknown }: { events: NonNullable<Jo
 
 /** Fetch on demand, discarding completions after the selected job is unmounted. */
 function ExecutorOutputView({job, locale, request, t}: {job:Job;locale:Locale;request:Request;t:Props["t"]}) {
-  const [state,setState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [state,setState]=useState<"idle"|"loading"|"ready"|"changed"|"error">("idle");
   const [output,setOutput]=useState<ExecutorOutput|null>(null);
   const generation=useRef(0);
   useEffect(()=>()=>{generation.current++;},[]);
   const load=async()=>{
     const current=++generation.current;
-    setState("loading");setOutput(null);
+    setState("loading");
     try {
       const value=readExecutorOutput(await request(`/jobs/${encodeURIComponent(job.project_id)}/${encodeURIComponent(job.run_id)}/executor-output`),job.project_id,job.run_id);
       if(current===generation.current){setOutput(value);setState("ready");}
-    }catch{if(current===generation.current)setState("error");}
+    }catch(cause){
+      if(current===generation.current){
+        if(cause instanceof ApiError && ["authentication_required","password_change_required","project_not_found","run_not_found"].includes(cause.code)) setOutput(null);
+        setState(cause instanceof ApiError && cause.code==="job_snapshot_changed"?"changed":"error");
+      }
+    }
   };
   const copy=jobCopy[locale];
+  const stale=output && (state!=="ready" || output.state_revision!==job.state_revision);
   return <section className="executor-output">
     <button className="ghost" disabled={state==="loading"} onClick={()=>void load()}>{copy.executorOutput}</button>
     {state!=="idle" && <p className="field-hint">{copy.outputHelp}</p>}
     {state==="loading" && <p role="status">{t("loadingData")}</p>}
     {state==="error" && <p role="alert">{copy.outputFailed}</p>}
+    {state==="changed" && <p role="status">{copy.outputChanged} <button className="text-button" onClick={()=>void load()}>{t("retry")}</button></p>}
+    {stale && <p className="notice" role="status">{copy.outputStale}</p>}
+    {output?.in_progress && <p role="status">{copy.outputRunning}</p>}
     {output?.availability==="missing" && <p role="status">{copy.outputMissing}</p>}
     {output?.availability==="observed" && <>
-      <p>{copy.exitCode}: {output.exit_code}{output.timed_out && ` · ${copy.timedOut}`}</p>
-      <h4>stdout</h4><pre className="operation-detail" tabIndex={0}>{output.stdout || copy.outputEmpty}</pre>
-      <h4>stderr</h4><pre className="operation-detail" tabIndex={0}>{output.stderr || copy.outputEmpty}</pre>
+      <p className="executor-output-summary">
+        <strong>{output.timed_out ? copy.timedOut : output.exit_code===0 ? copy.outputSucceeded : copy.outputUnsuccessful}</strong>
+        <span>{t("attempts")}: {output.attempt}</span>
+        {output.stage && <span>{t("stage")}: {label(output.stage,stageKeys,t)}</span>}
+        <time dateTime={output.recorded_at}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"medium"}).format(new Date(output.recorded_at))}</time>
+        <span>{copy.exitCode}: {output.exit_code}</span>
+      </p>
+      {!output.stderr && <p className="field-hint">{copy.outputNoStderr}</p>}
+      {!output.stdout && !output.stderr && <p className="field-hint">{copy.outputEmpty}</p>}
+      {(["stdout","stderr"] as const).map(stream=>output[stream] && <details key={stream}>
+        <summary>{stream}</summary><pre className="operation-detail" tabIndex={0}>{output[stream]}</pre>
+      </details>)}
     </>}
   </section>;
 }

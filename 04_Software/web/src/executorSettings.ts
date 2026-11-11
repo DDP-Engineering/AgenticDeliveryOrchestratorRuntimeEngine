@@ -47,6 +47,10 @@ export function validCredentialNames(value:unknown):value is string[] {
 
 /** Labels of the Agent and model settings. */
 export function executorSettingLabel(key:string,locale:Locale):string|null {
+ if (key==="container.build_definition") return {
+   en: "Docker build definition", fr: "Définition de build Docker",
+   de: "Docker-Build-Definition", ro: "Definiție de build Docker",
+ }[locale];
  if (key==="container.system_packages") return systemPackageCopy[locale].label;
  const c=agentSettingsCopy[locale], connection=connectionCopy[locale];
  if (key==="executor.env_keys") return c.variables;

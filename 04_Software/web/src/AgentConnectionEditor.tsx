@@ -55,7 +55,8 @@ export function AgentConnectionEditor({ value, locale, disabled, onChange }: {
     {models.length > 0 && <datalist id={`${id}-models`}>{models.map(model => <option key={model} value={model} />)}</datalist>}
     <p className="field-hint" id={`${id}-model`}>{loaded && !catalog ? copy.catalogUnavailable : copy.modelHelp}</p>
     <label>{thinkingCopy[locale].label}
-      <select disabled={disabled} value={draft.thinking} onChange={event => update({ thinking: event.target.value })}>
+      <select aria-label={thinkingCopy[locale].label} disabled={disabled} value={draft.thinking}
+        onChange={event => update({ thinking: event.target.value })}>
         <option value="">{thinkingCopy[locale].default}</option>
         {providerThinking(draft.provider, draft.model, catalog).map(level => <option key={level} value={level}>{level}</option>)}
       </select>

@@ -217,6 +217,7 @@ test("request review from edits one account per line through reviewed apply", as
   const editor = row.getByRole("textbox", { name: "Request review from", exact: true });
   await expect(editor).toHaveValue(before.config.delivery.reviewers.join("\n"));
   await expect(editor).toHaveAttribute("rows", "6");
+  expect((await editor.boundingBox())!.height).toBeGreaterThanOrEqual(144);
   await editor.fill("alice\nbob.smith");
   await settingsSave(page).click();
   const review = settingsImpact(page);

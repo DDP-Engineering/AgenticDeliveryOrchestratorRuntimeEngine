@@ -433,6 +433,15 @@ row/default generation. Credential-bearing URLs are redacted in effective reads.
 
 `GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
 
+`include_build=true` returns an `application/zip` attachment. The build
+reader requires a Docker project, a registered manifest and an exact tagged
+image match. It reads declared regular Git blobs at the full reviewed commit,
+checks their sizes, identities and paths, and generates a Compose definition
+with a relative context. The archive preserves the original TOML bytes. A
+configuration containing inline credentials, an unavailable source or an
+invalid definition returns a stable, value-free error. The endpoint rechecks
+the configuration and project identity after ZIP generation.
+
 `POST /api/v1/projects/{name}/config/preview` builds the same validated candidate as preparation, without writing active settings, pending evidence or audit events. `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, prepare and discard one candidate. Preparation verifies the previous complete candidate against active bytes and replaces it only with its exact `pending_revision` and unchanged base; missing or stale replacement bindings return 409. Preview and preparation share `_prepare_config_candidate` and its final-document/plan checks.
 
 `settings.batch` is a virtual edit key whose wire value is strict JSON: 1–100 unique `{key,value}` objects with string fields. `settings_batch.py` rejects malformed, duplicate, overlapping or nested targets and connection aliases. Each member passes existing authority/type/secret checks, then the final combined TOML is validated. `proposed_value` is a safe typed map. Public read/apply recompute full candidate meaning against the unchanged active base, rejecting hidden collateral changes. Restart requirements are the union of member keys. Direct PUT refuses this vocabulary with `pending_config_required`.
@@ -811,7 +820,12 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Job diagnostics and concurrent usage
 
-The scoped executor-output GET delegates to the strict job snapshot and host-captured evidence reader. It returns only project/run identity, availability, normalized stdout/stderr and exit/timeout facts; source paths, argv and raw IO are never returned. Latest entries without a capture reference return missing, not an older output.
+The scoped executor-output GET delegates to the strict job snapshot and
+host-captured evidence reader. It returns project/run identity, state revision,
+availability, latest attempt, stage and recorded time, launch activity,
+normalized stdout/stderr and exit/timeout facts. Source paths, argv and raw IO
+are excluded. Latest entries without a capture reference return missing.
+A concurrent journal or state change returns 409 `job_snapshot_changed`.
 
 Usage projection accepts an older request snapshot after another request advanced the cursor only when a fresh strict selected-run journal confirms both the incoming prefix and the saved cursor digest. It validates every returned projected event, retains the newer cursor and preserves the older request's real snapshot. Changed or truncated sources still fail closed; no automatic retry or fabricated totals are used. `test_web_metrics.py` includes a controlled HTTP interleaving and persistent-cursor checks.
 

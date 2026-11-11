@@ -58,6 +58,36 @@ test("raw configuration preview and download are original and Settings stays com
   await expect(page.locator(".raw-config-actions pre")).toHaveCount(0);
 });
 
+test("Docker export is optional and uses the registered build definition", async ({ page }) => {
+  await openSettings(page);
+  const actions = page.locator(".raw-config-actions");
+  const option = actions.getByLabel("Include Docker build files");
+  await expect(option).toHaveCount(0);
+  await page.route("**/api/v1/projects/*/config", async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.config.execution.backend = "container";
+    body.config.container.runtime = "wsl -d Ubuntu -- docker";
+    body.config.container.build_definition = `docker/build.json@${"a".repeat(40)}`;
+    await route.fulfill({response,json:body});
+  });
+  await page.reload();
+  const exportButton = actions.getByRole("button",{name:"Export raw configuration",exact:true});
+  await expect(option).not.toBeChecked();
+  const standalone = page.waitForEvent("download");
+  await exportButton.click();
+  expect((await standalone).suggestedFilename()).toBe("config.toml");
+  await option.check();
+  const bundle = Buffer.from([0x50,0x4b,0x03,0x04,0x00]);
+  await page.route("**/config/raw?download=true&include_build=true", route =>
+    route.fulfill({contentType:"application/zip",body:bundle}));
+  const download = page.waitForEvent("download");
+  await exportButton.click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("adore-docker-build.zip");
+  expect(await readFile((await file.path())!)).toEqual(bundle);
+});
+
 test("raw configuration failures and malformed transports expose no preview", async ({ page }) => {
   await openSettings(page);
   const preview = page.getByRole("button", { name: "Preview raw configuration", exact: true });

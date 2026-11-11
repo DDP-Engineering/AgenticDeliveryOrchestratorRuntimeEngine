@@ -149,7 +149,7 @@ export function settingPurpose(key: string): string {
 
 /** Environment settings administrators choose in Agent and model; the rest stays external. */
 export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.runtime", "container.image",
-  "container.system_packages",
+  "container.system_packages", "container.build_definition",
   "local.path"]);
 
 /** Only known informational worktree fields accompany the external environment. */

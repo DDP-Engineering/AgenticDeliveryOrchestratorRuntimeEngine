@@ -1076,6 +1076,47 @@ test("job budgets show retained consumption and boundary timing in four locales"
 });
 
 
+test("executor output retains verified evidence across a live journal conflict", async ({page}) => {
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const projectId = projects.find((project: {name: string}) => project.name === "alpha").id;
+  const source = await (await page.request.get(`/api/v1/jobs/${projectId}/ux-working`)).json();
+  let reads = 0;
+  await page.route("**/api/v1/jobs/*/ux-working/executor-output", route => {
+    reads++;
+    if (reads === 2) return route.fulfill({status:409,json:{detail:{code:"job_snapshot_changed"}}});
+    return route.fulfill({json:{
+      project_id:projectId,run_id:"ux-working",availability:"observed",
+      stdout:"RPC completed",stderr:"",exit_code:0,timed_out:false,
+      state_revision:source.job.state_revision,in_progress:reads === 3,attempt:reads === 1 ? 1 : 2,
+      stage:"validate",recorded_at:"2026-11-05T10:12:34Z",
+    }});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  const output = page.locator(".executor-output");
+  const read = output.getByRole("button",{name:"View latest executor output",exact:true});
+  await read.click();
+  await expect(output.getByText("Succeeded",{exact:true})).toBeVisible();
+  await expect(output.getByText("No stderr records.",{exact:true})).toBeVisible();
+  await expect(output.locator("summary")).toHaveText(["stdout"]);
+  await expect(output.locator("time")).toHaveAttribute("datetime","2026-11-05T10:12:34Z");
+  await output.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(output.locator("pre")).toHaveText("RPC completed");
+  await read.click();
+  await expect(output.getByText(/Output changed during reading/)).toBeVisible();
+  await expect(output.getByText(/Last verified snapshot/)).toBeVisible();
+  await expect(output.locator("pre")).toBeVisible();
+  await output.getByRole("button",{name:"Retry",exact:true}).click();
+  await expect(output.getByText(/A launch is in progress/)).toBeVisible();
+  await expect(output.getByText(/Last verified snapshot/)).toHaveCount(0);
+  expect(reads).toBe(3);
+  await page.setViewportSize({width:390,height:844});
+  const box = await output.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+});
+
+
 test("issue35 job diagnostics clarify status, safe questions, seconds and consumption reload", async ({page}) => {
   await signIn(page);
   await page.route("**/api/v1/jobs/*/ux-working", async route => {
@@ -1087,18 +1128,21 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
   await page.route("**/api/v1/projects/*/usage?*",route=>route.fulfill({status:503,json:{detail:{code:"usage_corrupt"}}}));
   await page.route("**/api/v1/jobs/*/ux-working/executor-output",route=>route.fulfill({json:{
     project_id:new URL(route.request().url()).pathname.split("/")[4],run_id:"ux-working",availability:"observed",
-    stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",stderr:"diagnostic: credential",exit_code:1,timed_out:false}}));
+    stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",stderr:"diagnostic: credential",exit_code:1,timed_out:false,
+    state_revision:"a".repeat(64),in_progress:false,attempt:1,stage:"build",recorded_at:"2026-11-05T10:12:34Z"}}));
   await page.goto("/jobs?project=alpha&run=ux-working");
   const card=page.locator(".next-action-panel"),detail=page.locator(".detail-panel");
   await expect(card).toContainText("Failed attempts in this stage: 1");
   await expect(card).not.toContainText(/Reason not recorded|Unknown — no recorded evidence|does not identify/);
-  await expect(detail.getByRole("table",{name:"Timeline"})).toContainText(/:34/);
-  await expect(detail.getByRole("table",{name:"Timeline"})).toContainText("Build");
+  await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText(/:34/);
+  await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText("Build");
   await expect(detail.getByRole("button",{name:"Refresh consumption",exact:true})).toBeVisible();
   await page.unroute("**/api/v1/projects/*/usage?*");
   await detail.getByRole("button",{name:"Refresh consumption",exact:true}).click();
   await expect(detail.locator(".job-consumption")).toBeVisible();
   await detail.getByRole("button",{name:"View latest executor output",exact:true}).click();
+  await detail.locator(".executor-output summary").filter({hasText:"stdout"}).click();
+  await detail.locator(".executor-output summary").filter({hasText:"stderr"}).click();
   await expect(detail.locator(".executor-output")).toContainText("credential");
   await expect(detail.locator(".executor-output")).toContainText("ModuleNotFoundError: No module named 'yaml'");
   await expect(detail.locator(".executor-output")).toContainText("pytest: 1 failed, 2 passed");

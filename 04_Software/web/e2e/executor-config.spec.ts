@@ -130,6 +130,7 @@ test("current model evidence remains coherent in Summary and host check details"
 });
 
 test("model and provider drafts have complete review and fit mobile",async({page})=>{
+ await page.setViewportSize({width:1520,height:900});
  await page.context().route("**/*", route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill("admin"); await page.getByLabel("Password",{exact:false}).fill("admin"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
@@ -138,18 +139,36 @@ test("model and provider drafts have complete review and fit mobile",async({page
  await page.getByRole("button",{name:"Edit Provider",exact:true}).click();
  const editor=page.locator(".setting-editor");
  const provider=editor.getByLabel("Provider",{exact:true});
+ const model=editor.getByLabel("Model",{exact:true});
+ const reasoning=editor.getByLabel("Reasoning effort",{exact:true});
+ const baseUrl=editor.getByLabel("Endpoint base URL",{exact:true});
+ const apiType=editor.getByLabel("Endpoint API type",{exact:true});
+ const expectSingleLine=async(controls: typeof provider[])=>{
+   for (const control of controls) {
+     await expect(control).toBeVisible();
+     const box=await control.boundingBox();
+     expect(box!.height).toBeGreaterThanOrEqual(40);
+     expect(box!.height).toBeLessThan(64);
+   }
+ };
  await expect(provider.locator('option[value="anthropic"]')).toHaveCount(1);
  await expect(editor.getByText(/OPENAI_API_KEY/)).toBeVisible();
  await provider.selectOption("chatgpt");
+ await expectSingleLine([provider,model]);
+ await provider.focus();
+ await page.keyboard.press("Tab");
+ await expect(model).toBeFocused();
  await expect(editor.getByText(connectionCopy.en.chatgptNote,{exact:true})).toBeVisible();
  await provider.selectOption("custom");
  await expect(editor.getByText(connectionCopy.en.baseUrlHelp,{exact:true})).toBeVisible();
  await expect(editor.getByText(/ADORE_ENDPOINT_API_KEY/)).toBeVisible();
  await expect(settingsSave(page)).toBeDisabled();
- await editor.getByLabel("Model",{exact:true}).fill("qwen/qwen3.5-9b");
- await editor.getByLabel("Endpoint base URL",{exact:true}).fill("http://172.27.80.1:1234/v1");
- await expect(editor.getByLabel("Endpoint API type",{exact:true})).toHaveValue("openai-completions");
+ await model.fill("qwen/qwen3.5-9b");
+ await baseUrl.fill("http://172.27.80.1:1234/v1");
+ await expect(apiType).toHaveValue("openai-completions");
+ await expectSingleLine([provider,model,reasoning,baseUrl,apiType]);
  await page.setViewportSize({width:390,height:844});
+ await expectSingleLine([provider,model,reasoning,baseUrl,apiType]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await settingsSave(page).click();
  const review=settingsImpact(page);

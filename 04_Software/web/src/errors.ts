@@ -30,6 +30,10 @@ export const repositoryConnectionHelp: Record<Locale, string> = {
 export const errorMessages: Record<Locale, Record<string, string>> = {
   en: {
     account_credentials_corrupt: "Account credentials could not be read.",
+    build_definition_unavailable: "Register a Docker build definition in Agent and model, or export the TOML alone.",
+    build_definition_invalid: "Check the manifest, image tag and declared build paths at the reviewed Git commit.",
+    build_source_unavailable: "The reviewed Git commit or one of its declared build files is unavailable on the server.",
+    build_config_has_secrets: "Remove inline credentials from the saved TOML before exporting the Docker build bundle.",
     host_folder_unavailable: "The server folder cannot be read. Choose an accessible folder or try again.",
     local_host_identity_unavailable: "The server account identity is unavailable. Ask the administrator to check the ADORE service account.",
     gitea_auth_missing: "No local Gitea sign-in was found. " + repositoryConnectionHelp.en,
@@ -156,6 +160,10 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
   },
   fr: {
     account_credentials_corrupt: "Impossible de lire les identifiants du compte.",
+    build_definition_unavailable: "Enregistrez une définition de build Docker dans Agent et modèle ou exportez uniquement le TOML.",
+    build_definition_invalid: "Vérifiez le manifeste, le tag de l’image et les chemins déclarés au commit Git vérifié.",
+    build_source_unavailable: "Le commit Git vérifié ou un fichier de build déclaré est indisponible sur le serveur.",
+    build_config_has_secrets: "Retirez les identifiants intégrés au TOML avant d’exporter le bundle Docker.",
     host_folder_unavailable: "Le dossier du serveur est illisible. Choisissez un dossier accessible ou réessayez.",
     local_host_identity_unavailable: "L’identité du compte serveur est indisponible. Demandez à l’administrateur de vérifier le compte ADORE.",
     gitea_auth_missing: "Aucune connexion Gitea locale trouvée. " + repositoryConnectionHelp.fr,
@@ -282,6 +290,10 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
   },
   de: {
     account_credentials_corrupt: "Kontodaten konnten nicht gelesen werden.",
+    build_definition_unavailable: "Registrieren Sie eine Docker-Build-Definition unter Agent und Modell oder exportieren Sie nur die TOML-Datei.",
+    build_definition_invalid: "Prüfen Sie Manifest, Image-Tag und deklarierte Build-Pfade im geprüften Git-Commit.",
+    build_source_unavailable: "Der geprüfte Git-Commit oder eine deklarierte Build-Datei fehlt auf dem Server.",
+    build_config_has_secrets: "Entfernen Sie Zugangsdaten aus der TOML-Datei, bevor Sie das Docker-Build-Paket exportieren.",
     host_folder_unavailable: "Der Serverordner kann nicht gelesen werden. Wählen Sie einen zugänglichen Ordner oder versuchen Sie es erneut.",
     local_host_identity_unavailable: "Die Identität des Serverkontos ist nicht verfügbar. Lassen Sie das ADORE-Dienstkonto prüfen.",
     gitea_auth_missing: "Keine lokale Gitea-Anmeldung gefunden. " + repositoryConnectionHelp.de,
@@ -408,6 +420,10 @@ export const errorMessages: Record<Locale, Record<string, string>> = {
   },
   ro: {
     account_credentials_corrupt: "Datele contului nu au putut fi citite.",
+    build_definition_unavailable: "Înregistrează o definiție de build Docker în Agent și model sau exportă doar fișierul TOML.",
+    build_definition_invalid: "Verifică manifestul, eticheta imaginii și căile declarate în commitul Git revizuit.",
+    build_source_unavailable: "Commitul Git revizuit sau unul dintre fișierele de build declarate lipsește de pe server.",
+    build_config_has_secrets: "Elimină credențialele din TOML înainte de exportul pachetului de build Docker.",
     host_folder_unavailable: "Directorul serverului nu poate fi citit. Alegeți un director accesibil sau încercați din nou.",
     local_host_identity_unavailable: "Identitatea contului serverului nu este disponibilă. Cereți administratorului să verifice contul serviciului ADORE.",
     gitea_auth_missing: "Nu a fost găsită o autentificare Gitea locală. " + repositoryConnectionHelp.ro,

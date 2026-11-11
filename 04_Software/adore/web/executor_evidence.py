@@ -25,7 +25,7 @@ import stat
 from adore.executor.diagnostics import validate_diagnostics
 from adore.profiles import Profile, ProfileStore
 from adore.state import StateError
-from adore.web.jobs import JobReadError, _journal, _object
+from adore.web.jobs import JobReadError, _event_stage, _journal, _object, _stamp
 
 # CONSTANTS
 _SNAPSHOT_BYTES = 150 * 1024
@@ -78,21 +78,33 @@ def read_executor_output(profiles: ProfileStore, item: Profile, run_id: str,
     """
     root = Path(item.store_root or profiles.default_store_root(item.name)) / "runs" / run_id
     missing = {"project_id": item.project_id, "run_id": run_id, "availability": "missing",
-               "stdout": None, "stderr": None, "exit_code": None, "timed_out": None}
+               "state_revision": state_revision, "in_progress": False, "attempt": None,
+               "stage": None, "recorded_at": None, "stdout": None, "stderr": None,
+               "exit_code": None, "timed_out": None}
     try:
         for parent in (root, *root.parents):
             _identity(parent, directory=True)
         state = _read(root / "state.json", 4 * 1024 * 1024)
         if sha256(state).hexdigest() != state_revision:
             raise JobReadError("job_snapshot_changed", 409)
+        run = _object(state, "run_state_corrupt")
         journal_path = root / "journal.jsonl"
         if not journal_path.exists() and not journal_path.is_symlink():
             return missing
         journal = _read(journal_path, _JOURNAL_BYTES)
-        event = next((event for event in reversed(_journal(journal))
-                      if event["event"] == "executor-artifacts"), None)
+        event = None
+        for entry in reversed(_journal(journal)):
+            if entry["event"] == "executor-artifacts":
+                event = entry
+                break
+            if entry["event"] == "stage-launch" and run["lifecycle"] in {"working", "publishing"}:
+                missing["in_progress"] = True
         # Earlier launches have no proven operational capture; never fall back to raw IO.
         if event is None or event.get("diagnostics") is None:
+            if journal != _read(journal_path, _JOURNAL_BYTES) or state != _read(
+                root / "state.json", 4 * 1024 * 1024
+            ):
+                raise JobReadError("job_snapshot_changed", 409)
             return missing
         reference = event["diagnostics"]
         if (not isinstance(reference, dict) or set(reference) != {"file", "sha256", "attempt"}
@@ -114,7 +126,7 @@ def read_executor_output(profiles: ProfileStore, item: Profile, run_id: str,
                 or type(snapshot["schema"]) is not int or snapshot["schema"] != 1
                 or snapshot["run_id"] != run_id or type(snapshot["attempt"]) is not int
                 or snapshot["attempt"] != reference["attempt"]
-                or snapshot["attempt"] > _object(state, "run_state_corrupt")["iterations"]
+                or snapshot["attempt"] > run["iterations"]
                 or snapshot["context"] != event.get("context")
                 or type(snapshot["exit_code"]) is not int
                 or not -2**31 <= snapshot["exit_code"] < 2**31
@@ -125,7 +137,12 @@ def read_executor_output(profiles: ProfileStore, item: Profile, run_id: str,
                 or state != _read(root / "state.json", 4 * 1024 * 1024)
                 or before != _signature(_identity(folder, directory=True))):
             raise JobReadError("job_snapshot_changed", 409)
+        stage = _event_stage({"event": "executor-artifacts", "context": snapshot["context"]})
         return {**missing, "availability": "observed", **streams,
+                "attempt": snapshot["attempt"],
+                "in_progress": missing["in_progress"] and run["iterations"] > snapshot["attempt"],
+                "stage": stage,
+                "recorded_at": _stamp(event["ts"], "run_journal_corrupt"),
                 "exit_code": snapshot["exit_code"], "timed_out": snapshot["timed_out"]}
     except FileNotFoundError:
         return missing

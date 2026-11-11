@@ -645,6 +645,15 @@ matching package alongside its backup.
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export downloads the saved `config.toml` bytes, including comments, formatting and any inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
+In a Docker project, set **Docker build definition** under **Agent and model**
+to a reviewed repository manifest and its full commit ID. Save and confirm
+the change. Select **Include Docker build files** before exporting to get a ZIP
+with the same `config.toml`, `compose.yaml`, build instructions and the declared
+inputs. Extract the ZIP and run `docker compose build` there to build the
+configured image tag. Review the Dockerfile and arrange access to its base
+images and package sources on the build host. A project without a registered
+definition offers the standalone export. See [Project executor images](Project_Executor_Images.md).
+
 Portable working rules remain available through the transfer API.
 See
 [Portable project settings](Portable_Project_Settings.md) for the enumerated
@@ -1328,6 +1337,12 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 Job details explains normal Working, Waiting for clarification and Failed states and shows failed attempts in the current stage in the status card. Timeline events retain their recorded stage/context/transition destination and times include seconds. Questions use safe Markdown with local scrolling; HTML remains literal and images do not load automatically.
 
 Evidence and artifacts → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
+
+The compact summary shows the attempt, its recorded stage when available,
+time, result and exit code. Open **stdout** and **stderr** to read their records.
+The view identifies a newer launch in progress, empty stderr, missing evidence
+and failed reads. If the job changes during the read, choose **Retry**. The
+last verified result stays visible and is marked as possibly out of date.
 
 Consumption failures have a Refresh consumption button. A corrected out-of-order projection race preserves verified journal prefixes without rolling back cursors. This controlled reproducer does not establish the cause of every historical 503; malformed sources continue to be rejected and need operator investigation.
 

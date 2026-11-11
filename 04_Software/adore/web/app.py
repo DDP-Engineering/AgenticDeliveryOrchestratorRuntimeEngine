@@ -48,6 +48,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from adore import __version__, chatgpt, doctor, metrics
 from adore.aegis import RUN_KINDS
 from adore.branding import EXECUTOR_BASE_IMAGE, EXECUTOR_NAME
+from adore.build_bundle import BuildBundleError, export_build_bundle
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.clone_cleanup import project_clone_decision
 from adore.config import (
@@ -2043,6 +2044,7 @@ def _restart_required(key: str, wire: str = "") -> bool:
 # Environment settings an administrator chooses in the web (reviewed edits only).
 _CHOSEN_ENVIRONMENT_KEYS = frozenset({
     "execution.backend", "container.runtime", "container.image", "container.system_packages",
+    "container.build_definition",
     "local.path",
 })
 _IMAGE_LIST_TIMEOUT = 15
@@ -4283,12 +4285,13 @@ def create_app(home: str | Path | None = None,
 
     @app.get("/api/v1/projects/{name}/config/raw")
     def raw_config(name: str, user: Annotated[dict, Depends(administrator)],
-                   download: bool = False) -> Response:
+                   download: bool = False, include_build: bool = False) -> Response:
         """
         @brief      Read the administrator's original saved TOML without redaction.
         @param[in]  name Authorized profile name or immutable project ID.
         @param[in]  user Administrator resolved before any config read.
         @param[in]  download Return the fixed config.toml attachment filename.
+        @param[in]  include_build Download the reviewed Docker build bundle.
         @return     Exact saved UTF-8 bytes, including comments and inline secrets.
         @exception  HTTPException Corrupt, unreadable or changed source fails closed.
         @note       External credential files and environment values are not read.
@@ -4302,7 +4305,7 @@ def create_app(home: str | Path | None = None,
                 raw = source.read(MAX_SOURCE_BYTES + 1)
             if not raw or len(raw) > MAX_SOURCE_BYTES:
                 raise ValueError("invalid source size")
-            tomllib.loads(raw.decode("utf-8"))
+            parsed = tomllib.loads(raw.decode("utf-8"))
             with path.open("rb") as source:
                 unchanged = source.read(MAX_SOURCE_BYTES + 1) == raw
         except (OSError, UnicodeError, ValueError, RecursionError) as exc:
@@ -4310,6 +4313,23 @@ def create_app(home: str | Path | None = None,
         if not unchanged or project(name, user).project_id != item.project_id:
             raise _error(409, "stale_config_revision")
         headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+        if include_build:
+            if _secret_config_keys(parsed):
+                raise _error(400, "build_config_has_secrets")
+            try:
+                config = _config_from_bytes(raw)
+                bundle = export_build_bundle(config, raw, runner=probe_runner)
+                with path.open("rb") as source:
+                    unchanged = source.read(MAX_SOURCE_BYTES + 1) == raw
+            except BuildBundleError as exc:
+                raise _error(400, exc.code) from exc
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error(503, "config_corrupt") from exc
+            if (not unchanged or path.is_symlink()
+                    or project(name, user).project_id != item.project_id):
+                raise _error(409, "stale_config_revision")
+            headers["Content-Disposition"] = 'attachment; filename="adore-docker-build.zip"'
+            return Response(content=bundle, media_type="application/zip", headers=headers)
         if download:
             headers["Content-Disposition"] = 'attachment; filename="config.toml"'
         return Response(content=raw, media_type="text/plain", headers=headers)

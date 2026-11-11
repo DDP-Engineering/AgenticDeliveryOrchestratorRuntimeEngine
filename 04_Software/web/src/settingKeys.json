@@ -11,6 +11,7 @@
   "clarification.max_rounds",
   "clarification.reminder_after",
   "clarification.timeout_state",
+  "container.build_definition",
   "container.egress.allowlist",
   "container.egress.network_prefix",
   "container.egress.no_proxy",

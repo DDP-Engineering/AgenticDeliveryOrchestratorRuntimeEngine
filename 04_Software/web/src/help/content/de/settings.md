@@ -52,6 +52,8 @@ Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespe
 
 Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Wählen Sie die exportierte Datei unter [Originalkonfiguration importieren](/help/projects#import-project) und ADORE prüft automatisch Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse.
 
+Speichern Sie für Docker-Projekte eine geprüfte **Docker-Build-Definition** unter **Agent und Modell**. Wählen Sie vor dem Export **Docker-Build-Dateien einschließen**. Die ZIP-Datei enthält dieselbe TOML-Datei, eine Compose-Datei und die deklarierten Build-Dateien des festgelegten Commits. Entpacken Sie die ZIP-Datei und folgen Sie der Build-Anleitung. Ohne registrierte Definition bleibt der TOML-Export verfügbar.
+
 ## Systempakete des Agenten {#system-packages}
 
 **Systempaketinstallation durch den Agenten erlauben**

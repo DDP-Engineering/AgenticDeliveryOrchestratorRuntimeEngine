@@ -582,6 +582,11 @@ create endpoints. Portable transfer has its own API contract, exercised by
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
+For Docker projects with a saved build definition, **Include Docker build
+files** switches the download to a bounded ZIP response. The checkbox defaults
+to off. Projects without a registered definition explain why the ZIP is
+unavailable. Preview always reads plain TOML.
+
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
@@ -602,6 +607,8 @@ model input with `providerModels` as a datalist; endpoint URL and API select onl
 `host.docker.internal` works only on Docker Desktop; a note naming the credential
 variable, or for `chatgpt` that the server signs in to one ChatGPT Plus or Pro account
 shared by every ChatGPT project and that stages get a short-lived access token);
+Settings preserves native single-line heights for provider, model, reasoning
+and conditional endpoint inputs. Multiline editors keep their own sizing.
 `ChatGptSignIn.tsx` is the server's ChatGPT sign-in panel, shown to Admins of a
 non-archived `chatgpt` project in the Agent and model Authentication slot in place of
 the Provider API key form: status (`signed-in`, `not-signed-in`, `sign-in-again`, with

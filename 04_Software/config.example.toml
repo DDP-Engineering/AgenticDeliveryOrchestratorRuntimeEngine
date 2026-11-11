@@ -223,6 +223,9 @@ runtime = "docker"
 # projects should derive their own image from that base and add project
 # dependencies.
 image = "adore-executor-project:latest"
+# Optional raw-export build manifest, relative to the project Git repository.
+# Set to a reviewed path.json@full-commit whose image matches the tag above.
+# build_definition = ""
 # Keep the container (stopped) when a run parks, so resume is a fast start.
 keep_parked = true
 # How the parked-container grace period is measured: "polls" | "seconds".

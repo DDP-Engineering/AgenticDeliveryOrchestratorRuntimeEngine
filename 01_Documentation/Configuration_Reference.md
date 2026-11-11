@@ -180,6 +180,11 @@ names such as `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`, `GLAB_TOKEN`,
 `[container.egress]` configure isolation. Unit tests remain offline. ADORE
 never places forge credentials in the executor environment.
 
+`container.build_definition` optionally registers a reviewed Docker build
+manifest as `relative/path.json@full-commit` for the configured image.
+Its default is empty. This setting supplies the raw configuration ZIP export
+and has no effect on executor launch. See [Project executor images](Project_Executor_Images.md).
+
 `[container.egress]` holds the per-run proxy of an internet-off run:
 
 | Key | Meaning | Default |
