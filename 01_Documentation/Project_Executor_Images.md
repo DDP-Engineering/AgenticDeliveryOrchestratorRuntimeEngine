@@ -162,9 +162,13 @@ Extract the ZIP on a Docker host, arrange access to the Dockerfile's base
 images and package sources, then run `docker compose build` in the extracted
 directory. Docker Engine with BuildKit and Compose v2.17 or later builds local
 bases in dependency order using named service contexts. It tags the image
-selected by the project's effective configuration. Import `config.toml`
-separately after reviewing its server paths, then attach this same ZIP to retain
-the definitions. Registry access and build credentials are configured separately.
+selected by the project's effective configuration. In ADORE, select the complete
+ZIP directly in **Projects → Import raw configuration**. Automatic validation
+checks the configuration, paths, source graph and image correspondence before
+one **Import** saves the exact TOML and definitions together, with monitoring
+paused. An existing different root definition is refused rather than replaced.
+Import does not build images. Registry access and build credentials are
+configured separately.
 
 ## Build and verify on the execution server
 

@@ -745,8 +745,7 @@ def recipe_archive(recipe: Recipe, *, config_raw: bytes | None = None) -> bytes:
                 "Supply registry authentication separately.\n"
                 "Run: docker compose build\n"
                 "Local base definitions are included and linked as build dependencies.\n"
-                "Import config.toml after reviewing server paths; "
-                "attach this same ZIP to retain recipes.\n"
+                "Import this ZIP directly in ADORE after reviewing server paths.\n"
                 "Agent-installed packages and running job/container contents "
                 "are not part of this export.\n"
                 + (f"Reviewed source commit: {recipe.revision}\n" if recipe.revision else "")

@@ -22,11 +22,13 @@ serializes deterministic source archives and explicit Compose build graphs.
 `executor_recipes.py` owns exact-image associations, immutable source objects,
 built-in source lookup and bounded dependency resolution. `build_bundle.py`
 retains its injectable immutable Git reader and integrates complete export.
+`project_bundle.py` reads a current complete export in memory, binds its exact
+TOML to the effective root image and verifies the included Compose/dependency graph.
 
 The web API enforces administrator/CSRF/project/revision boundaries. The existing
 RawConfiguration dialog owns attachment selection, automatic validation, Save,
 replacement, missing-base recovery and the default complete-export choice.
-No recipe operation modifies configuration, pending settings, credentials,
+Standalone recipe administration never modifies configuration, pending settings, credentials,
 worktrees, images or job state, or requires pickup to be stopped.
 
 ## 3. Implementation Overview
@@ -100,6 +102,17 @@ refused. This is structural validation of declared sources, not execution or
 proof that packages are reachable. It cannot identify every arbitrary secret;
 operators select and review build inputs before attachment/building.
 
+Complete project import uses `RecipeStore.preview_import` to bind observed
+association revisions without writes. `publish_import` holds the catalog lock,
+rechecks those revisions and retains exact source snapshots before calling the
+guarded paused-profile publisher. Lock order is catalog, enrollment, candidate
+state. Existing differing root definitions reject import; identical roots are
+reused and existing supplemental base bindings remain unchanged. The imported
+root still carries its own pinned graph. Ordinary failures remove only exact
+new bindings owned by this operation; unreferenced immutable objects may remain.
+Rollback failure is a typed write error requiring operator inspection. Existing
+interrupted enrollment refusal remains; no older-format reader is introduced.
+
 ## 7. Workflow Integration
 
 Admin GET `/api/v1/projects/{name}/executor-recipe` reads availability. Admin/CSRF
@@ -114,7 +127,26 @@ oversized files with config_corrupt; changed valid source bytes return stale_con
 Catalog failures remain confined to recipe controls, not the Settings read or
 Overview. Docker, Podman and WSL projects use the same source contract.
 
+Admin/CSRF `POST /api/v1/projects/import/bundle-preview` accepts a bounded
+base64 complete project ZIP and returns no-write findings and a bundle revision.
+`POST /api/v1/projects/import/bundle` rechecks its source bytes, config identity,
+state ownership and observed source bindings, then publishes configuration and
+recipes together. The root must match the effective container image. Compose
+metadata, all local bases and current archive metadata are required. No files
+are extracted and no image/runtime/forge command executes during ordinary import.
+Preparation-selected images may use the existing bounded local Git reader.
+Final profile and enrollment unlocks precede applied audit confirmation, so a cleanup
+failure cannot leave a visible imported project with rolled-back sources.
+
 ## 9. Validation And Tests
+
+`test_project_bundle.py` covers exact bytes/modes, metadata, graph closure,
+effective-image matching, unsafe archives and association races.
+`test_web_bundle_import.py` proves preview/import/re-export, authorization,
+request limits, stale evidence, conflicts, corruption, locks and source/profile
+publication rollback including audit uncertainty. `e2e/import.spec.ts` covers
+automatic ZIP/TOML selection, changed files, cancellation, late results and
+four-locale narrow layouts.
 
 Offline `test_executor_recipes.py` proves input trust boundaries, deterministic
 round trips, image graphs, current schemas, explicit source precedence and

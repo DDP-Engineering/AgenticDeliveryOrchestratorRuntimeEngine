@@ -40,9 +40,9 @@ Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent
 
 ## Importă configurația brută {#import-project}
 
-În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog fișierul UTF-8 `config.toml` exportat. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează fișierul octet cu octet.
+În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 `config.toml`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.
 
-Dacă exportul este un ZIP cu sursele imaginii, extrage-l și selectează aici fișierul `config.toml`. După înrolare, atașează același ZIP în [Setări → Exportă configurația brută](/help/settings#toml) pentru a păstra definițiile imaginilor. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus.
+Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).
 
 
 Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:

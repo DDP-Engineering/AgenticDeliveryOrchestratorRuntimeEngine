@@ -52,7 +52,7 @@ Navigation and browser reload ask before discarding unsaved settings edits. Brie
 
 Beside Project settings, administrators have **Preview raw configuration** and **Export raw configuration**. Preview shows the exact saved TOML in a closable dialog. Pending changes, separate environment files, external credentials and running job data are excluded. A standalone TOML can contain inline values, so handle it as a secret; complete build export refuses inline credentials.
 
-Choose **Export raw configuration**, select the destination and save. Container projects export one ZIP containing the saved configuration and the complete image definition. Native projects save `config.toml`. There is no export setup dialog. When the browser has no destination picker, its normal download preferences apply.
+Choose **Export raw configuration**, select the destination and save. Container projects export one ZIP containing the saved configuration and the complete image definition. Native projects save `config.toml`. There is no export setup dialog. When the browser has no destination picker, its normal download preferences apply. Select the exported ZIP directly in Projects → Import raw configuration to import the configuration and recipes together, with automatic validation.
 
 Administrators manage sources separately under **Technical details → Image definition**. Select a Dockerfile or ZIP in **Definition file**; it is checked automatically. **Save recipe** retains it and **Change definition** replaces it. Missing local bases are added here too. ADORE's standard executor base is included automatically.
 

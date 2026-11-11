@@ -108,7 +108,7 @@ period, dates or timezone. Jobs holds technical evidence and Statistics owns
 reporting filters; displayed timestamps use the browser/device local timezone.
 
 Projects offers administrators **Enroll new project** for guided setup and
-**Import raw configuration** to select an existing `config.toml` in a dialog.
+**Import raw configuration** to select an existing `config.toml` or complete exported ZIP in a dialog.
 Enroll new project starts from the repository URL (https or ssh): **Read repository**
 detects the forge (github.com, gitlab.com or a matching server `tea` login), the
 repository, the Gitea login and the default branch, derives the project ID from the
@@ -704,8 +704,8 @@ administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
 budget cannot be enforced from a provider charge that is not reported.
 Open the **Import raw configuration** dialog in Projects and select the UTF-8
-`config.toml` downloaded with **Export raw configuration**, or a file prepared
-for this server. Files may be up to 512 KiB.
+`config.toml` or complete ZIP downloaded with **Export raw configuration**, or a
+TOML prepared for this server. TOML files may be up to 512 KiB; ZIPs up to 18 MiB.
 
 1. Selecting the file validates it automatically. ADORE suggests an available
    project ID from the repository name.
@@ -719,6 +719,15 @@ for this server. Files may be up to 512 KiB.
 Existing terminal history is visible when its job data already exists at the
 declared state location. Host checks are available from the imported project's
 Summary. Closing the dialog discards the selected file and its validation.
+
+A complete ZIP imports the configuration and all declared local image-source
+definitions together. ADORE checks the archive, Compose graph, effective image
+and current source associations automatically, without extracting or running
+files. An existing different definition for the root image is refused; it is
+never replaced implicitly. Failed publication withdraws newly created source
+associations while preserving existing projects and definitions. Imported sources
+can be exported again immediately. Image building stays separate: use the included
+Compose file on the execution server before checking its environment.
 
 Config edits include a SHA-256 revision so stale browser pages receive a
 conflict. CLI `config set` and web edits also share a local process lock;

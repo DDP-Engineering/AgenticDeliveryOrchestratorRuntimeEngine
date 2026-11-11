@@ -40,9 +40,9 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Importer la configuration brute {#import-project}
 
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un fichier UTF-8 `config.toml` exporté dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve le fichier exact.
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 `config.toml` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
 
-Si votre export est un ZIP avec les sources d’image, extrayez-le et sélectionnez son `config.toml` ici. Après l’inscription, joignez le même ZIP dans [Paramètres → Exporter la configuration brute](/help/settings#toml) pour conserver les définitions d’image. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible.
+Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
 
 
 Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :

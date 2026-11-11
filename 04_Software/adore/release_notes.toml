@@ -109,7 +109,7 @@ text = { en = "Choose where Pi runs. Pick detected runtimes and images in WSL to
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Import raw configuration in a dialog that validates the file automatically.", fr = "Importez la configuration brute dans un dialogue qui valide le fichier automatiquement.", de = "Originalkonfiguration im Dialog importieren. Die Datei wird automatisch geprüft.", ro = "Importă configurația brută într-un dialog care validează automat fișierul." }
+text = { en = "Import configuration and image recipes together from a ZIP with automatic validation.", fr = "Importez configuration et recettes d’image ensemble depuis un ZIP validé automatiquement.", de = "Konfiguration und Image-Rezepte gemeinsam aus einer ZIP mit automatischer Prüfung importieren.", ro = "Importă configurația și rețetele imaginilor împreună dintr-un ZIP validat automat." }
 
 [[release.entry]]
 category = "improved"

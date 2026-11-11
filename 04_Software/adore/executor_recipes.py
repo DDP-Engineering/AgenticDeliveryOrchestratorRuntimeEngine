@@ -15,6 +15,7 @@
 """
 
 # IMPORTS
+from collections.abc import Callable
 from dataclasses import replace
 from hashlib import sha256
 import json
@@ -40,7 +41,7 @@ from adore.recipe_sources import (
     public_image,
     recipe_archive,
 )
-from adore.state import StateStore
+from adore.state import StateError, StateStore
 from adore.util import run_command
 
 
@@ -235,6 +236,101 @@ class RecipeStore:
                 lock.release_lock()
             except OSError as exc:
                 raise RecipeError("recipe_write_failed") from exc
+
+    def preview_import(self, recipe: Recipe) -> dict[str, str | None]:
+        """
+        @brief Inspect image associations without replacing an existing root snapshot.
+        @param[in] recipe Complete validated imported source graph.
+        @return Observed association revisions for confirmation under the catalog lock.
+        @exception RecipeError For corrupt storage or a different existing root recipe.
+        """
+        revisions = {}
+        for image in sorted(recipe.definitions):
+            revisions[image] = self.binding_digest(image)
+            retained = self.get(image)
+            if image == recipe.image:
+                current = retained if retained is not None else _builtin(image)
+                if current is not None and current.definitions != recipe.definitions:
+                    raise RecipeError("recipe_import_conflict")
+        return revisions
+
+    def publish_import(
+        self, recipe: Recipe, *, revisions: dict[str, str | None], publish: Callable[[], dict]
+    ) -> dict:
+        """
+        @brief Retain new bindings and publish a project under one catalog lock.
+        @param[in] recipe Complete validated imported source snapshot.
+        @param[in] revisions Exact associations observed by the accepted preview.
+        @param[in] publish Existing guarded project publisher, including profile rollback.
+        @return The successfully published project response.
+        @exception RecipeError For stale/corrupt bindings, conflict or storage failure.
+        @note Existing bases are preserved; a new root keeps its embedded source graph.
+        """
+        if (not isinstance(revisions, dict) or set(revisions) != set(recipe.definitions)
+                or any(value is not None and (
+                    not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+                ) for value in revisions.values())):
+            raise RecipeError()
+        raw = recipe_archive(recipe)
+        parse_recipe(raw, recipe.image)
+        digest = sha256(raw).hexdigest()
+        lock = StateStore(self.root, "adore-recipes")
+        acquired = False
+        created = []
+        try:
+            self._parents(self.binding_path(recipe.image))
+            acquired = lock.acquire_lock()
+            if not acquired:
+                raise RecipeError("recipe_changed")
+            if self.preview_import(recipe) != revisions:
+                raise RecipeError("recipe_changed")
+            objects = self.root / "objects"
+            object_path = objects / (digest + ".zip")
+            self._parents(object_path)
+            objects.mkdir(exist_ok=True)
+            if object_path.exists():
+                with object_path.open("rb") as stream:
+                    if stream.read(MAX_ARCHIVE_BYTES + 1) != raw:
+                        self._refuse(object_path)
+            with TemporaryDirectory(prefix=".recipe-import-", dir=self.root) as directory:
+                temporary = Path(directory)
+                if not object_path.exists():
+                    source = temporary / "source.zip"
+                    source.write_bytes(raw)
+                    source.chmod(0o600)
+                    os.replace(source, object_path)
+                images = sorted(set(recipe.definitions) - {recipe.image, EXECUTOR_BASE_IMAGE})
+                for image in [*images, recipe.image]:
+                    if revisions[image] is not None:
+                        continue
+                    target = self.binding_path(image)
+                    self._parents(target)
+                    target.parent.mkdir(exist_ok=True)
+                    encoded = (json.dumps({"schema": 1, "image": image, "digest": digest},
+                                          sort_keys=True) + "\n").encode()
+                    staged = temporary / "binding.json"
+                    staged.write_bytes(encoded)
+                    staged.chmod(0o600)
+                    os.replace(staged, target)
+                    created.append((target, encoded))
+            return publish()
+        except Exception as failure:
+            try:
+                for path, encoded in reversed(created):
+                    # Preserve any association changed outside the owned transaction.
+                    if path.read_bytes() == encoded:
+                        path.unlink()
+            except OSError as exc:
+                raise RecipeError("recipe_write_failed") from exc
+            if isinstance(failure, (OSError, StateError)):
+                raise RecipeError("recipe_write_failed") from failure
+            raise
+        finally:
+            if acquired:
+                try:
+                    lock.release_lock()
+                except (OSError, StateError) as exc:
+                    raise RecipeError("recipe_write_failed") from exc
 
 
 # LOCAL HELPERS

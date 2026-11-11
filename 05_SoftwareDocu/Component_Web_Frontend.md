@@ -384,8 +384,11 @@ Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
 **Import raw configuration** opens a native dialog on Projects. Selecting a file
-validates UTF-8 and automatically calls the preview endpoint for the exact bytes
-and suggested identity. Replacing the file or closing the dialog aborts validation
+accepts UTF-8 TOML (512 KiB) or the current complete project ZIP (18 MiB) and
+automatically calls its preview endpoint for the exact bytes and suggested
+identity. ZIPs use base64 on the wire and require a separate bundle revision.
+Their configuration and recipe are published together without extra source
+controls or image building. Replacing the file or closing the dialog aborts validation
 and invalidates its result. Import rereads the selected file and sends the exact
 reviewed identity and revision to locked publication. The synchronous submission
 guard blocks duplicates and prevents leaving during publication. Success closes

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-1ca885c7"
+title = "Automatically validate complete exported project ZIPs"
+status = "active"
+requirement = "When an administrator previews a current exported project ZIP, ADORE shall validate its exact configuration, complete bounded image-source graph and configuration/image correspondence without retaining sources or publishing a project."
+verification = "Export a complete multi-base project and preview it with exact byte digests; reject malformed/missing metadata, unsafe ZIP entries, incomplete bases, mismatched image/config and changed Compose metadata without writes."
+affected_paths = ["04_Software/adore/project_bundle.py", "04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/importCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/import.spec.ts", "04_Software/adore/release_notes.toml", "04_Software/web/src/help/content", "04_Software/adore/web/static"]
+linked_tests = ["04_Software/tests/test_project_bundle.py", "04_Software/tests/test_web_bundle_import.py", "04_Software/web/e2e/import.spec.ts"]
+spec = "specs/REQ-FUNC-1ca885c7.md"
+created = 2026-11-11
+updated = 2026-11-11

@@ -67,7 +67,8 @@ ADORE's only coding agent.
   complete source ZIP with Dockerfile/context and local base definitions. Export saves directly through the browser destination picker when supported or
   ordinary download otherwise; closed Technical details has separate image-shared
   recipe management independent of project/job configuration;
-  the standard executor base is bundled automatically. Projects imports exact TOML
+  the standard executor base is bundled automatically. Projects imports complete
+  exported ZIPs with configuration and recipes together, or exact TOML
   from a dialog that validates file selection automatically and publishes with stopped pickup.
   Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
   The container runtime editor suggests detected native and Windows WSL commands,

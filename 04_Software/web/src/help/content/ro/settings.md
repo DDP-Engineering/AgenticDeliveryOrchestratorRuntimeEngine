@@ -52,7 +52,7 @@ Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modific
 
 Lângă Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea arată TOML-ul salvat exact, într-un dialog care poate fi închis. Sunt excluse modificările în așteptare, fișierele de mediu separate, credențialele externe și datele joburilor în curs. Un TOML simplu poate conține valori în clar și trebuie tratat ca secret; exportul complet de construire refuză credențialele în clar.
 
-Apasă **Exportă configurația brută**, alege destinația și salvează. Proiectele în container exportă un ZIP cu configurația salvată și definiția completă a imaginii. Proiectele native salvează `config.toml`. Nu există un panou de configurare a exportului. Dacă browserul nu oferă alegerea destinației, se aplică preferințele sale obișnuite de descărcare.
+Apasă **Exportă configurația brută**, alege destinația și salvează. Proiectele în container exportă un ZIP cu configurația salvată și definiția completă a imaginii. Proiectele native salvează `config.toml`. Nu există un panou de configurare a exportului. Dacă browserul nu oferă alegerea destinației, se aplică preferințele sale obișnuite de descărcare. Selectează direct ZIP-ul exportat în Proiecte → Importă configurația brută pentru a importa configurația și rețetele împreună, cu validare automată.
 
 Administratorii gestionează sursele separat în **Detalii tehnice → Definiția imaginii**. Alege un Dockerfile sau ZIP în **Fișier de definiție**; fișierul este verificat automat. **Salvează rețeta** îl păstrează, iar **Schimbă definiția** îl înlocuiește. Tot aici se adaugă bazele locale lipsă. Baza standard a executorului ADORE este inclusă automat.
 

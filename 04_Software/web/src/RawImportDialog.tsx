@@ -10,9 +10,11 @@ import type { Locale } from "./i18n";
 import { importCopy } from "./importCopy";
 
 type Finding = { code: string; field: string };
-type Candidate = { name: string; display_name: string; config_text: string; revision: string };
-type Preview = Omit<Candidate, "config_text"> & {
+type ImportDocument = { kind: "toml" | "bundle"; content: string };
+type Candidate = { name: string; display_name: string; document: ImportDocument; revision: string };
+type Preview = Omit<Candidate, "document"> & {
   config_revision: string;
+  bundle_revision?: string;
   validation: { structural_valid: boolean; issues: Finding[] };
   review: { name: string; display_name: string } | null;
 };
@@ -24,10 +26,23 @@ class ImportError extends ApiError {
   constructor(code: string, readonly findings: Finding[] = []) { super(code); }
 }
 
-async function readFile(file: File) {
-  if (!file.size || file.size > 524288) throw new ApiError("config_invalid");
-  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer());
+async function readFile(file: File): Promise<ImportDocument> {
+  if (!file.size || file.size > 18 * 1024 * 1024) throw new ApiError("config_invalid");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes.length > 18 * 1024 * 1024) throw new ApiError("config_invalid");
+  if (file.name.toLowerCase().endsWith(".zip") ||
+      bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) {
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 32768)
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+    return { kind: "bundle", content: btoa(binary) };
+  }
+  if (bytes.length > 524288) throw new ApiError("config_invalid");
+  return { kind: "toml", content: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes) };
 }
+
+const documentBody = (document: ImportDocument) => document.kind === "bundle"
+  ? { source: document.content } : { config_text: document.content };
 
 /** Validate each selection and confirm only its exact, server-bound candidate. */
 export function RawImportDialog({ locale, csrf, onClose, onImported, registerGuard }: {
@@ -64,7 +79,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
     };
   }, [registerGuard]);
 
-  async function call(path: "import" | "import-preview", body: unknown, signal?: AbortSignal) {
+  async function call(path: "import" | "import-preview" | "import/bundle" | "import/bundle-preview", body: unknown, signal?: AbortSignal) {
     let response: Response;
     try {
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin", cache: "no-store", signal,
@@ -93,16 +108,18 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
     validation.current = controller;
     const current = () => alive.current && validation.current === controller && !controller.signal.aborted;
     try {
-      let text: string;
-      try { text = await readFile(file); }
+      let document: ImportDocument;
+      try { document = await readFile(file); }
       catch {
         if (current()) setFailure({ message: c.invalidFile, findings: [] });
         return;
       }
       if (!current()) return;
-      const value = await call("import-preview", { config_text: text }, controller.signal) as Preview;
+      const value = await call(document.kind === "bundle" ? "import/bundle-preview" : "import-preview",
+        documentBody(document), controller.signal) as Preview;
       if (!current()) return;
       if (!digest(value?.revision) || !digest(value?.config_revision) ||
+        document.kind === "bundle" && !digest(value?.bundle_revision) ||
         typeof value.validation?.structural_valid !== "boolean" || !findingsValid(value.validation.issues) ||
         value.validation.structural_valid !== (value.validation.issues.length === 0))
         throw new ApiError("unexpected_response");
@@ -112,7 +129,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
         value.display_name.trim() !== value.display_name || /[\p{Cc}\p{Cf}]/u.test(value.display_name) ||
         !value.review || value.review.name !== value.name || value.review.display_name !== value.display_name)
         throw new ApiError("unexpected_response");
-      reviewed.current = { name: value.name, display_name: value.display_name, config_text: text, revision: value.revision };
+      reviewed.current = { name: value.name, display_name: value.display_name, document, revision: value.revision };
       setReady(value.display_name);
     } catch (cause) { if (current()) reject(cause); }
     finally { if (current()) { validation.current = null; setBusy(null); } }
@@ -124,10 +141,15 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
     reviewed.current = null;
     setBusy("import"); setFailure(null); setReady("");
     try {
-      const text = await readFile(file).catch(() => null);
+      const document = await readFile(file).catch(() => null);
       if (!alive.current) return;
-      if (text !== candidate.config_text) { setFailure({ message: c.changed, findings: [] }); return; }
-      const value = await call("import", candidate);
+      if (!document || document.kind !== candidate.document.kind || document.content !== candidate.document.content) {
+        setFailure({ message: c.changed, findings: [] }); return;
+      }
+      const value = await call(document.kind === "bundle" ? "import/bundle" : "import", {
+        name: candidate.name, display_name: candidate.display_name, revision: candidate.revision,
+        ...documentBody(document),
+      });
       if (!alive.current) return;
       if (!value || value.name !== candidate.name || value.display_name !== candidate.display_name ||
         typeof value.id !== "string" || !/^[0-9a-f]{32}$/.test(value.id) ||
@@ -141,7 +163,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
     onCancel={event => { event.preventDefault(); if (!importing.current) onClose(); }}>
     <div className="form-stack">
       <h2 id="raw-import-title">{c.title}</h2>
-      <label>{c.file}<input type="file" accept=".toml" autoFocus disabled={busy === "import"}
+      <label>{c.file}<input type="file" accept=".toml,.zip" autoFocus disabled={busy === "import"}
         onClick={event => { event.currentTarget.value = ""; void select(null); }}
         onChange={event => void select(event.target.files?.[0] ?? null)} /></label>
       {busy && <p role="status">{busy === "validate" ? c.validating : c.importing}</p>}

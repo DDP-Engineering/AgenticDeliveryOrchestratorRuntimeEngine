@@ -12,6 +12,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 Start at `adore/web/app.py` recipe/raw-config routes for project export;
 `adore/executor_recipes.py` owns source retention/resolution and
 `adore/recipe_sources.py` validates input and creates the portable ZIP.
+`adore/project_bundle.py` validates complete exported project archives for import.
 Focused proof: `tests/test_executor_recipes.py`, `test_web_executor_recipes.py`,
 `test_web_config_raw.py` and `web/e2e/portable.spec.ts`. Actual runtime behavior
 belongs to execution.md; preparation profiles to preparation.md; native runs
@@ -40,6 +41,14 @@ Git build-definition field. The old image-build routes answer 404.
 Runtime/image/account choices retain reviewed configuration saves, with detected
 native/WSL runtime suggestions and manual entry.
 
+Admin+CSRF POST `/api/v1/projects/import/bundle-preview` validates exact ZIP
+bytes in memory. POST `/api/v1/projects/import/bundle` rechecks its bundle
+revision and publishes a paused profile with the retained complete source graph.
+`read_project_bundle` requires current metadata, exact Compose correspondence
+and local-base closure; `validate_bundle_image` binds the effective image.
+`RecipeStore.preview_import` observes associations, and `publish_import` holds
+the catalog lock while calling the guarded profile publisher.
+
 ## Invariants
 
 - Current-schema image bindings and immutable SHA-256 source objects live only in
@@ -57,6 +66,14 @@ native/WSL runtime suggestions and manual entry.
   overwrite existing reviewed associations or the standard builtin base.
 - Root binding is published last under the catalog lock with digest CAS.
   Project revision/identity and existing Admin/CSRF checks precede source writes.
+- ZIP import never implicitly replaces a differing root definition. Identical
+  roots are reused; existing supplemental bindings stay unchanged. The imported
+  root retains its pinned embedded graph. Ordinary publication failure rolls back
+  only exact new bindings. Failed rollback reports uncertainty; unused immutable
+  objects may remain. Lock order is catalog, enrollment, candidate state.
+- Project and enrollment unlocks precede applied audit confirmation inside rollback.
+  Import uses no extraction, build, runtime or forge command; preparation-selected
+  image validation may use the existing bounded read-only local Git runner.
 - Public registry/package access is a separate build prerequisite. Managed source
   lookup does not execute Docker, forge commands or agents; optional Git sources
   use the existing injected immutable blob reader.
@@ -65,6 +82,7 @@ native/WSL runtime suggestions and manual entry.
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
+| Complete project ZIP import and coordinated publication | project_bundle.py, executor_recipes.py, web/app.py, RawImportDialog.tsx | test_project_bundle.py, test_web_bundle_import.py, import.spec.ts |
 | Source syntax/ZIP/Compose | recipe_sources.py | test_executor_recipes.py |
 | Shared sources/effective image/closure | executor_recipes.py | test_executor_recipes.py |
 | Authorization/CAS/config preservation | web/app.py | test_web_executor_recipes.py |
@@ -85,11 +103,12 @@ native/WSL runtime suggestions and manual entry.
 
 ## Files
 
-- `04_Software/adore/{executor_recipes,recipe_sources,build_bundle}.py`: source contracts.
+- `04_Software/adore/{executor_recipes,recipe_sources,build_bundle,project_bundle}.py`: source contracts.
 - `04_Software/adore/web/app.py`: authorization, revision-bound recipe/export routes.
 - `04_Software/web/src/{RawConfiguration,App,ContainerRuntimePicker}.tsx`: user controls.
 - `04_Software/tests/test_executor_recipes.py`, `test_web_executor_recipes.py`,
   `test_web_config_raw.py`, `test_executor_environment_choice.py`: offline contracts.
-- `04_Software/web/e2e/{portable,images}.spec.ts`: browser contracts.
+- `04_Software/tests/{test_project_bundle,test_web_bundle_import}.py`: complete import contracts.
+- `04_Software/web/e2e/{portable,images,import}.spec.ts`: browser contracts.
 - `01_Documentation/Project_Executor_Images.md` and
   `05_SoftwareDocu/Component_Executor_Recipes.md`: user/component guidance.

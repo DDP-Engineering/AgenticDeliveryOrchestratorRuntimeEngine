@@ -56,6 +56,9 @@ retain it alongside the copied third-party notice inventory. See `01_Documentati
 timeouts and diagnostic commands. Direct validation requires no AEGIS task.
 The Overview isolation checks use incompatible job state in temporary profiles,
 with API fixtures and the existing Chromium test server.
+Complete project ZIP import uses isolated source catalogs and temporary profile
+roots with injected failures; no Docker, forge or network command is required.
+Browser import fixtures create current ZIPs through the public Python exporter.
 
 ## Configuration and services
 

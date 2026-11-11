@@ -14,6 +14,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Import complete project ZIPs in one automatically validated dialog, retaining
+  exact configuration and executor image sources together with monitoring paused.
+
 - Retain shared executor image recipes from Dockerfiles or source ZIPs and export
   project configuration with complete local-base definitions from one compact dialog.
 - Include the standard executor base definition automatically in source exports.

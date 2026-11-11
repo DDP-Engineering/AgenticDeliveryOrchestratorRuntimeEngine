@@ -198,6 +198,12 @@ SQLite bytes, authorization, scope and financial redaction.
   allowlisted review. import-check reuses bounded probes with
   ephemeral revision/time-bound status; import confirms unchanged bytes after
   full identity/ownership/state reinspection within enrollment/conductor locks.
+  The same popup accepts a complete exported ZIP (18 MiB) or TOML (512 KiB).
+  Bundle-preview/bundle routes under `/projects/import` bind exact ZIP bytes,
+  ordinary config revision and observed source associations. Source retention and
+  paused publication are coordinated under the recipe lock. Different root
+  recipes reject rather than replace. Failure rolls back new bindings/profile;
+  final project/enrollment unlocks precede applied audit confirmation. See project-images.md.
 
 - `create_app(home, probe_runner=...)` mounts `/api/v1` and bundled static
   assets. The runner is injectable for explicit host-readiness and image runtime commands.
@@ -636,7 +642,7 @@ for Add and Import project. Primary buttons take their text colour from the
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
 | Portable new-project file/copy API and source revision | `_prepare_transfer`, `transfer_source` | `test_web_transfer.py` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
-| Exact TOML enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
+| Exact TOML/complete ZIP enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import`, `_inspect_bundle_import` | `test_web_import.py`, `test_web_bundle_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |

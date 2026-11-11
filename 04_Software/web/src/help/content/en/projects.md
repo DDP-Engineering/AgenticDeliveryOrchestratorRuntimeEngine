@@ -40,9 +40,9 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 
 ## Import raw configuration {#import-project}
 
-In [Projects](/projects), choose **Import raw configuration** and select an exported UTF-8 `config.toml` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact file bytes.
+In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 `config.toml` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.
 
-If your export is a ZIP with image sources, extract it and select its `config.toml` here. After enrollment, attach the same ZIP in [Settings → Export raw configuration](/help/settings#toml) to retain its image definitions. Use the included Compose file to build images separately on the destination server.
+Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).
 
 
 A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:

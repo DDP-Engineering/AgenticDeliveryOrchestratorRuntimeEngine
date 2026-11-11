@@ -40,9 +40,9 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 
 ## Originalkonfiguration importieren {#import-project}
 
-Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte UTF-8-Datei `config.toml`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Datei bytegenau.
+Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei `config.toml`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.
 
-Ist Ihr Export ein ZIP mit Image-Quellen, entpacken Sie es und wählen Sie hier seine `config.toml`. Hängen Sie nach der Aufnahme dasselbe ZIP unter [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml) an, um die Image-Definitionen zu speichern. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei.
+Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).
 
 
 Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:
