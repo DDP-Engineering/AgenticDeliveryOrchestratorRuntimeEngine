@@ -20,6 +20,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep ticket action buttons on one desktop row when details are expanded.
+
 - Keep raw configuration export options and feedback in dialogs with symmetric Settings actions.
 
 - Keep Provider, Model and other single-line Settings controls at normal height.

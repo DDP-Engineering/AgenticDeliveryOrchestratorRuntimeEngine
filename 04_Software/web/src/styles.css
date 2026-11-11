@@ -799,7 +799,7 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .ticket-toolbar { justify-content: flex-start; gap: 12px; }
 .ticket-table { table-layout: fixed; }
 .ticket-table > thead > tr > th:first-child { width: 4.5rem; }
-.ticket-table th:last-child { width: 24%; }
+.ticket-table th:last-child { width: 26rem; }
 .ticket-table td, .ticket-table th { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
 .ticket-workspace > .panel, .ticket-workspace .table-scroll { min-width: 0; max-width: 100%; }
 .ticket-detail-row > td { white-space: normal; }
@@ -825,6 +825,13 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 .forge-markdown table { width: max-content; min-width: 100%; }
 .forge-markdown th, .forge-markdown td { white-space: nowrap; padding: .5rem .75rem; }
 .forge-image-placeholder { color: var(--muted); font-style: italic; }
+.ticket-actions { flex-wrap: nowrap; }
+.ticket-actions button { flex-shrink: 0; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+@media (max-width: 1100px) {
+  .ticket-table th:last-child { width: 14rem; }
+  .ticket-actions { flex-wrap: wrap; }
+  .ticket-actions button { white-space: normal; }
+}
 @media (max-width: 720px) {
   .ticket-table > thead > tr > th:first-child { width: 3.25rem; }
   .ticket-table th:last-child { width: 8rem; }
@@ -834,8 +841,6 @@ table caption { text-align: left; font-weight: 600; padding: .6rem 0; }
 }
 .ticket-labels { display: flex; flex-wrap: wrap; gap: 6px; }
 .ticket-label { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); font-size: 0.85rem; white-space: nowrap; }
-.ticket-actions { flex-wrap: wrap; }
-.ticket-actions button { flex-shrink: 0; overflow-wrap: normal; word-break: normal; }
 .ticket-detail { display: grid; gap: 8px; padding: 4px 0 8px; }
 .ticket-detail h3 { margin: 8px 0 0; font-size: 1rem; }
 .ticket-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }

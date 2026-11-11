@@ -63,6 +63,8 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 
 **Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.
 
+Pe desktop, Pornește sau Reia, Oprește și Detalii sau Ascunde detaliile rămân pe același rând. Pe ecrane înguste, butoanele pot trece pe rândul următor pentru a rămâne în pagină.
+
 ## Citirea descrierilor și comentariilor {#reading-bodies}
 
 **Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**

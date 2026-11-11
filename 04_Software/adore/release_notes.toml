@@ -54,7 +54,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and unbroken action labels.", fr = "Numéros compacts, mode Markdown/source mémorisé, défilement local et boutons sans mots coupés.", de = "Schmale Nummernspalte, gemerkter Markdown/Quelltext-Modus, lokales Scrollen, ganze Buttontexte.", ro = "Numere compacte, mod Markdown/sursă salvat, derulare locală și butoane fără cuvinte rupte." }
+text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and aligned desktop action buttons.", fr = "Numéros compacts, mode mémorisé, défilement local et actions alignées sur ordinateur.", de = "Schmale Nummern, gespeicherter Anzeigemodus, lokales Scrollen und Desktop-Aktionen in einer Zeile.", ro = "Numere compacte, mod salvat, derulare locală și butoane aliniate pe desktop." }
 
 [[release.entry]]
 category = "new"

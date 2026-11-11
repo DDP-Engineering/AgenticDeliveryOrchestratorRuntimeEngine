@@ -37,8 +37,10 @@ right edge, wrapping when space is limited. `TicketWorkspace` mounts it for
 descriptions and comments in Rendered mode; Markdown source uses a focusable
 `pre` containing the untouched API string.
 An empty description uses the existing localized fallback before rendering.
-Ticket actions reserve a bounded column width and wrap whole buttons instead
-of shrinking their labels into broken words when Details changes to Hide details.
+Ticket actions reserve 26rem on desktop, keeping Start/Retry, Stop and
+Details/Hide details together on one line across the four interface languages.
+At 1100px and below, whole buttons may wrap; at 720px and below the column uses
+8rem and labels wrap at spaces. Expansion does not change desktop button-row layout.
 
 `App` owns the shared mode for both project and global Tickets workspaces.
 `ticketPreferences.ts::readPreferences` validates nullable language/theme and the

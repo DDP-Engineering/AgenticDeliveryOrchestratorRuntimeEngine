@@ -63,6 +63,8 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 
 **Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
 
+On desktop, Start or Retry, Stop and Details or Hide details stay on one row. On narrow screens, the buttons can wrap to keep them within the page.
+
 ## Reading descriptions and comments {#reading-bodies}
 
 **Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**

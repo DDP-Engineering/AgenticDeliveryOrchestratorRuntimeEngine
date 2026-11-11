@@ -1379,3 +1379,6 @@ Enrollment can select the Pi reasoning effort supported by its provider and mode
 Readiness evidence is bound to the server machine and account. Changes to relevant credential inputs make it stale. When using this build, delete `readiness.json` in each affected project profile before checking prerequisites again.
 
 An external CLI sign-in cannot be continuously bound to a project identity when a keyring or helper may change it invisibly. Its successful prerequisite check remains partial; connect project repository access and recheck for a bound verification.
+
+Ticket actions stay on one row on desktop when Details changes to Hide details.
+On narrow screens they may wrap to keep the controls and description within the page.

@@ -63,6 +63,8 @@ Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500
 
 **Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.
 
+Auf dem Desktop bleiben Starten oder Wiederholen, Stoppen und Details oder Details ausblenden in einer Zeile. Auf schmalen Bildschirmen können die Schaltflächen umbrechen, damit sie in die Seite passen.
+
 ## Beschreibungen und Kommentare lesen {#reading-bodies}
 
 **Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**

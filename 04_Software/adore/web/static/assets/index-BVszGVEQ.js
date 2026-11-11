@@ -694,88 +694,90 @@ Auf dem Reiter Qualität sehen Administratoren außerdem **Kosten je belegtem Au
 | Dev | Nur zugewiesene Projekte; kein **Alle Projekte** | Keine. Devs sehen Auftragszahlen, Token, Dauer und Qualitätskennzahlen, nie ein Finanzfeld. |
 
 Preise werden nur von Administratoren festgelegt und gesehen; die schreibgeschützten Einstellungen eines Dev enthalten keine Finanzeinstellungen.
-`,hz=`# Tickets für die automatische Aufnahme
-
-ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, wenn sie die richtigen Labels tragen, und Sie können ein Ticket auch von Hand starten. Dieser Artikel behandelt Labels, Eignung und die Ticketansicht.
-
-
-Tickets mit dem konfigurierten Epic-Label werden nicht übernommen oder gestartet. Starten bleibt für geeignete Tickets bei pausierter Überwachung verfügbar.
-
-## So funktioniert die Aufnahme {#how-pickup-works}
-
-Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.
-
-Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
-
-## Zuerst die Labels anlegen {#labels}
-
-GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Alle folgenden Labels müssen vor dem ersten Start im Forge-Repository existieren. ADORE legt fehlende Labels beim Hinzufügen eines Projekts an (**ADORE-Labels im Repository anlegen**, in Prüfen und erstellen standardmäßig aktiviert) oder wenn Sie in Einstellungen → Repository **Fehlende Labels anlegen** drücken; vorhandene Labels werden nie geändert oder gelöscht, und ADORE zeigt, was angelegt wurde, was schon existierte und was fehlschlug (etwa wenn das Forge-Konto des Servers keine Labels anlegen darf). Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.
-
-| Label | Zweck |
-|---|---|
-| \`agent-ready\` | Sie setzen es, um ein Ticket zur Aufnahme anzubieten. ADORE ersetzt es beim Start des Auftrags durch das Arbeitslabel. |
-| \`agent-working\` | ADORE setzt es, solange es arbeitet, veröffentlicht und auf Ihre Freigabe wartet. |
-| \`agent-clarify\` | ADORE setzt es, wenn es eine Frage gestellt hat und auf eine Antwort wartet. |
-| \`agent-answered\` | Sie setzen es, nachdem Sie auf eine Frage geantwortet haben. |
-| \`agent-mr\` | ADORE setzt es nach der Veröffentlichung des MR/PR, solange es auf die menschliche Prüfung wartet. |
-| \`agent-failed\` | ADORE setzt es, wenn ein Auftrag fehlschlägt. |
-| \`agent-done\` | ADORE setzt es, nachdem ein Mensch den MR/PR zusammengeführt hat. |
-| \`agent-approved\` | Sie setzen es am Ticket, um die Veröffentlichung des vorgestellten Kandidaten freizugeben. |
-| \`agent-revise\` | Ein Reviewer setzt es am MR/PR, um eine Überarbeitungsrunde anzufordern. |
-
-ADORE entfernt bei jeder Statusaktualisierung die Lebenszyklus-Labels, die es nicht setzt, daher müssen alle existieren. Ein von Hand gesetztes Statuslabel ändert den Auftrag nicht.
-
-## Wann ein Ticket geeignet ist {#eligible-tickets}
-
-Ein Ticket wird nur aufgenommen, wenn jede Regel erfüllt ist. Sie werden in dieser Reihenfolge geprüft:
-
-1. Das Ticket ist offen.
-2. Es hat das Bereitschaftslabel (\`agent-ready\`).
-3. Es hat nicht das Sperrlabel (\`agent-hold\`). Das Entfernen des Sperrlabels macht das Ticket wieder geeignet.
-4. Es hat nicht das Ausschlusslabel (\`no-agent\`, Einstellung **Label zum Ausschluss von der Aufnahme**). Es hat Vorrang vor dem Bereitschaftslabel. Das Entfernen stellt die Eignung wieder her; das Setzen stoppt keinen bereits gestarteten Auftrag.
-5. ADORE hat noch keinen Auftrag für das Ticket.
-6. Es hat ein Prioritätslabel: \`P1\`, \`P2\` oder \`P3\`. **Prioritätslabel am Ticket verlangen** ist standardmäßig aktiv.
-7. Ist **Akzeptanzkriterien im Ticket verlangen** aktiv, enthält die Beschreibung die Wörter acceptance criteria (beliebige Schreibweise) oder einen nicht abgehakten Aufgabenpunkt, \`- [ ]\`. Diese Prüfung ist standardmäßig aus.
-
-Optionale Labels formen den Auftrag: \`bug\` oder \`fix\` ergibt eine Fehlerbehebung, \`change\` eine Änderung und jedes andere Ticket eine Funktion. \`agent-quick\` ist nur ein Hinweis; der Executor entscheidet zwischen vollem und schnellem Pfad und hält den Grund fest.
-
-## Tickets prüfen und starten {#tickets-view}
-
-Öffnen Sie ein Projekt unter Projekte, wählen Sie seinen Reiter **Aufträge** und bleiben Sie im Unterreiter **Tickets**. Die globale Seite **Aufträge** in der Seitenleiste hat dieselben beiden Unterreiter und eine Auswahl **Jobbereich**. Bei **Alle Projekte** erhält die Tabelle eine Spalte Projekt, und jede Zeile wirkt auf ihr eigenes Projekt.
-
-Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
-
-| Status | Bedeutung |
-|---|---|
-| Startbereit | Jede Regel ist erfüllt. |
-| Label ... fehlt | Das Bereitschaftslabel fehlt. |
-| Angehalten oder Von ADORE ausgeschlossen | Das Sperr- oder Ausschlusslabel ist vorhanden. |
-| Prioritätslabel fehlt | Kein Prioritätslabel. |
-| Akzeptanzkriterien fehlen | Erforderlicher Text nicht gefunden. |
-| Hat einen Auftrag oder Auftrag: ... | ADORE hat bereits einen Auftrag; der Auftragsstatus wird angezeigt. |
-| Nicht offen | Das Ticket ist geschlossen. |
-
-**Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.
-
-**Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.
-
-## Beschreibungen und Kommentare lesen {#reading-bodies}
-
-**Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**
-
-Mit **Inhaltsanzeige** rechts neben der Überschrift **Beschreibung**, mit Beschriftung und Auswahl in einer Zeile wählen Sie **Gerendert** oder **Markdown-Quelltext** für alle geöffneten Beschreibungen und Kommentare. Der Quelltext zeigt den exakten Text aus dem Repository, einschließlich Leerzeichen und Zeilenumbrüchen. Ihr Konto behält eine erfolgreich gespeicherte Auswahl über Projekte, Neuladen und Browser hinweg; ein anderer angemeldeter Browser liest sie beim nächsten Anmelden oder Neuladen. Schlägt das Speichern fehl, erscheint ein Fehler und der zuletzt gespeicherte Modus kehrt zurück; wählen Sie erneut, um es nochmals zu versuchen.
-
-HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, https- und mailto-Links sind anklickbar und öffnen sich separat. Bilder werden nie automatisch geladen: **Bild nicht geladen** und vorhandener Alternativtext erscheinen stattdessen. Breiter Code, Quelltext und Tabellen scrollen in eigenen, per Tastatur fokussierbaren Bereichen. Aufgaben-Kontrollkästchen ändern das Ticket nicht.
-
-## Checkliste für ein erstes Ticket {#checklist}
-
-1. Legen Sie alle neun Labels im Forge-Repository an.
-2. Für automatische Aufnahme muss die Überwachung Aktiv sein; für manuelles Starten darf sie Pausiert bleiben.
-3. Schreiben Sie einen klaren Titel und eine Beschreibung mit Akzeptanzkriterien.
-4. Setzen Sie ein Prioritätslabel und optional \`bug\`, \`fix\`, \`change\` oder \`agent-quick\`.
-5. Setzen Sie \`agent-ready\` zuletzt.
-6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.
-7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).
+`,hz=`# Tickets für die automatische Aufnahme\r
+\r
+ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, wenn sie die richtigen Labels tragen, und Sie können ein Ticket auch von Hand starten. Dieser Artikel behandelt Labels, Eignung und die Ticketansicht.\r
+\r
+\r
+Tickets mit dem konfigurierten Epic-Label werden nicht übernommen oder gestartet. Starten bleibt für geeignete Tickets bei pausierter Überwachung verfügbar.\r
+\r
+## So funktioniert die Aufnahme {#how-pickup-works}\r
+\r
+Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.\r
+\r
+Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.\r
+\r
+## Zuerst die Labels anlegen {#labels}\r
+\r
+GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Alle folgenden Labels müssen vor dem ersten Start im Forge-Repository existieren. ADORE legt fehlende Labels beim Hinzufügen eines Projekts an (**ADORE-Labels im Repository anlegen**, in Prüfen und erstellen standardmäßig aktiviert) oder wenn Sie in Einstellungen → Repository **Fehlende Labels anlegen** drücken; vorhandene Labels werden nie geändert oder gelöscht, und ADORE zeigt, was angelegt wurde, was schon existierte und was fehlschlug (etwa wenn das Forge-Konto des Servers keine Labels anlegen darf). Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.\r
+\r
+| Label | Zweck |\r
+|---|---|\r
+| \`agent-ready\` | Sie setzen es, um ein Ticket zur Aufnahme anzubieten. ADORE ersetzt es beim Start des Auftrags durch das Arbeitslabel. |\r
+| \`agent-working\` | ADORE setzt es, solange es arbeitet, veröffentlicht und auf Ihre Freigabe wartet. |\r
+| \`agent-clarify\` | ADORE setzt es, wenn es eine Frage gestellt hat und auf eine Antwort wartet. |\r
+| \`agent-answered\` | Sie setzen es, nachdem Sie auf eine Frage geantwortet haben. |\r
+| \`agent-mr\` | ADORE setzt es nach der Veröffentlichung des MR/PR, solange es auf die menschliche Prüfung wartet. |\r
+| \`agent-failed\` | ADORE setzt es, wenn ein Auftrag fehlschlägt. |\r
+| \`agent-done\` | ADORE setzt es, nachdem ein Mensch den MR/PR zusammengeführt hat. |\r
+| \`agent-approved\` | Sie setzen es am Ticket, um die Veröffentlichung des vorgestellten Kandidaten freizugeben. |\r
+| \`agent-revise\` | Ein Reviewer setzt es am MR/PR, um eine Überarbeitungsrunde anzufordern. |\r
+\r
+ADORE entfernt bei jeder Statusaktualisierung die Lebenszyklus-Labels, die es nicht setzt, daher müssen alle existieren. Ein von Hand gesetztes Statuslabel ändert den Auftrag nicht.\r
+\r
+## Wann ein Ticket geeignet ist {#eligible-tickets}\r
+\r
+Ein Ticket wird nur aufgenommen, wenn jede Regel erfüllt ist. Sie werden in dieser Reihenfolge geprüft:\r
+\r
+1. Das Ticket ist offen.\r
+2. Es hat das Bereitschaftslabel (\`agent-ready\`).\r
+3. Es hat nicht das Sperrlabel (\`agent-hold\`). Das Entfernen des Sperrlabels macht das Ticket wieder geeignet.\r
+4. Es hat nicht das Ausschlusslabel (\`no-agent\`, Einstellung **Label zum Ausschluss von der Aufnahme**). Es hat Vorrang vor dem Bereitschaftslabel. Das Entfernen stellt die Eignung wieder her; das Setzen stoppt keinen bereits gestarteten Auftrag.\r
+5. ADORE hat noch keinen Auftrag für das Ticket.\r
+6. Es hat ein Prioritätslabel: \`P1\`, \`P2\` oder \`P3\`. **Prioritätslabel am Ticket verlangen** ist standardmäßig aktiv.\r
+7. Ist **Akzeptanzkriterien im Ticket verlangen** aktiv, enthält die Beschreibung die Wörter acceptance criteria (beliebige Schreibweise) oder einen nicht abgehakten Aufgabenpunkt, \`- [ ]\`. Diese Prüfung ist standardmäßig aus.\r
+\r
+Optionale Labels formen den Auftrag: \`bug\` oder \`fix\` ergibt eine Fehlerbehebung, \`change\` eine Änderung und jedes andere Ticket eine Funktion. \`agent-quick\` ist nur ein Hinweis; der Executor entscheidet zwischen vollem und schnellem Pfad und hält den Grund fest.\r
+\r
+## Tickets prüfen und starten {#tickets-view}\r
+\r
+Öffnen Sie ein Projekt unter Projekte, wählen Sie seinen Reiter **Aufträge** und bleiben Sie im Unterreiter **Tickets**. Die globale Seite **Aufträge** in der Seitenleiste hat dieselben beiden Unterreiter und eine Auswahl **Jobbereich**. Bei **Alle Projekte** erhält die Tabelle eine Spalte Projekt, und jede Zeile wirkt auf ihr eigenes Projekt.\r
+\r
+Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:\r
+\r
+| Status | Bedeutung |\r
+|---|---|\r
+| Startbereit | Jede Regel ist erfüllt. |\r
+| Label ... fehlt | Das Bereitschaftslabel fehlt. |\r
+| Angehalten oder Von ADORE ausgeschlossen | Das Sperr- oder Ausschlusslabel ist vorhanden. |\r
+| Prioritätslabel fehlt | Kein Prioritätslabel. |\r
+| Akzeptanzkriterien fehlen | Erforderlicher Text nicht gefunden. |\r
+| Hat einen Auftrag oder Auftrag: ... | ADORE hat bereits einen Auftrag; der Auftragsstatus wird angezeigt. |\r
+| Nicht offen | Das Ticket ist geschlossen. |\r
+\r
+**Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.\r
+\r
+**Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.\r
+\r
+Auf dem Desktop bleiben Starten oder Wiederholen, Stoppen und Details oder Details ausblenden in einer Zeile. Auf schmalen Bildschirmen können die Schaltflächen umbrechen, damit sie in die Seite passen.\r
+\r
+## Beschreibungen und Kommentare lesen {#reading-bodies}\r
+\r
+**Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**\r
+\r
+Mit **Inhaltsanzeige** rechts neben der Überschrift **Beschreibung**, mit Beschriftung und Auswahl in einer Zeile wählen Sie **Gerendert** oder **Markdown-Quelltext** für alle geöffneten Beschreibungen und Kommentare. Der Quelltext zeigt den exakten Text aus dem Repository, einschließlich Leerzeichen und Zeilenumbrüchen. Ihr Konto behält eine erfolgreich gespeicherte Auswahl über Projekte, Neuladen und Browser hinweg; ein anderer angemeldeter Browser liest sie beim nächsten Anmelden oder Neuladen. Schlägt das Speichern fehl, erscheint ein Fehler und der zuletzt gespeicherte Modus kehrt zurück; wählen Sie erneut, um es nochmals zu versuchen.\r
+\r
+HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, https- und mailto-Links sind anklickbar und öffnen sich separat. Bilder werden nie automatisch geladen: **Bild nicht geladen** und vorhandener Alternativtext erscheinen stattdessen. Breiter Code, Quelltext und Tabellen scrollen in eigenen, per Tastatur fokussierbaren Bereichen. Aufgaben-Kontrollkästchen ändern das Ticket nicht.\r
+\r
+## Checkliste für ein erstes Ticket {#checklist}\r
+\r
+1. Legen Sie alle neun Labels im Forge-Repository an.\r
+2. Für automatische Aufnahme muss die Überwachung Aktiv sein; für manuelles Starten darf sie Pausiert bleiben.\r
+3. Schreiben Sie einen klaren Titel und eine Beschreibung mit Akzeptanzkriterien.\r
+4. Setzen Sie ein Prioritätslabel und optional \`bug\`, \`fix\`, \`change\` oder \`agent-quick\`.\r
+5. Setzen Sie \`agent-ready\` zuletzt.\r
+6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.\r
+7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).\r
 `,fz=`# Administration
 
 Administration covers user accounts, project access, system health and the record of changes. It is for administrators only: a Dev does not see the Administration menu, and a Dev who opens one of its addresses is taken to Overview.
@@ -1449,88 +1451,90 @@ On the Quality tab, administrators also see **Cost per job with evidence**, per 
 | Dev | Assigned projects only; no **All projects** | None. Devs see job counts, tokens, elapsed time and quality figures, never a financial field. |
 
 Prices are set and visible only to administrators; a Dev's read-only Settings omit financial settings.
-`,wz=`# Tickets for automatic pickup
-
-ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.
-
-
-Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.
-
-## How pickup works {#how-pickup-works}
-
-Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.
-
-An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
-
-## Create the labels first {#labels}
-
-GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. All labels below must exist in the forge repository before the first run. ADORE creates the missing ones when you add a project (**Create the ADORE labels in the repository**, ticked by default in Review and create) or when you press **Create missing labels** in Settings → Repository; it never changes or deletes existing labels, and lists what it created, what already existed and what failed (for example when the server's forge account may not create labels). The names are defaults; rename one only together with its project setting.
-
-| Label | Purpose |
-|---|---|
-| \`agent-ready\` | You add it to offer a ticket for pickup. ADORE replaces it with the working label when the job starts. |
-| \`agent-working\` | ADORE sets it while it works, publishes and waits for your approval. |
-| \`agent-clarify\` | ADORE sets it when it has asked a question and waits for an answer. |
-| \`agent-answered\` | You add it after replying to a question. |
-| \`agent-mr\` | ADORE sets it after publishing the MR/PR, while it waits for human review. |
-| \`agent-failed\` | ADORE sets it when a job fails. |
-| \`agent-done\` | ADORE sets it after a person has merged the MR/PR. |
-| \`agent-approved\` | You add it on the ticket to approve publishing the presented candidate. |
-| \`agent-revise\` | A reviewer adds it on the MR/PR to request a revision round. |
-
-ADORE removes the lifecycle labels it is not applying on every status update, so all must exist. Adding a status label by hand does not change the job.
-
-## What makes a ticket eligible {#eligible-tickets}
-
-A ticket is picked up only when every rule holds. They are checked in this order:
-
-1. The ticket is open.
-2. It has the ready label (\`agent-ready\`).
-3. It does not have the hold label (\`agent-hold\`). Removing the hold label makes the ticket eligible again.
-4. It does not have the exclusion label (\`no-agent\`, setting **Exclude from pickup label**). It wins over the ready label. Removing it restores eligibility; adding it does not stop a job already started.
-5. ADORE has no job for the ticket yet.
-6. It has a priority label: \`P1\`, \`P2\` or \`P3\`. **Require ticket priority label** is on by default.
-7. If **Require ticket acceptance criteria** is on, the description contains the words acceptance criteria (any case) or an unchecked task item, \`- [ ]\`. This check is off by default.
-
-Optional labels shape the job: \`bug\` or \`fix\` makes a fix task, \`change\` a change task, and any other ticket a feature task. \`agent-quick\` is only a hint; the executor decides between the full and quick path and records why.
-
-## Reviewing and starting tickets {#tickets-view}
-
-Open a project from Projects, choose its **Jobs** tab and stay on the **Tickets** sub-tab. The global **Jobs** page in the sidebar has the same two sub-tabs and a **Job scope** selector. With **All projects**, the table gains a Project column and each row acts on its own project.
-
-Nothing is read until you press **Read tickets**. It loads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:
-
-| Status | Meaning |
-|---|---|
-| Ready to start | Every rule holds. |
-| Missing label ... | The ready label is absent. |
-| On hold or Excluded from ADORE | The hold or exclusion label is present. |
-| Missing priority label | No priority label. |
-| Missing acceptance criteria | Required text not found. |
-| Has a job or Job: ... | ADORE already has a job; the job state is shown. |
-| Not open | The ticket is closed. |
-
-**Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.
-
-**Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
-
-## Reading descriptions and comments {#reading-bodies}
-
-**Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**
-
-Use **Body display** on the right of the **Description** heading, with its label and selector on one line to choose **Rendered** or **Markdown source** for all open descriptions and comments. Source shows the exact text received from the repository, including spaces and line breaks. Your account retains a successfully saved choice across projects, reloads and browsers; another signed-in browser reads it on its next sign-in or reload. If saving fails, an error appears and the last saved mode returns; choose again to retry.
-
-HTML stays visible as text, not executable content. Only absolute http, https and mailto links are clickable and open separately. Images never load automatically: **Image not loaded** and any alternative text appear instead. Wide code, source and tables scroll within their own regions, which you can focus with the keyboard. Task checkboxes cannot change the ticket.
-
-## Checklist for a first ticket {#checklist}
-
-1. Create all nine labels in the forge repository.
-2. For automatic pickup, check that Monitoring is Active; for manual Start, it may stay Paused.
-3. Write a clear title and a description with acceptance criteria.
-4. Add a priority label, and optionally \`bug\`, \`fix\`, \`change\` or \`agent-quick\`.
-5. Add \`agent-ready\` last.
-6. Wait for the next check, or press **Read tickets** and **Start**.
-7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).
+`,wz=`# Tickets for automatic pickup\r
+\r
+ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.\r
+\r
+\r
+Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.\r
+\r
+## How pickup works {#how-pickup-works}\r
+\r
+Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.\r
+\r
+An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.\r
+\r
+## Create the labels first {#labels}\r
+\r
+GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. All labels below must exist in the forge repository before the first run. ADORE creates the missing ones when you add a project (**Create the ADORE labels in the repository**, ticked by default in Review and create) or when you press **Create missing labels** in Settings → Repository; it never changes or deletes existing labels, and lists what it created, what already existed and what failed (for example when the server's forge account may not create labels). The names are defaults; rename one only together with its project setting.\r
+\r
+| Label | Purpose |\r
+|---|---|\r
+| \`agent-ready\` | You add it to offer a ticket for pickup. ADORE replaces it with the working label when the job starts. |\r
+| \`agent-working\` | ADORE sets it while it works, publishes and waits for your approval. |\r
+| \`agent-clarify\` | ADORE sets it when it has asked a question and waits for an answer. |\r
+| \`agent-answered\` | You add it after replying to a question. |\r
+| \`agent-mr\` | ADORE sets it after publishing the MR/PR, while it waits for human review. |\r
+| \`agent-failed\` | ADORE sets it when a job fails. |\r
+| \`agent-done\` | ADORE sets it after a person has merged the MR/PR. |\r
+| \`agent-approved\` | You add it on the ticket to approve publishing the presented candidate. |\r
+| \`agent-revise\` | A reviewer adds it on the MR/PR to request a revision round. |\r
+\r
+ADORE removes the lifecycle labels it is not applying on every status update, so all must exist. Adding a status label by hand does not change the job.\r
+\r
+## What makes a ticket eligible {#eligible-tickets}\r
+\r
+A ticket is picked up only when every rule holds. They are checked in this order:\r
+\r
+1. The ticket is open.\r
+2. It has the ready label (\`agent-ready\`).\r
+3. It does not have the hold label (\`agent-hold\`). Removing the hold label makes the ticket eligible again.\r
+4. It does not have the exclusion label (\`no-agent\`, setting **Exclude from pickup label**). It wins over the ready label. Removing it restores eligibility; adding it does not stop a job already started.\r
+5. ADORE has no job for the ticket yet.\r
+6. It has a priority label: \`P1\`, \`P2\` or \`P3\`. **Require ticket priority label** is on by default.\r
+7. If **Require ticket acceptance criteria** is on, the description contains the words acceptance criteria (any case) or an unchecked task item, \`- [ ]\`. This check is off by default.\r
+\r
+Optional labels shape the job: \`bug\` or \`fix\` makes a fix task, \`change\` a change task, and any other ticket a feature task. \`agent-quick\` is only a hint; the executor decides between the full and quick path and records why.\r
+\r
+## Reviewing and starting tickets {#tickets-view}\r
+\r
+Open a project from Projects, choose its **Jobs** tab and stay on the **Tickets** sub-tab. The global **Jobs** page in the sidebar has the same two sub-tabs and a **Job scope** selector. With **All projects**, the table gains a Project column and each row acts on its own project.\r
+\r
+Nothing is read until you press **Read tickets**. It loads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:\r
+\r
+| Status | Meaning |\r
+|---|---|\r
+| Ready to start | Every rule holds. |\r
+| Missing label ... | The ready label is absent. |\r
+| On hold or Excluded from ADORE | The hold or exclusion label is present. |\r
+| Missing priority label | No priority label. |\r
+| Missing acceptance criteria | Required text not found. |\r
+| Has a job or Job: ... | ADORE already has a job; the job state is shown. |\r
+| Not open | The ticket is closed. |\r
+\r
+**Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.\r
+\r
+**Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.\r
+\r
+On desktop, Start or Retry, Stop and Details or Hide details stay on one row. On narrow screens, the buttons can wrap to keep them within the page.\r
+\r
+## Reading descriptions and comments {#reading-bodies}\r
+\r
+**Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**\r
+\r
+Use **Body display** on the right of the **Description** heading, with its label and selector on one line to choose **Rendered** or **Markdown source** for all open descriptions and comments. Source shows the exact text received from the repository, including spaces and line breaks. Your account retains a successfully saved choice across projects, reloads and browsers; another signed-in browser reads it on its next sign-in or reload. If saving fails, an error appears and the last saved mode returns; choose again to retry.\r
+\r
+HTML stays visible as text, not executable content. Only absolute http, https and mailto links are clickable and open separately. Images never load automatically: **Image not loaded** and any alternative text appear instead. Wide code, source and tables scroll within their own regions, which you can focus with the keyboard. Task checkboxes cannot change the ticket.\r
+\r
+## Checklist for a first ticket {#checklist}\r
+\r
+1. Create all nine labels in the forge repository.\r
+2. For automatic pickup, check that Monitoring is Active; for manual Start, it may stay Paused.\r
+3. Write a clear title and a description with acceptance criteria.\r
+4. Add a priority label, and optionally \`bug\`, \`fix\`, \`change\` or \`agent-quick\`.\r
+5. Add \`agent-ready\` last.\r
+6. Wait for the next check, or press **Read tickets** and **Start**.\r
+7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).\r
 `,jz=`# Administration
 
 L’Administration couvre les comptes utilisateurs, l’accès aux projets, la santé du système et l’historique des changements. Elle est réservée aux administrateurs : un Dev ne voit pas le menu Administration, et un Dev qui ouvre l’une de ses adresses est redirigé vers la Vue d’ensemble.
@@ -2204,88 +2208,90 @@ Dans l’onglet Qualité, les administrateurs voient aussi **Coût par tâche do
 | Dev | Projets attribués uniquement ; pas de **Tous les projets** | Aucune. Les Dev voient le nombre de tâches, les jetons, la durée écoulée et les indicateurs de qualité, jamais un champ financier. |
 
 Les tarifs ne sont définis et visibles que par les administrateurs ; les Paramètres en lecture seule d’un Dev omettent les paramètres financiers.
-`,Tz=`# Tickets et prise en charge automatique
-
-ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab ou Gitea) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.
-
-
-Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.
-
-## Comment fonctionne la prise en charge {#how-pickup-works}
-
-Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.
-
-Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
-
-## Créer d’abord les étiquettes {#labels}
-
-GitHub et Gitea rejettent un nom d’étiquette inconnu : une étiquette manquante fait donc échouer les mises à jour d’état. Toutes les étiquettes ci-dessous doivent exister dans le dépôt de la forge avant la première exécution. ADORE crée celles qui manquent à l’ajout d’un projet (**Créer les étiquettes ADORE dans le dépôt**, cochée par défaut dans Révision et création) ou quand vous appuyez sur **Créer les étiquettes manquantes** dans Paramètres → Dépôt ; il ne modifie ni ne supprime jamais les étiquettes existantes et indique ce qu’il a créé, ce qui existait déjà et ce qui a échoué (par exemple si le compte forge du serveur ne peut pas créer d’étiquettes). Les noms sont des valeurs par défaut ; ne renommez une étiquette qu’avec son paramètre de projet.
-
-| Étiquette | Rôle |
-|---|---|
-| \`agent-ready\` | Vous l’ajoutez pour proposer un ticket à la prise en charge. ADORE la remplace par l’étiquette de travail au démarrage de la tâche. |
-| \`agent-working\` | ADORE la pose pendant qu’il travaille, publie et attend votre approbation. |
-| \`agent-clarify\` | ADORE la pose lorsqu’il a posé une question et attend une réponse. |
-| \`agent-answered\` | Vous l’ajoutez après avoir répondu à une question. |
-| \`agent-mr\` | ADORE la pose après avoir publié la MR/PR, pendant qu’il attend la revue humaine. |
-| \`agent-failed\` | ADORE la pose lorsqu’une tâche échoue. |
-| \`agent-done\` | ADORE la pose après qu’une personne a fusionné la MR/PR. |
-| \`agent-approved\` | Vous l’ajoutez sur le ticket pour approuver la publication du candidat présenté. |
-| \`agent-revise\` | Un relecteur l’ajoute sur la MR/PR pour demander un tour de révision. |
-
-À chaque mise à jour d’état, ADORE retire les étiquettes de cycle de vie qu’il n’applique pas ; toutes doivent donc exister. Ajouter à la main une étiquette d’état ne modifie pas la tâche.
-
-## Ce qui rend un ticket éligible {#eligible-tickets}
-
-Un ticket n’est pris en charge que si toutes les règles sont satisfaites. Elles sont vérifiées dans cet ordre :
-
-1. Le ticket est ouvert.
-2. Il porte l’étiquette de disponibilité (\`agent-ready\`).
-3. Il ne porte pas l’étiquette de blocage (\`agent-hold\`). Retirer l’étiquette de blocage rend de nouveau le ticket éligible.
-4. Il ne porte pas l’étiquette d’exclusion (\`no-agent\`, paramètre **Étiquette d’exclusion de la prise en charge**). Elle l’emporte sur l’étiquette de disponibilité. La retirer rétablit l’éligibilité ; l’ajouter n’arrête pas une tâche déjà démarrée.
-5. ADORE n’a pas encore de tâche pour ce ticket.
-6. Il porte une étiquette de priorité : \`P1\`, \`P2\` ou \`P3\`. **Exiger une étiquette de priorité sur le ticket** est activé par défaut.
-7. Si **Exiger des critères d’acceptation sur le ticket** est activé, la description contient les mots acceptance criteria (sans distinction de casse) ou un élément de tâche non coché, \`- [ ]\`. Cette vérification est désactivée par défaut.
-
-Des étiquettes facultatives orientent la tâche : \`bug\` ou \`fix\` donne une tâche de correction, \`change\` une tâche de modification, et tout autre ticket une tâche de fonctionnalité. \`agent-quick\` n’est qu’une indication ; l’exécuteur choisit entre le chemin complet et le chemin rapide et en consigne la raison.
-
-## Examiner et démarrer les tickets {#tickets-view}
-
-Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes deux sous-onglets et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.
-
-Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
-
-| État | Signification |
-|---|---|
-| Prêt à démarrer | Toutes les règles sont satisfaites. |
-| Étiquette ... manquante | L’étiquette de disponibilité est absente. |
-| En attente ou Exclu d’ADORE | L’étiquette de blocage ou d’exclusion est présente. |
-| Étiquette de priorité manquante | Aucune étiquette de priorité. |
-| Critères d’acceptation manquants | Le texte requis est introuvable. |
-| A une tâche ou Tâche : ... | ADORE a déjà une tâche ; son état est affiché. |
-| Non ouvert | Le ticket est fermé. |
-
-**Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.
-
-**Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.
-
-## Lire descriptions et commentaires {#reading-bodies}
-
-**Détails** ouvre par défaut descriptions et commentaires en Markdown **Rendu**. Titres, emphase, code, listes imbriquées, tâches en lecture seule, citations, tableaux et liens sont mis en forme ; une description vide conserve **Aucune description.**
-
-Utilisez **Affichage du contenu** à droite du titre **Description**, avec le libellé et le sélecteur sur une ligne pour choisir **Rendu** ou **Source Markdown** pour toutes les descriptions et tous les commentaires ouverts. La source montre le texte exact reçu du dépôt, espaces et sauts de ligne compris. Votre compte conserve un choix enregistré entre projets, rechargements et navigateurs ; un autre navigateur connecté le lit à sa prochaine connexion ou au rechargement. Si l’enregistrement échoue, une erreur apparaît et le dernier mode enregistré revient ; choisissez à nouveau pour réessayer.
-
-Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens absolus http, https et mailto sont cliquables et s’ouvrent séparément. Les images ne se chargent jamais automatiquement : **Image non chargée** et le texte alternatif éventuel les remplacent. Code, source et tableaux larges défilent dans leurs propres zones, accessibles au clavier. Les cases de tâches ne modifient pas le ticket.
-
-## Liste de contrôle pour un premier ticket {#checklist}
-
-1. Créez les neuf étiquettes dans le dépôt de la forge.
-2. Pour la prise en charge automatique, vérifiez la surveillance Active ; pour Démarrer manuellement, elle peut rester En pause.
-3. Rédigez un titre clair et une description avec des critères d’acceptation.
-4. Ajoutez une étiquette de priorité et, si vous le souhaitez, \`bug\`, \`fix\`, \`change\` ou \`agent-quick\`.
-5. Ajoutez \`agent-ready\` en dernier.
-6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.
-7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).
+`,Tz=`# Tickets et prise en charge automatique\r
+\r
+ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab ou Gitea) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.\r
+\r
+\r
+Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.\r
+\r
+## Comment fonctionne la prise en charge {#how-pickup-works}\r
+\r
+Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.\r
+\r
+Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.\r
+\r
+## Créer d’abord les étiquettes {#labels}\r
+\r
+GitHub et Gitea rejettent un nom d’étiquette inconnu : une étiquette manquante fait donc échouer les mises à jour d’état. Toutes les étiquettes ci-dessous doivent exister dans le dépôt de la forge avant la première exécution. ADORE crée celles qui manquent à l’ajout d’un projet (**Créer les étiquettes ADORE dans le dépôt**, cochée par défaut dans Révision et création) ou quand vous appuyez sur **Créer les étiquettes manquantes** dans Paramètres → Dépôt ; il ne modifie ni ne supprime jamais les étiquettes existantes et indique ce qu’il a créé, ce qui existait déjà et ce qui a échoué (par exemple si le compte forge du serveur ne peut pas créer d’étiquettes). Les noms sont des valeurs par défaut ; ne renommez une étiquette qu’avec son paramètre de projet.\r
+\r
+| Étiquette | Rôle |\r
+|---|---|\r
+| \`agent-ready\` | Vous l’ajoutez pour proposer un ticket à la prise en charge. ADORE la remplace par l’étiquette de travail au démarrage de la tâche. |\r
+| \`agent-working\` | ADORE la pose pendant qu’il travaille, publie et attend votre approbation. |\r
+| \`agent-clarify\` | ADORE la pose lorsqu’il a posé une question et attend une réponse. |\r
+| \`agent-answered\` | Vous l’ajoutez après avoir répondu à une question. |\r
+| \`agent-mr\` | ADORE la pose après avoir publié la MR/PR, pendant qu’il attend la revue humaine. |\r
+| \`agent-failed\` | ADORE la pose lorsqu’une tâche échoue. |\r
+| \`agent-done\` | ADORE la pose après qu’une personne a fusionné la MR/PR. |\r
+| \`agent-approved\` | Vous l’ajoutez sur le ticket pour approuver la publication du candidat présenté. |\r
+| \`agent-revise\` | Un relecteur l’ajoute sur la MR/PR pour demander un tour de révision. |\r
+\r
+À chaque mise à jour d’état, ADORE retire les étiquettes de cycle de vie qu’il n’applique pas ; toutes doivent donc exister. Ajouter à la main une étiquette d’état ne modifie pas la tâche.\r
+\r
+## Ce qui rend un ticket éligible {#eligible-tickets}\r
+\r
+Un ticket n’est pris en charge que si toutes les règles sont satisfaites. Elles sont vérifiées dans cet ordre :\r
+\r
+1. Le ticket est ouvert.\r
+2. Il porte l’étiquette de disponibilité (\`agent-ready\`).\r
+3. Il ne porte pas l’étiquette de blocage (\`agent-hold\`). Retirer l’étiquette de blocage rend de nouveau le ticket éligible.\r
+4. Il ne porte pas l’étiquette d’exclusion (\`no-agent\`, paramètre **Étiquette d’exclusion de la prise en charge**). Elle l’emporte sur l’étiquette de disponibilité. La retirer rétablit l’éligibilité ; l’ajouter n’arrête pas une tâche déjà démarrée.\r
+5. ADORE n’a pas encore de tâche pour ce ticket.\r
+6. Il porte une étiquette de priorité : \`P1\`, \`P2\` ou \`P3\`. **Exiger une étiquette de priorité sur le ticket** est activé par défaut.\r
+7. Si **Exiger des critères d’acceptation sur le ticket** est activé, la description contient les mots acceptance criteria (sans distinction de casse) ou un élément de tâche non coché, \`- [ ]\`. Cette vérification est désactivée par défaut.\r
+\r
+Des étiquettes facultatives orientent la tâche : \`bug\` ou \`fix\` donne une tâche de correction, \`change\` une tâche de modification, et tout autre ticket une tâche de fonctionnalité. \`agent-quick\` n’est qu’une indication ; l’exécuteur choisit entre le chemin complet et le chemin rapide et en consigne la raison.\r
+\r
+## Examiner et démarrer les tickets {#tickets-view}\r
+\r
+Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes deux sous-onglets et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.\r
+\r
+Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :\r
+\r
+| État | Signification |\r
+|---|---|\r
+| Prêt à démarrer | Toutes les règles sont satisfaites. |\r
+| Étiquette ... manquante | L’étiquette de disponibilité est absente. |\r
+| En attente ou Exclu d’ADORE | L’étiquette de blocage ou d’exclusion est présente. |\r
+| Étiquette de priorité manquante | Aucune étiquette de priorité. |\r
+| Critères d’acceptation manquants | Le texte requis est introuvable. |\r
+| A une tâche ou Tâche : ... | ADORE a déjà une tâche ; son état est affiché. |\r
+| Non ouvert | Le ticket est fermé. |\r
+\r
+**Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.\r
+\r
+**Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.\r
+\r
+Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.\r
+\r
+## Lire descriptions et commentaires {#reading-bodies}\r
+\r
+**Détails** ouvre par défaut descriptions et commentaires en Markdown **Rendu**. Titres, emphase, code, listes imbriquées, tâches en lecture seule, citations, tableaux et liens sont mis en forme ; une description vide conserve **Aucune description.**\r
+\r
+Utilisez **Affichage du contenu** à droite du titre **Description**, avec le libellé et le sélecteur sur une ligne pour choisir **Rendu** ou **Source Markdown** pour toutes les descriptions et tous les commentaires ouverts. La source montre le texte exact reçu du dépôt, espaces et sauts de ligne compris. Votre compte conserve un choix enregistré entre projets, rechargements et navigateurs ; un autre navigateur connecté le lit à sa prochaine connexion ou au rechargement. Si l’enregistrement échoue, une erreur apparaît et le dernier mode enregistré revient ; choisissez à nouveau pour réessayer.\r
+\r
+Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens absolus http, https et mailto sont cliquables et s’ouvrent séparément. Les images ne se chargent jamais automatiquement : **Image non chargée** et le texte alternatif éventuel les remplacent. Code, source et tableaux larges défilent dans leurs propres zones, accessibles au clavier. Les cases de tâches ne modifient pas le ticket.\r
+\r
+## Liste de contrôle pour un premier ticket {#checklist}\r
+\r
+1. Créez les neuf étiquettes dans le dépôt de la forge.\r
+2. Pour la prise en charge automatique, vérifiez la surveillance Active ; pour Démarrer manuellement, elle peut rester En pause.\r
+3. Rédigez un titre clair et une description avec des critères d’acceptation.\r
+4. Ajoutez une étiquette de priorité et, si vous le souhaitez, \`bug\`, \`fix\`, \`change\` ou \`agent-quick\`.\r
+5. Ajoutez \`agent-ready\` en dernier.\r
+6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.\r
+7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).\r
 `,Oz=`# Administrare
 
 Administrarea acoperă conturile de utilizator, accesul la proiecte, starea sistemului și evidența modificărilor. Este doar pentru administratori: un Dev nu vede meniul Administrare, iar un Dev care deschide una dintre adresele lui este dus la Prezentare generală.
@@ -2959,88 +2965,90 @@ Administratorii înregistrează prețurile în **Setări → Agent și model** a
 | Dev | Doar proiectele atribuite; fără **Toate proiectele** | Niciuna. Dev-ii văd numărul de lucrări, tokenurile, durata și cifrele de calitate, niciodată un câmp financiar. |
 
 Prețurile sunt setate și vizibile doar administratorilor; Setările doar pentru citire ale unui Dev omit setările financiare.
-`,Bz=`# Tichete pentru preluare automată
-
-ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab sau Gitea) când poartă etichetele potrivite, iar dumneavoastră puteți porni și manual unul. Acest articol acoperă etichetele, eligibilitatea și vizualizarea Tichete.
-
-
-Tichetele cu eticheta configurată pentru epic nu sunt preluate sau pornite. Pornirea manuală rămâne disponibilă pentru tichetele eligibile când monitorizarea este în pauză.
-
-## Cum funcționează preluarea {#how-pickup-works}
-
-Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.
-
-Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
-
-## Creați mai întâi etichetele {#labels}
-
-GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Toate etichetele de mai jos trebuie să existe în repository-ul de pe forge înainte de prima rulare. ADORE le creează pe cele lipsă la adăugarea unui proiect (**Creează etichetele ADORE în repository**, bifată implicit în Revizuire și creare) sau când apăsați **Creează etichetele lipsă** în Setări → Repository; nu modifică și nu șterge niciodată etichetele existente și arată ce a creat, ce exista deja și ce a eșuat (de exemplu când contul de forge al serverului nu poate crea etichete). Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.
-
-| Etichetă | Scop |
-|---|---|
-| \`agent-ready\` | O adăugați dumneavoastră pentru a oferi un tichet spre preluare. ADORE o înlocuiește cu eticheta de lucru când lucrarea pornește. |
-| \`agent-working\` | O setează ADORE cât timp lucrează, publică și așteaptă aprobarea dumneavoastră. |
-| \`agent-clarify\` | O setează ADORE când a pus o întrebare și așteaptă un răspuns. |
-| \`agent-answered\` | O adăugați dumneavoastră după ce ați răspuns la o întrebare. |
-| \`agent-mr\` | O setează ADORE după publicarea MR/PR-ului, cât timp așteaptă revizuirea umană. |
-| \`agent-failed\` | O setează ADORE când o lucrare eșuează. |
-| \`agent-done\` | O setează ADORE după ce o persoană a integrat MR/PR-ul. |
-| \`agent-approved\` | O adăugați dumneavoastră pe tichet pentru a aproba publicarea candidatului prezentat. |
-| \`agent-revise\` | Un recenzor o adaugă pe MR/PR pentru a cere o rundă de revizie. |
-
-ADORE elimină la fiecare actualizare de stare etichetele de ciclu de viață pe care nu le aplică, așa că toate trebuie să existe. Adăugarea manuală a unei etichete de stare nu schimbă lucrarea.
-
-## Ce face un tichet eligibil {#eligible-tickets}
-
-Un tichet este preluat doar când toate regulile sunt îndeplinite. Ele sunt verificate în această ordine:
-
-1. Tichetul este deschis.
-2. Are eticheta ready (\`agent-ready\`).
-3. Nu are eticheta de blocare (\`agent-hold\`). Eliminarea etichetei de blocare face tichetul din nou eligibil.
-4. Nu are eticheta de excludere (\`no-agent\`, setarea **Eticheta de excludere de la preluare**). Ea are prioritate față de eticheta ready. Eliminarea ei restabilește eligibilitatea; adăugarea ei nu oprește o lucrare deja pornită.
-5. ADORE nu are încă nicio lucrare pentru tichet.
-6. Are o etichetă de prioritate: \`P1\`, \`P2\` sau \`P3\`. **Cere etichetă de prioritate pentru tichet** este activată implicit.
-7. Dacă **Cere criterii de acceptare pentru tichet** este activată, descrierea conține cuvintele acceptance criteria (indiferent de majuscule) sau un element de sarcină nebifat, \`- [ ]\`. Această verificare este dezactivată implicit.
-
-Etichetele opționale modelează lucrarea: \`bug\` sau \`fix\` produce o sarcină de corecție, \`change\` o sarcină de modificare, iar orice alt tichet o sarcină de funcționalitate. \`agent-quick\` este doar o sugestie; executorul alege între calea completă și cea rapidă și înregistrează motivul.
-
-## Revizuirea și pornirea tichetelor {#tickets-view}
-
-Deschideți un proiect din Proiecte, alegeți fila **Lucrări** și rămâneți pe sub-fila **Tichete**. Pagina globală **Lucrări** din bara laterală are aceleași două sub-file și un selector **Domeniul joburilor**. Cu **Toate proiectele**, tabelul primește o coloană Proiect, iar fiecare rând acționează asupra propriului proiect.
-
-Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
-
-| Stare | Semnificație |
-|---|---|
-| Gata de pornire | Toate regulile sunt îndeplinite. |
-| Lipsește eticheta ... | Eticheta ready lipsește. |
-| În așteptare sau Exclus din ADORE | Este prezentă eticheta de blocare sau de excludere. |
-| Lipsește eticheta de prioritate | Nu există etichetă de prioritate. |
-| Lipsesc criteriile de acceptare | Textul cerut nu a fost găsit. |
-| Are o lucrare sau Lucrare: ... | ADORE are deja o lucrare; se afișează starea ei. |
-| Nu este deschis | Tichetul este închis. |
-
-**Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.
-
-**Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.
-
-## Citirea descrierilor și comentariilor {#reading-bodies}
-
-**Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**
-
-Folosiți **Afișarea conținutului** în dreapta titlului **Descriere**, cu eticheta și selectorul pe aceeași linie pentru a alege **Randat** sau **Sursă Markdown** pentru toate descrierile și comentariile deschise. Sursa arată textul exact primit din repository, inclusiv spațiile și liniile noi. Contul păstrează alegerea salvată între proiecte, reîncărcări și browsere; alt browser autentificat o citește la următoarea autentificare sau reîncărcare. Dacă salvarea eșuează, apare o eroare și revine ultimul mod salvat; alegeți din nou pentru a reîncerca.
-
-HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute http, https și mailto sunt accesibile și se deschid separat. Imaginile nu se încarcă automat: apar **Imagine neîncărcată** și textul alternativ, dacă există. Codul, sursa și tabelele late derulează în zone proprii, accesibile cu tastatura. Bifele sarcinilor nu pot modifica tichetul.
-
-## Listă de verificare pentru primul tichet {#checklist}
-
-1. Creați toate cele nouă etichete în repository-ul de pe forge.
-2. Pentru preluare automată, verifică Monitorizarea Activă; pentru Pornește manual, poate rămâne În pauză.
-3. Scrieți un titlu clar și o descriere cu criterii de acceptare.
-4. Adăugați o etichetă de prioritate și, opțional, \`bug\`, \`fix\`, \`change\` sau \`agent-quick\`.
-5. Adăugați \`agent-ready\` ultima.
-6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.
-7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).
+`,Bz=`# Tichete pentru preluare automată\r
+\r
+ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab sau Gitea) când poartă etichetele potrivite, iar dumneavoastră puteți porni și manual unul. Acest articol acoperă etichetele, eligibilitatea și vizualizarea Tichete.\r
+\r
+\r
+Tichetele cu eticheta configurată pentru epic nu sunt preluate sau pornite. Pornirea manuală rămâne disponibilă pentru tichetele eligibile când monitorizarea este în pauză.\r
+\r
+## Cum funcționează preluarea {#how-pickup-works}\r
+\r
+Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.\r
+\r
+Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.\r
+\r
+## Creați mai întâi etichetele {#labels}\r
+\r
+GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Toate etichetele de mai jos trebuie să existe în repository-ul de pe forge înainte de prima rulare. ADORE le creează pe cele lipsă la adăugarea unui proiect (**Creează etichetele ADORE în repository**, bifată implicit în Revizuire și creare) sau când apăsați **Creează etichetele lipsă** în Setări → Repository; nu modifică și nu șterge niciodată etichetele existente și arată ce a creat, ce exista deja și ce a eșuat (de exemplu când contul de forge al serverului nu poate crea etichete). Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.\r
+\r
+| Etichetă | Scop |\r
+|---|---|\r
+| \`agent-ready\` | O adăugați dumneavoastră pentru a oferi un tichet spre preluare. ADORE o înlocuiește cu eticheta de lucru când lucrarea pornește. |\r
+| \`agent-working\` | O setează ADORE cât timp lucrează, publică și așteaptă aprobarea dumneavoastră. |\r
+| \`agent-clarify\` | O setează ADORE când a pus o întrebare și așteaptă un răspuns. |\r
+| \`agent-answered\` | O adăugați dumneavoastră după ce ați răspuns la o întrebare. |\r
+| \`agent-mr\` | O setează ADORE după publicarea MR/PR-ului, cât timp așteaptă revizuirea umană. |\r
+| \`agent-failed\` | O setează ADORE când o lucrare eșuează. |\r
+| \`agent-done\` | O setează ADORE după ce o persoană a integrat MR/PR-ul. |\r
+| \`agent-approved\` | O adăugați dumneavoastră pe tichet pentru a aproba publicarea candidatului prezentat. |\r
+| \`agent-revise\` | Un recenzor o adaugă pe MR/PR pentru a cere o rundă de revizie. |\r
+\r
+ADORE elimină la fiecare actualizare de stare etichetele de ciclu de viață pe care nu le aplică, așa că toate trebuie să existe. Adăugarea manuală a unei etichete de stare nu schimbă lucrarea.\r
+\r
+## Ce face un tichet eligibil {#eligible-tickets}\r
+\r
+Un tichet este preluat doar când toate regulile sunt îndeplinite. Ele sunt verificate în această ordine:\r
+\r
+1. Tichetul este deschis.\r
+2. Are eticheta ready (\`agent-ready\`).\r
+3. Nu are eticheta de blocare (\`agent-hold\`). Eliminarea etichetei de blocare face tichetul din nou eligibil.\r
+4. Nu are eticheta de excludere (\`no-agent\`, setarea **Eticheta de excludere de la preluare**). Ea are prioritate față de eticheta ready. Eliminarea ei restabilește eligibilitatea; adăugarea ei nu oprește o lucrare deja pornită.\r
+5. ADORE nu are încă nicio lucrare pentru tichet.\r
+6. Are o etichetă de prioritate: \`P1\`, \`P2\` sau \`P3\`. **Cere etichetă de prioritate pentru tichet** este activată implicit.\r
+7. Dacă **Cere criterii de acceptare pentru tichet** este activată, descrierea conține cuvintele acceptance criteria (indiferent de majuscule) sau un element de sarcină nebifat, \`- [ ]\`. Această verificare este dezactivată implicit.\r
+\r
+Etichetele opționale modelează lucrarea: \`bug\` sau \`fix\` produce o sarcină de corecție, \`change\` o sarcină de modificare, iar orice alt tichet o sarcină de funcționalitate. \`agent-quick\` este doar o sugestie; executorul alege între calea completă și cea rapidă și înregistrează motivul.\r
+\r
+## Revizuirea și pornirea tichetelor {#tickets-view}\r
+\r
+Deschideți un proiect din Proiecte, alegeți fila **Lucrări** și rămâneți pe sub-fila **Tichete**. Pagina globală **Lucrări** din bara laterală are aceleași două sub-file și un selector **Domeniul joburilor**. Cu **Toate proiectele**, tabelul primește o coloană Proiect, iar fiecare rând acționează asupra propriului proiect.\r
+\r
+Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:\r
+\r
+| Stare | Semnificație |\r
+|---|---|\r
+| Gata de pornire | Toate regulile sunt îndeplinite. |\r
+| Lipsește eticheta ... | Eticheta ready lipsește. |\r
+| În așteptare sau Exclus din ADORE | Este prezentă eticheta de blocare sau de excludere. |\r
+| Lipsește eticheta de prioritate | Nu există etichetă de prioritate. |\r
+| Lipsesc criteriile de acceptare | Textul cerut nu a fost găsit. |\r
+| Are o lucrare sau Lucrare: ... | ADORE are deja o lucrare; se afișează starea ei. |\r
+| Nu este deschis | Tichetul este închis. |\r
+\r
+**Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.\r
+\r
+**Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.\r
+\r
+Pe desktop, Pornește sau Reia, Oprește și Detalii sau Ascunde detaliile rămân pe același rând. Pe ecrane înguste, butoanele pot trece pe rândul următor pentru a rămâne în pagină.\r
+\r
+## Citirea descrierilor și comentariilor {#reading-bodies}\r
+\r
+**Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**\r
+\r
+Folosiți **Afișarea conținutului** în dreapta titlului **Descriere**, cu eticheta și selectorul pe aceeași linie pentru a alege **Randat** sau **Sursă Markdown** pentru toate descrierile și comentariile deschise. Sursa arată textul exact primit din repository, inclusiv spațiile și liniile noi. Contul păstrează alegerea salvată între proiecte, reîncărcări și browsere; alt browser autentificat o citește la următoarea autentificare sau reîncărcare. Dacă salvarea eșuează, apare o eroare și revine ultimul mod salvat; alegeți din nou pentru a reîncerca.\r
+\r
+HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute http, https și mailto sunt accesibile și se deschid separat. Imaginile nu se încarcă automat: apar **Imagine neîncărcată** și textul alternativ, dacă există. Codul, sursa și tabelele late derulează în zone proprii, accesibile cu tastatura. Bifele sarcinilor nu pot modifica tichetul.\r
+\r
+## Listă de verificare pentru primul tichet {#checklist}\r
+\r
+1. Creați toate cele nouă etichete în repository-ul de pe forge.\r
+2. Pentru preluare automată, verifică Monitorizarea Activă; pentru Pornește manual, poate rămâne În pauză.\r
+3. Scrieți un titlu clar și o descriere cu criterii de acceptare.\r
+4. Adăugați o etichetă de prioritate și, opțional, \`bug\`, \`fix\`, \`change\` sau \`agent-quick\`.\r
+5. Adăugați \`agent-ready\` ultima.\r
+6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.\r
+7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).\r
 `,Gz=/^(#{2,3}) (.+?) \{#([a-z0-9]+(?:-[a-z0-9]+)*)\}$/,Fz=/\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/,Kz=/^(#|- |\d+\. |\||> ?|```)/,Zz=/^(?:\/(?!\/)[A-Za-z0-9/_.-]*(?:\?[A-Za-z0-9=&_.-]*)?)?(?:#[a-z0-9]+(?:-[a-z0-9]+)*)?$/;function to(n,r){const a=[];let s=n;for(;s;){const u=Fz.exec(s),p=u?s.slice(0,u.index):s;if(p&&(/\*\*|`/.test(p)&&r.push(`unmatched bold or code marker in: ${n}`),a.push({type:"text",text:p})),!u)break;u[1]!==void 0?(/`|\]\(/.test(u[1])&&r.push(`bold text cannot contain code or links: ${u[0]}`),a.push({type:"strong",text:u[1]})):u[2]!==void 0?a.push({type:"code",text:u[2]}):u[4]&&Zz.test(u[4])?a.push({type:"link",text:u[3],href:u[4]}):(r.push(`link target must be an in-app address: ${u[4]}`),a.push({type:"text",text:u[3]})),s=s.slice(u.index+u[0].length)}return a}const Wz=n=>n.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(r=>r.trim());function Jz(n){const r=n.replace(/\r\n?/g,`
 `).split(`
 `),a=[],s=[],u=new Set,p=/^# (.+)$/.exec(r[0]??"")?.[1].trim()??"";p||a.push("line 1 must be the title: # Title");let d=p?1:0,f=!1;r.forEach((v,b)=>{if(v.startsWith("```")){f=!f;return}f||(/<\/?[a-zA-Z][^>]*>/.test(v)&&a.push(`raw HTML is not supported (line ${b+1}): ${v}`),v.includes("![")&&a.push(`images are not supported (line ${b+1}): ${v}`))});const m=v=>{const b=[];for(;d<r.length&&v(r[d]);)b.push(r[d++]);return b};for(;d<r.length;){const v=r[d];if(!v.trim()){d+=1;continue}if(v.startsWith("```")){d+=1;const g=m(A=>!A.startsWith("```"));d>=r.length&&a.push("unterminated code block"),d+=1,s.push({type:"code",text:g.join(`
