@@ -1,0 +1,24 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-fe08018c"
+title = "Report unsupported AEGIS versions as not ready"
+status = "active"
+
+requirement = """
+If the AEGIS version probe returns a version outside the supported client range, doctor shall return a not-ready AegisStatus with the existing version diagnostic derived from stderr, version output or the empty-version fallback, bounded to 400 characters.
+"""
+
+verification = "Offline fake-runner test: supply python3 and return unsupported older and wrong-major version strings with exit zero; assert not-ready status, preserved version detail and no status command; exercise stderr precedence and empty output fallback without accepting either as ready."
+
+affected_paths = ["04_Software/adore/doctor.py"]
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_preserves_version_diagnostic"]
+spec = ""
+priority = "normal"
+
+created = 2026-11-10
+updated = 2026-11-10

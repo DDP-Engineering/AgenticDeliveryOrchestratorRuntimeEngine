@@ -342,16 +342,19 @@ def _aegis_repo(tmp_path: Path) -> Path:
     return root
 
 
-def test_aegis_probe_accepts_a_valid_015_schema_1_payload(tmp_path: Path) -> None:
+@pytest.mark.parametrize("interpreter", ["python", "python3"])
+def test_aegis_probe_accepts_a_valid_015_schema_1_payload(
+    tmp_path: Path, interpreter: str,
+) -> None:
     """
     @brief   Version 0.15.x plus schema-1 status proves target readiness.
     """
     root = _aegis_repo(tmp_path)
     runner = FakeRunner({
-        "python .agentic/aegis.py --version": CommandResult(
+        f"{interpreter} .agentic/aegis.py --version": CommandResult(
             exit_code=0, stdout="aegis 0.15.2\n",
         ),
-        "python .agentic/aegis.py status --all --json": CommandResult(
+        f"{interpreter} .agentic/aegis.py status --all --json": CommandResult(
             exit_code=0,
             stdout=json.dumps({
                 "schema": 1, "command": "status", "tasks": [],
@@ -360,12 +363,83 @@ def test_aegis_probe_accepts_a_valid_015_schema_1_payload(tmp_path: Path) -> Non
         ),
     })
 
-    status = doctor.detect_aegis(root, runner)
+    seen_cwds: list[str] = []
+
+    def probe(argv, **kwargs):
+        """@brief Record the command working directory without executing a CLI."""
+        seen_cwds.append(kwargs["cwd"])
+        return runner(argv, **kwargs)
+
+    status = doctor.detect_aegis(root, probe, aegis_python=interpreter)
 
     assert status.ok
     assert status.wrapper_present and status.config_valid
     assert status.schema_version == 1 and status.version == "aegis 0.15.2"
-    assert runner.calls[0] == ["python", ".agentic/aegis.py", "--version"]
+    assert runner.calls == [
+        [interpreter, ".agentic/aegis.py", "--version"],
+        [interpreter, ".agentic/aegis.py", "status", "--all", "--json"],
+    ]
+    assert seen_cwds == [str(root), str(root)]
+
+
+@pytest.mark.parametrize("interpreter", ["python", "python3"])
+def test_aegis_probe_names_unavailable_interpreter(tmp_path: Path, interpreter: str) -> None:
+    """@brief Exit 127 names the selected executable and skips the status probe."""
+    root = _aegis_repo(tmp_path)
+    runner = FakeRunner({})
+    status = doctor.detect_aegis(root, runner, aegis_python=interpreter)
+    assert not status.ok and status.wrapper_present and not status.config_valid
+    assert status.detail == f"{interpreter} is not available to run the AEGIS companion CLI"
+    assert runner.calls == [[interpreter, ".agentic/aegis.py", "--version"]]
+
+
+@pytest.mark.parametrize(("version", "stderr", "detail"), [
+    ("aegis 0.14.9", "", "aegis 0.14.9"),
+    ("aegis 1.0.0", "", "aegis 1.0.0"),
+    ("aegis 0.14.9", " error ", "error"),
+    ("aegis 1.0.0", "x" * 401, "x" * 400),
+    ("", "", "AEGIS returned no version"),
+])
+def test_aegis_probe_preserves_version_diagnostic(
+    tmp_path: Path, version: str, stderr: str, detail: str,
+) -> None:
+    """@brief Unsupported/empty versions retain bounded diagnostics and skip status."""
+    root = _aegis_repo(tmp_path)
+    runner = FakeRunner({
+        "python3 .agentic/aegis.py --version": CommandResult(
+            exit_code=0, stdout=version, stderr=stderr,
+        ),
+    })
+    status = doctor.detect_aegis(root, runner, aegis_python="python3")
+    assert not status.ok and status.detail == detail and status.version == version
+    assert runner.calls == [["python3", ".agentic/aegis.py", "--version"]]
+
+
+@pytest.mark.parametrize(("stdout", "stderr", "detail"), [
+    (" not JSON ", "", "not JSON"),
+    ("not JSON", " error ", "error"),
+    ("x" * 401, "", "x" * 400),
+    ("not JSON", "x" * 401, "x" * 400),
+    ("", "", "the AEGIS companion CLI produced no JSON"),
+])
+def test_aegis_probe_preserves_malformed_status_diagnostic(
+    tmp_path: Path, stdout: str, stderr: str, detail: str,
+) -> None:
+    """@brief Malformed exit-zero JSON remains not-ready with bounded evidence."""
+    root = _aegis_repo(tmp_path)
+    runner = FakeRunner({
+        "python3 .agentic/aegis.py --version": _ok("aegis 0.15.2"),
+        "python3 .agentic/aegis.py status --all --json": CommandResult(
+            exit_code=0, stdout=stdout, stderr=stderr,
+        ),
+    })
+    status = doctor.detect_aegis(root, runner, aegis_python="python3")
+    assert not status.ok and status.detail == detail
+    assert status.wrapper_present and not status.config_valid
+    assert runner.calls == [
+        ["python3", ".agentic/aegis.py", "--version"],
+        ["python3", ".agentic/aegis.py", "status", "--all", "--json"],
+    ]
 
 
 def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:

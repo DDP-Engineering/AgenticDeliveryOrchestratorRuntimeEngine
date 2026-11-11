@@ -18,6 +18,10 @@ TOML. Start at `04_Software/adore/wizard.py`; verify with
 ## Purpose and boundaries
 
 Candidate validation precedes profile publication; prepare-only returns the candidate without probes or writes.
+The validation guard returns the loaded Config. After confirmation/validation,
+CLI clone probes use its `workflow.aegis_python` (default `python`) for AEGIS
+version/status; gitignore/push checks run alongside them, before profile saving.
+Not-ready AEGIS remains informational (CHECK, diagnostic and guidance).
 
 `04_Software/adore/wizard.py` implements `adore init`: it turns explicit
 operator answers and environment guidance into a minimal, validated
@@ -66,6 +70,10 @@ Prepare-only mode validates the same candidate offline, with Docker as the
 unprovided runtime default. CLI mode retains probes and persistence.
 
 ## Key behaviors
+
+- REQ-FUNC-c9e616d4 / REQ-FUNC-9b2bb293: effective workflow interpreter and
+  informational AEGIS reporting; test_wizard.py proves python/python3 argv,
+  candidate validation and saving despite an unavailable interpreter.
 
 - REQ-FUNC-bf8a9a47: recommended/custom CLI launch defaults and web enrollment use 20; explicit values retain authority. Recommended active time is 5400 seconds, cumulative with waiting excluded. Wizard assembly tests inject only their known branch-rule process; full validation and golden assertions remain, and test_branch_naming.py exercises actual matching and process failures.
 

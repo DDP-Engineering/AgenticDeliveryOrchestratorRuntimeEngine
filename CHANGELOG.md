@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
+
 - Keep healthy projects visible in Overview when another project's job state cannot be read.
 
 - Narrow the ticket number column to leave more room for the other columns.

@@ -40,6 +40,8 @@ is retained with external_auth=False. GitHub/GitLab use active/default CLI auth.
 AEGIS readiness requires the supported client range, schema 1 and readable journals.
 `detect_aegis`, `aegis_version_supported` and `guidance_for` share the client
 version floor; malformed version/schema/status and nonzero commands fail readiness.
+Both AEGIS probes use the keyword-only `aegis_python` executable, default `python`,
+in the target cwd. Version exit 127 names that executable and skips status.
 
 ## Change map
 
@@ -53,6 +55,9 @@ version floor; malformed version/schema/status and nonzero commands fail readine
 ## Key behaviors
 
 - REQ-FUNC-69bfe896: supported AEGIS/schema-1 payload readiness.
+- REQ-FUNC-f47c612e / REQ-FUNC-a1603c88: configured interpreter for version/status.
+- REQ-FUNC-7081a87e: unavailable-interpreter diagnostic.
+- REQ-FUNC-fe08018c / REQ-FUNC-d04bc2e0: preserved version/JSON failure diagnostics.
 - REQ-FUNC-8a2e5904: injected host/forge/runtime/executor reporting.
 - REQ-FUNC-cacfa8b2: portable current-account Gitea discovery and verified identity.
 - REQ-UX-163a1c99: safe Connect repository recovery steps.

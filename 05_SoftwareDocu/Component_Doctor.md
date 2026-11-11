@@ -20,6 +20,13 @@ a supported `aegis` version, then runs `status --all --json` and requires schema
 exit, malformed JSON, wrong shape/version/schema, or unreadable tasks return a
 not-ready `AegisStatus` with bounded detail.
 
+The keyword-only `aegis_python` input defaults to `"python"`. Both probe
+commands use that executable unchanged, with the target repository as their
+working directory. A version-probe exit 127 names this interpreter in the
+unavailable diagnostic and skips status. The wizard supplies the validated
+profile's `workflow.aegis_python`; no interpreter discovery or shell parsing
+is performed.
+
 ## 3. Dependencies and Integration
 
 All probes use injected `CommandRunner`; unit tests never contact external
@@ -40,7 +47,9 @@ admits only fixed native and standard WSL prefixes for the web image inventory.
 `test_executor_environment_choice.py` covers the resulting API contracts offline.
 
 `tests/test_doctor.py` covers valid version/schema-1 detection, missing payload,
-malformed/blocked status, wrong version/schema, and guidance.
+malformed/blocked status, wrong version/schema, and guidance. Parameterized
+cases prove exact argv/cwd for python and python3, unavailable-interpreter
+reporting, and preserved bounded version/malformed-JSON diagnostics.
 
 ## 5. Portable Gitea authentication
 

@@ -26,6 +26,7 @@ import re
 import subprocess
 import tomllib
 
+from adore import wizard
 from adore.config import load_config, validate_config
 from adore.profiles import ProfileStore
 from adore.util import CommandResult
@@ -510,6 +511,69 @@ def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     assert ".agentic/aegis.py is missing" in printed
     assert "AEGIS" in printed and "JSON schema 1" in printed
     assert store.config_path("p").is_file()  # never blocks
+
+
+@pytest.mark.parametrize("interpreter", ["python", "python3"])
+@pytest.mark.parametrize("available", [True, False])
+def test_wizard_probes_with_effective_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interpreter: str, available: bool,
+) -> None:
+    """@brief Real candidate validation supplies probe Python; failures never gate saving."""
+    clone = _clone(tmp_path)
+    wrapper = clone / ".agentic" / "aegis.py"
+    wrapper.parent.mkdir()
+    wrapper.write_text("# fake companion\n", encoding="utf-8")
+    if interpreter != "python":
+        original = wizard._assemble_sections
+
+        def assemble(**kwargs):
+            """@brief Arrange an existing config key, without adding a wizard answer."""
+            sections = original(**kwargs)
+            for header, values in sections:
+                if header == "workflow":
+                    values["aegis_python"] = interpreter
+                    break
+            else:
+                sections.append(("workflow", {"aegis_python": interpreter}))
+            return sections
+
+        monkeypatch.setattr(wizard, "_assemble_sections", assemble)
+
+    calls: list[list[str]] = []
+    base_runner = _runner()
+
+    def probe(argv, **kwargs):
+        """@brief Fake external probes, preserving argv and candidate-read ordering."""
+        if len(argv) > 1 and argv[1] == ".agentic/aegis.py":
+            assert kwargs["cwd"] == str(clone)
+            assert "confirm" in asker.reads
+            calls.append(list(argv))
+            if not available:
+                return CommandResult(exit_code=127, stderr="not found")
+            if argv[-1] == "--version":
+                return CommandResult(exit_code=0, stdout="aegis 0.15.2")
+            return CommandResult(exit_code=0, stdout=json.dumps({
+                "schema": 1, "command": "status", "tasks": [], "unreadable": [],
+            }))
+        return base_runner(argv, **kwargs)
+
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(clone))
+    lines: list[str] = []
+    run_wizard(store, asker=asker, out=lines.append, runner=probe, os_key="linux", name="p")
+    config = load_config(store.config_path("p"))
+    assert validate_config(config) == []
+    assert config.workflow.aegis_python == interpreter
+    expected = [[interpreter, ".agentic/aegis.py", "--version"]]
+    if available:
+        expected.append([interpreter, ".agentic/aegis.py", "status", "--all", "--json"])
+        assert "  [OK] AEGIS payload (schema 1)" in lines
+    else:
+        assert "  [CHECK] AEGIS payload" in lines
+        printed = "\n".join(lines)
+        assert f"{interpreter} is not available to run the AEGIS companion CLI" in printed
+        assert "JSON schema 1" in printed
+    assert calls == expected
 
 
 # END OF FILE

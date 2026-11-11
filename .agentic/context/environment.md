@@ -75,8 +75,10 @@ configured `store_root`, `.adore/` by default.
 `adore --profile <name> config validate` proves the configuration. Guided setup
 (`adore init`) probes the host tools and the target repository's AEGIS
 payload, which must provide `.agentic/aegis.py` at a supported version and
-schema-1 `status --all --json`; the same two commands verify a target clone by
-hand. `adore --profile <name> run --dry-run` shows ticket selection without
+schema-1 `status --all --json`. After candidate confirmation and validation,
+init uses that configuration's `workflow.aegis_python` (default `python`) for
+both probes; an unavailable interpreter is named and readiness stays informational.
+The same two commands verify a target clone by hand. `adore --profile <name> run --dry-run` shows ticket selection without
 side effects.
 
 ## Build and run
@@ -111,8 +113,8 @@ Development and packaging run on Windows 11 with PowerShell and Git Bash, and
 on Ubuntu 22+. `.gitattributes` normalizes text to LF in the index except
 `.ps1`, `.cmd` and `.bat`, which are CRLF; a Windows working copy may hold
 either, so scripted edits should preserve each file's existing line endings.
-The `[commands]` entries in `aegis.toml` name the Windows `.venv\Scripts`
-executables; use the `.venv/bin` equivalents on Linux. WSL-wrapped container
+The `[commands]` entries in `aegis.toml` use portable `uv run --frozen`
+commands for Python tests and Ruff, and npm for frontend validation. WSL-wrapped container
 runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
 
 ## Authoritative references
