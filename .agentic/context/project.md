@@ -44,6 +44,11 @@ ADORE's only coding agent.
   fingerprints and the Docker/Podman lifecycle; `adore/executor/` launches
   Pi in a container as one `pi --mode rpc` process per stage (`pi_rpc.py`)
   and ADORE-managed native Pi through the same RPC protocol.
+- `adore/prompts.py` eagerly validates the fixed licensed Markdown catalog in
+  `adore/prompts/`; the conductor and Pi launcher share it. Named values are
+  inserted once as literal data, headers are excluded and body bytes preserved.
+  File/encoding/header/template errors and missing values fail closed with
+  file-named `PromptError`. Composition and notice selection remain caller-owned.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
   profile homes and the `adore` command; `metrics.py`, `process_log.py`,

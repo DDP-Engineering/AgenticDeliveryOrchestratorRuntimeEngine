@@ -79,6 +79,7 @@ from adore.local_process import LocalExecutionError, atomic_record, read_record
 from adore.pi_providers import CHATGPT, ENDPOINT_KEY_VARIABLE, models_json, secret_names
 from adore.polling import PollCadence
 from adore.preparation import PreparationError, execution_policy, resolve_plan, validate_plan
+from adore.prompts import PromptCatalog
 from adore.repository_auth import project_runner
 from adore.selection import ineligibility
 from adore.state import (
@@ -117,7 +118,6 @@ _MAX_EVIDENCE = 6000
 # Executor stderr shown with NO_STAGE_PROGRESS: the decisive line is usually the last.
 _STDERR_TAIL_LINES = 20
 _STDERR_TAIL_CHARS = 2000
-_TICKET_CONTENT_CHANGED_NOTE = "ticket content changed since pickup"
 # Valid only while the single-conductor lock prevents another process from
 # reconciling a legitimately long-running stage as abandoned.
 _STALE_WORKING_GRACE_SECONDS = 60
@@ -213,6 +213,7 @@ class Orchestrator:
         backend: ExecutionBackend | None = None,
         chatgpt_token: Callable[[int], str] | None = None,
         on_delete: Callable[[str, Callable[[], None]], None] | None = None,
+        prompts: PromptCatalog | None = None,
     ) -> None:
         """
         @brief Wire the conductor from production or fake collaborators.
@@ -220,7 +221,10 @@ class Orchestrator:
                    given seconds; by default Pi in a helper container of this
                    project's image refreshes the server's sign-in.
         @param[in] on_delete Optional serialized projection/source deletion boundary.
+        @param[in] prompts Shared eager prompt catalog; defaults to loading all resources.
+        @exception PromptError A required prompt resource cannot be loaded or validated.
         """
+        self.prompts = prompts if prompts is not None else PromptCatalog()
         self.config = config
         self.forge = forge
         self.store = store
@@ -259,6 +263,7 @@ class Orchestrator:
         @param[in]  cleanup_only Native controls without current execution/tool identity.
         @return     Production-wired orchestrator.
         """
+        prompts = PromptCatalog()
         env = {**load_env_file(env_file), **os.environ}
         secrets = {key: env[key] for key in secret_names(config.executor, config.execution.backend)
                    if env.get(key)}
@@ -296,9 +301,11 @@ class Orchestrator:
                 models=models_json(config.executor, ENDPOINT_KEY_VARIABLE in secrets),
                 internet=config.executor.internet,
                 web_search=config.executor.web.search,
+                prompts=prompts,
             ),
             secrets=secrets,
             backend=backend,
+            prompts=prompts,
         )
 
     # Main entries
@@ -1025,7 +1032,7 @@ class Orchestrator:
             run.run_id,
             "ticket-content-refreshed",
             context=context,
-            note=_TICKET_CONTENT_CHANGED_NOTE,
+            note=self.prompts.render("review/ticket-content-changed.md"),
         )
         return True
 
@@ -1190,12 +1197,8 @@ class Orchestrator:
                         run,
                         ticket,
                         task,
-                        failure_context=(
-                            "ADORE holds no current verification for this done task: the "
-                            "presented validation is invalid or was never made. Return the "
-                            "task with `python .agentic/aegis.py advance "
-                            f"{task.task_id} --to validate --reason \"<why revalidation is "
-                            "required>\"` and stop. Do not change the candidate."
+                        failure_context=self.prompts.render(
+                            "recovery/revalidation-route.md", task_id=task.task_id,
                         ),
                         thread=thread,
                     )
@@ -1238,7 +1241,7 @@ class Orchestrator:
                 self._present_for_approval(run, ticket)
                 return
             if task.stage == "validate" and not self._integrate_target(run):
-                failure_context = "Resolve the current target integration conflict."
+                failure_context = self.prompts.render("recovery/integration-conflict.md")
             try:
                 progress_before = self.worktrees.worktree_progress_fingerprint(run.run_id)
             except IsolationError as exc:
@@ -1293,14 +1296,9 @@ class Orchestrator:
                         iteration=run.iterations, failed_attempts=run.stage_failures,
                         evidence=_sanitize("\n".join(added)),
                     )
-                    failure_context = (
-                        "The preceding session made candidate progress and appended work "
-                        "evidence, but this stage remains unfinished. Run `python "
-                        f".agentic/aegis.py brief {task.task_id}`, read the full task "
-                        "journal and its State; complete the remaining stage work and "
-                        "legally advance it. Do not repeat completed work or fabricate a "
-                        "stage transition. Recent work evidence:\n"
-                        + _sanitize("\n".join(added))
+                    failure_context = self.prompts.render(
+                        "recovery/continuation.md", task_id=task.task_id,
+                        evidence=_sanitize("\n".join(added)),
                     )
                     continue
                 evidence = f"executor exited zero but AEGIS remained at {task.stage}"
@@ -1309,7 +1307,7 @@ class Orchestrator:
                     evidence += "\nExecutor stderr (last lines):\n" + tail
                 if not self._stage_failure(run, "NO_STAGE_PROGRESS", evidence):
                     return
-                failure_context = "Complete or legally route the current AEGIS stage."
+                failure_context = self.prompts.render("recovery/no-progress.md")
                 continue
             if not self._transition_accepted(run, task.stage, updated):
                 return
@@ -1516,87 +1514,44 @@ class Orchestrator:
         """@brief Compose a stage-bounded prompt without duplicating AEGIS procedure."""
         aegis = "python .agentic/aegis.py"
         parts = [
-            "You are a fresh executor session for one AEGIS task stage.",
-            f"Ticket #{ticket.iid}: {ticket.title}\n\n{ticket.description.strip()}",
-            f"Active task: {task.task_id}; current stage: {task.stage}; path: {task.path}.",
-            "Use `python .agentic/aegis.py`. Read AGENTS.md and the current AEGIS "
-            "step file, then update the task journal and governed artifacts exactly as "
-            "AEGIS documents. The durable task journal, not prior model memory, is authority.",
-            "Before editing the journal, read `.agentic/templates/task.md` and follow "
-            "its installed authoring guidance. Preserve the journal's original legal "
-            "prologue and any retained authoring-guide link. Keep Log and Rulings "
-            "append-only; write the State block, Log and Rulings with the CLI; "
-            "follow the installed guide. If an edit fails, reread and repair the same "
-            "journal with the same task ID; never recreate it or discard its history.",
-            "This task runs in autopilot by explicit conductor instruction, which "
-            "overrides the repository's configured `[interaction]` default: set "
-            "`interaction: autopilot` in the journal header when it is not already. "
-            "Autopilot governs WHO decides, not how much you do: never pause to present "
-            "choices to a human or wait for an answer, because no human is reading. It "
-            "does not ask you to carry on past this stage. ADORE supervises every stage "
-            "and owns the approval before publication.",
-            "Complete all required work of the current stage before returning. A zero "
-            "exit alone does not complete a stage. Finish a completed stage with "
-            f"`{aegis} advance {task.task_id}`; validate finishes this way after its "
-            "final strict check and `report`, which closes the task. If you must stop "
-            "before the stage is finished, preserve actual candidate changes, record "
-            f"completed and remaining work with `{aegis} log {task.task_id} \"<evidence>\"`, "
-            f"and end with `{aegis} pause {task.task_id} --next \"<remaining work>\"`; "
-            "ADORE can continue that work in a bounded fresh session. Never advance "
-            "unfinished work.",
-            "Do exactly ONE stage in this session: the current one. The moment the AEGIS "
-            "journal shows that stage advanced or legally routed backward, end the "
-            "session and return. Do not begin the next stage, however small it looks. "
-            "ADORE relaunches you with a fresh session for it, and only the boundary "
-            "between sessions gives it a checkpoint to recover from, a per-stage error "
-            "budget, and a chance to hand you what went wrong last time. Running several "
-            "stages in one session discards all three and can strand the work.",
+            self.prompts.render("stage/intro.md"),
+            self.prompts.render("stage/ticket.md", iid=str(ticket.iid),
+                                title=ticket.title, description=ticket.description.strip()),
+            self.prompts.render("stage/active-task.md", task_id=task.task_id,
+                                stage=task.stage, path=task.path),
+            self.prompts.render("stage/instructions.md"),
+            self.prompts.render("stage/journal.md"),
+            self.prompts.render("stage/autopilot.md"),
+            self.prompts.render("stage/completion.md", aegis=aegis, task_id=task.task_id),
+            self.prompts.render("stage/single-stage.md"),
         ]
         if task.stage == "frame":
-            parts.append(
-                "Select and justify full or quick in the AEGIS journal."
-            )
+            parts.append(self.prompts.render("stage/frame.md"))
             if self.config.workflow.quick_label in ticket.labels:
-                parts.append(
-                    f"The ticket carries `{self.config.workflow.quick_label}`. Treat it only "
-                    "as a quick-path hint; apply AEGIS eligibility and record the justification."
-                )
+                parts.append(self.prompts.render(
+                    "stage/quick-label.md", quick_label=self.config.workflow.quick_label,
+                ))
         if failure_context:
-            parts.append("Recovery or continuation context:\n" + _sanitize(failure_context))
+            parts.append(self.prompts.render(
+                "stage/recovery-context.md", context=_sanitize(failure_context),
+            ))
         if thread:
-            parts.append("Human clarification thread:\n" + thread)
+            parts.append(self.prompts.render("stage/human-thread.md", thread=thread))
         if self.config.execution.backend == "container":
             permission = (
-                "System package installation is enabled. You may directly run `sudo -n` "
-                "with the image's supported package manager (for example apt-get). "
-                "Inspect command output and exits, diagnose missing dependencies and adapt "
-                "within this stage and the existing job limits. Install project libraries "
-                "as the normal user; avoid root-owned repository/cache files. Respect "
-                "lockfiles and justify any product dependency changes within ticket scope. "
-                "Package scripts have container-root authority; never modify the host. "
-                "A fresh container requires rechecking and reinstalling dependencies."
+                self.prompts.render("stage/packages-enabled.md")
                 if self.config.container.system_packages else
-                "ADORE has not granted administrative system-package installation. "
-                "Project libraries may be installed in user-owned directories when allowed."
+                self.prompts.render("stage/packages-disabled.md")
             )
             parts.append(
-                permission + " Network policy is independently configured as "
-                + egress_policy(self.config).mode + ". Installation permission never "
-                "opens the network; with none use only available local sources, and with "
-                "allowlist-proxy respect the allowed HTTP/HTTPS proxy."
+                permission + self.prompts.render(
+                    "stage/network.md", mode=egress_policy(self.config).mode,
+                )
             )
-        parts.append(
-            "Never commit, push, open or merge an MR/PR, access forge credentials, or "
-            "modify AEGIS source/payload files. You may edit only executor-owned journal "
-            "content and ticket-scoped repository files; authorized container environment "
-            "installations described above are separate from repository edits. "
-            "Never create a child task "
-            "journal (`task --parent`): this run conducts exactly one pinned task, and "
-            "work in an unsupervised child is invisible to its conductor. Ask blocking "
-            f"questions in {self.questions_file} and record the stop with "
-            f"`{aegis} pause {task.task_id} --blocked --next \"<question>\"`; questions "
-            "are not failures."
-        )
+        parts.append(self.prompts.render(
+            "stage/closing.md", questions_file=self.questions_file,
+            aegis=aegis, task_id=task.task_id,
+        ))
         return "\n\n".join(parts)
 
     def _successful_transition(self, run: RunState, previous: str, current: str) -> None:
@@ -1864,11 +1819,9 @@ class Orchestrator:
             run,
             ticket,
             task,
-            failure_context=(
-                "Independent strict verification failed. Return the AEGIS task from done "
-                f"with `python .agentic/aegis.py advance {task_id} --to <validate, build, "
-                "design or specify> --reason \"<why>\"` as AEGIS documents, fix the "
-                "evidence below, and stop after that return.\n" + _sanitize(evidence)
+            failure_context=self.prompts.render(
+                "recovery/strict-verification.md", task_id=task_id,
+                evidence=_sanitize(evidence),
             ),
         )
         if self._cancel_if_requested(run):
@@ -2739,7 +2692,8 @@ class Orchestrator:
             summary["resumed"] += 1
             thread = self._render_thread(comments)
             if content_changed:
-                thread = f"{thread}\n\n{_TICKET_CONTENT_CHANGED_NOTE}".strip()
+                note = self.prompts.render("review/ticket-content-changed.md")
+                thread = f"{thread}\n\n{note}".strip()
             self._conduct(run, ticket, thread)
             return
         run.parked_polls += 1
@@ -2936,13 +2890,7 @@ class Orchestrator:
                  rather than being handed a summary that might be stale.
         @return  Thread text prepended to the review discussion.
         """
-        return (
-            "The forge pipeline on the published MR/PR reported `failed`, and "
-            "this revision exists to make it green. Read the repository's CI "
-            "configuration, reproduce the failing checks inside this container, "
-            "and fix the cause. Treat a green pipeline as part of the "
-            "acceptance criteria for this round."
-        )
+        return self.prompts.render("review/pipeline.md")
 
     def _observe_pipeline(self, run: RunState) -> str:
         """

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e8d63a5c"
+title = "Load the complete prompt catalog at conductor construction"
+status = "active"
+requirement = "When an orchestrator is constructed, ADORE shall load and validate every shipped prompt fragment once for that orchestrator before rendering from the loaded catalog."
+verification = "Construct an orchestrator with observed resource reads and render several stages/notices; assert every shipped fragment was read and checked at construction without subsequent render-time reads, including an unused conditional fragment so lazy validation cannot pass."
+affected_paths = ["04_Software/adore/prompts.py", "04_Software/adore/orchestrator.py", "04_Software/adore/executor/launcher.py", "04_Software/tests/test_prompts.py"]
+linked_tests = ["04_Software/tests/test_prompts.py::test_catalog_is_eager_and_render_never_rereads", "04_Software/tests/test_prompts.py::test_production_factory_shares_one_eager_catalog"]
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

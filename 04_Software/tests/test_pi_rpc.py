@@ -39,11 +39,11 @@ from adore.executor.base import GateRun
 from adore.executor.launcher import (
     ARCHIVE_DIR,
     GATE_SCRIPT,
-    INTERNET_OFF_NOTICE,
     OUTPUT_FILE,
     PiExecutor,
 )
 from adore.executor.pi_rpc import PiRpcResult, run_pi_rpc
+from adore.prompts import PromptCatalog
 import pytest
 
 from tests.test_orchestrator import (
@@ -526,7 +526,7 @@ def test_pi_executor_tells_the_agent_when_internet_is_off(tmp_path: Path) -> Non
         target, worktree, io_dir, PROMPT, timeout=30).ok
     assert CONTAINER_PI_WEB_ACCESS not in fake.argv and target.commands == []
     notice = fake.argv[fake.argv.index("--append-system-prompt") + 1]
-    assert notice == INTERNET_OFF_NOTICE
+    assert notice == PromptCatalog().render("system/internet-off.md")
     assert "only the model provider" in notice.lower()
     for word in ("web search", "page", "download"):
         assert word in notice.lower()
