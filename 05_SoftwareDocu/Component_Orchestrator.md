@@ -248,9 +248,13 @@ and `verification_result = {command, exit_code, seconds, timed_out, output}`.
 Summary, implementation and changed_files remain in the existing object; the
 unconfigured branch retains `verification = not configured` with no result.
 Output is stdout then stderr, redacted before the last-200-line/6000-character
-cut. Duration is finite/nonnegative, exit is an integer (not bool), timeout is
-boolean, streams are text. The typed saved-result reader rejects unknown/missing
-keys, malformed values, status/command disagreement or unsanitized/unbounded
+cut. Duration is finite/nonnegative and representable for float-based display;
+integers too large for that range are refused through the same typed integrity
+path, not allowed to escape as numeric conversion errors. Zero, fractional and
+large finite integer/float durations remain valid through reload and presentation.
+Exit is an integer (not bool), timeout is boolean, streams are text. The typed
+saved-result reader rejects unknown/missing keys, malformed values,
+status/command disagreement or unsanitized/unbounded
 output before prompts, approval or publication. It checks sanitation and bounds
 separately from tail selection: a final character cut can expose leading spaces,
 tabs or a newline, which remain valid evidence through reload, remediation and

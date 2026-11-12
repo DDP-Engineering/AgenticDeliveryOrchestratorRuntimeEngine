@@ -93,7 +93,11 @@ without trimming or selecting the tail again.
 
 STATED (repository fail-closed rule): a boolean is not an integer exit code;
 a timeout flag is a boolean; streams are text; elapsed duration is finite and
-nonnegative in seconds. Malformed result values are typed integrity failures,
+nonnegative in seconds, within the float-convertible range used for presentation.
+An arbitrary JSON integer outside that range is refused through the same typed
+execution/state integrity path, without leaking numeric conversion errors; zero,
+fractional and large finite integer/float durations remain valid through reload
+and formatting. Malformed result values are typed integrity failures,
 not command failures to guess/coerce into a passing result. Missing, failed,
 timed-out or malformed configured-result evidence never authorizes publication.
 Existing unconfigured direct evidence remains an explicit unverified alternative,

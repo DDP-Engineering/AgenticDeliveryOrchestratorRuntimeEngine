@@ -164,6 +164,20 @@ def _head_and_tail(text: str, limit: int) -> str:
     return head + marker + text[-(limit - len(head) - len(marker)):]
 
 
+def _valid_direct_duration(seconds: Any) -> bool:
+    """@brief Check duration integrity without overflowing on arbitrary JSON integers.
+    @param[in] seconds Untrusted execution or saved duration.
+    @return True for a nonnegative finite number safe for float-based presentation.
+    """
+    if type(seconds) not in {int, float}:
+        return False
+    try:
+        return math.isfinite(seconds) and seconds >= 0
+    except OverflowError:
+        # JSON integers may exceed the float range used by isfinite and formatting.
+        return False
+
+
 def _task_type(ticket: Ticket, config: Config) -> str:
     """@brief Map configured ticket labels to the AEGIS type vocabulary."""
     labels = set(ticket.labels)
@@ -1354,7 +1368,7 @@ class Orchestrator:
         """
         if (type(result.exit_code) is not int or type(result.timed_out) is not bool
                 or not isinstance(result.stdout, str) or not isinstance(result.stderr, str)
-                or type(seconds) not in {int, float} or not math.isfinite(seconds) or seconds < 0):
+                or not _valid_direct_duration(seconds)):
             raise IsolationError("malformed direct verification execution result")
 
     def _verify_direct(self, run: RunState) -> bool:
@@ -2463,7 +2477,8 @@ class Orchestrator:
         @param[in] required Require a completed configured or explicit unconfigured result.
         @return Valid configured result, or None for absent/unconfigured evidence.
         @exception StateError Corrupt, mismatched, unbounded or inconsistent saved evidence.
-        @note Output sanitation and bounds are checked without trimming: the writer's
+        @note Duration checks refuse integers outside the float range used for display.
+              Output sanitation and bounds are checked without trimming: the writer's
               final character cut can expose leading whitespace in a valid retained tail.
         """
         evidence = run.validation_evidence
@@ -2477,8 +2492,7 @@ class Orchestrator:
                 or set(result) != {"command", "exit_code", "seconds", "timed_out", "output"}
                 or not isinstance(result["command"], str) or result["command"] != _sanitize(command)
                 or type(result["exit_code"]) is not int or type(result["timed_out"]) is not bool
-                or type(result["seconds"]) not in {int, float}
-                or not math.isfinite(result["seconds"]) or result["seconds"] < 0
+                or not _valid_direct_duration(result["seconds"])
                 or not isinstance(result["output"], str)
                 or len(result["output"]) > _MAX_EVIDENCE
                 or len(result["output"].splitlines()) > 200

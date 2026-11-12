@@ -23,6 +23,7 @@ from dataclasses import replace
 import json
 import os
 from pathlib import Path
+import sys
 from threading import Event
 
 from adore.aegis import (
@@ -664,7 +665,9 @@ def direct_edit(worktrees, *, summary="Changed feature; checked with repository 
 
 @pytest.mark.parametrize(("field", "value"), [
     ("exit_code", True), ("exit_code", "0"), ("timed_out", 0),
-    ("seconds", -1),
+    ("seconds", -1), ("seconds", "1.0"), ("seconds", None),
+    pytest.param("seconds", 10**400, id="overflowing-positive-duration"),
+    pytest.param("seconds", -(10**400), id="overflowing-negative-duration"),
     ("seconds", True), ("output", None), ("output", "line\n" * 201),
     ("output", "x" * 6001), ("output", "token=private"), ("command", "other"),
     ("output", "\x1b[31mcorrupt\x1b[0m"),
@@ -712,18 +715,52 @@ def test_direct_verification_refuses_malformed_execution(tmp_path, monkeypatch, 
     assert not run.approval_comment_id and not forge.opened
 
 
-@pytest.mark.parametrize("finish", [9.0, float("nan"), float("inf")])
+@pytest.mark.parametrize("finish", [
+    9.0, float("nan"), float("inf"), float("-inf"),
+    pytest.param(10**400, id="overflowing-positive-duration"),
+    pytest.param(-(10**400), id="overflowing-negative-duration"),
+])
 def test_direct_verification_refuses_invalid_elapsed_time(tmp_path, monkeypatch, finish):
-    """@brief Nonfinite or negative duration is an integrity refusal, not a verification pass."""
+    """@brief Nonfinite, unrepresentable or negative duration never authorizes approval."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
     engine.config.workflow.verify_command = "check"
     executor.attempts.append(direct_edit(worktrees))
-    ticks = iter([10.0, finish])
+    ticks = iter([10, finish])
     monkeypatch.setattr(orchestrator_module.time, "monotonic", lambda: next(ticks))
     engine.poll_once(ticket_iid=7)
     run = engine.store.load("github-owner-repo-7")
     assert run.lifecycle == "failed" and "VERIFICATION_RESULT" in run.outcome
     assert not run.approval_comment_id
+
+
+@pytest.mark.parametrize("seconds", [
+    0, 7, 0.125, 1e300,
+    pytest.param(sys.float_info.max, id="largest-finite-float"),
+    pytest.param(int(sys.float_info.max), id="largest-finite-float-as-integer"),
+])
+def test_direct_verification_duration_survives_approval_and_publication(
+    tmp_path, monkeypatch, seconds,
+):
+    """@brief Valid numeric durations remain intact and render safely through both human gates."""
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    executor.attempts.append(direct_edit(worktrees))
+    ticks = iter([0, seconds])
+    monkeypatch.setattr(orchestrator_module.time, "monotonic", lambda: next(ticks))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
+    result = run.validation_evidence["verification_result"]
+    assert result["seconds"] == seconds and type(result["seconds"]) is type(seconds)
+    duration = f"{seconds:.3f} seconds"
+    assert duration in forge.ticket_comments[run.approval_comment_id]
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    engine.poll_once()
+    published = engine.store.load(run.run_id)
+    assert published.lifecycle == "in-review"
+    assert published.validation_evidence == run.validation_evidence
+    assert duration in forge.opened[-1]["body"]
+    assert len(executor.prompts) == 1
 
 
 @pytest.mark.parametrize("lines", [0, 199, 200, 201])
