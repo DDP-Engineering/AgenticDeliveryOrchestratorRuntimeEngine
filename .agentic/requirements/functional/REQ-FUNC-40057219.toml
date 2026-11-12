@@ -20,7 +20,7 @@ verification = "An offline test approves a run saved awaiting approval at the va
 
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_publication_refuses_a_run_outside_the_done_stage"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_publication_and_review_boundaries", "04_Software/tests/test_orchestrator.py::test_publication_refuses_a_run_outside_the_done_stage"]
 
 
 spec = ""
@@ -29,4 +29,4 @@ priority = "normal"   # low | normal | high
 rationale = "Only a candidate verified when validate closed the AEGIS task may be published."
 
 created = 2026-10-26
-updated = 2026-11-01
+updated = 2026-11-12

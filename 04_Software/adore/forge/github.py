@@ -384,6 +384,18 @@ class GitHubForge(Forge):
              "--remove-label", ",".join(labels)]
         )
 
+    def update_merge_request_body(self, mr_iid: int, body: str) -> None:
+        """@brief Replace only the PR description; CLI failure raises ForgeError.
+        @param[in] mr_iid PR number.
+        @param[in] body Literal current candidate description.
+        """
+        result = self._run([
+            "gh", "api", "--method", "PATCH", f"repos/{self.repo}/pulls/{mr_iid}",
+            "-f", f"body={body}",
+        ])
+        if result.timed_out:
+            raise ForgeError("PR description update timed out", result.argv, result.stderr)
+
     def open_merge_request(
         self,
         source: str,

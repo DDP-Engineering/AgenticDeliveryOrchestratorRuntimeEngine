@@ -17,7 +17,8 @@ transport. Delivery assembly belongs to `deployment-and-packaging.md`.
 
 ## Purpose and boundaries
 
-The catalog reads application-owned stage, recovery, review and system fragments
+The catalog reads application-owned AEGIS-stage, direct implementation,
+recovery, review and system fragments
 from fixed package resources and renders literal caller data. Conditions, order,
 joins, sanitization and thread rendering remain in the callers. Pi's own prompt,
 repository instructions, AEGIS payload and model-connection challenge have other
@@ -51,12 +52,16 @@ owners.
 | Change requested | Start with | Focused verification |
 |---|---|---|
 | Resource/render boundary | `PromptCatalog`, `LEGAL_PREFIX`, `FRAGMENTS` | `test_prompts.py` loader and negative contracts |
-| Prompt wording/inventory | `adore/prompts/{stage,recovery,review,system}/` and callers | `test_prompts.py` original-byte and caller matrices |
+| Prompt wording/inventory | `adore/prompts/{direct,stage,recovery,review,system}/` and callers | `test_prompts.py` original-byte and caller matrices |
 | Packaging inclusion | Hatch wheel tree and `02_Tools/create_package.py` | Manual complete wheel path/byte check; inspect unchanged-wheel portable install |
 
 ## Key behaviors
 
 - `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`: fixed Markdown catalog, eagerly checked once per conductor.
+- `REQ-FUNC-889f30ed`: direct/implementation.md requests whole-ticket work,
+  repository instructions/tests, no Git publication/forge credentials, questions
+  and root summary. Direct composition reuses literal ticket/thread/recovery and
+  identical shared permission/network notices without AEGIS journal procedure.
 - `REQ-FUNC-5bd765bb`, `REQ-SEC-66431463`: named single-pass substitution with literal external data.
 - `REQ-FUNC-8256ca8e`: legal comments stay local; body whitespace stays exact.
 - `REQ-REL-6fc1aa99`, `REQ-REL-d0663c1d`, `REQ-REL-3eb9bb9e`: file-named missing/read/encoding refusal.
@@ -67,7 +72,7 @@ owners.
 ## Files
 
 - `04_Software/adore/prompts.py` — fixed eager loader, typed errors and renderer.
-- `04_Software/adore/prompts/` — 25 licensed Markdown fragments in four groups.
+- `04_Software/adore/prompts/` — 26 licensed Markdown fragments in five groups.
 - `04_Software/tests/test_prompts.py` — loader boundaries, byte/caller proof and shared ownership.
 - `04_Software/tests/fixtures/prompts/{baseline,network-baseline}.json` — original-code expected text; never regenerate from the extracted renderer.
 - `05_SoftwareDocu/Component_Prompts.md` — resource and integration contract.

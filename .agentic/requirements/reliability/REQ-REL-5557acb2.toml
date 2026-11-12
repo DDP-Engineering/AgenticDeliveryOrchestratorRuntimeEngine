@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-5557acb2"
+title = "Stop direct execution at exhausted budgets"
+status = "active"
+requirement = "If an existing launch, active-time, reported-cost or changed-file budget forbids further direct work, the conductor shall stop it through the existing budget-failure accounting without an unauthorized further executor launch or candidate approval."
+verification = "Use offline fake clock, usage and worktree counts to run a direct attempt within limits, then exhaust launch, active-time, enabled reported-cost and files-touched limits separately at their existing check boundaries; observe the corresponding saved budget cause, preserved consumed work and no further session or approval."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_budget_boundaries_stop_without_approval", "04_Software/tests/test_orchestrator.py::test_direct_attempt_rereads_only_budgets_without_resetting_work", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication"]
+spec = ""
+priority = "high"
+rationale = "Direct implementation is bounded by the same run controls as governed work."
+created = 2026-11-12
+updated = 2026-11-12

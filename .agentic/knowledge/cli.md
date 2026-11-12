@@ -35,6 +35,11 @@ does not pick it, or a held lock, first prints the stable line
 `error: ticket #IID not started: <code>` (`pickup_paused`, `at_capacity`,
 `aegis_probe_failed`, `not_eligible`, `conductor_busy` for a held lock), which
 the web worker parses as the operation reason (REQ-FUNC-6c87ec5b).
+Payload absence admits CLI/configured direct work normally; only a present failed
+probe returns engine workflow_unavailable/payload_error and the existing
+`aegis_probe_failed` CLI reason. No workflow selector or verification setting is
+added. Direct reset accepts build/validate/publishing; other targets refuse
+before mutation. `init` reports missing AEGIS as INFO; web enrollment is separate.
 
 ## Public interface
 

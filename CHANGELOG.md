@@ -12,6 +12,16 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Conduct CLI/configured tickets without AEGIS through bounded fresh direct Pi sessions,
+  retain their summaries and present explicitly unverified candidates for fresh human
+  approval; keep clarification, recovery, review and publication boundaries shared.
+  CLI setup reports missing AEGIS as information; a present unusable payload is refused.
+  Adopted and revised reviews carry the current direct summary and unverified notice;
+  Gitea description updates require final 2xx acknowledgment before entering review.
+  Interrupted durable completion resumes without spending another implementation launch.
+
 ### Fixed
 
 - Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
@@ -59,6 +69,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 - A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
 
 ### Changed
+
+- Delete the run-state directories under each configured `store_root/runs/` before starting this build.
+
+- Delete each configured statistics database before starting this build; summaries now record workflow.
 
 - Store agent prompts as shipped Markdown files in `adore/prompts/`, preserving the text sent to Pi.
 

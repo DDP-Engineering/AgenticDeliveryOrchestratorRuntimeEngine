@@ -12,8 +12,9 @@ Shared ticket eligibility excludes the configured epic type label from automatic
 ## 1. Purpose
 
 `adore/orchestrator.py` is the deterministic ADORE conductor around the
-agent-driven AEGIS workflow. It prevents silent stalls and keeps remote
-publication human-approved with configurable draft or ready state.
+agent-driven AEGIS and direct workflows. It prevents silent stalls and keeps
+review publication human-approved with configurable draft or ready state.
+An absent payload selects direct; a present unusable payload is never bypassed.
 
 
 After observing a human merge, the shared CLI/web conductor honors `delivery.remove_source_branch` on GitHub, GitLab and Gitea. It checks review/run-branch ownership and performs bounded host-Git deletion with the last published commit lease. Every approved publication pins that commit even when progress commits are disabled. An absent branch succeeds; an unverified deletion leaves the job done with a branch-retained warning and keeps its local worktree for remediation. Closed unmerged reviews keep their remote branch.
@@ -23,10 +24,16 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
 - select/claim forge tickets with the shared `adore.selection.ineligibility`
   rules (open, ready label, no hold/exclude, no existing run, priority and
   acceptance-criteria readiness) and provision worktree/container isolation;
-- create and bind active/historical AEGIS tasks;
+- allocate the pinned worktree before the first claim save, recording immutable
+  `workflow` from its payload presence; resolve preparation authority in memory
+  first, but execute preparation only after durable claim;
+- create and bind active/historical tasks only for AEGIS runs;
 - load every application-owned agent fragment eagerly through `PromptCatalog`
   at construction; `from_config` shares that one catalog with the Pi launcher;
-- launch a fresh executor session for each stage attempt;
+- dispatch after provisioning to the AEGIS stage loop or `_conduct_direct`,
+  without a shared workflow interface;
+- launch fresh executor sessions through the same `_launch_stage` supervision,
+  backend, egress, credential isolation, budgets and timeouts;
 - journal a versioned telemetry observation for every executor launch, including
   unavailable and administrator-disabled capture; keep the existing numeric
   `usage` event only when capture produced values, linked to the observation
@@ -65,7 +72,8 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
 - push the approved candidate once and open or update the configured draft or
   ready MR/PR, with no executor session and no AEGIS command after approval;
 - adopt an existing open branch MR/PR before attempting draft creation;
-- create a new AEGIS task before consuming each bounded review request;
+- create a new AEGIS task for governed revisions or restart direct build without
+  a task before consuming each bounded review request;
 - reconcile parked, approval, review, stale-working and outbox states;
 - garbage-collect only this project's resources: those of done, cancelled,
   stale and state-less runs of its run-ID form, including allowlist proxy
@@ -91,8 +99,10 @@ pre-extraction byte-oracle tests in `tests/test_prompts.py`.
 
 Lifecycle states are `working`, `parked-clarification`, `awaiting-approval`,
 `publishing`, `in-review`, `failed`, `done`, `cancelled`, `handoff-pending`,
-and `handed-off`. AEGIS stage is tracked
-separately.
+and `handed-off`. Workflow stage is tracked separately. AEGIS uses the
+full/quick stage set; direct uses `build`, conductor-owned `validate`, then
+`done`, with no active/historical task ids. The shared `publishing` reset pointer
+is not an executor stage. Reset refuses AEGIS-only stages for direct runs.
 
 `handoff-pending` is durable before stopping the container or writing Git.
 `handed-off` disables further autonomous work, while cleanup protects the
@@ -172,7 +182,66 @@ included in a later integration checkpoint.
 
 ## 5. Validation and Approval
 
-The conductor integrates `origin/<target>` and runs the validation executor,
+### Direct completion and evidence
+
+`_conduct_direct` accepts a settled successful attempt only when no questions
+file remains and the product progress fingerprint changes. Both progress
+observations pass literal exclusions for root `ADORE_SUMMARY.md` and the
+configured questions file; path ownership/collision checks remain isolation's
+responsibility. Empty questions files park too. `NO_CHANGES` retains the summary
+and fails immediately; typed executor timeout/exit errors use existing build
+failure counters. Live budget rereads and cumulative work apply normally. The
+last authorized successful launch may complete; completion never authorizes
+another launch when the launch limit is exhausted.
+
+`_direct_prompt` uses `direct/implementation.md` plus literal ticket,
+recovery/thread fragments and the same byte-preserved permission/network notice
+as `_stage_prompt`. It requests repository instructions, complete implementation
+and tests, blocking questions and a short change/check summary; Pi receives no
+Git publication or forge-credential authority.
+
+`validation_evidence` carries `summary`, `implementation = completed`,
+`verification = not configured` and `changed_files`. Summary is bounded by
+`_MAX_EVIDENCE` and sanitized, saved before isolation removes its transient
+receipt-owned file. Each attempt starts with no old summary/completion evidence.
+An absent summary is allowed; unsafe present artifacts stop before checkpoint
+or approval. No direct strict-verification event or synthetic passed result is
+written. Summary alone cannot authorize approval.
+
+On success the conductor saves completion and the validate stage atomically in
+one state write, then checkpoints product changes **before** target integration,
+records clean candidate/target fingerprints and presents at done/awaiting-approval.
+After interruption, orphan reconciliation and explicit Retry can finish that
+completion even when its successful attempt used the last permitted launch.
+Checkpoint failure retains
+the validate stage and completion marker; Retry can finish without another Pi
+session. Missing completion evidence at validate/done returns to build. Candidate
+or target drift preserves completed implementation and summary but clears the
+candidate binding, integrates/checkpoints again and requires fresh presentation
+and approval. Integration conflicts return to fresh bounded build work.
+
+All direct checkpoint entry points, including normal progress, Retry settlement,
+review and human handoff, retain/remove summary first and pass literal exchange
+exclusions. Isolation unstages exchange additions and rechecks the full staged
+set. Direct settlement refusal is not suppressed into publication. Direct
+handoff instructions do not name an AEGIS task. Approval/MR bodies show summary,
+changed-file count and exactly "Verification: not configured. This candidate is
+unverified." They omit AEGIS task lines. This build runs no direct verification
+command. Fresh candidate-bound human approval, publication and merge authority
+remain shared with the AEGIS path.
+
+When adopting an existing review or publishing a newly approved revision, direct
+publication replaces the MR/PR description with the current approved summary,
+count, unverified notice and candidate/target binding through
+`Forge.update_merge_request_body`. It changes no review settings. A failed or
+timed-out update retains `MR_CREATE_FAILED` and cannot enter in-review or mark
+the new candidate published. Explicit Retry repeats the description write
+without another Pi session; a lost response is safe to retry with the same body.
+AEGIS publication does not call this description-update operation.
+
+### AEGIS verification
+
+For AEGIS runs the conductor integrates `origin/<target>` and runs the validation executor,
 whose session closes the AEGIS task with its own final strict check, `report`
 and `advance` to done. On that validate -> done advance the conductor calls
 `check --task <id> --strict --run --json` itself. It requires at least one
@@ -208,13 +277,15 @@ is cleared when a revision starts, so the pipeline the revision produces is
 judged on its own and one failure cannot restart a round already in flight.
 Both triggers share `max_review_rounds`, so a permanently red pipeline cannot
 loop; when the budget is spent the run keeps waiting in review with a comment
-saying so. Every round still ends at strict validation and a fresh human
-approval before a push, so automatic repair never weakens the delivery gate.
+saying so. Every round still ends at workflow-appropriate evidence and fresh
+human approval before review publication: strict validation for AEGIS, explicit
+unverified evidence for direct. Automatic repair never bypasses the human gate.
 
-The revise label remains present through provisioning, AEGIS probe, and task
-creation. It is removed only after the new task exists and immediately before
-the run-state transition. Without an AEGIS idempotency key, a crash in that
-small boundary can leave a duplicate/orphan task; the pre-removal task-created
+For AEGIS runs the revise label remains present through provisioning, probe
+and task creation, and is removed only after the new task exists, immediately
+before the run-state transition. Direct revisions provision but create no task;
+the label is removed after successful provisioning. Without an AEGIS idempotency
+key, a crash in the governed create/remove/save boundary can leave a duplicate/orphan task; the pre-removal task-created
 journal event provides operator evidence and preserves at-least-once intent for
 ordinary failures.
 
@@ -236,7 +307,14 @@ revise-label ordering, AEGIS timeout handling, typed executor-timeout
 classification, clarification duration forms, live-lock-safe cleanup,
 failed-resource preservation, egress companion GC, configured task-kind
 fallback, one-read cost checks, environment precedence, human-merge metrics,
-prompt restrictions and the absence of a merge capability.
+prompt restrictions and the absence of a merge capability. Direct public poll,
+Retry/reset and revision cases also prove clone/worktree disagreement, first-save
+identity, one-session approval/publication, summary retention and exclusions,
+NO_CHANGES, empty questions, fresh thread resume, error/timeout/budget boundaries,
+unsafe artifacts, Git/checkpoint recovery, evidence/drift invalidation and
+workflow retention after later AEGIS adoption. `test_checkpoint_handoff.py`
+proves exchange hygiene at the independent human-handoff checkpoint. Existing
+AEGIS assertions and captured prompt bytes remain intact.
 
 `poll_once(ticket_iid=IID)` filters ticket selection to one ready ticket while
 preserving the same eligibility and publication gates. This is the web worker's
@@ -278,7 +356,7 @@ round completes. Offline regression: `test_loop_polling_cadence_matches_web_erro
 
 `poll_once(ticket_iid=IID)` validates a positive integer and admits only that
 freshly read forge ticket while preserving the monitoring pause marker. Existing
-reconciliation, conductor lock, capacity, AEGIS payload, shared ticket eligibility
+reconciliation, conductor lock, capacity, present-payload compatibility, shared ticket eligibility
 and publication approval boundaries remain active. Untargeted polling retains
 the pause gate. Refused manual admission adds a closed `start_reason` code to
 the summary; no ticket text or credential enters that code.

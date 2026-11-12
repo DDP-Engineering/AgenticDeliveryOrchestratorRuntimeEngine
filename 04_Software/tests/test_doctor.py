@@ -450,8 +450,24 @@ def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
     runner = FakeRunner({})
     status = doctor.detect_aegis(tmp_path / "bare", runner)
     assert not status.ok and not status.wrapper_present
-    assert ".agentic/aegis.py is missing" in status.detail
+    assert status.detail == "No AEGIS found: tickets run in the direct workflow"
     assert runner.calls == []
+
+
+@pytest.mark.parametrize("entry", ["directory", "dangling-link"])
+def test_present_unusable_payload_is_not_announced_as_direct(tmp_path: Path, entry: str) -> None:
+    """@brief An unusable payload entry is not permission to bypass AEGIS probes."""
+    wrapper = tmp_path / ".agentic" / "aegis.py"
+    wrapper.parent.mkdir()
+    if entry == "directory":
+        wrapper.mkdir()
+    else:
+        wrapper.symlink_to(tmp_path / "missing-payload")
+    runner = FakeRunner({"python .agentic/aegis.py": _fail("unusable payload")})
+    status = doctor.detect_aegis(tmp_path, runner)
+    assert status.wrapper_present and not status.ok
+    assert status.detail == "unusable payload"
+    assert runner.calls == [["python", ".agentic/aegis.py", "--version"]]
 
 
 def test_aegis_probe_fails_closed_on_a_blocked_or_unparseable_answer(
@@ -552,6 +568,8 @@ def test_aegis_guidance_names_hard_break(tmp_path: Path) -> None:
     assert text == doctor.guidance_for(doctor.AEGIS, "windows")
     assert doctor.AEGIS_SUPPORTED_TEXT in text
     assert "schema 1" in text and "only" in text.lower()
+    assert "optional" in text.lower()
+    assert "must carry" not in text and "Install the payload" not in text
 
 
 # END OF FILE

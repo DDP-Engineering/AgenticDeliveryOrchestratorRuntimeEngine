@@ -56,7 +56,7 @@ affected_paths = ["04_Software/adore/metrics.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_metrics.py::test_summarize_run_computes_the_catalog", "04_Software/tests/test_metrics.py::test_record_load_roundtrip_is_duplicate_free"]
+linked_tests = ["04_Software/tests/test_metrics.py::test_summary_serializes_recorded_workflow", "04_Software/tests/test_metrics.py::test_summarize_run_computes_the_catalog", "04_Software/tests/test_metrics.py::test_record_load_roundtrip_is_duplicate_free"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Operational statistics must be reproducible from durable run evidence."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-12

@@ -114,6 +114,101 @@ def test_save_load_round_trip(tmp_path: Path) -> None:
     assert loaded.created_at == state.created_at
 
 
+@pytest.mark.parametrize("workflow", ["aegis", "direct"])
+@pytest.mark.parametrize("stage", ["build", "validate", "done", "publishing"])
+def test_workflow_round_trip(tmp_path: Path, workflow: str, stage: str) -> None:
+    """@brief Both workflow identities survive current-format save and reload."""
+    store = _store(tmp_path)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage)
+    assert run.to_dict().get("workflow") == "aegis"
+    run.workflow = workflow
+    store.save(run)
+    loaded = store.load(run.run_id)
+    assert loaded.workflow == workflow
+    assert loaded.stage == stage
+    assert loaded.active_task_id is None
+    assert loaded.task_ids == []
+    assert loaded.to_dict() == run.to_dict()
+
+
+@pytest.mark.parametrize("workflow", ["aegis", "direct"])
+def test_missing_workflow_refuses_without_repair(tmp_path: Path, workflow: str) -> None:
+    """@brief A missing persisted workflow never receives the constructor default."""
+    store = _store(tmp_path)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build")
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["workflow"] = workflow
+    assert RunState.from_dict(data).workflow == workflow
+    data.pop("workflow")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(StateError, match="workflow") as refused:
+        store.load(run.run_id)
+    assert "delete " + str(store.run_dir(run.run_id)) in str(refused.value)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("workflow", ["other", "", None, True, 1, [], {}])
+def test_corrupt_workflow_refuses_without_repair(tmp_path: Path, workflow: object) -> None:
+    """@brief Only the two exact workflow strings may enter conductor dispatch."""
+    store = _store(tmp_path)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build")
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["workflow"] = workflow
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(StateError, match="^run-state carries unknown workflow") as refused:
+        store.load(run.run_id)
+    assert "delete " + str(store.run_dir(run.run_id)) in str(refused.value)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "bindings",
+    [
+        {"active_task_id": "TASK-aaaaaaaa"},
+        {"task_ids": ["TASK-aaaaaaaa"]},
+        {"active_task_id": "TASK-aaaaaaaa", "task_ids": ["TASK-aaaaaaaa"]},
+    ],
+)
+def test_direct_task_binding_refuses_without_repair(tmp_path: Path, bindings: dict) -> None:
+    """@brief Neither active nor historical AEGIS task ownership is valid for direct."""
+    store = _store(tmp_path)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage="build")
+    store.save(run)
+    path = store.run_dir(run.run_id) / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.update(workflow="direct", **bindings)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(StateError, match="^run-state direct.*task") as refused:
+        store.load(run.run_id)
+    assert "delete " + str(store.run_dir(run.run_id)) in str(refused.value)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("stage", ["frame", "specify", "design"])
+def test_direct_aegis_stage_refuses_without_repair(tmp_path: Path, stage: str) -> None:
+    """@brief AEGIS-only stages cannot be reinterpreted as a direct attempt."""
+    store = _store(tmp_path)
+    run = RunState(run_id="workflow-1", ticket_iid=1, stage=stage)
+    store.save(run)
+    assert store.load(run.run_id).stage == stage  # valid for AEGIS
+    path = store.run_dir(run.run_id) / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["workflow"] = "direct"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(StateError, match="^run-state direct.*stage") as refused:
+        store.load(run.run_id)
+    assert "delete " + str(store.run_dir(run.run_id)) in str(refused.value)
+    assert path.read_bytes() == before
+
+
 def test_run_at_a_stage_this_build_does_not_conduct_is_refused(tmp_path: Path) -> None:
     """
     @brief   A run at the removed deliver stage, or an invented one, does not load.

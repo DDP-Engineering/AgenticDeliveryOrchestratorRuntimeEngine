@@ -356,6 +356,17 @@ class GitLabForge(Forge):
         self._run(["glab", "api", "--method", "PUT", endpoint,
                    "--raw-field", f"remove_labels={','.join(labels)}"])
 
+    def update_merge_request_body(self, mr_iid: int, body: str) -> None:
+        """@brief Replace only the MR description; CLI failure raises ForgeError.
+        @param[in] mr_iid MR iid.
+        @param[in] body Literal current candidate description.
+        """
+        endpoint = f"projects/{self._project_enc}/merge_requests/{mr_iid}"
+        result = self._run(["glab", "api", "--method", "PUT", endpoint,
+                            "--raw-field", f"description={body}"])
+        if result.timed_out:
+            raise ForgeError("MR description update timed out", result.argv, result.stderr)
+
     def open_merge_request(
         self,
         source: str,

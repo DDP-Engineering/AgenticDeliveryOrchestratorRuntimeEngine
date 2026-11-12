@@ -42,9 +42,14 @@ The schema also carries a verified remote checkpoint commit and a checkpoint
 error; malformed commit digests fail closed. `handoff-pending` and `handed-off`
 are explicit lifecycle states. `handed-off` is terminal for metrics while
 cleanup protects its worktree.
-The stage is `frame`, `specify`, `design`, `build`, `validate`, `done` or the
-reset pointer `publishing`; any other stage, including the removed AEGIS
-`deliver` stage, fails closed as unknown.
+Every record contains `workflow`, exactly `aegis` or `direct`. The constructor's
+`aegis` default is for new in-memory callers only: a persisted missing, nontext
+or unknown workflow is refused with the run directory to delete, never repaired.
+An AEGIS record may name `frame`, `specify`, `design`, `build`, `validate`, `done`
+or the shared reset pointer `publishing`. A direct record may name only `build`,
+`validate`, `done` or `publishing`, with `active_task_id = null` and `task_ids = []`.
+Direct AEGIS task bindings or AEGIS-only stages raise `StateError`. Any other
+stage, including the removed `deliver` stage, fails closed as unknown.
 `published_fingerprint` records the candidate fingerprint of the last
 publication that reached review.
 
@@ -52,6 +57,19 @@ Writes use temporary-file replacement. JSONL is append-only; a torn trailing
 line may be skipped because `state.json`, not the log, drives decisions.
 
 ## 4. Workflow Integration
+
+The conductor selects `workflow` from the allocated pinned worktree before its
+first claim save. Clarification, Retry, reset and review never redetect or mutate
+it. Direct runs have no task bindings; reset rejects AEGIS-only direct stages
+before mutation.
+
+Direct `validation_evidence` carries sanitized bounded `summary`, conductor-owned
+`implementation = completed`, then `verification = not configured` and an observed
+`changed_files` count. Summary text is saved before file removal; the transient
+isolation receipt is never serialized. The completion marker permits checkpoint
+recovery at validate without replaying successful implementation. Missing
+completion returns recovery to build; summary alone does not authorize approval.
+This evidence claims no strict verification success.
 
 The conductor saves before every remote notification, after every counter or
 lifecycle change, and at every stage boundary. Explicit retry resets only the
@@ -81,6 +99,12 @@ the marker after durable ownership transfer.
 rejection, corrupt state, refusal of a run at a stage this build does not
 conduct (`test_run_at_a_stage_this_build_does_not_conduct_is_refused`) and of
 state missing a current key (`test_state_missing_a_current_key_is_refused`),
+workflow round trips and immutable-on-read refusal of missing/unknown workflows,
+direct task bindings and AEGIS-only direct stages (the `test_workflow_round_trip`,
+`test_missing_workflow_refuses_without_repair`,
+`test_corrupt_workflow_refuses_without_repair`,
+`test_direct_task_binding_refuses_without_repair` and
+`test_direct_aegis_stage_refuses_without_repair` cases),
 snapshots, JSONL, locking, public stale reclamation,
 unknown-lock fail-closed behavior, pause and cleanup support.
 `test_run_listing_tolerates_concurrent_disappearance` deletes an enumerated

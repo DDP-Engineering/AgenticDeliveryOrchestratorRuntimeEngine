@@ -56,7 +56,7 @@ affected_paths = ["04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_two_failures_then_success_resets_counter_and_questions_do_not_consume_it", "04_Software/tests/test_orchestrator.py::test_exact_third_failed_attempt_aborts_without_fourth_launch", "04_Software/tests/test_orchestrator.py::test_executor_timeout_classification_uses_typed_flag", "04_Software/tests/test_orchestrator.py::test_aegis_timeout_retries_inside_the_same_conductor", "04_Software/tests/test_orchestrator.py::test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause", "04_Software/tests/test_orchestrator.py::test_poll_still_detects_a_working_run_without_a_conductor"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_errors_use_bounded_build_failure_accounting", "04_Software/tests/test_orchestrator.py::test_direct_artifact_and_git_failures_preserve_cause", "04_Software/tests/test_orchestrator.py::test_two_failures_then_success_resets_counter_and_questions_do_not_consume_it", "04_Software/tests/test_orchestrator.py::test_exact_third_failed_attempt_aborts_without_fourth_launch", "04_Software/tests/test_orchestrator.py::test_executor_timeout_classification_uses_typed_flag", "04_Software/tests/test_orchestrator.py::test_aegis_timeout_retries_inside_the_same_conductor", "04_Software/tests/test_orchestrator.py::test_retry_stage_checkpoint_failure_retains_actual_stage_and_cause", "04_Software/tests/test_orchestrator.py::test_poll_still_detects_a_working_run_without_a_conductor"]
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Retries should be bounded, explainable, and consistent after restart."
 
 created = 2026-08-15
-updated = 2026-10-22
+updated = 2026-11-12

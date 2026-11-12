@@ -63,7 +63,7 @@ _RUNTIME_PROBE_SECONDS = 5
 _WSL_RUNTIME_PROBE_SECONDS = 18
 _RUNTIME_DISCOVERY_DISTROS = 8
 
-# The AEGIS payload contract the target repository must satisfy.
+# The supported contract when the target repository carries an AEGIS payload.
 AEGIS_WRAPPER = ".agentic/aegis.py"
 AEGIS_SCHEMA_VERSION = 1
 #: Human form of the supported range, built from the client's own constants so
@@ -179,11 +179,13 @@ GUIDANCE: dict[str, dict[str, str]] = {
     },
     AEGIS: {
         "*": (
-            f"The target repository must carry an AEGIS {AEGIS_SUPPORTED_TEXT} "
-            "payload with `.agentic/aegis.py` and JSON schema 1. Install the "
-            "payload in the target clone without changing its source, then "
-            "re-run `adore init <profile>` to repeat this check. ADORE speaks "
-            "only the AEGIS companion CLI over JSON schema 1."
+            "AEGIS is optional. Without `.agentic/aegis.py`, tickets use the "
+            "direct workflow. An installed payload must provide "
+            f"AEGIS {AEGIS_SUPPORTED_TEXT} with JSON schema 1. A present "
+            "unsupported or broken payload is refused, never bypassed. "
+            "ADORE speaks only the AEGIS companion CLI over JSON schema 1 "
+            "and never installs or edits the payload. Re-run "
+            "`adore init <profile>` after correcting an installed payload."
         )
     },
     GITIGNORE: {
@@ -515,8 +517,10 @@ def detect_aegis(
     """
     @brief      Probe a target repository for a usable AEGIS payload.
     @details    Uses the configured workflow interpreter for both probes.
-                Requires `.agentic/aegis.py`, supported `aegis` version
-                output, and a schema-1 `status --all --json` document. ADORE
+                Absence is direct-workflow information and runs no commands;
+                AegisStatus.ok still means usable AEGIS, not overall readiness.
+                A present payload requires supported `aegis` version output
+                and a schema-1 `status --all --json` document. ADORE
                 refuses malformed output, unknown versions/schemas and any
                 unreadable journal before ticket pickup.
     @param[in]  repo_path Local clone the runs are created from.
@@ -525,10 +529,11 @@ def detect_aegis(
     @return     The AegisStatus.
     """
     root = Path(repo_path).expanduser()
-    if not (root / AEGIS_WRAPPER).is_file():
+    wrapper = root / AEGIS_WRAPPER
+    if not wrapper.exists() and not wrapper.is_symlink():
         return AegisStatus(
             repo_path=str(root), wrapper_present=False, config_valid=False,
-            detail=f"{AEGIS_WRAPPER} is missing",
+            detail="No AEGIS found: tickets run in the direct workflow",
         )
     version_result = runner([aegis_python, AEGIS_WRAPPER, "--version"], cwd=str(root))
     version = version_result.stdout.strip()

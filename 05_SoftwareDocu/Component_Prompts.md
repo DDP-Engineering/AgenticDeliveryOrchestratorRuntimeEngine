@@ -9,8 +9,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## 1. Purpose
 
-Keep all application-owned stage, recovery, review and system-notice text in
-reviewable Markdown fragments without changing the text Pi receives.
+Keep application-owned AEGIS-stage, direct-implementation, recovery, review and
+system-notice text in reviewable Markdown fragments. Existing AEGIS text remains
+byte-identical; the direct workflow has its own implementation request.
 
 ## 2. Responsibilities
 
@@ -27,7 +28,7 @@ model-connection challenge, logs or forge status comments.
 
 ## 3. Implementation Overview
 
-`PromptCatalog()` loads the 25 filenames in `FRAGMENTS` from
+`PromptCatalog()` loads the 26 filenames in `FRAGMENTS` from
 `Path(__file__).with_name("prompts")`. There is no configurable alternate path,
 process-global cache or reload mechanism. The `prompts/` resource directory is
 not a Python package; the sibling `prompts.py` is the importable module.
@@ -61,6 +62,7 @@ Resources are grouped by use:
 
 | Directory | Contents |
 |---|---|
+| `direct/` | Complete implementation, repository instructions, authority limits, questions and summary request |
 | `stage/` | Eight opening paragraphs, frame/quick hints, recovery/thread wrappers, package-permission variants, network suffix and closing rules |
 | `recovery/` | Revalidation route, integration conflict, continuation, no progress and strict-verification context |
 | `review/` | Pipeline brief and ticket-content-change note |
@@ -84,7 +86,9 @@ place. Add new required files to `FRAGMENTS` and its inventory proof together.
 
 Construction checks every resource before stage execution. The conductor renders
 fragments at their existing call sites and joins stage paragraphs with `\n\n`.
-Permission and network text remain one paragraph. The launcher renders the native
+Permission and network text remain one paragraph, composed through the same
+helper for AEGIS and direct. Direct composition reuses ticket/recovery/thread
+fragments without inserting AEGIS journal instructions. The launcher renders the native
 notice for native RPC, the offline notice for internet-off container RPC, and no
 notice for internet-on container RPC. No stored format or run lifecycle changes.
 
@@ -129,7 +133,12 @@ transport, production catalog sharing and exactly-once reads, literal dollar and
 brace data, strict missing-value errors, UTF-8, permission/missing-file failures,
 invalid syntax/header failures, unknown keys and precise whitespace/header removal.
 `tests/test_orchestrator.py`, `tests/test_executor.py` and `tests/test_pi_rpc.py`
-retain conductor and transport regression contracts.
+retain conductor and transport regression contracts. The direct fragment is
+part of eager missing/encoding/header/template refusal even for AEGIS runs;
+its notice matrix proves identical shared package/network bytes. Public direct
+launches capture non-ASCII, dollar/brace-bearing tickets and answer threads.
+The frozen historical inventory remains unchanged; its inventory assertion
+explicitly adds the new direct resource rather than regenerating old fixtures.
 
 Build the wheel in temporary storage and compare every `adore/prompts/` path and
 byte with the source inventory. Portable inclusion is inspected through its

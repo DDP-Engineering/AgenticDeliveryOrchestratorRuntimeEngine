@@ -1455,3 +1455,395 @@ def test_worktree_progress_hashes_links_without_following_and_rejects_link_paren
     (wt / "directory").symlink_to(tmp_path, target_is_directory=True)
     with pytest.raises(IsolationError, match="symlink parent"):
         manager.worktree_progress_fingerprint("run-1")
+
+
+# PUBLIC API / TESTS - direct exchange exclusions
+
+
+def _exchange_symlink(source: Path, target: Path, *, directory: bool = False) -> None:
+    """@brief Create a boundary-test link, skipping only Windows privilege refusal.
+    @param[in] source Link path inside the fake owned worktree.
+    @param[in] target External target which must remain untouched.
+    @param[in] directory Whether the target is a directory.
+    """
+    try:
+        source.symlink_to(target, target_is_directory=directory)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows account lacks symbolic-link privilege")
+        raise
+
+
+@pytest.mark.parametrize("tracked", [False, True])
+def test_progress_excludes_literal_exchange_paths(tmp_path: Path, tracked: bool) -> None:
+    """@brief Exchange edits are invisible but product edits still change progress."""
+    excluded = ("ADORE_SUMMARY.md", "notes/questions[1].md")
+    expected = {f":(top,literal,exclude){name}" for name in excluded}
+    calls = []
+    product_diff = "one"
+
+    def runner(argv, **kwargs):
+        """@brief Model filtered Git output and require literal exclusions on both lists."""
+        calls.append(argv)
+        if "ls-tree" in argv:
+            return _ok()
+        assert expected.issubset(argv)
+        if "diff" in argv:
+            # Indexed exchange additions must be filtered by Git, not Python parsing.
+            return _ok(product_diff)
+        assert "ls-files" in argv
+        return _ok("source.py\0")
+
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    wt = manager.path_for("run-1")
+    (wt / "notes").mkdir(parents=True)
+    (wt / "source.py").write_text("one", encoding="utf-8")
+    for name in excluded:
+        (wt / name).write_text("first", encoding="utf-8")
+    first = manager.worktree_progress_fingerprint("run-1", exclude_paths=excluded)
+    for name in excluded:
+        (wt / name).write_text("second", encoding="utf-8")
+    second = manager.worktree_progress_fingerprint("run-1", exclude_paths=excluded)
+    assert first == second
+    if tracked:
+        product_diff = "two"
+    else:
+        (wt / "source.py").write_text("two", encoding="utf-8")
+    assert second != manager.worktree_progress_fingerprint("run-1", exclude_paths=excluded)
+    assert all("--" in call for call in calls if "ls-tree" not in call)
+
+
+@pytest.mark.parametrize("method", ["progress", "checkpoint"])
+@pytest.mark.parametrize("path", ["", ".", "../escape", "/absolute", "C:/outside",
+                                   "a/../b", "a//b", "a\\b", ".git/config", "bad\0name", None])
+def test_exchange_exclusions_refuse_unsafe_paths(tmp_path: Path, method: str, path: str) -> None:
+    """@brief Exclusion inputs cannot escape the worktree or hide its Git administration."""
+    runner = FakeRunner()
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    with pytest.raises(IsolationError, match="exchange path"):
+        if method == "progress":
+            manager.worktree_progress_fingerprint("run-1", exclude_paths=(path,))
+        else:
+            manager.commit_all_if_dirty("run-1", "checkpoint", exclude_paths=(path,))
+    assert runner.calls == []
+
+
+@pytest.mark.parametrize("method", ["progress", "checkpoint"])
+@pytest.mark.parametrize("entry", ["ADORE_SUMMARY.md\0", "ADORE_SUMMARY.md/child\0"])
+def test_exchange_paths_refuse_source_collisions(tmp_path: Path, method: str, entry: str) -> None:
+    """@brief Existing source at an exchange path cannot be hidden or overwritten."""
+    runner = FakeRunner(_ok(entry))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    with pytest.raises(IsolationError, match="source-owned exchange path"):
+        if method == "progress":
+            manager.worktree_progress_fingerprint("run-1", exclude_paths=("ADORE_SUMMARY.md",))
+        else:
+            manager.commit_all_if_dirty("run-1", "checkpoint", exclude_paths=("ADORE_SUMMARY.md",))
+    assert len(runner.calls) == 1
+    assert runner.calls[0][3:] == ["ls-tree", "-r", "--full-tree", "--name-only", "-z", "HEAD"]
+
+
+@pytest.mark.parametrize("observed", ["incomplete", "\0", "../escape\0"])
+def test_exchange_paths_refuse_corrupt_collision_evidence(tmp_path: Path, observed: str) -> None:
+    """@brief Untrusted Git collision checks never silently enable an exclusion."""
+    runner = FakeRunner(_ok(observed))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    with pytest.raises(IsolationError, match="invalid Git exchange"):
+        manager.worktree_progress_fingerprint("run-1", exclude_paths=("ADORE_SUMMARY.md",))
+
+
+def test_checkpoint_unstages_and_excludes_exchange_files(tmp_path: Path) -> None:
+    """@brief Already-staged exchange additions are restored before literal staging."""
+    excluded = ("ADORE_SUMMARY.md", "notes/questions[1].md")
+    runner = FakeRunner(
+        _ok(),  # No source-owned exchange paths in HEAD.
+        _ok(),  # Unstage exchange additions (including removed summary).
+        _ok(" M source.py\0?? ADORE_SUMMARY.md\0?? notes/questions[1].md\0"),
+        _ok("source.py\0ADORE_SUMMARY.md\0notes/questions[1].md\0"),
+        _ok(), _ok(), _ok("source.py\0"),  # Add; inspect additions.
+        _ok("source.py\0"),  # Full staged set, not only additions.
+        _ok("M  source.py\0?? ADORE_SUMMARY.md\0?? notes/questions[1].md\0"),
+        _ok(),
+    )
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    assert manager.commit_all_if_dirty("run-1", "checkpoint", exclude_paths=excluded)
+    assert runner.calls[1][3:] == [
+        "reset", "-q", "HEAD", "--", *[f":(top,literal){name}" for name in excluded],
+    ]
+    add = next(call for call in runner.calls if "add" in call)
+    assert add[3:] == ["add", "-A", "--", ".",
+                       *[f":(top,literal,exclude){name}" for name in excluded]]
+    assert runner.calls[-1][-3:] == ["commit", "-m", "checkpoint"]
+    assert not runner.results
+
+
+@pytest.mark.parametrize("staged", ["ADORE_SUMMARY.md\0", "notes/questions[1].md\0",
+                                    "ADORE_SUMMARY.md/child\0", "incomplete", "../escape\0"])
+def test_checkpoint_rechecks_all_staged_exchange_paths(tmp_path: Path, staged: str) -> None:
+    """@brief A staged modification/deletion or race at an exchange path prevents commit."""
+    runner = FakeRunner(_ok(), _ok(), _ok(" M source.py\0"), _ok(), _ok(),
+                        _ok(), _ok(), _ok(staged), _ok("M  source.py\0"), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    with pytest.raises(IsolationError, match="exchange|invalid"):
+        manager.commit_all_if_dirty("run-1", "checkpoint",
+                                    exclude_paths=("ADORE_SUMMARY.md", "notes/questions[1].md"))
+    assert all("commit" not in call for call in runner.calls)
+
+
+def test_checkpoint_exchange_only_is_noop(tmp_path: Path) -> None:
+    """@brief An untracked exchange file alone never authorizes an empty commit."""
+    runner = FakeRunner(_ok(), _ok(), _ok("?? ADORE_SUMMARY.md\0"))
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    assert not manager.commit_all_if_dirty("run-1", "checkpoint",
+                                           exclude_paths=("ADORE_SUMMARY.md",))
+    assert all("commit" not in call and "add" not in call for call in runner.calls)
+
+
+@pytest.mark.parametrize("result", [_fail("cannot unstage"), CommandResult(exit_code=False),
+                                    CommandResult(exit_code=0, timed_out=True)])
+def test_checkpoint_exchange_unstage_failure_stops(tmp_path: Path, result: CommandResult) -> None:
+    """@brief Failed or untrustworthy index restoration cannot reach staging or commit."""
+    runner = FakeRunner(_ok(), result)
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    manager.path_for("run-1").mkdir(parents=True)
+    with pytest.raises(IsolationError):
+        manager.commit_all_if_dirty("run-1", "checkpoint", exclude_paths=("ADORE_SUMMARY.md",))
+    assert all("commit" not in call and "add" not in call for call in runner.calls)
+
+
+# PUBLIC API / TESTS - summary artifact trust boundary
+
+
+@pytest.mark.parametrize("text", ["", "What changed: café\nChecked: tests passed\n",
+                                  "é" * 9000 + "\nlast checks\n"],
+                         ids=["empty", "unicode", "bounded-tail"])
+def test_summary_read_then_owned_removal(tmp_path: Path, text: str) -> None:
+    """@brief Bounded UTF-8 evidence is read without mutation, then removed explicitly."""
+    runner = FakeRunner(_ok(), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    wt = manager.path_for("run-1")
+    wt.mkdir(parents=True)
+    source = wt / "ADORE_SUMMARY.md"
+    source.write_text(text, encoding="utf-8")
+    artifact = manager.read_summary("run-1", max_chars=6000)
+    assert artifact is not None and artifact.text == text[-6000:]
+    assert source.read_text(encoding="utf-8") == text  # Caller must persist before removal.
+    manager.remove_summary("run-1", artifact)
+    assert not source.exists()
+    assert all("commit" not in call for call in runner.calls)
+
+
+def test_summary_absence_is_not_an_error(tmp_path: Path) -> None:
+    """@brief Missing requested output is allowed, never invented or created."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok()))
+    manager.path_for("run-1").mkdir(parents=True)
+    assert manager.read_summary("run-1", max_chars=6000) is None
+    assert list(manager.path_for("run-1").iterdir()) == []
+
+
+@pytest.mark.parametrize("kind", ["invalid-utf8", "directory", "symlink", "hardlink"])
+def test_summary_refuses_unsafe_artifact(tmp_path: Path, kind: str) -> None:
+    """@brief Corrupt, linked and non-file executor output fails closed without deletion."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok()))
+    wt = manager.path_for("run-1")
+    wt.mkdir(parents=True)
+    source = wt / "ADORE_SUMMARY.md"
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"not summary")
+    if kind == "invalid-utf8":
+        # An invalid prefix must not be hidden by retained tail truncation.
+        source.write_bytes(b"\xff" + b"x" * 9000)
+    elif kind == "directory":
+        source.mkdir()
+    elif kind == "symlink":
+        _exchange_symlink(source, outside)
+    else:
+        os.link(outside, source)
+    with pytest.raises(IsolationError, match="summary|exchange"):
+        manager.read_summary("run-1", max_chars=6000)
+    assert source.exists() or source.is_symlink()
+    assert outside.read_bytes() == b"not summary"
+
+
+@pytest.mark.parametrize("operation", ["read", "remove"])
+def test_summary_io_failure_is_typed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                     operation: str) -> None:
+    """@brief Read/unlink errors preserve the artifact and the previously captured text."""
+    runner = FakeRunner(_ok(), _ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("kept evidence", encoding="utf-8")
+
+    def denied(*args, **kwargs):
+        """@brief Inject a permission boundary rather than depend on the test account UID."""
+        raise PermissionError("denied summary")
+
+    if operation == "read":
+        monkeypatch.setattr(os, "open", denied)
+        with pytest.raises(IsolationError, match="summary"):
+            manager.read_summary("run-1", max_chars=6000)
+    else:
+        artifact = manager.read_summary("run-1", max_chars=6000)
+        monkeypatch.setattr(Path, "unlink", denied)
+        with pytest.raises(IsolationError, match="summary"):
+            manager.remove_summary("run-1", artifact)
+        assert artifact.text == "kept evidence"
+    assert source.read_text(encoding="utf-8") == "kept evidence"
+
+
+@pytest.mark.parametrize("mutation", ["replace", "edit", "missing", "symlink"])
+def test_summary_removal_rejects_changed_identity(tmp_path: Path, mutation: str) -> None:
+    """@brief A stale read cannot authorize deletion of a new or changed artifact."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok(), _ok()))
+    source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("original", encoding="utf-8")
+    artifact = manager.read_summary("run-1", max_chars=6000)
+    outside = tmp_path / "outside"
+    outside.write_text("replacement", encoding="utf-8")
+    if mutation == "replace":
+        os.replace(outside, source)
+    elif mutation == "edit":
+        source.write_text("changed", encoding="utf-8")
+    else:
+        source.unlink()
+        if mutation == "symlink":
+            _exchange_symlink(source, outside)
+    with pytest.raises(IsolationError, match="summary|exchange"):
+        manager.remove_summary("run-1", artifact)
+    if mutation != "missing":
+        assert source.exists()
+    assert artifact.text == "original"
+
+
+def test_summary_refuses_a_linked_worktree(tmp_path: Path) -> None:
+    """@brief Even a missing summary behind an aliased root is not safe absence."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner())
+    manager.root.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "ADORE_SUMMARY.md").write_text("private", encoding="utf-8")
+    _exchange_symlink(manager.path_for("run-1"), outside, directory=True)
+    with pytest.raises(IsolationError, match="exchange"):
+        manager.read_summary("run-1", max_chars=6000)
+    assert (outside / "ADORE_SUMMARY.md").read_text(encoding="utf-8") == "private"
+
+
+def test_summary_source_owned_collision_is_not_consumed(tmp_path: Path) -> None:
+    """@brief A repository's existing summary-named source is never agent output."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work",
+                              runner=FakeRunner(_ok("ADORE_SUMMARY.md\0")))
+    source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("repository source", encoding="utf-8")
+    with pytest.raises(IsolationError, match="source-owned exchange path"):
+        manager.read_summary("run-1", max_chars=6000)
+    assert source.read_text(encoding="utf-8") == "repository source"
+
+
+@pytest.mark.parametrize("bound", [0, -1, True, None, "6000"])
+def test_summary_refuses_invalid_evidence_bound(tmp_path: Path, bound: object) -> None:
+    """@brief A malformed retention bound never reads or removes executor output."""
+    runner = FakeRunner()
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    with pytest.raises(IsolationError, match="summary evidence bound"):
+        manager.read_summary("run-1", max_chars=bound)
+    assert not runner.calls
+
+
+def test_summary_removal_refuses_wrong_worktree(tmp_path: Path) -> None:
+    """@brief Text read from one run does not authorize deleting another run's summary."""
+    runner = FakeRunner(_ok())
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    for run_id in ("run-1", "run-2"):
+        source = manager.path_for(run_id) / "ADORE_SUMMARY.md"
+        source.parent.mkdir(parents=True)
+        source.write_text(run_id, encoding="utf-8")
+    artifact = manager.read_summary("run-1", max_chars=6000)
+    with pytest.raises(IsolationError, match="different worktree"):
+        manager.remove_summary("run-2", artifact)
+    assert (manager.path_for("run-2") / "ADORE_SUMMARY.md").read_text(encoding="utf-8") == "run-2"
+    assert len(runner.calls) == 1
+
+
+@pytest.mark.parametrize("phase", ["open", "read"])
+def test_summary_refuses_mutation_during_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str,
+) -> None:
+    """@brief Pre-read replacement and mid-read edits cannot yield a valid summary receipt."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok()))
+    source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("original", encoding="utf-8")
+    if phase == "open":
+        original_open = os.open
+
+        def replace_at_open(path, flags):
+            """@brief Swap in a distinct regular file after the first path check."""
+            replacement = source.with_suffix(".new")
+            replacement.write_text("replacement", encoding="utf-8")
+            os.replace(replacement, source)
+            return original_open(path, flags)
+
+        monkeypatch.setattr(os, "open", replace_at_open)
+    else:
+        original_fstat = os.fstat
+        checks = 0
+
+        def mutate_after_precheck(fd):
+            """@brief Change the same inode while the summary stream is being consumed."""
+            nonlocal checks
+            info = original_fstat(fd)
+            checks += 1
+            if checks == 1:
+                source.write_text("changed content", encoding="utf-8")
+            return info
+
+        monkeypatch.setattr(os, "fstat", mutate_after_precheck)
+    with pytest.raises(IsolationError, match="summary changed"):
+        manager.read_summary("run-1", max_chars=6000)
+    assert source.exists()
+
+
+@pytest.mark.parametrize("method", ["progress", "checkpoint"])
+def test_exchange_refuses_linked_question_parent(tmp_path: Path, method: str) -> None:
+    """@brief A configured nested questions path cannot enter an external linked directory."""
+    runner = FakeRunner()
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=runner)
+    wt = manager.path_for("run-1")
+    wt.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "questions.md").write_text("private", encoding="utf-8")
+    _exchange_symlink(wt / "notes", outside, directory=True)
+    with pytest.raises(IsolationError, match="exchange path parent"):
+        if method == "progress":
+            manager.worktree_progress_fingerprint("run-1", exclude_paths=("notes/questions.md",))
+        else:
+            manager.commit_all_if_dirty("run-1", "checkpoint",
+                                        exclude_paths=("notes/questions.md",))
+    assert (outside / "questions.md").read_text(encoding="utf-8") == "private"
+    assert not runner.calls
+
+
+@pytest.mark.parametrize("result", [CommandResult(exit_code=False),
+                                    CommandResult(exit_code=0, stdout=None),
+                                    CommandResult(exit_code=0, stdout="\ufffd"),
+                                    CommandResult(exit_code=0, timed_out=True),
+                                    _fail("Git failed")])
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_direct_progress_refuses_untrusted_git_results(tmp_path: Path, result: CommandResult,
+                                                      index: int) -> None:
+    """@brief Neither collision lists, binary diffs nor untracked lists may be corrupt."""
+    results = [_ok(), _ok(), _ok()]
+    results[index] = result
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(*results))
+    manager.path_for("run-1").mkdir(parents=True)
+    with pytest.raises(IsolationError):
+        manager.worktree_progress_fingerprint("run-1", exclude_paths=("ADORE_SUMMARY.md",))

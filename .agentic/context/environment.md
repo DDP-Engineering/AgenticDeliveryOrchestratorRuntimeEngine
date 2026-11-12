@@ -73,12 +73,14 @@ configured `store_root`, `.adore/` by default.
 ## Readiness checks
 
 `adore --profile <name> config validate` proves the configuration. Guided setup
-(`adore init`) probes the host tools and the target repository's AEGIS
-payload, which must provide `.agentic/aegis.py` at a supported version and
-schema-1 `status --all --json`. After candidate confirmation and validation,
-init uses that configuration's `workflow.aegis_python` (default `python`) for
-both probes; an unavailable interpreter is named and readiness stays informational.
-The same two commands verify a target clone by hand. `adore --profile <name> run --dry-run` shows ticket selection without
+(`adore init`) probes host tools and the target repository's AEGIS payload
+only when present. Absence reports `No AEGIS found: tickets run in the direct
+workflow` as INFO, with no AEGIS command. Present payloads must meet the
+client-declared supported range and schema-1 `status --all --json`; broken or
+unsupported entries never enable fallback. After confirmation/validation init
+uses the effective `workflow.aegis_python` (default `python`) for both probes;
+a missing interpreter is named with informational CHECK. The same two commands
+verify a present target payload by hand. Web enrollment still requires AEGIS. `adore --profile <name> run --dry-run` shows ticket selection without
 side effects.
 
 ## Build and run
@@ -102,6 +104,11 @@ For web service monitoring, `/api/v1/health` checks the API listener and
 `.agentic/aegis.toml` `[commands]` owns the canonical `test` and `lint`
 commands, run from `workdir = "04_Software"`; the suite is fully offline.
 Focused work runs `pytest -q tests/test_<component>.py` from `04_Software`.
+Offline model fakes need provider credentials absent from the parent test
+process (for example `env -u OPENAI_API_KEY`), not copied into fixtures. Native
+machine/account checks require an initialized container/host machine identity;
+Linux uses a nonempty `/etc/machine-id`. Playwright uses its matching installed
+Chromium, including `PLAYWRIGHT_BROWSERS_PATH` when image-provided.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
 additionally passes `python 02_Tools/internal/check_release_consistency.py

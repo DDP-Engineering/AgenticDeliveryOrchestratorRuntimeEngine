@@ -57,6 +57,7 @@ class RunSummary:
 
     run_id: str
     ticket_iid: int = 0
+    workflow: str = "aegis"
     title: str = ""
     priority: str = ""
     lifecycle: str = ""
@@ -78,6 +79,14 @@ class RunSummary:
     cost_usd: float = 0.0
     files_changed: int = 0
     mr_url: str = ""
+
+    def __post_init__(self) -> None:
+        """
+        @brief Refuse unknown workflow identities at summary construction and load.
+        @exception MetricsError For any value other than aegis or direct.
+        """
+        if not isinstance(self.workflow, str) or self.workflow not in {"aegis", "direct"}:
+            raise MetricsError("metrics summary carries unknown workflow")
 
 
 # HELPER FUNCTIONS
@@ -282,6 +291,7 @@ def summarize_run(store: StateStore, run_id: str,
     summary = RunSummary(
         run_id=run_id,
         ticket_iid=state.ticket_iid,
+        workflow=state.workflow,
         title=str(ticket.get("title", ""))[:120],
         lifecycle=state.lifecycle,
         outcome=state.outcome or state.lifecycle,

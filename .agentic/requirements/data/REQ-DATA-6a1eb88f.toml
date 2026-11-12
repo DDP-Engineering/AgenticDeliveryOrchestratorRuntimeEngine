@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-6a1eb88f"
+title = "Refuse run state missing its workflow"
+status = "active"
+requirement = "If persisted run state lacks workflow, StateStore.load shall raise StateError naming the run directory to delete without filling a default or rewriting the store."
+verification = "Save/load valid current aegis and direct states, remove workflow from each state.json and call load; assert StateError contains that run directory and deletion guidance, and compare file bytes to prove no repair."
+affected_paths = ["04_Software/adore/state.py"]
+linked_tests = ["04_Software/tests/test_state.py::test_workflow_round_trip", "04_Software/tests/test_state.py::test_missing_workflow_refuses_without_repair"]
+spec = ""
+priority = "high"
+rationale = "Exactly one current stored shape is supported, without migration."
+created = 2026-11-12
+updated = 2026-11-12
