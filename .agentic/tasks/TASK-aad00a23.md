@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-aad00a23 - [Direct] Show direct jobs clearly in Jobs
 
-stage: design
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,12 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] design note written under the five headings, or its skip justified
-- [ ] each decision cites a requirement ID or a named technical constraint
-- [ ] every requirement maps to a decision and test seam, or no design impact
-- [ ] risks and open decisions recorded
-- [ ] `affected_paths` match the expected files
-- [ ] knowledge pages unchanged
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -130,29 +132,29 @@ are draft, with empty linked_tests until build. Design owns the final column.
 
 | Frame outcome | Atomic behavior | Requirement | Verification | Design decision or no impact |
 |---|---|---|---|---|
-| Recorded workflow | Authorized job reads serialize the persisted aegis/direct value. | REQ-DATA-18b26c84 | Existing offline API list/detail fixtures for both roles/workflows, corrupt workflow and foreign project refusal. | Pending design |
-| List identification | Global and project Jobs list identify each job as AEGIS or Direct in four locales. | REQ-UX-4123c97c | Model valid-workflow controls and mixed-workflow browser rows in both scopes; unknown value is not defaulted. | Pending design |
-| Page identification | Job detail identifies its own recorded workflow in four locales. | REQ-UX-029d0525 | Browser direct/AEGIS composite routes, locale labels and switching without a stale label. | Pending design |
-| Direct steps | Direct stage presentation uses Implementation/build, Validation/validate and Done, showing only recorded stage evidence. | REQ-UX-ad37f7e7 | Model and browser build/validate/done plus saved timeline controls; no early AEGIS stages or invented completion. | Pending design |
-| No direct AEGIS task | Direct details contain no AEGIS task presentation. | REQ-UX-5cf762f8 | Browser detail/technical evidence absence; existing corrupt direct task-binding API negative. | Pending design |
-| Direct attempt | Detail shows the latest saved executor stage-launch attempt number. | REQ-UX-ef06a3c7 | API/model/browser known latest attempt distinct from lifetime launches/failures; malformed counter negatives. | Pending design |
-| Honest attempt absence | No recorded launch gives an unavailable attempt, not a guessed ordinal. | REQ-UX-1b6f2a83 | API/model/browser absent-journal control with nonzero other counters; malformed present attempt is not absence. | Pending design |
-| Verification command | Detail shows the saved redacted command before its result. | REQ-UX-16f751b7 | API/model/browser command ordering and inert operators/markup; changed current config cannot substitute text. | Pending design |
-| Verification passed | A valid saved zero-exit non-timeout pass displays Passed. | REQ-UX-f6c6e946 | Model/browser pass including zero duration/empty output; timeout and status disagreement cannot pass. | Pending design |
-| Verification failed | A valid saved nonzero non-timeout failure displays Failed. | REQ-UX-7e9792e9 | Model/browser retained failure during build and terminal failure; exit 124 without timeout is Failed. | Pending design |
-| Verification timed out | A valid saved timeout displays Timed out independently of exit code. | REQ-UX-647b1549 | Model/browser timeout controls including exit zero; invalid timeout type/status disagreement rejected. | Pending design |
-| Explicit unverified | An explicit not-configured record displays Not configured: unverified. | REQ-UX-631835f9 | Model/browser unconfigured case with no fabricated measurements; absent status and contradictory result negatives. | Pending design |
-| Verification duration | Configured-result detail displays recorded elapsed seconds. | REQ-UX-009b4cb9 | Model/browser zero, fractional, large finite duration controls; boolean, negative, nonfinite and overflow rejected. | Pending design |
-| Verification output | Configured-result detail displays bounded redacted inert tail or an empty-output indication. | REQ-UX-9cdaa57b | API/model/browser empty and maximum-tail controls, leading whitespace, inert markup, credential masking and over-bound rejection. | Pending design |
-| Honest verification absence | No saved outcome/result displays verification unavailable. | REQ-UX-7fab3dcb | Model/browser pre-verification build distinct from explicit unverified; an outcome missing its result is an error. | Pending design |
-| Read-only direct evidence | Authorized detail projects allowlisted saved attempt and latest independent result with explicit absence. | REQ-DATA-08ed925c | Offline API both roles, all outcomes/absence, saved-vs-current config, source-byte preservation, no commands and forbidden foreign reads. | Pending design |
-| Persisted trust-boundary failures | Malformed selected job sources fail with typed secret-free errors and no partial totals or repair. | REQ-SEC-5d0f86e7 | Reuse source-error contract; add direct result/status/type/bounds and stage-launch attempt corruption to offline API coverage. | Pending design |
-| Unknown workflow error | Missing/nontext/unknown browser workflow rejects the response into the existing error state. | REQ-UX-b105b854 | Model list/detail invalid workflow matrix and browser injection after valid evidence; hide stale totals/detail and guessed labels. | Pending design |
-| Direct evidence transport error | Malformed browser direct attempt/verification evidence rejects the detail into the existing error state. | REQ-UX-46c09118 | Model shape/type/status/range/bounds matrix and browser corruption after valid detail; no fabricated pass/unverified result. | Pending design |
-| Invalid direct stage error | Browser direct state/timeline naming a non-direct stage rejects the response. | REQ-UX-a8c7ea48 | Model current/timeline forbidden-stage matrix and browser corrupt-stage fixture; valid AEGIS controls retain their stages. | Pending design |
-| AEGIS regression boundary | Existing authorized AEGIS current-state/actions/observed-only timeline rendering remains intact apart from workflow identification. | REQ-UX-b758d2b7 | Retain existing AEGIS model/browser assertions, including quick path, lifecycle/actions, timeline paging, missing evidence and error hiding; no direct panel. | Pending design |
-| Jobs help | Four-locale Jobs help explains direct workflow, attempt and each verification outcome. | REQ-UX-c77f7335 | Content tests plus help browser navigation, matching interface terms and locale structure/link/Markdown negatives. | Pending design |
-| Stage-limit guidance | Four-locale Jobs/Settings help and inline guidance explain direct build/validate limit mapping and general-limit fallback. | REQ-UX-558518e7 | Content/setting-guidance tests and help browser navigation; no AEGIS-only limits attributed to direct jobs. | Pending design |
+| Recorded workflow | Authorized job reads serialize the persisted aegis/direct value. | REQ-DATA-18b26c84 | Existing offline API list/detail fixtures for both roles/workflows, corrupt workflow and foreign project refusal. | D1: retain saved workflow serialization and its existing API tests; no engine impact. |
+| List identification | Global and project Jobs list identify each job as AEGIS or Direct in four locales. | REQ-UX-4123c97c | Model valid-workflow controls and mixed-workflow browser rows in both scopes; unknown value is not defaulted. | D1/D6: required workflow type/reader, localized inline Status-cell label (no new column); jobs.test.mjs and mixed global/project browser rows. |
+| Page identification | Job detail identifies its own recorded workflow in four locales. | REQ-UX-029d0525 | Browser direct/AEGIS composite routes, locale labels and switching without a stale label. | D1/D6: label in the current-state card from validated composite detail; jobs.test.mjs and four-locale switching journeys. |
+| Direct steps | Direct stage presentation uses Implementation/build, Validation/validate and Done, showing only recorded stage evidence. | REQ-UX-ad37f7e7 | Model and browser build/validate/done plus saved timeline controls; no early AEGIS stages or invented completion. | D6: workflow-aware stage label used by list/card/ObservedTimeline; direct build/validate/done model controls and browser saved-events assertions. |
+| No direct AEGIS task | Direct details contain no AEGIS task presentation. | REQ-UX-5cf762f8 | Browser detail/technical evidence absence; existing corrupt direct task-binding API negative. | D1/D6: retain state binding refusal; expose no task field and render no direct task row; existing API negative plus direct browser technical-details assertions. |
+| Direct attempt | Detail shows the latest saved executor stage-launch attempt number. | REQ-UX-ef06a3c7 | API/model/browser known latest attempt distinct from lifetime launches/failures; malformed counter negatives. | D2: direct.attempt is last saved stage-launch ordinal, not budget.launches; API/model known-value and browser attempt assertions. |
+| Honest attempt absence | No recorded launch gives an unavailable attempt, not a guessed ordinal. | REQ-UX-1b6f2a83 | API/model/browser absent-journal control with nonzero other counters; malformed present attempt is not absence. | D2: direct.attempt=null only with no launch; API/model absent-journal controls and unavailable browser copy. |
+| Verification command | Detail shows the saved redacted command before its result. | REQ-UX-16f751b7 | API/model/browser command ordering and inert operators/markup; changed current config cannot substitute text. | D3/D6: saved command first in inert code text; no config lookup for verification; API redaction/config-independence, model and browser DOM-order proof. |
+| Verification passed | A valid saved zero-exit non-timeout pass displays Passed. | REQ-UX-f6c6e946 | Model/browser pass including zero duration/empty output; timeout and status disagreement cannot pass. | D3/D6: agreeing passed result discriminant only; API/model zero-duration/empty-tail controls and localized browser Passed assertions. |
+| Verification failed | A valid saved nonzero non-timeout failure displays Failed. | REQ-UX-7e9792e9 | Model/browser retained failure during build and terminal failure; exit 124 without timeout is Failed. | D3/D6: retain latest failed result across build/lifecycle changes; API/model 124 control and browser remediation/terminal fixtures. |
+| Verification timed out | A valid saved timeout displays Timed out independently of exit code. | REQ-UX-647b1549 | Model/browser timeout controls including exit zero; invalid timeout type/status disagreement rejected. | D3/D6: timed_out takes priority over exit; API/model true-plus-zero control and browser distinct timeout result. |
+| Explicit unverified | An explicit not-configured record displays Not configured: unverified. | REQ-UX-631835f9 | Model/browser unconfigured case with no fabricated measurements; absent status and contradictory result negatives. | D3/D6: explicit not-configured discriminant with null result, never a pass; API/model/browser controls and contradictions. |
+| Verification duration | Configured-result detail displays recorded elapsed seconds. | REQ-UX-009b4cb9 | Model/browser zero, fractional, large finite duration controls; boolean, negative, nonfinite and overflow rejected. | D3: finite nonnegative seconds, overflow-safe Python validation; API/model numeric matrix and browser recorded-seconds display. |
+| Verification output | Configured-result detail displays bounded redacted inert tail or an empty-output indication. | REQ-UX-9cdaa57b | API/model/browser empty and maximum-tail controls, leading whitespace, inert markup, credential masking and over-bound rejection. | D3/D6: validate source, web-redact then bound tail, preserve whitespace, render focusable pre or empty notice; API/model limits and browser inert-text proof. |
+| Honest verification absence | No saved outcome/result displays verification unavailable. | REQ-UX-7fab3dcb | Model/browser pre-verification build distinct from explicit unverified; an outcome missing its result is an error. | D3: absent keys yield unavailable/null, present malformed keys fail; API/model pre-verification control and browser unavailable notice. |
+| Read-only direct evidence | Authorized detail projects allowlisted saved attempt and latest independent result with explicit absence. | REQ-DATA-08ed925c | Offline API both roles, all outcomes/absence, saved-vs-current config, source-byte preservation, no commands and forbidden foreign reads. | D2/D3: _view builds direct projection from captured run/events; app strips it from lists only; API role/snapshot/source-preservation tests. |
+| Persisted trust-boundary failures | Malformed selected job sources fail with typed secret-free errors and no partial totals or repair. | REQ-SEC-5d0f86e7 | Reuse source-error contract; add direct result/status/type/bounds and stage-launch attempt corruption to offline API coverage. | D4: existing JobReadError codes, strict all-selected-source validation and no repair; test_web_jobs.py malformed attempts/results, grants and races. |
+| Unknown workflow error | Missing/nontext/unknown browser workflow rejects the response into the existing error state. | REQ-UX-b105b854 | Model list/detail invalid workflow matrix and browser injection after valid evidence; hide stale totals/detail and guessed labels. | D1/D5: strict workflow enum on both readers; list error/incomplete/changed also gates visibleDetail; model mutation matrix and browser post-success corruption. |
+| Direct evidence transport error | Malformed browser direct attempt/verification evidence rejects the detail into the existing error state. | REQ-UX-46c09118 | Model shape/type/status/range/bounds matrix and browser corruption after valid detail; no fabricated pass/unverified result. | D3/D5: closed direct/result objects and status agreement in readJobDetail; model field/type/bound mutations plus browser stale-panel hiding. |
+| Invalid direct stage error | Browser direct state/timeline naming a non-direct stage rejects the response. | REQ-UX-a8c7ea48 | Model current/timeline forbidden-stage matrix and browser corrupt-stage fixture; valid AEGIS controls retain their stages. | D4/D5: direct current/timeline domain is build/validate/done; refuse rather than filter; model and browser forbidden-stage controls. |
+| AEGIS regression boundary | Existing authorized AEGIS current-state/actions/observed-only timeline rendering remains intact apart from workflow identification. | REQ-UX-b758d2b7 | Retain existing AEGIS model/browser assertions, including quick path, lifecycle/actions, timeline paging, missing evidence and error hiding; no direct panel. | D6: keep AEGIS copy, actions, columns and timeline unchanged; default workflow-aware helper to explicit aegis only at callers; retain existing assertions with additive fixture workflow. |
+| Jobs help | Four-locale Jobs help explains direct workflow, attempt and each verification outcome. | REQ-UX-c77f7335 | Content tests plus help browser navigation, matching interface terms and locale structure/link/Markdown negatives. | D7: matching direct-evidence help sections in four jobs.md files; help.test.mjs semantic/parity checks and help.spec.ts navigation. |
+| Stage-limit guidance | Four-locale Jobs/Settings help and inline guidance explain direct build/validate limit mapping and general-limit fallback. | REQ-UX-558518e7 | Content/setting-guidance tests and help browser navigation; no AEGIS-only limits attributed to direct jobs. | D7: four-locale jobs/settings help and inline general/map/wildcard guidance; settingHelp.test.mjs/help.test.mjs and help.spec.ts. |
 
 ### Specify evidence and challenge
 
@@ -209,6 +211,47 @@ are draft, with empty linked_tests until build. Design owns the final column.
 
 ## Design
 
+### Approach
+
+- INFERRED **D1** (REQ-DATA-18b26c84; REQ-UX-4123c97c, REQ-UX-029d0525, REQ-UX-b105b854): make recorded `workflow: "aegis" | "direct"` mandatory in `Job` and `readJob`; labels use that value, never repository readiness or config. Reuse existing routes, authorization and readers rather than introduce a workflow service.
+- INFERRED **D2** (REQ-DATA-08ed925c; REQ-UX-ef06a3c7, REQ-UX-1b6f2a83): a private `jobs.py::_direct_evidence(run, events)` called by `_view` validates all direct `stage-launch` attempts in append order and projects the last, or null with none. It consumes the already captured sources; it does not reread state, infer counters or call the engine.
+- INFERRED **D3** (REQ-DATA-08ed925c and shared spec; verification requirements in the map): the same helper projects only the latest saved independent verification. Reject calling `Orchestrator._direct_result`: OBSERVED it binds today's configured command and has execution-layer ownership, whereas saved Jobs evidence must survive changed/missing config. Keep this small read-boundary validator local; no new dependency or shared workflow abstraction.
+
+### Interfaces and data
+
+- INFERRED (D2/D3): detail-only `job.direct = {attempt, verification}`; `attempt` is a positive safe integer or null. `verification` is exactly `{status, result}`: status `unavailable` or `not configured` requires result null; status `passed`, `failed` or `timed out` requires exactly `{command, exit_code, seconds, timed_out, output}`. Missing direct evidence is represented inside this object, never by omitting the object on a direct detail. AEGIS details omit `direct`; list rows omit it for both workflows.
+- INFERRED (D3; named technical constraint **JavaScript exact integer transport**): saved exit codes are Python integers without a declared width. Project `exit_code` as canonical decimal text (zero `"0"`, otherwise optional minus and nonzero-leading digits), preserving arbitrary integer values without float rounding; browser status agreement compares that exact text to `"0"`. This is a read transport choice only, not a stored-format change. `seconds` stays a JSON number after overflow-safe finite/nonnegative validation, `timed_out` stays boolean, command/output stay valid Unicode text. Model/API controls include large signed exit integers as well as ordinary exits.
+- INFERRED (D3): detect absence by key presence: neither saved status nor result means unavailable; explicit `not configured` without a result means unverified. Explicit null, incomplete/extra result keys, bad types, contradictory status and invalid duration fail. A timeout wins over any exit code; exit 124 alone is failure. Preserve zero seconds and empty output. Validate normalized output (no NUL/ANSI, at most 200 lines/6000 Unicode scalars) before existing `redact_text`; mask both roles before any needed final tail cut, without trimming valid leading whitespace. Browser repeats shape/status/Unicode/bound checks; Python and JS count Unicode scalars and normalized LF lines consistently, not JS UTF-16 units.
+- INFERRED **D4** (REQ-SEC-5d0f86e7; REQ-UX-a8c7ea48): validate every selected direct projection before search/counts/paging; invalid attempt/timeline yields `JobReadError("run_journal_corrupt")`, invalid verification/current stage yields `run_state_corrupt`. Current and non-null event stages must be build/validate/done. Keep existing Overview unreadable-project isolation, secret-free envelopes, optimistic revisions, final profile/grant reinspection and no-repair semantics. No engine/state-schema changes.
+- INFERRED **D5** (REQ-UX-b105b854, REQ-UX-46c09118, REQ-UX-a8c7ea48): `readJobDetail` requires/validates the closed direct object only for direct jobs and refuses it on AEGIS; invalid responses use existing unexpected-response feedback. Gate `visibleDetail` on list errors/incomplete/source-change as well as detail success so malformed list workflow cannot leave prior direct evidence visible. Existing sequence/composite/session guards remain authoritative; successful refresh is the only recovery.
+
+### Files and test seams
+
+- INFERRED **D6** (REQ-UX-ad37f7e7, REQ-UX-5cf762f8, REQ-UX-b758d2b7 plus mapped display requirements): in `JobWorkspace.tsx`, add Workflow text under the existing Status-cell content and in the current-state card, retaining the five table columns. Add a workflow-aware stage-label helper in `jobCopy.ts`, shared by list/card/ObservedTimeline; direct labels come from new `i18n.ts` keys for Implementation/Validation/Done, AEGIS uses existing labels unchanged. Pass workflow explicitly. Branch direct Working explanation/guidance and observed-timeline copy so it never claims AEGIS or a quick path; keep AEGIS strings/assertions intact. Add a small local direct-evidence view after current-state evidence: latest recorded attempt (or unavailable), then command, localized result, recorded seconds and focusable inert `pre` tail (or empty notice). No synthetic stepper, task row, HTML/Markdown rendering, command action, new polling or verification progress inference.
+- OBSERVED/INFERRED (D2/D3; `app.py::jobs_page` currently strips only timeline): change `adore/web/jobs.py` and the list exclusion in `adore/web/app.py`; details inherit direct evidence from the same captured `_view`. Extend `tests/test_web_jobs.py` through public HTTP reads for both roles, all outcomes/absence, latest journal order, malformed selected evidence, unauthorized unread sources, saved-vs-current config, redaction, source preservation and source/grant races. Reads must invoke no external runner.
+- INFERRED (D1–D6): extend `web/tests/jobs.test.mjs` through public readers/helper to cover every coverage-row control and negative matrix; add workflow to the existing AEGIS fixture without weakening assertions. Add `web/e2e/jobs.spec.ts` journeys for global/project mixed lists, direct stages/attempt/outcomes, switching and post-success corrupt responses, four locales, desktop/narrow light/dark and keyboard overflow. Extend `web/e2e/server.py` with an opt-in direct fixture mode producing real persisted direct runs/journals; leave the default seed/reset and AEGIS cohort/counts unchanged. Browser interception is for transport-corruption tests, not a replacement for valid API fixtures.
+- INFERRED **D7** (REQ-UX-c77f7335, REQ-UX-558518e7): update all four `web/src/help/content/{en,fr,de,ro}/{jobs,settings}.md`, preserving matched structure/links and adding legal headers if absent; explain attempts, four outcomes versus absence, and direct Implementation/build and Validation/validate limits with general fallback. Update `settingHelp.ts` general/map/wildcard guidance and `i18n.ts` shared verification-command guidance where necessary. Add semantic assertions to `web/tests/{help,settingHelp}.test.mjs` and navigation assertions to `web/e2e/help.spec.ts` without changing catalog/schema or runtime settings.
+- STATED **D8** (AGENTS.md same-change documentation/bundle rules): build updates `05_SoftwareDocu/Component_Web_Jobs.md`, `Component_Web_Frontend.md`, `01_Documentation/Web_Interface.md`, `CHANGELOG.md`, four-locale `adore/release_notes.toml` and the committed `adore/web/static/` production bundle/fingerprints via `npm run build`. Update the active Jobs read spec's broad validation-output exclusion narrowly when implementation exists. Build logs `release-notes: added` and `help: updated` and runs the base-bound release-note checker. Knowledge/context current-state claims wait until validate, per stage instructions.
+
+### Risks and open decisions
+
+- OBSERVED/INFERRED: saved verification output is not the canonical operational executor-output stream; keep the two panels/contracts separate, apply existing credential masking and render literal text. No authorization, finances, subprocess, storage or publication authority is added (D3/D4/D6).
+- OBSERVED (`RunState.from_dict`, `_view`, `_event_stage`): direct current `publishing` is admitted by the generic state vocabulary, but the direct engine retains done during publication; this read boundary will refuse publishing stage (not lifecycle), preserving the ticket/spec domain without changing run behavior (D4). Unrelated timeline stages remain null; do not filter corrupt events or manufacture stages.
+- INFERRED: no decision-blocking product question remains; existing sources record the needed data. The transport spelling choices above settle only design unknowns; no migration, compatibility fallback, dependency, planning edit or managed-payload edit is authorized. If build discovers a missing datum or plan conflict, use the required questions-file blocked pause.
+- INFERRED (repository bounded-run rule): this design pass is bounded to 30 minutes, one journal, the 23 pinned requirement files, one shared draft spec and one diagram file; no product edits, setup, product tests or external calls. Build runs targeted ticket commands; validate alone runs the full strict gate and review/report. Dependency availability and test outcomes remain UNKNOWN until those stages; missing `rg` was handled with grep/Python, not a product change or verification deviation.
+
+### Requirement map
+
+The 23 coverage rows above each retain a concrete test seam and now name these decisions; no pinned requirement is left without impact/coverage:
+
+- D1: REQ-DATA-18b26c84, REQ-UX-4123c97c, REQ-UX-029d0525, REQ-UX-b105b854.
+- D2: REQ-UX-ef06a3c7, REQ-UX-1b6f2a83; D2/D3: REQ-DATA-08ed925c.
+- D3/D6: REQ-UX-16f751b7, REQ-UX-f6c6e946, REQ-UX-7e9792e9, REQ-UX-647b1549, REQ-UX-631835f9, REQ-UX-009b4cb9, REQ-UX-9cdaa57b, REQ-UX-7fab3dcb.
+- D4: REQ-SEC-5d0f86e7; D4/D5: REQ-UX-a8c7ea48; D3/D5: REQ-UX-46c09118.
+- D6: REQ-UX-ad37f7e7, REQ-UX-5cf762f8, REQ-UX-b758d2b7.
+- D7: REQ-UX-c77f7335, REQ-UX-558518e7; D8 is a named repository obligation, not a new product requirement.
+
+Diagrams: [diagram_TASK-aad00a23.md](diagram_TASK-aad00a23.md)
 
 ## Log
 
@@ -217,6 +260,8 @@ are draft, with empty linked_tests until build. Design owns the final column.
 - 2026-11-12 frame: completed; next specify - Frame complete; scope recorded under conductor-authorized autopilot, full path justified, no decision-blocking questions identified
 - 2026-11-12 specify: Specify complete: 23 atomic coverage rows map in order to 20 new draft requirements and 3 unchanged active contracts; one shared draft spec defines recorded attempt, latest verification, honest absence and typed failures. Required evidence is already persisted; no blocking question. Ordered TOML/coverage audit and git diff --check exited 0; check --task TASK-aad00a23 --full/--json exited 0 with errors=0, warnings=35, notes=29. Verified all 35 warning paths exist unchanged at task base; no task format errors, and the no-anchor note is expected before build. Product tests were not run in specify. Transport spelling/placement remains design work; help, release notes, component documentation and bundle remain build work.
 - 2026-11-12 specify: completed; next design
+- 2026-11-12 design: Design complete under D1-D8: saved workflow remains authoritative; detail-only closed direct attempt/latest-verification projection uses captured sources and existing redaction/errors; exact decimal-text exit codes avoid JavaScript integer loss without changing storage; workflow-aware localized UI retains AEGIS assertions and observed-only timelines. All 23 coverage rows map to decisions/test seams; affected_paths updated; shared draft spec fixes transport; structure/sequence/read-state diagrams saved in .agentic/tasks/diagram_TASK-aad00a23.md. Audit of traceability, existing paths/specs, stage zone, headers and LF exited 0; git diff --check exited 0. check --task TASK-aad00a23 --full and --json exited 0: errors=0, warnings=35, notes=29; every warning-bearing file verified unchanged from task base. No product tests, setup, knowledge/context or product edits; no blocking question. Build owns failing tests first, implementation, four-locale help/release note, component/operator docs and production bundle; validate owns current knowledge and final strict proof.
+- 2026-11-12 design: completed; next build
 
 ## Rulings
 
@@ -224,12 +269,12 @@ are draft, with empty linked_tests until build. Design owns the final column.
 ## State
 
 status: ready
-reported: specify - completed
-next: start design: read .agentic/steps/3_design.md
-must_read: .agentic/tasks/TASK-aad00a23.md, .agentic/steps/3_design.md
-changed: Specified 23 atomic behavior rows: 20 draft requirements created, 3 active contracts reused unchanged, 1 shared evidence/error spec; all seven specify checklist items complete; no product changes
-evidence: AEGIS check --task TASK-aad00a23 --full and --json exited 0: errors=0; ordered coverage/TOML audit and warning-path baseline audit exited 0; git diff --check exited 0; no product tests run
-issues: 35 pre-existing warnings on unchanged requirement/journal paths; no task format errors or blocking questions; transport field spelling and placement remain for design
+reported: design - completed
+next: start build: read .agentic/steps/4_build.md
+must_read: .agentic/tasks/TASK-aad00a23.md, .agentic/steps/4_build.md, .agentic/specs/REQ-DATA-08ed925c.md
+changed: Design D1-D8 and 23-row decision/test mapping complete; 23 affected_paths lists and shared direct-evidence spec updated; .agentic/tasks/diagram_TASK-aad00a23.md adds structure, sequence and read-state diagrams; knowledge and product unchanged
+evidence: AEGIS check --task TASK-aad00a23 --full and --json exit 0: errors=0 warnings=35 notes=29; traceability/path/stage-zone/header/LF audit and git diff --check exit 0; baseline audit confirms all warning files unchanged; no product tests run in design
+issues: No blocking decisions; 35 pre-existing warnings and expected pre-build no-anchor note; dependency availability and implementation test outcomes remain unverified
 spec_compliance:
 implementation_quality:
 review_round:

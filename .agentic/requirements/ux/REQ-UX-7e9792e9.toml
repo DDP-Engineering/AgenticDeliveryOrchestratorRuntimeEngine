@@ -17,7 +17,7 @@ When a direct job's valid saved verification result records a nonzero exit witho
 
 verification = "Read failed direct result fixtures through the job model and open Jobs e2e after verification has routed the job back to build; assert Failed independent of working/failed lifecycle, including exit 124 without timeout, with a status/exit mismatch rejected instead of guessed."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

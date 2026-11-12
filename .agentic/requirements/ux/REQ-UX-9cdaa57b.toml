@@ -17,7 +17,7 @@ When a direct job has valid saved configured-verification evidence, its Jobs pag
 
 verification = "Read known saved tails through offline API/model fixtures and open Jobs e2e; assert literal markup and shell text, preserved leading whitespace and trailing lines within 200 lines/6000 characters, an empty-output notice for empty text, credential masking for both roles and refusal of malformed or oversized evidence."
 
-affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ While displaying a direct job, the Jobs interface shall omit AEGIS task presenta
 
 verification = "Open valid direct build and done details in offline Jobs journeys and inspect their visible and technical evidence for absence of AEGIS task labels or identifiers; retain the API negative fixture with a direct task binding to prove invalid bindings are refused rather than displayed."
 
-affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

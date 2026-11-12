@@ -17,7 +17,7 @@ When a direct job has a recorded executor stage-launch attempt, its Jobs page sh
 
 verification = "Persist direct stage-launch events with known attempt values, read detail through the offline API/model and open Jobs; assert the latest saved attempt, including a first attempt and a later attempt whose number differs from cumulative launches and current failed-attempt count, and reject boolean, zero, fractional or unsafe numeric attempt evidence."
 
-affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

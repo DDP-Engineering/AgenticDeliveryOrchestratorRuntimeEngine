@@ -17,7 +17,7 @@ When a direct job has valid saved configured-verification evidence, its Jobs pag
 
 verification = "Supply known saved commands for passed, failed and timed-out direct detail fixtures and open Jobs; assert command text precedes the outcome, current configuration changes do not replace saved command text, and markup or shell operators render as inert text with credentials redacted by the API."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

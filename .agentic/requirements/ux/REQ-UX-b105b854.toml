@@ -17,7 +17,7 @@ If a job response contains a missing, nontext or unknown workflow value, the Job
 
 verification = "Start with accepted aegis/direct model fixtures, replace or remove workflow in list and detail responses with unknown text, null, number and collection values, then assert reader errors; intercept Jobs browser reads after valid evidence and confirm an error with no stale detail, totals or guessed AEGIS/Direct label."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 linked_tests = []
 

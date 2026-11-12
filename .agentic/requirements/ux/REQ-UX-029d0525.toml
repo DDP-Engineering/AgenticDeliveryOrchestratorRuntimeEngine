@@ -17,7 +17,7 @@ When an authorized user opens a valid job page, the interface shall identify tha
 
 verification = "Read valid AEGIS and direct model fixtures and open their composite detail routes in offline Jobs browser journeys; assert each detail's workflow label in all four locales, and switch between mixed workflows to prove the previous job's label is not retained."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts"]
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

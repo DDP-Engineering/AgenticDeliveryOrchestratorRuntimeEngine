@@ -17,7 +17,7 @@ When an authorized web job detail read succeeds for a direct run, the job servic
 
 verification = "Persist genuine direct state/journals for absent, not-configured, pass, failure and timeout evidence; read detail as Admin and assigned Developer and compare latest attempt, saved command, status, exit, seconds and output after redaction, including changed/missing current config, zero/fractional durations, empty tails and line/character bounds; unauthorized corrupt sources remain unread and cross-project detail returns 404; malformed selected evidence returns the existing typed error without writes, partial totals, secrets or external commands."
 
-affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/tests/test_web_jobs.py", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ When a direct job's valid saved verification result records a timeout and the ti
 
 verification = "Read timeout fixtures through the offline job model and open Jobs e2e; assert Timed out both for nonzero exit and exit zero with timed_out true, distinct from Failed and Passed, while nonboolean timeout and status-disagreement fixtures are refused."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

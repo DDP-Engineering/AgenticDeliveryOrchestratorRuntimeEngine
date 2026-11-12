@@ -17,7 +17,7 @@ When a user reads the Jobs help topic in English, French, German or Romanian, th
 
 verification = "Load the Jobs help topic for all four locales through offline help content tests and help e2e navigation; assert the workflow/evidence explanation uses the interface's terms and distinguishes unverified from passed, with locale structure parity, unsupported Markdown and link checks detecting missing or drifted content."
 
-affected_paths = ["04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md"]
+affected_paths = ["04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/help.spec.ts"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ While displaying a valid direct job in Jobs, the interface shall present its rec
 
 verification = "Offline model and Jobs browser fixtures cover direct jobs at build, validate and done with saved build/validate transition events; assert localized Implementation, Validation and Done where recorded, no Framing/Specification/Design, and no inferred completed Validation for a build-only job."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts"]
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

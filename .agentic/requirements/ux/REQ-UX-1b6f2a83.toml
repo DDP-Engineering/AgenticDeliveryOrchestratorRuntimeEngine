@@ -17,7 +17,7 @@ When a direct job has no recorded executor stage-launch attempt, its Jobs page s
 
 verification = "Persist/read a direct job with no launch journal and nonzero cumulative launches or failure count, then open its offline Jobs detail; assert the localized unavailable attempt indication rather than zero, one or a derived count, while a present malformed launch attempt is rejected instead of treated as absent."
 
-affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ When an authorized user views a valid job in the global or project Jobs list, th
 
 verification = "Offline model fixtures with each recorded workflow are read and browser journeys open global and project job lists; assert the workflow label belongs to the same composite job identity in all four locales, with mixed-workflow rows and an unknown-workflow negative control preventing a default label."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts"]
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
 linked_tests = []
 

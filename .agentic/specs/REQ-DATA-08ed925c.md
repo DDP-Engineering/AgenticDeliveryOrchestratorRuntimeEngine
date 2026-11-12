@@ -146,15 +146,60 @@ build/validate/done is refused, never filtered into a plausible valid timeline.
   reads fail without consulting foreign corrupt sources; source bytes are
   unchanged and a runner that fails on invocation proves reads execute nothing.
 
+## Proposed detail transport (design D2/D3)
+
+INFERRED (the source/absence contracts above and TASK-aad00a23 Design): a direct
+composite detail carries exactly this new closed object within its job:
+
+```
+direct = {
+  attempt: positive safe integer | null,
+  verification: {
+    status: "unavailable" | "not configured" | "passed" | "failed" | "timed out",
+    result: null | { command, exit_code, seconds, timed_out, output }
+  }
+}
+```
+
+- `direct` and `verification` have exactly the displayed keys; result objects
+  have exactly the five source-result keys. The first two statuses require null
+  result; the last three require a complete agreeing result. A direct detail
+  missing this object is invalid, not an alternate/older transport format.
+- `attempt` is null only when the source has no launch. Saved explicit null or
+  malformed attempt/status/result is corruption, not absence. Detect absence by
+  key presence, not `.get()` treating null as an absent key.
+- `command` and `output` are redacted valid Unicode strings; `seconds` is a finite
+  nonnegative JSON number after overflow-safe validation, and `timed_out` is a
+  boolean. No invented command or measurements accompany the null-result states.
+- Named technical constraint: JavaScript cannot preserve arbitrary Python
+  integers in a JSON number. The persisted integer `exit_code` therefore projects
+  as exact canonical decimal text: `"0"` or optional minus plus nonzero-leading
+  digits. This keeps the saved source integer domain unchanged; no plus, leading
+  zeros or negative zero are admitted. Browser status agreement checks that text
+  against `"0"` after the boolean timeout priority. This transport encoding does
+  not change the stored result or normal displayed outcomes.
+- Python and browser tail validation use Unicode scalar counts and LF line
+  counts, including non-BMP characters; JS UTF-16 length is not a substitute for
+  the 6000-character source bound. Preserve leading whitespace. Existing web
+  masking precedes any necessary final 200-line/6000-scalar tail cut; malformed
+  over-bound source is rejected before masking, not repaired through that cut.
+- AEGIS details omit `direct`, and the browser refuses a direct object on AEGIS
+  detail. List rows omit `direct` for either workflow; their only new browser
+  input is mandatory saved workflow. Internally `_view` computes/validates direct
+  evidence with the captured sources before any filter/totals; `jobs_page` strips
+  the object alongside timeline. No result or output leaks through list paging.
+- Model tests include ordinary and large signed source exit integers, normalized
+  decimal-text refusal, non-BMP boundary controls and redaction growth at the tail
+  bound. Public API tests retain byte preservation and no-command assertions.
+
 ## Design handoff and open decisions
 
 - INFERRED (ticket plus observed source semantics): the above fields suffice;
   no new stored datum is necessary and no blocking product question is known.
-- UNKNOWN until design: names/nesting of the additive public detail fields and
-  exact browser types, component placement and shared helpers. Design must fix
-  those transport spellings and closed shapes before build, without changing the
-  source/absence/error semantics above. No transport requirement applies to list
-  rows beyond their already-recorded workflow; the list need not carry output.
+- INFERRED (TASK-aad00a23 Design D1–D8): the local read helper, detail-only object,
+  workflow-aware frontend copy, unchanged AEGIS presentation, error gating and
+  source/model/browser/help test seams are fixed in the task Design and coverage
+  table. This is a proposal until build; component knowledge remains unchanged.
 - STATED (ticket stop rule): if implementation needs a datum the run does not
   record or finds a ticket/plan conflict, stop via the questions file and blocked
   pause rather than add execution behavior or manufacture evidence.
