@@ -107,6 +107,16 @@ Shared CLI/web defaults are acceptance=false, priority=true and maximum addition
 
 Both CLI and web use the same validated model before changing runtime policy.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Direct verification setting/default/refusals | `WorkflowConfig`, `validate_config` | `test_config.py` direct verification cases |
+| Resolved/raw web preservation and edit authority | `Config.to_dict`, `web/app.py`; see `web-interface.md` | `test_web_config.py`, `test_web_config_raw.py`, catalog tests |
+| Budget parsing and live rereads | `validate_budgets`, `load_config` | `test_config.py`, `test_orchestrator.py` budget cases |
+| Branch naming validation | `branch_naming_preview` | `test_branch_naming.py`, `test_web_branch_naming.py` |
+| Backend/executor policy | `ExecutionConfig`, `LocalConfig`, `_provider_issues` | `test_local_execution.py`, `test_pi_providers.py`, `test_chatgpt.py` |
+
 ## Key behaviors
 
 - `REQ-FUNC-222a0416`, `REQ-FUNC-381fdaaa`, `REQ-FUNC-fc7eac7a`,
