@@ -33,6 +33,8 @@ LEGAL_PREFIX = (
 )
 FRAGMENTS = (
     "direct/implementation.md",
+    "direct/verification.md",
+    "direct/verification-failure.md",
     "stage/intro.md",
     "stage/ticket.md",
     "stage/active-task.md",

@@ -18,7 +18,7 @@ version = "Unreleased"
 [[release.entry]]
 category = "new"
 topic = { en = "Direct workflow", fr = "Flux direct", de = "Direkter Ablauf", ro = "Flux direct" }
-text = { en = "Run CLI tickets without AEGIS; approve explicitly unverified candidates with agent summaries.", fr = "Traitez les tickets sans AEGIS en ligne de commande ; approuvez des candidats non vérifiés.", de = "CLI-Tickets ohne AEGIS ausführen; ungeprüfte Kandidaten mit Agentenzusammenfassung freigeben.", ro = "Rulați tichete CLI fără AEGIS; aprobați candidați neverificați cu rezumatul agentului." }
+text = { en = "Run tickets without AEGIS, with optional verification and bounded fixes before approval.", fr = "Tickets sans AEGIS : vérification facultative et corrections limitées avant approbation.", de = "Tickets ohne AEGIS: optionale Prüfung und begrenzte Korrekturen vor der Freigabe.", ro = "Tichete fără AEGIS, cu verificare opțională și corecții limitate înainte de aprobare." }
 
 [[release.entry]]
 category = "improved"

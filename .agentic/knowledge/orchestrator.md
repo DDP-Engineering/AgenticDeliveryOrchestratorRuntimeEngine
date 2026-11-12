@@ -24,8 +24,8 @@ verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
 
 The orchestrator conducts AEGIS and direct runs through isolation, bounded
 execution, candidate evidence and configured draft or ready publication. AEGIS
-owns its task journal; direct validate is conductor-owned and explicitly
-unverified. The executor performs code work and forge adapters perform remote
+owns its task journal; direct validate is conductor-owned and independently
+runs the optional configured command, or explicitly records unverified evidence. The executor performs code work and forge adapters perform remote
 operations. ADORE presents the exact candidate and publishes with Git and forge
 operations only.
 ADORE never merges or gives forge credentials to an executor.
@@ -53,7 +53,8 @@ before the first claim save and retained on every continuation. Only absent
 AEGIS runs pin a task whose validate -> done advance triggers independent
 strict verification. An AEGIS done task without evidence returns to validate
 through a fresh session; a failed check routes back from done. Direct runs
-carry no task and use build/validate/done with not-configured evidence. Both
+carry no task and use build/validate/done with passing configured verification
+or explicit not-configured evidence. Both
 require fresh candidate-bound approval before review publication; neither
 launches Pi or an AEGIS command after approval. A run
 keeps the stage done while it awaits approval, publishes and is in review;
@@ -81,6 +82,7 @@ requests do not conduct in the HTTP process.
 | Change requested | Start with | Focused verification |
 |---|---|---|
 | Direct selection, conduction and completion recovery | `_has_payload`, `_allocate_worktree`, `_conduct_direct` | `test_orchestrator.py` direct/admission/crash tests |
+| Direct verification, remediation, evidence integrity | `_verify_direct`, `_direct_result`, `_direct_failure_context` | `test_orchestrator.py` configured-verification, duration and tail-boundary tests |
 | Stage flow, verification trigger, return to validate | `_conduct_task_impl`, `_strict_verification`, `_validation_failure` | `test_orchestrator.py` path, route and remediation tests |
 | Approval and publication | `_present_for_approval`, `_approval_ready`, `_publish_impl` | `test_orchestrator.py` publication tests, `test_checkpoint_handoff.py` |
 | Executor prompts | `_stage_prompt`, `_direct_prompt`, `_execution_notices`, `adore/prompts/`; see `prompts.md` for loading/rendering | `test_prompts.py` original-byte/caller matrix; `test_orchestrator.py` prompt tests |
@@ -100,14 +102,39 @@ requests do not conduct in the HTTP process.
 - `REQ-SEC-23063055`, `REQ-REL-37072309`: all direct checkpoints, including
   Retry settlement and handoff, pass literal exchange exclusions and refuse
   unsafe artifacts; isolation owns index/path/summary mechanics.
-- `REQ-UX-1dcd528c`, `REQ-UX-38ee0625`: approval and MR/PR descriptions show
-  summary, file count and the exact unverified notice without a task line.
+- `REQ-UX-1dcd528c`, `REQ-UX-38ee0625`, `REQ-UX-0d63ca91`, `REQ-UX-50f9bf53`:
+  approval and MR/PR descriptions show summary, file count and candidate binding
+  without a task line. Configured verification shows command, result, exit,
+  duration and literal output; no command retains the exact unverified notice.
   Adoption/revision refreshes the description only after fresh approval;
   update refusal retains MR_CREATE_FAILED and Retry repeats without Pi.
 - `REQ-DATA-3e54b751`, `REQ-FUNC-ff7dad34`: direct revisions retain workflow,
   worktree/branch and no task; drift retains completed implementation but
   requires integration, exact new evidence and fresh approval. Conflicts
-  return to bounded build. No verification command exists for direct runs.
+  return to bounded build. A changed candidate/target requires another configured
+  command result before fresh approval.
+- `REQ-FUNC-21ae8007`, `REQ-FUNC-bea4c0aa`: configured direct completion persists
+  validate before verification, integrates the target and runs the bound command
+  with the validate override/general timeout. Passing evidence precedes final
+  checkpoint/fingerprint/done; target drift or cumulative budget exhaustion
+  prevents approval. Containers use `sh -c`; native execution routes to the
+  dedicated operation in `local-execution.md`.
+- `REQ-REL-465c51f3`, `REQ-REL-84f97f23`, `REQ-REL-63496e9f`, `REQ-FUNC-e969d30e`:
+  failed or authoritative timed-out commands count once through shared
+  stage_failures/history and atomically route to build. Successful fix builds
+  preserve the count; exhaustion stops as VERIFICATION_FAILED with last evidence.
+  Explicit Retry re-arms only that counter, retaining cumulative budgets/history.
+- `REQ-DATA-72e08277`, `REQ-REL-4deb6eed`, `REQ-FUNC-e5899386`: retain the latest
+  `verification_result={command, exit_code, seconds, timed_out, output}` with
+  status passed/failed/timed out. Output is sanitized before its last-200-line,
+  6000-character cut, stdout then stderr. Readback preserves valid leading
+  character-cut whitespace while checking sanitation, normalized lines and bounds;
+  malformed types/status/command or nonfinite/negative/float-unrepresentable
+  duration fail with typed integrity outcomes. Fresh fix/Retry prompts reconstruct
+  command, exit, status and output from this evidence; a pass replaces a failure.
+- `REQ-FUNC-91892175`: AEGIS ignores verify_command; strict commands, prompts and
+  successful-transition counter resets remain its own. Unconfigured direct runs
+  retain the explicit unverified path.
 
 - `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`, `REQ-FUNC-14872c0d`: stage,
   recovery and review text comes from the eagerly checked shipped catalog.

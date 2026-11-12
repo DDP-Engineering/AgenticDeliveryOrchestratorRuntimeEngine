@@ -16,6 +16,7 @@
 
 # IMPORTS
 import json
+import ntpath
 import os
 from pathlib import Path
 import subprocess
@@ -27,14 +28,15 @@ import time
 
 def main(path: str, *, streaming: bool = False) -> int:
     """
-    @brief Start one native argv command only after the parent's ownership receipt.
+    @brief Start native argv or dedicated Windows verification after the ownership receipt.
     @param[in] path Parent-owned immutable launch envelope.
     @param[in] streaming Forward the parent's stdin pipe for RPC.
     @return Authoritative command exit status.
     @exception ValueError Invalid trusted transport.
     """
     envelope = json.loads(Path(path).read_text(encoding="utf-8"))
-    if set(envelope) != {"argv", "cwd", "release", "scope"}:
+    keys = {"argv", "cwd", "release", "scope"}
+    if set(envelope) not in (keys, keys | {"windows_verification"}):
         raise ValueError("invalid native launch envelope")
     if (
         not isinstance(envelope["argv"], list)
@@ -43,6 +45,16 @@ def main(path: str, *, streaming: bool = False) -> int:
     ):
         raise ValueError("invalid native argv")
     scope = envelope["scope"]
+    argv = envelope["argv"]
+    windows_verification = "windows_verification" in envelope
+    if windows_verification and (
+        envelope["windows_verification"] is not True or streaming
+        or scope["kind"] != "windows-job" or len(argv) != 5
+        or argv[1:4] != ["/d", "/s", "/c"]
+        or not ntpath.isabs(argv[0]) or ntpath.basename(argv[0]).lower() != "cmd.exe"
+        or '"' in argv[0] or not argv[-1] or any(char in argv[-1] for char in "\r\n")
+    ):
+        raise ValueError("invalid native Windows verification transport")
     if scope["kind"] == "linux-cgroup":
         (Path(scope["path"]) / "cgroup.procs").write_text(str(os.getpid()), encoding="ascii")
     elif scope["kind"] != "windows-job":
@@ -65,8 +77,15 @@ def main(path: str, *, streaming: bool = False) -> int:
     # Windows CREATE_NO_WINDOW needs explicit standard handles: implicit
     # inheritance can exit cleanly while discarding both captured streams.
     # These are the supervisor's parent-owned pipes, drained by its controller.
-    result = subprocess.run(  # noqa: S603 - native argv resolved by the parent
-        envelope["argv"], cwd=envelope["cwd"], check=False, creationflags=0x08000000,
+    options = {}
+    if windows_verification:
+        # cmd does not decode C-runtime backslash-quote escapes. /s /c removes
+        # this extra outer quote pair, leaving the configured shell text intact.
+        # Pin lpApplicationName separately; never search PATH or use shell=True.
+        options["executable"] = argv[0]
+        argv = subprocess.list2cmdline(argv[:1]) + ' /d /s /c "' + argv[-1] + '"'
+    result = subprocess.run(  # noqa: S603 - native command resolved by the parent
+        argv, cwd=envelope["cwd"], check=False, creationflags=0x08000000, **options,
         stdin=sys.stdin if streaming else subprocess.DEVNULL, stdout=sys.stdout, stderr=sys.stderr,
     )
     return result.returncode

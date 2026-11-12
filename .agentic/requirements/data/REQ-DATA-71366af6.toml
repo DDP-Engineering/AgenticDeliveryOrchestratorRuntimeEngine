@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-71366af6"
+title = "Preserve direct verification configuration through web serialization"
+status = "active"
+requirement = "When existing web configuration serialization reads or rewrites a project's workflow table, ADORE shall preserve the configured workflow.verify_command string subject to the existing configuration redaction and authorization rules."
+verification = "Offline authenticated web tests read a configured command in resolved config, preview/download the original TOML bytes as Admin and apply an unrelated permitted edit, then reload the file and compare the command; repeat with empty and quote/dollar/backslash-bearing commands, and prove denied raw reads expose no bytes and invalid workflow values do not become valid resolved configuration."
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/web/app.py", "04_Software/web/src/settingKeys.json", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/settings.ts", "04_Software/adore/web/static/", "04_Software/web/tests/settings.test.mjs"]
+linked_tests = ["04_Software/tests/test_web_config.py", "04_Software/tests/test_web_config_raw.py", "04_Software/tests/test_web_setting_catalog.py", "04_Software/web/tests/settings.test.mjs", "04_Software/web/tests/settingHelp.test.mjs"]
+spec = ""
+priority = "normal"
+rationale = "This covers the existing generic config surfaces, not a dedicated input field or enrollment change."
+created = 2026-11-12
+updated = 2026-11-12

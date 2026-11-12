@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Optional direct-workflow verification command with bounded fresh-session fixes,
+  validate timeouts, sanitized retained evidence and approval/MR/PR results.
+  Native verification uses an owned platform-shell operation; ordinary shell
+  refusal and candidate-bound human approval remain enforced. AEGIS is unchanged.
+
 - Conduct CLI/configured tickets without AEGIS through bounded fresh direct Pi sessions,
   retain their summaries and present explicitly unverified candidates for fresh human
   approval; keep clarification, recovery, review and publication boundaries shared.

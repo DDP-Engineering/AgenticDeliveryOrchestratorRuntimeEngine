@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-c81de547"
+title = "Retain ordinary native shell refusal"
+status = "active"
+requirement = "If an ordinary native argv command selects a forbidden shell or wrapper executable, the native target shall refuse it with LocalExecutionError rather than granting the dedicated direct-verification shell authority."
+verification = "Offline native target tests accept an allowed installed executable but reject sh, bash, cmd and PowerShell/wrapper selections through ordinary callable/run_files operations before any controller launch, including when direct verification is configured; inspect the dedicated verification transport to confirm it invokes a platform shell rather than an interpreter-wrapper bypass."
+affected_paths = ["04_Software/adore/local_execution.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_native_direct_verification_uses_only_owned_platform_shell"]
+spec = ""
+priority = "high"
+rationale = "The explicit authorization is a narrow operation, not a relaxation of the executable resolver."
+created = 2026-11-12
+updated = 2026-11-12

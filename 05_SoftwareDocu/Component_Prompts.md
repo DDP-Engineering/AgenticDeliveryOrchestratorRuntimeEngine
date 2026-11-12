@@ -82,6 +82,18 @@ parsed again, so ticket text containing `$name`, `${name}`, `$$` or `{x}` remain
 literal. Existing caller-side `description.strip()` and `_sanitize` remain in
 place. Add new required files to `FRAGMENTS` and its inventory proof together.
 
+## Direct verification fragments
+
+The fixed catalog includes `direct/verification.md` (literal command and request
+to run it before finishing) and `direct/verification-failure.md` (independently
+bound command, exit, status and sanitized output). The conductor selects them
+only for configured direct runs and reconstructs failure context from the typed
+retained result for every fresh fix/Retry session. Fields are substituted once,
+so dollar signs, braces and quotes remain data. Empty-command and AEGIS prompts
+retain their own behavior. `test_prompts.py` proves exact inventory, literal
+values, missing-value refusal and eager resource errors; public conductor tests
+prove selection and retained context.
+
 ## 7. Workflow Integration
 
 Construction checks every resource before stage execution. The conductor renders

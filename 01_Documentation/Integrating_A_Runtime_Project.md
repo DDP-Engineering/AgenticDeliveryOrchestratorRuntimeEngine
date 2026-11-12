@@ -42,7 +42,22 @@ ADORE owns `validate`: it saves a bounded sanitized summary before removing
 its file, checkpoints product changes, integrates the target and records the
 exact candidate at `done` / `awaiting-approval`. Both exchange paths are literally
 excluded and unstaged at every checkpoint, including recovery and handoff.
-There is **no configured direct verification command** in this build. Both the
+Optionally set `[workflow] verify_command` to one shell command line in the
+project's server TOML. Pi is asked to run it before finishing; after integration
+ADORE independently runs it from the worktree root (`sh -c` in the container,
+or the local platform shell). The validate override, else the general gate
+timeout, bounds it. Failed or timed-out invocations send their sanitized command,
+exit and output tail to a fresh Pi session. The shared `max_stage_failures` limit
+survives successful fix builds; exhaustion fails `VERIFICATION_FAILED`, retains
+evidence and permits explicit `adore retry` under the existing overall budgets.
+A timeout counts once and says "timed out". Local commands have service-account
+permissions without container isolation; see [Local execution](Local_Execution.md).
+
+On pass the final checkpoint/fingerprint precedes approval. Approval and MR/PR
+show the command, result, exit, duration and retained sanitized output (last 200
+lines, capped at 6000 characters, stdout then stderr). AEGIS runs ignore this
+setting and use their own verification commands. Non-string, multiline and NUL
+values are refused with the key named. With the default empty command, both the
 approval comment and MR/PR show summary, changed-file count and exactly:
 
 > Verification: not configured. This candidate is unverified.

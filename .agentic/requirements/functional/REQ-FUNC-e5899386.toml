@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-e5899386"
+title = "Supply direct verification failure context to fresh sessions"
+status = "active"
+requirement = "When a direct run launches remediation after failed or timed-out configured verification, the conductor shall supply a fresh Pi session with the sanitised failing command, exit code and retained output tail as failure context."
+verification = "Offline fail-then-pass and timeout-then-pass direct runs capture distinct session launches and inspect the second prompt for the previous command, actual exit and sanitized output tail including timeout text where applicable; secret-bearing and dollar/brace-bearing evidence remains sanitized literal data, and no previous failure context is invented on the first attempt."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/prompts.py", "04_Software/adore/prompts/direct/verification-failure.md"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_prompts.py::test_direct_verification_fragments_keep_literal_values"]
+spec = "specs/REQ-FUNC-bea4c0aa.md"
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

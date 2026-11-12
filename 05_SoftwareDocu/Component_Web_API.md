@@ -7,6 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+`workflow.verify_command` is preserved in resolved configuration, exact Admin raw
+TOML reads and unrelated reviewed edits. Metadata marks it noneditable; generic
+mutations return `setting_not_editable`. There is no dedicated web input in this
+change. Invalid saved values retain the diagnostic view's key-named validation
+issues (or existing typed corrupt-config refusal), never a clean configuration.
+Existing role, CSRF, revision, idle, locking and redaction boundaries are unchanged.
+Proof: `test_web_config.py`, `test_web_config_raw.py`, `test_web_setting_catalog.py`.
+
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
 Cancellation and ticket Stop require strict explicit confirmation before any queue or forge effects. Readiness includes advisory busy/idle/unknown activity gated by the worker heartbeat; operation outcomes remain authoritative.

@@ -203,9 +203,10 @@ Git publication or forge-credential authority.
 `validation_evidence` carries `summary`, `implementation = completed`,
 `verification = not configured` and `changed_files`. Summary is bounded by
 `_MAX_EVIDENCE` and sanitized, saved before isolation removes its transient
-receipt-owned file. Each attempt starts with no old summary/completion evidence.
+receipt-owned file. Each attempt clears completion/candidate authority but retains
+its latest configured verification result for fresh-session remediation context.
 An absent summary is allowed; unsafe present artifacts stop before checkpoint
-or approval. No direct strict-verification event or synthetic passed result is
+or approval. No direct strict-verification event or synthetic AEGIS result is
 written. Summary alone cannot authorize approval.
 
 On success the conductor saves completion and the validate stage atomically in
@@ -225,14 +226,44 @@ review and human handoff, retain/remove summary first and pass literal exchange
 exclusions. Isolation unstages exchange additions and rechecks the full staged
 set. Direct settlement refusal is not suppressed into publication. Direct
 handoff instructions do not name an AEGIS task. Approval/MR bodies show summary,
-changed-file count and exactly "Verification: not configured. This candidate is
-unverified." They omit AEGIS task lines. This build runs no direct verification
-command. Fresh candidate-bound human approval, publication and merge authority
+changed-file count and, when no command is configured, exactly "Verification:
+not configured. This candidate is unverified." They omit AEGIS task lines.
+Configured verification instead shows its sanitized command, result, exit,
+duration and literal output tail in both approval and created/refreshed review
+bodies. Fresh candidate-bound human approval, publication and merge authority
 remain shared with the AEGIS path.
+
+Configured direct validate runs after integration through the bound container's
+`sh -c`, or `LocalTarget.run_verification`, with the validate override/general
+limit. Passing verification precedes the final checkpoint and clean candidate
+fingerprint; target drift during validation refuses approval. Failed/time-out
+results clear completion and route back to build atomically with the shared
+`_stage_failure(..., stage="validate")` count/history save. Direct build-to-validate
+preserves that count; AEGIS transitions are unchanged. At `max_stage_failures`,
+`VERIFICATION_FAILED` retains the last evidence and stops launches. Explicit Retry
+re-arms that counter without resetting work/history or cumulative budgets.
+
+The current nested evidence uses `verification = passed | failed | timed out`
+and `verification_result = {command, exit_code, seconds, timed_out, output}`.
+Summary, implementation and changed_files remain in the existing object; the
+unconfigured branch retains `verification = not configured` with no result.
+Output is stdout then stderr, redacted before the last-200-line/6000-character
+cut. Duration is finite/nonnegative and representable for float-based display;
+integers too large for that range are refused through the same typed integrity
+path, not allowed to escape as numeric conversion errors. Zero, fractional and
+large finite integer/float durations remain valid through reload and presentation.
+Exit is an integer (not bool), timeout is boolean, streams are text. The typed
+saved-result reader rejects unknown/missing keys, malformed values,
+status/command disagreement or unsanitized/unbounded
+output before prompts, approval or publication. It checks sanitation and bounds
+separately from tail selection: a final character cut can expose leading spaces,
+tabs or a newline, which remain valid evidence through reload, remediation and
+publication. Readback does not trim or recut the retained output. Latest pass
+replaces prior failure. No schema migration/format repair is introduced.
 
 When adopting an existing review or publishing a newly approved revision, direct
 publication replaces the MR/PR description with the current approved summary,
-count, unverified notice and candidate/target binding through
+count, configured verification result or unverified notice, and candidate/target binding through
 `Forge.update_merge_request_body`. It changes no review settings. A failed or
 timed-out update retains `MR_CREATE_FAILED` and cannot enter in-review or mark
 the new candidate published. Explicit Retry repeats the description write
@@ -279,7 +310,8 @@ Both triggers share `max_review_rounds`, so a permanently red pipeline cannot
 loop; when the budget is spent the run keeps waiting in review with a comment
 saying so. Every round still ends at workflow-appropriate evidence and fresh
 human approval before review publication: strict validation for AEGIS, explicit
-unverified evidence for direct. Automatic repair never bypasses the human gate.
+passing configured verification or explicit unverified evidence for direct.
+Automatic repair never bypasses the human gate.
 
 For AEGIS runs the revise label remains present through provisioning, probe
 and task creation, and is removed only after the new task exists, immediately

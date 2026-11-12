@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-d94baaf1"
+title = "Refuse invalid native verification requests"
+status = "active"
+requirement = "If a dedicated native verification request contains a nonstring, multiline or NUL-bearing command, the native target shall refuse it with LocalExecutionError before releasing any project process."
+verification = "Call the public verification-only operation through the offline native fixture with valid single-line input as the successful control and nonstring, CR/LF and NUL-bearing inputs as negatives; assert typed refusal and zero controller launches for every invalid input."
+affected_paths = ["04_Software/adore/local_execution.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_native_direct_verification_uses_only_owned_platform_shell"]
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

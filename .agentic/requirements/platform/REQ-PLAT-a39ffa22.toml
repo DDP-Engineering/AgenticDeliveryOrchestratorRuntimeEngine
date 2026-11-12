@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-PLAT-a39ffa22"
+title = "Execute direct verification in the owned native scope"
+status = "active"
+requirement = "When validating a local-backed direct run with workflow.verify_command configured, ADORE shall execute that command through a dedicated verification-only platform-shell operation using the existing owned process supervision in the worktree root, the bound service-account environment, bounded redacted output and scope drainage, with the validate-stage timeout override or otherwise budgets.per_gate_timeout_seconds."
+verification = "Offline injected Windows/Linux native-controller and conductor tests inspect the platform-shell command, cwd, bound environment, timeout, owned release-before-execution controls and redacted output; exercise the Windows trusted-child subprocess boundary to prove quoted paths/arguments, compounds, Unicode and backslashes preserve the exact configured shell text without C-runtime escaping. Success, nonzero exit and timeout each drain only the owned scope; malformed transport, cancellation, identity drift or failed cleanup cannot be reported as successful verification."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/local_execution.py", "04_Software/adore/local_process.py", "04_Software/adore/local_child.py"]
+linked_tests = ["04_Software/tests/test_local_execution.py::test_native_direct_verification_uses_only_owned_platform_shell", "04_Software/tests/test_local_execution.py::test_native_verification_capture_keeps_true_sanitized_tail", "04_Software/tests/test_local_execution.py::test_native_windows_verification_preserves_command_at_child_boundary", "04_Software/tests/test_local_execution.py::test_local_child_refuses_invalid_windows_verification_transport", "04_Software/tests/test_local_execution.py::test_local_child_windows_verification_cancel_prevents_launch", "04_Software/tests/test_local_execution.py::test_native_controller_refuses_invalid_windows_verification_mode"]
+spec = ""
+priority = "high"
+rationale = "Explicit native shell authority is confined to configured direct verification; ordinary native argv remains shell-free."
+created = 2026-11-12
+updated = 2026-11-12

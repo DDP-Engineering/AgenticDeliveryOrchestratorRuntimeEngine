@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-222a0416"
+title = "Accept an optional direct verification command"
+status = "active"
+requirement = "When loading project configuration, ADORE shall accept workflow.verify_command as one shell-command string with an empty default meaning not configured."
+verification = "Offline configuration tests load an omitted key, an explicit empty string and single-line shell commands with quotes, pipes, dollar signs and non-ASCII text; inspect WorkflowConfig and serialized configuration for the exact string and empty default, with refusal cases covered by the separate invalid-input contracts."
+affected_paths = ["04_Software/adore/config.py", "04_Software/config.example.toml"]
+linked_tests = ["04_Software/tests/test_config.py::test_direct_verification_command_preserves_exact_string"]
+spec = ""
+priority = "high"
+rationale = "Verification is optional and operator configured, not inferred from repository files."
+created = 2026-11-12
+updated = 2026-11-12

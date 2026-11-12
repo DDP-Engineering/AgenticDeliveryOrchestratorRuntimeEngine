@@ -62,6 +62,14 @@ owners.
   repository instructions/tests, no Git publication/forge credentials, questions
   and root summary. Direct composition reuses literal ticket/thread/recovery and
   identical shared permission/network notices without AEGIS journal procedure.
+- `REQ-FUNC-5dfb0e8d`, `REQ-FUNC-e5899386`: direct/verification.md names the
+  configured command and asks Pi to run it before finishing.
+  direct/verification-failure.md binds sanitized command, exit, status and output
+  independently as literal data from the retained result for fresh fixes/Retry.
+  The conductor selects these only for configured direct runs; empty-command and
+  AEGIS prompts retain their own behavior. Inventory, literal placeholder and
+  missing-value controls are in `test_prompts.py`; public selection/context
+  assertions are in `test_orchestrator.py`.
 - `REQ-FUNC-5bd765bb`, `REQ-SEC-66431463`: named single-pass substitution with literal external data.
 - `REQ-FUNC-8256ca8e`: legal comments stay local; body whitespace stays exact.
 - `REQ-REL-6fc1aa99`, `REQ-REL-d0663c1d`, `REQ-REL-3eb9bb9e`: file-named missing/read/encoding refusal.
@@ -72,7 +80,7 @@ owners.
 ## Files
 
 - `04_Software/adore/prompts.py` — fixed eager loader, typed errors and renderer.
-- `04_Software/adore/prompts/` — 26 licensed Markdown fragments in five groups.
+- `04_Software/adore/prompts/` — 28 licensed Markdown fragments in five groups.
 - `04_Software/tests/test_prompts.py` — loader boundaries, byte/caller proof and shared ownership.
 - `04_Software/tests/fixtures/prompts/{baseline,network-baseline}.json` — original-code expected text; never regenerate from the extracted renderer.
 - `05_SoftwareDocu/Component_Prompts.md` — resource and integration contract.

@@ -120,6 +120,16 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+`REQ-DATA-71366af6`: workflow.verify_command is present in the exact settings
+catalog and four-locale field guidance, but HIDDEN_SETTING_KEYS omits it from
+controls and backend metadata/mutations mark it noneditable. Existing resolved
+config reads, Admin exact raw TOML bytes and unrelated reviewed edits preserve
+it under existing validation, authorization and redaction. Invalid saved values
+remain key-named diagnostic issues or typed corrupt-config refusal. There is no
+dedicated input, enrollment or Jobs display for verification. Proof:
+`test_web_config.py`, `test_web_config_raw.py`, `test_web_setting_catalog.py`,
+`web/tests/settings.test.mjs` and `settingHelp.test.mjs`.
+
 The settings help catalog includes Pi reasoning effort and describes the native
 service account and optional tools PATH in all four locales.
 
