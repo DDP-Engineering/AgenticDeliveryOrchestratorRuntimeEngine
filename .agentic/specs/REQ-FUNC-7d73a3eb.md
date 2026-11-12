@@ -104,7 +104,7 @@ Verification: not configured. This candidate is unverified.
 These are offline fake forge/executor/Git acceptance cases, not claims of test
 execution. Targeted tests are written and linked during build.
 
-## Assumptions and design work still required
+## Assumptions and design resolution
 
 - INFERRED (ticket's explicit done conditions): the summary is requested output,
   not an additional mandatory success condition; an absent summary alone is not
@@ -112,11 +112,16 @@ execution. Targeted tests are written and linked during build.
   No fabricated agent summary is acceptable. Safe handling of present corrupt
   summary input follows the repository's fail-closed boundary rule.
 - OBSERVED (`RunState.validation_evidence` is an object and `outcome` is text):
-  existing fields can carry summary/evidence. Exact internal dictionary keys,
-  text size handling and helper reuse are design decisions, not new operator
-  settings or product success criteria.
-- UNKNOWN: the exact shared-helper factoring for claim/worktree ordering,
-  direct retry/reset, approval invalidation and review revision. Design must
-  preserve this contract and the unchanged AEGIS loop; the ticket's stop-and-ask
-  conditions apply if that proves impossible within the authorized branch/shared
-  helpers or one-field scope.
+  existing fields can carry summary/evidence. The task Design D5 chooses bounded
+  sanitized `summary`, a conductor-owned `implementation = completed` marker,
+  `verification = not configured` and observed `changed_files` within that object.
+  Summary-only or failed-session evidence never authorizes approval. The marker
+  lets checkpoint recovery finish validate without repeating successful work.
+- INFERRED (task Design D1/D4/D6/D7, based on inspected source): shared plan/worktree
+  allocation before the first claim save, direct-only exchange exclusions and
+  workflow dispatch in shared continuation helpers preserve the AEGIS stage loop.
+  The conductor saves safely read summary text before isolation removes its file.
+  Direct drift retains completed implementation evidence but invalidates the
+  candidate binding and requires integration plus fresh presentation. Actual
+  feasibility remains to be proven by build tests; the ticket's stop-and-ask
+  conditions still apply to expansion beyond those helpers or the one-field scope.
