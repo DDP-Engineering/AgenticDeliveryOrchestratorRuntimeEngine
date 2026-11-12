@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-f753863b"
+title = "Offer the repository verification suggestion as the init default"
+status = "draft"
+requirement = "When adore init targets an existing clone without .agentic/aegis.py, the wizard shall offer an optional Verification command answer defaulted to the shared helper's suggested command or empty when the helper finds no match."
+verification = "Offline wizard tests capture the prompted FieldSpec for a direct clone with a known manifest, compare its default with the helper and accept it through the scripted asker; a no-match clone offers an empty default and no suggested command is executed by the fake runner."
+affected_paths = ["04_Software/adore/wizard.py", "04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

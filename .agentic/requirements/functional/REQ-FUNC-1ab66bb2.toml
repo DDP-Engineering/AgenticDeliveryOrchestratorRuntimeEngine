@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-1ab66bb2"
+title = "Ignore the npm no-test placeholder"
+status = "draft"
+requirement = "If package.json scripts.test is npm's no-test-specified placeholder, the verification suggestion helper shall treat that script as no JavaScript match."
+verification = "An offline public-helper test supplies only package.json with npm's echo Error: no test specified and failing-exit placeholder and asserts no suggestion; replacing the placeholder with a real test script produces the expected JavaScript command/source."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

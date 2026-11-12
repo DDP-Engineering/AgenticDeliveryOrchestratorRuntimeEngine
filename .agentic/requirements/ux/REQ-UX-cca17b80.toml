@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-cca17b80"
+title = "Preserve human enrollment command edits and clearing"
+status = "draft"
+requirement = "When an administrator edits or clears the enrollment Verification command, subsequent suggestion discovery for that selected repository shall preserve the human's exact draft command rather than refill or replace it."
+verification = "Offline browser tests first accept a suggested default, then separately edit it or clear it and repeat preview/check and back-navigation; compare exact draft and canonical reviewed values and inspect Create saving the chosen nonempty or empty string, with no automatic restoration of the suggestion."
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

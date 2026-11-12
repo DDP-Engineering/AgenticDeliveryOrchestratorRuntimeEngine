@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-b360529b"
+title = "Suggest Python verification from a test manifest"
+status = "draft"
+requirement = "When an eligible pyproject.toml, pytest.ini or tox.ini is the first matching row at the clone root in the ordered manifest scan, the verification suggestion helper shall return its source file with uv run pytest -q when uv.lock is present or python -m pytest -q otherwise."
+verification = "Offline table-driven fixtures call the public helper for each Python filename with and without uv.lock and compare the exact command and matching source; a qualifying earlier JavaScript row wins, while Python beats Go and matching children."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-8676b7b9.md"
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

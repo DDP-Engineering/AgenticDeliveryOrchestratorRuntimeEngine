@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-NFR-6badc5b8"
+title = "Keep verification suggestion discovery file-read-only"
+status = "draft"
+requirement = "When given a clone root path, the verification suggestion helper shall operate only on file names and manifest contents to produce a command/source pair or no suggestion, without command execution, network access or filesystem mutation."
+verification = "Offline public-helper tests repeat discovery on matching and no-match fixtures with process/network entry points forbidden and compare before/after repository bytes and names; outputs are equal for unchanged evidence and no side-effect guard is invoked."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

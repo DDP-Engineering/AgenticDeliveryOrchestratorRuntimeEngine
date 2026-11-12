@@ -7,11 +7,11 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-51bf134b - [Direct] Suggest the verification command from repository files
 
-stage: specify
+stage: design
 type: feature
 path: full
 interaction: autopilot
-requirements:
+requirements: REQ-FUNC-8676b7b9, REQ-FUNC-b360529b, REQ-FUNC-d10b9f52, REQ-FUNC-0a0f15f3, REQ-FUNC-43c92cd6, REQ-FUNC-614738d0, REQ-FUNC-1bd6056c, REQ-FUNC-9ed60681, REQ-REL-cbc3b8e1, REQ-FUNC-1ab66bb2, REQ-SEC-95dddb65, REQ-SEC-ecafbce6, REQ-FUNC-4581cf7c, REQ-FUNC-08a75f14, REQ-FUNC-45ca2605, REQ-NFR-6badc5b8, REQ-FUNC-d50a408d, REQ-FUNC-2bf3e808, REQ-FUNC-357ae298, REQ-UX-92197baa, REQ-UX-dd21046e, REQ-UX-cca17b80, REQ-FUNC-702b0fce, REQ-FUNC-a6e265cd, REQ-FUNC-f753863b, REQ-UX-7f47b773, REQ-FUNC-65db4fd5, REQ-FUNC-b0f69285, REQ-FUNC-6c82ad42, REQ-FUNC-5771eecc, REQ-DATA-c1c4d1c3, REQ-FUNC-51f29b04, REQ-REL-60015e50
 parent:
 branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-65
 base: 76bd110f2fac4716936bb51caa9226d1b0195f21
@@ -23,14 +23,12 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] every accepted behavior is one coverage row with exactly one requirement
-- [ ] each error or failure response has its own requirement
-- [ ] each requirement is one self-contained "shall" sentence
-- [ ] verification names setup, trigger, oracle and a boundary or failure
-- [ ] specs written only where the requirement cannot carry the detail
-- [ ] conflicts, assumptions and unknowns resolved or recorded
-- [ ] every ID on the journal's `requirements:` line; `check` shows no
-      format errors
+- [ ] design note written under the five headings, or its skip justified
+- [ ] each decision cites a requirement ID or a named technical constraint
+- [ ] every requirement maps to a decision and test seam, or no design impact
+- [ ] risks and open decisions recorded
+- [ ] `affected_paths` match the expected files
+- [ ] knowledge pages unchanged
 
 ## Frame
 
@@ -262,6 +260,106 @@ Path and reason:
 
 ## Requirement coverage
 
+Authority for accepted behavior rows: STATED ticket #65 Goal, Decisions and
+Done when; STATED plan sections 1 and 4.5. Rows marked retained reuse the
+inspected existing contract without changing it. The last column is reserved
+for the next, design-only session.
+
+| Frame outcome | Atomic behavior | Requirement | Verification | Design decision or no impact |
+|---|---|---|---|---|
+| Ordered matching, row 1 | Real root scripts.test supplies the JavaScript command/source with the listed lockfile variants | REQ-FUNC-8676b7b9 | Public-helper table fixtures: npm/pnpm/yarn pair or missing-script miss; root and row precedence | |
+| Ordered matching, row 2 | First matching Python row supplies pytest command/source with uv variant | REQ-FUNC-b360529b | Each Python filename with/without uv.lock; earlier JavaScript wins and later Go loses | |
+| Ordered matching, row 3 | First matching Go row supplies go test ./... and source | REQ-FUNC-d10b9f52 | go.mod pair; Python precedence and child suppression | |
+| Ordered matching, row 4 | First matching Cargo row supplies cargo test and source | REQ-FUNC-0a0f15f3 | Cargo pair; Go precedence and child suppression | |
+| Ordered matching, row 5 | First matching Maven row supplies mvn -q test and source | REQ-FUNC-43c92cd6 | pom.xml pair; Cargo precedence and child suppression | |
+| Ordered matching, row 6 | First matching Gradle row supplies wrapper/plain command and source | REQ-FUNC-614738d0 | Both filenames with/without wrapper; Maven precedence | |
+| Ordered matching, row 7 | First matching dotnet row supplies dotnet test and source | REQ-FUNC-1bd6056c | Solution/project pair; Gradle precedence | |
+| Ordered matching, row 8 | First matching Make test target supplies make test and source | REQ-FUNC-9ed60681 | Makefile with/without test target; dotnet precedence | |
+| Malformed npm boundary | Bad JSON/structure supplies no JavaScript match and no error | REQ-REL-cbc3b8e1 | Malformed/non-object/nontext package fixtures return nothing; real script control | |
+| Placeholder boundary | npm's no-test-specified placeholder supplies no JavaScript match | REQ-FUNC-1ab66bb2 | Standard placeholder-only fixture returns nothing; real script control | |
+| Clone containment | Outside-linked manifest, command-selection file or directory is ignored unread | REQ-SEC-95dddb65 | External manifest/lockfile/child links with read guards; contained-file control | |
+| Bounded file reading | Files over 1048576 bytes are ignored without content reading | REQ-SEC-ecafbce6 | At-limit/one-over manifest fixtures with oversized read guard | |
+| Unique child fallback | One matching first-level directory supplies cd-prefixed command/source | REQ-FUNC-4581cf7c | All eight table rows in a child; root and deeper-only boundaries | |
+| Ambiguous children | Several matching first-level directories supply no suggestion | REQ-FUNC-08a75f14 | Two matching children in either creation order; single-child and root controls | |
+| No match | No eligible root/immediate-child row supplies no suggestion | REQ-FUNC-45ca2605 | Empty/unrelated/deeper-only evidence; qualifying-root control | |
+| Pure helper | Root-path discovery is file-read-only and returns pair or nothing | REQ-NFR-6badc5b8 | Match/no-match repeatability, no process/network calls, unchanged file snapshots | |
+| Direct preview | Inspected direct clone exposes helper command/source separately from submitted review text | REQ-FUNC-d50a408d | API matching clone pair; explicit empty/edit preserved, no-match control | |
+| AEGIS exclusion, web | Present aegis.py suppresses enrollment suggestions | REQ-FUNC-2bf3e808 | API/browser AEGIS-plus-manifest fixture; direct control and broken/presence-only AEGIS | |
+| Absent clone boundary | Not-inspected enrollment supplies no suggestion | REQ-FUNC-357ae298 | URL preview with absent destination: no hint/clone/probe; existing direct control | |
+| Localized enrollment default | Untouched optional command field uses available direct hint, otherwise empty | REQ-UX-92197baa | Four-locale matching/no-match/uncreated fixtures and canonical review; AEGIS note control | |
+| Visible web provenance | Suggested command identifies its source in four locales | REQ-UX-dd21046e | Root/child source guidance; no AEGIS or no-match source claim | |
+| Human edit/clear authority | Repeated discovery preserves exact human draft edits or empty choice | REQ-UX-cca17b80 | Edit/clear after prefill; re-preview/check/back navigation and exact chosen Create value | |
+| Human-only persistence, retained | Preview returns review/findings without profile publication or tool probes | REQ-FUNC-702b0fce | Existing offline API no-probe preview; add manifest fixture and inspect no profile bytes | |
+| Exact enrollment save, retained | Explicit confirmed Create saves exact reviewed command | REQ-FUNC-a6e265cd | Accept/edit/clear hint then compare loaded TOML; stale command revision publishes nothing | |
+| Shared CLI default | Direct init prompt defaults to helper suggestion or empty | REQ-FUNC-f753863b | Capture FieldSpec for matching/no-match clone and accept default with fake runner | |
+| Visible CLI provenance | Init identifies the source behind its suggested default | REQ-UX-7f47b773 | Capture root/child source guidance; no-match and AEGIS show no claimed source | |
+| AEGIS exclusion, CLI | Present aegis.py suppresses init repository suggestions | REQ-FUNC-65db4fd5 | Manifest plus present AEGIS, including unavailable interpreter; direct control | |
+| Human CLI choice | Confirmed init saves kept, edited or explicitly cleared command | REQ-FUNC-b0f69285 | Interactive/scripted keep/edit/clear and loaded TOML; cancellation/invalid input no publication | |
+| Invalid CLI input, retained | Invalid/unconfirmed answers reprompt or fail fast without profile creation | REQ-FUNC-6c82ad42 | Invalid command answer and cancelled confirmation through existing wizard fakes | |
+| Validated CLI publication, retained | Generated config validates before profile writes | REQ-FUNC-5771eecc | Valid chosen command profile and invalid candidate leave-before-write oracle | |
+| Saved Settings authority | Saved empty/custom command is never replaced by discovery | REQ-DATA-c1c4d1c3 | Matching clone in Settings; load/unrelated save preserves exact saved value | |
+| Exact Settings Save, retained | Human reviewed Save applies exact chosen command under existing guards | REQ-FUNC-51f29b04 | Existing empty/nonempty review/apply and rejected stale/denied/write-failure cases | |
+| Preview response trust boundary | Malformed command/source evidence is refused without applying it | REQ-REL-60015e50 | Corrupt suggestion member types/pair/multiline command: visible failure and unchanged draft; valid pair control | |
+
+### Specify analysis and challenge
+
+- OBSERVED (`explain` for wizard.py, web/app.py, EnrollmentWizard.tsx and the
+  new helper path; wizard/web knowledge and source/test definitions): no
+  existing requirement governs repository-file hint matching. The helper
+  path does not yet exist; these are draft contracts, not implemented facts.
+- OBSERVED (REQ-UX-92197baa): DW-04 explicitly specified initially empty
+  enrollment with no automatic suggestion. STATED (ticket #65 Goal/Decisions)
+  now authorizes changing that default. Deliberately revise that requirement
+  in place, mark it draft and clear its test links until build updates proof;
+  preserve the optional localized field and the AEGIS note. This is the
+  requested behavior change, not an unrequested contract rewrite.
+- OBSERVED (REQ-FUNC-702b0fce, a6e265cd, 6c82ad42, 5771eecc and 51f29b04):
+  preview, exact enrollment persistence, invalid answers, generated-config
+  validation and reviewed Settings saves already have matching contracts;
+  reuse those five unchanged. REQ-DATA-71366af6 continues to protect generic
+  serialization; no change is needed to it or the stored configuration schema.
+- INFERRED (ticket human authority plus observed review.verify_command exact
+  comparison and candidate digests): preview suggestion evidence must be
+  separate from candidate review text; accepting a hint in the browser needs
+  a new canonical preview of the resulting human-reviewable draft rather
+  than silently modifying the server candidate. Exact transport/state flow
+  remains for design.
+- STATED (AGENTS.md trust boundaries) / INFERRED (new preview members):
+  malformed suggestion response rejection needs its own negative contract;
+  it does not authorize another repository-matching rule.
+- STATED (ticket malformed-package decision): malformed optional package
+  evidence is a hint miss without an exception, unlike persisted-state or
+  human-configuration corruption. Record that explicit exception without
+  weakening the repository's fail-closed stored-data contracts.
+- STATED / OBSERVED (ticket Goal and ConsoleAsker.read): source provenance
+  applies to the repository-derived default, and a human must be able to
+  clear it even though Enter currently accepts a default. No generic prompt
+  semantic change is authorized; exact clearing presentation stays in design.
+- INFERRED (coverage audit): eight parameterized root outcomes, ordered/unique
+  child fallback, explicit missing/error boundaries, both UI integrations,
+  provenance and human persistence together cover the accepted Frame without
+  adding toolchain validation, command execution, network lookup or another
+  ecosystem. A single shared algorithm spec is justified for root precedence,
+  immediate-child counting and exact command strings; the other requirements
+  are buildable without separate specs.
+- UNKNOWN (retained explicitly in specs/REQ-FUNC-8676b7b9.md): same-row source
+  ties, simultaneous JavaScript lockfiles, directory command representation
+  and filesystem failures beyond specified cases. No added matching/error
+  policy is chosen in specify. These do not prevent recording the stated
+  table; if design/build needs an extra rule, use ADORE_QUESTIONS.md and pause
+  blocked as instructed. Helper/API names and CLI presentation remain design
+  choices; no product test has been run or claimed.
+- STATED (ticket scope and repository rules): build must update Projects help
+  in en/fr/de/ro, Web_Interface.md, Configuration_Reference.md, affected
+  component contracts/knowledge, CHANGELOG and a four-locale release note,
+  rebuild committed web assets, and log `release-notes: added` and
+  `help: updated`. These are same-change delivery obligations, not additional
+  matcher behavior; they remain uncompleted until build/validate evidence.
+- INFERRED specify execution bound: at most 45 minutes and 35 task-scoped
+  artifact files, all under .agentic/, no product edits or product test runs.
+  OBSERVED current branch still equals the journal branch; interaction was
+  already autopilot and remains so. End this session at the specify-to-design
+  boundary; do not enter design.
 
 ## Design
 
@@ -271,6 +369,9 @@ Path and reason:
 - 2026-11-12 frame: journal opened
 - 2026-11-12 frame: Frame scope recorded under conductor-authorized autopilot. Full path retained: new externally visible repository-derived defaults/provenance, additive preview/CLI interface and untrusted file-reading boundary fail quick criteria. Plan sections 1/4 and existing DW-04 enrollment/command surfaces inspected; no framing blocker established. Preserve explicit human save/edit/clear authority, absent-clone not-inspected behavior, saved Settings and AEGIS isolation. Frame changes only this journal; no product tests run.
 - 2026-11-12 frame: completed; next specify
+- 2026-11-12 specify: Specify complete: 27 new draft requirements, one deliberate draft revision of REQ-UX-92197baa for ticket-authorized prefill, five existing contracts reused unchanged, 33 one-to-one coverage rows/header IDs and one shared ordered-matching spec. Table-order audit parsed all linked TOML and confirmed one shall and one coverage row per ID (exit 0). check exited 0 with errors=0; task-scoped full check exited 0 with errors=0, warnings=53, notes=29; git diff --check exited 0. Source/test definitions inspected, no product tests run. Same-row ties, simultaneous lockfiles and unspecified filesystem/command representation details remain explicitly recorded without new rules; needed policy beyond the ticket must block with questions. Build retains four-locale help/release-note and documentation obligations.
+- 2026-11-12 specify: DEVIATION specify: advisory check warnings retained at this stage - prospective verification_hint.py paths do not exist until build and unrelated historical stale-path/journal warnings are outside this pinned task; no format errors, no weakened final strict gate and no product implementation performed.
+- 2026-11-12 specify: completed; next design
 
 ## Rulings
 
@@ -278,12 +379,12 @@ Path and reason:
 ## State
 
 status: ready
-reported: frame - completed
-next: start specify: read .agentic/steps/2_specify.md
-must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/2_specify.md
-changed: Completed the evidence-labelled Frame, matching table, scope/exclusions, constraints, success signals and full-path criteria; all frame checklist items met; only the pinned journal changed.
-evidence: brief TASK-51bf134b, components and git branch --show-current exited 0; git diff --check exited 0; source/test definitions inspected, no product tests run in frame.
-issues: No framing blockers established; helper/API shape, CLI presentation and test outcomes remain for later stages.
+reported: specify - completed
+next: start design: read .agentic/steps/3_design.md
+must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/3_design.md
+changed: Specify completed: 27 new draft requirements, one revised enrollment-default requirement, five unchanged reused contracts, 33 coverage rows and one ordered-matching spec; all seven specify checklist items met.
+evidence: Advisory check and task-scoped full check exited 0 with zero errors; TOML/coverage/one-shall audit exited 0 for all 33 IDs; git diff --check exited 0. No product tests run in specify.
+issues: Expected prospective-helper and unrelated historical advisory warnings retained and logged. Additional matching rules remain unauthorized; recorded edge-policy unknowns require questions if needed in design/build. Product implementation and validation not started.
 spec_compliance:
 implementation_quality:
 review_round:

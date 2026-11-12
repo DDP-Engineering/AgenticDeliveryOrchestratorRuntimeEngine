@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-65db4fd5"
+title = "Suppress init suggestions when AEGIS is present"
+status = "draft"
+requirement = "When adore init targets a clone containing .agentic/aegis.py, the wizard shall offer no repository-derived Verification command suggestion."
+verification = "Offline wizard fixtures include aegis.py and an otherwise matching manifest and inspect captured prompts/output for absence of a suggested verification command; removing aegis.py permits the direct default and an unavailable AEGIS interpreter does not enable a suggestion."
+affected_paths = ["04_Software/adore/wizard.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

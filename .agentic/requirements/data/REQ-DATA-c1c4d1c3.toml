@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-c1c4d1c3"
+title = "Keep saved verification settings authoritative over suggestions"
+status = "draft"
+requirement = "While project Settings displays or saves an existing workflow.verify_command value, ADORE shall preserve that saved or human-edited value rather than replace it with a repository-derived suggestion, including when the saved value is empty."
+verification = "Offline settings API/browser tests use a clone with a matching manifest and saved empty or custom commands, load Settings and apply an unrelated edit, then compare the displayed and persisted exact command; an explicit reviewed command edit remains the only replacement."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

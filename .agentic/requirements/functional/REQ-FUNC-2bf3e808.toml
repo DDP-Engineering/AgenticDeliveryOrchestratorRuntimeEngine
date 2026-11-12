@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-2bf3e808"
+title = "Suppress enrollment suggestions for AEGIS repositories"
+status = "draft"
+requirement = "When an enrollment preview inspects a clone containing .agentic/aegis.py, the enrollment API shall return no repository-derived verification suggestion."
+verification = "Offline API and browser fixtures contain both aegis.py and an otherwise matching manifest and assert no suggestion/source; removing aegis.py permits the direct suggestion, while an aegis.py-only or broken payload remains an AEGIS observation without suggestion."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/EnrollmentWizard.tsx"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

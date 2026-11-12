@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-b0f69285"
+title = "Save the human chosen init verification command"
+status = "draft"
+requirement = "When the human completes adore init for a direct clone, the wizard shall persist the human's accepted, edited or explicitly cleared Verification command as workflow.verify_command only through the existing confirmed and validated profile-save boundary."
+verification = "Offline interactive and scripted wizard tests retain a suggested default, edit it and explicitly clear it, then load the saved profile to compare the chosen string; cancelled confirmation and invalid single-line command input publish no profile, using fake runners throughout."
+affected_paths = ["04_Software/adore/wizard.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+rationale = "Enter already accepts defaults; design must expose clearing without changing unrelated prompt semantics."
+created = 2026-11-12
+updated = 2026-11-12

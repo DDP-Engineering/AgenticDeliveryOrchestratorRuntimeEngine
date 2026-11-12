@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-95dddb65"
+title = "Ignore verification evidence outside the clone"
+status = "draft"
+requirement = "If a candidate manifest, command-selection file or first-level directory resolves through a link outside the supplied clone root, the verification suggestion helper shall ignore that external evidence without reading it."
+verification = "Offline public-helper fixtures link a manifest, a lockfile and a child directory to external files containing otherwise matching evidence and guard external reads; assert no external-derived suggestion or command selection and no outside read, with ordinary contained files as controls."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

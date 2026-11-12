@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-43c92cd6"
+title = "Suggest Maven verification from its project manifest"
+status = "draft"
+requirement = "When an eligible pom.xml is the first matching row at the clone root in the ordered manifest scan, the verification suggestion helper shall return mvn -q test together with the pom.xml source file."
+verification = "An offline Maven fixture calls the public helper and compares the exact command/source pair; an earlier Cargo match takes precedence, and the Maven root beats a later Gradle row or matching child."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-8676b7b9.md"
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

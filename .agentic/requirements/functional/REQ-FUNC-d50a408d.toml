@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-d50a408d"
+title = "Return direct enrollment verification suggestion and source"
+status = "draft"
+requirement = "When a valid enrollment preview inspects an existing clone without .agentic/aegis.py and the verification suggestion helper finds a match, the enrollment API shall return the helper's command and source file as a suggestion separate from the exact submitted command in the canonical candidate review."
+verification = "Offline authenticated API tests preview a direct clone with a known matching manifest and compare suggestion command/source with the helper and the unchanged submitted review string; repeat with explicit empty and edited commands, and verify a no-match direct clone supplies no suggestion."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/verification_hint.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12
