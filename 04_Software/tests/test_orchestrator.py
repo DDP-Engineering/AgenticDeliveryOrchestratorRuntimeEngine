@@ -668,6 +668,12 @@ def direct_edit(worktrees, *, summary="Changed feature; checked with repository 
     ("seconds", True), ("output", None), ("output", "line\n" * 201),
     ("output", "x" * 6001), ("output", "token=private"), ("command", "other"),
     ("output", "\x1b[31mcorrupt\x1b[0m"),
+    ("output", "line\r\nother"),
+    ("output", " " + "a" * 5998 + "\x00"),
+    ("output", " " + "a" * 5989 + "\x1b[31mvalue"),
+    ("output", " " + "a" * 5986 + "token=private"),
+    ("output", " " + "a" * 5977 + "authorization: private"),
+    ("output", " " + "a" * 5984 + "api_key=private"),
     ("unknown", "field"),
 ])
 def test_direct_verification_refuses_corrupt_saved_evidence(tmp_path, monkeypatch, field, value):
@@ -677,6 +683,7 @@ def test_direct_verification_refuses_corrupt_saved_evidence(tmp_path, monkeypatc
     executor.attempts.append(direct_edit(worktrees))
     engine.poll_once(ticket_iid=7)
     run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
     run.validation_evidence["verification_result"][field] = value
     engine.store.save(run)
     forge.ticket.labels.append(engine.config.delivery.approval_label)
@@ -732,6 +739,49 @@ def test_direct_verification_output_boundaries(tmp_path, monkeypatch, lines):
     assert run.lifecycle == "awaiting-approval"
     assert run.validation_evidence["verification_result"]["output"] == "\n".join(
         output.splitlines()[-200:])
+
+
+@pytest.mark.parametrize(("characters", "leading"), [
+    (5999, ""), (6000, ""), (6001, " "), (6100, " "), (6100, "\t"),
+    (6100, "\n"), (6100, "\n  "),
+])
+@pytest.mark.parametrize("fail_first", [False, True])
+def test_direct_verification_character_boundaries(
+    tmp_path, monkeypatch, characters, leading, fail_first,
+):
+    """@brief Character cuts preserve valid leading whitespace through fixes and publication."""
+    engine, forge, worktrees, containers, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    retained = leading + "a" * (min(characters, 6000) - len(leading))
+    output = "x" * max(0, characters - 6000) + retained
+    outcomes = iter([1, 0] if fail_first else [0])
+    executor.attempts.extend(direct_edit(worktrees) for _ in range(2 if fail_first else 1))
+    calls = []
+
+    def verify(*args, **kwargs):
+        """@brief Return the same boundary output for each independently executed result."""
+        calls.append(args)
+        return CommandResult(exit_code=next(outcomes), stdout=output)
+
+    monkeypatch.setattr(containers, "exec", verify)
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
+    assert run.validation_evidence["verification"] == "passed"
+    assert run.validation_evidence["verification_result"]["output"] == retained
+    assert len(calls) == len(executor.prompts) == (2 if fail_first else 1)
+    if fail_first:
+        assert retained in executor.prompts[1]
+        assert len(run.failure_history) == 1
+    rendered = "\n".join("    " + line for line in retained.splitlines())
+    assert rendered in forge.ticket_comments[run.approval_comment_id]
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    engine.poll_once()
+    published = engine.store.load(run.run_id)
+    assert published.lifecycle == "in-review"
+    assert published.validation_evidence == run.validation_evidence
+    assert rendered in forge.opened[-1]["body"]
+    assert len(executor.prompts) == len(calls)
 
 
 @pytest.mark.parametrize("outcome", [124, "target-drift", "cleanup", "budget"])

@@ -86,7 +86,10 @@ inter-stream chronological ordering that the backend does not provide. The Desig
 stdout-then-stderr composition and the exact configured-result field layout.
 The 200-line tail and existing character/redaction bounds apply before evidence
 is retained or sent to a fresh session or forge. A credential must not become
-visible merely because a cut splits its marker from its value.
+visible merely because a cut splits its marker from its value. The final character
+cut may expose leading whitespace in the retained tail; readback preserves that
+text while checking sanitation, normalized line endings and bounds independently,
+without trimming or selecting the tail again.
 
 STATED (repository fail-closed rule): a boolean is not an integer exit code;
 a timeout flag is a boolean; streams are text; elapsed duration is finite and

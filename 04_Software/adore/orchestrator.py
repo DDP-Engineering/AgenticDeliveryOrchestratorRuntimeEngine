@@ -92,6 +92,7 @@ from adore.state import (
     run_id_pattern,
 )
 from adore.util import (
+    ANSI_ESCAPE,
     CommandResult,
     force_rmtree,
     in_quiet_hours,
@@ -2462,6 +2463,8 @@ class Orchestrator:
         @param[in] required Require a completed configured or explicit unconfigured result.
         @return Valid configured result, or None for absent/unconfigured evidence.
         @exception StateError Corrupt, mismatched, unbounded or inconsistent saved evidence.
+        @note Output sanitation and bounds are checked without trimming: the writer's
+              final character cut can expose leading whitespace in a valid retained tail.
         """
         evidence = run.validation_evidence
         result = evidence.get("verification_result")
@@ -2479,8 +2482,8 @@ class Orchestrator:
                 or not isinstance(result["output"], str)
                 or len(result["output"]) > _MAX_EVIDENCE
                 or len(result["output"].splitlines()) > 200
-                or output_tail(result["output"], lambda text: _sanitize(text, None),
-                               lines=200, chars=_MAX_EVIDENCE) != result["output"]):
+                or "\n".join(result["output"].splitlines()) != result["output"]
+                or _sanitize(ANSI_ESCAPE.sub("", result["output"]), None) != result["output"]):
             raise StateError("direct verification evidence is corrupt or mismatched")
         status = ("timed out" if result["timed_out"] else
                   "passed" if result["exit_code"] == 0 else "failed")
