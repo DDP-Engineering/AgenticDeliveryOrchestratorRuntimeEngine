@@ -282,9 +282,10 @@ human approval before review publication: strict validation for AEGIS, explicit
 unverified evidence for direct. Automatic repair never bypasses the human gate.
 
 For AEGIS runs the revise label remains present through provisioning, probe
-and task creation. Direct revisions provision but create no task. It is removed only after the new task exists and immediately before
-the run-state transition. Without an AEGIS idempotency key, a crash in that
-small boundary can leave a duplicate/orphan task; the pre-removal task-created
+and task creation, and is removed only after the new task exists, immediately
+before the run-state transition. Direct revisions provision but create no task;
+the label is removed after successful provisioning. Without an AEGIS idempotency
+key, a crash in the governed create/remove/save boundary can leave a duplicate/orphan task; the pre-removal task-created
 journal event provides operator evidence and preserves at-least-once intent for
 ordinary failures.
 

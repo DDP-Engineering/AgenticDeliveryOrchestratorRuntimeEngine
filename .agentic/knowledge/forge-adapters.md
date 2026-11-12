@@ -30,6 +30,8 @@ creation (`list_labels`, `create_label`) used by `adore/forge_labels.py` to crea
 missing ADORE labels (`REQ-FUNC-a6884923`). Concrete GitHub, GitLab, and
 Gitea adapters translate their CLIs through an injectable command runner and
 return typed domain data, leaving orchestration policy above the boundary.
+`update_merge_request_body(mr_iid, body)` replaces only the description; its base
+implementation raises ForgeError for unsupported adapters.
 
 ## Invariants
 
@@ -38,7 +40,20 @@ malformed responses raise `ForgeError`; well-formed CLI exits with malformed
 output raise its subclass `ForgeResponseError`. Adapters expose no merge action and
 cannot use a human comment without a valid ADORE marker as mutable state.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Ticket/comment/label and review reads | Forge and concrete adapters | test_forge.py, test_forge_labels.py |
+| Current approved direct review description | update_merge_request_body | test_forge.py body update cases; test_orchestrator.py direct adoption/revision |
+
 ## Key behaviors
+
+- `REQ-UX-38ee0625`: direct adoption/revision sends only literal body (GitHub/
+  Gitea PATCH) or description (GitLab PUT), retaining all review settings.
+  Failed exits/typed timeouts raise ForgeError; Gitea also requires 2xx HTTP.
+  Candidate approval/retry and review transition remain conductor-owned;
+  repeating the same description is idempotent. AEGIS publication does not call it.
 
 - `REQ-FUNC-f699f84a` - malformed forge response data fails closed.
 - `REQ-FUNC-e7a89a6d` - publication creates draft or ready records according to the requested boolean and has no merge capability.

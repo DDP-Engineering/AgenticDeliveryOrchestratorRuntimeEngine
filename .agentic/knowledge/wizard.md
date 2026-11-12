@@ -21,7 +21,10 @@ Candidate validation precedes profile publication; prepare-only returns the cand
 The validation guard returns the loaded Config. After confirmation/validation,
 CLI clone probes use its `workflow.aegis_python` (default `python`) for AEGIS
 version/status; gitignore/push checks run alongside them, before profile saving.
-Not-ready AEGIS remains informational (CHECK, diagnostic and guidance).
+Absent AEGIS prints `[INFO] No AEGIS found: tickets run in the direct workflow`
+with no AEGIS commands or installation guidance. Present not-ready AEGIS prints
+CHECK, diagnostic and optional-governance guidance; neither prevents a valid
+profile save. Web enrollment readiness remains separate.
 
 `04_Software/adore/wizard.py` implements `adore init`: it turns explicit
 operator answers and environment guidance into a minimal, validated
@@ -71,6 +74,8 @@ unprovided runtime default. CLI mode retains probes and persistence.
 
 ## Key behaviors
 
+- REQ-FUNC-6e20aea3: missing payload is direct-workflow information; a present
+  incompatible payload stays CHECK rather than a silent fallback.
 - REQ-FUNC-c9e616d4 / REQ-FUNC-9b2bb293: effective workflow interpreter and
   informational AEGIS reporting; test_wizard.py proves python/python3 argv,
   candidate validation and saving despite an unavailable interpreter.
@@ -97,6 +102,9 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
+
+- `04_Software/adore/wizard.py` — setup and validated profile publication.
+- `04_Software/tests/test_wizard.py` — scripted CLI setup and refusal proof.
 
 It composes doctor probes, profiles, typed config validation, and an injected
 command runner. `04_Software/tests/test_wizard.py` covers a golden valid
