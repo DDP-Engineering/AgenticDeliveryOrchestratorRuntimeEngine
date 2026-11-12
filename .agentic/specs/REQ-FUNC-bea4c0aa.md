@@ -82,8 +82,8 @@ exit code, boolean timeout and separate text streams; `_sanitize` removes NUL
 and redacts common credential forms, with existing character bounds.
 INFERRED (ticket's command-output evidence and those backend fields): retained
 output must account for captured stdout and stderr, without promising
-inter-stream chronological ordering that the backend does not provide. Design
-will state their deterministic composition and exact evidence field layout.
+inter-stream chronological ordering that the backend does not provide. The Design D7 in `../tasks/TASK-48ef7915.md` chooses deterministic
+stdout-then-stderr composition and the exact configured-result field layout.
 The 200-line tail and existing character/redaction bounds apply before evidence
 is retained or sent to a fresh session or forge. A credential must not become
 visible merely because a cut splits its marker from its value.
@@ -126,16 +126,16 @@ checkpoints remain possible; they are not approval evidence.
 
 ## Design handoff and non-goals
 
-- UNKNOWN (implementation detail, not a product-policy question): the exact
-  evidence keys within the existing validation_evidence object, native operation
-  signature and deterministic platform-shell executable/argv selection. Design
-  must resolve these within the authorized platform-shell and owned-scope
-  contracts, without weakening ordinary native argv resolution.
-- UNKNOWN (implementation detail): the minimal direct-only accounting seam,
-  durable remediation-context reconstruction and output-tail capture seam.
-  Native process output is already bounded; tests must prove tail retention,
-  including streams larger than a transient capture bound, rather than assume
-  an existing prefix capture supplies the required tail.
+- INFERRED (proposed implementation, not current product fact): Design D3–D8
+  in `../tasks/TASK-48ef7915.md` resolve the evidence keys, native verification-only
+  operation and platform-shell selection, direct-only transition accounting,
+  durable remediation context and opt-in native tail capture. The journal's
+  requirement map names every public test seam; implementation and executed
+  proof remain due in build/validate.
+- OBSERVED/INFERRED (existing prefix capture versus this tail contract): native
+  tests must prove actual tail retention beyond the transient capture bound,
+  with split credentials redacted before eviction and default AEGIS/preparation
+  capture unchanged. Do not treat a bounded prefix as the end of the output.
 - STATED (ticket and Frame): if that accounting cannot share existing
   max_stage_failures without changing AEGIS behavior, stop in the questions file.
 - STATED (ticket Out and repository rules): no dedicated web field, suggestion,
