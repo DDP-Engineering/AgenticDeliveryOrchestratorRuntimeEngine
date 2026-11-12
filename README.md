@@ -16,7 +16,7 @@ or ready MR/PR according to `delivery.draft` after validation and, by default, f
 candidate. Projects can disable the pre-publication approval gate.
 It never merges.
 
-Current release: **ADORE 0.13.0**.
+Current release: **ADORE 0.15.0**.
 
 ## How it works
 

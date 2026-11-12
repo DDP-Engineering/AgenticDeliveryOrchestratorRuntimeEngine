@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Failure Recovery and Cleanup
 
-Applies to ADORE 0.13.0 and AEGIS schema 1.
+Applies to ADORE 0.15.0 and AEGIS schema 1.
 
 - Attempts `1/3` and `2/3`: read the edited incident; a fresh remediation
   session may run.

@@ -7,6 +7,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Documentation
 
+Applies to **ADORE 0.15.0**.
+
 This is the operator and administrator documentation for **Agentic Delivery
 Orchestrator & Runtime Engine (ADORE)**. It describes the product generically:
 replace placeholders such as `<profile-name>` and `<runtime-project>` with your

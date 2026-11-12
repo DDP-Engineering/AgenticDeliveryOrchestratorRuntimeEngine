@@ -10,7 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 All notable changes to the Agentic Delivery Orchestrator & Runtime Engine are recorded here.
 This project follows Keep a Changelog and Semantic Versioning.
 
-## [Unreleased]
+## [0.15.0] - 2026-11-12
 
 ### Added
 

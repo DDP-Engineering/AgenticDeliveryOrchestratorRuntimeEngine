@@ -13,7 +13,8 @@
 schema = 1
 
 [[release]]
-version = "Unreleased"
+version = "0.15.0"
+date = "2026-11-12"
 
 [[release.entry]]
 category = "improved"

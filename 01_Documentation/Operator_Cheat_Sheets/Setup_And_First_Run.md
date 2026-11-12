@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup and First Run
 
-Applies to ADORE 0.13.0 and AEGIS schema 1.
+Applies to ADORE 0.15.0 and AEGIS schema 1.
 
 1. Authenticate host `gh`, `glab`, or `tea`, then separately prove Git itself
    can reach the remote:
