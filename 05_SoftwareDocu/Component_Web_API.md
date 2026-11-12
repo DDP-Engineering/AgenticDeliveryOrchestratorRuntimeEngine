@@ -15,8 +15,9 @@ The scalar/batch settings review uses the same command domain and literal-string
 writer; invalid text returns 400 `invalid_config` with value-free
 `workflow.verify_command` feedback, leaving active and pending bytes unchanged.
 Nothing trims, infers scalar types or executes the command during enrollment or save.
-The writer preserves newline style and verifies that no unrelated parsed TOML
-meaning changed; unsupported human spellings fail closed. Pending read/apply
+The writer preserves newline style, escapes DEL (U+007F) as a TOML Unicode
+escape while retaining literal non-BMP Unicode, and verifies that no unrelated
+parsed TOML meaning changed; unsupported human spellings fail closed. Pending read/apply
 rechecks claimed text, typed domain and whole-document meaning against an unchanged
 base. Existing Admin/CSRF, revision, idle and locking boundaries remain authoritative.
 Resolved configuration, exact Admin raw TOML and unrelated edits preserve the value.

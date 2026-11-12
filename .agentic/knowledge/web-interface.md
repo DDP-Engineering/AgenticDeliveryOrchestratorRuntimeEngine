@@ -132,7 +132,8 @@ accepts strict optional verify_command text, default empty, bound to canonical r
 Nontext and CR/LF/NUL return field-identifying 422 invalid_request. Scalar/batch
 settings review refuses CR/LF/NUL with value-free command-field 400 invalid_config
 without replacing active/pending bytes. implementation_settings.py serializes a
-literal string and checks exact unrelated TOML meaning; pending reads/apply repeat
+literal string, escaping DEL (U+007F) for TOML while retaining literal non-BMP
+Unicode, and checks exact unrelated TOML meaning; pending reads/apply repeat
 typed-domain, claimed-text and unchanged-base semantic checks. Existing Admin/CSRF,
 revision, idle and locking gates remain. Invalid saved values retain key-named
 issues or typed corrupt-config refusal. Enrollment Verification and Settings

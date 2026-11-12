@@ -129,6 +129,7 @@ def test_guided_candidate_review_binds_complete_setup_without_probes(tmp_path, m
 
 
 @pytest.mark.parametrize("command", [None, "", "true", "123", "   ", "echo 💡",
+                                     pytest.param("printf '\x7f💡'", id="del-and-non-bmp"),
                                      ' printf \'$HOME {checks} café\\\\\' | grep "café" '])
 def test_enrollment_verification_command_is_exact_and_review_bound(tmp_path, command):
     """@brief Enrollment preserves optional exact text and binds it to review and evidence."""

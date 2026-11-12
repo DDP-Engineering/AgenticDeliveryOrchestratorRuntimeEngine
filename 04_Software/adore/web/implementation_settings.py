@@ -52,8 +52,10 @@ def set_verify_command(text: str, value: str) -> str:
         raise ValueError("invalid workflow.verify_command")
     expected = deepcopy(tomllib.loads(text))
     expected.setdefault("workflow", {})["verify_command"] = value
-    changed = _set_toml_scalar(text, "workflow.verify_command", value,
-                               literal=json.dumps(value, ensure_ascii=False))
+    # JSON leaves DEL literal, but TOML basic strings require its Unicode escape.
+    # Keep non-BMP Unicode literal: JSON surrogate-pair escapes are invalid TOML.
+    literal = json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+    changed = _set_toml_scalar(text, "workflow.verify_command", value, literal=literal)
     if tomllib.loads(changed) != expected:
         raise ValueError("workflow.verify_command edit changed other settings")
     return changed

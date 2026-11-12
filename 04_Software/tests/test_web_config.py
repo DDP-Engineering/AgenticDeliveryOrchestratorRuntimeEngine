@@ -70,6 +70,7 @@ def test_direct_verification_web_preserves_setting_through_unrelated_edit(tmp_pa
 @pytest.mark.parametrize("batch", [False, True])
 @pytest.mark.parametrize("newline,aegis", [("\n", False), ("\r\n", True)])
 @pytest.mark.parametrize("command", ["", "true", "123", "  ", "echo 💡",
+                                    pytest.param("printf '\x7f💡'", id="del-and-non-bmp"),
                                     ' printf \'$HOME {checks} café\\\\\' | grep "café" '])
 def test_verification_command_review_and_apply_exact_text(tmp_path, batch, newline, aegis, command):
     """@brief Scalar/batch review preserves exact strings, unrelated TOML and newline style."""
