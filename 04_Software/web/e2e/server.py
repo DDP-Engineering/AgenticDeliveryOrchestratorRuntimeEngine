@@ -124,6 +124,23 @@ def main() -> None:
                 "# Commercial use requires a separate commercial license.\n"
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+        workflow_clones = {}
+        for workflow, name in (("direct", "direct-fixture"), ("aegis", "aegis-only-fixture")):
+            folder = home / "repos" / name
+            (folder / ".git").mkdir(parents=True)
+            (folder / ".git" / "config").write_text(
+                '[remote "origin"]\n'
+                f'\turl = ssh://git@forge.e2e.invalid:2222/offline/{name}.git\n',
+                encoding="utf-8")
+            if workflow == "aegis":
+                (folder / ".agentic").mkdir()
+                (folder / ".agentic" / "aegis.py").write_text(
+                    "# Copyright (c) 2026 DDP Engineering\n"
+                    "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
+                    "# Commercial use requires a separate commercial license.\n"
+                    "# See LICENSE.txt. SPDX-License-Identifier: "
+                    "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+            workflow_clones[workflow] = str(folder)
         probe_mode = {"mode": "failed"}
         # Offline forge tickets shared by the fixture projects (their configs keep the
         # example repository); Stop really removes the ready label here.
@@ -221,14 +238,21 @@ def main() -> None:
                 return CommandResult(argv=argv, stdout=json.dumps(
                     [{"name": "fixture", "url": "http://forge.e2e.invalid:3000"}]))
             if argv[:2] == ["git", "clone"]:
-                # The clone made at creation: a repository with AEGIS installed.
+                # Direct and py-only repositories exercise enrollment without installing AEGIS.
                 dest = Path(argv[-1])
                 (dest / ".git").mkdir(parents=True)
                 (dest / ".git" / "config").write_text(
                     f'[remote "origin"]\n\turl = {argv[-2]}\n', encoding="utf-8")
-                (dest / ".agentic").mkdir()
-                for item in ("aegis.py", "aegis.toml"):
-                    (dest / ".agentic" / item).write_text("", encoding="utf-8")
+                if "/direct-" not in argv[-2]:
+                    (dest / ".agentic").mkdir()
+                    items = ("aegis.py",) if "/aegis-only-" in argv[-2] else ("aegis.py", "aegis.toml")
+                    for item in items:
+                        (dest / ".agentic" / item).write_text(
+                            "# Copyright (c) 2026 DDP Engineering\n"
+                            "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
+                            "# Commercial use requires a separate commercial license.\n"
+                            "# See LICENSE.txt. SPDX-License-Identifier: "
+                            "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
                 return CommandResult(argv=argv)
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
@@ -384,7 +408,7 @@ def main() -> None:
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
             probe_mode["mode"] = mode
-            return {"clone": str(clone)}
+            return {"clone": str(clone), "workflows": workflow_clones}
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])

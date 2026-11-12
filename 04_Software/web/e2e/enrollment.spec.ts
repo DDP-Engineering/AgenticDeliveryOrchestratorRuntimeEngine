@@ -8,7 +8,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
 import { connectionCopy } from "../src/agentConnection";
-import { type Locale } from "../src/i18n";
+import { messages, type Locale } from "../src/i18n";
+import { workflowCopy } from "../src/readiness";
 
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
@@ -131,6 +132,112 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   expect(created.paused).toBe(true);
 });
 
+test("verification command preserves multiline paste until corrected and saves exact direct text", async ({ page }) => {
+  await enter(page); await verification(page, "direct-command");
+  const command = page.getByRole("textbox", {name:"Verification command", exact:true});
+  await expect(command).toHaveValue("");
+  await expect(command).toHaveJSProperty("tagName", "TEXTAREA");
+  let previews = 0;
+  page.on("request", request => { if (request.url().endsWith("/setup-preview")) previews++; });
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(() => navigator.clipboard.writeText("npm test\nother command"));
+  await command.focus(); await page.keyboard.press("ControlOrMeta+V");
+  await page.getByRole("button", {name:"Validate setup",exact:true}).click();
+  await expect(page.getByRole("alert")).toContainText("one line");
+  await expect(command).toHaveValue("npm test\nother command");
+  await expect(page.getByRole("button", {name:"Continue",exact:true})).toBeDisabled();
+  expect(previews).toBe(0);
+  const value = "  echo 'é 🧪' && npm test  ";
+  await command.fill(value); await validate(page);
+  await expect(page.locator(".workflow-information")).toContainText("Not inspected");
+  await page.getByRole("button", {name:"Continue",exact:true}).click();
+  await expect(page.locator(".enrollment-review").filter({hasText:"Verification command"}).first()).toContainText(value);
+  await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
+  await page.getByRole("button", {name:"Create project with pickup stopped",exact:true}).click();
+  await expect(page.getByRole("heading", {name:"Enrollment complete",exact:true})).toBeVisible();
+  const config = await (await page.request.get("/api/v1/projects/direct-command/config")).json();
+  expect(config.config.workflow.verify_command).toBe(value);
+});
+
+for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
+  for (const workflow of ["direct", "aegis"] as const) {
+    test(`workflow enrollment ${workflow} in ${locale}`, async ({page}) => {
+      await enter(page);
+      const name = workflow === "direct" ? "direct-fixture" : "aegis-only-fixture";
+      const me = await (await page.request.get("/api/v1/me")).json();
+      try {
+        await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:locale}});
+        await page.goto("/projects/new");
+        const c = enrollmentCopy[locale], text = messages[locale];
+        const fixtureResponse = await page.request.post("/__e2e__/enrollment", {headers:{"X-ADORE-E2E":"local-test"}});
+        const folder = (await fixtureResponse.json()).workflows[workflow];
+        await page.getByLabel(c.url,{exact:false}).fill(`ssh://git@forge.e2e.invalid:2222/offline/${name}.git`);
+        await page.getByRole("button",{name:c.read,exact:true}).click();
+        await expect(page.getByRole("region",{name:c.detected})).toBeVisible();
+        // The proposed path is replaced through the existing folder-mode control.
+        await page.locator('input[type="radio"]').last().check();
+        await page.getByLabel(text.clonePath,{exact:false}).fill(folder);
+        await page.getByRole("button",{name:c.continue,exact:true}).click();
+        await page.locator("#enroll-model").fill("fixture-model");
+        for (let i=0;i<2;i++) await page.getByRole("button",{name:c.continue,exact:true}).click();
+        const command = page.getByRole("textbox", {name:text.verificationCommand,exact:true});
+        await expect(command).toHaveValue("");
+        await page.getByRole("button", {name:c.validate,exact:true}).click();
+        await expect(page.getByText(c.valid,{exact:true})).toBeVisible();
+        const information = page.locator(".workflow-information");
+        await expect(information).toHaveText(`${workflowCopy[locale].label}: ${workflowCopy[locale][workflow]}`);
+        await expect(information.getByRole("button")).toHaveCount(0);
+        if (workflow === "aegis") {
+          await expect(command).toHaveCount(0);
+          await expect(page.getByRole("note")).toContainText(text.aegisTestCommands);
+        } else await expect(command).toHaveValue("");
+        await page.getByRole("button", {name:c.check,exact:true}).click();
+        await expect(page.getByText(c.failedCheck,{exact:true})).toBeVisible();
+        await expect(information).toContainText(workflowCopy[locale][workflow]);
+        await page.getByRole("button", {name:c.continue,exact:true}).click();
+        await expect(page.locator(".workflow-information")).toContainText(workflowCopy[locale][workflow]);
+        if (locale === "en") {
+          await page.getByRole("checkbox",{name:/Create the ADORE labels/}).uncheck();
+          await page.getByRole("button",{name:c.create,exact:true}).click();
+          await expect(page.getByRole("heading",{name:c.completion,exact:true})).toBeVisible();
+        }
+      } finally {
+        await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:"en"}});
+      }
+    });
+  }
+}
+
+test("malformed workflow preview and probe responses never display successful evidence", async ({page}) => {
+  await enter(page); await verification(page, "direct-corrupt-evidence");
+  for (const workflow of [undefined, null, "other", true]) {
+    await page.route("**/setup-preview",async route=>{
+      const response = await route.fetch(), value = await response.json();
+      if (workflow === undefined) delete value.workflow; else value.workflow = workflow;
+      await route.fulfill({json:value});
+    });
+    await page.locator(".verify-action").getByRole("button",{name:"Validate setup",exact:true}).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".workflow-information")).toHaveCount(0);
+    await expect(page.getByRole("button",{name:"Continue",exact:true})).toBeDisabled();
+    await page.unroute("**/setup-preview");
+  }
+  await page.locator(".verify-action").getByRole("button",{name:"Validate setup",exact:true}).click();
+  await expect(page.getByText("Structural setup valid",{exact:true})).toBeVisible();
+  for (const workflow of [undefined, null, "other", true]) {
+    await page.route("**/setup-check",async route=>{
+      const response = await route.fetch(), value = await response.json();
+      if (workflow === undefined) delete value.workflow; else value.workflow = workflow;
+      await route.fulfill({json:value});
+    });
+    await page.getByRole("button",{name:"Check environment",exact:true}).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".workflow-information")).toHaveCount(0);
+    await expect(page.getByText(/Verified — the reported/)).toHaveCount(0);
+    await page.unroute("**/setup-check");
+  }
+});
+
 test("label creation can be skipped and its failure keeps the project", async ({ page }) => {
   const ensures: string[] = [];
   page.on("request", request => { if (request.url().endsWith("/labels/ensure")) ensures.push(request.url()); });
@@ -236,9 +343,9 @@ test("native enrollment reports the Node failure under Pi on the server", async 
   await validate(page);
   const preview = await (await previewResponse).json();
   const checks = { git: true, forge_cli: true, forge_auth: true, container_runtime: true,
-    executor_cli: false, aegis_files: "not-checked" };
+    executor_cli: false };
   await page.route("**/setup-check", route => route.fulfill({ json: {
-    status: "failed", auth_bound: false, draft_revision: preview.revision,
+    status: "failed", workflow: "not-inspected", auth_bound: false, draft_revision: preview.revision,
     revision: preview.config_revision, evidence_token: "e".repeat(64),
     checked_at: "2026-01-01T00:00:00Z", required_checks: Object.keys(checks), checks,
     local_probe: { ready: false, reason: "node-incompatible", exit_code: 0 },

@@ -7,6 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const messages = {
   en: {
+    verificationCommand: "Verification command",
+    verificationCommandHelp: "Optional: one shell command line from the worktree root for direct runs. Empty means unverified. AEGIS uses the repository’s own test commands.",
+    verificationCommandInvalid: "Enter the Verification command on one line, without line breaks or NUL.",
+    aegisTestCommands: "Uses the repository's AEGIS test commands",
     resetPasswordFor: "Reset password for {user}",
     resetPasswordEffect: "Saving ends this account’s existing sessions. At the next sign-in, the user must choose a new password.",
     repeatNewPassword: "Repeat new password", showCurrentPassword: "Show current password", hideCurrentPassword: "Hide current password", showNewPassword: "Show new password", hideNewPassword: "Hide new password", showRepeatPassword: "Show repeated password", hideRepeatPassword: "Hide repeated password", passwordMismatch: "Passwords do not match.",
@@ -35,7 +39,7 @@ export const messages = {
     attributedUsage: "Usage by executor and model", usageEvents: "Usage events",
     workerBusy: "Busy", workerActivityUnknown: "Activity unknown", workerQueueHelp: "One worker handles projects and commands in turn. Queued commands may wait; cancellation signals can reach an active job.", workerReadiness: "Control worker", workerReady: "Ready", workerUnavailable: "Unavailable", workerCheckFailed: "Status check failed", workerChecking: "Checking…",
     storageStatus: "Storage", storageHealthy: "Space available", storageLow: "Low disk space", storageCheckFailed: "Storage check failed", storageVolume: "Volume", storageFree: "Free", storageHome: "ADORE home",
-    hostReadiness: "Host prerequisites", runReadinessCheck: "Check now", hostReadinessHelp: "Checks host tools, forge sign-in and AEGIS files, plus Pi in the selected local image; AEGIS execution is not tested.", checkedAt: "Checked at", gitTool: "Git", forgeCli: "Forge CLI", forgeAuth: "Forge sign-in", containerRuntime: "Container runtime", executorCli: "Executor in image", aegisPayload: "AEGIS files", modelEndpoint: "Model endpoint", checkPassed: "Available", checkMissing: "Missing or failed", checkUnverified: "Not checked",
+    hostReadiness: "Host prerequisites", runReadinessCheck: "Check now", hostReadinessHelp: "Checks host tools, forge sign-in and Pi in the local image. Workflow is read-only file information, not an AEGIS execution test.", checkedAt: "Checked at", gitTool: "Git", forgeCli: "Forge CLI", forgeAuth: "Forge sign-in", containerRuntime: "Container runtime", executorCli: "Executor in image", aegisPayload: "AEGIS files", modelEndpoint: "Model endpoint", checkPassed: "Available", checkMissing: "Missing or failed", checkUnverified: "Not checked",
     publishingStatus: "Publishing", awaitingApprovalStatus: "Waiting for approval", parkedClarificationStatus: "Waiting for clarification", inReviewStatus: "Human review", handoffPendingStatus: "Handoff pending", handedOffStatus: "Handed off",
     frameStage: "Frame", specifyStage: "Specify", designStage: "Design", buildStage: "Build", validateStage: "Validate",
 
@@ -91,6 +95,10 @@ export const messages = {
     cancelled: "Cancelled", working: "Working", parked: "Parked", review: "In review", done: "Done", pause: "Stop pickup", resume: "Start pickup", paused: "Pickup stopped", pickupEnabled: "Pickup enabled",
   },
   fr: {
+    verificationCommand: "Commande de vérification",
+    verificationCommandHelp: "Facultatif : une commande shell sur une ligne depuis la racine de l’arbre de travail pour les exécutions directes. Vide signifie non vérifié. AEGIS utilise les commandes de test du dépôt.",
+    verificationCommandInvalid: "Saisissez la commande de vérification sur une ligne, sans saut de ligne ni NUL.",
+    aegisTestCommands: "Utilise les commandes de test AEGIS du dépôt",
     resetPasswordFor: "Réinitialiser le mot de passe de {user}",
     resetPasswordEffect: "L’enregistrement ferme les sessions de ce compte. À la prochaine connexion, l’utilisateur devra choisir un nouveau mot de passe.",
     repeatNewPassword: "Confirmer le nouveau mot de passe", showCurrentPassword: "Afficher le mot de passe actuel", hideCurrentPassword: "Masquer le mot de passe actuel", showNewPassword: "Afficher le nouveau mot de passe", hideNewPassword: "Masquer le nouveau mot de passe", showRepeatPassword: "Afficher la confirmation", hideRepeatPassword: "Masquer la confirmation", passwordMismatch: "Les mots de passe ne correspondent pas.",
@@ -119,7 +127,7 @@ export const messages = {
     attributedUsage: "Utilisation par exécuteur et modèle", usageEvents: "Événements d'utilisation",
     workerBusy: "Occupé", workerActivityUnknown: "Activité inconnue", workerQueueHelp: "Un seul agent traite les projets et commandes à tour de rôle. Les commandes peuvent attendre ; un signal d’annulation peut atteindre une tâche active.", workerReadiness: "Agent de contrôle", workerReady: "Prêt", workerUnavailable: "Indisponible", workerCheckFailed: "Échec de la vérification", workerChecking: "Vérification…",
     storageStatus: "Stockage", storageHealthy: "Espace disponible", storageLow: "Espace disque faible", storageCheckFailed: "Échec de la vérification du stockage", storageVolume: "Volume", storageFree: "Libre", storageHome: "Dossier ADORE",
-    hostReadiness: "Prérequis de l'hôte", runReadinessCheck: "Vérifier", hostReadinessHelp: "Vérifie les outils, la forge, les fichiers AEGIS et Pi dans l'image locale ; AEGIS n'est pas exécuté.", checkedAt: "Vérifié le", gitTool: "Git", forgeCli: "CLI de forge", forgeAuth: "Connexion à la forge", containerRuntime: "Moteur de conteneur", executorCli: "Exécuteur dans l'image", aegisPayload: "Fichiers AEGIS", modelEndpoint: "Point d'accès du modèle", checkPassed: "Disponible", checkMissing: "Absent ou en échec", checkUnverified: "Non vérifié",
+    hostReadiness: "Prérequis de l'hôte", runReadinessCheck: "Vérifier", hostReadinessHelp: "Vérifie les outils, la forge et Pi dans l’image locale. Le workflow est une information lue dans les fichiers ; AEGIS n’est pas exécuté.", checkedAt: "Vérifié le", gitTool: "Git", forgeCli: "CLI de forge", forgeAuth: "Connexion à la forge", containerRuntime: "Moteur de conteneur", executorCli: "Exécuteur dans l'image", aegisPayload: "Fichiers AEGIS", modelEndpoint: "Point d'accès du modèle", checkPassed: "Disponible", checkMissing: "Absent ou en échec", checkUnverified: "Non vérifié",
     publishingStatus: "Publication", awaitingApprovalStatus: "En attente d'approbation", parkedClarificationStatus: "En attente de clarification", inReviewStatus: "Revue humaine", handoffPendingStatus: "Transfert en cours", handedOffStatus: "Transféré",
     frameStage: "Cadrage", specifyStage: "Spécification", designStage: "Conception", buildStage: "Développement", validateStage: "Validation",
 
@@ -175,6 +183,10 @@ export const messages = {
     cancelled: "Annulée", working: "En cours", parked: "En pause", review: "En revue", done: "Terminée", pause: "Suspendre la sélection", resume: "Reprendre la sélection", paused: "Prise en charge arrêtée", pickupEnabled: "Sélection active",
   },
   de: {
+    verificationCommand: "Prüfbefehl",
+    verificationCommandHelp: "Optional: ein einzeiliger Shell-Befehl ab der Worktree-Wurzel für direkte Läufe. Leer bedeutet ungeprüft. AEGIS verwendet die eigenen Testbefehle des Repositorys.",
+    verificationCommandInvalid: "Prüfbefehl in einer Zeile ohne Zeilenumbrüche oder NUL eingeben.",
+    aegisTestCommands: "Verwendet die AEGIS-Testbefehle des Repositorys",
     resetPasswordFor: "Passwort für {user} zurücksetzen",
     resetPasswordEffect: "Beim Speichern enden die bestehenden Sitzungen dieses Kontos. Bei der nächsten Anmeldung muss ein neues Passwort gewählt werden.",
     repeatNewPassword: "Neues Passwort wiederholen", showCurrentPassword: "Aktuelles Passwort anzeigen", hideCurrentPassword: "Aktuelles Passwort verbergen", showNewPassword: "Neues Passwort anzeigen", hideNewPassword: "Neues Passwort verbergen", showRepeatPassword: "Wiederholung anzeigen", hideRepeatPassword: "Wiederholung verbergen", passwordMismatch: "Die Passwörter stimmen nicht überein.",
@@ -203,7 +215,7 @@ export const messages = {
     attributedUsage: "Nutzung nach Executor und Modell", usageEvents: "Nutzungsereignisse",
     workerBusy: "Beschäftigt", workerActivityUnknown: "Aktivität unbekannt", workerQueueHelp: "Ein Worker bearbeitet Projekte und Befehle nacheinander. Befehle können warten; Abbruchsignale erreichen aktive Aufträge.", workerReadiness: "Steuerungs-Worker", workerReady: "Bereit", workerUnavailable: "Nicht verfügbar", workerCheckFailed: "Statusprüfung fehlgeschlagen", workerChecking: "Prüfung…",
     storageStatus: "Speicherplatz", storageHealthy: "Platz verfügbar", storageLow: "Wenig Speicherplatz", storageCheckFailed: "Speicherprüfung fehlgeschlagen", storageVolume: "Datenträger", storageFree: "Frei", storageHome: "ADORE-Verzeichnis",
-    hostReadiness: "Host-Voraussetzungen", runReadinessCheck: "Jetzt prüfen", hostReadinessHelp: "Prüft Host-Werkzeuge, Forge-Anmeldung, AEGIS-Dateien und Pi im lokalen Image; AEGIS wird nicht ausgeführt.", checkedAt: "Geprüft am", gitTool: "Git", forgeCli: "Forge-CLI", forgeAuth: "Forge-Anmeldung", containerRuntime: "Container-Laufzeit", executorCli: "Executor im Image", aegisPayload: "AEGIS-Dateien", modelEndpoint: "Modellendpunkt", checkPassed: "Verfügbar", checkMissing: "Fehlt oder fehlgeschlagen", checkUnverified: "Nicht geprüft",
+    hostReadiness: "Host-Voraussetzungen", runReadinessCheck: "Jetzt prüfen", hostReadinessHelp: "Prüft Host-Werkzeuge, Forge-Anmeldung und Pi im lokalen Image. Workflow ist eine reine Dateiinformation; AEGIS wird nicht ausgeführt.", checkedAt: "Geprüft am", gitTool: "Git", forgeCli: "Forge-CLI", forgeAuth: "Forge-Anmeldung", containerRuntime: "Container-Laufzeit", executorCli: "Executor im Image", aegisPayload: "AEGIS-Dateien", modelEndpoint: "Modellendpunkt", checkPassed: "Verfügbar", checkMissing: "Fehlt oder fehlgeschlagen", checkUnverified: "Nicht geprüft",
     publishingStatus: "Veröffentlichung", awaitingApprovalStatus: "Wartet auf Freigabe", parkedClarificationStatus: "Wartet auf Klärung", inReviewStatus: "Menschliche Prüfung", handoffPendingStatus: "Übergabe läuft", handedOffStatus: "Übergeben",
     frameStage: "Rahmen", specifyStage: "Spezifikation", designStage: "Entwurf", buildStage: "Umsetzung", validateStage: "Validierung",
 
@@ -259,6 +271,10 @@ export const messages = {
     cancelled: "Abgebrochen", working: "In Arbeit", parked: "Pausiert", review: "In Prüfung", done: "Fertig", pause: "Aufnahme pausieren", resume: "Aufnahme fortsetzen", paused: "Übernahme gestoppt", pickupEnabled: "Aufnahme aktiv",
   },
   ro: {
+    verificationCommand: "Comandă de verificare",
+    verificationCommandHelp: "Opțional: o comandă shell pe o singură linie, din rădăcina worktree-ului, pentru rulări directe. Gol înseamnă neverificat. AEGIS folosește comenzile de test ale repository-ului.",
+    verificationCommandInvalid: "Introdu comanda de verificare pe o singură linie, fără sfârșituri de linie sau NUL.",
+    aegisTestCommands: "Folosește comenzile de test AEGIS ale repository-ului",
     resetPasswordFor: "Resetează parola pentru {user}",
     resetPasswordEffect: "Salvarea închide sesiunile acestui cont. La următoarea autentificare, utilizatorul trebuie să aleagă o parolă nouă.",
     repeatNewPassword: "Repetă parola nouă", showCurrentPassword: "Arată parola curentă", hideCurrentPassword: "Ascunde parola curentă", showNewPassword: "Arată parola nouă", hideNewPassword: "Ascunde parola nouă", showRepeatPassword: "Arată parola repetată", hideRepeatPassword: "Ascunde parola repetată", passwordMismatch: "Parolele nu coincid.",
@@ -287,7 +303,7 @@ export const messages = {
     attributedUsage: "Utilizare după executor și model", usageEvents: "Evenimente de utilizare",
     workerBusy: "Ocupat", workerActivityUnknown: "Activitate necunoscută", workerQueueHelp: "Un singur lucrător tratează proiectele și comenzile pe rând. Comenzile pot aștepta; semnalul de anulare poate ajunge la o lucrare activă.", workerReadiness: "Lucrătorul de control", workerReady: "Pregătit", workerUnavailable: "Indisponibil", workerCheckFailed: "Verificarea stării a eșuat", workerChecking: "Se verifică…",
     storageStatus: "Stocare", storageHealthy: "Spațiu disponibil", storageLow: "Spațiu pe disc redus", storageCheckFailed: "Verificarea stocării a eșuat", storageVolume: "Volum", storageFree: "Liber", storageHome: "Directorul ADORE",
-    hostReadiness: "Cerințe ale gazdei", runReadinessCheck: "Verifică acum", hostReadinessHelp: "Verifică instrumentele gazdei, autentificarea forge, fișierele AEGIS și Pi din imaginea locală; AEGIS nu este executat.", checkedAt: "Verificat la", gitTool: "Git", forgeCli: "CLI forge", forgeAuth: "Autentificare forge", containerRuntime: "Runtime de containere", executorCli: "Executor în imagine", aegisPayload: "Fișiere AEGIS", modelEndpoint: "Endpoint model", checkPassed: "Disponibil", checkMissing: "Lipsește sau a eșuat", checkUnverified: "Neverificat",
+    hostReadiness: "Cerințe ale gazdei", runReadinessCheck: "Verifică acum", hostReadinessHelp: "Verifică instrumentele gazdei, autentificarea forge și Pi din imaginea locală. Workflow este o informație citită din fișiere; AEGIS nu este executat.", checkedAt: "Verificat la", gitTool: "Git", forgeCli: "CLI forge", forgeAuth: "Autentificare forge", containerRuntime: "Runtime de containere", executorCli: "Executor în imagine", aegisPayload: "Fișiere AEGIS", modelEndpoint: "Endpoint model", checkPassed: "Disponibil", checkMissing: "Lipsește sau a eșuat", checkUnverified: "Neverificat",
     publishingStatus: "Publicare", awaitingApprovalStatus: "Așteaptă aprobarea", parkedClarificationStatus: "Așteaptă clarificări", inReviewStatus: "Revizie umană", handoffPendingStatus: "Predare în curs", handedOffStatus: "Predat",
     frameStage: "Încadrare", specifyStage: "Specificare", designStage: "Proiectare", buildStage: "Construire", validateStage: "Validare",
 

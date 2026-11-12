@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-da65acf8"
 title = "Explain repository-owned AEGIS verification during enrollment"
-status = "draft"
+status = "active"
 requirement = "While enrollment has inspected the repository and identified AEGIS, the administrator interface shall replace the Verification command input with the localized note Uses the repository's AEGIS test commands."
 verification = "Offline browser tests enroll from an existing aegis.py-only clone and assert the note replaces the input in all four locales; an inspected Direct clone and an uncreated clone retain the optional command field rather than an unsupported AEGIS claim."
 affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/i18n.ts"]
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

@@ -27,7 +27,10 @@ broken payload is refused without fallback. Web enrollment accepts repositories
 with or without AEGIS. Guided enrollment and scalar/batch settings APIs accept an
 exact optional single-line verification command under existing reviewed revision
 and access boundaries; invalid nontext, CR/LF/NUL are refused with field feedback.
-The command remains hidden from frontend controls. API readiness reports a separate
+Enrollment Verification and Settings Implementation expose the optional command
+through one-row textareas, exact domain validation and localized feedback. An
+inspected AEGIS enrollment shows the repository-test-command note instead.
+API and browser readiness report a separate
 read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
 checks and stores schema-3 evidence with strict deletion guidance on corruption.
 Pending-clone evidence transfers unchanged at creation; the runtime pre-pick probe

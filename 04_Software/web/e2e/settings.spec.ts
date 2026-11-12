@@ -37,6 +37,31 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test("verification command refuses multiline input and saves exact text through reviewed settings", async ({ page }) => {
+  await openSettings(page);
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  const row = page.locator('[id="setting-workflow.verify_command"]');
+  await expect(row).toContainText("AEGIS");
+  await row.getByRole("button", {name:"Edit Verification command",exact:true}).click();
+  const command = row.getByRole("textbox", {name:"Verification command",exact:true});
+  await expect(command).toHaveJSProperty("tagName", "TEXTAREA");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(() => navigator.clipboard.writeText("npm test\r\nsecond command"));
+  await command.focus(); await page.keyboard.press("ControlOrMeta+V");
+  await expect(command).toHaveValue("npm test\nsecond command");
+  await expect(row.getByRole("alert")).toContainText("one line");
+  await expect(settingsSave(page)).toBeDisabled();
+  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+  const value = "  echo 'é 🧪' && npm test  ";
+  await command.fill(value); await saveSettings(page);
+  const saved = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(saved.config.workflow.verify_command).toBe(value);
+  await page.locator('[data-setting-purpose="implementation"] > summary').click();
+  await row.getByRole("button").click();
+  await row.getByRole("textbox").fill(before.config.workflow.verify_command);
+  await saveSettings(page);
+});
+
 test("branch naming previews invalid drafts and applies both fields through exact review", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();

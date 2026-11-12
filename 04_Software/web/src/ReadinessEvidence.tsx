@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { ModelEvidence } from "./ModelConnection";
 import { type Locale } from "./i18n";
-import { readinessKeys, type ProjectReadiness } from "./readiness";
+import { readinessKeys, workflowCopy, type RepositoryWorkflow, type ProjectReadiness } from "./readiness";
 import { localCopy } from "./localExecution";
 import { localFailureText, modelFailureText } from "./localDiagnostics";
 import { repositoryConnectionHelp } from "./errors";
@@ -27,7 +27,6 @@ const copy = {
       ["Repository sign-in", "Confirms that the configured repository account can authenticate through its command tool.", "Sign in on the ADORE server using the configured account and verify its repository access."],
       ["Container engine", "Starts the isolated environment where the coding agent works.", "Check the configured container engine and the ADORE service account's permissions."],
       ["Coding agent in image", "Checks that Pi exists in the local container image.", "Check that the configured image is installed locally and contains Pi."],
-      ["Repository workflow files", "Checks that the repository contains the AEGIS files used to guide and validate implementation.", "Check the configured repository path and its .agentic/aegis.py and .agentic/aegis.toml files."],
       ["AI model connection", "Latest explicit model access test through Pi; Pi installed on the server must also run a shell command. A complete job requires separate acceptance.", "Review the model, credentials and container connectivity in Settings → Agent and model."],
     ],
   },
@@ -46,7 +45,6 @@ const copy = {
       ["Autentificare la repository", "Confirmă că acel cont configurat se poate autentifica prin instrumentul serviciului repository.", "Autentifică-te pe serverul ADORE cu acel cont configurat și verifică accesul la repository."],
       ["Motorul de containere", "Pornește mediul izolat în care lucrează agentul de programare.", "Verifică motorul de containere configurat și permisiunile contului serviciului ADORE."],
       ["Agentul din imagine", "Verifică dacă Pi există în imaginea locală de container.", "Verifică dacă imaginea configurată este instalată local și conține Pi."],
-      ["Fișierele workflow-ului", "Verifică dacă repository-ul conține fișierele AEGIS care ghidează și validează implementarea.", "Verifică locația repository-ului și fișierele .agentic/aegis.py și .agentic/aegis.toml."],
       ["Conexiunea la modelul AI", "Ultimul test explicit de acces la model prin Pi; Pi instalat pe server trebuie să ruleze și o comandă shell. Un job complet necesită acceptare separată.", "Verifică modelul, credențialele și conectivitatea containerului în Setări → Agent și model."],
     ],
   },
@@ -65,7 +63,6 @@ const copy = {
       ["Connexion au dépôt", "Confirme l’authentification du compte configuré via l’outil du dépôt.", "Connectez-vous sur le serveur ADORE avec le compte configuré et vérifiez son accès au dépôt."],
       ["Moteur de conteneurs", "Démarre l’environnement isolé de l’agent de programmation.", "Vérifiez le moteur configuré et les permissions du compte du service ADORE."],
       ["Agent dans l’image", "Vérifie la présence de Pi dans l’image locale du conteneur.", "Vérifiez que l’image configurée est installée localement et contient Pi."],
-      ["Fichiers du workflow", "Vérifie les fichiers AEGIS du dépôt qui guident et valident l’implémentation.", "Vérifiez le chemin du dépôt et ses fichiers .agentic/aegis.py et .agentic/aegis.toml."],
       ["Connexion au modèle IA", "Dernier test explicite d’accès au modèle via Pi ; un Pi installé sur le serveur doit aussi exécuter une commande shell. Une tâche complète nécessite une validation distincte.", "Vérifiez le modèle, les identifiants et la connexion du conteneur dans Paramètres → Agent et modèle."],
     ],
   },
@@ -84,7 +81,6 @@ const copy = {
       ["Repository-Anmeldung", "Bestätigt die Anmeldung des konfigurierten Kontos über das Repository-Werkzeug.", "Melden Sie sich auf dem ADORE-Server mit dem konfigurierten Konto an und prüfen Sie den Repository-Zugriff."],
       ["Container-Engine", "Startet die isolierte Arbeitsumgebung des Programmieragenten.", "Prüfen Sie die konfigurierte Engine und die Rechte des ADORE-Dienstkontos."],
       ["Agent im Image", "Prüft, ob Pi im lokalen Container-Image vorhanden ist.", "Prüfen Sie, ob das konfigurierte Image lokal installiert ist und Pi enthält."],
-      ["Workflow-Dateien", "Prüft die AEGIS-Dateien im Repository zur Steuerung und Validierung der Implementierung.", "Prüfen Sie den Repository-Pfad sowie .agentic/aegis.py und .agentic/aegis.toml."],
       ["KI-Modellverbindung", "Letzter expliziter Modellzugriffstest über Pi; ein auf dem Server installiertes Pi muss auch einen Shell-Befehl ausführen. Ein vollständiger Auftrag benötigt separate Abnahme.", "Prüfen Sie Modell, Zugangsdaten und Container-Verbindung in Einstellungen → Agent und Modell."],
     ],
   },
@@ -106,6 +102,12 @@ export function readinessDetailsLabel(locale: Locale): string { return copy[loca
 /** Localized action hides only the details panel, without cancelling the check. */
 export function readinessCloseLabel(locale: Locale): string { return { en: "Close details", ro: "Închide detaliile", fr: "Fermer les détails", de: "Details schließen" }[locale]; }
 
+/** Descriptive file observation, outside prerequisite pass/fail rows. */
+export function WorkflowInformation({ workflow, locale }: { workflow: RepositoryWorkflow; locale: Locale }) {
+  const c = workflowCopy[locale];
+  return <p className="workflow-information"><strong>{c.label}</strong>: {c[workflow]}</p>;
+}
+
 /** Present only validated results inside the view-owned disclosure. */
 export function ReadinessEvidence({ evidence, locale, local, modelEvidence }: { modelEvidence?: ModelEvidence | null; evidence: ProjectReadiness; locale: Locale; local: boolean }) {
   const c = copy[locale];
@@ -115,6 +117,7 @@ export function ReadinessEvidence({ evidence, locale, local, modelEvidence }: { 
   return <div className="readiness-evidence">
     <p className="muted">{local ? localCopy[locale].notice : c.coverage}</p>
     {!evidence.auth_bound && <p>{({ en: "External CLI sign-in can change outside ADORE; connect repository access and check again to bind it.", fr: "La connexion CLI externe peut changer hors d’ADORE ; connectez l’accès au dépôt puis vérifiez à nouveau.", de: "Die externe CLI-Anmeldung kann sich außerhalb von ADORE ändern; verbinden Sie den Repository-Zugang und prüfen Sie erneut.", ro: "Autentificarea CLI externă se poate schimba în afara ADORE; conectați accesul la repository și verificați din nou." })[locale]}</p>}
+    <WorkflowInformation workflow={evidence.workflow} locale={locale} />
     <div className="readiness-details">
     <div className="readiness-checks">{readinessKeys.map((key, index) => {
       if (local && key === "container_runtime") return null;

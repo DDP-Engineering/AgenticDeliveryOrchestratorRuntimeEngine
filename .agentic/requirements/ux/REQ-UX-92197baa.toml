@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-92197baa"
 title = "Offer an empty optional verification command during enrollment"
-status = "draft"
+status = "active"
 requirement = "While an enrollment draft is not known to use AEGIS, the administrator enrollment interface shall offer an optional localized Verification command text field initially empty, without automatically suggesting or selecting a command."
 verification = "Offline enrollment browser tests inspect new and existing Direct drafts in all four locales, find the accessible optional empty field and complete enrollment with it empty or explicitly entered; changing other fields or checking a repository does not invent a command."
 affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/i18n.ts"]
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

@@ -8,9 +8,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readReadiness, readinessVerdict, validProjectVerification } from "../src/readiness.ts";
 const project = "1".repeat(32);
-const evidence = () => ({ status: "verified", auth_bound: true, project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
-  checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true },
-  required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files"] });
+const evidence = () => ({ status: "verified", workflow: "direct", auth_bound: true, project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
+  checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true },
+  required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli"] });
 test("performed checks yield verified, partial runtime and failed verdicts", () => {
   const value = evidence();
   assert.equal(readinessVerdict(readReadiness(value, project)), "verified");
@@ -54,8 +54,31 @@ test("the internet checks are optional booleans that decide the verdict", () => 
   }
 });
 
+test("workflow is information independent of the prerequisite verdict", () => {
+  for (const workflow of ["aegis", "direct", "not-inspected"]) {
+    const value = {...evidence(), workflow};
+    assert.equal(readinessVerdict(readReadiness(value, project)), "verified");
+    assert.equal(validProjectVerification(value, project, value.required_checks), true);
+    value.auth_bound = false; value.status = "partial";
+    assert.equal(readinessVerdict(readReadiness(value, project)), "partial");
+    value.checks.git = false; value.status = "failed";
+    assert.equal(readinessVerdict(readReadiness(value, project)), "failed");
+  }
+});
+test("missing, malformed and stale workflow evidence fails closed", () => {
+  for (const workflow of [undefined, null, "unknown", "AEGIS", true, 1, [], {}]) {
+    for (const status of ["verified", "stale"]) {
+      const value = {...evidence(), workflow, status};
+      if (workflow === undefined) delete value.workflow;
+      assert.throws(() => readReadiness(value, project), error => error.code === "readiness_corrupt");
+      assert.equal(validProjectVerification(value, project, value.required_checks), false);
+    }
+  }
+  assert.throws(() => readReadiness({...evidence(), extra: true}, project));
+});
+
 test("project list rejects fabricated and malformed verification", () => {
-  const partial = evidence(); partial.status = "partial"; partial.checks.aegis_files = "not-checked";
+  const partial = evidence(); partial.status = "partial"; partial.checks.container_runtime = null;
   assert.equal(validProjectVerification(partial, project, partial.required_checks), true);
   assert.equal(validProjectVerification({ ...partial, status: "verified" }, project, partial.required_checks), false);
   assert.equal(validProjectVerification({ ...partial, project_id: "other" }, project, partial.required_checks), false);

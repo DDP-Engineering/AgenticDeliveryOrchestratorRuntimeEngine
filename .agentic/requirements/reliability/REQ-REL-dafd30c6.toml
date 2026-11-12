@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-dafd30c6"
 title = "Refuse malformed workflow evidence in the browser"
-status = "draft"
+status = "active"
 requirement = "If an enrollment or project readiness response contains missing, unknown, wrongly typed or internally inconsistent workflow evidence, the web interface shall reject that evidence with visible localized failure feedback instead of presenting a successful workflow or readiness result."
 verification = "Offline frontend and browser tests mutate a valid bound response to omit workflow information, insert unknown values or wrong types, or contradict the prerequisite verdict, then observe rejection and no success display; valid AEGIS, Direct and not-inspected responses are accepted controls."
 affected_paths = ["04_Software/web/src/readiness.ts", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/ReadinessEvidence.tsx"]
-linked_tests = []
+linked_tests = ["04_Software/web/tests/readiness.test.mjs", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/jobs.spec.ts"]
 spec = ""
 priority = "high"
 created = 2026-11-12

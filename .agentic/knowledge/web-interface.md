@@ -130,8 +130,15 @@ without replacing active/pending bytes. implementation_settings.py serializes a
 literal string and checks exact unrelated TOML meaning; pending reads/apply repeat
 typed-domain, claimed-text and unchanged-base semantic checks. Existing Admin/CSRF,
 revision, idle and locking gates remain. Invalid saved values retain key-named
-issues or typed corrupt-config refusal. Frontend HIDDEN_SETTING_KEYS still omits
-this control and Jobs presentation is unchanged. Proof: test_web_enrollment.py,
+issues or typed corrupt-config refusal. Enrollment Verification and Settings
+Implementation expose the exact optional command through one-row textareas, with
+shared four-locale names/help/invalid-input feedback. The browser refuses CR/LF/NUL
+before preview or Save and validates scalar/batch pending values before recovery.
+An inspected AEGIS enrollment replaces the control with its repository-test-command
+note; the draft string is not erased. Jobs presentation is unchanged. Proof includes
+web/tests/readiness.test.mjs, settings.test.mjs, settingsSave.test.mjs,
+localDiagnostics.test.mjs and web/e2e/enrollment.spec.ts/settings.spec.ts, alongside
+test_web_enrollment.py,
 test_web_config.py, test_web_config_raw.py, test_web_pending_config.py and
 test_web_settings_batch.py.
 
@@ -257,7 +264,9 @@ SQLite bytes, authorization, scope and financial redaction.
   under existing localized HTTP error categories. Secret literals fail closed.
 - Read models distinguish structural validation, pickup and explicit verification.
   Profile-owned readiness.json validates identity/digest/UTC time/schema/redacted
-  checks; absent evidence is unverified and changed config is stale. Mid-probe
+  checks; browser readers validate the closed workflow/check domain and prerequisite
+  verdict agreement, and render Workflow outside pass/fail rows in four locales.
+  Absent evidence is unverified and changed config is stale. Mid-probe
   config changes cannot publish current evidence. See Component_Web_API.md.
 
 - `DashboardShell` renders authorized semantic links, approved transparent

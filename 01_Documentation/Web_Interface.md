@@ -164,9 +164,18 @@ creation. Cost limit zero disables that cap and does not imply free execution.
 Visible guidance explains units, eligibility and approval. Existing hold/exclude
 rules remain applicable.
 
-The guided API accepts an optional `verify_command`, saved exactly as
-`[workflow] verify_command`; omission saves an empty string. The same setting is
-editable through the existing scalar/batch settings API review. It is one shell
+In enrollment's **Verification** step, **Verification command** is optional and
+initially empty, with no automatic suggestion. An inspected AEGIS clone instead
+shows **Uses the repository's AEGIS test commands**. **Workflow** shows AEGIS,
+Direct or not inspected as information, never as a failed prerequisite. Until the
+clone exists, its workflow remains uninspected; a later explicit host check can
+inspect the created clone.
+
+The command saves exactly as `[workflow] verify_command`; omission saves an empty
+string. The same field is editable in **Settings → Implementation** through the
+existing reviewed Save. Developers see the value without edit controls. A pasted
+multiline command remains visible and is refused with field feedback before
+submission; invalid text is never flattened into a different command. It is one shell
 command line for direct-workflow verification, run from the worktree root under
 the validate-stage limit. Empty means no independent verification; AEGIS uses its
 repository-owned test commands instead. CR, LF, NUL and nontext input are refused,
@@ -1125,7 +1134,9 @@ or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
-in the local image; workflow availability checks the two configured AEGIS files.
+in the local image. **Workflow** separately reports AEGIS from `.agentic/aegis.py`
+alone, Direct when absent in an available clone, or not inspected for an unavailable
+clone. It names no version, never blocks readiness and offers no installation remedy.
 A container project with internet access Off adds **Network proxy image**
 (`egress_proxy`: the runtime's `image inspect` of `[container.egress]
 proxy_image` succeeds; it is never pulled), and a project with internet access
