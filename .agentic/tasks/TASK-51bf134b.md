@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-51bf134b - [Direct] Suggest the verification command from repository files
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -590,6 +588,11 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 - 2026-11-12 build: Advisory check explanation: python .agentic/aegis.py check exit 0 reports 0 errors, 37 warnings, 28 notes; check --task TASK-51bf134b --full exit 0 reports 0 errors, 46 warnings, 28 notes. Existing ticket-ref/stale-path findings belong to unrelated requirements; legacy journal-header/unticked-deliver findings belong to other tasks. Manual-verification notes concern other requirements, not unperformed task proof. No broad cleanup or payload edits made. Task uncovered-source findings are generated assets/fingerprint/index, translated help/release notes and e2e fixture/spec supporting files, not unowned behavior: behavior is mapped through the 33 requirement source paths and linked tests, docs through component knowledge, and bundles through the verified build. Keeping those ownership records focused rather than assigning generated filenames as new behavioral contracts.
 - 2026-11-12 build: DEVIATION build: advisory secret-in-diff skips the oversized minified generated JS - accepted scanner limitation, not a clean secret-scan claim; changed authored code/copy contains no credentials, npm builds generate the bundle and matching committed/isolated fingerprints and bytes were verified. No checker bypass or limit relaxation. Existing npm dependency advisories, Starlette/httpx deprecation and Vite chunk-size warning remain out of task scope; dependency versions and build settings are unchanged. Separate validate must run its full suite and strict gate; build evidence does not replace it.
 - 2026-11-12 build: completed; next validate
+- 2026-11-12 validate: Validate execution bound: at most 45 minutes, one final strict full proof after candidate reconciliation and two independent read-only reviewers, no publication or AEGIS payload edits. Reviewers launched with read/grep/find/ls only, ten-minute process limits and no journal authority. Checkout branch matches journal; Python environment, Node/npm, Playwright executable and initialized machine identity are present; dependency/browser readiness will be checked without a separate full suite.
+- 2026-11-12 validate: Validate review round 1: two independent read-only Pi reviewers completed with specification=changes_required and quality=changes_required. Both inspected the complete journal, all 33 requirements and two specs, helper/API/CLI/browser code and actual focused assertions. Shared blocker: verification_hint.py catches only JSONDecodeError; sub-1-MiB deeply nested malformed JSON raises RecursionError and a nontext 5000-digit test integer raises ValueError, violating REQ-REL-cbc3b8e1. Quality also found supported Python 3.11/3.12 Path.resolve symlink loops raising RuntimeError outside caller filesystem error boundaries. No fixes were made; round 2 must re-review both roles after build corrections. Reviewers treated hostile concurrent filesystem replacement and native-platform acceptance as disclosed limitations, not new scope.
+- 2026-11-12 validate: Validation reproduction evidence: cd 04_Software && uv run --frozen python (inline public-reader fixtures) exit 0 observed ordinary malformed package.json -> None, '[' repeated 2000 -> RecursionError, nontext scripts.test containing 5000 digits -> ValueError, and package.json self-symlink -> RuntimeError. Separate uv run --frozen --extra web python (inline existing offline API fixture, fake runner, TestClient) exit 0 observed ordinary malformed -> HTTP 200/hint null; deep malformed and large numeric test -> HTTP 500/Internal Server Error; no profile publication. These commands caught/reported defects and are not passing contract tests. Return to build: add negative public-reader and entry-point regressions, contain JSON decoder failures as the existing no-JavaScript-match contract, and contain static symlink-loop filesystem failures under existing typed CLI/redacted API refusals without adding a matching rule. Preserve later-row fallback and all existing table/size/containment/human-authority contracts.
+- 2026-11-12 validate: Validation inspection completed: reviewed authored diff against scope/D1-D6, matching/publication/error boundaries, source assertions, four Projects help locales, operator/component docs, CHANGELOG/notes and asset fingerprint. All 33 requirements are parseable active records with existing source/test/spec paths; mismatch remains parser behavior, not permission to weaken the requirement. Release-note checker --since 76bd110f2fac4716936bb51caa9226d1b0195f21 exit 0; git diff --check exit 0; all committed static fingerprint inputs/outputs match current SHA-256 bytes (no fresh-build claim). uv sync --frozen --extra web, Python imports, Playwright 1.63.0 and npm ls exit 0. No product files changed, full suite/strict gate/report deliberately not run because review requires return to build first. Remaining validate after fixes: reconcile helper/component knowledge and project/environment context, rerun both reviews at round 2, then final strict proof and report. Existing upstream deprecation, dependency advisories and generated-JS scan limitation remain as previously recorded.
+- 2026-11-12 validate: returned to build - Review round 1 requires correction: package JSON decoder ValueError/RecursionError escape the mandatory no-match/no-error contract; static symlink-loop RuntimeError escapes supported-Python typed CLI/redacted API filesystem refusals. Add public-helper and entry-point regressions, fix only these boundaries, rerun focused proof, then return for review round 2 and final strict gate.
 
 ## Rulings
 
@@ -601,13 +604,13 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/5_validate.md
-changed: Implemented shared bounded repository verification hints for enrollment and init, sticky human authority, tests, four-locale help/notes, documentation, current requirement/knowledge records and rebuilt static assets.
-evidence: Focused pytest exit 0 (382 passed); npm test exit 0 (164 passed); scoped Playwright exit 0 (53 enrollment/help + 2 saved-Settings passed); Ruff, production/isolated builds, release-note checker and diff check exit 0; exact commands and artifact audit in Log.
-issues: Advisory check has 0 errors; unrelated historical warnings and supporting-artifact coverage warnings explained in Log. Oversized generated-JS secret-scan limitation recorded as a deviation. Full suite and strict gate reserved for the separate validate session.
+status: waiting
+reported: build - paused
+next: continue build: Review round 1 requires correction: package JSON decoder ValueError/RecursionError escape the mandatory no-match/no-error contract; static symlink-loop RuntimeError escapes supported-Python typed CLI/redacted API filesystem refusals. Add public-helper and entry-point regressions, fix only these boundaries, rerun focused proof, then return for review round 2 and final strict gate.
+must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/4_build.md
+changed: Validation review and journal evidence only; implementation preserved unchanged for a fresh build session.
+evidence: Independent spec/quality reviews both changes_required; inline offline helper/API reproductions exit 0 observed uncaught parser/loop exceptions and HTTP 500; release-note checker, requirement/path audit, static SHA-256 audit and diff check exit 0.
+issues: Blocking malformed-package parser and symlink-loop error handling; final full suite, strict check and report not run because candidate must be corrected first.
 spec_compliance:
 implementation_quality:
-review_round:
+review_round: 1
