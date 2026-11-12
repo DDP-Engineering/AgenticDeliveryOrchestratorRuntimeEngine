@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-d10b9f52"
 title = "Suggest Go verification from its module manifest"
-status = "draft"
+status = "active"
 requirement = "When an eligible go.mod is the first matching row at the clone root in the ordered manifest scan, the verification suggestion helper shall return go test ./... together with the go.mod source file."
 verification = "An offline Go fixture calls the public helper and compares the exact command/source pair; an earlier Python match takes precedence, and the Go root beats a later Cargo row or matching child."
 affected_paths = ["04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
 spec = "specs/REQ-FUNC-8676b7b9.md"
 priority = "normal"
 created = 2026-11-12

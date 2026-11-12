@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-SEC-ecafbce6"
 title = "Ignore oversized verification evidence without reading it"
-status = "draft"
+status = "active"
 requirement = "If a candidate verification-evidence file is larger than 1 MiB (1048576 bytes), the verification suggestion helper shall ignore that file without reading its contents."
 verification = "Offline public-helper tests create an otherwise matching manifest at 1048576 bytes and at 1048577 bytes, guard reads of the oversized file and compare results: the at-limit manifest remains eligible, the oversized manifest is never opened for content and supplies no match."
 affected_paths = ["04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
 spec = ""
 priority = "high"
 created = 2026-11-12

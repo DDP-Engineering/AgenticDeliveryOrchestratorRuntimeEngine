@@ -72,6 +72,27 @@ that cap for a subscription/local model while other run limits remain.
 Prepare-only mode validates the same candidate offline, with Docker as the
 unprovided runtime default. CLI mode retains probes and persistence.
 
+## Repository verification hints
+
+`adore/verification_hint.py` supplies the shared pure filesystem reader used
+by CLI init and web setup-preview. It returns `(command, source)` or None:
+the eight ordered rows in Configuration_Reference.md, root before exactly one
+matching immediate child, with portable child names and clone-relative manifest
+provenance. External links, nonregular files and evidence over 1 MiB are ignored;
+only bounded package.json/Makefile content is read. Malformed package JSON is a
+miss; access/encoding failures propagate. No commands, network or writes occur.
+Proof: `04_Software/tests/test_verification_hint.py`; component contract:
+`05_SoftwareDocu/Component_Verification_Hint.md`.
+
+Outside prepare-only, an absent AEGIS entrypoint offers `verification_choice`:
+use suggestion (the default when available), enter another command, or no
+verification (default without a match). The edit field defaults to the suggestion;
+explicit none clears it. Source is shown before selection. Only command input
+retains whitespace, controls/DEL/Unicode survive TOML serialization exactly, and
+CR/LF/NUL are refused. Confirmation and config validation precede publication;
+read failures raise `WizardError` on repo_path. A present AEGIS entrypoint,
+including a symlink, suppresses discovery. Focused proof: test_wizard.py.
+
 ## Key behaviors
 
 - REQ-FUNC-6e20aea3: missing payload is direct-workflow information; a present
@@ -103,6 +124,8 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
 
 
+- `04_Software/adore/verification_hint.py` — shared bounded repository reader.
+- `04_Software/tests/test_verification_hint.py` — ordered root/child and refusal proof.
 - `04_Software/adore/wizard.py` — setup and validated profile publication.
 - `04_Software/tests/test_wizard.py` — scripted CLI setup and refusal proof.
 

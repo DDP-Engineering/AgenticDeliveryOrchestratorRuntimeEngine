@@ -9,7 +9,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 ## Status and authority
 
-Draft specification of the matching algorithm accepted for ticket #65, also
+Active specification of the matching algorithm implemented for ticket #65, also
 used by the Python, Go, Rust, Maven, Gradle, dotnet, Make and child-fallback
 requirements in TASK-51bf134b. STATED authority: ticket #65 Decisions and
 `00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md` section 4.5,
@@ -22,7 +22,7 @@ installed tool, command validation or execution.
 Input is the clone root path. Output is a pair `(command, source file)` or no
 suggestion. The source identifies the actual matching manifest, not the
 lockfile or wrapper that selected a command variant. For child matches it
-identifies the manifest in that child. Design chooses
+identifies the manifest in that child. The public API is
 `suggest_verification_command(root: Path) -> tuple[str, str] | None`, with
 an actual eligible repository-relative source in forward-slash notation.
 The source names the candidate repository path, not an external resolved target.
@@ -98,12 +98,13 @@ are part of this algorithm.
 | sole matching manifest linked outside the clone | no suggestion and no external content read |
 | sole matching manifest larger than 1048576 bytes | no suggestion and no content read |
 
-Build adds table-driven public-helper tests for every row at the root and in
+`tests/test_verification_hint.py` supplies table-driven public-helper tests for every row at the root and in
 a single child, all command variants, root/row precedence, no match,
 ambiguous children and the explicitly required malformed/placeholder/link/
 size negatives. Include both-lockfile precedence, all same-row source ties,
-safe-name boundaries and ambiguity before name filtering from the clarification. Process/network guards and before/after file snapshots prove
-the read-only boundary. Test definitions are not execution evidence.
+safe-name boundaries and ambiguity before name filtering from the clarification.
+Process/network guards and before/after file snapshots exercise the read-only
+boundary. Execution evidence is retained in the task journal.
 
 ## Authority and remaining limits
 

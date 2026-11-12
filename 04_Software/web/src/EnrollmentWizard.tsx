@@ -35,8 +35,10 @@ type Draft = {
 };
 type FieldName = keyof Draft;
 type Finding = { code: string; field: string; remediation: string };
+type VerificationHint = { command: string; source: string };
 type Preview = { structural_valid: boolean; issues: Finding[]; revision: string | null;
   config_revision: string | null; review: Record<string, unknown> | null;
+  verification_hint: VerificationHint | null;
   workflow?: RepositoryWorkflow; defaults?: { key: string; value: unknown }[] };
 type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string; local_probe?: LocalProbe;
   checked_at: string; workflow: RepositoryWorkflow; evidence_token: string; required_checks: string[]; auth_bound: boolean; checks: Record<string, boolean | null> };
@@ -125,6 +127,23 @@ const fieldFor = (path: string): FieldName | undefined => {
     last in initial ? last as FieldName : undefined);
 };
 
+/** Validate the whole response before any default or candidate is applied. */
+const validPreview = (value: Preview, draft: Draft): boolean => {
+  const hint = value?.verification_hint;
+  const validHint = hint === null || !!hint && typeof hint === "object"
+    && typeof hint.command === "string" && hint.command.length > 0 && validVerificationCommand(hint.command)
+    && typeof hint.source === "string" && hint.source.length > 0
+    && !/^[A-Za-z]:|[\\\\\x00-\x1f\x7f]/.test(hint.source)
+    && hint.source.split("/").every(part => !!part && part !== "." && part !== "..")
+    && value.workflow === "direct";
+  return !!value && validHint && typeof value.structural_valid === "boolean" && isFindings(value.issues)
+    && value.structural_valid === (value.issues.length === 0)
+    && (!value.structural_valid || validWorkflow(value.workflow) && digest(value.revision) && digest(value.config_revision)
+      && !!value.review && value.review.name === draft.name && value.review.display_name === draft.display_name
+      && value.review.verify_command === draft.verify_command
+      && ["config_path", "store_root", "worktree_root"].every(key => typeof value.review?.[key] === "string"));
+};
+
 /** Mounted memory-only enrollment; server owns canonical setup and stopped publication. */
 export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated, registerGuard }: {
   locale: Locale; csrf: string; t: (key: MessageKey) => string; onCancel: () => void;
@@ -133,6 +152,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
 }) {
   const c = enrollmentCopy[locale];
   const [draft, setDraft] = useState<Draft>(initial);
+  const commandEdited = useRef(false);
+  const [appliedHint, setAppliedHint] = useState<VerificationHint | null>(null);
   // Enrollment starts at Repository and identity; the clone requirement is that step's clone-path help.
   const [step, setStep] = useState(1);
   // Step 1 reads a repository URL; an existing clone is reused when its path is the clone path.
@@ -215,6 +236,9 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     move(Math.max(1, target), field);
   };
   const change = (field: FieldName, value: string) => {
+    if (field === "verify_command") { commandEdited.current = true; setAppliedHint(null); }
+    const resetHint = ["clone_url", "repo_path"].includes(field) && !commandEdited.current;
+    if (resetHint) setAppliedHint(null);
     dirty.current = true; generation.current++;
     if (preview || verification || reviewed) setStale(true);
     setPreview(null); setVerification(null); setReviewed(null); setFindings([]); setFailure(null);
@@ -223,6 +247,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     if (field === "clone_url") { setDetected(null); selectedBranch.current = null; }
     if (field === "target_branch") selectedBranch.current = { url: draft.clone_url.trim(), branch: value };
     setDraft(current => ({ ...current, [field]: value,
+      ...(resetHint ? { verify_command: "" } : {}),
       ...(prefilled !== null && current.display_name === prefilled ? { display_name: "" } : {}),
       // A new URL needs a new read and a new derived ID.
       ...(field === "clone_url" ? { name: "", repo: "", repo_path: "", target_branch: "" } : {}),
@@ -330,19 +355,28 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     operation.current = "preview"; setBusy("preview"); setFailure(null); setReviewed(null);
     setPreview(null); setVerification(null);
     try {
-      const value = await call("setup-preview", payload(draft)) as Preview;
+      let candidate = draft;
+      let value = await call("setup-preview", payload(candidate)) as Preview;
       if (!alive.current || token !== generation.current) return;
-      if (typeof value?.structural_valid !== "boolean" || !isFindings(value.issues) ||
-        value.structural_valid !== (value.issues.length === 0) ||
-        value.structural_valid && (!validWorkflow(value.workflow) || !digest(value.revision) || !digest(value.config_revision) ||
-          !value.review || value.review.name !== draft.name || value.review.display_name !== draft.display_name ||
-          value.review.verify_command !== draft.verify_command ||
-          ["config_path", "store_root", "worktree_root"].some(key => typeof value.review?.[key] !== "string")))
-        throw new ApiError("unexpected_response");
+      if (!validPreview(value, candidate)) throw new ApiError("unexpected_response");
+      const hint = value.verification_hint;
+      if (value.structural_valid && hint && !commandEdited.current) {
+        setAppliedHint(hint);
+        if (hint.command !== candidate.verify_command) {
+          candidate = { ...candidate, verify_command: hint.command };
+          dirty.current = true; setStale(true); setDraft(candidate);
+          // At most one canonical re-preview. Evidence never mutates server review.
+          value = await call("setup-preview", payload(candidate)) as Preview;
+          if (!alive.current || token !== generation.current) return;
+          if (!validPreview(value, candidate)) throw new ApiError("unexpected_response");
+        }
+      }
       setPreview(value); setFindings(value.issues); setStale(false);
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
   };
+  // One offline discovery on entry, never on typing or as a command-keyed loop.
+  useEffect(() => { if (step === 4) void runPreview(); }, [step]);
   const runProbe = async () => {
     if (operation.current || !preview?.structural_valid || !preview.revision) return;
     const token = generation.current;
@@ -533,7 +567,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           {workflow === "aegis" ? <p role="note">{t("aegisTestCommands")}</p> : <div className="enrollment-field">
             <label htmlFor="enroll-verify_command">{t("verificationCommand")}</label>
             <p id="enrollment-help-verify_command">{t("verificationCommandHelp")}</p>
-            <textarea id="enroll-verify_command" rows={1} value={draft.verify_command} aria-describedby={"enrollment-help-verify_command" + (commandInvalid ? " error-verify_command" : "")} aria-invalid={commandInvalid || undefined} onChange={event => change("verify_command", event.target.value)} />
+            <textarea id="enroll-verify_command" rows={1} value={draft.verify_command} aria-describedby={"enrollment-help-verify_command" + (appliedHint ? " enrollment-verification-source" : "") + (commandInvalid ? " error-verify_command" : "")} aria-invalid={commandInvalid || undefined} onChange={event => change("verify_command", event.target.value)} />
+            {appliedHint && <p className="field-hint" id="enrollment-verification-source">{c.suggestedFrom} <code>{appliedHint.source}</code></p>}
             {commandInvalid && <p id="error-verify_command">{t("verificationCommandInvalid")}</p>}
           </div>}
           <div className="verify-action">

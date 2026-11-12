@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-NFR-6badc5b8"
 title = "Keep verification suggestion discovery file-read-only"
-status = "draft"
+status = "active"
 requirement = "When given a clone root path, the verification suggestion helper shall operate only on file names and manifest contents to produce a command/source pair or no suggestion, without command execution, network access or filesystem mutation."
 verification = "Offline public-helper tests repeat discovery on matching and no-match fixtures with process/network entry points forbidden and compare before/after repository bytes and names; outputs are equal for unchanged evidence and no side-effect guard is invoked."
 affected_paths = ["04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
 spec = ""
 priority = "high"
 created = 2026-11-12

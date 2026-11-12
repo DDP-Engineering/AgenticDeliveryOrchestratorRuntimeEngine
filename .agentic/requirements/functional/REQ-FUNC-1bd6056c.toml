@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-1bd6056c"
 title = "Suggest dotnet verification from a solution or project"
-status = "draft"
+status = "active"
 requirement = "When an eligible file matching *.sln or *.csproj is the first matching row at the clone root in the ordered manifest scan, the verification suggestion helper shall return dotnet test together with a matching source file."
 verification = "Offline fixtures call the public helper separately with a solution and a project file and compare the exact command and matching source, including *.sln before *.csproj and lexical filename order within each pattern when several are eligible; an earlier Gradle row wins, while dotnet beats Make and matching children."
 affected_paths = ["04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
 spec = "specs/REQ-FUNC-8676b7b9.md"
 priority = "normal"
 created = 2026-11-12

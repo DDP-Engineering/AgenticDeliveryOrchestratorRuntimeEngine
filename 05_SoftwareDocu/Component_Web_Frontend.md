@@ -8,15 +8,16 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 # Web frontend
 
 Enrollment's Verification step and Settings → Implementation expose the optional
-**Verification command**, initially empty, with shared four-locale names and help.
+**Verification command**, with shared four-locale names and help. Enrollment
+prefills an untouched direct draft from transient repository evidence and shows
+localized source provenance; Settings preserves saved values, including empty.
 Normal-height one-row textareas retain pasted line breaks; the shared exact-string
 validator refuses CR/LF/NUL before preview or Save, with localized field feedback.
 Settings scalar/batch response readers validate the same domain before recovery
 or apply. Admin edits use the existing reviewed save; developers remain read-only.
 An inspected AEGIS enrollment replaces the control with the repository-owned test
 commands note, preserving any saved draft text. Workflow observations are shown
-separately from prerequisite results; no mode selector, suggestion or Jobs display
-change is added. Offline unit/render and enrollment/settings browser tests cover
+separately from prerequisite results; no mode selector or Jobs display change is added. Offline unit/render and enrollment/settings browser tests cover
 these controls. Settings journeys bind the isolated profile to actual Direct and
 Python-entrypoint-only AEGIS clones, cover all four locales and both roles, and
 verify multiline clipboard refusal, exact Unicode/space preservation, empty
@@ -349,8 +350,17 @@ review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
 The verification step uses the draft's execution mode for the introduction and
 check labels, with a separate neutral Workflow observation and optional Verification
 command textarea (or the repository-owned AEGIS test-command note after inspection).
-The command starts empty, is never suggested or executed by the browser and is
-included in exact review hashing; changed text invalidates earlier evidence. For server execution, the Pi row uses the validated local probe
+On entry to Verification, an offline preview may provide `verification_hint` as
+null or a complete command/source pair for Direct only. Local `validPreview`
+checks the full response before applying it, including single-line command and
+relative forward-slash non-traversing source. React renders the source as text.
+An untouched draft accepts the hint and uses at most one additional canonical
+preview of the resulting exact command. Old candidate/check/review evidence is
+cleared; a failed second preview keeps the editable draft but blocks Check/Continue.
+A sticky memory-only human edit flag includes explicit clearing; request generations
+ensure typing during either preview wins. No command-keyed effect or recursive
+resuggestion exists. AEGIS/uninspected clones get none. The browser never executes
+the command; Create submits only the exact reviewed draft, not hint evidence. For server execution, the Pi row uses the validated local probe
 reason for its remediation text.
 Step 1 reads a repository URL by default: **Read repository** calls
 `/api/v1/projects/repository-source` and fills forge, repository, Gitea login,

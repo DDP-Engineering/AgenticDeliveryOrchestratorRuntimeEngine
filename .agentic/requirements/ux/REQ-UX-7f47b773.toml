@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-7f47b773"
 title = "Identify the file behind an init verification suggestion"
-status = "draft"
+status = "active"
 requirement = "When adore init offers a repository-derived Verification command default, the wizard shall identify the source file that supplied that suggestion."
 verification = "Offline wizard tests capture output or prompt guidance for a direct clone with a known root or child manifest and compare the shown source with the helper result; no-match and AEGIS clones make no suggested-source claim."
 affected_paths = ["04_Software/adore/wizard.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_wizard.py"]
 spec = ""
 priority = "normal"
 rationale = "The ticket goal requires repository-derived defaults to say where they came from."

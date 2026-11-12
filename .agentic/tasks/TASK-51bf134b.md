@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-51bf134b - [Direct] Suggest the verification command from repository files
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -569,6 +571,25 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 - 2026-11-12 design: Design complete after owner clarification: RULING-001 through RULING-004 settle pnpm/yarn/npm priority, deterministic eligible source paths, count-before-safe-name child fallback and explicit CLI use/another/none plus sticky web edit/clear authority. D1-D6 now define pure helper, separate preview hint, bounded canonical re-preview, field-local exact CLI input and unchanged Settings/save boundaries. All 33 coverage rows have decisions/test seams; source-owner affected_paths audited, two speculative i18n owners removed, matching and guided-enrollment specs aligned as draft extensions. Structure/sequence/state diagrams saved in .agentic/tasks/diagram_TASK-51bf134b.md. Artifact audit exit 0: 33 unique parseable one-shall requirements/coverage rows, all spec references and expected source-owner paths, 14 scoped files, legal prologue/log history retained; knowledge and payload unchanged. No product code, tests or installations performed; build still owes implementation, focused proof, four-locale help/release notes/docs/assets and required log lines.
 - 2026-11-12 design: DEVIATION design: advisory warnings retained - global check exit 0 reports errors=0 warnings=174 notes=28; task-scoped check and JSON check exit 0 report errors=0 warnings=53 notes=29. Prospective verification_hint.py is intentionally absent until build; other historical stale-path/ticket/journal findings are outside this pinned task. No format errors or weakened final strict validation; no product tests run. git diff --check exit 0.
 - 2026-11-12 design: completed; next build
+- 2026-11-12 build: Build execution bound: at most 55 minutes and 75 task-scoped files this session, targeted tests only; stop with durable continuation if unfinished. setup_environment.py timed out after 120s after successful uv sync/npm ci; Python pytest/FastAPI readiness and Playwright CLI 1.63.0 checked exit 0. npm reported two high-severity dependency advisories; lockfiles unchanged, no automatic dependency update. Browser readiness still to inspect before e2e.
+- 2026-11-12 build: red: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_verification_hint.py --tb=short exit 1 - 87 expected assertions that the public repository suggestion reader is missing, not import/fixture errors (REQ-FUNC-8676b7b9,b360529b,d10b9f52,0a0f15f3,43c92cd6,614738d0,1bd6056c,9ed60681,1ab66bb2,4581cf7c,08a75f14,45ca2605; REQ-REL-cbc3b8e1; REQ-SEC-95dddb65,ecafbce6; REQ-NFR-6badc5b8). Shared ordered scanner increment covers the table and its trust boundaries.
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_verification_hint.py exit 0 (87 passed); focused Ruff exit 0. D1/D2 implemented, all 16 helper requirements active with linked offline tests; covers eight root/child rows, variants/source ties, precedence, ambiguity before safe-name filtering, malformed/placeholder input, external evidence, size/no-read limits, pure repeatability and access failure propagation.
+- 2026-11-12 build: red: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_web_enrollment.py -k "hint or draft_workflow_preview_check_and_creation" --tb=short exit 1 - 9 expected failures: preview lacks verification_hint and unreadable evidence is not rejected (REQ-FUNC-d50a408d,2bf3e808,357ae298; retained REQ-FUNC-702b0fce,a6e265cd).
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_web_enrollment.py exit 0 - 156 passed, one upstream Starlette/httpx deprecation warning. D3 preview returns transient direct-only hint, suppresses AEGIS/pending/no-match, preserves submitted review/digests and explicit Create; access failure is redacted setup refusal. Initial 30 readiness failures diagnosed as empty /etc/machine-id; permitted apt-get systemd install initialized it and rerun passed. No product/test weakening or dependency-file changes.
+- 2026-11-12 build: red: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_wizard.py -k "hint or verification or console_command_only or console_wizard_enter or no_match_defaults" --tb=short exit 1 - 22 expected failures: missing choice/default/source/save/refusal and command-only whitespace preservation; 5 retained exclusion/cancel controls pass (REQ-FUNC-f753863b,65db4fd5,b0f69285; REQ-UX-7f47b773; retained REQ-FUNC-6c82ad42,5771eecc).
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_wizard.py tests/test_verification_hint.py exit 0 - 140 passed before test parametrization cleanup; D5 direct-only choice/default/source, exact saved text, explicit none, AEGIS/prepare-only suppression, invalid/cancel/refusal and console whitespace are proven. Focused lint found test loop bindings, corrected by parameterizing the public interactive test; rerun owed.
+- 2026-11-12 build: red: cd 04_Software/web && npm run build:e2e exit 0; playwright test e2e/enrollment.spec.ts -g "repository verification hint default direct" exit 1 - browser never obtains automatic structural preview/default at Verification. D4 tests added for four-locale source/AEGIS exclusion, canonical two-preview default, exact edit/clear persistence, malformed pairs, delayed edit authority and canonical re-preview failures (REQ-UX-92197baa,dd21046e,cca17b80; REQ-REL-60015e50). Matching/child/empty fixture manifests are offline test-only data.
+- 2026-11-12 build: red: cd 04_Software/web && playwright test e2e/enrollment.spec.ts -g "changing repository removes" exit 1 - an untouched prior default/source survives switching to a no-match clone. Fix within D4 selected-repository default authority (REQ-UX-92197baa,dd21046e); explicit human edits must remain sticky.
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_wizard.py tests/test_verification_hint.py tests/test_web_config.py exit 0 - 226 passed; uv run --frozen ruff check adore tests exit 0. D5 and retained CLI contracts green after interactive parametrization. Inspection D6: discovery is attached only to setup-preview/CLI, absent from Settings; matching-manifest API regression preserves empty/custom saved commands on unrelated edits. Settings browser empty/custom unrelated-Save journeys pass (2 passed, exit 0), after correcting fixture confirmation to accept the existing important budget-change dialog; no Settings product changes.
+- 2026-11-12 build: green: cd 04_Software/web && npm test, npm run build, npm run build:e2e, playwright test e2e/enrollment.spec.ts e2e/help.spec.ts, and playwright test e2e/settings.spec.ts -g "saved command" all exit 0. Enrollment/help: 53 passed, saved-settings: 2 passed. D4 canonical defaults, root/child provenance, four-locale direct/AEGIS/no-match/pending, malformed pairs, delayed clearing, repeat preview/Back/check, switched-repository untouched reset and explicit Create are proven. Committed production assets rebuilt. Earlier same focused selection also passed all 16 locale/role settings-command journeys. Combined 382-test Python rerun hit a 150s harness timeout near its end; that stopped command proves nothing and is being rerun with 240s, without weakening tests.
+- 2026-11-12 build: release-notes: added
+- 2026-11-12 build: help: updated
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_web_enrollment.py tests/test_wizard.py tests/test_verification_hint.py tests/test_web_config.py exit 0 - 382 passed in 115.91s; uv run --frozen ruff check adore tests exit 0. Final targeted combined proof supersedes the timed-out attempt. Frontend npm test exit 0: 164 passed. No full product suite or strict validation gate run in build.
+- 2026-11-12 build: Inspection: audited all 33 task requirement records against their coverage rows: each active, updated 2026-11-12, nonempty linked_tests and existing affected_paths/test files. Retained preview/save/CLI prompt/refusal requirements retain existing tests plus the new focused regression evidence. Manual documentation observation: compared the implemented reader/preview/CLI choices with the eight-row Configuration Reference, Web Interface, component contracts, four Projects help locales and four release-note strings; source, 1 MiB/child limits, editable/clearable defaults, explicit persistence and saved-Settings authority agree. Updated wizard/web-interface component knowledge with the shared-reader routing, errors and public boundaries. No setup command changes needed. python 02_Tools/internal/check_release_notes.py --since 76bd110f2fac4716936bb51caa9226d1b0195f21 exit 0; merged related existing Projects notes to respect the ten-entry category limit.
+- 2026-11-12 build: Evolution reviewed: 29 changed paths against the pre-implementation anchor, all within D1-D7: shared reader, API/CLI/browser integrations, offline fixtures/tests, localization/help, docs/notes and regenerated static bundle (old hashed JS removed, new JS added). Artifact audit compared every committed input/output SHA-256 with current files and isolated build, and compared output bytes: all match. git diff --check exit 0. Current task-scoped files remain below the 75-file session bound; no AEGIS payload, planning, dependencies, commits, pushes or PR operations changed.
+- 2026-11-12 build: Advisory check explanation: python .agentic/aegis.py check exit 0 reports 0 errors, 37 warnings, 28 notes; check --task TASK-51bf134b --full exit 0 reports 0 errors, 46 warnings, 28 notes. Existing ticket-ref/stale-path findings belong to unrelated requirements; legacy journal-header/unticked-deliver findings belong to other tasks. Manual-verification notes concern other requirements, not unperformed task proof. No broad cleanup or payload edits made. Task uncovered-source findings are generated assets/fingerprint/index, translated help/release notes and e2e fixture/spec supporting files, not unowned behavior: behavior is mapped through the 33 requirement source paths and linked tests, docs through component knowledge, and bundles through the verified build. Keeping those ownership records focused rather than assigning generated filenames as new behavioral contracts.
+- 2026-11-12 build: DEVIATION build: advisory secret-in-diff skips the oversized minified generated JS - accepted scanner limitation, not a clean secret-scan claim; changed authored code/copy contains no credentials, npm builds generate the bundle and matching committed/isolated fingerprints and bytes were verified. No checker bypass or limit relaxation. Existing npm dependency advisories, Starlette/httpx deprecation and Vite chunk-size warning remain out of task scope; dependency versions and build settings are unchanged. Separate validate must run its full suite and strict gate; build evidence does not replace it.
+- 2026-11-12 build: completed; next validate
 
 ## Rulings
 
@@ -581,12 +602,12 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 ## State
 
 status: ready
-reported: design - completed
-next: start build: read .agentic/steps/4_build.md
-must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/4_build.md
-changed: Completed D1-D6 design, all 33 coverage mappings and affected_paths audit; recorded four owner rulings and aligned two specs/ten requirements. Added .agentic/tasks/diagram_TASK-51bf134b.md with structure, sequence and state diagrams. No product changes.
-evidence: Design artifact audit exit 0; global advisory check exit 0 (0 errors, 174 warnings, 28 notes); task-scoped advisory/JSON checks exit 0 (0 errors, 53 warnings, 29 notes); git diff --check exit 0. No product tests run.
-issues: No unresolved design blocker. Prospective-helper and unrelated historical advisory warnings retained with logged justification. Implementation, focused tests, localized help/release notes/docs/assets and final strict proof remain for later stages.
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/5_validate.md
+changed: Implemented shared bounded repository verification hints for enrollment and init, sticky human authority, tests, four-locale help/notes, documentation, current requirement/knowledge records and rebuilt static assets.
+evidence: Focused pytest exit 0 (382 passed); npm test exit 0 (164 passed); scoped Playwright exit 0 (53 enrollment/help + 2 saved-Settings passed); Ruff, production/isolated builds, release-note checker and diff check exit 0; exact commands and artifact audit in Log.
+issues: Advisory check has 0 errors; unrelated historical warnings and supporting-artifact coverage warnings explained in Log. Oversized generated-JS secret-scan limitation recorded as a deviation. Full suite and strict gate reserved for the separate validate session.
 spec_compliance:
 implementation_quality:
 review_round:

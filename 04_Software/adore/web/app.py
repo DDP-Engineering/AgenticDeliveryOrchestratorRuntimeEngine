@@ -109,6 +109,7 @@ from adore.util import (
     run_command,
     strict_json_loads,
 )
+from adore.verification_hint import suggest_verification_command
 from adore.web import analytics
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
@@ -3388,8 +3389,18 @@ def create_app(home: str | Path | None = None,
     def preview_project_setup(
         body: ProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Validate setup locally without commands or profile publication."""
+        """@brief Preview exact setup and separate direct-only file hints, without probes."""
         preview, _candidate = _prepare_project(profiles, body)
+        preview["verification_hint"] = None
+        if preview["structural_valid"] and preview.get("workflow") == "direct":
+            try:
+                hint = suggest_verification_command(Path(body.repo_path).expanduser())
+            except (OSError, UnicodeError) as exc:
+                raise _contract_rejection(
+                    "project_setup_unavailable", "repo_path",
+                    "Check local repository file access.") from exc
+            if hint is not None:
+                preview["verification_hint"] = {"command": hint[0], "source": hint[1]}
         web.audit(
             _user["id"],
             "enrollment-prepared",

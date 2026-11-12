@@ -48,7 +48,7 @@ Verification explains host CLI/auth checks and the disposable executor
 container check before the button. A separate informational Workflow observation
 uses aegis.py presence only, never a version or readiness gate; an unavailable
 clone stays not-inspected. The optional Verification command is a one-row textarea that retains and
-visibly refuses multiline paste before submit. Ticket #65's draft extension
+visibly refuses multiline paste before submit. The repository hint extension
 (REQ-UX-92197baa; TASK-51bf134b) prefills an untouched direct-clone draft from
 separate transient command/source evidence returned by setup-preview and shows
 localized provenance. Applying a default invalidates prior candidate/check/review
@@ -57,7 +57,8 @@ Explicit edits and clearing remain authoritative through repeated previews.
 An inspected AEGIS draft substitutes its repository-test-command note without
 erasing the draft text and gets no suggestion. Not-inspected clones get none;
 preview never clones to find a hint. Settings never infers over saved values.
-The extension is designed, not yet implemented; build supplies its test proof.
+Offline helper/API/wizard/browser tests cover source provenance, default application,
+explicit edits/clearing, invalid responses and canonical re-preview failures.
 No probe occurs on typing or preview.
 Failed/partial/unverified states remain textually explicit. Structural validity gates
 creation; incomplete readiness does not pretend to be success and does not invent a new

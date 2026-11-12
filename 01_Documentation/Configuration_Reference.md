@@ -261,8 +261,52 @@ The approval comment and MR/PR body show the command/result. Empty configuration
 keeps the explicit unverified notice, never a verification pass.
 
 **AEGIS runs ignore `verify_command`**, using the repository's AEGIS commands.
-Configure the key in the server TOML; its dedicated web field is not provided
-here. Existing resolved/raw reads and unrelated web edits preserve it.
+Configure the key in server TOML, enrollment or **Settings → Implementation**.
+Existing resolved/raw reads and unrelated web edits preserve it, even when empty.
+
+### Verification command suggestions
+
+For clones without `.agentic/aegis.py`, enrollment and `adore init` share a
+read-only suggestion. Enrollment shows **Suggested from `<file>`** and prefills
+only an untouched draft; a human keeps, edits or clears it before Create. Preview
+never clones, executes commands or saves the suggestion. Settings never infers over
+a saved value; explicit reviewed Save remains authoritative.
+
+`adore init` shows command and source in `verification_choice`. Enter accepts
+`use suggestion` when available; choose `enter another command` for the exact
+single-line `verify_command` answer (defaulting to the suggestion), or
+`no verification` to clear it. Without a match the default is `no verification`.
+These are the same keys for `--answers FILE`. Command whitespace is preserved;
+other prompts retain their existing Enter/default behavior. AEGIS presence skips
+these prompts, even if its interpreter is unavailable. Confirmation and configuration
+validation precede every profile write.
+
+The first eligible root match in this order wins:
+
+| File | Suggested command |
+|---|---|
+| `package.json` with a real textual `scripts.test` | `pnpm test` with `pnpm-lock.yaml`, else `yarn test` with `yarn.lock`, else `npm test` |
+| `pyproject.toml`, `pytest.ini`, `tox.ini` | `uv run pytest -q` with `uv.lock`, else `python -m pytest -q` |
+| `go.mod` | `go test ./...` |
+| `Cargo.toml` | `cargo test` |
+| `pom.xml` | `mvn -q test` |
+| `build.gradle`, `build.gradle.kts` | `./gradlew test` with `gradlew`, else `gradle test` |
+| `*.sln`, `*.csproj` | `dotnet test` |
+| `Makefile` with `test:` target | `make test` |
+
+Malformed package JSON and npm's no-test-specified placeholder give no JavaScript
+match. Filenames within a row use the listed order; dotnet filenames are lexical
+within each pattern. The source names the matching manifest, not a lockfile/wrapper.
+Without a root match, exactly one matching immediate child supplies
+`cd <dir> && <command>` and its child-relative source. The sole name must match
+`[A-Za-z0-9_][A-Za-z0-9._-]*`. Multiple matching children give no suggestion,
+including safe plus unsupported names. There is no deeper search.
+
+Links outside the clone and files over 1 MiB are ignored, including lockfiles and
+wrappers. Only package JSON and Makefile contents need reading; other rows use
+names. Access/encoding failures refuse discovery rather than guess a partial
+answer. No tool installation, executable check, network or command execution is
+part of discovery; a suggestion is not a verification result.
 
 ADORE conducts AEGIS major 0 from 0.15.0 upward over JSON schema `1`; a
 different major, a payload below the floor, or any other contract is refused

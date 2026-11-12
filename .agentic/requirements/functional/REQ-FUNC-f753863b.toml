@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-f753863b"
 title = "Offer the repository verification suggestion as the init default"
-status = "draft"
+status = "active"
 requirement = "When adore init targets an existing clone without .agentic/aegis.py, the wizard shall offer an optional Verification command answer defaulted to the shared helper's suggested command or empty when the helper finds no match."
 verification = "Offline wizard tests capture action and command FieldSpecs for a direct clone with a known manifest, assert use-suggestion is the default action and its displayed command equals the helper, accept it through the scripted asker and assert the enter-another command default equals the helper; a no-match clone defaults to no verification with an empty command default and no suggested command is executed by the fake runner."
 affected_paths = ["04_Software/adore/wizard.py", "04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_wizard.py"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

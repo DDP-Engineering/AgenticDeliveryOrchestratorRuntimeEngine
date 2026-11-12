@@ -35,7 +35,11 @@ def test_direct_verification_web_preserves_setting_through_unrelated_edit(tmp_pa
     text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
     text = text.replace('store_root = ".adore"',
                         f'store_root = "{(tmp_path / "state").as_posix()}"')
-    # Work with both the pre-feature example and the current example.
+    clone = tmp_path / "clone"
+    (clone / ".git").mkdir(parents=True)
+    (clone / "go.mod").write_text("module fixture\n", encoding="utf-8")
+    text = text.replace('repo_path = "../project"',
+                        'repo_path = ' + json.dumps(str(clone)))
     text = text.replace('verify_command = ""\n', '')
     text = text.replace('[workflow]\n', '[workflow]\nverify_command = '
                         + json.dumps(command, ensure_ascii=False) + '\n')

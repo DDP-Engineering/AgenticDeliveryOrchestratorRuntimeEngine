@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-45ca2605"
 title = "Return no verification suggestion without a table match"
-status = "draft"
+status = "active"
 requirement = "When neither the clone root nor any first-level directory has an eligible verification table match, the verification suggestion helper shall return no suggestion."
 verification = "Offline public-helper fixtures cover an empty clone, unrelated files and a manifest only two directories below the root and assert no suggestion; adding one qualifying root manifest supplies the positive control."
 affected_paths = ["04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
 spec = "specs/REQ-FUNC-8676b7b9.md"
 priority = "normal"
 created = 2026-11-12

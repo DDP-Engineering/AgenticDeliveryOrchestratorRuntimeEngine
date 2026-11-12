@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-dd21046e"
 title = "Identify the file behind an enrollment verification suggestion"
-status = "draft"
+status = "active"
 requirement = "When enrollment offers a repository-derived Verification command suggestion, the interface shall identify its source file with Suggested from <file> guidance in the account's English, French, German or Romanian locale."
 verification = "Offline four-locale browser journeys preview a direct clone with a known root or child manifest and assert the localized source guidance next to the command; AEGIS and no-suggestion journeys expose no suggested-source claim."
 affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/enrollmentCopy.ts"]
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/enrollment.spec.ts"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

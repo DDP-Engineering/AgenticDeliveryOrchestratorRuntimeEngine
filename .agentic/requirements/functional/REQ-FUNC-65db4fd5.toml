@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-65db4fd5"
 title = "Suppress init suggestions when AEGIS is present"
-status = "draft"
+status = "active"
 requirement = "When adore init targets a clone containing .agentic/aegis.py, the wizard shall offer no repository-derived Verification command suggestion."
 verification = "Offline wizard fixtures include aegis.py and an otherwise matching manifest and inspect captured prompts/output for absence of a suggested verification command; removing aegis.py permits the direct default and an unavailable AEGIS interpreter does not enable a suggestion."
 affected_paths = ["04_Software/adore/wizard.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_wizard.py"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

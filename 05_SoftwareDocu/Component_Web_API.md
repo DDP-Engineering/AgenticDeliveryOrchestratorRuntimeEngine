@@ -7,6 +7,18 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
+Enrollment `setup-preview` returns transient `verification_hint: {command, source}`
+or null, separate from submitted review text and revision digests. After valid
+preparation, only an inspected Direct clone calls `suggest_verification_command`.
+AEGIS, absent clones, no match and invalid drafts return null. Preview never clones
+or probes for discovery. `OSError`/`UnicodeError` map to a redacted 503
+`project_setup_invalid` with `repo_path` finding; no profile is published.
+Create/shared preparation and Settings never discover or install defaults; the
+existing exact reviewed command remains the sole saved value. Offline
+`test_web_enrollment.py` proves direct/source, AEGIS/pending suppression, unchanged
+review/digests, explicit publication and inaccessible evidence. See
+[Verification hint reader](Component_Verification_Hint.md).
+
 `workflow.verify_command` is an editable exact-string setting in the API catalog.
 Enrollment accepts optional strict `verify_command` text, default empty, and saves
 it as a TOML string before canonical review hashing. Explicit null/nontext or

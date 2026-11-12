@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-2bf3e808"
 title = "Suppress enrollment suggestions for AEGIS repositories"
-status = "draft"
+status = "active"
 requirement = "When an enrollment preview inspects a clone containing .agentic/aegis.py, the enrollment API shall return no repository-derived verification suggestion."
 verification = "Offline API and browser fixtures contain both aegis.py and an otherwise matching manifest and assert no suggestion/source; removing aegis.py permits the direct suggestion, while an aegis.py-only or broken payload remains an AEGIS observation without suggestion."
 affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/EnrollmentWizard.tsx"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_enrollment.py::test_draft_workflow_preview_check_and_creation", "04_Software/web/e2e/enrollment.spec.ts"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

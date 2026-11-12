@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-1ab66bb2"
 title = "Ignore the npm no-test placeholder"
-status = "draft"
+status = "active"
 requirement = "If package.json scripts.test is npm's no-test-specified placeholder, the verification suggestion helper shall treat that script as no JavaScript match."
 verification = "An offline public-helper test supplies only package.json with npm's echo Error: no test specified and failing-exit placeholder and asserts no suggestion; replacing the placeholder with a real test script produces the expected JavaScript command/source."
 affected_paths = ["04_Software/adore/verification_hint.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
 spec = ""
 priority = "normal"
 created = 2026-11-12

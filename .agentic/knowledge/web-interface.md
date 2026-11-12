@@ -125,6 +125,22 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+`setup-preview` returns transient `verification_hint: {command, source} | null`
+only for structurally valid inspected direct clones, using the pure shared
+`adore/verification_hint.py` reader (see wizard.md). It never clones or runs the
+command. AEGIS, absent clones and misses yield null; access/encoding failures
+return redacted setup-unavailable/repo_path findings. Hints are outside canonical
+review/digests and absent from Create/shared preparation and Settings.
+EnrollmentWizard previews on Verification entry, validates the full response,
+and fills only an untouched command with localized accessible source provenance.
+A changed default permits one canonical re-preview; malformed/failed evidence
+blocks progression, and generation guards preserve edits during requests. Edits
+or clearing remain authoritative through Back, preview and Check; repository
+changes clear only untouched defaults. Only explicit Create persists reviewed
+text. Saved Settings never infer defaults. Proof: test_web_enrollment.py,
+test_web_config.py, web/e2e/enrollment.spec.ts and settings.spec.ts; Projects help
+and enrollmentCopy.ts carry the four-locale source guidance.
+
 `REQ-DATA-71366af6`: workflow.verify_command is an exact-string editable API
 setting; resolved reads, Admin exact raw TOML and unrelated reviewed edits preserve
 it under existing validation, authorization and redaction. Guided API enrollment
