@@ -7,6 +7,13 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
+The exact settings catalog and four-locale setting help include the CLI-only
+`workflow.verify_command` key so existing serialization preserves it. It is
+noneditable in backend metadata and listed in `HIDDEN_SETTING_KEYS` for all
+roles/views until its dedicated interface is delivered. No enrollment field,
+Jobs presentation or help-center topic is added. Offline catalog, settings and
+setting-help tests retain exact coverage rather than dropping model keys.
+
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 
 The authenticated factory administrator sees a persistent localized password reminder linking to My account. A guarded visible-tab refresh checks the session while the reminder is active; stale responses cannot replace a newer session. The existing password form revokes sessions on success.

@@ -229,6 +229,7 @@ default_kind = "feature"
 kind_labels = { bug = "fix", fix = "fix", change = "change" }
 quick_label = "agent-quick"
 aegis_python = "python"
+verify_command = ""  # Direct only; for example "uv run pytest -q"
 stage_timeout_overrides = { build = 5400, validate = 3600 }
 ```
 
@@ -239,6 +240,29 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - `aegis_python` is the one-token executable used with `.agentic/aegis.py`.
 - timeout override keys are `frame`, `specify`, `design`, `build`, or
   `validate`; any other key, `deliver` included, fails validation as not an AEGIS stage. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all five stages offer General or Custom seconds; General removes that stage’s entry.
+
+`verify_command` is an optional **single-line string**, preserved exactly; only
+an empty string means not configured. Non-string, CR/LF (including trailing
+breaks) and NUL values are refused with `workflow.verify_command` named.
+For a direct run, Pi is asked to run it before finishing. After successful
+implementation ADORE independently runs it from the worktree root: `sh -c`
+inside the owned container, or the platform shell under the local service
+account. Local verification has no container/host sandbox; use a dedicated
+least-privilege account (see [Local execution](Local_Execution.md)).
+
+The command uses `stage_timeout_overrides.validate`, falling back to
+`budgets.per_gate_timeout_seconds`. Failed and timed-out invocations consume
+`recovery.max_stage_failures` across fresh Pi fix sessions. At the limit the run
+fails `VERIFICATION_FAILED`, retaining evidence; `adore retry` re-arms attempts
+under the existing cumulative budgets. Evidence retains command, exit, elapsed
+seconds and up to the last 200 sanitized output lines (also capped at 6000
+characters). Stdout precedes stderr; no chronological interleaving is claimed.
+The approval comment and MR/PR body show the command/result. Empty configuration
+keeps the explicit unverified notice, never a verification pass.
+
+**AEGIS runs ignore `verify_command`**, using the repository's AEGIS commands.
+Configure the key in the server TOML; its dedicated web field is not provided
+here. Existing resolved/raw reads and unrelated web edits preserve it.
 
 ADORE conducts AEGIS major 0 from 0.15.0 upward over JSON schema `1`; a
 different major, a payload below the floor, or any other contract is refused
@@ -279,7 +303,7 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 | --- | --- | --- |
 | `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `20` |
 | `max_wall_clock_seconds` | Cumulative active-work time across retries, clarification resume and revisions; waiting is excluded. | `3600` |
-| `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts only. With `provider = "chatgpt"` this value and every stage override must be at most 3000, because a ChatGPT access token lasts about an hour. | `1800` |
+| `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts and the configured direct verification command's validate limit; the strict AEGIS check keeps the general limit. With `provider = "chatgpt"` this value and every stage override must be at most 3000, because a ChatGPT access token lasts about an hour. | `1800` |
 | `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `5.0` |
 | `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `120` |
 

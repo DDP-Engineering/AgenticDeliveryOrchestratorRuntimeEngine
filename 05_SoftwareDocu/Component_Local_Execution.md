@@ -32,6 +32,34 @@ handles through the supervisor and offers Pi's PowerShell tool. Linux execs
 the exact native Node in the delegated scope. Normal exit, timeout and
 cancellation all confirm process tree drainage.
 
+## Direct verification-only operation
+
+`LocalTarget.run_verification(command, *, timeout)` permits only the nonempty
+single-line NUL-free exact configured `workflow.verify_command`. Type/value,
+pinned host/account/environment and resource checks precede launch. Windows
+selects absolute `SystemRoot/System32/cmd.exe /d /s /c` from the bound environment;
+Linux resolves `/bin/sh -c`. Missing shells fail with `LocalExecutionError`;
+project PATH/COMSPEC, ordinary argv shell resolution and interpreter wrappers
+provide no bypass. Worktree cwd, bound environment, durable release barrier,
+owned timeout interruption and full scope drain are shared with native commands.
+
+The opt-in controller `capture_tail=True` continuously decodes strict UTF-8,
+removes ANSI/NUL, masks known secrets with longest-value overlap and recognizes
+credential tokens/Authorization headers across chunk and eviction boundaries.
+Unfinished credential values are suppressed until their terminator, even on
+long lines. Only redacted trailing bytes are retained (64 KiB per stream).
+Ordinary AEGIS/preparation prefix capture and its existing bounds are unchanged.
+Corrupt decoding, ownership or cleanup is a typed refusal, never a guessed pass.
+
+Verification shell commands run with the **service account's permissions and
+without container isolation**. A Job/cgroup controls process lifetime, not host
+filesystem, credentials or networking. Operators should use a dedicated
+least-privilege account. The ordinary native shell/wrapper refusal stays intact.
+Public offline proof: `test_native_direct_verification_uses_only_owned_platform_shell`
+and `test_native_verification_capture_keeps_true_sanitized_tail`, plus existing
+identity, scope/PID-birth and retry tests in `test_local_execution.py` and
+`test_retry_revalidation.py`.
+
 ## 5. Inputs And Outputs
 
 The server configures Node and Linux delegation. The profile supplies only

@@ -31,7 +31,7 @@ Native Windows supports Windows Job Objects and executable CLI entrypoints
 Ordinary native argv transport refuses Windows .cmd/.bat/PowerShell/shell
 wrappers; stage prompts never pass through cmd.exe. Configured direct-workflow
 verification has a separately authorized, owned platform-shell operation, not
-an ordinary-argv or interpreter-wrapper bypass. Its draft contracts are
+an ordinary-argv or interpreter-wrapper bypass. Its contracts are
 REQ-PLAT-a39ffa22, REQ-SEC-d94baaf1 and REQ-SEC-c81de547; ordinary transport keeps
 its shell refusal. Native Linux requires delegated cgroup v2 with cgroup.kill; this includes
 ADORE inside WSL2 only when those controls exist. Windows-to-WSL local wrapping,

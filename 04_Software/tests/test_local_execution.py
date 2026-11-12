@@ -139,6 +139,64 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     assert validate_config(config) == []
 
 
+@pytest.mark.parametrize("system", ["Windows", "Linux"])
+@pytest.mark.parametrize("outcome", ["pass", "fail", "timeout"])
+def test_native_direct_verification_uses_only_owned_platform_shell(
+    tmp_path, monkeypatch, system, outcome,
+):
+    """@brief Only the exact configured command gets owned native shell authority."""
+    config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
+    context["system"] = system
+    root = tmp_path / "Windows"
+    shell = root / "System32/cmd.exe"
+    shell.parent.mkdir(parents=True)
+    shell.touch()
+    monkeypatch.setenv("SystemRoot", str(root))
+    monkeypatch.setenv("COMSPEC", str(work / "untrusted.exe"))
+    command = 'echo "${value} {x} café" && test -f feature.txt'
+    config.workflow.verify_command = command
+    backend = LocalBackend(config, context=context, controller=controller)
+    exchange = Path(config.state.store_root) / "runs/run-1/io"
+    backend.provision("run-1", work, work, exchange, {"OPENAI_API_KEY": "provider-secret"})
+    target = backend.bind("run-1", {"OPENAI_API_KEY": "provider-secret"})
+
+    def execute(argv, **kwargs):
+        """@brief Inject actual exit/timeout and output at the owned controller boundary."""
+        controller.calls.append((argv, kwargs))
+        kwargs["stdout"].write_text("café provider-secret")
+        kwargs["stderr"].write_text("failure" if outcome == "fail" else "")
+        return CommandResult(
+            exit_code=7 if outcome == "fail" else 124 if outcome == "timeout" else 0,
+            timed_out=outcome == "timeout",
+        )
+
+    controller.run_files = execute
+    result = target.run_verification(command, timeout=17)
+    argv, options = controller.calls[-1]
+    expected = [str(shell.resolve()), "/d", "/s", "/c", command] if system == "Windows" else [
+        str(Path("/bin/sh").resolve()), "-c", command,
+    ]
+    assert argv == expected
+    assert options["cwd"] == work and options["timeout"] == 17
+    assert options["env"] == target.env and options["capture_tail"] is True
+    assert options["run_id"] == target.resource["id"] and options["host"] == context["host"]
+    assert "provider-secret" not in result.stdout and "café" in result.stdout
+    assert result.timed_out == (outcome == "timeout")
+    assert result.exit_code == (7 if outcome == "fail" else 124 if outcome == "timeout" else 0)
+    before = len(controller.calls)
+    for forbidden in ["sh", "bash", "cmd.exe", "powershell.exe", "script.cmd"]:
+        with pytest.raises(LocalExecutionError):
+            target([forbidden, "-c", command], timeout=17)
+    for invalid in [None, 1, True, [], "", command + "x", "test\nnext", "test\r", "test\x00"]:
+        with pytest.raises(LocalExecutionError):
+            target.run_verification(invalid, timeout=17)
+    assert len(controller.calls) == before
+    context["host"] = "b" * 64
+    with pytest.raises(LocalExecutionError):
+        target.run_verification(command, timeout=17)
+    assert len(controller.calls) == before
+
+
 def test_local_backend_is_available_through_the_shared_contract():
     """@brief Local selection has an adapter on the established backend boundary."""
     assert hasattr(execution, "LocalBackend"), "local backend adapter is absent"
@@ -347,6 +405,72 @@ def test_local_scope_control_refuses_reused_process_identity(tmp_path, change):
     with pytest.raises(LocalExecutionError):
         LocalProcessController(scopes).interrupt(tmp_path, "c" * 32, "a" * 64)
     assert jobs.killed == [] and path.exists()
+
+
+@pytest.mark.parametrize("mode", ["success", "nonzero", "timeout", "bad-utf8", "cleanup",
+                                  "split-known", "ansi-token", "spaced-marker", "long-known"])
+def test_native_verification_capture_keeps_true_sanitized_tail(tmp_path, mode):
+    """@brief Owned tail capture drains all bytes, masks split tokens and confirms cleanup."""
+    jobs = Jobs()
+    scopes = NativeScopes("Windows", windows=jobs)
+    control = tmp_path / "control"
+    # Credentials cross the 4096-byte drain boundary and the rolling eviction boundary.
+    raw = (b"prefix\n" * 12000 + b"x" * 4090 + b"token=" + b"secret" * 15000
+           + b"\nBearer " + b"credential" * 15000 + b"\n" + b" " * 4091
+           + b"approved-secret\n" + "café end\n".encode())
+    if mode == "bad-utf8":
+        raw += b"\xff"
+    if mode == "split-known":
+        raw = b"x" * 4093 + b"approved-secret-long\n" + "café end\n".encode()
+    elif mode == "ansi-token":
+        raw = b"x" * 4093 + b"to\x1b[31mken=" + b"secret" * 15000 + b"\n"
+        raw += b"approved-secret\n" + "café end\n".encode()
+    elif mode == "spaced-marker":
+        raw = b"authorization" + b" " * 80000 + b": Bearer hidden-value\n"
+        raw += b"approved-secret\n" + "café end\n".encode()
+    elif mode == "long-known":
+        raw = b"x" * 4093 + b"K" * 10000 + b"\n" + "café end\n".encode()
+
+    class Process:
+        """@brief Offline supervisor exposing long streams after its durable release."""
+
+        pid = 42
+        stdout = io.BytesIO(raw)
+        stderr = io.BytesIO(b"api_key=" + b"hidden" * 15000 + b"\nlast error")
+        waits = 0
+
+        def wait(self, timeout):
+            assert list(control.glob("launches/*/release"))
+            assert json.loads((control / "active-process.json").read_text())["pid"] == self.pid
+            self.waits += 1
+            if mode == "timeout" and self.waits == 1:
+                raise subprocess.TimeoutExpired("injected", timeout)
+            jobs.birth_value = None
+            return 7 if mode == "nonzero" else 0
+
+    process = Process()
+    controller = LocalProcessController(scopes, spawn=lambda *args, **kwargs: process)
+    if mode == "cleanup":
+        scopes.remove = lambda *_: (_ for _ in ()).throw(LocalExecutionError("cleanup refused"))
+    arguments = dict(cwd=tmp_path, env={}, timeout=1, stdout=tmp_path / "stdout",
+                     stderr=tmp_path / "stderr", control=control, run_id="c" * 32,
+                     host="a" * 64,
+                     secrets=["approved-secret", "approved-secret-long", "K" * 10000],
+                     capture_tail=True)
+    if mode in {"bad-utf8", "cleanup"}:
+        with pytest.raises(LocalExecutionError):
+            controller.run_files(["platform-shell", "-c", "configured"], **arguments)
+        assert (control / "active-process.json").exists()
+    else:
+        result = controller.run_files(["platform-shell", "-c", "configured"], **arguments)
+        assert result.exit_code == (124 if mode == "timeout" else 7 if mode == "nonzero" else 0)
+        assert result.timed_out == (mode == "timeout")
+        text = arguments["stdout"].read_text()
+        assert text.endswith("[REDACTED]\ncafé end\n") and len(text.encode()) <= 65536
+        assert "secret" not in text and "credential" not in text and "approved" not in text
+        assert "hidden-value" not in text and "-long" not in text and "K" not in text
+        assert arguments["stderr"].read_text() == "api_key=[REDACTED]\nlast error"
+        assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
 
 
 @pytest.mark.parametrize("mode", ["success", "nonzero", "timeout"])

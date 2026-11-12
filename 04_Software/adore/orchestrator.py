@@ -26,6 +26,7 @@ import contextlib
 from copy import deepcopy
 from datetime import timedelta
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -1198,8 +1199,8 @@ class Orchestrator:
 
     def _conduct_direct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """@brief Conduct fresh bounded implementation attempts, with no AEGIS command.
-        @details Validate is conductor-owned and records explicitly unverified evidence;
-                 a retained completion marker permits checkpoint recovery without Pi.
+        @details Validate runs optional independent verification, with bounded fresh
+                 fixes; a retained completion marker permits recovery without Pi.
         @param[in,out] run Durable direct run with no AEGIS task bindings.
         @param[in] ticket Current source ticket.
         @param[in] thread Human clarification or review discussion for the next fresh attempt.
@@ -1211,6 +1212,12 @@ class Orchestrator:
                     return
                 if not self._refresh_budgets(run):
                     return
+                if (run.stage_failures >= self.config.recovery.max_stage_failures
+                        and run.failure_history
+                        and run.failure_history[-1]["code"] == "VERIFICATION_FAILED"):
+                    self._fail_immediately(run, "VERIFICATION_FAILED",
+                                           "verification attempts exhausted")
+                    return
                 completed = self._direct_completed(run) and run.stage != "build"
                 budget = self._budget_exceeded(run, include_launch=not completed)
                 if budget:
@@ -1218,7 +1225,11 @@ class Orchestrator:
                     return
                 if not completed:
                     run.stage = "build"
-                    run.validation_evidence = {"summary": ""}
+                    run.validation_evidence = {
+                        key: value for key, value in run.validation_evidence.items()
+                        if key in {"summary", "verification", "verification_result"}
+                    }
+                    run.validation_evidence.setdefault("summary", "")
                     run.candidate_fingerprint = ""
                     run.candidate_base_ref = ""
                     self.store.save(run)
@@ -1272,7 +1283,14 @@ class Orchestrator:
                     run.validation_evidence["implementation"] = "completed"
                     # Persist completion and its recovery stage in one state write:
                     # Retry must not spend another launch after durable success.
-                    self._successful_transition(run, "build", "validate")
+                    if self.config.workflow.verify_command:
+                        self.store.journal(run.run_id, "stage-advanced", previous="build",
+                                           current="validate", stage="validate",
+                                           failed_attempts=run.stage_failures)
+                        run.stage = "validate"
+                        self.store.save(run)
+                    else:
+                        self._successful_transition(run, "build", "validate")
                 self._checkpoint(run, "ADORE direct implementation")
                 if not self._integrate_target(run):
                     if run.lifecycle != "working":
@@ -1286,7 +1304,22 @@ class Orchestrator:
                 if budget:
                     self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
                     return
+                verified_target = self.worktrees.ref_head(run.base_ref)
+                if self.config.workflow.verify_command:
+                    if not self._verify_direct(run):
+                        if run.lifecycle != "working":
+                            return
+                        continue
+                    budget = self._budget_exceeded(run, include_launch=False)
+                    if budget:
+                        self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
+                        return
+                    self._checkpoint(run, "ADORE direct verification passed")
+                else:
+                    run.validation_evidence["verification"] = "not configured"
                 try:
+                    if self.worktrees.ref_head(run.base_ref) != verified_target:
+                        raise IsolationError("target changed during direct verification")
                     changed = self.worktrees.changed_files(run.run_id, run.base_ref)
                     if type(changed) is not int or changed < 0:
                         raise IsolationError("invalid changed-file count")
@@ -1297,7 +1330,7 @@ class Orchestrator:
                 except IsolationError as exc:
                     self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
                     return
-                run.validation_evidence.update(verification="not configured", changed_files=changed)
+                run.validation_evidence["changed_files"] = changed
                 self._successful_transition(run, run.stage, "done")
                 self._present_for_approval(run, ticket)
                 return
@@ -1306,8 +1339,69 @@ class Orchestrator:
         except ExecutionRecoveryError as exc:
             if not self._cancel_if_requested(run):
                 self._fail_immediately(run, "INFRASTRUCTURE_EXHAUSTED", exc)
+        except StateError as exc:
+            self._fail_immediately(run, "VERIFICATION_EVIDENCE", exc)
         except IsolationError as exc:
             self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
+
+    @staticmethod
+    def _check_direct_result(result: CommandResult, seconds: float) -> None:
+        """@brief Refuse malformed external execution evidence without coercing a pass.
+        @param[in] result Untrusted bound backend outcome.
+        @param[in] seconds Measured monotonic elapsed time.
+        @exception IsolationError Exit, timeout, streams or duration violate the contract.
+        """
+        if (type(result.exit_code) is not int or type(result.timed_out) is not bool
+                or not isinstance(result.stdout, str) or not isinstance(result.stderr, str)
+                or type(seconds) not in {int, float} or not math.isfinite(seconds) or seconds < 0):
+            raise IsolationError("malformed direct verification execution result")
+
+    def _verify_direct(self, run: RunState) -> bool:
+        """@brief Run one bounded independent check and atomically route a failed attempt.
+        @param[in,out] run Completed direct implementation at validate.
+        @return True only for a strictly typed exit-zero, non-timeout result.
+        @exception ExecutionRecoveryError Owned execution or cleanup cannot be confirmed.
+        """
+        command = self.config.workflow.verify_command
+        target = self._execute(run)
+        limit = self.config.workflow.stage_timeout_overrides.get(
+            "validate", self.config.budgets.per_gate_timeout_seconds,
+        )
+        started = time.monotonic()
+        result = (target.run_verification(command, timeout=limit)
+                  if self.config.execution.backend == "local"
+                  else target(["sh", "-c", command], timeout=limit))
+        seconds = time.monotonic() - started
+        try:
+            self._check_direct_result(result, seconds)
+        except IsolationError as exc:
+            self._fail_immediately(run, "VERIFICATION_RESULT", exc)
+            return False
+        separator = ("\n" if result.stdout and result.stderr
+                     and not result.stdout.endswith("\n") else "")
+        output = result.stdout + separator + result.stderr
+        redact = getattr(target, "redact", lambda text: text)
+        status = ("timed out" if result.timed_out else
+                  "passed" if result.exit_code == 0 else "failed")
+        run.validation_evidence.update(
+            verification=status,
+            verification_result={
+                "command": _sanitize(command), "exit_code": result.exit_code,
+                "seconds": seconds, "timed_out": result.timed_out,
+                "output": output_tail(output, lambda text: _sanitize(redact(text), None),
+                                      lines=200, chars=_MAX_EVIDENCE),
+            },
+        )
+        if status == "passed":
+            self.store.save(run)
+            return True
+        # The next build and retained failure must be one durable write with its count.
+        run.stage = "build"
+        run.validation_evidence.pop("implementation", None)
+        run.candidate_fingerprint = run.candidate_base_ref = ""
+        self._stage_failure(run, "VERIFICATION_FAILED", self._direct_failure_context(run),
+                            stage="validate")
+        return False
 
     def _conduct_task(
         self, run: RunState, ticket: Ticket, client: AegisClient, thread: str,
@@ -1744,6 +1838,12 @@ class Orchestrator:
             self.prompts.render("stage/ticket.md", iid=str(ticket.iid), title=ticket.title,
                                 description=ticket.description.strip()),
         ]
+        if self.config.workflow.verify_command:
+            parts.append(self.prompts.render("direct/verification.md",
+                                             command=self.config.workflow.verify_command))
+            previous = self._direct_result(run)
+            if previous and run.validation_evidence["verification"] != "passed":
+                parts.append(self._direct_failure_context(run))
         if failure_context:
             parts.append(self.prompts.render("stage/recovery-context.md",
                                              context=_sanitize(failure_context)))
@@ -2089,7 +2189,9 @@ class Orchestrator:
         evidence = run.validation_evidence
         if run.workflow == "direct":
             return (
-                f"{self.identity.tag} Unverified candidate for ticket #{ticket.iid}.\n\n"
+                (f"{self.identity.tag} Candidate validated for ticket #{ticket.iid}.\n\n"
+                 if self._direct_result(run, required=True) else
+                 f"{self.identity.tag} Unverified candidate for ticket #{ticket.iid}.\n\n")
                 + self._direct_candidate_body(run)
                 + "\n\nADORE will never merge it. To approve this exact candidate, freshly add "
                 f"`{self.config.delivery.approval_label}` after this presentation. New reviews "
@@ -2145,9 +2247,15 @@ class Orchestrator:
             return False
         if label not in ticket.labels:
             return False
-        if run.workflow == "direct" and not self._direct_evidence_ready(run):
-            self._invalidate_approval(run, ticket, "direct candidate evidence is incomplete")
-            return False
+        if run.workflow == "direct":
+            try:
+                ready = self._direct_evidence_ready(run)
+            except StateError as exc:
+                self._fail_immediately(run, "VERIFICATION_EVIDENCE", exc)
+                return False
+            if not ready:
+                self._invalidate_approval(run, ticket, "direct candidate evidence is incomplete")
+                return False
         try:
             self._transient(run, "approval-fetch", self.worktrees.fetch)
             target = self.worktrees.ref_head(run.base_ref)
@@ -2220,6 +2328,13 @@ class Orchestrator:
                 f"publication starts from stage done; this run is at {run.stage}",
             )
             return
+        if run.workflow == "direct":
+            try:
+                if not self._direct_evidence_ready(run):
+                    raise StateError("direct publication evidence is incomplete")
+            except StateError as exc:
+                self._fail_immediately(run, "VERIFICATION_EVIDENCE", exc)
+                return
         run.lifecycle = "publishing"
         self.store.save(run)
         self._status(run)
@@ -2341,25 +2456,77 @@ class Orchestrator:
             f"{self.identity.make_marker(run.run_id, 'delivery')}"
         )
 
-    @staticmethod
-    def _direct_evidence_ready(run: RunState) -> bool:
+    def _direct_result(self, run: RunState, *, required: bool = False) -> dict | None:
+        """@brief Strictly read the one current direct verification evidence shape.
+        @param[in] run Saved run whose result may cross into prompts or human approval.
+        @param[in] required Require a completed configured or explicit unconfigured result.
+        @return Valid configured result, or None for absent/unconfigured evidence.
+        @exception StateError Corrupt, mismatched, unbounded or inconsistent saved evidence.
+        """
+        evidence = run.validation_evidence
+        result = evidence.get("verification_result")
+        command = self.config.workflow.verify_command
+        if result is None:
+            if required and command:
+                raise StateError("direct verification evidence is missing")
+            return None
+        if (not command or not isinstance(result, dict)
+                or set(result) != {"command", "exit_code", "seconds", "timed_out", "output"}
+                or not isinstance(result["command"], str) or result["command"] != _sanitize(command)
+                or type(result["exit_code"]) is not int or type(result["timed_out"]) is not bool
+                or type(result["seconds"]) not in {int, float}
+                or not math.isfinite(result["seconds"]) or result["seconds"] < 0
+                or not isinstance(result["output"], str)
+                or len(result["output"]) > _MAX_EVIDENCE
+                or len(result["output"].splitlines()) > 200
+                or output_tail(result["output"], lambda text: _sanitize(text, None),
+                               lines=200, chars=_MAX_EVIDENCE) != result["output"]):
+            raise StateError("direct verification evidence is corrupt or mismatched")
+        status = ("timed out" if result["timed_out"] else
+                  "passed" if result["exit_code"] == 0 else "failed")
+        if evidence.get("verification") != status:
+            raise StateError("direct verification status disagrees with its result")
+        return result
+
+    def _direct_failure_context(self, run: RunState) -> str:
+        """@brief Reconstruct fresh-session failure context from the retained typed result."""
+        result = self._direct_result(run, required=True)
+        if result is None:
+            raise StateError("configured verification failure result is missing")
+        return self.prompts.render(
+            "direct/verification-failure.md", command=result["command"],
+            exit_code=str(result["exit_code"]), status=run.validation_evidence["verification"],
+            output=result["output"],
+        )
+
+    def _direct_evidence_ready(self, run: RunState) -> bool:
         """@brief Summary alone is not completion and can never authorize publication."""
         evidence = run.validation_evidence
+        result = self._direct_result(run, required=True)
         return (
             evidence.get("implementation") == "completed"
-            and evidence.get("verification") == "not configured"
+            and (evidence.get("verification") == "not configured" if result is None
+                 else evidence["verification"] == "passed")
             and type(evidence.get("changed_files")) is int and evidence["changed_files"] >= 0
             and bool(run.candidate_fingerprint) and bool(run.candidate_base_ref)
         )
 
-    @staticmethod
-    def _direct_candidate_body(run: RunState) -> str:
-        """@brief Render durable agent-reported checks without claiming verification."""
+    def _direct_candidate_body(self, run: RunState) -> str:
+        """@brief Render typed independent evidence separately from agent-reported checks."""
         evidence = run.validation_evidence
+        result = self._direct_result(run, required=True)
+        verification = "Verification: not configured. This candidate is unverified."
+        if result is not None:
+            # Indentation is a literal Markdown block even for embedded backtick fences.
+            command = "\n".join("    " + line for line in result["command"].splitlines())
+            output = "\n".join("    " + line for line in result["output"].splitlines())
+            verification = (f"Verification: {evidence['verification']} "
+                            f"(exit {result['exit_code']}, {result['seconds']:.3f} seconds).\n\n"
+                            f"Command:\n\n{command}\n\nOutput tail:\n\n{output}")
         return (
             f"Agent summary (including its own checks):\n{evidence.get('summary', '')}\n\n"
             f"Changed files: {evidence.get('changed_files', '?')}\n\n"
-            "Verification: not configured. This candidate is unverified.\n\n"
+            f"{verification}\n\n"
             f"Candidate fingerprint: `{run.candidate_fingerprint}`\n\n"
             f"Target commit: `{run.candidate_base_ref}`"
         )

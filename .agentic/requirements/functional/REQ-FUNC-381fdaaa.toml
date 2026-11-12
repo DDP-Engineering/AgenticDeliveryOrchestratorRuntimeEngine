@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-381fdaaa"
 title = "Refuse nonstring direct verification configuration"
-status = "draft"
+status = "active"
 requirement = "If workflow.verify_command is not a string, ADORE configuration validation shall refuse it with a diagnostic naming workflow.verify_command."
 verification = "Offline tests submit integer, boolean, array and table values through configuration loading/validation and assert a key-named issue rather than coercion or a validation crash; an ordinary command string is the accepted control."
 affected_paths = ["04_Software/adore/config.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_config.py::test_direct_verification_command_refuses_invalid_values"]
 spec = ""
 priority = "high"
 created = 2026-11-12

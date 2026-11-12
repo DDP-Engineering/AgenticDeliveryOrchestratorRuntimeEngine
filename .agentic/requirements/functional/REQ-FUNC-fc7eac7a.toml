@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-fc7eac7a"
 title = "Refuse multiline direct verification configuration"
-status = "draft"
+status = "active"
 requirement = "If workflow.verify_command contains a carriage return or line feed, ADORE configuration validation shall refuse it with a diagnostic naming workflow.verify_command."
 verification = "Offline config tests validate commands containing LF, CR and CRLF, including a trailing line break and TOML multiline strings, and assert a key-named issue; the identical text on one line is accepted."
 affected_paths = ["04_Software/adore/config.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_config.py::test_direct_verification_command_refuses_invalid_values", "04_Software/tests/test_config.py::test_direct_verification_command_refuses_toml_multiline"]
 spec = ""
 priority = "high"
 created = 2026-11-12

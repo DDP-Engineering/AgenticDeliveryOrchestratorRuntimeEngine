@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-bea4c0aa"
 title = "Present passing direct verification candidates"
-status = "draft"
+status = "active"
 requirement = "When configured direct verification exits zero without a timeout, the conductor shall hand the successfully checkpointed and fingerprinted candidate to fresh human approval at stage done and lifecycle awaiting-approval with its passing validation_evidence."
 verification = "Offline public polling with a fake settled product-changing Pi session and successful verifier observes verification at validate before the final checkpoint/fingerprint and saved done/awaiting-approval, with evidence bound to the candidate and target; nonzero exit, typed timeout, checkpoint failure and fingerprint failure each prevent this handoff."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_orchestrator.py::test_direct_verification_failure_boundaries", "04_Software/tests/test_orchestrator.py::test_direct_artifact_and_git_failures_preserve_cause"]
 spec = "specs/REQ-FUNC-bea4c0aa.md"
 priority = "high"
 created = 2026-11-12

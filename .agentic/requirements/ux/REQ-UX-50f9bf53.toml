@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-50f9bf53"
 title = "Show configured verification in direct review descriptions"
-status = "draft"
+status = "active"
 requirement = "When publishing an approved direct candidate with configured verification, the conductor shall show its retained verification command and result in the created or refreshed MR/PR body alongside the existing summary, file count and candidate binding."
 verification = "Offline pass/approve/publish tests reload state and inspect created, adopted and revised fake-forge descriptions for the same sanitized command/pass evidence as approval; absent configuration retains the unverified notice, stale approval writes no description and refused updates retain the existing publication failure without fabricating success."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_orchestrator.py::test_direct_adoption_refreshes_body_and_retries_failed_update"]
 spec = ""
 priority = "high"
 created = 2026-11-12

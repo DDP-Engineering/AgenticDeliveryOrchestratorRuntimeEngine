@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-PLAT-125bc4c1"
 title = "Execute direct verification in the owned container"
-status = "draft"
+status = "active"
 requirement = "When validating a container-backed direct run with workflow.verify_command configured, the conductor shall execute that command as sh -c inside the run's owned container from the worktree root with the validate-stage timeout override or otherwise budgets.per_gate_timeout_seconds."
 verification = "Offline bound-backend/conductor tests record the immutable owned resource, argv, worktree cwd and timeout for a shell compound command, using validate override and fallback cases independently of the build timeout; changed ownership and an unconfirmed timeout cleanup prevent another command through existing typed recovery handling."
 affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/execution.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_execution.py", "04_Software/tests/test_container_timeout.py"]
 spec = ""
 priority = "high"
 created = 2026-11-12

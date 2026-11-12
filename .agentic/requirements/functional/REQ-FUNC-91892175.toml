@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-91892175"
 title = "Keep configured direct verification out of AEGIS runs"
-status = "draft"
+status = "active"
 requirement = "While conducting an aegis-workflow run, ADORE shall ignore workflow.verify_command in favor of the repository's existing AEGIS verification and stage-failure accounting."
 verification = "Offline full/quick AEGIS conductor tests set a verify_command whose fake execution would fail the test, then exercise strict pass and strict failure/remediation; assert only AEGIS check commands execute, existing strict evidence/prompt presentation remains and accepted AEGIS stage transitions retain their existing counter resets."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval", "04_Software/tests/test_orchestrator.py::test_failed_strict_check_remediation_conducts_again"]
 spec = ""
 priority = "high"
 created = 2026-11-12

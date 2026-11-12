@@ -2084,7 +2084,7 @@ def _editable_setting_key(key: str) -> bool:
     @return     True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
-               "workflow.aegis_python"}:
+               "workflow.aegis_python", "workflow.verify_command"}:
         return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds",
                CONNECTION_KEY, BATCH_KEY}:

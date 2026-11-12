@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # REQ-FUNC-bea4c0aa — Configured direct verification
 
-Status: draft. This spec defines the verification state machine and evidence
+Status: active. This spec defines the verification state machine and evidence
 semantics. The journal coverage table assigns each independently observable
 response to its own requirement; referencing this shared state machine does not
 merge those requirements.
@@ -126,12 +126,13 @@ checkpoints remain possible; they are not approval evidence.
 
 ## Design handoff and non-goals
 
-- INFERRED (proposed implementation, not current product fact): Design D3–D8
-  in `../tasks/TASK-48ef7915.md` resolve the evidence keys, native verification-only
-  operation and platform-shell selection, direct-only transition accounting,
-  durable remediation context and opt-in native tail capture. The journal's
-  requirement map names every public test seam; implementation and executed
-  proof remain due in build/validate.
+- OBSERVED (implemented in `orchestrator.py`, `local_execution.py`,
+  `local_process.py` and `prompts.py`): Design D3–D8 in
+  `../tasks/TASK-48ef7915.md` define the evidence keys, native verification-only
+  operation/platform-shell selection, direct-only transition accounting,
+  durable remediation context and opt-in native tail capture. Linked offline
+  tests prove the targeted build candidate; final strict proof remains validate's
+  responsibility.
 - OBSERVED/INFERRED (existing prefix capture versus this tail contract): native
   tests must prove actual tail retention beyond the transient capture bound,
   with split credentials redacted before eviction and default AEGIS/preparation

@@ -85,6 +85,24 @@ do not apply locally. **Internet access for the agent** cannot restrict host
 network access. When it is On and a search service is selected, Pi loads ADORE's
 pinned web extension; Off disables that extension only.
 
+## Direct verification commands
+
+For direct runs only, `[workflow] verify_command` authorizes one exact shell
+command from the worktree root. Windows uses the bound account's absolute
+`SystemRoot/System32/cmd.exe /d /s /c`; Linux uses `/bin/sh -c`. ADORE never
+selects this shell through the project PATH or COMSPEC. The validate stage
+override (or general gate timeout) applies; the existing owned Job/cgroup
+release barrier and descendant cleanup supervise success, failure and timeout.
+Ordinary native argv calls still refuse shells and script wrappers.
+
+**The command runs with all permissions of the ADORE service account, without
+container isolation or a host sandbox.** Process ownership limits process
+lifetime, not filesystem, credential-helper or network access. Use a dedicated
+least-privilege account, install project tools separately and review the command
+before saving it. Output must be UTF-8; invalid output or unconfirmed cleanup
+fails closed. Sanitized bounded trailing output is retained for approval and
+bounded fix sessions. AEGIS runs ignore this setting.
+
 ## Isolation and recovery
 
 Each stage uses Pi RPC over pipes inside the owned Job or cgroup. ADORE creates

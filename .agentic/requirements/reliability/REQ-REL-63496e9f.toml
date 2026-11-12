@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-63496e9f"
 title = "Stop exhausted direct verification attempts"
-status = "draft"
+status = "active"
 requirement = "If direct verification failure accounting reaches recovery.max_stage_failures, the conductor shall stop the run as failed with VERIFICATION_FAILED and its last validation_evidence retained without another autonomous remediation launch."
 verification = "Offline public polling repeatedly fails a verifier at limits one and three, reloading saved state to assert the exact failed-attempt count, terminal code, preserved last command/result/output and no approval; an extra poll causes neither another Pi launch nor another verification attempt, and a pass before exhaustion follows the success path."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence"]
 spec = "specs/REQ-FUNC-bea4c0aa.md"
 priority = "high"
 created = 2026-11-12

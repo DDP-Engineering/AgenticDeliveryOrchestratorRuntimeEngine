@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-e969d30e"
 title = "Rearm failed direct verification on explicit retry"
-status = "draft"
+status = "active"
 requirement = "When an operator explicitly retries a run failed with VERIFICATION_FAILED under the existing retry guards, the conductor shall re-arm its stage-failure budget while retaining the worktree, failure history, latest verification evidence and cumulative run budgets."
 verification = "Offline public retry of an exhausted direct run supplies a later passing result and inspects zero rearmed stage failures before conduction, retained prior failure history/evidence until a new result and unchanged cumulative counters; pending notification, nonfailed lifecycle and exhausted overall budget retain the existing refusal or terminal behavior rather than gaining fresh autonomous work."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_retry_revalidation.py"]
 spec = "specs/REQ-FUNC-bea4c0aa.md"
 priority = "high"
 created = 2026-11-12

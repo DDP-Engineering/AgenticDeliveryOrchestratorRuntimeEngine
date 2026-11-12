@@ -143,12 +143,28 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
     assert actual.encode("utf-8") == case["expected"].encode("utf-8")
 
 
+def test_direct_verification_fragments_keep_literal_values(prompts):
+    """@brief Failure fields are independent literal values, not recursive template syntax."""
+    catalog = prompts.PromptCatalog()
+    command = 'printf "${output} $HOME {x} café"'
+    output = 'token=[REDACTED] ${command} ``` {x}'
+    assert command in catalog.render("direct/verification.md", command=command)
+    body = catalog.render("direct/verification-failure.md", command=command,
+                          output=output, exit_code="124", status="timed out")
+    assert command in body and output in body and "Exit code: 124" in body
+    assert "Previous verification timed out" in body
+    with pytest.raises(prompts.PromptError, match="missing placeholder"):
+        catalog.render("direct/verification-failure.md", command=command)
+
+
 def test_all_shipped_fragments_match_original_bytes(prompts):
     """@brief Inventory, placeholder completeness and original bodies are proven together."""
     catalog = prompts.PromptCatalog()
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
-    assert inventory == set(BASELINE["fragments"]) | {"direct/implementation.md"}
+    assert inventory == set(BASELINE["fragments"]) | {
+        "direct/implementation.md", "direct/verification.md", "direct/verification-failure.md",
+    }
     assert inventory == set(prompts.FRAGMENTS)
     for fragment, expected in BASELINE["fragments"].items():
         actual = catalog.render(fragment, **BASELINE["values"])
@@ -285,7 +301,10 @@ def test_shipped_placeholder_sets_are_complete(prompts):
     """@brief Every shipped placeholder has an exact captured caller value."""
     for fragment in prompts.FRAGMENTS:
         body = (prompts.PROMPT_ROOT / fragment).read_bytes().decode()[len(prompts.LEGAL_PREFIX):]
-        assert set(Template(body).get_identifiers()) <= BASELINE["values"].keys()
+        expected = ({"command"} if fragment == "direct/verification.md" else
+                    {"command", "output", "exit_code", "status"}
+                    if fragment == "direct/verification-failure.md" else BASELINE["values"].keys())
+        assert set(Template(body).get_identifiers()) <= expected
 
 
 def test_production_factory_shares_one_eager_catalog(prompts, monkeypatch, tmp_path):

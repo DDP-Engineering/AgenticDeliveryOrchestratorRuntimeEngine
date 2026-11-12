@@ -467,7 +467,7 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - how ticket labels map onto an AEGIS task.
+    @brief   [workflow] - direct verification and AEGIS task policy.
     @details `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
              labels win over change, then configured feature labels, with
              `default_kind` used when none match. The quick label is a framing
@@ -475,7 +475,9 @@ class WorkflowConfig:
              AEGIS's documented eligibility rules. `stage_timeout_overrides`
              raises or lowers the
              per-executor-launch bound for individual stages; anything absent
-             uses [budgets] per_gate_timeout_seconds.
+             uses [budgets] per_gate_timeout_seconds. `verify_command` is an
+             optional single-line shell command for direct runs only; AEGIS
+             ignores it and uses the repository's own verification commands.
     """
 
     default_kind: str = "feature"
@@ -484,6 +486,7 @@ class WorkflowConfig:
     )
     quick_label: str = "agent-quick"
     aegis_python: str = "python"
+    verify_command: str = ""
     stage_timeout_overrides: dict[str, int] = field(default_factory=dict)
 
 
@@ -1468,6 +1471,12 @@ def validate_config(config: Config) -> list[str]:
     issues.extend("[worktree] " + branch_messages[code] for code in branch["issues"])
 
     workflow = config.workflow
+    check(
+        isinstance(workflow.verify_command, str)
+        and not any(char in workflow.verify_command for char in "\x00\r\n"),
+        "workflow.verify_command must be a single-line string without NUL "
+        "(empty means not configured)",
+    )
     check(
         workflow.default_kind in RUN_KINDS,
         f"[workflow] default_kind must be one of {', '.join(RUN_KINDS)}: "
