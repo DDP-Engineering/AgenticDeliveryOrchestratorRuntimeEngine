@@ -23,16 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
+- [x] diff reviewed against scope, requirements, design, error paths,
       portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [x] knowledge pages of changed components current with the reviewed code
+- [x] project and environment context reconciled with the candidate
+- [x] requirements re-read: status, prose, verification, paths and links true
+- [x] manual or inspection verification recorded where applicable
+- [x] explicit review approved, when enabled
+- [x] final `check --strict --run` result logged truthfully after the last edit
+- [x] remaining warnings and pre-existing failures explained
+- [x] `report` appended
 
 ## Frame
 
@@ -281,19 +281,60 @@ Diagrams: [diagram_TASK-aad00a23.md](diagram_TASK-aad00a23.md)
 - 2026-11-12 build: Evolution reviewed: all 31 non-governance changes match D1-D8 (including API tests extended after anchor); generated JS replacement, index and fingerprint are the expected production output. Requirement/test-path audit and asset input/output fingerprint comparison exit 0; release-note checker and git diff --check exit 0. Check exit 0: errors=0 warnings=39 notes=28. All 35 original warning-bearing files remain unchanged at task base (stale paths/ticket refs/older journals/checklists); four candidate warnings are reviewed: generated minified JS is intentionally unscanned, and password literals in API tests, browser tests and server fixtures are synthetic isolated redaction/sign-in inputs, not credentials. No unrelated repairs or managed payload changes. Stage work stays under 60 changed files and 55 minutes, with no paid external operations; full suite/reviews/knowledge updates remain validate responsibilities.
 - 2026-11-12 build: DEVIATION build: retained the eight existing help topics' headerless format rather than adding HTML legal comments - the installed help subset requires a title on line 1 and rejects HTML; expanding its parser is outside ticket scope. Existing source/test/doc license prologues are preserved and generated assets are stamped with the project header.
 - 2026-11-12 build: completed; next validate
+- 2026-11-12 validate: Inspection: reviewed the full base-to-candidate diff against all 23 pinned active requirements, shared direct-evidence and existing Jobs specs, D1-D8, ticket and plan sections 1/4. API projection is captured/read-only, masked for both roles and excludes direct evidence from lists; strict browser workflow/result/stage readers and stale-panel hiding match their actual API/model/browser assertions. No execution/storage/dependency changes or unrelated repairs identified. Current web-interface knowledge routing/interface/invariants/change-map/behavior seams and project context reconciled; environment guide already accurately describes locked setup, matching Chromium, machine identity and strict commands, so needs no edit. No pinned Manual verification remains; inspection covers literal rendering, command-before-outcome, AEGIS label preservation, help terms/structure and no invented evidence. Bundle input/output fingerprint audit, release-note checker against fc943f9b82c93967dc22bf76e1e5cccf34b242d5 and git diff --check exit 0. Validation bounded to one strict full run, two read-only reviewer calls (480s each), at most 50 minutes and three executor-edited repository files; no publication or forge access.
+- 2026-11-12 validate: Independent review round 1: two separate ephemeral Pi processes, restricted to read/grep/find/ls with no writes or test runs, reviewed the same final candidate and actual assertions. Specification compliance APPROVED (all 23 requirements, D1-D8, scope/exclusions); implementation quality APPROVED (correctness, typed errors, authorization/redaction, transport, tests and portability); neither reported blocking findings. Verdicts recorded through CLI. Fresh locked uv sync --frozen --extra web and npm ci exit 0; Python verification imports, Playwright 1.63.0 and matching Chromium available. npm audit --omit=dev exit 0 (zero production vulnerabilities); two existing dev-only high advisories remain with unchanged lockfile. Container's empty /etc/machine-id required installing dbus then systemd through authorized apt-get; package setup initialized machine identity successfully, with no repository edits. Preflight check exit 0: 0 errors, 39 warnings, 28 notes; 35 warning-bearing baseline files verified byte-identical to task base, four candidate password-literal warnings are generated UI/public synthetic test inputs, not credentials. Existing help-format, TestClient and Vite advisories remain as documented at build.
+- 2026-11-12 validate: final: python .agentic/aegis.py check --task TASK-aad00a23 --strict --run exit 1 after the last candidate edit; Python full suite 5 failed, 3668 passed, 2 skipped (669.2s); Ruff exit 0; complete npm frontend validation exit 0 (934.5s), including helper tests, TypeScript, isolated build and all Chromium journeys. Errors=1 (test command failure), warnings=39, notes=28; advisory warning dispositions are recorded above. The five failures are test_executor_settings.py::{test_model_evidence_survives_reload_and_invalidates_on_credentials,test_private_write_failure_preserves_credentials,test_credentials_changing_during_test_do_not_publish_evidence} and test_local_execution.py::test_local_model_challenge_uses_the_managed_rpc_installation[provider,large]. No full strict pass is claimed. Build's three host-check browser failures did not recur in this full frontend run.
+- 2026-11-12 validate: DEVIATION validate: final strict Python proof inherited the executor provider credential - ambient OPENAI_API_KEY is present and defeats isolated fake credential assumptions; the five failing tests and their executor_settings/model_connection/local_execution sources are byte-identical to task base. Narrow diagnostic rerun with env -u OPENAI_API_KEY uv run --frozen --extra web --project 04_Software python -m pytest -q 04_Software/tests/test_executor_settings.py 04_Software/tests/test_local_execution.py -k '<the three credential tests or managed RPC challenge>' exit 0 (6 passed, 196 deselected, 2.18s, including the keyless control). This identifies an environment cause, not a candidate fix or strict pass. No product/test/payload edits, exclusions or suppressions made. Remaining work is a fresh complete strict gate under env -u OPENAI_API_KEY, then updated final evidence/report and advance only if it passes; stop now to retain the recorded one-full-run/session bound.
+- 2026-11-12 validate: Diagnostic command exact selector: env -u OPENAI_API_KEY uv run --frozen --extra web --project 04_Software python -m pytest -q 04_Software/tests/test_executor_settings.py 04_Software/tests/test_local_execution.py -k 'test_model_evidence_survives_reload_and_invalidates_on_credentials or test_private_write_failure_preserves_credentials or test_credentials_changing_during_test_do_not_publish_evidence or test_local_model_challenge_uses_the_managed_rpc_installation' exit 0 (6 passed, 196 deselected). Delivery report appended and read: its checks errors=0 is the static advisory report, not the final --run command, which failed and remains the controlling result. All validation record/checklist obligations completed; closure remains blocked on a passing fresh full strict proof. Candidate edits remain limited to project context and web-interface knowledge; original product candidate is preserved.
 
 ## Rulings
 
 
 ## State
 
-status: ready
-reported: build - completed
-next: Start validate: review candidate, update current component knowledge, run the final strict gate without suppressing the documented baseline host-check failures, record independent verdicts/report and advance only on completed validation
-must_read: .agentic/tasks/TASK-aad00a23.md, .agentic/steps/5_validate.md, 05_SoftwareDocu/Component_Web_Jobs.md, 05_SoftwareDocu/Component_Web_Frontend.md
-changed: Implemented D1-D8: strict workflow/direct-evidence API and browser readers, localized Jobs labels/stages/attempt/verification panel, offline API/model/browser tests, four-locale help/guidance, component/operator docs, changelog/release note and regenerated production assets; all 23 requirements active with linked tests
-evidence: pytest tests/test_web_jobs.py exit 0 (171); Ruff adore/tests exit 0; npm test exit 0 (171); build:e2e/typecheck and production build exit 0; scoped Jobs/help browser exit 0 (57) and final direct/localized-help rerun exit 0 (13); release notes/fingerprint/diff audits exit 0; AEGIS check errors=0 warnings=39 notes=28
-issues: Three unchanged baseline host-check browser failures reproduced on pristine HEAD (full Jobs 41 pass/3 fail; candidate Jobs/help 57 pass/3 fail); strict final gate still required in validate. Remaining advisory warnings and headerless-help exception explained in Log. No execution changes or blocking product questions.
-spec_compliance:
-implementation_quality:
-review_round:
+status: blocked
+reported: validate - blocked
+next: In a fresh validate session, verify setup/machine identity, then run env -u OPENAI_API_KEY python .agentic/aegis.py check --task TASK-aad00a23 --strict --run against the unchanged reviewed candidate; log its actual result, append/read report and advance only if it passes
+must_read: .agentic/tasks/TASK-aad00a23.md, .agentic/steps/5_validate.md
+changed: Reviewed candidate and all 23 requirements; reconciled project context and web-interface knowledge; independent spec and quality reviews approved at round 1; preserved all ticket implementation artifacts
+evidence: Strict check --strict --run exit 1: Python 3668 passed/5 failed/2 skipped; Ruff and full frontend exit 0. Six affected credential/native cases pass with OPENAI_API_KEY unset. Release-note, bundle fingerprint and diff audits exit 0; report appended
+issues: Strict gate is not passed: inherited OPENAI_API_KEY interferes with five unchanged fake-credential tests. Narrow scrubbed-environment diagnostic passes but cannot replace the pending fresh full strict run. Existing 39 advisory warnings/28 notes, dev-only npm advisories and help-format exception remain documented; prior host-check browser failures did not recur
+spec_compliance: approved
+implementation_quality: approved
+review_round: 1
+
+## Delivery report (2026-11-12)
+
+- stage: validate; type: feature; path: full; branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-66
+- requirements:
+  - REQ-DATA-18b26c84 - Serialize workflow in authorized job reads
+  - REQ-UX-4123c97c - Identify workflow in job lists
+  - REQ-UX-029d0525 - Identify workflow on the job page
+  - REQ-UX-ad37f7e7 - Present direct workflow stages
+  - REQ-UX-5cf762f8 - Keep direct jobs free of AEGIS task presentation
+  - REQ-UX-ef06a3c7 - Show the recorded direct attempt number
+  - REQ-UX-1b6f2a83 - Keep an unrecorded direct attempt explicitly unavailable
+  - REQ-UX-16f751b7 - Show the saved direct verification command
+  - REQ-UX-f6c6e946 - Show passed direct verification
+  - REQ-UX-7e9792e9 - Show failed direct verification
+  - REQ-UX-647b1549 - Show timed out direct verification
+  - REQ-UX-631835f9 - Show unconfigured direct verification as unverified
+  - REQ-UX-009b4cb9 - Show direct verification duration
+  - REQ-UX-9cdaa57b - Show the direct verification output tail
+  - REQ-UX-7fab3dcb - Keep absent direct verification explicitly unavailable
+  - REQ-DATA-08ed925c - Project recorded direct evidence to authorized job details
+  - REQ-SEC-5d0f86e7 - Fail closed on corrupt job read evidence
+  - REQ-UX-b105b854 - Reject unrecognized job workflow in the browser
+  - REQ-UX-46c09118 - Reject malformed direct evidence in the browser
+  - REQ-UX-a8c7ea48 - Reject non-direct stages in direct job responses
+  - REQ-UX-b758d2b7 - present complete authorized scoped current-state
+  - REQ-UX-c77f7335 - Explain direct Jobs evidence in localized help
+  - REQ-UX-558518e7 - Explain direct stage limits in localized guidance
+- deviations: 3 recorded
+  - build: ticket browser aggregate has three pre-existing host-check failures - accepted for this stage without changing unrelated product behavior: current Jobs/help 57 pass/3 fail, pristine HEAD archived to an automatically isolated temporary tree and baseline Jobs run 41 pass/the identical three failures. Targeted host-check reruns on both baseline and candidate yield 1 pass/2 identical API readiness_probe_failed failures. AEGIS render assertions remain unchanged; new direct/help cases all pass. Validate must report these baseline strict-gate blockers honestly, not waive the final check. npm dev-only audit warnings, upstream TestClient deprecation and existing Vite large-chunk advisory do not affect the direct evidence proof.
+  - build: retained the eight existing help topics' headerless format rather than adding HTML legal comments - the installed help subset requires a title on line 1 and rejects HTML; expanding its parser is outside ticket scope. Existing source/test/doc license prologues are preserved and generated assets are stamped with the project header.
+  - validate: final strict Python proof inherited the executor provider credential - ambient OPENAI_API_KEY is present and defeats isolated fake credential assumptions; the five failing tests and their executor_settings/model_connection/local_execution sources are byte-identical to task base. Narrow diagnostic rerun with env -u OPENAI_API_KEY uv run --frozen --extra web --project 04_Software python -m pytest -q 04_Software/tests/test_executor_settings.py 04_Software/tests/test_local_execution.py -k '<the three credential tests or managed RPC challenge>' exit 0 (6 passed, 196 deselected, 2.18s, including the keyless control). This identifies an environment cause, not a candidate fix or strict pass. No product/test/payload edits, exclusions or suppressions made. Remaining work is a fresh complete strict gate under env -u OPENAI_API_KEY, then updated final evidence/report and advance only if it passes; stop now to retain the recorded one-full-run/session bound.
+- explicit review: enabled; spec_compliance=approved; implementation_quality=approved; review_round=1
+- diff vs task base fc943f9: 60 file(s) changed, 5251 line(s) added
+- checks: errors=0 warnings=39 notes=28
+- checklist: 6/9 done; open: final `check --strict --run` result logged truthfully after the last edit; remaining warnings and pre-existing failures explained; `report` appended

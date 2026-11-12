@@ -157,7 +157,7 @@ Implementation expose the exact optional command through one-row textareas, with
 shared four-locale names/help/invalid-input feedback. The browser refuses CR/LF/NUL
 before preview or Save and validates scalar/batch pending values before recovery.
 An inspected AEGIS enrollment replaces the control with its repository-test-command
-note; the draft string is not erased. Jobs presentation is unchanged. Proof includes
+note; the draft string is not erased. Jobs uses the saved run workflow and independent verification evidence described below. Proof includes
 web/tests/readiness.test.mjs, settings.test.mjs, settingsSave.test.mjs,
 localDiagnostics.test.mjs and web/e2e/enrollment.spec.ts/settings.spec.ts, alongside
 test_web_enrollment.py,
@@ -242,8 +242,14 @@ SQLite bytes, authorization, scope and financial redaction.
   JSONL bytes without altering operational journal recovery. Authorized list/detail
   responses carry recorded `workflow` as aegis/direct (REQ-DATA-18b26c84).
   Missing/unknown/nontext workflows and direct task bindings return typed
-  run_state_corrupt without repair. This is API serialization only; web
-  enrollment accepts repositories with or without AEGIS and Jobs presentation remains unchanged. See
+  run_state_corrupt without repair. Direct details additionally expose the closed
+  `direct = {attempt, verification}` projection from captured state/journal bytes;
+  list rows omit it. The last recorded positive safe-integer stage-launch attempt
+  is distinct from cumulative launches and failed attempts; missing launches stay
+  null. Saved configured results retain the redacted command, canonical decimal-text
+  exit, finite nonnegative seconds, boolean timeout and normalized bounded output.
+  Absent verification is unavailable; explicit not configured is unverified.
+  Current configuration never substitutes for saved evidence. See
   `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
 
 - Exact Admin/CSRF import-preview suggests an available ID when omitted and
@@ -697,6 +703,8 @@ for Add and Import project. Primary buttons take their text colour from the
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
 | Action workspace, next action and observed history | `web/src/JobWorkspace.tsx`, `jobModel.ts`, `jobCopy.ts` | `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts`, `test_web_jobs.py` |
+| Saved workflow labels, direct attempts/results and trust-boundary errors | `jobs.py::_direct_evidence`, `jobModel.ts::readJobDetail`, `JobWorkspace.tsx::DirectEvidenceView`, `jobCopy.ts::workflowStageLabel` | `test_web_jobs.py` direct evidence cases, `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts` Direct job evidence |
+| Direct stage-limit guidance and localized Jobs help | `web/src/settingHelp.ts`, `web/src/help/content/{en,fr,de,ro}/{jobs,settings}.md` | `web/tests/settingHelp.test.mjs`, `web/tests/help.test.mjs`, `web/e2e/help.spec.ts` |
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
 | Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
@@ -710,6 +718,25 @@ for Add and Import project. Primary buttons take their text colour from the
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- REQ-DATA-08ed925c / REQ-SEC-5d0f86e7: authorized read-only direct evidence is
+  validated before filters/counts/paging, redacted for both roles and released
+  only after source/profile/grant reinspection. Malformed saved attempts/results
+  fail with typed secret-free errors; no repair or external command runs.
+- REQ-UX-4123c97c / REQ-UX-029d0525 / REQ-UX-ad37f7e7 / REQ-UX-5cf762f8:
+  Jobs identifies the saved workflow; direct current/timeline stages are localized
+  Implementation, Validation and Done only, without an AEGIS task. AEGIS labels,
+  actions and observed-only timeline semantics retain their existing meanings.
+- REQ-UX-ef06a3c7 / REQ-UX-1b6f2a83 / REQ-UX-16f751b7 / REQ-UX-f6c6e946 /
+  REQ-UX-7e9792e9 / REQ-UX-647b1549 / REQ-UX-631835f9 / REQ-UX-009b4cb9 /
+  REQ-UX-9cdaa57b / REQ-UX-7fab3dcb: the direct panel shows the saved attempt,
+  command before outcome, duration and focusable literal tail, distinguishing
+  passed, failed, timed out, explicit unverified and unavailable evidence.
+- REQ-UX-b105b854 / REQ-UX-46c09118 / REQ-UX-a8c7ea48: missing/nontext/unknown
+  workflow, malformed direct detail or forbidden direct stages reject browser
+  reads; list error/incomplete/source-change and detail failure hide stale panels.
+- REQ-UX-c77f7335 / REQ-UX-558518e7: four-locale Jobs/Settings help and inline
+  guidance explain direct evidence and build/validate limits with general fallback.
 
 - REQ-FUNC-d50a408d / REQ-FUNC-2bf3e808 / REQ-FUNC-357ae298: offline preview
   returns a separate command/source hint only for inspected direct clones; AEGIS,

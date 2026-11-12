@@ -41,7 +41,14 @@ API and browser readiness report a separate
 read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
 checks and stores schema-3 evidence with strict deletion guidance on corruption.
 Pending-clone evidence transfers unchanged at creation; the runtime pre-pick probe
-remains authoritative. Jobs presentation is unchanged.
+remains authoritative. Jobs identifies each saved workflow in the list and detail.
+Direct jobs show only Implementation/build, Validation/validate and Done stage
+evidence without an AEGIS task, plus the last recorded executor attempt and saved
+independent verification command/result, duration and bounded redacted literal tail.
+Passed, failed, timed out, explicit not-configured/unverified and unavailable are
+distinct; unknown workflows and corrupt direct transport fail closed and hide stale
+evidence. Current configuration cannot replace saved results. Four-locale Jobs and
+Settings help maps direct stage limits to build/validate with general fallback.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
