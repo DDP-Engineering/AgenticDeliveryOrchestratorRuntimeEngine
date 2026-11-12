@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-be518eca"
+title = "Launch bounded fresh direct attempts"
+status = "active"
+requirement = "When a direct build attempt is authorized after provisioning, the conductor shall launch one fresh Pi session through the existing executor and execution backend using the current run budgets, egress and build-stage timeout override or general per-gate timeout."
+verification = "Offline fake executor/backend tests observe one new session per direct attempt, normal provision/launcher arguments, current budgets and build override selection; remove the override to observe the general limit, and retry after an error to prove no session reuse or AEGIS command."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_errors_use_bounded_build_failure_accounting", "04_Software/tests/test_orchestrator.py::test_direct_attempt_rereads_only_budgets_without_resetting_work"]
+spec = ""
+priority = "high"
+rationale = "Direct work reuses execution authority and limits, not the AEGIS stage loop."
+created = 2026-11-12
+updated = 2026-11-12

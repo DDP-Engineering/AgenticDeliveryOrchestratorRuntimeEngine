@@ -30,7 +30,8 @@ The conductor performs leased post-merge branch cleanup through host Git on all 
 - read draft or ready MR/PR state and discussion;
 - post/edit marker-owned MR/PR comments;
 - remove review-trigger labels;
-- open a draft or ready MR/PR.
+- open a draft or ready MR/PR;
+- replace an existing MR/PR description with `update_merge_request_body(mr_iid, body)`.
 
 The base interface deliberately has no merge operation. For MR/PR comments,
 GitLab uses merge-request notes, which already include diff notes; GitHub and
@@ -54,7 +55,26 @@ a gh that does not know the field cannot break the MR read the whole poll
 depends on; Gitea reads the pull for `head.sha` and then that commit's combined
 status.
 
-## 3. Notification Integration
+## 3. Description and Notification Integration
+
+Direct publication calls `update_merge_request_body` after fresh approval when
+adopting an existing review or publishing a revision. GitHub sends only `body`
+through a pulls API PATCH, GitLab sends only `description` through a merge-request
+API PUT, and Gitea sends only `body` through a pulls API PATCH with the configured
+login. String fields retain literal Unicode/template-like content without type
+inference. Titles, draft state, reviewers, labels and target branches are not
+changed. Failed CLI exits or typed timeouts raise `ForgeError`; Gitea also
+requires a final 2xx HTTP status even when tea exits zero. Informational or
+redirect preambles cannot override the final status: final 1xx/3xx responses
+raise `ForgeError`, while a final 2xx after a redirect acknowledges the write.
+This stricter check belongs to the description-update operation; shared Gitea
+API behavior is unchanged. The base method refuses unsupported adapters with
+`ForgeError`.
+
+A successful write acknowledges only the description operation; the conductor
+owns candidate identity, approval and the final in-review transition. Repeating
+the same body after an interrupted response is idempotent. AEGIS publication
+does not invoke this operation.
 
 The orchestrator persists an outbox record before calling comment operations.
 Stable hidden markers make crash replay idempotent. A confirmed deleted MR/PR
@@ -66,3 +86,11 @@ record undeliverable.
 `tests/test_forge.py` covers the three offline adapters, command/JSON trust
 boundaries, labels, comments, draft and ready creation and resource lookup. Conductor
 tests cover incident editing, routing, fallback, redaction and outage replay.
+Body-update tests cover all three command vectors and literal fields, failed
+exits/timeouts and Gitea failed/missing or final non-2xx HTTP status, including
+proxy/redirect preambles and final-2xx controls. Public conductor tests cover
+adoption, revision, fresh-approval gating, write refusal and retry after both a
+refusal and an accepted write whose response was lost. The actual Gitea updater
+is also exercised through public direct adoption/revision: unconfirmed writes
+cannot reach in-review, and explicit Retry sends the same approved description
+without another executor launch.

@@ -190,7 +190,11 @@ SQLite bytes, authorization, scope and financial redaction.
   invalid activity timestamps while keeping authorized project identities.
   `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
   `adore/web/jobs.py` strictly validates schema-1 state, saved ticket metadata and
-  JSONL bytes without altering operational journal recovery. See
+  JSONL bytes without altering operational journal recovery. Authorized list/detail
+  responses carry recorded `workflow` as aegis/direct (REQ-DATA-18b26c84).
+  Missing/unknown/nontext workflows and direct task bindings return typed
+  run_state_corrupt without repair. This is API serialization only; web
+  enrollment still requires AEGIS and Jobs presentation remains unchanged. See
   `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
 
 - Exact Admin/CSRF import-preview suggests an available ID when omitted and

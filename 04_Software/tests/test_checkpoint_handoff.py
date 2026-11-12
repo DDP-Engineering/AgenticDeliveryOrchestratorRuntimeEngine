@@ -29,7 +29,15 @@ import pytest
 
 from .test_config import MINIMAL_VALID
 from .test_isolation import FakeRunner, _fail, _ok
-from .test_orchestrator import FakeAegis, FakeWorktrees, make_engine, make_run, task
+from .test_orchestrator import (
+    FakeAegis,
+    FakeWorktrees,
+    direct_edit,
+    direct_engine,
+    make_engine,
+    make_run,
+    task,
+)
 from .test_smoke import _config_file
 
 
@@ -52,14 +60,15 @@ class CheckpointWorktrees(FakeWorktrees):
     def ref_head(self, ref):
         return self.target if ref.startswith("origin/") else self.head
 
-    def worktree_progress_fingerprint(self, run_id):
+    def worktree_progress_fingerprint(self, run_id, *, exclude_paths=()):
         """@brief Keep simulated source progress stable across checkpoint transport."""
+        self.progress_exclusions.append(tuple(exclude_paths))
         return self.fingerprint
 
-    def commit_all_if_dirty(self, run_id, message):
+    def commit_all_if_dirty(self, run_id, message, *, exclude_paths=()):
         if self.commit_error:
             raise IsolationError("commit failed; dirty files retained")
-        return super().commit_all_if_dirty(run_id, message)
+        return super().commit_all_if_dirty(run_id, message, exclude_paths=exclude_paths)
 
 
 def setup_run(tmp_path):
@@ -68,6 +77,41 @@ def setup_run(tmp_path):
     engine.worktrees = CheckpointWorktrees()
     run = make_run(engine)
     return engine, run, forge, engine.worktrees, containers, executor
+
+
+@pytest.mark.parametrize("error", [False, True])
+def test_direct_handoff_never_checkpoints_exchange_files(tmp_path, monkeypatch, error):
+    """@brief During-attempt handoff retains summary and excludes both exchange artifacts."""
+    engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
+    worktrees.push_checkpoint = lambda *args: "d" * 40
+
+    def attempt(root):
+        direct_edit(worktrees)(root)
+        (root / engine.questions_file).write_text("Pending human question")
+        engine.store.request_handoff("github-owner-repo-7")
+        if error:
+            def refuse(*args, **kwargs):
+                raise IsolationError("summary removal denied")
+            monkeypatch.setattr(worktrees, "remove_summary", refuse)
+        from adore.executor.base import GateRun
+        return GateRun(exit_code=0)
+
+    executor.attempts.append(attempt)
+    engine.poll_once(ticket_iid=7)
+    saved = engine.store.load("github-owner-repo-7")
+    assert saved.lifecycle == "handed-off" and len(executor.prompts) == 1
+    assert not forge.opened and not saved.approval_comment_id
+    assert saved.validation_evidence["summary"]
+    if error:
+        assert saved.checkpoint_error and not worktrees.checkpoints
+        assert (work / "ADORE_SUMMARY.md").exists()
+    else:
+        assert not (work / "ADORE_SUMMARY.md").exists()
+        assert worktrees.checkpoint_paths == [{"feature.txt"}]
+    handoff = "\n".join(body for body in forge.ticket_comments.values()
+                        if "Human handoff complete" in body)
+    assert "AEGIS task" not in handoff and ".agentic/aegis.py" not in handoff
+    assert "direct workflow" in handoff
 
 
 def test_checkpoint_handoff_configuration_default_on(tmp_path):

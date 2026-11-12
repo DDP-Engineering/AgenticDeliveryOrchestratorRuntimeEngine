@@ -19,8 +19,11 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 ## Purpose and users
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
-opt-in GitHub, GitLab or Gitea tickets. Repositories without AEGIS get the direct
-workflow planned in `00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md`.
+opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
+`.agentic/aegis.py` use bounded fresh direct implementation attempts and hand
+explicitly unverified candidates to human approval. A present unsupported or
+broken payload is refused without fallback. Web enrollment still requires
+AEGIS; direct verification commands and Jobs presentation are separate work.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
@@ -36,8 +39,9 @@ ADORE's only coding agent.
 - Native Python children use ADORE-owned UTF-8 standard-stream settings; localized
   evidence does not depend on the Windows code page, and corrupt bytes remain refused.
 - `adore/orchestrator.py` claims tickets, provisions isolation, supervises
-  stages, bounds failures, parks clarifications, replays notifications,
-  verifies strictly and publishes drafts; `adore/state.py` persists schema-1
+  stages or direct implementation, bounds failures, parks clarifications,
+  replays notifications, verifies AEGIS strictly or records direct unverified
+  evidence and publishes draft/ready reviews; `adore/state.py` persists schema-1
   run state, the single-conductor lock and an append-only JSONL journal.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
@@ -110,15 +114,25 @@ each component to its source and tests.
 One conductor per state root polls in a loop or in externally scheduled single
 passes, on Windows 11 through Task Scheduler or on Ubuntu 22+ through systemd.
 Run lifecycle states (`working`, parked, awaiting approval, publishing, in
-review, terminal) are separate from the AEGIS stage. The executor's validate
-session closes the AEGIS task; ADORE verifies that advance itself, and the run
-stays at stage done while it awaits approval, publishes and is in review.
+review, terminal) are separate from workflow stage. Workflow is selected from
+the pinned worktree before the first claim save and retained on continuation.
+The executor's validate session closes an AEGIS task; ADORE verifies that advance
+itself. Direct uses build/validate/done with no task bindings: settled changed
+work without questions saves completion/validate atomically, then checkpoints
+and records not-configured evidence. Retry can finish completed validation
+without another launch; missing completion needs build authority. Both runs
+stay at stage done while awaiting approval, publishing and in review.
 A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
 budget, and required forge notifications pass through a persisted outbox. Parked cleanup is durably settled before polling resumes; status replay reconciles the current lifecycle labels.
 Publication requires a fresh `agent-approved` label bound to the exact
-candidate fingerprint and target commit; every review round repeats validation
-and approval.
+candidate fingerprint and target commit; every review round repeats
+workflow-appropriate evidence and approval. Direct approval and MR/PR bodies
+show the retained agent summary, file count and unverified notice; adopted and
+revised reviews refresh that description without changing review settings.
+Summary/questions are excluded from direct progress/checkpoints/publication;
+unsafe present artifacts fail closed. Direct summaries never count as a strict
+verification pass. Metrics and authorized job reads serialize recorded workflow.
 The shared CLI/web default publishes guarded work-in-progress checkpoints to
 the owned ticket branch before approval, without opening an MR/PR; an explicit
 false keeps intermediate checkpoints local. An operator
@@ -132,7 +146,8 @@ protects the worktree from routine cleanup and further autonomous execution.
 - ADORE companion version/schema policy is declared in `adore/aegis.py`.
   It never edits the AEGIS payload. ADORE releases use independent Semantic
   Versioning; companion compatibility is verified separately.
-- Run state is schema 1 with no migration from earlier builds; state with
+- Run state is schema 1 with required aegis/direct workflow and no migration
+  from earlier builds; direct task bindings or AEGIS-only stages, state with
   unknown or missing keys, an unknown stage (the removed `deliver` included) or
   corrupt values fails closed with the run directory to delete.
 - Executors use the selected container/native backend, never receive forge credentials, and never

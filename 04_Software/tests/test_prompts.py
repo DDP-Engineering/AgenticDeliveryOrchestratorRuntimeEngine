@@ -148,11 +148,55 @@ def test_all_shipped_fragments_match_original_bytes(prompts):
     catalog = prompts.PromptCatalog()
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
-    assert inventory == set(BASELINE["fragments"]) == set(prompts.FRAGMENTS)
+    assert inventory == set(BASELINE["fragments"]) | {"direct/implementation.md"}
+    assert inventory == set(prompts.FRAGMENTS)
     for fragment, expected in BASELINE["fragments"].items():
         actual = catalog.render(fragment, **BASELINE["values"])
         assert actual.encode("utf-8") == expected.encode("utf-8"), fragment
         assert "Copyright" not in actual and "<!--" not in actual, fragment
+
+
+@pytest.mark.parametrize("bad", [None, b"\xff", b"$9", b"missing license"])
+def test_direct_resource_is_eagerly_required(resources, prompts, tmp_path, bad):
+    """@brief The direct fragment is required even for construction of an AEGIS conductor."""
+    fragment = "direct/implementation.md"
+    path = resources / fragment
+    path.parent.mkdir(exist_ok=True)
+    if bad is None:
+        path.unlink(missing_ok=True)
+    else:
+        prefix = b"" if bad == b"missing license" else prompts.LEGAL_PREFIX.encode()
+        path.write_bytes(prefix + bad)
+    with pytest.raises(prompts.PromptError, match=fragment):
+        make_engine(tmp_path)
+
+
+@pytest.mark.parametrize("case", NETWORK_BASELINE["cases"])
+def test_direct_prompt_reuses_identical_permission_and_network_paragraph(
+    tmp_path, monkeypatch, case,
+):
+    """@brief Direct composition reuses the exact shared notice without AEGIS procedure."""
+    engine, forge, *_ = make_engine(tmp_path)
+    native = case["requested_mode"] == "native"
+    engine.config.execution.backend = "local" if native else "container"
+    engine.config.container.system_packages = case["packages"]
+    engine.config.container.egress.mode = "open" if native else case["requested_mode"]
+    engine.config.executor.internet = case["internet"]
+    if case["injected_none"]:
+        monkeypatch.setattr(orchestrator_module, "egress_policy", lambda config: replace(
+            egress_policy(config), mode="none"))
+    run = make_run(engine)
+    prompt = engine._direct_prompt(run, forge.ticket, "recover ${x}", "reply {x} $ £")
+    if native:
+        assert "Network policy is independently configured as" not in prompt
+        assert "System package installation" not in prompt
+    else:
+        permission = engine.prompts.render("stage/packages-enabled.md" if case["packages"]
+                                           else "stage/packages-disabled.md")
+        network = engine.prompts.render("stage/network.md", mode=case["effective_mode"])
+        assert permission + network in prompt
+    assert "recover ${x}" in prompt and "reply {x} $ £" in prompt
+    assert "TASK-" not in prompt and "AEGIS" not in prompt
 
 
 def test_template_semantics_and_literal_data(resources, prompts):

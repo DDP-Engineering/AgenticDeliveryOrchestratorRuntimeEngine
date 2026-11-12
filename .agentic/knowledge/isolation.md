@@ -32,6 +32,10 @@ container through a Docker, Podman, or WSL-wrapped runtime. Runtime commands
 are injected for offline testing, and predictable branding names bind resources
 to their run. `WorktreeManager` accepts the configured agent name/email for
 host-side checkpoint commits, so a new clone needs no local Git identity.
+Progress/checkpoint methods accept optional literal `exclude_paths=()`;
+`read_summary(run_id, max_chars=...)` returns a transient SummaryArtifact or
+None, and `remove_summary(run_id, artifact)` removes that unchanged artifact
+only after the caller has durably retained its sanitized text.
 `ContainerManager.spawn(name, argv, env=...)` starts a streaming `exec -i`
 command with live binary pipes and exactly `exec`'s environment rules (safe
 keys, including Pi's `PI_*` isolation variables, inline; secrets as bare keys
@@ -67,9 +71,22 @@ with values only in the client environment); the caller bounds and ends it.
 |---|---|---|
 | Native container Git selection or binding recovery | ContainerManager.provision/exec | test_container_git.py |
 | Git worktree/checkpoint lifecycle | WorktreeManager | test_isolation.py, test_checkpoint_handoff.py |
+| Direct exchange paths and summary safety | worktree_progress_fingerprint, commit_all_if_dirty, read_summary/remove_summary | test_isolation.py exchange/summary/direct_progress cases |
 | Runtime, egress and pager transport | ContainerManager | test_isolation.py |
 
 ## Key behaviors
+
+- `REQ-FUNC-337d0571`, `REQ-SEC-23063055`: optional direct exclusions use
+  top-level literal Git pathspecs for both tracked and untracked progress.
+  Checkpoints unstage exchange paths, exclude them from add -A and recheck the
+  entire staged set. Exchange-only status is a no-op; empty defaults preserve
+  AEGIS behavior. HEAD-owned collisions, escaping/Git paths, linked parents or
+  roots, nonregular/multiply linked files and corrupt Git evidence fail typed.
+- `REQ-REL-37072309`: summary reads decode the complete stable regular file
+  as strict UTF-8, retaining only the positive caller bound. Identity checks
+  surround reads/removal; stale or cross-worktree receipts and IO failures
+  refuse without authorizing checkpoint. Missing summary is allowed. These
+  helpers assume a settled executor boundary, not a concurrent authorized writer.
 
 - `REQ-FUNC-0d0625e1`: fresh repository containers use a read-only native Git pointer, clear inherited repository selectors and transport WSL arguments through direct execution. Independent and nested Git operations select their own repositories.
 - `REQ-REL-e1ecfbd5`: exact managed metadata, regular pointer bytes, bounded creation-mode JSON and a runtime discovery acknowledgement are required; corrupt evidence raises IsolationError.

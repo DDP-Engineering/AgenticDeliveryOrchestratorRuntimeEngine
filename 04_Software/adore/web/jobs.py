@@ -375,7 +375,7 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         "project_display_name": _text(item.display_name or item.name, "job_evidence_corrupt"),
         "project_archived": item.archived, "run_id": run.run_id, "ticket_iid": run.ticket_iid,
         "ticket_title": title, "ticket_url": ticket_url, "mr_url": mr_url,
-        "lifecycle": run.lifecycle, "stage": run.stage,
+        "lifecycle": run.lifecycle, "stage": run.stage, "workflow": run.workflow,
         "state_revision": sha256(sources[(item.project_id, run_id, "state.json")]).hexdigest(),
         "status_group": _GROUPS[run.lifecycle], "outcome": _text(run.outcome, "run_state_corrupt"),
         "stage_failures": run.stage_failures, "review_rounds": run.review_rounds,

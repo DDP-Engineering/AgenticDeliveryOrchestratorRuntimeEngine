@@ -100,7 +100,7 @@ class RunState:
     """
     @brief   In-memory view of a single run's persisted state.
     @details Everything the orchestrator needs to resume a run after a restart:
-             the active/historical AEGIS tasks, journal stage, recoverable
+             the recorded workflow, active/historical AEGIS tasks, stage, recoverable
              failure counters, durable notification outbox, approval-bound
              candidate fingerprint, signaling ids, and isolated resources.
     """
@@ -108,6 +108,8 @@ class RunState:
     run_id: str
     ticket_iid: int
     schema_version: int = STATE_SCHEMA_VERSION
+    #: Selected once at claim. Constructor defaults never fill missing stored keys.
+    workflow: str = "aegis"
     stage: str = "frame"
     lifecycle: str = "working"
     active_task_id: str | None = None
@@ -182,8 +184,8 @@ class RunState:
         """
         @brief      Rebuild a RunState from a persisted mapping.
         @details    Missing or wrong schema, unknown keys and missing keys are
-                    rejected, so foreign state is never reinterpreted as an AEGIS
-                    task run and state of another ADORE build is never filled in
+                    rejected, so foreign state is never reinterpreted as a run
+                    and state of another ADORE build is never filled in
                     with defaults (no migrations while ADORE is in development).
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
@@ -207,6 +209,13 @@ class RunState:
                 "it was written by another ADORE build"
             )
         state = cls(**data)
+        if not isinstance(state.workflow, str) or state.workflow not in {"aegis", "direct"}:
+            raise StateError(f"run-state carries unknown workflow {state.workflow!r}")
+        if state.workflow == "direct":
+            if state.active_task_id is not None or state.task_ids != []:
+                raise StateError("run-state direct workflow cannot carry AEGIS task bindings")
+            if isinstance(state.stage, str) and state.stage in {"frame", "specify", "design"}:
+                raise StateError(f"run-state direct workflow cannot name stage {state.stage!r}")
         if state.active_started_at != "" or state.created_at or state.updated_at:
             _clock_stamp(state.active_started_at)
         if type(state.iterations) is not int or state.iterations < 0:

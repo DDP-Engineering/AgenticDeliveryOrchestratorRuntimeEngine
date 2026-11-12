@@ -14,7 +14,12 @@ probes for assisted setup.
 
 ## 2. AEGIS Probe
 
-`detect_aegis` requires `.agentic/aegis.py`, runs `--version`, accepts only
+When `.agentic/aegis.py` is absent, `detect_aegis` runs no AEGIS command and
+reports `No AEGIS found: tickets run in the direct workflow`. `AegisStatus.ok`
+remains false: it means usable AEGIS, not general project readiness. The CLI
+wizard renders absence as INFO; web enrollment readiness is unchanged.
+
+For a present payload, `detect_aegis` runs `--version`, accepts only
 a supported `aegis` version, then runs `status --all --json` and requires schema 1, command
 `status`, a task list and an empty unreadable list. Missing Python, nonzero
 exit, malformed JSON, wrong shape/version/schema, or unreadable tasks return a
@@ -25,7 +30,10 @@ commands use that executable unchanged, with the target repository as their
 working directory. A version-probe exit 127 names this interpreter in the
 unavailable diagnostic and skips status. The wizard supplies the validated
 profile's `workflow.aegis_python`; no interpreter discovery or shell parsing
-is performed.
+is performed. An unusable present entry (including a directory or dangling
+symlink) is not announced as absent/direct. Guidance describes optional AEGIS,
+the supported installed-payload contract and refusal of broken payloads; it does
+not require every repository to install AEGIS. ADORE never installs or edits it.
 
 ## 3. Dependencies and Integration
 
@@ -49,7 +57,9 @@ admits only fixed native and standard WSL prefixes for the web image inventory.
 `tests/test_doctor.py` covers valid version/schema-1 detection, missing payload,
 malformed/blocked status, wrong version/schema, and guidance. Parameterized
 cases prove exact argv/cwd for python and python3, unavailable-interpreter
-reporting, and preserved bounded version/malformed-JSON diagnostics.
+reporting, preserved bounded version/malformed-JSON diagnostics, exact
+informational absence text, unusable present-entry refusal and optional-governance
+guidance on Windows and Linux.
 
 ## 5. Portable Gitea authentication
 
