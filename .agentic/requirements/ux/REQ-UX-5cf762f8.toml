@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-5cf762f8"
+
+title = "Keep direct jobs free of AEGIS task presentation"
+
+status = "draft"
+
+requirement = """
+While displaying a direct job, the Jobs interface shall omit AEGIS task presentation.
+"""
+
+verification = "Open valid direct build and done details in offline Jobs journeys and inspect their visible and technical evidence for absence of AEGIS task labels or identifiers; retain the API negative fixture with a direct task binding to prove invalid bindings are refused rather than displayed."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

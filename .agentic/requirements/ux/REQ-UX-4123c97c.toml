@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-4123c97c"
+
+title = "Identify workflow in job lists"
+
+status = "draft"
+
+requirement = """
+When an authorized user views a valid job in the global or project Jobs list, the interface shall identify its recorded workflow as AEGIS or Direct in English, French, German and Romanian.
+"""
+
+verification = "Offline model fixtures with each recorded workflow are read and browser journeys open global and project job lists; assert the workflow label belongs to the same composite job identity in all four locales, with mixed-workflow rows and an unknown-workflow negative control preventing a default label."
+
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

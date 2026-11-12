@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-c77f7335"
+
+title = "Explain direct Jobs evidence in localized help"
+
+status = "draft"
+
+requirement = """
+When a user reads the Jobs help topic in English, French, German or Romanian, the help center shall explain workflow labels, direct Implementation and Validation stages without an AEGIS task, recorded attempts and independent verification evidence including Passed, Failed, Timed out and Not configured: unverified.
+"""
+
+verification = "Load the Jobs help topic for all four locales through offline help content tests and help e2e navigation; assert the workflow/evidence explanation uses the interface's terms and distinguishes unverified from passed, with locale structure parity, unsupported Markdown and link checks detecting missing or drifted content."
+
+affected_paths = ["04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

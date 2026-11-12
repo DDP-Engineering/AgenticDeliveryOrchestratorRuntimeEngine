@@ -1,0 +1,160 @@
+<!--
+Copyright (c) 2026 DDP Engineering
+This software is licensed under the PolyForm Noncommercial License 1.0.0.
+Commercial use requires a separate commercial license.
+See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+-->
+
+# REQ-DATA-08ed925c — Direct job evidence reads
+
+Status: draft. This specification supplies the source, absence and error semantics
+shared by the task's separate attempt and verification requirements. It changes
+presentation and the authorized read allowlist, not execution or stored formats.
+
+## Authority and boundaries
+
+- STATED (ticket #66; direct-workflow plan sections 1 and 4): Jobs identifies the
+  recorded workflow; a direct job has Implementation (`build`), Validation
+  (`validate`), then Done, without an AEGIS task; details show the attempt and
+  independent verification command, outcome, duration and output tail.
+- STATED (ticket #66 and repository testing rules): unknown workflow is an error;
+  malformed external/persisted evidence fails closed; no run-behavior changes,
+  migration, compatibility readers or automatic repairs.
+- OBSERVED (`adore/orchestrator.py::_launch_stage`): each executor launch journals
+  `stage-launch` with `attempt = stage_failures + 1` after incrementing cumulative
+  `iterations`. These are different measurements. The requested attempt number
+  can be read directly rather than invented from cumulative budget consumption.
+- OBSERVED (`adore/orchestrator.py::_verify_direct`, `_direct_result` and
+  `specs/REQ-FUNC-bea4c0aa.md`): independent verification retains the latest result
+  in `validation_evidence`, including failures/timeouts while the job returns to
+  build; explicit absence of configuration is recorded as `not configured`.
+- OBSERVED (`adore/web/jobs.py`, `specs/REQ-FUNC-e8455ab6.md`): job reads currently
+  omit validation payloads and commands. STATED (ticket's conditional API scope):
+  this task authorizes only the narrow direct-evidence projection below. General
+  validation payloads, agent summaries, raw transcripts and unrelated fields
+  remain outside the read allowlist. The active read documentation is updated
+  when this draft is implemented, not described as already implemented here.
+
+## Source contract
+
+### Recorded attempt
+
+- Use the last saved `stage-launch` event in journal order for the direct job,
+  not event timestamp sorting, current `stage_failures + 1`, cumulative
+  `iterations`, preparation attempts or review rounds.
+- A selected launch's `attempt` is a positive integer representable exactly by
+  the browser (at most 2^53 - 1); booleans and fractional values are invalid.
+  A present `stage-launch` without a valid attempt is corrupt journal evidence,
+  not absence. Validate every projected launch's attempt rather than skipping
+  an earlier malformed launch in favor of a later valid one.
+- With no recorded launch, the attempt is explicitly unavailable. Zero saved
+  launches do not imply attempt one, and a missing journal does not justify a
+  fabricated number. This follows the existing honest-unknown read contract.
+- This number describes the latest recorded executor attempt; it is not a new
+  lifetime attempt counter or a new verification invocation counter. Retry and
+  revisions keep their existing engine accounting.
+
+### Independent verification
+
+The current saved configured result is exactly:
+
+```
+validation_evidence.verification = "passed" | "failed" | "timed out"
+validation_evidence.verification_result = {
+  "command": text,
+  "exit_code": integer,
+  "seconds": finite nonnegative number,
+  "timed_out": boolean,
+  "output": text
+}
+```
+
+- OBSERVED (`_direct_result`): result keys are closed; duration excludes booleans
+  and numbers outside finite float conversion; output is at most 200 lines and
+  6000 characters with normalized line endings and no NUL or ANSI escapes.
+  Preserve valid leading whitespace and empty text; do not trim an existing tail
+  into a different observation. Projected text must contain valid Unicode scalars.
+- Validate the saved structure before redaction/projection. Apply the existing
+  web credential masking to command and output for both roles; redact before any
+  necessary display-bound cut. Keep the projected output within the same tail
+  bounds. Render the result as inert text, never HTML, Markdown links or commands
+  to execute. The command is saved evidence, not a link or a runnable web action.
+- Status agreement is exact: `timed_out = true` means `timed out` regardless of
+  exit code; otherwise exit zero means `passed` and nonzero means `failed`.
+  An ordinary exit 124 without timeout means failed. Disagreement is corruption.
+- Read the saved command, not today's configuration. Missing or changed project
+  configuration does not erase valid saved evidence or replace the recorded
+  command; existing budget-unavailable behavior remains separate.
+- Only the latest saved result is displayed. A failed or timed-out verification
+  remains visible during remediation; a later saved pass replaces it. Lifecycle,
+  stage, agent-reported checks and the existence of a candidate do not establish
+  an independent verification pass.
+
+## Absence and presentation semantics
+
+| Saved condition | Observable Jobs evidence |
+|---|---|
+| No verification status and no result | Verification unavailable; no invented command, duration or output. |
+| `verification = "not configured"`, no result | Not configured: unverified; no invented command, duration or output. |
+| Complete configured result with agreeing status | Saved redacted command first, localized outcome, recorded seconds and inert output tail. |
+| Valid configured result with empty output | Explicit empty-output indication, not unavailable verification. |
+| Configured status without result, result without status, unknown/nontext status, or unconfigured status with a result | Typed read refusal / browser error, not absence or an inferred result. |
+
+STATED (ticket and repository localization rule): labels and status copy use the
+interface's English, French, German and Romanian terms. Implementation and
+Validation are direct-workflow display names only; AEGIS stage labels and
+existing observed-only timeline behavior retain their current meaning. Done is
+still a workflow stage, distinct from lifecycle Completed or human merge.
+Unrelated timeline events can have unknown stage; no synthetic progress events
+are added. A direct response naming a current or timeline stage other than
+build/validate/done is refused, never filtered into a plausible valid timeline.
+
+## Read boundary and error semantics
+
+- Reuse authorized immutable project/run identity, captured state/journal bytes,
+  source-revision checks and final grant/profile reinspection. Read no source
+  for an unauthorized project. These reads run no external CLI or command and
+  change neither source bytes nor operational journal recovery.
+- A malformed selected persisted attempt produces `run_journal_corrupt`; malformed
+  selected persisted verification produces `run_state_corrupt`. Both use the
+  existing typed JobReadError / HTTP 503 secret-free envelope, without partial
+  totals or raw source values. Missing evidence is not a corrupt source; present
+  malformed evidence is not missing evidence.
+- Browser readers validate workflow on list and detail reads before display and
+  validate direct evidence on detail reads. Missing, nontext or unknown workflow
+  and malformed direct evidence produce the existing unexpected-response/error
+  presentation, with stale affected evidence hidden; no workflow default or
+  implicit passing/unconfigured result is permitted.
+- The read allowlist contains only attempt and verification evidence needed here.
+  No AEGIS task binding or agent summary is exposed for a direct job. AEGIS jobs
+  acquire only the requested workflow label, not a direct verification panel or
+  reinterpretation of their stage/failure counters.
+
+## Acceptance seeds
+
+- First launch attempt 1; later launch attempt 2; cumulative launches 9 and
+  current failure count 0 do not replace the recorded 2. No launch stays unknown.
+- Passed command with zero/fractional duration and empty output; failed command
+  with exit 124 and no timeout; timed out command even with exit zero; explicit
+  unconfigured evidence; a pre-verification build with no status/result.
+- Failure retained during a fresh build, followed by a saved pass; changing the
+  saved project verification setting does not change either observed result.
+- Invalid workflow, direct AEGIS-only stage, corrupt launch number, status/result
+  contradiction, bad duration, invalid Unicode/NUL and 201-line/6001-character
+  output are rejected; valid 200-line/6000-character controls are accepted.
+- Admin and assigned Developer see authorized redacted evidence; cross-project
+  reads fail without consulting foreign corrupt sources; source bytes are
+  unchanged and a runner that fails on invocation proves reads execute nothing.
+
+## Design handoff and open decisions
+
+- INFERRED (ticket plus observed source semantics): the above fields suffice;
+  no new stored datum is necessary and no blocking product question is known.
+- UNKNOWN until design: names/nesting of the additive public detail fields and
+  exact browser types, component placement and shared helpers. Design must fix
+  those transport spellings and closed shapes before build, without changing the
+  source/absence/error semantics above. No transport requirement applies to list
+  rows beyond their already-recorded workflow; the list need not carry output.
+- STATED (ticket stop rule): if implementation needs a datum the run does not
+  record or finds a ticket/plan conflict, stop via the questions file and blocked
+  pause rather than add execution behavior or manufacture evidence.

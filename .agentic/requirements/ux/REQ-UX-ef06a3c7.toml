@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-ef06a3c7"
+
+title = "Show the recorded direct attempt number"
+
+status = "draft"
+
+requirement = """
+When a direct job has a recorded executor stage-launch attempt, its Jobs page shall show the latest recorded attempt number with a localized label in English, French, German and Romanian.
+"""
+
+verification = "Persist direct stage-launch events with known attempt values, read detail through the offline API/model and open Jobs; assert the latest saved attempt, including a first attempt and a later attempt whose number differs from cumulative launches and current failed-attempt count, and reject boolean, zero, fractional or unsafe numeric attempt evidence."
+
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts"]
+
+linked_tests = []
+
+
+spec = "specs/REQ-DATA-08ed925c.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

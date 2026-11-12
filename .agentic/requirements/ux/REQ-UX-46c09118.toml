@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-46c09118"
+
+title = "Reject malformed direct evidence in the browser"
+
+status = "draft"
+
+requirement = """
+If a direct job detail response contains malformed attempt or verification evidence, the Jobs browser reader shall reject that response into the existing error state without presenting a fabricated result.
+"""
+
+verification = "Read valid absent, unconfigured, passed, failed and timeout controls; mutate evidence types, required fields, status agreement, counter range, text bounds and duration independently in model tests, then inject corrupt direct evidence in Jobs e2e after a valid detail to assert an error and hidden stale evidence."
+
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx"]
+
+linked_tests = []
+
+
+spec = "specs/REQ-DATA-08ed925c.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12
