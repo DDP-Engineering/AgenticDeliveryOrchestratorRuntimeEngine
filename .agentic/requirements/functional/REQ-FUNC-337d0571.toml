@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-337d0571"
+title = "Exclude direct exchange files from progress"
+status = "draft"
+requirement = "When measuring direct attempt progress, the conductor shall compare worktree progress fingerprints that exclude root ADORE_SUMMARY.md and the configured questions file."
+verification = "Offline injected Git/fake executor tests snapshot before and after real product edits and observe changed fingerprints, then change only summary/questions bytes in tracked and untracked cases and observe identical fingerprints; existing unsafe-path and Git-failure cases still raise typed isolation errors."
+affected_paths = ["04_Software/adore/isolation.py", "04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+rationale = "Exchange text is not product implementation progress."
+created = 2026-11-12
+updated = 2026-11-12

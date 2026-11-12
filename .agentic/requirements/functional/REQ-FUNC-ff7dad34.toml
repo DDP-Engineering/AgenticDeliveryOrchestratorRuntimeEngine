@@ -18,7 +18,7 @@ title = "Conduct governed ticket delivery"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
-status = "active"
+status = "draft"
 
 # Self-contained prose: a reader with no other context must be able to
 # understand and check it. No ticket numbers, no run IDs, no references
@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-Before publication, the conductor shall require strict verification and a fresh approval bound to the exact candidate, then create a draft or ready merge or pull request according to the validated delivery.draft boolean (default true), preserving the state of existing review records.
+Before MR/PR publication, the conductor shall require fresh human approval bound to the exact candidate and target commit, with successful strict verification for an aegis run or explicit not-configured unverified evidence for a direct run.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ Before publication, the conductor shall require strict verification and a fresh 
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated orchestrator tests verify approval drift rejection, retry freshness, and approved draft and ready publication."
+verification = "Offline public poll and Retry tests present aegis and direct candidates, reject a preexisting approval label and candidate/target drift, then accept a freshly added approval only for the unchanged candidate; aegis strict-check failure and missing direct candidate evidence each prevent publication."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_approval_rejects_stale_label_and_invalidates_on_target_drift", "04_Software/tests/test_orchestrator.py::test_retry_rechecks_missing_approval_before_publication", "04_Software/tests/test_orchestrator.py::test_approved_publication_opens_draft_without_an_executor_session"]
+linked_tests = []
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Publication must be candidate-bound and merging remains a human decision."
 
 created = 2026-08-15
-updated = 2026-10-25
+updated = 2026-11-12

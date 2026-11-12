@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-3e54b751"
+title = "Retain the claimed workflow on continuation"
+status = "draft"
+requirement = "When an existing run resumes, retries, resets or enters a review revision, the conductor shall retain its recorded workflow without selecting a different workflow from later payload presence."
+verification = "Offline public continuation tests persist both workflows, change payload presence before clarification resume, Retry and review revision, and observe the original workflow and its task-binding invariant; reset also retains workflow rather than reenrolling the run."
+affected_paths = ["04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+rationale = "Repository adoption of AEGIS affects a future ticket, not a run already claimed."
+created = 2026-11-12
+updated = 2026-11-12

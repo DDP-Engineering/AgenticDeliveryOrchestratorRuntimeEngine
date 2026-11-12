@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-6e20aea3"
+title = "Report absent AEGIS as direct workflow information"
+status = "draft"
+requirement = "When doctor or otherwise valid confirmed adore init setup finds no .agentic/aegis.py, it shall report 'No AEGIS found: tickets run in the direct workflow' as information without probing AEGIS or blocking init profile creation."
+verification = "Offline doctor and wizard tests use a valid clone without the payload, capture the exact informational message, zero AEGIS command calls and saved validated init profile; a present incompatible payload retains its not-ready diagnostic rather than being announced as absent/direct."
+affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/wizard.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+rationale = "AEGIS is optional for configuration/CLI admission, while present payloads still require support."
+created = 2026-11-12
+updated = 2026-11-12

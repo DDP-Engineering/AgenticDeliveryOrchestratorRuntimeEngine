@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-8e4ff7bc"
+title = "Resume direct clarification with the thread"
+status = "draft"
+requirement = "When an agent-answered label authorizes clarification resume for a parked direct run, the conductor shall resume direct build in a fresh session receiving the ticket discussion thread through the existing bounded clarification mechanism."
+verification = "Park a direct run with a fake executor, add a human answer and agent-answered, poll and inspect a distinct fresh launch containing the rendered question/answer thread with retained run/worktree identity and cumulative budgets; without the label no session resumes, and existing deadline/round-limit refusal remains effective."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+rationale = "Clarification does not turn a direct ticket into an AEGIS task or erase consumed work."
+created = 2026-11-12
+updated = 2026-11-12

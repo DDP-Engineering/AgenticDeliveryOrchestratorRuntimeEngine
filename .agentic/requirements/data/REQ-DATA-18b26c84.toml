@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-18b26c84"
+title = "Serialize workflow in authorized job reads"
+status = "draft"
+requirement = "When the authorized web job read model serializes valid run state, it shall expose the recorded workflow as aegis or direct."
+verification = "Offline job list/detail reads for both workflows assert the exact workflow value without changing UI behavior; inject missing/unknown workflow and a direct task binding to observe the existing corrupt-state read refusal rather than guessed workflow, and retain cross-project authorization refusal."
+affected_paths = ["04_Software/adore/web/jobs.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+rationale = "This adds API serialization only, not direct web enrollment or Jobs presentation."
+created = 2026-11-12
+updated = 2026-11-12

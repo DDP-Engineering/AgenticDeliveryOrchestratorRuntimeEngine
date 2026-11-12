@@ -18,7 +18,7 @@ title = "Detect runtime environment readiness"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
-status = "active"
+status = "draft"
 
 # Self-contained prose: a reader with no other context must be able to
 # understand and check it. No ticket numbers, no run IDs, no references
@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-When a target repository is assessed for governance readiness, doctor shall accept only an AEGIS payload at 0.15.0 or later within major 0 that reports schema-1 status data.
+When assessing a present .agentic/aegis.py payload for AEGIS readiness, doctor shall accept only the supported version range declared by the ADORE AEGIS client with valid schema-1 status data.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ When a target repository is assessed for governance readiness, doctor shall acce
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Automated doctor tests accept a valid 0.15.0/schema-1 payload and reject missing, malformed, older-than-0.15.0, wrong-major, and wrong-schema responses."
+verification = "Offline doctor tests provide a present supported payload with valid schema-1 status and observe readiness; inject older or wrong-major versions, malformed status and wrong schema to observe not-ready diagnostics, and compare supported-range decisions with the client constants."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/aegis.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_015_schema_1_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_reports_a_missing_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_rejects_wrong_schema_or_version", "04_Software/tests/test_doctor.py::test_aegis_doctor_shares_one_gate_with_the_client"]
+linked_tests = []
 
 # --- optional below this line ---
 
@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "ADORE must not pretend an incompatible governance payload can conduct a run."
 
 created = 2026-08-15
-updated = 2026-11-10
+updated = 2026-11-12

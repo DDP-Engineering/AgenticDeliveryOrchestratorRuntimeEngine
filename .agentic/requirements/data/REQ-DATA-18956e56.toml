@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-18956e56"
+title = "Refuse AEGIS task bindings on direct runs"
+status = "draft"
+requirement = "If persisted direct run state has a non-null active_task_id or nonempty task_ids, StateStore.load shall raise StateError naming the run directory to delete without rewriting it."
+verification = "Round-trip direct state with active_task_id null and task_ids empty, then independently inject a valid historical task, an active task and both bindings; assert StateError and unchanged state, while valid aegis task histories still round-trip."
+affected_paths = ["04_Software/adore/state.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+rationale = "Direct execution does not own an AEGIS task."
+created = 2026-11-12
+updated = 2026-11-12

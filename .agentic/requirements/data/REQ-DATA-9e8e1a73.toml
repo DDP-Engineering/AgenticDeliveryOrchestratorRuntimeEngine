@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-9e8e1a73"
+title = "Refuse AEGIS stages on direct runs"
+status = "draft"
+requirement = "If persisted direct run state names frame, specify or design as its stage, StateStore.load shall raise StateError naming the run directory to delete without rewriting it."
+verification = "Round-trip direct build, validate and done records, then inject each AEGIS-only stage and observe StateError with deletion guidance and unchanged bytes; ordinary aegis stage round trips remain valid."
+affected_paths = ["04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = ""
+priority = "normal"
+rationale = "Direct conduction uses build, validate and done rather than AEGIS framing stages."
+created = 2026-11-12
+updated = 2026-11-12

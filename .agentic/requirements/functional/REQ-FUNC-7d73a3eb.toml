@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-7d73a3eb"
+title = "Present completed direct candidates for approval"
+status = "draft"
+requirement = "When a direct session settles successfully without error or a questions file and changes the non-exchange progress fingerprint, the conductor shall hand its checkpointed candidate to existing human approval at stage done and lifecycle awaiting-approval with retained summary, not-configured validation evidence and candidate fingerprint."
+verification = "Offline public polling with fake forge/executor makes a product edit plus summary and observes one session, summary retained after file removal, checkpoint before recorded candidate fingerprint and done/awaiting-approval; nonzero/unsettled execution, questions and unchanged progress each prevent this transition, and a checkpoint failure preserves its typed cause without approval."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-7d73a3eb.md"
+priority = "high"
+rationale = "A direct candidate is an explicitly unverified human-review handoff, not strict AEGIS verification."
+created = 2026-11-12
+updated = 2026-11-12
