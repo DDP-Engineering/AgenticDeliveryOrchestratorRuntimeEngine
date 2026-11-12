@@ -24,6 +24,11 @@ reviewed batch saves and narrow light/dark layouts. Projects, Settings, Glossary
 and Tickets help explains only delivered workflow/command behavior in all four
 locales; helper and browser contracts check structure, terms, navigation and
 live-probe authority. The committed production bundle is rebuilt with these inputs.
+The offline enrollment-to-Statistics regression runs both specifications in one
+fixture home. Malformed-consumption injection selects a seeded nonempty job
+cohort explicitly, not the first project: newly enrolled projects legitimately
+have no jobs. The existing hidden-evidence, error and unavailable-export assertions
+remain unchanged for malformed and aborted responses.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 

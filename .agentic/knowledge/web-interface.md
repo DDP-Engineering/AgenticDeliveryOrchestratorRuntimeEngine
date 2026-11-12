@@ -16,6 +16,11 @@ Statistics browser fixtures restore the authenticated account's English/light
 preferences in afterEach so a failed localized journey cannot leak its locale
 to later files. The four-locale/two-theme statistics journey has a60-second
 case budget, with unchanged assertions and suite-wide limits.
+The malformed-consumption fixture selects a seeded nonempty job cohort rather
+than the first project, so legitimately empty newly enrolled projects cannot
+prevent injection. Running enrollment.spec.ts followed by statistics.spec.ts in
+one offline fixture home proves the integration with unchanged error,
+hidden-evidence and unavailable-export assertions.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 

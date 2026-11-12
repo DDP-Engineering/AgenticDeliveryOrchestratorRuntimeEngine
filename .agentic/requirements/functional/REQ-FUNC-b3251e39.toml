@@ -19,9 +19,9 @@ When an administrator confirms a valid reviewed repository-URL enrollment, ADORE
 
 verification = "Offline repository-source/API/browser tests create stopped projects from fake clones without AEGIS, with aegis.py alone and with both files, and compare clone contents to prove no added files; existing-clone reuse succeeds only for matching origin. Preserve URL/kind/login/ID and all-forge branch-discovery cases, preview/check no-clone-write assertions, and negative occupied-folder, malformed/oversized remote advertisement, missing-target-branch and failed-publication cleanup cases described in the spec."
 
-affected_paths = ["04_Software/adore/web/repository_source.py", "04_Software/adore/web/app.py", "04_Software/adore/wizard.py", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/setupCopy.ts", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/server.py", "04_Software/web/e2e/enrollment.spec.ts"]
+affected_paths = ["04_Software/adore/web/repository_source.py", "04_Software/adore/web/app.py", "04_Software/adore/wizard.py", "04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/setupCopy.ts", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/server.py", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/statistics.spec.ts"]
 
-linked_tests = ["04_Software/tests/test_repository_source.py", "04_Software/web/e2e/enrollment.spec.ts"]
+linked_tests = ["04_Software/tests/test_repository_source.py", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/statistics.spec.ts"]
 
 
 spec = "specs/REQ-FUNC-b3251e39.md"
