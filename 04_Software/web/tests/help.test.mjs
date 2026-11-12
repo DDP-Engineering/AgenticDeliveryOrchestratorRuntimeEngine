@@ -115,6 +115,29 @@ test("tickets explain shared body modes, exact source, account retention and ine
   }
 });
 
+test("help explains both workflows and exact optional verification in every locale", async () => {
+  const { messages } = await import("../src/i18n.ts");
+  const { workflowCopy } = await import("../src/readiness.ts");
+  const terms = { en: "Direct workflow", fr: "Workflow direct", de: "Direkter Workflow", ro: "Flux direct" };
+  for (const locale of HELP_LOCALES) {
+    const projects = read(locale, "projects"), settings = read(locale, "settings");
+    const glossary = read(locale, "glossary"), tickets = read(locale, "tickets");
+    const command = messages[locale].verificationCommand;
+    for (const text of [projects, settings, glossary]) assert.ok(text.includes(command), `${locale}: command label`);
+    for (const value of [workflowCopy[locale].aegis, workflowCopy[locale].direct]) assert.ok(projects.includes(value), `${locale}: ${value}`);
+    assert.ok(helpOutline(docs()[locale].projects).some(item => item.id === "workflows"), `${locale}: workflows section`);
+    assert.ok(helpOutline(docs()[locale].settings).some(item => item.id === "verification-command"), `${locale}: command section`);
+    assert.ok(glossary.includes(`| ${terms[locale]} |`), `${locale}: direct glossary term`);
+    assert.ok(glossary.includes(`| ${command} |`), `${locale}: command glossary term`);
+    assert.ok(tickets.includes(".agentic/aegis.py"), `${locale}: live file presence gate`);
+    assert.ok(helpLinks(docs()[locale].tickets).includes("/help/projects#workflows"), `${locale}: workflow guidance link`);
+    for (const text of [projects, settings, glossary, tickets]) {
+      assert.doesNotMatch(text, /Install AEGIS|AEGIS installed|aegis_missing|AEGIS install[ée]|AEGIS, installiert|AEGIS instalat/i);
+      assert.doesNotMatch(text, /(?:suggested|pre-filled|prefilled) verification command/i);
+    }
+  }
+});
+
 test("contextual help targets existing topics", () => {
   for (const [place, topic] of Object.entries(CONTEXT_TOPICS)) assert.ok(HELP_TOPICS.includes(topic), place);
   assert.deepEqual(CONTEXT_TOPICS, { tickets: "tickets", addProject: "projects", projectSettings: "settings" });

@@ -709,8 +709,8 @@ test("summary with corrupt job evidence shows unknown counters and no fabricated
 });
 
 function readinessFixture(project: string, changes: Record<string, unknown> = {}) {
-  return { auth_bound: true, required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "egress_proxy", ...Object.keys(changes).filter(key => !["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "egress_proxy"].includes(key))], status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
-    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, egress_proxy: true, ...changes } };
+  return { workflow: "direct", auth_bound: true, required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "egress_proxy", ...Object.keys(changes).filter(key => !["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "egress_proxy"].includes(key))], status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
+    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, egress_proxy: true, ...changes } };
 }
 
 for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as const) {
@@ -732,7 +732,8 @@ for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as co
     } else {
       const panel = page.locator(".readiness-evidence");
       await expect(panel.locator(".readiness-verdict")).toHaveCount(0);
-      await expect(panel.locator(".readiness-check")).toHaveCount(8);
+      await expect(panel.locator(".readiness-check")).toHaveCount(7);
+      await expect(panel.locator(".workflow-information")).toContainText("Direct, no AEGIS found");
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
       await expect(model).toContainText("Use Test AI connection in Settings → Agent and model");
       await expect(panel).toContainText("does not test a complete job");
@@ -768,7 +769,7 @@ test("local host prerequisites state the local notice once and give the agent ro
   await page.goto("/projects/alpha");
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   const panel = page.locator(".readiness-evidence");
-  await expect(panel.locator(".readiness-check")).toHaveCount(6);
+  await expect(panel.locator(".readiness-check")).toHaveCount(5);
   const agent = panel.locator(".readiness-check").filter({ hasText: "Local execution" });
   await expect(agent).toContainText("Checks managed Pi and Node");
   await expect(agent).toContainText("Managed Pi requires Node 22.23.4");
@@ -797,7 +798,7 @@ test("host prerequisite explanation accepts the real offline API contract", asyn
   await signIn(page); await page.goto("/projects/alpha");
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(page.locator(".readiness-check").filter({hasText:"Repository sign-in"})).toContainText("! Action needed");
-  await expect(page.locator(".readiness-check")).toHaveCount(8);
+  await expect(page.locator(".readiness-check")).toHaveCount(7);
   await expect(page.locator(".readiness-check").filter({hasText:"Network proxy image"})).toHaveCount(1);
   await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
@@ -858,7 +859,7 @@ test("host check opens immediately with internal close and preserves user collap
   await expect(panel).not.toBeVisible();
   await page.unroute("**/readiness-check");
   await check.click();
-  await expect(panel.locator(".readiness-check")).toHaveCount(8);
+  await expect(panel.locator(".readiness-check")).toHaveCount(7);
   await expect(page.locator(".readiness-check").filter({hasText:"Network proxy image"})).toHaveCount(1);
   await expect(panel).toBeVisible();
   await expect(page.getByRole("button", { name: "Check details", exact: true })).toHaveCount(0);

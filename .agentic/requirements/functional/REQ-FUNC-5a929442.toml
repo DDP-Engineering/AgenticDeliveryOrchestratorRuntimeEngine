@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-5a929442"
+title = "Identify the web workflow from repository file presence"
+status = "active"
+requirement = "When a web host-prerequisite check inspects an available repository clone, ADORE shall report the workflow as AEGIS when .agentic/aegis.py is a file and Direct otherwise, without requiring .agentic/aegis.toml or claiming a supported AEGIS version."
+verification = "Offline API tests inspect container and native project clones with no .agentic directory, aegis.toml alone, aegis.py alone and both files, then compare the reported workflow; a present empty or broken aegis.py still reports AEGIS because the check does not execute it or certify compatibility."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/web/src/readiness.ts"]
+linked_tests = ["04_Software/tests/test_web_readiness.py::test_workflow_is_read_only_file_information", "04_Software/tests/test_web_enrollment.py::test_draft_workflow_preview_check_and_creation"]
+spec = ""
+priority = "high"
+rationale = "File inspection describes the intended workflow; the existing live pre-pick probe remains authoritative for executable AEGIS compatibility."
+created = 2026-11-12
+updated = 2026-11-12

@@ -7,13 +7,27 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
-`workflow.verify_command` is preserved in resolved configuration, exact Admin raw
-TOML reads and unrelated reviewed edits. Metadata marks it noneditable; generic
-mutations return `setting_not_editable`. There is no dedicated web input in this
-change. Invalid saved values retain the diagnostic view's key-named validation
-issues (or existing typed corrupt-config refusal), never a clean configuration.
-Existing role, CSRF, revision, idle, locking and redaction boundaries are unchanged.
-Proof: `test_web_config.py`, `test_web_config_raw.py`, `test_web_setting_catalog.py`.
+`workflow.verify_command` is an editable exact-string setting in the API catalog.
+Enrollment accepts optional strict `verify_command` text, default empty, and saves
+it as a TOML string before canonical review hashing. Explicit null/nontext or
+CR/LF/NUL input returns 422 `invalid_request` with `verify_command` field feedback.
+The scalar/batch settings review uses the same command domain and literal-string
+writer; invalid text returns 400 `invalid_config` with value-free
+`workflow.verify_command` feedback, leaving active and pending bytes unchanged.
+Nothing trims, infers scalar types or executes the command during enrollment or save.
+The writer preserves newline style, escapes DEL (U+007F) as a TOML Unicode
+escape while retaining literal non-BMP Unicode, and verifies that no unrelated
+parsed TOML meaning changed; unsupported human spellings fail closed. Pending read/apply
+rechecks claimed text, typed domain and whole-document meaning against an unchanged
+base. Existing Admin/CSRF, revision, idle and locking boundaries remain authoritative.
+Resolved configuration, exact Admin raw TOML and unrelated edits preserve the value.
+Invalid saved values retain key-named diagnostic issues or typed corrupt-config refusal.
+Proof: `test_web_enrollment.py`, `test_web_config.py`, `test_web_config_raw.py`,
+`test_web_pending_config.py`, `test_web_settings_batch.py`. The browser uses this
+same domain for enrollment and Implementation settings with four-locale field
+feedback; the guided AEGIS note changes presentation only, not saved command text.
+Offline enrollment/settings journeys cover both actual clone workflows, exact
+nonempty and empty saves, role refusal and multiline clipboard input.
 
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
@@ -397,8 +411,9 @@ reused name cannot inherit its prior grant.
 The administrator-only, CSRF-protected
 `POST /api/v1/projects/{name}/readiness-check` runs bounded host-side doctor
 probes on explicit request. It returns booleans for Git, the selected forge CLI
-and authentication, the Pi CLI, AEGIS file presence in the
-configured repository, and a directly selected Docker/Podman runtime; a project
+and authentication, the Pi CLI and a directly selected Docker/Podman runtime.
+The separate `workflow` enum records read-only `.agentic/aegis.py` presence in the
+configured clone (or not-inspected if unavailable), never a gating boolean; a project
 with provider `chatgpt` also gets `executor_sign_in`, true when the server's
 ChatGPT credential files report `signed-in` (read without starting Pi).
 `_internet_checks` adds `egress_proxy` for a container project with
@@ -632,13 +647,16 @@ description. Review includes complete setup, resolved env-key names, `provider`,
 
 - `POST /api/v1/projects/setup-check`: rebuild, compare draft revision, run shared
   bounded `_probe_setup`, return redacted checks/model evidence with both revisions,
-  UTC time and status. Failed checks yield failed; unprobed model or WSL yields partial.
+  UTC time, required checks, authentication binding, workflow and status. False prerequisites
+  yield failed; unknown runtime or unbound forge authentication yields partial. Workflow
+  is informational and never changes the verdict; model access is a separate test.
   Gitea auth uses the selected tea login. No draft, readiness record or profile persists.
 - `POST /api/v1/projects/setup-create`: rebuild, compare revision, publish the exact
   candidate using the existing locked stopped-pickup boundary. With `clone_url` and no
-  clone yet, it first clones (`repository_source.clone`), requires the AEGIS files and
-  `origin/<target_branch>` (`repository_aegis_missing` / `repository_branch_missing` 409,
-  `repository_clone_failed` 502) and removes the fresh clone if anything fails; the
+  clone yet, it first clones (`repository_source.clone`) and requires
+  `origin/<target_branch>` (`repository_branch_missing` 409,
+  `repository_clone_failed` 502), irrespective of AEGIS file presence. It adds no
+  files inside the clone and removes the fresh clone if anything fails; the
   same applies to `transfer-create` and `POST /projects`. `clone_url` is part of the
   draft revision; preview requires an absolute `repo_path` outside ADORE home or under
   `<home>/repos` (proposed `<home>/repos/<name>`) and a matching repository, refuses an
@@ -646,12 +664,18 @@ description. Review includes complete setup, resolved env-key names, `provider`,
   and a sibling `.<name>.adore-cloning` marker (an in-progress clone is never treated as
   reusable or removed by another request; parents are created only under `<home>/repos`,
   elsewhere they must exist; `repo_path` is used as typed, without `~`), and runs the wizard
-  with `pending_clone`; checks report `aegis_files: "not-checked"` until the clone exists. Duplicate IDs are
+  with `pending_clone`; preview and checks report `workflow: "not-inspected"` until the clone exists. Duplicate IDs are
   rechecked under its lock; stale drafts return 409 before publication.
 
 Existing `POST projects` retains its request/publication contract; exact import revisions bind complete identity and inspected ownership/state.
-A current, server-issued one-use check token transfers its measured checks to the created profile. Tokens are bound to the administrator, exact draft and config revisions, expire after 15 minutes, and cannot be replayed; absent tokens leave the profile unverified. A pending clone keeps AEGIS files not checked, so partial evidence is not promoted. The shared probe helper also serves the persisted project readiness
-route, whose storage/schema and mid-probe revision protection remain intact.
+A current, server-issued one-use check token transfers its measured checks and workflow
+unchanged to the created profile. Tokens bind administrator, exact draft/config revisions,
+host and authentication context, expire after 15 minutes and cannot be replayed; absent
+tokens leave the profile unverified. Pending-clone workflow stays not-inspected after
+creation until an explicit host check inspects the clone. Guided/portable and exact-import
+checks reject missing/invalid workflow or malformed prerequisites with 503
+`readiness_probe_failed`. Exact-import evidence also declares required checks and
+`auth_bound`; unobservable CLI identity is partial, not verified.
 `test_web_enrollment.py` covers canonical fields/bytes across clock changes, stale and
 duplicate publication, explicit ephemeral failed/partial checks, selected Gitea login,
 secret-reference redaction and Admin/Dev/CSRF rejection; `test_web_readiness.py` covers
@@ -661,21 +685,29 @@ the persisted route regression.
 
 `POST /api/v1/projects/{name}/readiness-check` retains bounded explicit probes and
 atomically writes profile-owned `readiness.json`, independent of runtime schema.
-Schema 2 contains immutable `project_id`, private machine/account and authentication-context bindings, exact config-byte SHA-256 `revision`, UTC
-`checked_at`, API-host context and typed prerequisite checks.
-Checks cover git, forge CLI/auth, runtime, the Pi CLI and AEGIS files; there is no
+Schema 3 contains immutable `project_id`, private machine/account and authentication-context
+bindings, exact config-byte SHA-256 `revision`, UTC `checked_at`, API-host context,
+`auth_bound`, typed prerequisite checks and a separate required `workflow` enum.
+Workflow is `aegis` when `.agentic/aegis.py` is a file, `direct` otherwise in an
+available clone, and `not-inspected` when unavailable. Both backends use read-only file
+inspection, never execute repository code, require `aegis.toml` or certify a version.
+The live pre-pick runtime probe remains authoritative.
+Checks cover git, forge CLI/auth, runtime and the Pi CLI; there is no
 model endpoint check (model access comes only from the explicit AI connection test).
 A `chatgpt` project's record also carries the boolean `executor_sign_in` (the server's
 ChatGPT sign-in), and the internet switch adds the boolean `egress_proxy` or
 `web_search_key` (`_INTERNET_CHECKS`); the reader accepts these optional keys in
-addition to the six required ones, and a false value makes the record `failed`.
+addition to the five base keys, and a false value makes the record `failed`.
+No `aegis_files` key is accepted in checks or required_checks.
 Commands/output/credentials are never persisted. Schema, keys, types,
 identity, digest, time, required configuration-specific checks and redacted values are validated on read; a changed machine/account or relevant authentication input makes it stale; corrupt evidence
-fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`).
+fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`), even
+when stale. Any other schema or corrupt record instructs the operator to delete the
+profile's `readiness.json`; reads/check retries preserve its bytes and never repair it.
 
 Absent evidence is `unverified`; differing config bytes are `stale`; matching evidence
-is `failed` if any check fails, `partial` for undetected WSL runtime or uninspected AEGIS files, otherwise
-`verified`. Freshness is revision-based, not age-based. Display edits do not stale
+is `failed` if any check fails, `partial` for undetected runtime or unbound forge
+authentication, otherwise `verified`, independently of the workflow observation. Freshness is revision-based, not age-based. Display edits do not stale
 verification. Invalid configuration is separate from stale/absent evidence. A config
 change during probes returns `stale_config_revision` without replacing evidence.
 Storage failures return a safe `readiness_store_failed` finding.

@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { CONNECTION_KEY, CUSTOM, validConnection } from "./agentConnection.ts";
 import { validCredentialNames } from "./executorSettings.ts";
-import { validImplementationCollection } from "./implementationSettings.ts";
+import { validImplementationCollection, validVerificationCommand } from "./implementationSettings.ts";
 import type { MessageKey } from "./i18n";
 import { validExecutionPlan, type ExecutionPlan } from "./executionPlan.ts";
 
@@ -121,7 +121,7 @@ export function validBranchPreview(value: unknown): value is BranchPreview {
 
 /** CLI-only and technical keys retained by configuration but omitted from operator controls. */
 export const HIDDEN_SETTING_KEYS = new Set([
-  "readiness.max_scope_hint", "workflow.verify_command",
+  "readiness.max_scope_hint",
   "labels.selection.type_feature", "review.trigger", "review.review_reminder_after",
   "clarification.reminder_after", "clarification.timeout_state", "metrics.capture_resource",
   "reconcile.on_ticket_closed", "reconcile.on_ticket_deleted", "reconcile.on_trigger_removed",
@@ -138,7 +138,7 @@ export const STATUS_LABEL_KEYS = new Set([
 /** Purpose ownership of catalog settings, including dynamic entries. */
 export function settingPurpose(key: string): string {
   if (["agent.name", "agent.email", "delivery.target_branch", "worktree.branch_template", "worktree.branch_rule"].includes(key) || key.startsWith("platform.")) return "repository";
-  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.quick_label"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
+  if (["polling.max_concurrent_runs", "delivery.publish_checkpoints", "workflow.quick_label", "workflow.verify_command"].includes(key) || key.startsWith("workflow.stage_timeout_overrides") || ["budgets", "recovery", "clarification"].includes(key.split(".")[0])) return "implementation";
   if (["labels", "polling", "readiness"].includes(key.split(".")[0]) || key === "workflow.default_kind" || key.startsWith("workflow.kind_labels")) return "tickets";
   if (key.startsWith("delivery.") || key.startsWith("review.")) return "reviews";
   if (key.startsWith("metrics.")) return "statistics";
@@ -266,6 +266,7 @@ export function validBatchValues(value: unknown): value is BatchValues {
     || keys.some(other => key !== other && key.startsWith(other + ".")))) return false;
   if (keys.includes(CONNECTION_KEY) && keys.some(key => ["executor.provider", "executor.model", "executor.thinking", "executor.endpoint.base_url", "executor.endpoint.api"].includes(key))) return false;
   return entries.every(([key, item]) => {
+    if (key === "workflow.verify_command") return validVerificationCommand(item);
     if (key === CONNECTION_KEY) return validConnection(item);
     if (key === "executor.env_keys") return validCredentialNames(item);
     if (key === "recovery.retry_backoff_seconds" || key === "workflow.stage_timeout_overrides") return validImplementationCollection(key, item);
@@ -291,7 +292,8 @@ export function validPendingConfig(value: unknown): value is PendingConfig | nul
   const connection = item.key === CONNECTION_KEY && validConnection(item.proposed_value);
   const batch = item.key === BATCH_KEY && validBatchValues(item.proposed_value);
   const json = reviewerList || collection || credentials || connection || batch;
-  return digest(item.base_revision) && digest(item.candidate_revision)
+  return (item.key !== "workflow.verify_command" || validVerificationCommand(item.proposed_value))
+    && digest(item.base_revision) && digest(item.candidate_revision)
     && typeof item.key === "string" && item.key.length > 0 && typeof item.value === "string"
     && item.value === (json ? JSON.stringify(item.proposed_value) : typeof item.proposed_value === "boolean" ? String(item.proposed_value).toLowerCase() : String(item.proposed_value))
     && (json || ![BATCH_KEY, CONNECTION_KEY, "executor.env_keys", "delivery.reviewers", "recovery.retry_backoff_seconds", "workflow.stage_timeout_overrides"].includes(item.key) && ["string", "number", "boolean"].includes(typeof item.proposed_value))

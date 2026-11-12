@@ -125,10 +125,10 @@ def test_repository_connection_invalidates_previous_readiness(tmp_path, monkeypa
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
-    monkeypatch.setattr(web_app, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
 
     def runner(argv, **kwargs):
         output = (

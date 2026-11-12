@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Web enrollment accepts repositories without AEGIS or with only its Python entrypoint,
+  without adding files to the clone. Enrollment and Settings → Implementation save an
+  optional exact verification command and refuse multiline or NUL input with field feedback.
+  Workflow is informational, not a readiness gate; help covers both workflows in four locales.
+
 - Optional direct-workflow verification command with bounded fresh-session fixes,
   validate timeouts, sanitized retained evidence and approval/MR/PR results.
   Native verification uses an owned platform-shell operation; ordinary shell
@@ -87,7 +92,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Refresh project Settings, Access, History and global Change history automatically. Settings pauses while edits are unsaved. Project History uses automatic updates in place of its Refresh buttons.
 
-- Delete each project profile’s `readiness.json` before starting this build.
+- Delete each project profile’s `readiness.json` before starting this build; workflow observations are now separate from prerequisite checks.
 
 - Ticket details place Body display and its selector together on the right of the description heading; action buttons wrap without splitting words when details open.
 

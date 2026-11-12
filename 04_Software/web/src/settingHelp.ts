@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import type { Locale } from "./i18n";
+import { messages, type Locale } from "./i18n.ts";
 import { systemPackageCopy } from "./executorSettings.ts";
 import { localSettingHelp } from "./localExecution.ts";
 
@@ -115,7 +115,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "review.revise_label": "Label a reviewer adds to the merge request to ask ADORE for a revision round.",
     "review.trigger": "How a revision is requested; only label (review.revise_label) is supported.",
     "state.store_root": "Folder with this project's run state, journals, lock and metrics. Empty means .<slug>; a relative path is resolved from the folder ADORE runs in. Moving it hides existing runs from ADORE.",
-    "workflow.verify_command": "Optional single-line verification command for direct runs only. Empty means unverified; AEGIS uses its own commands.",
+    "workflow.verify_command": messages.en.verificationCommandHelp,
     "workflow.aegis_python": "Python command (one word) used to run .agentic/aegis.py in the worktree, for example python or python3.",
     "workflow.default_kind": "AEGIS task type for a ticket whose labels match no kind label: feature, fix or change.",
     "workflow.kind_labels": "Maps ticket labels to AEGIS task types; this project maps none, so only the labels bug, fix and change, plus the label in labels.selection.type_bug, select a type.",
@@ -228,7 +228,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "review.revise_label": "Label qu'un relecteur ajoute à la MR/PR pour demander un tour de révision à ADORE.",
     "review.trigger": "Façon de demander une révision ; seul label (review.revise_label) est pris en charge.",
     "state.store_root": "Dossier qui contient l'état des exécutions, les journaux, le verrou et les métriques de ce projet. Vide signifie .<slug> ; un chemin relatif part du dossier où ADORE s'exécute. Le déplacer cache les exécutions existantes à ADORE.",
-    "workflow.verify_command": "Commande de vérification facultative sur une ligne, pour les exécutions directes. Vide : non vérifié ; AEGIS utilise ses propres commandes.",
+    "workflow.verify_command": messages.fr.verificationCommandHelp,
     "workflow.aegis_python": "Commande Python (un seul mot) utilisée pour lancer .agentic/aegis.py dans l'arbre de travail, par exemple python ou python3.",
     "workflow.default_kind": "Type de tâche AEGIS pour un ticket dont aucun label ne correspond à un type : feature, fix ou change.",
     "workflow.kind_labels": "Associe des labels de ticket à des types de tâche AEGIS ; ce projet n'en associe aucun, donc seuls les labels bug, fix et change, plus le label de labels.selection.type_bug, choisissent un type.",
@@ -341,7 +341,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "review.revise_label": "Label, das ein Reviewer am MR/PR setzt, um von ADORE eine Überarbeitungsrunde anzufordern.",
     "review.trigger": "Wie eine Überarbeitung angefordert wird; unterstützt wird nur label (review.revise_label).",
     "state.store_root": "Ordner mit Laufzustand, Journalen, Sperre und Metriken dieses Projekts. Leer bedeutet .<slug>; ein relativer Pfad gilt ab dem Ordner, in dem ADORE läuft. Ein Verschieben verbirgt bestehende Läufe vor ADORE.",
-    "workflow.verify_command": "Optionaler einzeiliger Prüfbefehl nur für direkte Ausführungen. Leer bedeutet ungeprüft; AEGIS nutzt eigene Befehle.",
+    "workflow.verify_command": messages.de.verificationCommandHelp,
     "workflow.aegis_python": "Python-Befehl (ein Wort), mit dem .agentic/aegis.py im Worktree ausgeführt wird, zum Beispiel python oder python3.",
     "workflow.default_kind": "AEGIS-Aufgabentyp für ein Ticket, dessen Labels zu keinem Typ-Label passen: feature, fix oder change.",
     "workflow.kind_labels": "Ordnet Ticket-Labels AEGIS-Aufgabentypen zu; dieses Projekt ordnet keine zu, daher wählen nur die Labels bug, fix und change sowie das Label aus labels.selection.type_bug einen Typ.",
@@ -454,7 +454,7 @@ export const SETTING_HELP: Record<Locale, Record<string, string>> = {
     "review.revise_label": "Eticheta pe care un recenzent o adaugă pe MR/PR pentru a cere lui ADORE o rundă de revizuire.",
     "review.trigger": "Felul în care se cere o revizuire; este acceptat doar label (review.revise_label).",
     "state.store_root": "Dosarul cu starea rulărilor, jurnalele, blocarea și metricile acestui proiect. Gol înseamnă .<slug>; o cale relativă pornește din dosarul în care rulează ADORE. Mutarea lui ascunde rulările existente de ADORE.",
-    "workflow.verify_command": "Comandă opțională de verificare pe o singură linie, doar pentru execuții directe. Gol înseamnă neverificat; AEGIS folosește propriile comenzi.",
+    "workflow.verify_command": messages.ro.verificationCommandHelp,
     "workflow.aegis_python": "Comanda Python (un singur cuvânt) folosită pentru a rula .agentic/aegis.py în arborele de lucru, de exemplu python sau python3.",
     "workflow.default_kind": "Tipul de sarcină AEGIS pentru un tichet ale cărui etichete nu se potrivesc cu nicio etichetă de tip: feature, fix sau change.",
     "workflow.kind_labels": "Asociază etichete de tichet cu tipuri de sarcină AEGIS; acest proiect nu asociază niciuna, deci doar etichetele bug, fix și change, plus eticheta din labels.selection.type_bug, aleg un tip.",

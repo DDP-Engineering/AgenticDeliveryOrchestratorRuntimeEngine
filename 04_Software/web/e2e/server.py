@@ -124,11 +124,29 @@ def main() -> None:
                 "# Commercial use requires a separate commercial license.\n"
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+        workflow_clones = {}
+        for workflow, name in (("direct", "direct-fixture"), ("aegis", "aegis-only-fixture")):
+            folder = home / "repos" / name
+            (folder / ".git").mkdir(parents=True)
+            (folder / ".git" / "config").write_text(
+                '[remote "origin"]\n'
+                f'\turl = ssh://git@forge.e2e.invalid:2222/offline/{name}.git\n',
+                encoding="utf-8")
+            if workflow == "aegis":
+                (folder / ".agentic").mkdir()
+                (folder / ".agentic" / "aegis.py").write_text(
+                    "# Copyright (c) 2026 DDP Engineering\n"
+                    "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
+                    "# Commercial use requires a separate commercial license.\n"
+                    "# See LICENSE.txt. SPDX-License-Identifier: "
+                    "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+            workflow_clones[workflow] = str(folder)
         probe_mode = {"mode": "failed"}
         # Offline forge tickets shared by the fixture projects (their configs keep the
         # example repository); Stop really removes the ready label here.
         forge_issues = [
-                {"iid": 21, "title": "Add export button", "description": "Export the table.\n- [ ] CSV",
+                {"iid": 21, "title": "Add export button",
+                 "description": "Export the table.\n- [ ] CSV",
                  "labels": ["agent-ready", "P2"], "author": {"username": "ana"}, "state": "opened",
                  "web_url": "https://gitlab.example/offline/alpha/-/issues/21",
                  "created_at": "2026-10-01T10:00:00Z", "updated_at": "2026-10-02T10:00:00Z"},
@@ -137,19 +155,23 @@ def main() -> None:
                  "labels": ["P2"], "author": {"username": "ion"}, "state": "opened",
                  "web_url": "javascript:alert(1)",
                  "created_at": "2026-10-01T11:00:00Z", "updated_at": "2026-10-03T10:00:00Z"},
-                {"iid": 23, "title": "Paused migration", "description": "Waiting.", "labels": ["agent-hold"],
+                {"iid": 23, "title": "Paused migration", "description": "Waiting.",
+                 "labels": ["agent-hold"],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T12:00:00Z", "updated_at": "2026-10-03T11:00:00Z"},
-                {"iid": 24, "title": "Retry the flaky build", "description": "Failed once.", "labels": ["P2"],
+                {"iid": 24, "title": "Retry the flaky build", "description": "Failed once.",
+                 "labels": ["P2"],
                  "author": {"username": "ion"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T13:00:00Z", "updated_at": "2026-10-03T12:00:00Z"},
                 {"iid": 25, "title": "Unlabelled idea", "description": "Try it.", "labels": [],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T14:00:00Z", "updated_at": "2026-10-03T13:00:00Z"},
-                {"iid": 43, "title": "Rejected by the engine", "description": "Fails.", "labels": ["agent-ready", "P2"],
+                {"iid": 43, "title": "Rejected by the engine", "description": "Fails.",
+                 "labels": ["agent-ready", "P2"],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T15:00:00Z", "updated_at": "2026-10-03T14:00:00Z"},
-                {"iid": 44, "title": "Queue me", "description": "Succeeds.", "labels": ["agent-ready", "P2"],
+                {"iid": 44, "title": "Queue me", "description": "Succeeds.",
+                 "labels": ["agent-ready", "P2"],
                  "author": {"username": "ion"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T16:00:00Z", "updated_at": "2026-10-03T15:00:00Z"},
         ]
@@ -221,14 +243,23 @@ def main() -> None:
                 return CommandResult(argv=argv, stdout=json.dumps(
                     [{"name": "fixture", "url": "http://forge.e2e.invalid:3000"}]))
             if argv[:2] == ["git", "clone"]:
-                # The clone made at creation: a repository with AEGIS installed.
+                # Direct and py-only repositories exercise enrollment without installing AEGIS.
                 dest = Path(argv[-1])
                 (dest / ".git").mkdir(parents=True)
                 (dest / ".git" / "config").write_text(
                     f'[remote "origin"]\n\turl = {argv[-2]}\n', encoding="utf-8")
-                (dest / ".agentic").mkdir()
-                for item in ("aegis.py", "aegis.toml"):
-                    (dest / ".agentic" / item).write_text("", encoding="utf-8")
+                if "/direct-" not in argv[-2]:
+                    (dest / ".agentic").mkdir()
+                    items = (("aegis.py",) if "/aegis-only-" in argv[-2]
+                             else ("aegis.py", "aegis.toml"))
+                    for item in items:
+                        (dest / ".agentic" / item).write_text(
+                            "# Copyright (c) 2026 DDP Engineering\n"
+                            "# This software is licensed under the "
+                            "PolyForm Noncommercial License 1.0.0.\n"
+                            "# Commercial use requires a separate commercial license.\n"
+                            "# See LICENSE.txt. SPDX-License-Identifier: "
+                            "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
                 return CommandResult(argv=argv)
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
@@ -370,6 +401,27 @@ def main() -> None:
             roots[0].save(RunState(run_id="ux-missing", ticket_iid=99, stage="build"))
             return ids
 
+        original_alpha = profiles.config_path("alpha").read_text(encoding="utf-8")
+
+        @app.post("/__e2e__/settings-workflow")
+        def settings_workflow_fixture(request: Request, workflow: str) -> dict:
+            """@brief Bind disposable alpha settings to an actual offline workflow clone.
+
+            @param[in] request Local test-control authorization.
+            @param[in] workflow Direct, AEGIS or reset to the original fixture config.
+            @return The selected fixture workflow, without executing repository code.
+            @exception HTTPException An unauthorized or unknown selection is rejected.
+            """
+            if request.headers.get("X-ADORE-E2E") != "local-test" or workflow not in {
+                "direct", "aegis", "reset",
+            }:
+                raise HTTPException(403, "test runner header and supported workflow required")
+            text = original_alpha if workflow == "reset" else original_alpha.replace(
+                'repo_path = "../project"',
+                f'repo_path = {json.dumps(workflow_clones[workflow])}')
+            profiles.config_path("alpha").write_text(text, encoding="utf-8")
+            return {"workflow": workflow}
+
         @app.post("/__e2e__/enrollment")
         def enrollment_fixture(request: Request, mode: str = "failed") -> dict:
             """@brief Return disposable server clone and select a fake probe outcome.
@@ -384,7 +436,7 @@ def main() -> None:
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
             probe_mode["mode"] = mode
-            return {"clone": str(clone)}
+            return {"clone": str(clone), "workflows": workflow_clones}
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])

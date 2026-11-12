@@ -7,12 +7,28 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
-The exact settings catalog and four-locale setting help include the CLI-only
-`workflow.verify_command` key so existing serialization preserves it. It is
-noneditable in backend metadata and listed in `HIDDEN_SETTING_KEYS` for all
-roles/views until its dedicated interface is delivered. No enrollment field,
-Jobs presentation or help-center topic is added. Offline catalog, settings and
-setting-help tests retain exact coverage rather than dropping model keys.
+Enrollment's Verification step and Settings → Implementation expose the optional
+**Verification command**, initially empty, with shared four-locale names and help.
+Normal-height one-row textareas retain pasted line breaks; the shared exact-string
+validator refuses CR/LF/NUL before preview or Save, with localized field feedback.
+Settings scalar/batch response readers validate the same domain before recovery
+or apply. Admin edits use the existing reviewed save; developers remain read-only.
+An inspected AEGIS enrollment replaces the control with the repository-owned test
+commands note, preserving any saved draft text. Workflow observations are shown
+separately from prerequisite results; no mode selector, suggestion or Jobs display
+change is added. Offline unit/render and enrollment/settings browser tests cover
+these controls. Settings journeys bind the isolated profile to actual Direct and
+Python-entrypoint-only AEGIS clones, cover all four locales and both roles, and
+verify multiline clipboard refusal, exact Unicode/space preservation, empty
+reviewed batch saves and narrow light/dark layouts. Projects, Settings, Glossary
+and Tickets help explains only delivered workflow/command behavior in all four
+locales; helper and browser contracts check structure, terms, navigation and
+live-probe authority. The committed production bundle is rebuilt with these inputs.
+The offline enrollment-to-Statistics regression runs both specifications in one
+fixture home. Malformed-consumption injection selects a seeded nonempty job
+cohort explicitly, not the first project: newly enrolled projects legitimately
+have no jobs. The existing hidden-evidence, error and unavailable-export assertions
+remain unchanged for malformed and aborted responses.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 
@@ -331,7 +347,10 @@ It presents five ordered steps, starting at repository/identity, with shared vis
 associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
 review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
 The verification step uses the draft's execution mode for the introduction and
-check labels. For server execution, the Pi row uses the validated local probe
+check labels, with a separate neutral Workflow observation and optional Verification
+command textarea (or the repository-owned AEGIS test-command note after inspection).
+The command starts empty, is never suggested or executed by the browser and is
+included in exact review hashing; changed text invalidates earlier evidence. For server execution, the Pi row uses the validated local probe
 reason for its remediation text.
 Step 1 reads a repository URL by default: **Read repository** calls
 `/api/v1/projects/repository-source` and fills forge, repository, Gitea login,
@@ -858,14 +877,17 @@ or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
-in the local image; workflow availability checks the two configured AEGIS files.
+in the local image. **Workflow** is neutral file information: AEGIS from
+`.agentic/aegis.py` alone, Direct otherwise in an available clone, or not inspected
+when no clone is available. It names no version and has no failure/remediation icon.
 There is no model endpoint check. Current saved explicit model-access evidence is shown when present; when no current result exists, model access remains untested. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
 check time and exact check keys/types before display (`readiness.ts`
-`readinessChecksShape`: the six required keys plus, at most, the booleans of
+`readinessChecksShape`: the five prerequisite keys plus, at most, the booleans of
 `optionalReadinessKeys`: `executor_sign_in`, `egress_proxy` and `web_search_key`);
+The closed workflow enum and prerequisite verdict agreement are validated separately;
 invalid results produce a localized error and withhold the new check rows.
 For a ChatGPT project `ReadinessEvidence.tsx` adds a **ChatGPT sign-in** row (passed
 when the server is signed in; otherwise the fix points to Sign in with ChatGPT in

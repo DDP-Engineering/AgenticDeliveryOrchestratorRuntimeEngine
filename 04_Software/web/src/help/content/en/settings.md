@@ -18,7 +18,7 @@ Every group is closed when you open Settings, and the number beside its name cou
 |---|---|
 | Repository | Forge and repository, Gitea login, **Target branch** (base of new jobs and destination of PR/MRs), the job branch name template with an optional naming rule and a live example, and the agent's display name, resource name and commit author email. |
 | Tickets | **Ready for pickup label**, **Exclude from pickup label**, the folded **Status labels**, how often ADORE checks the forge, whether tickets need acceptance criteria or a priority label, and the default task type. See [Tickets for automatic pickup](/help/tickets#labels). |
-| Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
+| Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Verification command**, **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
 | PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |
 | Statistics | **Record completed job measurements** and **Record agent-reported tokens**. **Statistics database file** is shown for information only. |
 | Agent and model | Provider, model, authentication and **Test AI connection** [Executors and models](/help/executors). |
@@ -47,6 +47,14 @@ Rules that apply:
 - Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).
 
 Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
+
+## Verification command {#verification-command}
+
+In **Implementation**, **Verification command** is optional single-line shell text saved as `[workflow] verify_command`. Administrators use the same **Edit** and **Save** flow as other settings; developers can read it but cannot edit. It is also available during enrollment; see [Repository workflows](/help/projects#workflows).
+
+For the direct workflow, ADORE runs it independently from the job worktree root in the selected execution environment under the validation time limit. Keep the exact spaces, quotes and shell operators you need. An empty value leaves the candidate explicitly unverified. Line breaks and NUL are refused with field feedback and prevent Save; correct the text rather than expecting it to be flattened. The web interface never runs the command on enrollment or save.
+
+AEGIS jobs ignore this setting and use the repository’s AEGIS test commands. The field remains visible in Settings for either workflow. No command is suggested or selected automatically.
 
 ## Original TOML {#toml}
 

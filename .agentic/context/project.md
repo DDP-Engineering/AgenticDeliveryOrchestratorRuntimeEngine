@@ -23,9 +23,18 @@ opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
 `.agentic/aegis.py` use bounded fresh direct implementation attempts and optional
 independent verification before human approval; an empty command keeps candidates
 explicitly unverified. A present unsupported or
-broken payload is refused without fallback. Web enrollment still requires
-AEGIS; the verification command is configured in server TOML and remains hidden
-from web controls. Jobs presentation retains its existing behavior.
+broken payload is refused without fallback. Web enrollment accepts repositories
+with or without AEGIS. Guided enrollment and scalar/batch settings APIs accept an
+exact optional single-line verification command under existing reviewed revision
+and access boundaries; invalid nontext, CR/LF/NUL are refused with field feedback.
+Enrollment Verification and Settings Implementation expose the optional command
+through one-row textareas, exact domain validation and localized feedback. An
+inspected AEGIS enrollment shows the repository-test-command note instead.
+API and browser readiness report a separate
+read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
+checks and stores schema-3 evidence with strict deletion guidance on corruption.
+Pending-clone evidence transfers unchanged at creation; the runtime pre-pick probe
+remains authoritative. Jobs presentation is unchanged.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.

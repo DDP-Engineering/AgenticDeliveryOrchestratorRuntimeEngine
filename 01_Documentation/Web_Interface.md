@@ -9,8 +9,27 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The optional ADORE web interface lets operators enroll projects, start and
 follow jobs, and review their results using the same profiles and run state as
-the CLI. ADORE conducts the repository's AEGIS workflow; PR/MR creation
-requires human approval, and a person decides whether to merge.
+the CLI. ADORE conducts the repository's AEGIS workflow when present, or a bounded
+direct workflow otherwise; PR/MR creation requires human approval, and a person
+decides whether to merge.
+
+Enrollment accepts repositories with or without `.agentic/aegis.py`; it never adds
+files to the clone or requires `.agentic/aegis.toml`. **Workflow** is neutral file
+information, not a readiness gate or an AEGIS version claim. A missing local clone
+stays not inspected until an explicit check can read it. The live pre-pick probe
+remains authoritative for a present AEGIS payload.
+
+During enrollment's Verification step, **Verification command** is optional and
+initially empty. It saves exact single-line shell text as `[workflow] verify_command`
+for Direct runs. An inspected AEGIS repository shows **Uses the repository's AEGIS
+test commands** instead. Settings → Implementation keeps the same field visible for
+both workflows, with reviewed Admin edits and Dev read-only access. Pasted line
+breaks or NUL produce field feedback and cannot be submitted; they are not stripped.
+An empty command leaves Direct candidates explicitly unverified. Enrollment and
+settings saves never execute it; actual independent verification uses the worktree
+root and selected run environment under the validation time limit. No suggestion
+is prefilled. In-app Projects, Settings, Glossary and Tickets help describes these
+boundaries in all four locales.
 
 ## Quick start
 
@@ -43,8 +62,8 @@ requires human approval, and a person decides whether to merge.
    link to **My account → Change password**. Enter the current password and the
    new password twice; the new password must have at least eight characters.
    Sign in again with the new password. Existing databases keep their accounts.
-4. **Enroll a project.** Prepare a repository with AEGIS installed, its target
-   branch, Git clone credentials for the ADORE server account, and forge access
+4. **Enroll a project.** Prepare a repository, its target branch,
+   Git clone credentials for the ADORE server account, and forge access
    to read and update issues and create reviews. Git push credentials are
    separate from forge sign-in. An administrator selects **Projects → Enroll new
    project**, enters its URL and chooses **Read repository**. Confirm the
@@ -118,8 +137,9 @@ must already exist, or under its `repos` folder; `~` is not expanded). If the se
 stops during a clone, the location reports a running or interrupted clone: remove the
 partial folder and its `.<folder>.adore-cloning` marker, then create again. **Continue** stays disabled until the repository has been read.
 Nothing is written until creation, which clones the repository there (or reuses a clone
-with the same origin), requires the installed AEGIS files and the target branch, and
-removes a fresh clone if creation fails. The clone uses the ADORE service account's git
+with the same origin), requires the target branch, and removes a fresh clone if
+creation fails. Repositories with or without AEGIS can enroll; enrollment never
+installs or changes AEGIS or adds files inside the clone. The clone uses the ADORE service account's git
 credentials, the same ones publication uses. There is no separate existing-clone mode:
 an existing clone is reused when its path is the clone location and its origin matches. The wizard has five steps: repository/identity, agent/model,
 eligibility/reviewers/limits, verification, review/create. Review and create lists the
@@ -130,9 +150,10 @@ after creation ADORE reads the repository's labels and creates the missing label
 project's settings name (lifecycle, hold/exclude, priorities, bug type, approval, revise,
 quick-path and task-type labels) with a colour and description, never changing existing
 ones, and lists created, existing and failed labels; a failure leaves the project created.
-Settings → Repository offers the same as **Create missing labels**. AEGIS is the repository's
-workflow for framing, building, testing and reviewing changes; ADORE conducts that
-workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
+Settings → Repository offers the same as **Create missing labels**. In repositories
+with AEGIS, ADORE conducts its framing, building and testing stages. Without AEGIS,
+it uses bounded direct implementation and optional independent verification.
+Both workflows publish draft or ready MR/PRs according to `delivery.draft` for human review.
 Reviewers are optional: an empty list opens the MR/PR without requesting a review.
 Choose the **Provider** (Pi's API-key providers, **ChatGPT subscription** or
 **OpenAI-compatible endpoint**) and the **Model** (Pi's list for that provider
@@ -160,6 +181,23 @@ approval labels, forge reviewer usernames and four run limits are reviewed befor
 creation. Cost limit zero disables that cap and does not imply free execution.
 Visible guidance explains units, eligibility and approval. Existing hold/exclude
 rules remain applicable.
+
+In enrollment's **Verification** step, **Verification command** is optional and
+initially empty, with no automatic suggestion. An inspected AEGIS clone instead
+shows **Uses the repository's AEGIS test commands**. **Workflow** shows AEGIS,
+Direct or not inspected as information, never as a failed prerequisite. Until the
+clone exists, its workflow remains uninspected; a later explicit host check can
+inspect the created clone.
+
+The command saves exactly as `[workflow] verify_command`; omission saves an empty
+string. The same field is editable in **Settings → Implementation** through the
+existing reviewed Save. Developers see the value without edit controls. A pasted
+multiline command remains visible and is refused with field feedback before
+submission; invalid text is never flattened into a different command. It is one shell
+command line for direct-workflow verification, run from the worktree root under
+the validate-stage limit. Empty means no independent verification; AEGIS uses its
+repository-owned test commands instead. CR, LF, NUL and nontext input are refused,
+not stripped or converted. Preview, enrollment and configuration save never run it.
 
 Validate setup performs local structural validation without external probes.
 **Check environment** checks the host tools and repository authentication. For a
@@ -597,8 +635,9 @@ Stop the launcher with Ctrl-C for a graceful shutdown of both children.
 The target needs the matching Python with `venv` and `ensurepip` (on Ubuntu,
 install `python3-venv` from local installation media first, or supply a Python
 distribution that includes it), a suitable
-Docker/Podman/WSL runtime, a host forge CLI, repository-local AEGIS,
-credentials, and prepared project images. The generic web bundle does not
+Docker/Podman/WSL runtime, a host forge CLI,
+credentials, and prepared project images. Repository-local AEGIS is optional;
+repositories without its Python entrypoint use the direct workflow. The generic web bundle does not
 contain arbitrary project toolchains or model weights. Supply those separately
 or preinstall them offline; missing prerequisites are operator setup errors.
 The executor CLI belongs inside the selected project image, not on the API
@@ -738,8 +777,9 @@ Select a project's Details action to see its status and recent jobs, then open t
 project's Jobs or Statistics view. Administrators can also jump to Settings and
 membership management from the project details.
 Administrators can use **Check now** on project details to test the API host's
-Git, forge CLI/sign-in, Pi inside the project image, AEGIS file
-presence and direct Docker/Podman runtime. The result names the
+Git, forge CLI/sign-in, Pi inside the project image and direct Docker/Podman
+runtime. A separate informational **Workflow** row reports `.agentic/aegis.py`
+presence without affecting the prerequisite verdict. The result names the
 executor-container context and a redacted failure reason. The check requires
 the image to be present locally and does not execute AEGIS; model access is
 proven only by **Test AI connection**.
@@ -1074,16 +1114,25 @@ checks and a redacted model reason. No profile or draft is stored. A changed rev
 returns 409 before probing. Gitea authentication uses the selected tea login.
 `POST /api/v1/projects/setup-create` rebuilds and compares the reviewed revision,
 then uses the existing atomic stopped-publication boundary. Duplicate IDs fail closed.
-Both routes require administrator mutation CSRF. The guided check returns a short-lived server-issued token; creation transfers only its bound measured checks. Missing evidence leaves the project unverified, and unchecked AEGIS files remain partial. TOML import checks remain separate.
+Both routes require administrator mutation CSRF. The guided check returns a short-lived
+server-issued token; creation transfers only its bound measured checks and observed
+workflow. Missing evidence leaves the project unverified. Pending clones remain
+`not-inspected` after creation until an explicit host check. Workflow information never
+blocks readiness. TOML import checks remain separate and ephemeral.
 
 Project reads report structural `validation`, `pickup_state` and `verification`
 independently. Explicit `readiness-check` stores revision/time-bound evidence:
 `unverified` means no evidence, `stale` means config bytes changed, `failed` means a
-check failed, `partial` includes undetected WSL runtime, and `verified` means the
-recorded checks succeeded for that revision. Age alone does not stale evidence;
+check failed, `partial` includes undetected runtime or unbound external CLI identity,
+and `verified` means the recorded prerequisites succeeded with bound authentication
+for that revision. The API reports workflow separately: `aegis` from `.agentic/aegis.py`
+alone, `direct` when absent in an available clone, or `not-inspected` when the clone
+is unavailable. It runs no repository command, writes no clone files and certifies
+no AEGIS version; the live pre-pick probe still decides executable compatibility. Age alone does not stale evidence;
 repeat verification when operational circumstances change. It does not grant approval
 or restart jobs. Corrupt readiness evidence fails closed: inspect the host sidecar,
-repair/remove invalid evidence and explicitly rerun verification. Keep credentials
+delete the affected profile's `readiness.json` and explicitly rerun verification.
+Only readiness schema 3 is accepted; no old record is migrated or automatically replaced. Keep credentials
 in supported environment references or protected mounts; inline secret values,
 provider JSON secrets and URL credentials are rejected without echoing them.
 
@@ -1105,7 +1154,9 @@ or externally under the ADORE service account. Browser sign-in is separate.
 Git supplies isolated working copies; the repository command tool reads issues and
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
-in the local image; workflow availability checks the two configured AEGIS files.
+in the local image. **Workflow** separately reports AEGIS from `.agentic/aegis.py`
+alone, Direct when absent in an available clone, or not inspected for an unavailable
+clone. It names no version, never blocks readiness and offers no installation remedy.
 A container project with internet access Off adds **Network proxy image**
 (`egress_proxy`: the runtime's `image inspect` of `[container.egress]
 proxy_image` succeeds; it is never pulled), and a project with internet access

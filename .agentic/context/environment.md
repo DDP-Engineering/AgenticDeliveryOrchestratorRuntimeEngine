@@ -80,7 +80,8 @@ client-declared supported range and schema-1 `status --all --json`; broken or
 unsupported entries never enable fallback. After confirmation/validation init
 uses the effective `workflow.aegis_python` (default `python`) for both probes;
 a missing interpreter is named with informational CHECK. The same two commands
-verify a present target payload by hand. Web enrollment still requires AEGIS. `adore --profile <name> run --dry-run` shows ticket selection without
+verify a present target payload by hand. Web enrollment accepts either workflow
+without installing or modifying AEGIS. `adore --profile <name> run --dry-run` shows ticket selection without
 side effects.
 
 ## Build and run
@@ -160,7 +161,8 @@ remain filtered; project tools are still installed by the operator.
 Configured direct verification uses the validate timeout override or general gate
 limit from the worktree root: containers use sh -c, native Linux /bin/sh -c and
 native Windows the bound SystemRoot/System32/cmd.exe /d /s /c. Configure the exact
-single-line command in server TOML; empty stays unverified and AEGIS ignores it.
+single-line command in server TOML or through the guided/reviewed configuration
+APIs; empty stays unverified and AEGIS ignores it.
 Native verification output must be UTF-8 and its owned scope must drain; the
 shell has service-account permissions without container/host isolation. Ordinary
 native shell argv remains refused. Offline tests inject controllers/Jobs/cgroups

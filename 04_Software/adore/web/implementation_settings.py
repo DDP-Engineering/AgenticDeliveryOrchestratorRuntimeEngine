@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file       implementation_settings.py
-@brief      Closed retry-schedule, stage-timeout and provider-name candidate values.
+@brief      Exact verification text and closed Implementation candidate values.
 @details    Preserves unrelated human TOML and verifies the exact semantic edit.
 """
 
@@ -19,7 +19,7 @@ import json
 import re
 import tomllib
 
-from adore.cli import _newline
+from adore.cli import _newline, _set_toml_scalar
 from adore.util import strict_json_loads
 from adore.web.executor_settings import PROVIDER_KEYS
 
@@ -33,6 +33,34 @@ MAX_SAFE_INTEGER = 9007199254740991
 
 
 # PUBLIC API
+def valid_verify_command(value: object) -> bool:
+    """@brief Accept exact optional command text, never line breaks or NUL.
+    @param[in] value Human or persisted configuration value.
+    @return True for a string in the current command domain, including empty text.
+    """
+    return isinstance(value, str) and not any(char in value for char in "\r\n\0")
+
+
+def set_verify_command(text: str, value: str) -> str:
+    """@brief Set the exact command string without scalar inference or unrelated edits.
+    @param[in] text Current human TOML, retaining its line endings.
+    @param[in] value Single-line command text; empty is valid.
+    @return TOML with only workflow.verify_command changed in parsed meaning.
+    @exception ValueError Invalid command or unsupported human TOML spelling.
+    """
+    if not valid_verify_command(value):
+        raise ValueError("invalid workflow.verify_command")
+    expected = deepcopy(tomllib.loads(text))
+    expected.setdefault("workflow", {})["verify_command"] = value
+    # JSON leaves DEL literal, but TOML basic strings require its Unicode escape.
+    # Keep non-BMP Unicode literal: JSON surrogate-pair escapes are invalid TOML.
+    literal = json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+    changed = _set_toml_scalar(text, "workflow.verify_command", value, literal=literal)
+    if tomllib.loads(changed) != expected:
+        raise ValueError("workflow.verify_command edit changed other settings")
+    return changed
+
+
 def valid_collection(key: str, value: object) -> bool:
     """@brief Check the exact supported collection type and its bounded domain.
     @param[in] key Complete configuration key.

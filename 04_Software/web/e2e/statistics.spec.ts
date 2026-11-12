@@ -264,7 +264,11 @@ test("out-of-order old scope cannot overwrite new data or exports; route transit
 test("corrupt and aborted responses expose error without false zero or stale export", async ({ page }) => {
   await signIn(page); await page.goto("/metrics"); await expect(page.locator(".statistics-evidence")).toBeVisible();
   await page.route("**/api/v1/metrics?*", async route => {
-    const body = await (await route.fetch()).json(); const first = Object.keys(body)[0]; body[first].jobs[0].lifetime.tokens_in = "0";
+    const body = await (await route.fetch()).json();
+    // Enrollment can add empty projects before the seeded analytical job cohort.
+    const project = Object.keys(body).find(id => body[id].jobs.length > 0);
+    expect(project, "a seeded job is required to exercise malformed consumption").toBeDefined();
+    body[project!].jobs[0].lifetime.tokens_in = "0";
     await route.fulfill({ json: body });
   });
   await page.getByRole("combobox", { name: "Group by", exact: true }).selectOption("month");
