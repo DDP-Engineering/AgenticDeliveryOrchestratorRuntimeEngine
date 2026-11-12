@@ -565,6 +565,82 @@ def test_native_verification_capture_keeps_true_sanitized_tail(tmp_path, mode):
         assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
 
 
+@pytest.mark.parametrize("outcome", ["success", "nonzero", "timeout"])
+@pytest.mark.parametrize("stream_name", ["stdout", "stderr"])
+@pytest.mark.parametrize("offset, read_size, secret_values, value, masked", [
+    (0, 4096, ["prefix", "fixVERY_PRIVATE_VALUE"], "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
+    (0, 1, ["prefix", "fixVERY_PRIVATE_VALUE"], "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
+    # The earliest match is complete but the overlapping one is not yet readable.
+    (4096 - len("fixVERY_PRIVATE_VALUE"), 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
+     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
+    (4090, 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
+     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
+    (65530, 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
+     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
+    (73728 - len("fixVERY_PRIVATE_VALUE"), 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
+     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
+    (0, 4096, ["abab", "baba", "abEND_PRIVATE_VALUE"],
+     "ab" * 40000 + "END_PRIVATE_VALUE", "[REDACTED]"),
+    (0, 4096, ["aaa"], "a" * 90000, "[REDACTED]"),
+    (0, 7, ["prefix", "fixVERY_PRIVATE_VALUE", "VALUE_MORE"],
+     "prefixVERY_PRIVATE_VALUE_MORE / prefixVERY_PRIVATE_VALUE",
+     "[REDACTED] / [REDACTED]"),
+], ids=["same-read", "byte-reads", "partial-overlap", "chunk-edge", "retention-edge",
+        "eviction-edge", "long-chain", "self-overlap", "separate-chains"])
+def test_native_verification_capture_masks_overlapping_secrets(
+    tmp_path, outcome, stream_name, offset, read_size, secret_values, value, masked,
+):
+    """@brief Redact the union of credential spans before chunking or tail eviction."""
+    jobs = Jobs()
+    scopes = NativeScopes("Windows", windows=jobs)
+    control = tmp_path / "control"
+    # Partial values are ordinary output, not credentials; keep them and the final line.
+    suffix = "\npre fi VERY_PRIVATE_VALU\ncafé verification ended\n"
+    raw = ("x" * offset + value + suffix).encode("utf-8")
+
+    class Pipe(io.BytesIO):
+        """@brief Simulate short OS reads, including split UTF-8 and secret values."""
+
+        def read(self, size):
+            return super().read(min(size, read_size))
+
+    class Process:
+        """@brief Expose injected streams with the real owned release/drain lifecycle."""
+
+        pid = 42
+        stdout = Pipe(raw if stream_name == "stdout" else b"ordinary output\n")
+        stderr = Pipe(raw if stream_name == "stderr" else b"ordinary output\n")
+        waits = 0
+
+        def wait(self, timeout):
+            assert list(control.glob("launches/*/release"))
+            assert json.loads((control / "active-process.json").read_text())["pid"] == self.pid
+            self.waits += 1
+            if outcome == "timeout" and self.waits == 1:
+                raise subprocess.TimeoutExpired("injected", timeout)
+            jobs.birth_value = None
+            return 7 if outcome == "nonzero" else 0
+
+    process = Process()
+    controller = LocalProcessController(scopes, spawn=lambda *args, **kwargs: process)
+    paths = {name: tmp_path / name for name in ("stdout", "stderr")}
+    # Ordering approved credentials must not change which bytes are protected.
+    result = controller.run_files(
+        ["platform-shell", "-c", "configured"], cwd=tmp_path, env={}, timeout=1,
+        **paths, control=control, run_id="c" * 32, host="a" * 64,
+        secrets=list(reversed(secret_values)), capture_tail=True,
+    )
+    expected = ("x" * offset + masked + suffix).encode("utf-8")[-65536:]
+    assert paths[stream_name].read_bytes() == expected
+    other_stream = "stderr" if stream_name == "stdout" else "stdout"
+    assert paths[other_stream].read_bytes() == b"ordinary output\n"
+    assert process.stdout.tell() == len(process.stdout.getvalue())
+    assert process.stderr.tell() == len(process.stderr.getvalue())
+    assert result.exit_code == (124 if outcome == "timeout" else 7 if outcome == "nonzero" else 0)
+    assert result.timed_out == (outcome == "timeout")
+    assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
+
+
 @pytest.mark.parametrize("mode", ["success", "nonzero", "timeout"])
 def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mode):
     """@brief The native process boundary retains truthful bounded outcomes and ownership."""

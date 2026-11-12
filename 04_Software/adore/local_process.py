@@ -63,7 +63,8 @@ def _drain_tail(stream, path: Path, secrets: list[str], *, max_bytes: int) -> No
     @param[in] path Owned output file.
     @param[in] secrets Known values matched with overlap before rolling eviction.
     @param[in] max_bytes Retained UTF-8 byte bound.
-    @details Known-value matching delays emission by the longest secret. A separate
+    @details Known-value matching unions overlapping spans before consuming the safe
+             prefix, retaining raw lookahead and mask coverage across reads. A separate
              bounded marker state suppresses entire credential tokens (and complete
              Authorization headers), even across chunks and overlong lines. ANSI/NUL
              removal precedes matching. No raw partial token can become an orphaned
@@ -73,6 +74,7 @@ def _drain_tail(stream, path: Path, secrets: list[str], *, max_bytes: int) -> No
     known = sorted({value for value in secrets if value}, key=len, reverse=True)
     overlap = max((len(value) for value in known), default=1) - 1
     pending, marker, mode, escape = "", "", "plain", ""
+    covered = 0  # Leading pending characters already masked by the previous read.
     header = False
     retained = b""
     key_end = re.compile(r"(?i)(authorization|token|api[_-]?key|bearer)$")
@@ -142,19 +144,32 @@ def _drain_tail(stream, path: Path, secrets: list[str], *, max_bytes: int) -> No
             elif char != "\x00":
                 clean.append(char)
         pending += "".join(clean)
-        while pending:
-            safe = len(pending) if not chunk else max(0, len(pending) - overlap)
-            if safe == 0:
-                break
-            matches = [(pending.find(value), value) for value in known if value in pending]
-            found = min(matches, key=lambda item: (item[0], -len(item[1]))) if matches else None
-            if found and found[0] < safe:
-                index, value = found
-                mask(pending[:index] + "[REDACTED]")
-                pending = pending[index + len(value):]
-            else:
-                mask(pending[:safe])
-                pending = pending[safe:]
+        safe = len(pending) if not chunk else max(0, len(pending) - overlap)
+        if safe:
+            spans = [(0, covered)] if covered else []
+            for value in known:
+                index = pending.find(value)
+                while 0 <= index < safe:
+                    spans.append((index, index + len(value)))
+                    index = pending.find(value, index + 1)
+            merged = []
+            for start, end in sorted(spans):
+                if merged and start <= merged[-1][1]:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+                else:
+                    merged.append((start, end))
+            emitted, cursor = [], 0
+            for start, end in merged:
+                emitted.append(pending[cursor:start])
+                if start or not covered:
+                    emitted.append("[REDACTED]")
+                cursor = end
+            emitted.append(pending[cursor:safe])
+            mask("".join(emitted))
+            # Never consume lookahead: an incomplete overlapping value can start
+            # inside an already-masked match and extend it on the next read.
+            covered = max(0, cursor - safe)
+            pending = pending[safe:]
         if not chunk:
             break
     retain(marker)

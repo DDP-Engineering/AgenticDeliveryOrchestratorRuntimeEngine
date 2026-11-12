@@ -54,7 +54,11 @@ and RPC keep list serialization; neither infers shell authority from argv.
 Malformed transport markers/commands are refused before project execution.
 
 The opt-in controller `capture_tail=True` continuously decodes strict UTF-8,
-removes ANSI/NUL, masks known secrets with longest-value overlap and recognizes
+removes ANSI/NUL and masks the union of overlapping known-secret spans, including
+matches starting inside another credential and self-overlapping values. Raw
+lookahead and already-masked coverage survive each safe-prefix cut, so an
+incomplete overlapping match can extend the mask on the next read without
+exposing a suffix or buffering an unbounded overlap chain. It also recognizes
 credential tokens/Authorization headers across chunk and eviction boundaries.
 Unfinished credential values are suppressed until their terminator, even on
 long lines. Only redacted trailing bytes are retained (64 KiB per stream).
@@ -66,7 +70,10 @@ without container isolation**. A Job/cgroup controls process lifetime, not host
 filesystem, credentials or networking. Operators should use a dedicated
 least-privilege account. The ordinary native shell/wrapper refusal stays intact.
 Public offline proof: `test_native_direct_verification_uses_only_owned_platform_shell`
-and `test_native_verification_capture_keeps_true_sanitized_tail`, plus
+and `test_native_verification_capture_keeps_true_sanitized_tail`, with
+`test_native_verification_capture_masks_overlapping_secrets` proving exact
+stdout/stderr tails across short reads, chunk/eviction boundaries and long overlap
+chains on success/nonzero/timeout with confirmed owned cleanup, plus
 `test_native_windows_verification_preserves_command_at_child_boundary` for exact
 Windows command-line preservation on pass/nonzero/timeout/cleanup refusal and
 `test_local_child_refuses_invalid_windows_verification_transport` for closed

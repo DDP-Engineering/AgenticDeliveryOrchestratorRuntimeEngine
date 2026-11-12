@@ -143,7 +143,11 @@ checkpoints remain possible; they are not approval evidence.
 - OBSERVED/INFERRED (existing prefix capture versus this tail contract): native
   tests must prove actual tail retention beyond the transient capture bound,
   with split credentials redacted before eviction and default AEGIS/preparation
-  capture unchanged. Do not treat a bounded prefix as the end of the output.
+  capture unchanged. Known-value redaction protects the union of offset- and
+  self-overlapping credential spans, including incomplete overlaps across reads;
+  consuming an earlier match must not expose another credential's suffix. Long
+  overlap chains retain bounded lookahead rather than buffer the entire chain.
+  Do not treat a bounded prefix as the end of the output.
 - STATED (ticket and Frame): if that accounting cannot share existing
   max_stage_failures without changing AEGIS behavior, stop in the questions file.
 - STATED (ticket Out and repository rules): no dedicated web field, suggestion,

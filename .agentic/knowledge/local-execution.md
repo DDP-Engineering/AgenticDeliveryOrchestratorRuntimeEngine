@@ -72,9 +72,14 @@ only the exact nonempty configured single-line NUL-free workflow command;
   unavailable shell, identity drift or malformed transport cannot launch work.
 - `REQ-DATA-72e08277`, `REQ-REL-50474528`: verification opts into strict UTF-8
   rolling tails, at most 64 KiB per stream, with ANSI/NUL removal and known-value
-  overlap/token/header redaction before eviction. Default prefix capture is
-  unchanged. Success, failure and timeout confirm owned descendant drain;
-  invalid UTF-8 or unconfirmed cleanup is a typed LocalExecutionError.
+  span-union/token/header redaction before eviction. Offset/self-overlapping
+  known values retain raw lookahead and mask coverage across safe-prefix cuts,
+  preventing suffix disclosure even over long overlap chains. Public
+  `test_native_verification_capture_masks_overlapping_secrets` covers exact
+  stdout/stderr tails at short-read, chunk and eviction boundaries. Default
+  prefix capture is unchanged. Success, failure and timeout confirm owned
+  descendant drain; invalid UTF-8 or unconfirmed cleanup is a typed
+  LocalExecutionError.
 - `REQ-SEC-a751eb18`: operator/component guidance describes service-account
   permissions without host/container sandboxing and keeps ordinary shell refusal.
 
