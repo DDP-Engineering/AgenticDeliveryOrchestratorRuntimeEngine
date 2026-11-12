@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-cbc3b8e1"
+title = "Ignore malformed JavaScript verification manifests"
+status = "active"
+requirement = "If package.json is malformed JSON or lacks the object-and-text structure needed for scripts.test, the verification suggestion helper shall treat it as no JavaScript match without raising an error."
+verification = "Offline public-helper tests supply malformed JSON, deep/truncated JSON, excessive nontext integers, a non-object document, malformed scripts and nontext test values as the only evidence and assert no suggestion and no exception; a well-formed object with a real test script is the positive control. Root/child and API/wizard regressions prove decoder limits are misses and preserve later-row fallback without changing the submitted web command."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = ["04_Software/tests/test_verification_hint.py", "04_Software/tests/test_web_enrollment.py::test_preview_hint_package_decoder_failure_is_a_miss", "04_Software/tests/test_wizard.py::test_wizard_hint_package_decoder_failure_is_a_miss"]
+spec = ""
+priority = "normal"
+rationale = "The ticket explicitly defines malformed package.json as an optional hint miss, not a corrupt stored-config error."
+created = 2026-11-12
+updated = 2026-11-12

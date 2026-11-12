@@ -151,6 +151,37 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
   }
 }
 
+for (const saved of ["", "  echo saved custom  "]) {
+  test(`saved command ${JSON.stringify(saved)} overrides repository hints on unrelated Save`, async ({page}) => {
+    const control={"X-ADORE-E2E":"local-test"};
+    await page.request.post("/__e2e__/settings-workflow?workflow=direct",{headers:control});
+    try {
+      await openSettings(page);
+      const row=page.locator('[id="setting-workflow.verify_command"]');
+      if(saved){
+        await row.getByRole("button").click();
+        await row.getByRole("textbox").fill(saved);
+        await saveSettings(page);
+        await page.reload();
+        await page.locator('[data-setting-purpose="implementation"] > summary').click();
+      }
+      const before=await (await page.request.get("/api/v1/projects/alpha/config")).json();
+      expect(before.config.workflow.verify_command).toBe(saved);
+      await row.getByRole("button").click();
+      await expect(row.getByRole("textbox")).toHaveValue(saved);
+      const budget=page.locator('[id="setting-budgets.max_iterations"]');
+      await budget.getByRole("button").click();
+      await budget.getByRole("spinbutton").fill(String(before.config.budgets.max_iterations+1));
+      await saveSettings(page, true);
+      const after=await (await page.request.get("/api/v1/projects/alpha/config")).json();
+      expect(after.config.workflow.verify_command).toBe(saved);
+      expect(after.config.budgets.max_iterations).toBe(before.config.budgets.max_iterations+1);
+    } finally {
+      await page.request.post("/__e2e__/settings-workflow?workflow=reset",{headers:control});
+    }
+  });
+}
+
 test("branch naming previews invalid drafts and applies both fields through exact review", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();

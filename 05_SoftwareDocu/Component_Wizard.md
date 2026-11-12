@@ -23,6 +23,19 @@ get in-line, OS-specific guidance from `doctor`.
 
 ## 2. Responsibilities
 
+- **Optional direct verification:** outside `prepare_only`, absence of `aegis.py`
+  (including symlink presence) permits the shared file-only hint reader. The
+  `verification_choice` prompt shows command/source and defaults to `use suggestion`
+  when available, otherwise `no verification`. `enter another command` prompts
+  `verify_command` with the shared command as default; `no verification` clears it.
+  Only this command field reads console input verbatim. CR/LF/NUL reprompt or fail
+  fast. Empty omits the workflow key; nonempty exact text is TOML-escaped, validated
+  and saved only after confirmation. Read/encoding failures become `WizardError`
+  addressed to `repo_path`, without writes. Present unusable AEGIS never enables a
+  hint. Web preparation skips discovery/prompts and retains its submitted command.
+  `tests/test_wizard.py` covers root/child/default/source, keep/edit/clear, console
+  Enter, invalid/cancelled answers and inaccessible evidence with fake runners.
+
 - **The prompt primitive:** `FieldSpec` (label, description, example, default,
   choices, validator) + `ask()` (read -> default -> validate -> re-prompt).
 - **Askers:** `ConsoleAsker` (interactive stdin/stdout) and `ScriptedAsker`

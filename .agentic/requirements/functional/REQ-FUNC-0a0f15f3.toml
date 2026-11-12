@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-0a0f15f3"
+title = "Suggest Rust verification from its Cargo manifest"
+status = "active"
+requirement = "When an eligible Cargo.toml is the first matching row at the clone root in the ordered manifest scan, the verification suggestion helper shall return cargo test together with the Cargo.toml source file."
+verification = "An offline Cargo fixture calls the public helper and compares the exact command/source pair; an earlier Go match takes precedence, and the Cargo root beats a later Maven row or matching child."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
+spec = "specs/REQ-FUNC-8676b7b9.md"
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

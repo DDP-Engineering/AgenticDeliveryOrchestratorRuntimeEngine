@@ -608,4 +608,201 @@ def test_wizard_reports_unsupported_present_payload_without_direct_fallback(tmp_
     assert validate_config(load_config(store.config_path("unsupported"))) == []
 
 
+@pytest.mark.parametrize("child", [False, True])
+@pytest.mark.parametrize("choice,answer,expected", [
+    (None, None, "npm test"),
+    ("use suggestion", None, "npm test"),
+    ("enter another command", None, "npm test"),
+    ("enter another command", "  printf '$HOME café💡\\\\' | cat  ",
+     "  printf '$HOME café💡\\\\' | cat  "),
+    ("enter another command", "printf '\x7f💡\x01'", "printf '\x7f💡\x01'"),
+    ("no verification", None, ""),
+])
+def test_wizard_verification_hint_choices_and_exact_save(tmp_path, child, choice, answer, expected):
+    """@brief Shared defaults/provenance stay optional and save only human choices."""
+    from adore.verification_hint import suggest_verification_command
+
+    clone = _clone(tmp_path)
+    manifest = clone / "service" / "package.json" if child else clone / "package.json"
+    manifest.parent.mkdir(exist_ok=True)
+    manifest.write_text('{"scripts":{"test":"vitest run"}}', encoding="utf-8")
+    command, source = suggest_verification_command(clone)
+    answers = _answers(clone)
+    if choice is not None:
+        answers["verification_choice"] = choice
+    if answer is not None:
+        answers["verify_command"] = answer
+    asker = ScriptedAsker(answers, interactive=False)
+    seen = {}
+    read = asker.read
+
+    def record(spec):
+        seen[spec.key] = spec
+        return read(spec)
+
+    asker.read = record
+    store = _store(tmp_path)
+    run_wizard(store, asker=asker, out=lambda _: None,
+               runner=_runner(), os_key="linux", name="hint")
+    action = seen["verification_choice"]
+    assert action.default == "use suggestion"
+    assert source in action.description and command in action.description
+    if choice == "enter another command":
+        assert seen["verify_command"].default == command
+    if child and expected == "npm test":
+        expected = "cd service && npm test"
+    assert load_config(store.config_path("hint")).workflow.verify_command == expected
+
+
+@pytest.mark.parametrize("choice", [None, "enter another command"])
+def test_wizard_no_match_defaults_to_none(tmp_path, choice):
+    """@brief No eligible file leaves an empty optional answer, not an invented command."""
+    clone = _clone(tmp_path)
+    store = _store(tmp_path)
+    answers = _answers(clone)
+    if choice:
+        answers["verification_choice"] = choice
+    asker = ScriptedAsker(answers, interactive=False)
+    seen = {}
+    read = asker.read
+
+    def record(spec):
+        seen[spec.key] = spec
+        return read(spec)
+
+    asker.read = record
+    run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(), os_key="linux", name="p")
+    assert seen["verification_choice"].default == "no verification"
+    assert "Suggested from" not in seen["verification_choice"].description
+    if choice:
+        assert seen["verify_command"].default == ""
+    assert load_config(store.config_path("p")).workflow.verify_command == ""
+
+
+@pytest.mark.parametrize("prepare_only,aegis", [(True, False), (True, True), (False, True)])
+def test_wizard_skips_hints_for_aegis_and_offline_preparation(tmp_path, prepare_only, aegis):
+    """@brief Payload presence, even unusable, and prepare-only never discover CLI hints."""
+    clone = _clone(tmp_path)
+    (clone / "package.json").write_text('{"scripts":{"test":"vitest run"}}', encoding="utf-8")
+    if aegis:
+        (clone / ".agentic").mkdir()
+        (clone / ".agentic" / "aegis.py").write_text("broken", encoding="utf-8")
+    asker = ScriptedAsker(_answers(clone), interactive=False)
+    store = _store(tmp_path)
+    lines = []
+    run_wizard(store, asker=asker, out=lines.append, runner=_runner(), os_key="linux",
+               name="p", prepare_only=prepare_only)
+    assert "verification_choice" not in asker.reads and "verify_command" not in asker.reads
+    assert not any("Suggested from" in line for line in lines)
+    if not prepare_only:
+        assert load_config(store.config_path("p")).workflow.verify_command == ""
+
+
+@pytest.mark.parametrize("changes,field", [
+    ({"verification_choice": "run now"}, "verification_choice"),
+    ({"verification_choice": "enter another command", "verify_command": "one\ntwo"},
+     "verify_command"),
+    ({"verification_choice": "enter another command", "verify_command": "one\rtwo"},
+     "verify_command"),
+    ({"verification_choice": "enter another command", "verify_command": "one\0two"},
+     "verify_command"),
+    ({"confirm": "no"}, "config"),
+])
+def test_wizard_verification_invalid_or_cancelled_never_saves(tmp_path, changes, field):
+    """@brief Invalid command/choice and cancellation fail before profile publication."""
+    clone = _clone(tmp_path)
+    (clone / "go.mod").touch()
+    store = _store(tmp_path)
+    with pytest.raises(WizardError) as error:
+        run_wizard(store, asker=ScriptedAsker(_answers(clone, **changes), interactive=False),
+                   out=lambda _: None, runner=_runner(), os_key="linux", name="p")
+    assert error.value.field == field
+    assert not store.exists("p") and not store.config_path("p").exists()
+
+
+@pytest.mark.parametrize("text", [
+    "[" * 2000,
+    '{"scripts":{"test":' + "1" * 5000 + "}}",
+    '{"unused":' + "[" * 2000 + "0" + "]" * 2000 + "}",
+], ids=["truncated-deep-json", "oversized-integer", "deep-json"])
+@pytest.mark.parametrize("fallback", [False, True])
+def test_wizard_hint_package_decoder_failure_is_a_miss(tmp_path, text, fallback):
+    """@brief Package decoder failures still offer the no-match or later-row CLI default."""
+    clone = _clone(tmp_path)
+    (clone / "package.json").write_text(text, encoding="utf-8")
+    if fallback:
+        (clone / "go.mod").touch()
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(clone), interactive=False)
+    run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(), os_key="linux", name="p")
+    assert "verification_choice" in asker.reads
+    assert load_config(store.config_path("p")).workflow.verify_command == (
+        "go test ./..." if fallback else "")
+
+
+def test_wizard_hint_symlink_loop_is_field_addressed(tmp_path):
+    """@brief A static manifest link loop refuses setup before saving a profile."""
+    clone = _clone(tmp_path)
+    manifest = clone / "package.json"
+    manifest.symlink_to(manifest)
+    store = _store(tmp_path)
+    with pytest.raises(WizardError) as error:
+        run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lambda _: None,
+                   runner=_runner(), os_key="linux", name="p")
+    assert error.value.field == "repo_path"
+    assert str(manifest) not in str(error.value)
+    assert not store.exists("p") and not store.config_path("p").exists()
+
+
+def test_wizard_hint_access_failure_is_field_addressed(tmp_path, monkeypatch):
+    """@brief Unreadable evidence is an explicit refusal, not a guessed empty default."""
+    clone = _clone(tmp_path)
+    original = Path.iterdir
+
+    def denied(path):
+        if path == clone:
+            raise PermissionError("fixture denied")
+        return original(path)
+
+    monkeypatch.setattr(Path, "iterdir", denied)
+    store = _store(tmp_path)
+    with pytest.raises(WizardError) as error:
+        run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lambda _: None,
+                   runner=_runner(), os_key="linux", name="p")
+    assert error.value.field == "repo_path"
+    assert not store.exists("p")
+
+
+@pytest.mark.parametrize("raw", ["", "  echo 'café💡' | cat  ", "   "])
+def test_console_command_only_preserves_exact_input(raw):
+    """@brief Only command answers are verbatim; Enter still selects the default."""
+    asker = ConsoleAsker(input_fn=lambda _: raw, out=lambda _: None)
+    assert ask(FieldSpec("verify_command", "Command?", default="npm test"),
+               asker, lambda _: None) == (raw if raw else "npm test")
+
+
+@pytest.mark.parametrize("name,choices,command", [
+    ("keep", [""], "go test ./..."), ("clear", ["3"], ""),
+    ("edit", ["bad", "2", "  echo chosen  "], "  echo chosen  "),
+])
+def test_console_wizard_enter_keeps_and_explicit_none_clears(tmp_path, name, choices, command):
+    """@brief Real interactive readers can accept, edit, clear and re-prompt safely."""
+    clone = _clone(tmp_path)
+    (clone / "go.mod").touch()
+    store = _store(tmp_path)
+    scripted = ScriptedAsker(_answers(clone))
+    replies = iter(choices)
+    console = ConsoleAsker(input_fn=lambda _: next(replies), out=lambda _: None)
+    read = scripted.read
+
+    def mixed(spec):
+        return console.read(spec) if spec.key in {"verification_choice", "verify_command"} \
+            else read(spec)
+
+    scripted.read = mixed
+    run_wizard(store, asker=scripted, out=lambda _: None, runner=_runner(),
+               os_key="linux", name=name)
+    assert load_config(store.config_path(name)).workflow.verify_command == command
+
+
 # END OF FILE

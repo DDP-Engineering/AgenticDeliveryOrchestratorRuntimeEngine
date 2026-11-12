@@ -17,8 +17,13 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
+text = { en = "Get an editable verification command suggestion from your repository, with its source.", fr = "Obtenez une suggestion modifiable de commande de vérification du dépôt, avec sa source.", de = "Ein bearbeitbarer Prüfbefehl wird aus dem Repository samt Quelle vorgeschlagen.", ro = "Primiți o sugestie editabilă de comandă de verificare din repository, cu sursa ei." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Enroll repositories without AEGIS and save an optional verification command.", fr = "Inscrivez des dépôts sans AEGIS et enregistrez une commande de vérification facultative.", de = "Repositories ohne AEGIS aufnehmen und einen optionalen Prüfbefehl speichern.", ro = "Înregistrați repository-uri fără AEGIS și salvați o comandă de verificare opțională." }
+text = { en = "Enroll without AEGIS or import checked files, retaining folder paths and the default branch.", fr = "Inscrivez sans AEGIS ou importez un fichier validé ; chemins et branche par défaut conservés.", de = "Ohne AEGIS aufnehmen oder geprüfte Dateien importieren; Ordnerpfade und Standardbranch bleiben.", ro = "Înrolați fără AEGIS sau importați fișiere validate, păstrând căile și ramura implicită." }
 
 [[release.entry]]
 category = "new"
@@ -100,11 +105,6 @@ text = { en = "Merge requests open as drafts or ready for review; ADORE watches 
 category = "new"
 topic = { en = "Help", fr = "Aide", de = "Hilfe", ro = "Ajutor" }
 text = { en = "How ADORE works opens a help center; What's new lists each release's notes in your language.", fr = "Comment fonctionne ADORE ouvre l'aide ; Nouveautés liste les notes de chaque version.", de = "So funktioniert ADORE öffnet die Hilfe; Neuigkeiten zeigt die Hinweise jeder Version.", ro = "Cum funcționează ADORE deschide ajutorul; Noutăți arată notele fiecărei versiuni." }
-
-[[release.entry]]
-category = "improved"
-topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Import checked files in a dialog; keep typed folder paths and preselect the default branch.", fr = "Import validé en dialogue ; chemins saisis conservés et branche par défaut présélectionnée.", de = "Dateiimport mit Prüfung; Ordnerpfade bleiben erhalten, der Standardbranch ist vorausgewählt.", ro = "Import validat în dialog; căile tastate rămân, iar ramura implicită este preselectată." }
 
 [[release.entry]]
 category = "improved"

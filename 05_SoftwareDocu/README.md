@@ -91,6 +91,8 @@ guides belong in `01_Documentation/`.
   assisted setup (`adore/doctor.py`).
 - `Component_Wizard.md` - the `adore init` guided setup that emits a minimal
   validated profile (`adore/wizard.py`).
+- `Component_Verification_Hint.md` - bounded read-only repository verification
+  command suggestions shared by enrollment and init (`adore/verification_hint.py`).
 
 ## Web interface
 

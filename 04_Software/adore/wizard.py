@@ -15,7 +15,8 @@
          default + validation, with friendly re-prompting). Walks the plan's
          Phase A-I flow - environment/prerequisites, project identity, platform
          & repo, local clone, branch conventions, runtime & executor, delivery,
-         budgets/policy - then writes a MINIMAL, valid `config.toml` into a
+         budgets/policy and optional direct verification - then writes a
+         MINIMAL, valid `config.toml` into a
          runtime-project profile and validates it (never saves an invalid one).
          Fully injectable: the prompt reader (`Asker`), the output sink, the
          command runner (for `doctor` probes) and the OS key are all
@@ -29,6 +30,7 @@ from __future__ import annotations
 # IMPORTS
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+import json
 import math
 from pathlib import Path
 import re
@@ -55,6 +57,7 @@ from adore.pi_providers import (
 )
 from adore.profiles import Profile, ProfileStore
 from adore.util import CommandRunner, run_command
+from adore.verification_hint import suggest_verification_command
 
 # CONSTANTS
 
@@ -134,7 +137,7 @@ class ConsoleAsker:
         """
         @brief      Render a field and read one raw line.
         @param[in]  spec The field to prompt.
-        @return     The stripped input, or None when the user just pressed Enter.
+        @return     Verbatim command text, otherwise stripped input; None on Enter.
         """
         self._out(f"\n{spec.prompt}")
         if spec.description:
@@ -148,7 +151,9 @@ class ConsoleAsker:
                 self._out(f"    {index}. {choice}{marker}")
         if spec.default is not None:
             self._out(f"  [default: {spec.default}]")
-        raw = self._input("> ").strip()
+        raw = self._input("> ")
+        if spec.key != "verify_command":
+            raw = raw.strip()
         return raw or None
 
 
@@ -317,14 +322,14 @@ def _toml_string(value: str) -> str:
     @brief      Encode a string as TOML, preferring literal quotes.
     @details    Literal single-quoted strings do no escaping, which is ideal
                 for regexes and Windows paths (backslashes); a value that
-                contains a single quote or newline falls back to a basic string.
+                contains a single quote or control character uses an escaped
+                basic string, preserving the exact text including DEL/Unicode.
     @param[in]  value The string.
     @return     A TOML string token.
     """
-    if "'" not in value and "\n" not in value:
+    if "'" not in value and not any(ord(char) < 32 or ord(char) == 127 for char in value):
         return f"'{value}'"
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
+    return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
 
 
 def _toml_value(value: object) -> str:
@@ -693,6 +698,35 @@ def run_wizard(
         else str(Path(repo_path).expanduser() / DEFAULT_STATE_ROOT)
     )
 
+    # -- direct-only optional verification (no discovery in web preparation) ------
+    verify_command = ""
+    wrapper = Path(repo_path).expanduser() / ".agentic" / "aegis.py"
+    if not prepare_only and not wrapper.exists() and not wrapper.is_symlink():
+        try:
+            hint = suggest_verification_command(Path(repo_path).expanduser())
+        except (OSError, UnicodeError) as exc:
+            raise WizardError("Cannot read repository verification evidence.",
+                              field="repo_path") from exc
+        command, source = hint if hint is not None else ("", "")
+        choice = ask(FieldSpec(
+            "verification_choice", "Verification command (optional):",
+            (f"Suggested from {source}: {command}. " if hint else "")
+            + "Keep, edit or skip verification; no suggested command runs during setup.",
+            default="use suggestion" if hint else "no verification",
+            choices=(("use suggestion", "enter another command", "no verification")
+                     if hint else ("enter another command", "no verification")),
+        ), asker, out)
+        if choice == "use suggestion":
+            verify_command = command
+        elif choice == "enter another command":
+            verify_command = ask(FieldSpec(
+                "verify_command", "Verification command:",
+                "One exact shell command line; choose no verification above to clear the default.",
+                default=command,
+                validate=lambda value: "must be one line without NUL, CR or LF"
+                if any(char in value for char in "\x00\r\n") else None,
+            ), asker, out)
+
     # -- assemble the minimal config ----------------------------------------------
     sections = _assemble_sections(
         agent_name=agent_name, kind=kind, repo=repo, login=login, store_root=store_root,
@@ -706,7 +740,7 @@ def run_wizard(
         max_transient_retries=max_transient_retries,
         retry_backoff_seconds=retry_backoff_seconds,
         ready_label=ready_label, fix_label=fix_label, change_label=change_label,
-        quick_label=quick_label,
+        quick_label=quick_label, verify_command=verify_command,
     )
     if execution_backend == "local":
         sections = [(name, values) for name, values in sections if name != "container"]
@@ -915,6 +949,8 @@ def _assemble_sections(**a: object) -> list[tuple[str, dict[str, object]]]:
         workflow["kind_labels"] = kind_labels
     if a["quick_label"] != "agent-quick":
         workflow["quick_label"] = a["quick_label"]
+    if a["verify_command"]:
+        workflow["verify_command"] = a["verify_command"]
     if workflow:
         sections.append(("workflow", workflow))
 

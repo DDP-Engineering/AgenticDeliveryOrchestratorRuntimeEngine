@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Onboarding must not leave an operator with an unusable profile."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-12

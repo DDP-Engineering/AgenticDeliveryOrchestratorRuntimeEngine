@@ -14,6 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Suggest an optional verification command from bounded repository files during direct
+  enrollment and `adore init`, with source provenance and human keep/edit/clear choices.
+  Discovery never executes commands, changes saved Settings or suggests for AEGIS clones.
+
 - Web enrollment accepts repositories without AEGIS or with only its Python entrypoint,
   without adding files to the clone. Enrollment and Settings → Implementation save an
   optional exact verification command and refuse multiline or NUL input with field feedback.

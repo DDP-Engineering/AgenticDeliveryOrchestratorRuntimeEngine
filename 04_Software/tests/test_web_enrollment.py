@@ -1108,6 +1108,8 @@ def test_draft_workflow_preview_check_and_creation(tmp_path, files, workflow):
             target = clone / ".agentic" / name
             target.parent.mkdir(exist_ok=True)
             target.write_text("raise RuntimeError('never execute')\n", encoding="utf-8")
+    if files is not None:
+        (clone / "go.mod").write_text("module example\n", encoding="utf-8")
     before = {str(p.relative_to(clone)): p.read_bytes() for p in clone.rglob("*") if p.is_file()}
 
     def runner(argv, **kwargs):
@@ -1120,6 +1122,8 @@ def test_draft_workflow_preview_check_and_creation(tmp_path, files, workflow):
         preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
         assert preview["structural_valid"], preview
         assert preview["workflow"] == workflow
+        assert preview["verification_hint"] == (
+            {"command": "go test ./...", "source": "go.mod"} if workflow == "direct" else None)
         checked = client.post("/api/v1/projects/setup-check", headers=headers,
                               json={**body, "revision": preview["revision"]})
         assert checked.status_code == 200, checked.text
@@ -1160,6 +1164,94 @@ def test_draft_invalid_workflow_never_issues_evidence(tmp_path, monkeypatch, bad
         assert result.status_code == 503, result.text
         assert result.json()["detail"]["code"] == "readiness_probe_failed"
         assert "evidence_token" not in result.json()
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+@pytest.mark.parametrize("command", ["", "npm test", "  echo chosen | cat  "])
+def test_preview_hint_is_transient_and_never_changes_submitted_command(tmp_path, command):
+    """@brief Discovery is evidence only; explicit Create still saves exact human text."""
+    from adore.verification_hint import suggest_verification_command
+
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path, verify_command=command)
+    clone = Path(body["repo_path"])
+    (clone / "package.json").write_text('{"scripts":{"test":"vitest run"}}', encoding="utf-8")
+    expected_command, source = suggest_verification_command(clone)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        assert preview["verification_hint"] == {"command": expected_command, "source": source}
+        assert preview["review"]["verify_command"] == command
+        assert not app.state.profiles.profile_dir("alpha").exists()
+        (clone / "package.json").unlink()
+        no_hint = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        assert no_hint["verification_hint"] is None
+        assert no_hint["revision"] == preview["revision"]
+        assert no_hint["config_revision"] == preview["config_revision"]
+        result = client.post("/api/v1/projects/setup-create", headers=headers,
+                             json={**body, "revision": preview["revision"]})
+        assert result.status_code == 200, result.text
+    assert load_config(app.state.profiles.config_path("alpha")).workflow.verify_command == command
+
+
+@pytest.mark.parametrize("text", [
+    "[" * 2000,
+    '{"scripts":{"test":' + "1" * 5000 + "}}",
+    '{"unused":' + "[" * 2000 + "0" + "]" * 2000 + "}",
+], ids=["truncated-deep-json", "oversized-integer", "deep-json"])
+@pytest.mark.parametrize("fallback", [False, True])
+def test_preview_hint_package_decoder_failure_is_a_miss(tmp_path, text, fallback):
+    """@brief Untrusted package decoder failures preserve preview and later table rows."""
+    body = _body(tmp_path, verify_command="  echo human choice  ")
+    clone = Path(body["repo_path"])
+    (clone / "package.json").write_text(text, encoding="utf-8")
+    if fallback:
+        (clone / "go.mod").touch()
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        response = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
+        assert response.status_code == 200, response.text
+        preview = response.json()
+        assert preview["structural_valid"] and preview["workflow"] == "direct"
+        assert preview["verification_hint"] == (
+            {"command": "go test ./...", "source": "go.mod"} if fallback else None)
+        assert preview["review"]["verify_command"] == body["verify_command"]
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+def test_preview_hint_symlink_loop_refuses_without_publication(tmp_path):
+    """@brief A static manifest link loop uses the redacted filesystem refusal boundary."""
+    body = _body(tmp_path)
+    manifest = Path(body["repo_path"]) / "package.json"
+    manifest.symlink_to(manifest)
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        response = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
+        assert response.status_code == 503, response.text
+        assert response.json()["detail"]["code"] == "project_setup_invalid"
+        assert str(manifest) not in response.text
+        assert "Symlink loop" not in response.text
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+def test_preview_hint_access_failure_refuses_without_publication(tmp_path, monkeypatch):
+    """@brief Unreadable clone evidence returns the existing safe setup rejection."""
+    body = _body(tmp_path)
+    clone = Path(body["repo_path"])
+    original = Path.iterdir
+
+    def denied(path):
+        if path == clone:
+            raise PermissionError("private fixture path")
+        return original(path)
+
+    monkeypatch.setattr(Path, "iterdir", denied)
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        result = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
+        assert result.status_code == 503, result.text
+        assert result.json()["detail"]["code"] == "project_setup_invalid"
+        assert "private fixture path" not in result.text
         assert not app.state.profiles.profile_dir("alpha").exists()
 
 

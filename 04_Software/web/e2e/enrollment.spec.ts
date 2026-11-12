@@ -160,10 +160,12 @@ test("verification command preserves multiline paste until corrected and saves e
 });
 
 for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
-  for (const workflow of ["direct", "aegis"] as const) {
+  for (const workflow of ["direct", "aegis", "empty", "pending"] as const) {
     test(`workflow enrollment ${workflow} in ${locale}`, async ({page}) => {
       await enter(page);
-      const name = workflow === "direct" ? "direct-fixture" : "aegis-only-fixture";
+      const name = workflow === "direct" ? "direct-fixture" : workflow === "aegis" ? "aegis-only-fixture"
+        : workflow === "empty" ? "empty-fixture" : `pending-fixture-${locale}`;
+      const observedWorkflow = workflow === "pending" ? "not-inspected" : workflow === "aegis" ? "aegis" : "direct";
       const me = await (await page.request.get("/api/v1/me")).json();
       try {
         await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:locale}});
@@ -174,20 +176,25 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
         await page.getByLabel(c.url,{exact:false}).fill(`ssh://git@forge.e2e.invalid:2222/offline/${name}.git`);
         await page.getByRole("button",{name:c.read,exact:true}).click();
         await expect(page.getByRole("region",{name:c.detected})).toBeVisible();
-        // The proposed path is replaced through the existing folder-mode control.
-        await page.locator('input[type="radio"]').last().check();
-        await page.getByLabel(text.clonePath,{exact:false}).fill(folder);
+        // Pending clones stay absent; other cases reuse actual fixture directories.
+        if (workflow !== "pending") {
+          await page.locator('input[type="radio"]').last().check();
+          await page.getByLabel(text.clonePath,{exact:false}).fill(folder);
+        }
         await page.getByRole("button",{name:c.continue,exact:true}).click();
         await page.locator("#enroll-model").fill("fixture-model");
         for (let i=0;i<2;i++) await page.getByRole("button",{name:c.continue,exact:true}).click();
         const command = page.getByRole("textbox", {name:text.verificationCommand,exact:true});
-        await expect(command).toHaveValue("");
+        await expect(page.getByText(c.valid,{exact:true})).toBeVisible();
         if (workflow === "direct") {
+          await expect(command).toHaveValue("go test ./...");
+          const sourceText = {en:"Suggested from",fr:"Suggestion issue de",de:"Vorgeschlagen aus",ro:"Sugerat din"}[locale];
+          await expect(page.locator("#enrollment-verification-source")).toHaveText(`${sourceText} go.mod`);
           let previews = 0;
           page.on("request", request => { if (request.url().endsWith("/setup-preview")) previews++; });
           await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
           await page.evaluate(() => navigator.clipboard.writeText("npm test\nsecond command"));
-          await command.focus(); await page.keyboard.press("ControlOrMeta+V");
+          await command.focus(); await page.keyboard.press("ControlOrMeta+A"); await page.keyboard.press("ControlOrMeta+V");
           await page.getByRole("button", { name: c.validate, exact: true }).click();
           await expect(command).toHaveValue("npm test\nsecond command");
           await expect(page.getByRole("alert")).toContainText(text.verificationCommandInvalid);
@@ -202,17 +209,21 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
         await page.getByRole("button", {name:c.validate,exact:true}).click();
         await expect(page.getByText(c.valid,{exact:true})).toBeVisible();
         const information = page.locator(".workflow-information");
-        await expect(information).toHaveText(`${workflowCopy[locale].label}: ${workflowCopy[locale][workflow]}`);
+        await expect(information).toHaveText(`${workflowCopy[locale].label}: ${workflowCopy[locale][observedWorkflow]}`);
         await expect(information.getByRole("button")).toHaveCount(0);
         if (workflow === "aegis") {
           await expect(command).toHaveCount(0);
+          await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
           await expect(page.getByRole("note")).toContainText(text.aegisTestCommands);
-        } else await expect(command).toHaveValue("");
+        } else {
+          await expect(command).toHaveValue("");
+          await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
+        }
         await page.getByRole("button", {name:c.check,exact:true}).click();
         await expect(page.getByText(c.failedCheck,{exact:true})).toBeVisible();
-        await expect(information).toContainText(workflowCopy[locale][workflow]);
+        await expect(information).toContainText(workflowCopy[locale][observedWorkflow]);
         await page.getByRole("button", {name:c.continue,exact:true}).click();
-        await expect(page.locator(".workflow-information")).toContainText(workflowCopy[locale][workflow]);
+        await expect(page.locator(".workflow-information")).toContainText(workflowCopy[locale][observedWorkflow]);
         if (locale === "en") {
           await page.getByRole("checkbox",{name:/Create the ADORE labels/}).uncheck();
           await page.getByRole("button",{name:c.create,exact:true}).click();
@@ -330,6 +341,143 @@ async function repository(page: Page, name = "e2e-valid") {
   await page.getByLabel("Display name", { exact: false }).fill("Offline service");
   return await page.getByLabel("Local clone path", { exact: false }).inputValue();
 }
+async function hintVerification(page: Page, kind: "direct" | "child" | "empty" = "direct") {
+  await repository(page, kind === "direct" ? "direct-fixture" : `${kind}-fixture`);
+  const response = await page.request.post("/__e2e__/enrollment", {headers:{"X-ADORE-E2E":"local-test"}});
+  const folder = (await response.json()).workflows[kind];
+  await page.getByLabel("Custom location", {exact:true}).check();
+  await page.getByLabel("Local clone path", {exact:false}).fill(folder);
+  await environment(page);
+  for (let i=0;i<2;i++) await page.getByRole("button", {name:"Continue",exact:true}).click();
+}
+
+for (const kind of ["direct", "child", "empty"] as const) {
+  test(`repository verification hint default ${kind} is canonical and saved only at Create`, async ({page}) => {
+    await enter(page);
+    let previews = 0, name = "";
+    page.on("request", request => {
+      if (request.url().endsWith("/setup-preview")) { previews++; name = request.postDataJSON().name; }
+    });
+    await hintVerification(page, kind);
+    await expect(page.getByText("Structural setup valid", {exact:true})).toBeVisible();
+    const expected = kind === "empty" ? "" : kind === "child" ? "cd service && go test ./..." : "go test ./...";
+    await expect(page.getByLabel("Verification command", {exact:true})).toHaveValue(expected);
+    expect(previews).toBe(kind === "empty" ? 1 : 2);
+    const projects = await (await page.request.get("/api/v1/projects")).json();
+    expect(projects.some((p:{name:string})=>p.name===name)).toBe(false);
+    if (kind === "empty") await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
+    else await expect(page.locator("#enrollment-verification-source")).toContainText(kind === "child" ? "service/go.mod" : "go.mod");
+    await page.getByRole("button", {name:"Continue",exact:true}).click();
+    await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
+    await page.getByRole("button", {name:"Create project with pickup stopped",exact:true}).click();
+    await expect(page.getByRole("heading", {name:"Enrollment complete",exact:true})).toBeVisible();
+    const saved = await (await page.request.get(`/api/v1/projects/${name}/config`)).json();
+    expect(saved.config.workflow.verify_command).toBe(expected);
+  });
+}
+
+for (const chosen of ["", "  echo 'human café' | cat  "]) {
+  test(`explicit hint edit ${JSON.stringify(chosen)} survives preview check Back and Create`, async ({page}) => {
+    await enter(page); await hintVerification(page);
+    const command = page.getByLabel("Verification command", {exact:true});
+    await expect(command).toHaveValue("go test ./...");
+    await command.fill(chosen);
+    await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
+    await validate(page);
+    await page.getByRole("button", {name:"Check environment",exact:true}).click();
+    await expect(page.getByText(enrollmentCopy.en.failedCheck,{exact:true})).toBeVisible();
+    await page.getByRole("button", {name:"Back",exact:true}).click();
+    await page.getByRole("button", {name:"Continue",exact:true}).click();
+    await validate(page);
+    await expect(command).toHaveValue(chosen);
+    await page.getByRole("button", {name:"Continue",exact:true}).click();
+    const review = page.locator(".enrollment-review").filter({hasText:"Verification command"}).first();
+    await expect(review).toContainText(chosen || "—");
+    let name = "";
+    page.on("request", request => {if(request.url().endsWith("/setup-create")) name=request.postDataJSON().name;});
+    await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
+    await page.getByRole("button", {name:"Create project with pickup stopped",exact:true}).click();
+    await expect(page.getByRole("heading", {name:"Enrollment complete",exact:true})).toBeVisible();
+    const saved=await (await page.request.get(`/api/v1/projects/${name}/config`)).json();
+    expect(saved.config.workflow.verify_command).toBe(chosen);
+  });
+}
+
+test("malformed verification hints are refused before any draft change", async ({page}) => {
+  await enter(page);
+  let bad: unknown = {command:123, source:"go.mod"};
+  await page.route("**/setup-preview",async route=>{
+    const response=await route.fetch(), value=await response.json();
+    value.verification_hint=bad;
+    await route.fulfill({json:value});
+  });
+  await hintVerification(page);
+  for (const hint of [{command:123, source:"go.mod"}, {command:"go test ./..."},
+    {command:"go test ./...",source:null}, {command:"go\ntest",source:"go.mod"},
+    {command:"go test ./...",source:"../go.mod"}, {command:"go test ./...",source:"/go.mod"}]) {
+    bad=hint;
+    await page.locator(".verify-action").getByRole("button", {name:"Validate setup",exact:true}).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByLabel("Verification command", {exact:true})).toHaveValue("");
+    await expect(page.getByRole("button", {name:"Continue",exact:true})).toBeDisabled();
+    await expect(page.getByRole("button", {name:"Check environment",exact:true})).toBeDisabled();
+  }
+  await page.unroute("**/setup-preview");
+  await validate(page);
+  await expect(page.getByLabel("Verification command", {exact:true})).toHaveValue("go test ./...");
+});
+
+test("changing repository removes an untouched earlier hint and its source",async ({page})=>{
+  await enter(page); await hintVerification(page);
+  await expect(page.getByLabel("Verification command",{exact:true})).toHaveValue("go test ./...");
+  for(let i=0;i<3;i++) await page.getByRole("button",{name:"Back",exact:true}).click();
+  await hintVerification(page,"empty");
+  await expect(page.getByText("Structural setup valid",{exact:true})).toBeVisible();
+  await expect(page.getByLabel("Verification command",{exact:true})).toHaveValue("");
+  await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
+});
+
+for (const phase of [1,2]) {
+  test(`late preview ${phase} cannot overwrite an explicit cleared command`,async ({page})=>{
+    await enter(page);
+    let release!:()=>void, observed!:()=>void, calls=0;
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    const received=new Promise<void>(resolve=>{observed=resolve;});
+    await page.route("**/setup-preview",async route=>{
+      const response=await route.fetch();
+      if(++calls===phase){observed();await gate;}
+      await route.fulfill({response});
+    });
+    await hintVerification(page);
+    await received;
+    const command=page.getByLabel("Verification command",{exact:true});
+    await command.fill("human"); await command.fill("");
+    const completed=page.waitForResponse(response=>response.url().endsWith("/setup-preview"));
+    release();
+    await completed;
+    await page.unrouteAll({behavior:"wait"});
+    await validate(page);
+    await expect(command).toHaveValue("");
+    await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
+  });
+}
+
+test("canonical hint re-preview failure keeps draft but blocks review",async ({page})=>{
+  await enter(page);
+  let calls=0;
+  await page.route("**/setup-preview",async route=>{
+    if(++calls===2) await route.fulfill({status:503,json:{detail:{code:"project_setup_invalid"}}});
+    else await route.continue();
+  });
+  await hintVerification(page);
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByLabel("Verification command",{exact:true})).toHaveValue("go test ./...");
+  await expect(page.getByRole("button",{name:"Continue",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Check environment",exact:true})).toBeDisabled();
+  await page.unroute("**/setup-preview");
+  await validate(page);
+});
+
 async function environment(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel(/^Model \*/).fill("fixture-model");
@@ -345,7 +493,7 @@ async function verification(page: Page, name = "e2e-valid") {
   return clone;
 }
 const validate = async (page: Page) => {
-  await page.getByRole("button", { name: "Validate setup", exact: true }).click();
+  await page.locator(".verify-action").getByRole("button", { name: "Validate setup", exact: true }).click();
   await expect(page.getByText("Structural setup valid", { exact: true })).toBeVisible();
 };
 

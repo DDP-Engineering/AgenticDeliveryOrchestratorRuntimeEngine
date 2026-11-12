@@ -125,13 +125,18 @@ def main() -> None:
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
         workflow_clones = {}
-        for workflow, name in (("direct", "direct-fixture"), ("aegis", "aegis-only-fixture")):
+        for workflow, name in (("direct", "direct-fixture"), ("aegis", "aegis-only-fixture"),
+                               ("child", "child-fixture"), ("empty", "empty-fixture")):
             folder = home / "repos" / name
             (folder / ".git").mkdir(parents=True)
             (folder / ".git" / "config").write_text(
                 '[remote "origin"]\n'
                 f'\turl = ssh://git@forge.e2e.invalid:2222/offline/{name}.git\n',
                 encoding="utf-8")
+            if workflow != "empty":
+                manifest = folder / "service" / "go.mod" if workflow == "child" else folder / "go.mod"
+                manifest.parent.mkdir(exist_ok=True)
+                manifest.write_text("module fixture\n", encoding="utf-8")
             if workflow == "aegis":
                 (folder / ".agentic").mkdir()
                 (folder / ".agentic" / "aegis.py").write_text(

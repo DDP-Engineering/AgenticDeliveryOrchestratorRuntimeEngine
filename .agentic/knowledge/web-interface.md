@@ -125,6 +125,22 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+`setup-preview` returns transient `verification_hint: {command, source} | null`
+only for structurally valid inspected direct clones, using the pure shared
+`adore/verification_hint.py` reader (see wizard.md). It never clones or runs the
+command. AEGIS, absent clones and misses yield null; access/encoding failures
+return redacted setup-unavailable/repo_path findings. Hints are outside canonical
+review/digests and absent from Create/shared preparation and Settings.
+EnrollmentWizard previews on Verification entry, validates the full response,
+and fills only an untouched command with localized accessible source provenance.
+A changed default permits one canonical re-preview; malformed/failed evidence
+blocks progression, and generation guards preserve edits during requests. Edits
+or clearing remain authoritative through Back, preview and Check; repository
+changes clear only untouched defaults. Only explicit Create persists reviewed
+text. Saved Settings never infer defaults. Proof: test_web_enrollment.py,
+test_web_config.py, web/e2e/enrollment.spec.ts and settings.spec.ts; Projects help
+and enrollmentCopy.ts carry the four-locale source guidance.
+
 `REQ-DATA-71366af6`: workflow.verify_command is an exact-string editable API
 setting; resolved reads, Admin exact raw TOML and unrelated reviewed edits preserve
 it under existing validation, authorization and redaction. Guided API enrollment
@@ -673,6 +689,7 @@ for Add and Import project. Primary buttons take their text colour from the
 | Both-workflow enrollment and informational Workflow evidence | `_workflow_observation`, `_probe_setup`, `readiness.ts`, `ReadinessEvidence.tsx` | `test_repository_source.py`, `test_web_readiness.py`, `readiness.test.mjs`, `enrollment.spec.ts` |
 | Exact Verification command enrollment and reviewed saves | `ProjectInput`, `implementation_settings.py`, `EnrollmentWizard.tsx`, `implementationSettings.ts`, `settingsSave.ts` | `test_web_enrollment.py`, `test_web_config.py`, `settings.test.mjs`, `settingsSave.test.mjs`, `settings.spec.ts` |
 | Exact TOML enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
+| Direct-clone verification suggestion, localized provenance and human authority | `preview_project_setup`, `adore/verification_hint.py` (see `wizard.md`), `EnrollmentWizard.tsx` `validPreview`/`runPreview`, `enrollmentCopy.ts` | `test_verification_hint.py`, `test_web_enrollment.py`, `web/e2e/enrollment.spec.ts`, saved-command `settings.spec.ts` journeys |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
@@ -693,6 +710,16 @@ for Add and Import project. Primary buttons take their text colour from the
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- REQ-FUNC-d50a408d / REQ-FUNC-2bf3e808 / REQ-FUNC-357ae298: offline preview
+  returns a separate command/source hint only for inspected direct clones; AEGIS,
+  absent clones and misses receive null, and access/encoding errors refuse setup.
+- REQ-UX-92197baa / REQ-UX-dd21046e / REQ-UX-cca17b80 /
+  REQ-REL-60015e50: enrollment validates the full hint response, prefills only
+  untouched drafts, identifies the source in four locales and canonically
+  re-previews at most once. Human edits/clearing win over delayed responses.
+- REQ-DATA-c1c4d1c3: saved Settings never infer over an empty/custom command;
+  explicit reviewed Create/Save is the persistence authority.
 
 - REQ-FUNC-e3cf5dfd / REQ-SEC-74753f08: reviewed scalar/batch apply permits parked-clarification jobs only for the five budget keys, with exact candidate reconstruction, Admin/CSRF, source/state-root/lock/revision and unfinished-operation checks retained. Mixed batches, direct edits and other lifecycles keep the existing idle boundary. No job state or approval is written by budget apply.
 - REQ-UX-1054b9b6: composite Job details adds non-financial `budget` counters (launches and cumulative active seconds), current limits and config_revision, bound to unchanged source bytes. The frontend rejects invalid/missing detail budget evidence, shows a 90%/exhausted status notice and an Admin project Settings link, with four-locale timing/help. Statistics remain independent. Proof: test_web_jobs.py, test_web_settings_batch.py, jobs.test.mjs and jobs/enrollment browser journeys.

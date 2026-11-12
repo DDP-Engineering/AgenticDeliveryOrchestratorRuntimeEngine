@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-8676b7b9"
+title = "Suggest JavaScript verification from a real test script"
+status = "active"
+requirement = "When a clone root contains an eligible package.json with a real scripts.test rather than npm's no-test-specified placeholder, the verification suggestion helper shall return its file-sourced test command as npm test, pnpm test with pnpm-lock.yaml, or yarn test with yarn.lock under the ordered manifest-matching algorithm."
+verification = "Offline table-driven filesystem fixtures call the public helper with a real scripts.test and each individual lockfile variant and both lockfiles (pnpm wins) and compare command/source pairs; a root JavaScript match beats a root Python match and a matching child, while absent scripts.test produces no JavaScript match."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
+spec = "specs/REQ-FUNC-8676b7b9.md"
+priority = "normal"
+rationale = "Ticket #65 matching table row 1; no command execution or package-manager detection."
+created = 2026-11-12
+updated = 2026-11-12

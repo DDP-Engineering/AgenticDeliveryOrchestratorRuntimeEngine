@@ -28,8 +28,15 @@ with or without AEGIS. Guided enrollment and scalar/batch settings APIs accept a
 exact optional single-line verification command under existing reviewed revision
 and access boundaries; invalid nontext, CR/LF/NUL are refused with field feedback.
 Enrollment Verification and Settings Implementation expose the optional command
-through one-row textareas, exact domain validation and localized feedback. An
-inspected AEGIS enrollment shows the repository-test-command note instead.
+through one-row textareas, exact domain validation and localized feedback. For an
+inspected direct clone, enrollment prefills only an untouched draft from a shared
+bounded file-only reader and identifies the source in all four locales. Init offers
+the same suggestion with explicit keep/edit/none choices. Root matches precede a
+unique immediate-child match; external links and files over 1 MiB are ignored.
+Discovery never runs a command or publishes configuration. Human edits/clearing
+and saved Settings remain authoritative; only confirmed Create/Save/init persists
+chosen text. An inspected AEGIS enrollment shows the repository-test-command note
+instead, and AEGIS or unavailable clones receive no suggestion.
 API and browser readiness report a separate
 read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
 checks and stores schema-3 evidence with strict deletion guidance on corruption.
@@ -67,7 +74,11 @@ ADORE's only coding agent.
   file-named `PromptError`. Composition and notice selection remain caller-owned.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
-  profile homes and the `adore` command; `metrics.py`, `process_log.py`,
+  profile homes and the `adore` command; `verification_hint.py` supplies shared
+  read-only repository command/source suggestions to CLI init and web preview.
+  Malformed package evidence is a miss, including decoder-limit failures;
+  filesystem/encoding errors refuse discovery rather than guessing a default.
+  `metrics.py`, `process_log.py`,
   `identity.py`, `branding.py` and `util.py` provide run statistics, mirrored
   logs, derived resource names, identity constants and shared helpers.
 - The optional `adore/web/` API, SQLite identity/operation store and worker
