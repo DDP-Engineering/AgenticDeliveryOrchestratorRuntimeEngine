@@ -420,3 +420,53 @@ sequence raises `SuspiciousCheckpointPathError` with the path for operator
 inspection; no file is deleted. Invalid or incomplete bounded Git evidence
 raises `IsolationError`. Existing tracked modifications and ignored paths keep
 Git semantics. This common host checkpoint applies to both execution backends.
+
+## Direct exchange primitives
+
+`worktree_progress_fingerprint(..., exclude_paths=())` and
+`commit_all_if_dirty(..., exclude_paths=())` accept explicit repository-relative
+**literal file names**, not Git patterns. The empty default preserves the AEGIS
+call contract. Callers implementing direct work supply root `ADORE_SUMMARY.md`
+and the configured questions path. Both tracked/indexed diffs and untracked
+progress lists use top-level literal exclusions; exchange text alone is not
+implementation progress.
+
+Before enabling an exclusion, the manager rejects absolute/traversing/control
+paths, Git-administration paths, linked parents/worktree roots, nonregular or
+multiply linked files, and a collision with source already in HEAD (including a
+parent file or a child under an exchange-named directory). A bounded complete
+`ls-tree` list establishes HEAD ownership; an indexed new artifact is not source
+ownership. Invalid evidence and Git failures raise `IsolationError`.
+
+An exchange-aware checkpoint first performs a path-limited index reset against
+HEAD, leaving working files untouched. It then excludes the literal paths from
+`add -A`, inspects additions as usual, and checks the **entire** staged path set
+with rename detection off before committing. This also catches staged deletions,
+modifications, and artifacts staged before their working files were removed.
+Exchange-only status is a no-op. Exclusions do not delete questions or silently
+hide repository-owned source.
+
+`read_summary(run_id, max_chars=...)` reads root `ADORE_SUMMARY.md` as strict UTF-8
+and returns a transient `SummaryArtifact`, or `None` for absence. It validates the
+same owned-path/source boundary, refuses links/hardlinks/nonregular files, checks
+file identity and content metadata before/during/after the read, and retains only
+the caller's positive evidence-length bound in memory. The complete stream is
+decoded, so an invalid prefix cannot be hidden by keeping only the tail.
+The receipt contains text, the owned path, and stable identity metadata; it is
+not run-state data and must not be persisted as an object.
+
+The caller sanitizes and durably saves `artifact.text` **before** calling
+`remove_summary(run_id, artifact)`. Removal rechecks path/source ownership and
+identity, refuses a stale or cross-run receipt, unlinks only that unchanged file,
+and verifies absence. Read, decoding and unlink failures are typed errors and
+never authorize a checkpoint. These helpers run at the conductor's settled
+session boundary, not concurrently with an authorized executor writer. They
+provide filesystem/ Git mechanics, not completion or approval policy.
+
+Offline public-API proof in `tests/test_isolation.py` covers literal metacharacter
+paths, product progress controls, indexed/untracked exchange exclusions, staged
+set rechecks, corrupt Git results, source/path collisions, Unicode and bounded
+summary tails, absence, empty output, invalid encoding, directories/links, IO
+failures, stale identity, concurrent observation changes and cross-run removal.
+The direct conductor wiring and candidate/publication policy are separate from
+these isolation primitives.
