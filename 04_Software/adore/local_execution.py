@@ -747,7 +747,7 @@ class LocalTarget:
             [str(shell.resolve()), *arguments], cwd=Path(self.paths.worktree), env=self.env,
             timeout=timeout, stdout=stdout, stderr=stderr, control=backend._control(self.resource),
             run_id=self.resource["id"], host=self.resource["host"], secrets=self._secrets(),
-            capture_tail=True,
+            capture_tail=True, windows_verification=backend.context["system"] == "Windows",
         )
         result.stdout, result.stderr = self.read_output(stdout), self.read_output(stderr)
         return result

@@ -179,6 +179,7 @@ def test_native_direct_verification_uses_only_owned_platform_shell(
     assert argv == expected
     assert options["cwd"] == work and options["timeout"] == 17
     assert options["env"] == target.env and options["capture_tail"] is True
+    assert options["windows_verification"] == (system == "Windows")
     assert options["run_id"] == target.resource["id"] and options["host"] == context["host"]
     assert "provider-secret" not in result.stdout and "café" in result.stdout
     assert result.timed_out == (outcome == "timeout")
@@ -195,6 +196,97 @@ def test_native_direct_verification_uses_only_owned_platform_shell(
     with pytest.raises(LocalExecutionError):
         target.run_verification(command, timeout=17)
     assert len(controller.calls) == before
+
+
+@pytest.mark.parametrize("command", [
+    r'"C:\Program Files\Project Tools\verify.exe" "argument with spaces"',
+    r'echo "nested quotes" && echo %PROJECT_NAME% | findstr "text" > "result file.txt"',
+    'echo café & echo "C:\\trailing path\\\\"',
+    "echo plain",
+])
+@pytest.mark.parametrize("outcome", ["pass", "fail", "timeout", "cleanup"])
+def test_native_windows_verification_preserves_command_at_child_boundary(
+    tmp_path, monkeypatch, command, outcome,
+):
+    """@brief Owned cmd launch preserves shell text instead of applying C argv escaping."""
+    from types import SimpleNamespace
+
+    from adore import local_child
+
+    config, context, _, _, work = local_fixture(tmp_path, monkeypatch)
+    root = tmp_path / "Windows with spaces"
+    shell = root / "System32/cmd.exe"
+    shell.parent.mkdir(parents=True)
+    shell.touch()
+    monkeypatch.setenv("SystemRoot", str(root))
+    config.workflow.verify_command = command
+    jobs = Jobs()
+    scopes = NativeScopes("Windows", windows=jobs)
+    calls, envelopes = [], []
+
+    def launch(command_line, **kwargs):
+        """@brief Capture the exact CreateProcess input without invoking a Windows shell."""
+        assert Path(envelopes[-1]["release"]).is_file()
+        calls.append((command_line, kwargs))
+        return SimpleNamespace(returncode=7 if outcome == "fail" else 0)
+
+    class Process:
+        """@brief Run the real trusted helper only after the controller's durable release."""
+
+        pid = 42
+        stdout = io.BytesIO(b"verification output")
+        stderr = io.BytesIO(b"verification error" if outcome == "fail" else b"")
+        waits = 0
+
+        def wait(self, timeout):
+            self.waits += 1
+            if self.waits == 1:
+                code = local_child.main(str(envelope_path))
+                if outcome == "timeout":
+                    raise subprocess.TimeoutExpired("injected", timeout)
+                jobs.birth_value = None
+                return code
+            return 0
+
+    envelope_path = None
+
+    def spawn(argv, **kwargs):
+        """@brief Exercise the parent envelope and child transport with an offline Job."""
+        nonlocal envelope_path
+        envelope_path = Path(argv[3])
+        envelopes.append(json.loads(envelope_path.read_text()))
+        assert not Path(envelopes[-1]["release"]).exists()
+        return Process()
+
+    controller = LocalProcessController(scopes, spawn=spawn)
+    backend = LocalBackend(config, context=context, controller=controller)
+    exchange = Path(config.state.store_root) / "runs/run-1/io"
+    backend.provision("run-1", work, work, exchange, {})
+    target = backend.bind("run-1", {})
+    monkeypatch.setattr(local_child.subprocess, "run", launch)
+    if outcome == "cleanup":
+        scopes.remove = lambda *_: (_ for _ in ()).throw(LocalExecutionError("cleanup refused"))
+        with pytest.raises(LocalExecutionError, match="cleanup refused"):
+            target.run_verification(command, timeout=17)
+    else:
+        result = target.run_verification(command, timeout=17)
+        assert result.exit_code == (7 if outcome == "fail" else 124 if outcome == "timeout" else 0)
+        assert result.timed_out == (outcome == "timeout")
+        assert result.stdout == "verification output"
+        assert jobs.killed and jobs.removed
+    command_line, options = calls[0]
+    assert isinstance(command_line, str), "verification still uses C argv serialization"
+    assert envelopes[-1]["windows_verification"] is True
+    # Only the executable uses C-runtime quoting. cmd /s strips exactly the
+    # extra outer pair around the original shell text; no backslash escaping.
+    expected = subprocess.list2cmdline([str(shell.resolve())]) + f' /d /s /c "{command}"'
+    assert command_line == expected
+    assert options["executable"] == str(shell.resolve())
+    assert options["cwd"] == str(work) and options["creationflags"] == 0x08000000
+    assert options["stdin"] == subprocess.DEVNULL
+    assert options["stdout"] is sys.stdout and options["stderr"] is sys.stderr
+    assert options.get("shell", False) is False
+    assert (envelope_path.parents[2] / "active-process.json").exists() == (outcome == "cleanup")
 
 
 def test_local_backend_is_available_through_the_shared_contract():
@@ -1111,6 +1203,82 @@ def test_local_child_release_barrier_and_cancel_are_native(
     envelope.write_text('{"unexpected":true}')
     with pytest.raises(ValueError):
         local_child.main(str(envelope))
+
+
+@pytest.mark.parametrize("invalid", [
+    "false", "nonboolean", "linux", "rpc", "switch", "missing-command", "other-shell",
+    "relative-shell", "newline", "carriage-return", "nul", "empty",
+])
+def test_local_child_refuses_invalid_windows_verification_transport(tmp_path, monkeypatch, invalid):
+    """@brief A malformed dedicated transport cannot release a project command."""
+    from adore import local_child
+
+    envelope = {
+        "argv": [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c", "echo valid"],
+        "cwd": str(tmp_path), "release": str(tmp_path / "release"),
+        "scope": {"kind": "windows-job", "name": "owned"}, "windows_verification": True,
+    }
+    if invalid in {"false", "nonboolean"}:
+        envelope["windows_verification"] = False if invalid == "false" else "true"
+    elif invalid == "linux":
+        envelope["scope"] = {"kind": "linux-cgroup", "path": str(tmp_path)}
+    elif invalid == "switch":
+        envelope["argv"][1] = "/k"
+    elif invalid == "missing-command":
+        envelope["argv"].pop()
+    elif invalid == "other-shell":
+        envelope["argv"][0] = r"C:\Windows\System32\powershell.exe"
+    elif invalid == "relative-shell":
+        envelope["argv"][0] = "cmd.exe"
+    elif invalid in {"newline", "carriage-return", "nul", "empty"}:
+        envelope["argv"][-1] = {
+            "newline": "echo a\necho b", "carriage-return": "echo a\r", "nul": "echo a\x00",
+            "empty": "",
+        }[invalid]
+    path = tmp_path / "command.json"
+    path.write_text(json.dumps(envelope))
+    (tmp_path / "release").touch()
+    monkeypatch.setattr(local_child.subprocess, "run", lambda *_args, **_kwargs: pytest.fail(
+        "invalid verification transport launched a process"))
+    with pytest.raises(ValueError):
+        local_child.main(str(path), streaming=invalid == "rpc")
+    assert not (tmp_path / "cgroup.procs").exists()
+
+
+def test_local_child_windows_verification_cancel_prevents_launch(tmp_path, monkeypatch):
+    """@brief Cancellation still wins over release for the dedicated Windows command."""
+    from adore import local_child
+
+    envelope = {
+        "argv": [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c", 'echo "valid"'],
+        "cwd": str(tmp_path), "release": str(tmp_path / "release"),
+        "scope": {"kind": "windows-job", "name": "owned"}, "windows_verification": True,
+    }
+    path = tmp_path / "command.json"
+    path.write_text(json.dumps(envelope))
+    (tmp_path / "cancel").touch()
+    (tmp_path / "release").touch()
+    monkeypatch.setattr(local_child.subprocess, "run", lambda *_args, **_kwargs: pytest.fail(
+        "cancelled verification launched a process"))
+    assert local_child.main(str(path)) == 125
+
+
+@pytest.mark.parametrize("mode", ["nonboolean", "linux"])
+def test_native_controller_refuses_invalid_windows_verification_mode(tmp_path, mode):
+    """@brief Invalid transport selection fails before any scope or supervisor is created."""
+    scopes = NativeScopes("Windows", windows=Jobs())
+    if mode == "linux":
+        scopes.system = "Linux"
+    controller = LocalProcessController(scopes, spawn=lambda *_args, **_kwargs: pytest.fail(
+        "invalid transport selection launched a supervisor"))
+    with pytest.raises(LocalExecutionError, match="verification mode"):
+        controller.run_files(
+            [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c", "echo valid"],
+            cwd=tmp_path, env={}, timeout=1, stdout=tmp_path / "stdout", stderr=tmp_path / "stderr",
+            control=tmp_path / "control", run_id="c" * 32, host="a" * 64, secrets=[],
+            windows_verification="true" if mode == "nonboolean" else True,
+        )
+    assert not (tmp_path / "control").exists()
 
 
 @pytest.mark.parametrize("query_ok", [True, False])

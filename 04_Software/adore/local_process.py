@@ -709,8 +709,9 @@ class LocalProcessController:
             self.scopes.remove(lease["scope"])
             path.unlink()
 
-    def _launch(self, argv, cwd, env, control, run_id, host, *, streaming=False):
-        """@brief Persist the owned process lease before releasing native argv."""
+    def _launch(self, argv, cwd, env, control, run_id, host, *, streaming=False,
+                windows_verification=False):
+        """@brief Persist the owned lease before releasing argv or dedicated cmd text."""
         token = uuid4().hex
         with self.lock:
             if (control / "active-process.json").exists():
@@ -722,10 +723,10 @@ class LocalProcessController:
             process = None
             try:
                 launch.mkdir(parents=True, exist_ok=False)
-                atomic_record(
-                    envelope,
-                    {"argv": argv, "cwd": str(cwd), "scope": scope, "release": str(release)},
-                )
+                command = {"argv": argv, "cwd": str(cwd), "scope": scope, "release": str(release)}
+                if windows_verification:
+                    command["windows_verification"] = True
+                atomic_record(envelope, command)
                 process = self.spawn(
                     [
                         sys.executable,
@@ -809,9 +810,10 @@ class LocalProcessController:
         secrets: list[str],
         stdout_limit: int = 65536,
         capture_tail: bool = False,
+        windows_verification: bool = False,
     ) -> CommandResult:
         """@brief Persist scope/PID ownership before releasing one bounded native command.
-        @param[in] argv Resolved native argv; no shell interpretation.
+        @param[in] argv Resolved native argv; shell text only for dedicated verification.
         @param[in] cwd Dedicated native worktree or explicit probe directory.
         @param[in] env Controlled service-account environment.
         @param[in] timeout Positive wall-clock bound.
@@ -823,6 +825,7 @@ class LocalProcessController:
         @param[in] secrets Approved known values for redaction, never written to controls.
         @param[in] stdout_limit Native stdout bound; AEGIS JSON uses its existing limit.
         @param[in] capture_tail Opt-in verification-only sanitized trailing capture.
+        @param[in] windows_verification Preserve configured cmd shell text, not C argv escaping.
         @return Actual command exit and authoritative timeout outcome.
         @exception LocalExecutionError Ownership, launch or cleanup cannot be confirmed.
         """
@@ -832,7 +835,13 @@ class LocalProcessController:
             raise LocalExecutionError("native stdout limit is invalid")
         if type(capture_tail) is not bool:
             raise LocalExecutionError("native capture mode is invalid")
-        process, scope = self._launch(argv, cwd, env, control, run_id, host)
+        if type(windows_verification) is not bool or (
+            windows_verification and self.scopes.system != "Windows"
+        ):
+            raise LocalExecutionError("native Windows verification mode is invalid")
+        process, scope = self._launch(
+            argv, cwd, env, control, run_id, host, windows_verification=windows_verification,
+        )
         errors = []
 
         def drain(stream, path):

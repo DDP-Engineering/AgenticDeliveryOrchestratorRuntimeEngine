@@ -43,6 +43,16 @@ project PATH/COMSPEC, ordinary argv shell resolution and interpreter wrappers
 provide no bypass. Worktree cwd, bound environment, durable release barrier,
 owned timeout interruption and full scope drain are shared with native commands.
 
+Windows verification alone sets the controller's `windows_verification=True`
+transport marker. The trusted child validates the dedicated non-RPC Windows
+cmd envelope before release, pins the executable explicitly and passes a raw
+command line to `CreateProcess`: only the executable uses C-runtime quoting;
+`/d /s /c` receives the original configured text inside one extra outer quote
+pair. This preserves quoted executable paths, nested quotes, compound commands
+and backslashes without C-runtime backslash-quote escaping. Ordinary native argv
+and RPC keep list serialization; neither infers shell authority from argv.
+Malformed transport markers/commands are refused before project execution.
+
 The opt-in controller `capture_tail=True` continuously decodes strict UTF-8,
 removes ANSI/NUL, masks known secrets with longest-value overlap and recognizes
 credential tokens/Authorization headers across chunk and eviction boundaries.
@@ -56,7 +66,11 @@ without container isolation**. A Job/cgroup controls process lifetime, not host
 filesystem, credentials or networking. Operators should use a dedicated
 least-privilege account. The ordinary native shell/wrapper refusal stays intact.
 Public offline proof: `test_native_direct_verification_uses_only_owned_platform_shell`
-and `test_native_verification_capture_keeps_true_sanitized_tail`, plus existing
+and `test_native_verification_capture_keeps_true_sanitized_tail`, plus
+`test_native_windows_verification_preserves_command_at_child_boundary` for exact
+Windows command-line preservation on pass/nonzero/timeout/cleanup refusal and
+`test_local_child_refuses_invalid_windows_verification_transport` for closed
+transport validation. Cancellation remains covered at the child boundary, with existing
 identity, scope/PID-birth and retry tests in `test_local_execution.py` and
 `test_retry_revalidation.py`.
 
