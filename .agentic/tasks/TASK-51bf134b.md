@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-51bf134b - [Direct] Suggest the verification command from repository files
 
-stage: validate
+stage: done
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
+- [x] diff reviewed against scope, requirements, design, error paths,
       portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [x] knowledge pages of changed components current with the reviewed code
+- [x] project and environment context reconciled with the candidate
+- [x] requirements re-read: status, prose, verification, paths and links true
+- [x] manual or inspection verification recorded where applicable
+- [x] explicit review approved, when enabled
+- [x] final `check --strict --run` result logged truthfully after the last edit
+- [x] remaining warnings and pre-existing failures explained
+- [x] `report` appended
 
 ## Frame
 
@@ -602,6 +602,12 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 - 2026-11-12 build: Inspection: all 33 task requirements remain active with existing affected source paths, linked test files/selectors and specs (TOML/AST path audit exit 0). Extended REQ-REL-cbc3b8e1 verification/links without weakening its contract; helper component documentation and owning wizard knowledge now describe decoder-limit misses, later-row fallback and filesystem ELOOP normalization. Existing four-locale help/release note and CHANGELOG feature entry are retained: no interface/copy change or additional release entry is needed for correcting the initial implementation. release-note checker --since 76bd110f2fac4716936bb51caa9226d1b0195f21 exit 0; git diff --check exit 0. Evolution refreshed and all 29 task implementation paths re-reviewed against D1-D6; eight files changed in this correction session, within the 12-file bound, no payload/planning/dependency/publication changes.
 - 2026-11-12 build: Advisory check: global exit 0, errors=0 warnings=37 notes=28; task --full/--json exit 0, errors=0 warnings=46 notes=28. Same unrelated ticket-ref/stale-path/legacy-journal/manual-verification findings as recorded previously; uncovered-source findings concern already explained supporting docs/copy/e2e/generated assets, not unmapped task behavior. Correction to earlier scan explanation: current JSON finding says possible secret (password literal), not an oversized-file skip. Direct generated-JS inspection finds localized password label strings (password:Password/Mot de passe/Passwort/Parolă and show/hide labels), not credentials; the bundle was not changed this session. DEVIATION build: retain generated-JS password-literal advisory as a copy false positive, without scanner bypass or configuration changes. No new candidate limitation; final independent round-2 reviews/full strict proof/report belong to the fresh validate session.
 - 2026-11-12 build: completed; next validate
+- 2026-11-12 validate: Validate round-2 execution bound: at most 45 minutes, at most eight task-scoped context/knowledge/journal files, two independent read-only reviews then one final strict full proof after reconciliation. Branch matches journal; no publication, product fixes or AEGIS payload edits in this session. Any implementation finding routes back to its owning stage.
+- 2026-11-12 validate: Inspection: reviewed the current authored diff, actual helper/API/CLI/browser assertions and all 33 requirements/two specs against D1-D6 and owner rulings; decoder-limit and static-loop corrections preserve later-row fallback and typed/redacted refusal. Reconciled wizard/web-interface knowledge with routing/change maps and project/environment context with shared hints, no probes, human-only persistence and Settings authority. No implementation mismatch identified by executor inspection. TOML/AST audit exit 0: 33 active requirements with existing source/spec/test paths/selectors and no Manual:/Inspection: verification obligations. Documentation comparison confirms matching table, file/child bounds, source, four Projects locales, component contracts, CHANGELOG and four-locale note agree; release-note checker --since task base exit 0. All committed static input/output SHA-256 hashes match current bytes, without claiming a fresh production build. No outside-.agentic edits in validate, so no evolution refresh needed; existing anchor/evolution remains present. Independent round-2 reviewers are running read-only before final proof.
+- 2026-11-12 validate: Explicit review round 2: independent read-only Pi specification and implementation-quality reviewers both approved after reading complete journal, all 33 requirements/two specs and actual helper/API/CLI/browser assertions. Both confirm JSON decoder-limit misses/later-row fallback and supported-Python static-loop filesystem refusals are corrected, with 25 regression cases; no task-scoped blocker or missing assertion found. Reviews are inspection, not rerun test evidence. Existing hostile concurrent filesystem/native live acceptance limitations remain disclosed. Reviewer processes completed normally; final strict proof follows approvals.
+- 2026-11-12 validate: Pre-proof advisory explanation: errors=0 warnings=48 notes=28 before verdict; incomplete-review warning is resolved by round-2 approvals. Remaining historical ticket-ref/stale-path/legacy-journal/unticked-deliver findings and manual-verification notes are outside the 33 task requirements. Uncovered-source findings identify supporting localized help/release copy, e2e fixtures and generated assets; behavioral source ownership and test links are complete. Direct current-bundle inspection confirms the credential-field scanner matches localized UI labels/empty draft values, while journal matches are explanatory history, not credentials. DEVIATION validate: retain these scanner copy/history false positives and supporting-source advisories without bypasses or checker changes; no clean secret-scan claim. Unchanged upstream deprecation, dependency advisories and Vite chunk-size warning remain out of scope, with locks/build settings unchanged.
+- 2026-11-12 validate: final: env -u OPENAI_API_KEY python .agentic/aegis.py check --task TASK-51bf134b --strict --run exit 0 after the last candidate edit and round-2 approvals; full offline pytest command passed (648.6s), Ruff passed, npm --prefix web run validate passed (850.7s: helper tests, UI/e2e typechecks, isolated Vite build and complete serial Chromium suite). Strict summary errors=0 warnings=47 notes=28, strict: ok. Existing historical metadata/manual notes and supporting-source/scanner false positives remain as explained before proof; no command failure or timeout. Post-proof read-only comparison confirms all committed static hashes unchanged and every output byte equals the final isolated build; Playwright last-run status passed with no failed tests. Only journal records change after this proof; no implementation, dependency, payload or publication edits.
+- 2026-11-12 validate: completed; next done
 
 ## Rulings
 
@@ -613,13 +619,61 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/5_validate.md
-changed: Fixed recorded JSON decoder and static symlink-loop boundaries in verification_hint.py; added 25 public-helper/API/CLI regressions; updated helper docs, owning knowledge and requirement verification links.
-evidence: Targeted pytest test_web_enrollment.py test_wizard.py test_verification_hint.py exit 0 (323 passed); Ruff, release-note checker, requirement/path audit and git diff --check exit 0; evolution reviewed; advisory checks 0 errors with explained warnings.
-issues: Independent round-2 specification/quality reviews and final full strict gate/report remain for validate; unchanged upstream deprecation and advisory copy/generated-source findings recorded in Log.
-spec_compliance:
-implementation_quality:
-review_round: 1
+status: done
+reported: validate - completed
+next: implementation guidance complete; commit, push and integration belong to the developer
+must_read: .agentic/tasks/TASK-51bf134b.md
+changed: Validated candidate; reconciled context/component knowledge; both round-2 reviews approved; delivery report appended and checklist complete.
+evidence: check --task TASK-51bf134b --strict --run exit 0: full pytest, Ruff and npm frontend validation passed; static bundle matches isolated build.
+issues: No blockers. 47 advisory warnings and 28 notes explained in journal; native/live and hostile-filesystem acceptance not claimed.
+spec_compliance: approved
+implementation_quality: approved
+review_round: 2
+
+## Delivery report (2026-11-12)
+
+- stage: validate; type: feature; path: full; branch: adore/gitea-dpasare-AgenticDeliveryOrchestratorRuntimeEngine-65
+- requirements:
+  - REQ-FUNC-8676b7b9 - Suggest JavaScript verification from a real test script
+  - REQ-FUNC-b360529b - Suggest Python verification from a test manifest
+  - REQ-FUNC-d10b9f52 - Suggest Go verification from its module manifest
+  - REQ-FUNC-0a0f15f3 - Suggest Rust verification from its Cargo manifest
+  - REQ-FUNC-43c92cd6 - Suggest Maven verification from its project manifest
+  - REQ-FUNC-614738d0 - Suggest Gradle verification from its build manifest
+  - REQ-FUNC-1bd6056c - Suggest dotnet verification from a solution or project
+  - REQ-FUNC-9ed60681 - Suggest Make verification from a test target
+  - REQ-REL-cbc3b8e1 - Ignore malformed JavaScript verification manifests
+  - REQ-FUNC-1ab66bb2 - Ignore the npm no-test placeholder
+  - REQ-SEC-95dddb65 - Ignore verification evidence outside the clone
+  - REQ-SEC-ecafbce6 - Ignore oversized verification evidence without reading it
+  - REQ-FUNC-4581cf7c - Suggest verification from one matching immediate subdirectory
+  - REQ-FUNC-08a75f14 - Withhold verification suggestions for ambiguous subdirectories
+  - REQ-FUNC-45ca2605 - Return no verification suggestion without a table match
+  - REQ-NFR-6badc5b8 - Keep verification suggestion discovery file-read-only
+  - REQ-FUNC-d50a408d - Return direct enrollment verification suggestion and source
+  - REQ-FUNC-2bf3e808 - Suppress enrollment suggestions for AEGIS repositories
+  - REQ-FUNC-357ae298 - Withhold enrollment suggestions for uninspected clones
+  - REQ-UX-92197baa - Prefill the optional enrollment verification command from repository evidence
+  - REQ-UX-dd21046e - Identify the file behind an enrollment verification suggestion
+  - REQ-UX-cca17b80 - Preserve human enrollment command edits and clearing
+  - REQ-FUNC-702b0fce - Complete offline enrollment candidate preview
+  - REQ-FUNC-a6e265cd - Persist the exact enrollment verification command
+  - REQ-FUNC-f753863b - Offer the repository verification suggestion as the init default
+  - REQ-UX-7f47b773 - Identify the file behind an init verification suggestion
+  - REQ-FUNC-65db4fd5 - Suppress init suggestions when AEGIS is present
+  - REQ-FUNC-b0f69285 - Save the human chosen init verification command
+  - REQ-FUNC-6c82ad42 - Fail assisted setup safely on invalid answers
+  - REQ-FUNC-5771eecc - Create assisted project configuration
+  - REQ-DATA-c1c4d1c3 - Keep saved verification settings authoritative over suggestions
+  - REQ-FUNC-51f29b04 - Save verification commands through reviewed configuration
+  - REQ-REL-60015e50 - Refuse malformed enrollment verification suggestion responses
+- deviations: 5 recorded
+  - specify: advisory check warnings retained at this stage - prospective verification_hint.py paths do not exist until build and unrelated historical stale-path/journal warnings are outside this pinned task; no format errors, no weakened final strict gate and no product implementation performed.
+  - design: advisory warnings retained - global check exit 0 reports errors=0 warnings=174 notes=28; task-scoped check and JSON check exit 0 report errors=0 warnings=53 notes=29. Prospective verification_hint.py is intentionally absent until build; other historical stale-path/ticket/journal findings are outside this pinned task. No format errors or weakened final strict validation; no product tests run. git diff --check exit 0.
+  - build: advisory secret-in-diff skips the oversized minified generated JS - accepted scanner limitation, not a clean secret-scan claim; changed authored code/copy contains no credentials, npm builds generate the bundle and matching committed/isolated fingerprints and bytes were verified. No checker bypass or limit relaxation. Existing npm dependency advisories, Starlette/httpx deprecation and Vite chunk-size warning remain out of task scope; dependency versions and build settings are unchanged. Separate validate must run its full suite and strict gate; build evidence does not replace it.
+  - build: retain generated-JS password-literal advisory as a copy false positive, without scanner bypass or configuration changes. No new candidate limitation; final independent round-2 reviews/full strict proof/report belong to the fresh validate session.
+  - validate: retain these scanner copy/history false positives and supporting-source advisories without bypasses or checker changes; no clean secret-scan claim. Unchanged upstream deprecation, dependency advisories and Vite chunk-size warning remain out of scope, with locks/build settings unchanged.
+- explicit review: enabled; spec_compliance=approved; implementation_quality=approved; review_round=2
+- diff vs task base 76bd110: 68 file(s) changed, 5863 line(s) added
+- checks: errors=0 warnings=47 notes=28
+- checklist: 8/9 done; open: `report` appended

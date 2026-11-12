@@ -81,8 +81,14 @@ unsupported entries never enable fallback. After confirmation/validation init
 uses the effective `workflow.aegis_python` (default `python`) for both probes;
 a missing interpreter is named with informational CHECK. The same two commands
 verify a present target payload by hand. Web enrollment accepts either workflow
-without installing or modifying AEGIS. `adore --profile <name> run --dry-run` shows ticket selection without
-side effects.
+without installing or modifying AEGIS. Direct CLI init and existing-clone web
+setup-preview share `suggest_verification_command`: bounded local-file discovery
+with source provenance, no command/network/probe or toolchain prerequisite.
+Uncreated enrollment destinations remain not-inspected with no suggestion; saved
+Settings never infer one. The selected command is editable/clearable and saved
+only after human confirmation. Offline proof is `test_verification_hint.py`,
+`test_wizard.py`, `test_web_enrollment.py` and enrollment/settings browser journeys.
+`adore --profile <name> run --dry-run` shows ticket selection without side effects.
 
 ## Build and run
 

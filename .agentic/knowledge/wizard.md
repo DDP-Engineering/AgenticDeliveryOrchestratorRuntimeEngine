@@ -24,7 +24,9 @@ version/status; gitignore/push checks run alongside them, before profile saving.
 Absent AEGIS prints `[INFO] No AEGIS found: tickets run in the direct workflow`
 with no AEGIS commands or installation guidance. Present not-ready AEGIS prints
 CHECK, diagnostic and optional-governance guidance; neither prevents a valid
-profile save. Web enrollment readiness remains separate.
+profile save. Web enrollment readiness remains separate. The shared verification
+hint reader belongs here for routing; its web presentation belongs to
+`web-interface.md`.
 
 `04_Software/adore/wizard.py` implements `adore init`: it turns explicit
 operator answers and environment guidance into a minimal, validated
@@ -96,7 +98,26 @@ CR/LF/NUL are refused. Confirmation and config validation precede publication;
 read failures raise `WizardError` on repo_path. A present AEGIS entrypoint,
 including a symlink, suppresses discovery. Focused proof: test_wizard.py.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Ordered manifest hints, containment, file limits and child selection | `adore/verification_hint.py`, `suggest_verification_command` | `tests/test_verification_hint.py` |
+| Init defaults/provenance and exact keep/edit/none choices | `wizard.py`, `run_wizard`, `ConsoleAsker`, `_toml_string` | `tests/test_wizard.py` |
+| Candidate validation and profile publication | `wizard.py`, `ask`, `_validate_or_raise`, `run_wizard` | `tests/test_wizard.py`, `tests/test_web_enrollment.py` |
+| Transient web hint and canonical reviewed enrollment | `web/app.py`, `EnrollmentWizard.tsx`; see `web-interface.md` | `tests/test_web_enrollment.py`, `web/e2e/enrollment.spec.ts` |
+
 ## Key behaviors
+
+- REQ-NFR-6badc5b8 / REQ-SEC-95dddb65 / REQ-SEC-ecafbce6: shared discovery is
+  file-read-only, clone-contained and bounded to 1 MiB evidence; root/table order
+  and unique safe-named immediate-child fallback determine command/source.
+- REQ-REL-cbc3b8e1: malformed package structure and decoder-limit failures are
+  misses, with later rows still eligible; other file/encoding errors propagate.
+- REQ-FUNC-f753863b / REQ-UX-7f47b773 / REQ-FUNC-65db4fd5 /
+  REQ-FUNC-b0f69285: direct init offers the shared default and source, keeps human
+  keep/edit/none authority and saves only confirmed validated text; present AEGIS
+  suppresses discovery.
 
 - REQ-FUNC-6e20aea3: missing payload is direct-workflow information; a present
   incompatible payload stays CHECK rather than a silent fallback.
