@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-da65acf8"
+title = "Explain repository-owned AEGIS verification during enrollment"
+status = "draft"
+requirement = "While enrollment has inspected the repository and identified AEGIS, the administrator interface shall replace the Verification command input with the localized note Uses the repository's AEGIS test commands."
+verification = "Offline browser tests enroll from an existing aegis.py-only clone and assert the note replaces the input in all four locales; an inspected Direct clone and an uncreated clone retain the optional command field rather than an unsupported AEGIS claim."
+affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/i18n.ts"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-46a2d301"
+title = "Explain both workflows and verification commands in localized help"
+status = "draft"
+requirement = "When users read the Projects, Settings, Glossary or Tickets in-app help in English, French, German or Romanian, the help shall describe enrollment with or without AEGIS and the optional single-line Verification command in enrollment and Implementation settings, including direct workflow and verification command glossary terms, without describing AEGIS installation as an enrollment or ticket-pickup prerequisite or advertising command suggestions."
+verification = "Offline help contract tests parse the four topics in all locales with matching structure and links, and browser help cases observe both workflows and command guidance; scoped text assertions reject installation-required copy and suggestion claims while retaining descriptions of the AEGIS workflow's live compatibility probe."
+affected_paths = ["04_Software/web/src/help/content/en/", "04_Software/web/src/help/content/fr/", "04_Software/web/src/help/content/de/", "04_Software/web/src/help/content/ro/"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

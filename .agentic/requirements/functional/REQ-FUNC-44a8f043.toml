@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-44a8f043"
+title = "Refuse nontext enrollment verification commands"
+status = "draft"
+requirement = "If an enrollment request explicitly supplies a verification command that is not a string, the web API shall reject the request with 422 invalid_request identifying the field rather than coercing the value or treating it as omitted."
+verification = "Offline authenticated enrollment API tests submit null, booleans, integers, arrays and objects to preview/check/create and assert 422 invalid_request with field identification and no published project; omitted and empty-string values remain accepted controls."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

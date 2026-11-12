@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-b222db6a"
+title = "Reject malformed web workflow probe results"
+status = "draft"
+requirement = "If an explicit web prerequisite probe returns missing, unknown or wrongly typed workflow information, ADORE shall return 503 readiness_probe_failed without publishing readiness evidence or silently selecting a workflow."
+verification = "Offline enrollment and project-readiness API tests inject missing workflow data, unknown values and wrong types, assert 503 readiness_probe_failed and unchanged saved evidence, and compare with accepted AEGIS, Direct and legitimately uninspected pending-clone results."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12
