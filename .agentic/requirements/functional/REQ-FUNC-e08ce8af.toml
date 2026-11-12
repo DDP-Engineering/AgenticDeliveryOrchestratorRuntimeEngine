@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-e08ce8af"
 title = "Explain optional AEGIS in setup remediation"
-status = "draft"
+status = "active"
 requirement = "When providing AEGIS setup remediation, doctor shall describe the supported installed-payload contract without saying that every target repository must carry or install AEGIS."
 verification = "Offline guidance tests request AEGIS remediation for Windows and Linux and observe the client-declared supported range and schema guidance without mandatory installation wording; unsupported present-payload diagnostics still explain the compatibility failure."
 affected_paths = ["04_Software/adore/doctor.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_guidance_names_hard_break", "04_Software/tests/test_doctor.py::test_aegis_probe_preserves_version_diagnostic"]
 spec = ""
 priority = "normal"
 rationale = "Setup guidance must not turn optional governance into a prerequisite."

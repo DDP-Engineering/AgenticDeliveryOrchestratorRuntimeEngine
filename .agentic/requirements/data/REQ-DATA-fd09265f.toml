@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-DATA-fd09265f"
 title = "Serialize workflow in run metrics"
-status = "draft"
+status = "active"
 requirement = "When metrics serializes a run summary, it shall carry the run's recorded workflow as aegis or direct in the current summary representation."
 verification = "Summarize terminal runs of both workflows, record and reload SQLite/JSONL summaries and inspect exported representations for the matching workflow; corrupt run workflow is refused at state input and a summary table lacking the current workflow column is refused under the existing delete-to-start-fresh rule rather than upgraded."
 affected_paths = ["04_Software/adore/metrics.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_metrics.py::test_summary_serializes_recorded_workflow", "04_Software/tests/test_metrics.py::test_summary_unknown_workflow_is_refused", "04_Software/tests/test_metrics.py::test_summary_missing_workflow_column_is_refused", "04_Software/tests/test_metrics.py::test_metrics_database_of_another_build_is_refused_untouched"]
 spec = ""
 priority = "normal"
 rationale = "Consumers must be able to distinguish direct from AEGIS without inferring from task ids."

@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-DATA-5987cbe2"
 title = "Refuse unknown run workflows"
-status = "draft"
+status = "active"
 requirement = "If persisted workflow is not the string aegis or direct, StateStore.load shall raise StateError naming the run directory to delete without rewriting it."
 verification = "Round-trip both valid strings, then load state with an unknown string, empty string, null, boolean, number, list and object workflow; assert typed refusal with the run directory and unchanged state bytes."
 affected_paths = ["04_Software/adore/state.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_state.py::test_workflow_round_trip", "04_Software/tests/test_state.py::test_corrupt_workflow_refuses_without_repair"]
 spec = ""
 priority = "high"
 rationale = "Unknown workflow input must never dispatch execution."

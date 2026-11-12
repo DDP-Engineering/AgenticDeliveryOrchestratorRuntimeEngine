@@ -77,6 +77,56 @@ def _get(client, query=""):
 
 
 # PUBLIC CONTRACT TESTS
+@pytest.mark.parametrize("workflow", ["aegis", "direct"])
+@pytest.mark.parametrize("role", ["admin", "developer"])
+def test_authorized_jobs_serialize_workflow(tmp_path, workflow, role):
+    """@brief List and detail expose recorded workflow only after project authorization."""
+    _, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", workflow=workflow)
+    if role == "developer":
+        dev = app.state.web_store.create_user("dev", "longer-password", "developer")
+        app.state.web_store.set_memberships(dev["id"], ["alpha"])
+        _state(stores[1], "same", workflow="corrupt-unauthorized")
+    with TestClient(app) as client:
+        if role == "admin":
+            _login(client)
+        else:
+            _login(client, "dev", "longer-password")
+        page = _get(client, f"?project_id={items[0].project_id}")
+        row = next(job for job in page["items"] if job["run_id"] == "same")
+        assert row.get("workflow") == workflow
+        detail = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert detail.status_code == 200
+        assert detail.json()["job"]["workflow"] == workflow
+        if role == "developer":
+            assert client.get(f"/api/v1/jobs/{items[1].project_id}/same").status_code == 404
+
+
+@pytest.mark.parametrize("corruption", ["missing", "unknown", "type", "task"])
+def test_jobs_refuse_corrupt_workflow_without_repair(tmp_path, corruption):
+    """@brief Invalid workflow/task bindings yield typed reads, never guessed workflow."""
+    _, items, stores, app = _fixture(tmp_path)
+    path = stores[0].run_dir("same") / "state.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if corruption == "missing":
+        del data["workflow"]
+    elif corruption == "unknown":
+        data["workflow"] = "unsupported"
+    elif corruption == "type":
+        data["workflow"] = []
+    else:
+        data.update(workflow="direct", task_ids=["TASK-aaaaaaaa"])
+    path.write_text(json.dumps(data), encoding="utf-8")
+    before = path.read_bytes()
+    with TestClient(app, raise_server_exceptions=False) as client:
+        _login(client)
+        for endpoint in ("/api/v1/jobs-page", f"/api/v1/jobs/{items[0].project_id}/same"):
+            response = client.get(endpoint)
+            assert response.status_code == 503, response.text
+            assert response.json() == {"detail": {"code": "run_state_corrupt"}}
+    assert path.read_bytes() == before
+
+
 def test_job_list_has_no_advanced_filters_and_detail_keeps_safe_timeline(tmp_path):
     """@brief Removed advanced filter parameters are ignored; detail keeps safe event evidence."""
     _, items, stores, app = _fixture(tmp_path)

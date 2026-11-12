@@ -12,6 +12,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Explain the direct workflow in CLI setup when the target repository has no AEGIS payload.
+
 ### Fixed
 
 - Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
@@ -59,6 +63,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 - A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
 
 ### Changed
+
+- Delete the run-state directories under each configured `store_root/runs/` before starting this build.
 
 - Store agent prompts as shipped Markdown files in `adore/prompts/`, preserving the text sent to Pi.
 

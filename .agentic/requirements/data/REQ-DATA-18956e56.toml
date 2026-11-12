@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-DATA-18956e56"
 title = "Refuse AEGIS task bindings on direct runs"
-status = "draft"
+status = "active"
 requirement = "If persisted direct run state has a non-null active_task_id or nonempty task_ids, StateStore.load shall raise StateError naming the run directory to delete without rewriting it."
 verification = "Round-trip direct state with active_task_id null and task_ids empty, then independently inject a valid historical task, an active task and both bindings; assert StateError and unchanged state, while valid aegis task histories still round-trip."
 affected_paths = ["04_Software/adore/state.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_state.py::test_workflow_round_trip", "04_Software/tests/test_state.py::test_direct_task_binding_refuses_without_repair", "04_Software/tests/test_state.py::test_active_and_historical_aegis_tasks_round_trip"]
 spec = ""
 priority = "high"
 rationale = "Direct execution does not own an AEGIS task."

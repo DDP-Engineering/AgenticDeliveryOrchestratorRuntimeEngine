@@ -7,7 +7,7 @@ schema = 1
 
 id = "REQ-FUNC-9b2bb293"
 title = "Keep init AEGIS readiness informational"
-status = "draft"
+status = "active"
 
 requirement = """
 If a present .agentic/aegis.py payload fails its readiness probe during otherwise valid confirmed adore init setup, the wizard shall report CHECK with the available diagnostic and AEGIS guidance without preventing profile creation.
@@ -16,7 +16,7 @@ If a present .agentic/aegis.py payload fails its readiness probe during otherwis
 verification = "Offline wizard tests drive otherwise valid confirmed setup with a present payload and inject interpreter exit 127 or unsupported payload responses; assert CHECK, the actual diagnostic, AEGIS guidance and a saved validated profile, while a supported payload remains ready rather than CHECK."
 
 affected_paths = ["04_Software/adore/wizard.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_wizard.py::test_wizard_probes_with_effective_interpreter", "04_Software/tests/test_wizard.py::test_wizard_reports_unsupported_present_payload_without_direct_fallback"]
 spec = ""
 priority = "normal"
 

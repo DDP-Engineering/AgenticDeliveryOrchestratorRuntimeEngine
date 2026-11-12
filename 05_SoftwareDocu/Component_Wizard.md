@@ -148,8 +148,11 @@ commands + `--profile` resolution.
   probes the named clone with `doctor.detect_aegis`, passing the validated
   `config.workflow.aegis_python` (default `"python"`) for both version and
   status commands. AEGIS, target gitignore and host push-access reports run
-  together at this point. Missing/unusable AEGIS prints CHECK, its diagnostic
-  and guidance but never blocks an otherwise valid profile from being saved.
+  together at this point. Absent AEGIS prints
+  `[INFO] No AEGIS found: tickets run in the direct workflow`, without AEGIS
+  commands or installation guidance. A present unusable payload still prints
+  CHECK, its diagnostic and supported-contract guidance. Neither case blocks
+  an otherwise valid profile from being saved; the web readiness gate is unchanged.
   Prepare-only returns before these probes; no interpreter prompt is added.
 - **Fail-loud recovery and approval:** the wizard asks for the approval label,
   stage-attempt limit, transient-attempt limit and capped backoff list, then

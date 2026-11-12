@@ -497,20 +497,25 @@ def test_wizard_writes_custom_workflow_labels(tmp_path: Path) -> None:
 
 def test_wizard_reports_a_missing_aegis_payload(tmp_path: Path) -> None:
     """
-    @brief   The wizard probes the target clone for an AEGIS payload and
-             prints setup guidance when it is absent - informational, so
-             the wizard still completes.
+    @brief Missing AEGIS is direct-workflow information, not a setup defect.
     """
     clone = _clone(tmp_path)
     store = ProfileStore(tmp_path / "home")
     lines: list[str] = []
+    base_runner = _runner()
+
+    def probe(argv, **kwargs):
+        """@brief Missing payloads cannot trigger even a failed AEGIS command."""
+        assert ".agentic/aegis.py" not in argv
+        return base_runner(argv, **kwargs)
+
     run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lines.append,
-               runner=_runner(), os_key="linux", name="p")
+               runner=probe, os_key="linux", name="p")
     printed = "\n".join(lines)
-    assert "[CHECK] AEGIS payload" in printed
-    assert ".agentic/aegis.py is missing" in printed
-    assert "AEGIS" in printed and "JSON schema 1" in printed
+    assert "  [INFO] No AEGIS found: tickets run in the direct workflow" in lines
+    assert "[CHECK] AEGIS payload" not in printed and "JSON schema 1" not in printed
     assert store.config_path("p").is_file()  # never blocks
+    assert validate_config(load_config(store.config_path("p"))) == []
 
 
 @pytest.mark.parametrize("interpreter", ["python", "python3"])
@@ -574,6 +579,33 @@ def test_wizard_probes_with_effective_interpreter(
         assert f"{interpreter} is not available to run the AEGIS companion CLI" in printed
         assert "JSON schema 1" in printed
     assert calls == expected
+
+
+def test_wizard_reports_unsupported_present_payload_without_direct_fallback(tmp_path: Path) -> None:
+    """@brief A broken installed contract is CHECK, not absence or a profile-save block."""
+    clone = _clone(tmp_path)
+    wrapper = clone / ".agentic" / "aegis.py"
+    wrapper.parent.mkdir()
+    wrapper.write_text("# fake companion\n", encoding="utf-8")
+    base_runner = _runner()
+    calls = []
+
+    def probe(argv, **kwargs):
+        """@brief An unsupported version must stop probing before status."""
+        if ".agentic/aegis.py" in argv:
+            calls.append(list(argv))
+            return CommandResult(stdout="aegis 1.0.0")
+        return base_runner(argv, **kwargs)
+
+    store = _store(tmp_path)
+    lines = []
+    run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lines.append,
+               runner=probe, os_key="linux", name="unsupported")
+    assert calls == [["python", ".agentic/aegis.py", "--version"]]
+    assert "  [CHECK] AEGIS payload" in lines
+    assert any("aegis 1.0.0" in line for line in lines)
+    assert not any("No AEGIS found" in line for line in lines)
+    assert validate_config(load_config(store.config_path("unsupported"))) == []
 
 
 # END OF FILE

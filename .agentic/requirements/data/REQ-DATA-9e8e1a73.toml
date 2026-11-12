@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-DATA-9e8e1a73"
 title = "Refuse AEGIS stages on direct runs"
-status = "draft"
+status = "active"
 requirement = "If persisted direct run state names frame, specify or design as its stage, StateStore.load shall raise StateError naming the run directory to delete without rewriting it."
 verification = "Round-trip direct build, validate and done records, then inject each AEGIS-only stage and observe StateError with deletion guidance and unchanged bytes; ordinary aegis stage round trips remain valid."
-affected_paths = ["04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
-linked_tests = []
+affected_paths = ["04_Software/adore/state.py"]
+linked_tests = ["04_Software/tests/test_state.py::test_workflow_round_trip", "04_Software/tests/test_state.py::test_direct_aegis_stage_refuses_without_repair"]
 spec = ""
 priority = "normal"
 rationale = "Direct conduction uses build, validate and done rather than AEGIS framing stages."

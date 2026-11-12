@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-DATA-18b26c84"
 title = "Serialize workflow in authorized job reads"
-status = "draft"
+status = "active"
 requirement = "When the authorized web job read model serializes valid run state, it shall expose the recorded workflow as aegis or direct."
 verification = "Offline job list/detail reads for both workflows assert the exact workflow value without changing UI behavior; inject missing/unknown workflow and a direct task binding to observe the existing corrupt-state read refusal rather than guessed workflow, and retain cross-project authorization refusal."
 affected_paths = ["04_Software/adore/web/jobs.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_jobs.py::test_authorized_jobs_serialize_workflow", "04_Software/tests/test_web_jobs.py::test_jobs_refuse_corrupt_workflow_without_repair", "04_Software/tests/test_web_jobs.py::test_developer_scope_precedes_reads_counts_search_and_details"]
 spec = ""
 priority = "normal"
 rationale = "This adds API serialization only, not direct web enrollment or Jobs presentation."

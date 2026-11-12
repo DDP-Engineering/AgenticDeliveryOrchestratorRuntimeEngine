@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-6e20aea3"
 title = "Report absent AEGIS as direct workflow information"
-status = "draft"
+status = "active"
 requirement = "When doctor or otherwise valid confirmed adore init setup finds no .agentic/aegis.py, it shall report 'No AEGIS found: tickets run in the direct workflow' as information without probing AEGIS or blocking init profile creation."
 verification = "Offline doctor and wizard tests use a valid clone without the payload, capture the exact informational message, zero AEGIS command calls and saved validated init profile; a present incompatible payload retains its not-ready diagnostic rather than being announced as absent/direct."
 affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/wizard.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_reports_a_missing_payload", "04_Software/tests/test_doctor.py::test_present_unusable_payload_is_not_announced_as_direct", "04_Software/tests/test_wizard.py::test_wizard_reports_a_missing_aegis_payload", "04_Software/tests/test_wizard.py::test_wizard_reports_unsupported_present_payload_without_direct_fallback"]
 spec = ""
 priority = "normal"
 rationale = "AEGIS is optional for configuration/CLI admission, while present payloads still require support."

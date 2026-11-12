@@ -18,7 +18,7 @@ title = "Detect runtime environment readiness"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
-status = "draft"
+status = "active"
 
 # Self-contained prose: a reader with no other context must be able to
 # understand and check it. No ticket numbers, no run IDs, no references
@@ -56,7 +56,7 @@ affected_paths = ["04_Software/adore/doctor.py", "04_Software/adore/aegis.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = []
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_accepts_a_valid_015_schema_1_payload", "04_Software/tests/test_doctor.py::test_aegis_probe_preserves_version_diagnostic", "04_Software/tests/test_doctor.py::test_aegis_probe_preserves_malformed_status_diagnostic", "04_Software/tests/test_doctor.py::test_aegis_probe_rejects_wrong_schema_or_version", "04_Software/tests/test_doctor.py::test_aegis_doctor_shares_one_gate_with_the_client", "04_Software/tests/test_doctor.py::test_present_unusable_payload_is_not_announced_as_direct"]
 
 # --- optional below this line ---
 

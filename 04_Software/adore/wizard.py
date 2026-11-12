@@ -778,11 +778,10 @@ def _report_aegis(
 ) -> None:
     """
     @brief      Report whether the target clone carries usable AEGIS.
-    @details    Informational like the rest of the environment check: the
-                wizard never blocks, so an operator can install the payload in
-                another terminal and continue. What it must NOT do is imply a
-                repository is ready when it is not - a wrong schema or a
-                blocked `config validate` is printed with the AEGIS detail.
+    @details    An absent payload is direct-workflow information. Present but
+                unusable AEGIS prints CHECK with its diagnostic and supported
+                contract, without preventing a valid profile from being saved.
+                The report never installs a payload or changes web readiness.
     @param[in]  out Output sink.
     @param[in]  runner Command runner for the probe.
     @param[in]  repo_path Local clone to probe.
@@ -790,12 +789,15 @@ def _report_aegis(
     @param[in]  aegis_python Interpreter from the validated candidate configuration.
     """
     status = doctor.detect_aegis(repo_path, runner, aegis_python=aegis_python)
-    out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS payload"
-        + (f" (schema {status.schema_version})" if status.ok else ""))
-    if not status.ok:
-        if status.detail:
-            out(f"        {status.detail}")
-        out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
+    if not status.wrapper_present:
+        out(f"  [INFO] {status.detail}")
+    else:
+        out(f"  [{'OK' if status.ok else 'CHECK'}] AEGIS payload"
+            + (f" (schema {status.schema_version})" if status.ok else ""))
+        if not status.ok:
+            if status.detail:
+                out(f"        {status.detail}")
+            out("        " + doctor.guidance_for(doctor.AEGIS, os_key))
     # Host git push access is probed here because this is where the clone path
     # is known. It is the one prerequisite that otherwise fails at the very end
     # of a run, discarding a human approval (see doctor.detect_push_access).

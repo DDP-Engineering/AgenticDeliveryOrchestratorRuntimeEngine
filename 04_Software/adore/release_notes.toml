@@ -16,6 +16,11 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "new"
+topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
+text = { en = "Setup identifies repositories without AEGIS and explains the direct workflow.", fr = "La configuration repère les dépôts sans AEGIS et explique le flux direct.", de = "Die Einrichtung erkennt Repositorys ohne AEGIS und erklärt den direkten Ablauf.", ro = "Configurarea identifică depozitele fără AEGIS și explică fluxul direct." }
+
+[[release.entry]]
 category = "improved"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
 text = { en = "Save all edits in wider rows with effect confirmation; optional reviewers and five stage limits.", fr = "Un Enregistrer, effets confirmés, lignes larges, relecteurs facultatifs et cinq limites.", de = "Ein Speichern, bestätigte Folgen, breite Zeilen, optionale Reviewer und fünf Phasenlimits.", ro = "Un Salvează, efecte confirmate, rânduri largi, revieweri opționali și cinci limite de etapă." }
@@ -79,17 +84,12 @@ text = { en = "Prepare project images and let agents install system packages ins
 [[release.entry]]
 category = "new"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "Save provider, model and reasoning effort together. Use an API key or ChatGPT sign-in.", fr = "Enregistrez fournisseur, modèle et raisonnement ensemble. Clé API ou connexion ChatGPT.", de = "Anbieter, Modell und Denkaufwand gemeinsam speichern. API-Schlüssel oder ChatGPT-Anmeldung.", ro = "Salvați împreună furnizorul, modelul și efortul de raționament. Cheie API sau cont ChatGPT." }
+text = { en = "Choose provider, model, reasoning and internet access; use an API key or ChatGPT sign-in.", fr = "Choisissez fournisseur, modèle, raisonnement et accès Internet ; clé API ou connexion ChatGPT.", de = "Anbieter, Modell, Denkaufwand und Internetzugang wählen; API-Schlüssel oder ChatGPT-Anmeldung.", ro = "Alegeți furnizorul, modelul, raționamentul și accesul la internet; cheie API sau cont ChatGPT." }
 
 [[release.entry]]
 category = "new"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
 text = { en = "Merge requests open as drafts or ready for review; ADORE watches and repairs failed pipelines.", fr = "Les demandes de fusion s'ouvrent en brouillon ou prêtes ; ADORE surveille et répare le pipeline.", de = "Merge-Requests öffnen als Entwurf oder prüfbereit; ADORE überwacht und repariert Pipelines.", ro = "Cererile de îmbinare se deschid ca schiță sau gata de revizie; ADORE repară pipeline-urile." }
-
-[[release.entry]]
-category = "new"
-topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "The agent reaches only its AI provider; turn on internet access for web search and downloads.", fr = "L'agent n'atteint que son fournisseur IA ; l'accès Internet ouvre recherche web et téléchargements.", de = "Der Agent erreicht nur seinen KI-Anbieter; Internetzugang erlaubt Websuche und Downloads.", ro = "Agentul ajunge doar la furnizorul AI; accesul la internet permite căutare web și descărcări." }
 
 [[release.entry]]
 category = "new"
