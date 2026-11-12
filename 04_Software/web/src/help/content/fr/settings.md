@@ -18,7 +18,7 @@ Chaque groupe est fermé à l’ouverture des Paramètres, et le nombre à côt�
 |---|---|
 | Dépôt | Forge et dépôt, connexion Gitea, **Branche cible** (base des nouvelles tâches et destination des PR/MR), le modèle de nom de branche des tâches avec une règle de nommage facultative et un exemple en direct, ainsi que le nom affiché de l’agent, son nom de ressource et l’adresse e-mail de l’auteur des commits. |
 | Tickets | **Étiquette de disponibilité pour la prise en charge**, **Étiquette d’exclusion de la prise en charge**, les **Étiquettes de statut** repliées, la fréquence à laquelle ADORE interroge la forge, la nécessité ou non de critères d’acceptation ou d’une étiquette de priorité, et le type de tâche par défaut. Voir [Tickets et prise en charge automatique](/help/tickets#labels). |
-| Implémentation | Limites par tâche : **Limite de tâches actives**, **Nombre maximal de lancements de l’exécuteur par tâche**, **Limite de temps de travail actif (secondes)**, **Plafond de coût de la tâche (USD)**, **Nombre maximal de fichiers modifiés par tâche** et **Limite de temps par tentative d’étape (secondes)**. Il contient aussi **Clarifications**, **Reprise après erreur**, **Limites de temps avancées par étape**, **Publier les commits de progression** et l’étiquette du chemin rapide. |
+| Implémentation | Limites par tâche : **Limite de tâches actives**, **Nombre maximal de lancements de l’exécuteur par tâche**, **Limite de temps de travail actif (secondes)**, **Plafond de coût de la tâche (USD)**, **Nombre maximal de fichiers modifiés par tâche** et **Limite de temps par tentative d’étape (secondes)**. Il contient aussi **Commande de vérification**, **Clarifications**, **Reprise après erreur**, **Limites de temps avancées par étape**, **Publier les commits de progression** et l’étiquette du chemin rapide. |
 | PR/MR et revue | **Demander une revue à**, **État de la PR/MR à la publication** (Brouillon ou Prête pour revue), l’étiquette d’approbation, **Supprimer la branche après la fusion humaine**, les tours de révision et **Action en cas d’échec des vérifications CI de la PR/MR** (Réparation automatique, Notifier uniquement ou Ignorer). |
 | Statistiques | **Enregistrer les mesures des tâches terminées** et **Enregistrer les jetons déclarés par l’agent**. **Fichier de la base de statistiques** est affiché à titre d’information seulement. |
 | Agent et modèle | Fournisseur, modèle, authentification et **Tester la connexion IA** [Exécuteurs et modèles](/help/executors). |
@@ -47,6 +47,14 @@ Règles applicables :
 - Les budgets s’appliquent avant la prochaine tentative ou reprise, en conservant consommation et progression. Voir [Budgets du travail](#budgets).
 
 La navigation et le rechargement de la page demandent confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
+
+## Commande de vérification {#verification-command}
+
+Dans **Implémentation**, **Commande de vérification** est un texte shell facultatif sur une seule ligne, enregistré comme `[workflow] verify_command`. Les administrateurs utilisent les mêmes actions **Modifier** et **Enregistrer** que pour les autres paramètres ; les développeurs peuvent le lire, pas le modifier. Il est aussi disponible à l’inscription ; voir [Workflows du dépôt](/help/projects#workflows).
+
+Pour le workflow direct, ADORE l’exécute indépendamment depuis la racine de l’arbre de travail de la tâche, dans l’environnement choisi et sous la limite de validation. Conservez les espaces, guillemets et opérateurs shell nécessaires. Une valeur vide laisse le candidat explicitement non vérifié. Les sauts de ligne et NUL sont refusés avec un message près du champ et empêchent l’enregistrement ; corrigez le texte au lieu d’attendre sa conversion en une ligne. L’interface web n’exécute jamais la commande à l’inscription ou à l’enregistrement.
+
+Les tâches AEGIS ignorent ce paramètre et utilisent les commandes de test AEGIS du dépôt. Le champ reste visible dans Paramètres pour les deux workflows. Aucune commande n’est proposée ou choisie automatiquement.
 
 ## TOML d’origine {#toml}
 

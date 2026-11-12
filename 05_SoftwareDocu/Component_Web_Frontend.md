@@ -17,7 +17,13 @@ An inspected AEGIS enrollment replaces the control with the repository-owned tes
 commands note, preserving any saved draft text. Workflow observations are shown
 separately from prerequisite results; no mode selector, suggestion or Jobs display
 change is added. Offline unit/render and enrollment/settings browser tests cover
-these controls.
+these controls. Settings journeys bind the isolated profile to actual Direct and
+Python-entrypoint-only AEGIS clones, cover all four locales and both roles, and
+verify multiline clipboard refusal, exact Unicode/space preservation, empty
+reviewed batch saves and narrow light/dark layouts. Projects, Settings, Glossary
+and Tickets help explains only delivered workflow/command behavior in all four
+locales; helper and browser contracts check structure, terms, navigation and
+live-probe authority. The committed production bundle is rebuilt with these inputs.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 
@@ -336,7 +342,10 @@ It presents five ordered steps, starting at repository/identity, with shared vis
 associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
 review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
 The verification step uses the draft's execution mode for the introduction and
-check labels. For server execution, the Pi row uses the validated local probe
+check labels, with a separate neutral Workflow observation and optional Verification
+command textarea (or the repository-owned AEGIS test-command note after inspection).
+The command starts empty, is never suggested or executed by the browser and is
+included in exact review hashing; changed text invalidates earlier evidence. For server execution, the Pi row uses the validated local probe
 reason for its remediation text.
 Step 1 reads a repository URL by default: **Read repository** calls
 `/api/v1/projects/repository-source` and fills forge, repository, Gitea login,

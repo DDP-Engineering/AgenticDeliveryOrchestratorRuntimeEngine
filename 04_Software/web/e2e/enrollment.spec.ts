@@ -182,6 +182,23 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
         for (let i=0;i<2;i++) await page.getByRole("button",{name:c.continue,exact:true}).click();
         const command = page.getByRole("textbox", {name:text.verificationCommand,exact:true});
         await expect(command).toHaveValue("");
+        if (workflow === "direct") {
+          let previews = 0;
+          page.on("request", request => { if (request.url().endsWith("/setup-preview")) previews++; });
+          await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+          await page.evaluate(() => navigator.clipboard.writeText("npm test\nsecond command"));
+          await command.focus(); await page.keyboard.press("ControlOrMeta+V");
+          await page.getByRole("button", { name: c.validate, exact: true }).click();
+          await expect(command).toHaveValue("npm test\nsecond command");
+          await expect(page.getByRole("alert")).toContainText(text.verificationCommandInvalid);
+          await expect(page.getByRole("button", { name: c.continue, exact: true })).toBeDisabled();
+          expect(previews).toBe(0);
+          const exact = "  echo 'é 🧪' && npm test  ";
+          await page.evaluate(value => navigator.clipboard.writeText(value), exact);
+          await command.fill(""); await command.focus(); await page.keyboard.press("ControlOrMeta+V");
+          await expect(command).toHaveValue(exact);
+          await command.fill("");
+        }
         await page.getByRole("button", {name:c.validate,exact:true}).click();
         await expect(page.getByText(c.valid,{exact:true})).toBeVisible();
         const information = page.locator(".workflow-information");
@@ -200,6 +217,8 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
           await page.getByRole("checkbox",{name:/Create the ADORE labels/}).uncheck();
           await page.getByRole("button",{name:c.create,exact:true}).click();
           await expect(page.getByRole("heading",{name:c.completion,exact:true})).toBeVisible();
+          const saved = await (await page.request.get(`/api/v1/projects/${name}/config`)).json();
+          expect(saved.config.workflow.verify_command).toBe("");
         }
       } finally {
         await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:"en"}});

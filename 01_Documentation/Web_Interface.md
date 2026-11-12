@@ -13,6 +13,24 @@ the CLI. ADORE conducts the repository's AEGIS workflow when present, or a bound
 direct workflow otherwise; PR/MR creation requires human approval, and a person
 decides whether to merge.
 
+Enrollment accepts repositories with or without `.agentic/aegis.py`; it never adds
+files to the clone or requires `.agentic/aegis.toml`. **Workflow** is neutral file
+information, not a readiness gate or an AEGIS version claim. A missing local clone
+stays not inspected until an explicit check can read it. The live pre-pick probe
+remains authoritative for a present AEGIS payload.
+
+During enrollment's Verification step, **Verification command** is optional and
+initially empty. It saves exact single-line shell text as `[workflow] verify_command`
+for Direct runs. An inspected AEGIS repository shows **Uses the repository's AEGIS
+test commands** instead. Settings → Implementation keeps the same field visible for
+both workflows, with reviewed Admin edits and Dev read-only access. Pasted line
+breaks or NUL produce field feedback and cannot be submitted; they are not stripped.
+An empty command leaves Direct candidates explicitly unverified. Enrollment and
+settings saves never execute it; actual independent verification uses the worktree
+root and selected run environment under the validation time limit. No suggestion
+is prefilled. In-app Projects, Settings, Glossary and Tickets help describes these
+boundaries in all four locales.
+
 ## Quick start
 
 1. **Install from source.** From the repository root, use Python 3.11 or newer
@@ -617,8 +635,9 @@ Stop the launcher with Ctrl-C for a graceful shutdown of both children.
 The target needs the matching Python with `venv` and `ensurepip` (on Ubuntu,
 install `python3-venv` from local installation media first, or supply a Python
 distribution that includes it), a suitable
-Docker/Podman/WSL runtime, a host forge CLI, repository-local AEGIS,
-credentials, and prepared project images. The generic web bundle does not
+Docker/Podman/WSL runtime, a host forge CLI,
+credentials, and prepared project images. Repository-local AEGIS is optional;
+repositories without its Python entrypoint use the direct workflow. The generic web bundle does not
 contain arbitrary project toolchains or model weights. Supply those separately
 or preinstall them offline; missing prerequisites are operator setup errors.
 The executor CLI belongs inside the selected project image, not on the API
@@ -758,8 +777,9 @@ Select a project's Details action to see its status and recent jobs, then open t
 project's Jobs or Statistics view. Administrators can also jump to Settings and
 membership management from the project details.
 Administrators can use **Check now** on project details to test the API host's
-Git, forge CLI/sign-in, Pi inside the project image, AEGIS file
-presence and direct Docker/Podman runtime. The result names the
+Git, forge CLI/sign-in, Pi inside the project image and direct Docker/Podman
+runtime. A separate informational **Workflow** row reports `.agentic/aegis.py`
+presence without affecting the prerequisite verdict. The result names the
 executor-container context and a redacted failure reason. The check requires
 the image to be present locally and does not execute AEGIS; model access is
 proven only by **Test AI connection**.

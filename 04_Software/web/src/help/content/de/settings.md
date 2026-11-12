@@ -18,7 +18,7 @@ Jede Gruppe ist beim Öffnen der Einstellungen eingeklappt, und die Zahl neben i
 |---|---|
 | Repository | Forge und Repository, Gitea-Login, **Zielbranch** (Basis neuer Aufträge und Ziel der PR/MRs), die Vorlage für den Namen des Auftrags-Branches mit optionaler Namensregel und einem Live-Beispiel sowie Anzeigename, Ressourcenname und Commit-Autor-E-Mail des Agenten. |
 | Tickets | **Label für aufnahmebereite Tickets**, **Label zum Ausschluss von der Aufnahme**, die eingeklappten **Statuslabels**, wie oft ADORE die Forge prüft, ob Tickets Akzeptanzkriterien oder ein Prioritätslabel brauchen, und den Standard-Aufgabentyp. Siehe [Tickets für die automatische Aufnahme](/help/tickets#labels). |
-| Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
+| Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Prüfbefehl**, **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
 | PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |
 | Statistik | **Messwerte abgeschlossener Aufträge erfassen** und **Vom Agenten gemeldete Token erfassen**. **Statistik-Datenbankdatei** wird nur zur Information angezeigt. |
 | Agent und Modell | Anbieter, Modell, Authentifizierung und **KI-Verbindung testen** [Executor und Modelle](/help/executors). |
@@ -47,6 +47,14 @@ Es gelten folgende Regeln:
 - Budgets gelten vor dem nächsten Versuch oder Fortsetzen bei erhaltenem Verbrauch und Fortschritt. Siehe [Jobbudgets](#budgets).
 
 Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
+
+## Prüfbefehl {#verification-command}
+
+Unter **Implementierung** ist **Prüfbefehl** optionaler einzeiliger Shell-Text, gespeichert als `[workflow] verify_command`. Administratoren nutzen dieselben Aktionen **Bearbeiten** und **Speichern** wie für andere Einstellungen; Entwickler dürfen ihn lesen, nicht bearbeiten. Er ist auch bei der Registrierung verfügbar; siehe [Repository-Workflows](/help/projects#workflows).
+
+Im direkten Workflow führt ADORE ihn unabhängig im Worktree-Stamm des Auftrags in der gewählten Umgebung unter dem Validierungszeitlimit aus. Behalten Sie benötigte Leerzeichen, Anführungszeichen und Shell-Operatoren exakt bei. Ein leerer Wert lässt den Kandidaten ausdrücklich ungeprüft. Zeilenumbrüche und NUL werden mit einer Feldmeldung abgelehnt und verhindern das Speichern; korrigieren Sie den Text, statt eine automatische Umwandlung in eine Zeile zu erwarten. Die Weboberfläche führt den Befehl bei Registrierung oder Speichern nie aus.
+
+AEGIS-Aufträge ignorieren diese Einstellung und verwenden die AEGIS-Testbefehle des Repositorys. Das Feld bleibt für beide Workflows in den Einstellungen sichtbar. Kein Befehl wird automatisch vorgeschlagen oder gewählt.
 
 ## Original-TOML {#toml}
 

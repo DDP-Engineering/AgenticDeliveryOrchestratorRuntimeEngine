@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # REQ-FUNC-b3251e39 — Repository-URL enrollment
 
-Status: draft. This specification retains the requirement's detailed repository
+Status: active. This specification retains the requirement's detailed repository
 source protocol and ownership boundaries while describing the accepted enrollment
 eligibility change. It does not define runtime workflow execution.
 
@@ -97,7 +97,7 @@ setting. TASK-988d986a Design D2 chooses the separate top-level enum
 verdict calculation, across preview, measured evidence and browser validators.
 Readiness persistence uses only schema 3, with explicit readiness.json deletion
 guidance on any other schema; no migration or automatic reset. The readiness
-section of `REQ-REL-c598b075.md` records the complete draft shape.
+section of `REQ-REL-c598b075.md` records the current shape.
 
 Design D3/D5 adds a strict optional verify_command string, default empty, with
 CR/LF/NUL and nontext refusal, exact TOML string serialization and canonical

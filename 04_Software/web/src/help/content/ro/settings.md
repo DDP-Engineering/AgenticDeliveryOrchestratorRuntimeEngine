@@ -18,7 +18,7 @@ Fiecare grup este închis când deschideți Setări, iar numărul de lângă num
 |---|---|
 | Repository | Forge-ul și repository-ul, login-ul Gitea, **Ramura de integrare** (baza lucrărilor noi și destinația PR/MR-urilor), șablonul numelui ramurii lucrării, cu o regulă opțională de denumire și un exemplu în timp real, precum și numele afișat al agentului, numele resursei și e-mailul autorului commit-urilor. |
 | Tichete | **Eticheta pentru preluare**, **Eticheta de excludere de la preluare**, **Etichete de stare** (pliate), cât de des verifică ADORE forge-ul, dacă tichetele cer criterii de acceptare sau o etichetă de prioritate și tipul implicit de sarcină. Vezi [Tichete pentru preluare automată](/help/tickets#labels). |
-| Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
+| Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Comandă de verificare**, **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
 | PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |
 | Statistici | **Înregistrează măsurătorile lucrărilor finalizate** și **Înregistrează tokenurile raportate de agent**. **Fișierul bazei de date pentru statistici** este afișat doar cu titlu informativ. |
 | Agent și model | Furnizorul, modelul, autentificarea și **Testează conexiunea AI** [Executori și modele](/help/executors). |
@@ -47,6 +47,14 @@ Reguli aplicabile:
 - Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).
 
 Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
+
+## Comandă de verificare {#verification-command}
+
+În **Implementare**, **Comandă de verificare** este text shell opțional pe o singură linie, salvat ca `[workflow] verify_command`. Administratorii folosesc aceleași acțiuni **Editează** și **Salvează** ca pentru celelalte setări; dezvoltatorii pot citi valoarea, dar nu o pot edita. Câmpul apare și la înrolare; vedeți [Fluxurile repository-ului](/help/projects#workflows).
+
+Pentru fluxul direct, ADORE o execută independent din rădăcina worktree-ului lucrării, în mediul ales și sub limita de validare. Păstrați exact spațiile, ghilimelele și operatorii shell necesari. O valoare goală lasă candidatul explicit neverificat. Sfârșiturile de linie și NUL sunt refuzate cu un mesaj la câmp și împiedică salvarea; corectați textul, nu așteptați eliminarea automată a liniilor noi. Interfața web nu rulează niciodată comanda la înrolare sau salvare.
+
+Lucrările AEGIS ignoră această setare și folosesc comenzile de test AEGIS ale repository-ului. Câmpul rămâne vizibil în Setări pentru ambele fluxuri. Nicio comandă nu este sugerată sau selectată automat.
 
 ## TOML original {#toml}
 

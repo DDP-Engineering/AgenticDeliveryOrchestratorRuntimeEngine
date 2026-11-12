@@ -140,7 +140,12 @@ web/tests/readiness.test.mjs, settings.test.mjs, settingsSave.test.mjs,
 localDiagnostics.test.mjs and web/e2e/enrollment.spec.ts/settings.spec.ts, alongside
 test_web_enrollment.py,
 test_web_config.py, test_web_config_raw.py, test_web_pending_config.py and
-test_web_settings_batch.py.
+test_web_settings_batch.py. Browser coverage includes both actual clone workflows,
+all four locales, Admin/Dev authority, multiline clipboard refusal, exact nonempty
+and empty reviewed saves, and narrow light/dark layouts. Projects, Settings,
+Glossary and Tickets help describes both workflows, optional command and live
+pre-pick authority; help.test.mjs and help.spec.ts prove content and navigation
+contracts in all four locales.
 
 The settings help catalog includes Pi reasoning effort and describes the native
 service account and optional tools PATH in all four locales.

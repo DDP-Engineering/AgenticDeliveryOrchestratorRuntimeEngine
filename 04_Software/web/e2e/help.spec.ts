@@ -6,6 +6,8 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { messages } from "../src/i18n";
+import { workflowCopy } from "../src/readiness";
 
 const title = (locale: string, topic: string) =>
   readFileSync(new URL(`../src/help/content/${locale}/${topic}.md`, import.meta.url), "utf8").split("\n")[0].replace(/^# /, "").trim();
@@ -76,6 +78,36 @@ test("contextual help links open their topic in a new tab and keep the page", as
   await expect(page).toHaveURL(new RegExp(`/projects/${alpha}/jobs$`));
   await popup.close();
 });
+
+for (const locale of ["en", "fr", "de", "ro"] as const) {
+  test(`help describes both workflows and verification command in ${locale}`, async ({ page }) => {
+    await signIn(page);
+    const me = await (await page.request.get("/api/v1/me")).json();
+    const headers = { "X-CSRF-Token": me.csrf };
+    try {
+      expect((await page.request.patch("/api/v1/me/preferences", { headers, data: { language: locale } })).ok()).toBe(true);
+      await page.goto("/help/projects#workflows");
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      await expect(page.locator("#workflows")).toBeInViewport();
+      for (const text of [workflowCopy[locale].aegis, workflowCopy[locale].direct, messages[locale].verificationCommand,
+        messages[locale].aegisTestCommands]) await expect(article(page)).toContainText(text);
+      await article(page).locator('a[href="/help/settings#verification-command"]').click();
+      await expect(page.locator("#verification-command")).toBeInViewport();
+      await expect(article(page)).toContainText("[workflow] verify_command");
+      await expect(article(page)).toContainText("NUL");
+      await page.goto("/help/glossary");
+      await expect(article(page).getByRole("cell", { name: messages[locale].verificationCommand, exact: true })).toBeVisible();
+      const direct = { en: "Direct workflow", fr: "Workflow direct", de: "Direkter Workflow", ro: "Flux direct" }[locale];
+      await expect(article(page).getByRole("cell", { name: direct, exact: true })).toBeVisible();
+      await page.goto("/help/tickets");
+      await expect(article(page)).toContainText(".agentic/aegis.py");
+      await article(page).locator('a[href="/help/projects#workflows"]').click();
+      await expect(page.locator("#workflows")).toBeInViewport();
+    } finally {
+      await page.request.patch("/api/v1/me/preferences", { headers, data: { language: "en" } });
+    }
+  });
+}
 
 test("developers read help in their own language", async ({ page }) => {
   await signIn(page, "developer");

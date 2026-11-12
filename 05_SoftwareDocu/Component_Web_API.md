@@ -22,7 +22,11 @@ base. Existing Admin/CSRF, revision, idle and locking boundaries remain authorit
 Resolved configuration, exact Admin raw TOML and unrelated edits preserve the value.
 Invalid saved values retain key-named diagnostic issues or typed corrupt-config refusal.
 Proof: `test_web_enrollment.py`, `test_web_config.py`, `test_web_config_raw.py`,
-`test_web_pending_config.py`, `test_web_settings_batch.py`.
+`test_web_pending_config.py`, `test_web_settings_batch.py`. The browser uses this
+same domain for enrollment and Implementation settings with four-locale field
+feedback; the guided AEGIS note changes presentation only, not saved command text.
+Offline enrollment/settings journeys cover both actual clone workflows, exact
+nonempty and empty saves, role refusal and multiline clipboard input.
 
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
@@ -406,8 +410,9 @@ reused name cannot inherit its prior grant.
 The administrator-only, CSRF-protected
 `POST /api/v1/projects/{name}/readiness-check` runs bounded host-side doctor
 probes on explicit request. It returns booleans for Git, the selected forge CLI
-and authentication, the Pi CLI, AEGIS file presence in the
-configured repository, and a directly selected Docker/Podman runtime; a project
+and authentication, the Pi CLI and a directly selected Docker/Podman runtime.
+The separate `workflow` enum records read-only `.agentic/aegis.py` presence in the
+configured clone (or not-inspected if unavailable), never a gating boolean; a project
 with provider `chatgpt` also gets `executor_sign_in`, true when the server's
 ChatGPT credential files report `signed-in` (read without starting Pi).
 `_internet_checks` adds `egress_proxy` for a container project with

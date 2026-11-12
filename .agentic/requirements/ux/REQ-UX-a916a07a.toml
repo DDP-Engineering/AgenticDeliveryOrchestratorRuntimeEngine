@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-a916a07a"
 title = "Reject invalid verification text visibly before browser submission"
-status = "draft"
+status = "active"
 requirement = "If an administrator enters or pastes a Verification command containing CR, LF or NUL in enrollment or Implementation settings, the interface shall refuse submission of that value with localized field feedback instead of silently stripping the invalid characters or saving a changed command."
 verification = "Offline frontend and browser tests paste multiline text into enrollment and settings controls, including LF and CRLF, and observe a message with no successful enrollment or reviewed save; helper tests cover CR and NUL, while valid empty and single-line paste proceeds unchanged in all four locales."
 affected_paths = ["04_Software/web/src/EnrollmentWizard.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/settings.ts", "04_Software/web/src/settingsSave.ts", "04_Software/web/src/implementationSettings.ts", "04_Software/web/src/settingHelp.ts", "04_Software/web/src/settingsCopy.ts", "04_Software/web/src/enrollmentCopy.ts", "04_Software/web/src/i18n.ts"]
-linked_tests = []
+linked_tests = ["04_Software/web/tests/settings.test.mjs", "04_Software/web/tests/settingsSave.test.mjs", "04_Software/web/e2e/enrollment.spec.ts", "04_Software/web/e2e/settings.spec.ts"]
 spec = ""
 priority = "high"
 rationale = "A native single-line input can discard pasted line breaks before ordinary change validation; refusal must be observable rather than accidental normalization."
