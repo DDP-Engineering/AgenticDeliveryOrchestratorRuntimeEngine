@@ -352,13 +352,19 @@ class GiteaForge(Forge):
         )
 
     def update_merge_request_body(self, mr_iid: int, body: str) -> None:
-        """@brief Replace only the PR description; CLI/HTTP failure raises ForgeError.
+        """@brief Replace only the PR description, requiring a final 2xx acknowledgment.
         @param[in] mr_iid PR number.
         @param[in] body Literal current candidate description.
+        @exception ForgeError When the CLI fails, times out or returns a non-2xx final status.
         """
         result = self._api("PATCH", f"repos/{self.repo}/pulls/{mr_iid}", fields=[("body", body)])
         if result.timed_out:
             raise ForgeError("PR description update timed out", result.argv, result.stderr)
+        # _api already requires a status; only final 2xx confirms this write.
+        status = int(_HTTP_STATUS_RE.findall(result.stderr)[-1])
+        if not 200 <= status < 300:
+            raise ForgeError(f"PR description update returned HTTP {status}",
+                             result.argv, result.stderr)
 
     def open_merge_request(
         self,

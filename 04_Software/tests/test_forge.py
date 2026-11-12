@@ -131,12 +131,25 @@ def test_update_merge_request_body_refuses_cli_failures(kind, failure):
         forge.update_merge_request_body(17, "Candidate summary")
 
 
-@pytest.mark.parametrize("result", [_api_ok("{}", status=403), _ok("{}")])
+@pytest.mark.parametrize("result", [
+    *[_api_ok("{}", status=status) for status in (100, 199, 300, 302, 304, 399, 403, 500)],
+    CommandResult(exit_code=0, stderr="HTTP/1.1 200 Connection established\nHTTP/2 302 Found\n"),
+    _ok("{}"),
+])
 def test_gitea_update_merge_request_body_requires_http_success(result):
-    """@brief Tea exit zero alone is not evidence that a description PATCH succeeded."""
+    """@brief Only final 2xx acknowledges a description PATCH, regardless of tea's exit."""
     forge = GiteaForge("owner/repo", FakeRunner(result))
     with pytest.raises(ForgeError):
         forge.update_merge_request_body(17, "Candidate summary")
+
+
+@pytest.mark.parametrize("status", [200, 204, 299])
+@pytest.mark.parametrize("preamble", ["", "HTTP/1.1 100 Continue\nHTTP/2 302 Found\n"])
+def test_gitea_update_merge_request_body_accepts_final_2xx(status, preamble):
+    """@brief Final 2xx acknowledges the write even after informational/redirect preambles."""
+    runner = FakeRunner(CommandResult(exit_code=0, stderr=f"{preamble}HTTP/2 {status} OK\n"))
+    GiteaForge("owner/repo", runner).update_merge_request_body(17, "Candidate summary")
+    assert len(runner.calls) == 1
 
 
 # PUBLIC API / TESTS - factory

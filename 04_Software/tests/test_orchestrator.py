@@ -35,7 +35,7 @@ from adore.aegis import (
 )
 from adore.config import Config, EgressPolicy
 from adore.executor.base import GateRun
-from adore.forge import Comment, Forge, ForgeError, MergeRequest, Ticket
+from adore.forge import Comment, Forge, ForgeError, GiteaForge, MergeRequest, Ticket
 from adore.isolation import ContainerManager, IsolationError
 from adore.metrics import aggregate, load_summaries, profile_stats
 import adore.orchestrator as orchestrator_module
@@ -779,6 +779,72 @@ def test_direct_adoption_refreshes_body_and_retries_failed_update(tmp_path, monk
     assert run.candidate_fingerprint in forge.mr_body and run.candidate_base_ref in forge.mr_body
     assert "AEGIS task" not in forge.mr_body
     assert "An older branch description." not in forge.mr_body
+
+
+@pytest.mark.parametrize("revision", [False, True])
+@pytest.mark.parametrize("status", [100, 199, 200, 204, 299, 300, 302, 304, 399])
+def test_direct_gitea_description_acknowledgment_controls_publication(
+    tmp_path, monkeypatch, revision, status,
+):
+    """@brief Actual Gitea HTTP acknowledgment gates adoption/revision and no-Pi Retry."""
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    executor.attempts.append(direct_edit(worktrees, summary="Original candidate."))
+    engine.poll_once(ticket_iid=7)
+    if revision:
+        forge.ticket.labels.append(engine.config.delivery.approval_label)
+        engine.poll_once()
+        worktrees.fingerprint = "d" * 64
+        monkeypatch.setattr(worktrees, "changed_files", lambda *args: 3)
+        executor.attempts.append(direct_edit(worktrees, summary="Current revised candidate."))
+        forge.mr.labels.append(engine.config.review.revise_label)
+        assert engine.poll_once()["revised"] == 1
+    else:
+        forge.branch_mr_exists = True
+    candidate = engine.store.load("github-owner-repo-7")
+    assert candidate.lifecycle == "awaiting-approval"
+    calls = []
+    statuses = deque([status, 204])
+
+    def runner(argv, **kwargs):
+        """@brief Replay final status after a proxy success without invoking tea or the network."""
+        calls.append(list(argv))
+        return CommandResult(
+            exit_code=0,
+            stderr=f"HTTP/1.1 200 Connection established\nHTTP/2 {statuses.popleft()} X\n",
+        )
+
+    adapter = GiteaForge("owner/repo", runner=runner, login="home")
+    monkeypatch.setattr(forge, "update_merge_request_body", adapter.update_merge_request_body)
+    assert engine.poll_once()["approved"] == 0 and not calls
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    assert engine.poll_once()["approved"] == 1
+    saved = engine.store.load(candidate.run_id)
+    if not 200 <= status < 300:
+        assert saved.lifecycle == "failed" and saved.outcome.startswith("MR_CREATE_FAILED:")
+        assert f"HTTP {status}" in saved.outcome
+        assert saved.published_fingerprint == candidate.published_fingerprint
+        assert saved.published_fingerprint != candidate.candidate_fingerprint
+        assert saved.candidate_fingerprint == candidate.candidate_fingerprint
+        assert saved.candidate_base_ref == candidate.candidate_base_ref
+        assert saved.approval_presented_at == candidate.approval_presented_at
+        assert len(calls) == 1
+        assert engine.retry(candidate.run_id)
+        saved = engine.store.load(candidate.run_id)
+        assert calls == [calls[0], calls[0]]  # Retry the same approved description.
+    else:
+        assert len(calls) == 1
+    assert saved.lifecycle == "in-review" and saved.stage == "done"
+    assert saved.published_fingerprint == candidate.candidate_fingerprint
+    assert saved.mr_iid == forge.mr.iid
+    assert len(executor.prompts) == (2 if revision else 1)
+    assert len(forge.opened) == (1 if revision else 0)
+    field = calls[-1][calls[-1].index("--field") + 1]
+    assert field.startswith("body=")
+    assert ("Current revised candidate." if revision else "Original candidate.") in field
+    assert f"Changed files: {3 if revision else 2}" in field
+    assert "Verification: not configured. This candidate is unverified." in field
+    assert candidate.candidate_fingerprint in field and candidate.candidate_base_ref in field
+    assert "AEGIS task" not in field
 
 
 @pytest.mark.parametrize("summary", [None, "No product changes; inspected only."])

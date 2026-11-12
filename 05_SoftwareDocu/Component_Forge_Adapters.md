@@ -64,8 +64,12 @@ API PUT, and Gitea sends only `body` through a pulls API PATCH with the configur
 login. String fields retain literal Unicode/template-like content without type
 inference. Titles, draft state, reviewers, labels and target branches are not
 changed. Failed CLI exits or typed timeouts raise `ForgeError`; Gitea also
-requires a successful HTTP status even when tea exits zero. The base method
-refuses unsupported adapters with `ForgeError`.
+requires a final 2xx HTTP status even when tea exits zero. Informational or
+redirect preambles cannot override the final status: final 1xx/3xx responses
+raise `ForgeError`, while a final 2xx after a redirect acknowledges the write.
+This stricter check belongs to the description-update operation; shared Gitea
+API behavior is unchanged. The base method refuses unsupported adapters with
+`ForgeError`.
 
 A successful write acknowledges only the description operation; the conductor
 owns candidate identity, approval and the final in-review transition. Repeating
@@ -83,6 +87,10 @@ record undeliverable.
 boundaries, labels, comments, draft and ready creation and resource lookup. Conductor
 tests cover incident editing, routing, fallback, redaction and outage replay.
 Body-update tests cover all three command vectors and literal fields, failed
-exits/timeouts and Gitea failed/missing HTTP status. Public conductor tests cover
+exits/timeouts and Gitea failed/missing or final non-2xx HTTP status, including
+proxy/redirect preambles and final-2xx controls. Public conductor tests cover
 adoption, revision, fresh-approval gating, write refusal and retry after both a
-refusal and an accepted write whose response was lost.
+refusal and an accepted write whose response was lost. The actual Gitea updater
+is also exercised through public direct adoption/revision: unconfirmed writes
+cannot reach in-review, and explicit Retry sends the same approved description
+without another executor launch.
