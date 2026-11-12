@@ -91,10 +91,19 @@ are fake; no live acceptance is implied.
 
 ## Design handoff
 
-The requirements establish the observable workflow states, not a new choice of
-workflow setting. Design determines the exact current readiness wire/storage
-shape, consistent validators and where available evidence is shown. Pending
-clone evidence remains honest until an actual inspection; measured evidence is
-not upgraded merely because creation completed. If a stored shape changes, the
-repository's single-current-schema refusal rule applies, without migration or
-automatic reset. Command suggestion and Jobs presentation are outside this scope.
+The requirements establish observable workflow states, not a workflow-selection
+setting. TASK-988d986a Design D2 chooses the separate top-level enum
+`workflow = aegis | direct | not-inspected`, outside prerequisite checks and
+verdict calculation, across preview, measured evidence and browser validators.
+Readiness persistence uses only schema 3, with explicit readiness.json deletion
+guidance on any other schema; no migration or automatic reset. The readiness
+section of `REQ-REL-c598b075.md` records the complete draft shape.
+
+Design D3/D5 adds a strict optional verify_command string, default empty, with
+CR/LF/NUL and nontext refusal, exact TOML string serialization and canonical
+review binding. Enrollment's Verification step shows an empty optional field
+until a current file observation identifies AEGIS, then substitutes the
+repository-owned-test-command note; it never silently clears entered text.
+Pending clone evidence remains honest until an actual inspection; creation
+neither reruns nor promotes measured evidence. Command suggestion and Jobs
+presentation are outside this scope.

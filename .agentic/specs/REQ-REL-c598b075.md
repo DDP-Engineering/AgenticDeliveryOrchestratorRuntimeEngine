@@ -29,9 +29,53 @@ On error remove published metadata before releasing the conductor lock, remove o
 
 ## Readiness
 
-The /readiness-check response carries context/checks/checked_at plus revision, project_id and status. SHA-256 hashes exact config bytes. Persist schema-1 readiness.json separately from runtime state, using atomic unique-temp replacement; bind to profile project_id. Store only the six known checks (git, forge_cli, forge_auth, container_runtime, executor_cli, aegis_files) as booleans, with container_runtime null when unverified. Capture config snapshot before probes; after probing, re-read identity/config under config edit lock and reject changed revision/identity with stale_config_revision. Preserve older evidence on rejected probe; it appears stale after the config changes.
+Draft revision for TASK-988d986a; this section becomes current when the changed
+readiness contract is built and validated. The other sections retain their
+existing scope. See the task's Design D2 for the chosen implementation seams.
 
-Project reads add validation={structural_valid,issues}, pickup_state=stopped|active|archived and verification={status,revision,checked_at,...}. Absence yields unverified; a changed config revision yields stale; matching evidence is verified when required checks passed, otherwise failed or partial for explicitly unverified checks. No age-based expiration is inferred; time is evidence for the operator. Invalid configuration is separately validation.structural_valid=false and does not convert stale/unverified into invalid. Corrupt schema/identity/check keys or types/revision/time raises typed readiness_corrupt. Display-only edit does not stale configuration evidence. WSL runtime checks keep explicitly unverified evidence; model access is proved only by the separate Test AI connection.
+The /readiness-check response carries context/checks/checked_at plus revision,
+project_id, status, required_checks, auth_bound and a separate workflow enum.
+Workflow is exactly `aegis`, `direct` or `not-inspected`: read-only inspection of
+an available clone identifies AEGIS from `.agentic/aegis.py` alone; its absence
+identifies Direct. An unavailable or not-yet-created clone stays not-inspected.
+This is an observation, never a workflow setting or executable/version approval.
+The explicit pre-pick live probe retains runtime authority. No repository code
+runs and no files are added or changed for workflow identification.
+
+Persist only schema-3 readiness.json separately from runtime state, using atomic
+unique-temp replacement. Its exact keys are schema, project_id, revision,
+checked_at, context, checks, host, binding, auth_bound and workflow. Bind immutable
+profile identity, exact configuration SHA-256, UTC check time, private host and
+configuration/authentication context fingerprints. Required base checks are git,
+forge_cli, forge_auth, container_runtime and executor_cli; each is boolean except
+container_runtime may be null when unverified. Configuration requires boolean
+executor_sign_in for ChatGPT, egress_proxy for container allowlist-proxy operation
+and web_search_key when the selected search provider requires it. No aegis_files
+key belongs to checks or required_checks. Only these configured keys are allowed.
+
+Workflow never changes the verdict: a false prerequisite yields failed; otherwise
+unbound authentication or an unverified runtime yields partial; otherwise verified.
+Missing/unknown/nontext workflow or malformed live check output returns typed
+503 readiness_probe_failed before evidence publication. Capture the configuration
+snapshot before probes; afterward re-read identity/config/host/auth binding under
+the config edit lock and reject drift with stale_config_revision. Preserve saved
+evidence on rejection. Server-issued draft tokens retain workflow and measured
+checks unchanged through creation; not-inspected is not promoted after cloning.
+A later explicit host check can establish the created repository's workflow.
+
+Project reads add validation={structural_valid,issues},
+pickup_state=stopped|active|archived and verification={status,revision,checked_at,...}.
+Absence yields the unverified object with null revision/time and no workflow claim;
+a changed revision or host/authentication binding yields stale. Invalid configuration
+is separately structural_valid=false, not fabricated verification failure. Validate
+stored schema/identity/exact keys/check and workflow types/revision/time before
+rendering even stale evidence. Any other schema or corruption yields the existing
+typed readiness_corrupt detail naming the affected profile's readiness.json to
+delete before a fresh check; never migrate, repair, rewrite or delete it
+implicitly. No age-based expiration is inferred for persisted evidence. Display-only
+edits do not stale it; WSL runtime may remain unverified; model access is proved
+only by the separate Test AI connection. Browser readers validate the same closed
+workflow/check domain and verdict agreement before displaying evidence.
 
 ## Verification and ownership
 
