@@ -351,6 +351,15 @@ class GiteaForge(Forge):
              "--remove-labels", ",".join(labels), *self._login_argv()]
         )
 
+    def update_merge_request_body(self, mr_iid: int, body: str) -> None:
+        """@brief Replace only the PR description; CLI/HTTP failure raises ForgeError.
+        @param[in] mr_iid PR number.
+        @param[in] body Literal current candidate description.
+        """
+        result = self._api("PATCH", f"repos/{self.repo}/pulls/{mr_iid}", fields=[("body", body)])
+        if result.timed_out:
+            raise ForgeError("PR description update timed out", result.argv, result.stderr)
+
     def open_merge_request(
         self,
         source: str,

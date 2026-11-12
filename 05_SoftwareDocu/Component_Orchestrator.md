@@ -208,9 +208,12 @@ An absent summary is allowed; unsafe present artifacts stop before checkpoint
 or approval. No direct strict-verification event or synthetic passed result is
 written. Summary alone cannot authorize approval.
 
-On success the conductor saves completion, enters validate, checkpoints product
-changes **before** target integration, then records clean candidate/target
-fingerprints and presents at done/awaiting-approval. Checkpoint failure retains
+On success the conductor saves completion and the validate stage atomically in
+one state write, then checkpoints product changes **before** target integration,
+records clean candidate/target fingerprints and presents at done/awaiting-approval.
+After interruption, orphan reconciliation and explicit Retry can finish that
+completion even when its successful attempt used the last permitted launch.
+Checkpoint failure retains
 the validate stage and completion marker; Retry can finish without another Pi
 session. Missing completion evidence at validate/done returns to build. Candidate
 or target drift preserves completed implementation and summary but clears the
@@ -226,6 +229,15 @@ changed-file count and exactly "Verification: not configured. This candidate is
 unverified." They omit AEGIS task lines. This build runs no direct verification
 command. Fresh candidate-bound human approval, publication and merge authority
 remain shared with the AEGIS path.
+
+When adopting an existing review or publishing a newly approved revision, direct
+publication replaces the MR/PR description with the current approved summary,
+count, unverified notice and candidate/target binding through
+`Forge.update_merge_request_body`. It changes no review settings. A failed or
+timed-out update retains `MR_CREATE_FAILED` and cannot enter in-review or mark
+the new candidate published. Explicit Retry repeats the description write
+without another Pi session; a lost response is safe to retry with the same body.
+AEGIS publication does not call this description-update operation.
 
 ### AEGIS verification
 

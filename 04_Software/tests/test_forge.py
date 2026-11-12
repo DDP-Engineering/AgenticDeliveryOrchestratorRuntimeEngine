@@ -98,6 +98,47 @@ def _fail(stderr: str, exit_code: int = 1) -> CommandResult:
     return CommandResult(exit_code=exit_code, stderr=stderr)
 
 
+# PUBLIC API / TESTS - review descriptions
+
+
+@pytest.mark.parametrize("kind", ["github", "gitlab", "gitea"])
+def test_update_merge_request_body_changes_only_description(kind):
+    """@brief Direct candidate evidence replaces only the description through the injected CLI."""
+    body = "Résumé ${literal} {x}\nVerification: not configured. This candidate is unverified."
+    runner = FakeRunner(_api_ok("{}") if kind == "gitea" else _ok("{}"))
+    forge = build_forge(kind, "grp/sub", runner=runner, **({"login": "home"}
+                                                        if kind == "gitea" else {}))
+    forge.update_merge_request_body(17, body)
+    expected = {
+        "github": ["gh", "api", "--method", "PATCH", "repos/grp/sub/pulls/17",
+                   "-f", f"body={body}"],
+        "gitlab": ["glab", "api", "--method", "PUT",
+                   "projects/grp%2Fsub/merge_requests/17", "--raw-field", f"description={body}"],
+        "gitea": ["tea", "api", "-i", "--method", "PATCH", "--login", "home",
+                  "--field", f"body={body}", "repos/grp/sub/pulls/17"],
+    }
+    assert runner.calls == [expected[kind]]
+
+
+@pytest.mark.parametrize("kind", ["github", "gitlab", "gitea"])
+@pytest.mark.parametrize("failure", ["exit", "timeout"])
+def test_update_merge_request_body_refuses_cli_failures(kind, failure):
+    """@brief Failed or timed-out description writes cannot acknowledge publication."""
+    result = (CommandResult(exit_code=0, timed_out=True, stderr="HTTP/1.1 200 OK\n")
+              if failure == "timeout" else _fail("write refused"))
+    forge = build_forge(kind, "owner/repo", runner=FakeRunner(result))
+    with pytest.raises(ForgeError):
+        forge.update_merge_request_body(17, "Candidate summary")
+
+
+@pytest.mark.parametrize("result", [_api_ok("{}", status=403), _ok("{}")])
+def test_gitea_update_merge_request_body_requires_http_success(result):
+    """@brief Tea exit zero alone is not evidence that a description PATCH succeeded."""
+    forge = GiteaForge("owner/repo", FakeRunner(result))
+    with pytest.raises(ForgeError):
+        forge.update_merge_request_body(17, "Candidate summary")
+
+
 # PUBLIC API / TESTS - factory
 
 

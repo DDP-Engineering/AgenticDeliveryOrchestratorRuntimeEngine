@@ -116,7 +116,9 @@ actual build commands and exit results are recorded in TASK-652f9133's Log.
   sanitized `summary`, a conductor-owned `implementation = completed` marker,
   `verification = not configured` and observed `changed_files` within that object.
   Summary-only or failed-session evidence never authorizes approval. The marker
-  lets checkpoint recovery finish validate without repeating successful work.
+  and entry into validate are persisted in the same state write. A restart after
+  that write lets checkpoint recovery finish validate without repeating successful
+  work, including when the successful attempt consumed the final permitted launch.
 - INFERRED (task Design D1/D4/D6/D7, based on inspected source): shared plan/worktree
   allocation before the first claim save, direct-only exchange exclusions and
   workflow dispatch in shared continuation helpers preserve the AEGIS stage loop.

@@ -1270,7 +1270,8 @@ class Orchestrator:
                         self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
                         return
                     run.validation_evidence["implementation"] = "completed"
-                    self.store.save(run)
+                    # Persist completion and its recovery stage in one state write:
+                    # Retry must not spend another launch after durable success.
                     self._successful_transition(run, "build", "validate")
                 self._checkpoint(run, "ADORE direct implementation")
                 if not self._integrate_target(run):
@@ -2200,7 +2201,9 @@ class Orchestrator:
     def _publish_impl(self, run: RunState, ticket: Ticket) -> None:
         """
         @brief      Push the approved candidate and open or adopt its MR/PR.
-        @details    AEGIS 0.15.0 closes the task in validate, so publication is
+        @details    Direct adoption/revision refreshes the description before review;
+                    a failed write retains publication retry authority, not success.
+                    AEGIS 0.15.0 closes the task in validate, so publication is
                     Git and forge work only: no executor session and no AEGIS
                     command runs after the human approved. `_approval_ready`
                     fetched and re-checked the target commit and the candidate
@@ -2225,8 +2228,10 @@ class Orchestrator:
             if not push.ok:
                 self._fail_immediately(run, "PUSH_FAILED", push.stderr or push.stdout)
                 return
+            existing_review = run.mr_iid is not None
             if run.mr_iid is None:
                 mr = self.forge.get_merge_request(run.branch)
+                existing_review = mr is not None and mr.state == "opened"
                 mr_event = "mr-adopted"
                 if mr is not None and mr.state == "opened" and (
                     mr.iid < 1 or not mr.web_url.strip()
@@ -2259,6 +2264,10 @@ class Orchestrator:
                 self.store.journal(
                     run.run_id, mr_event, url=run.mr_url, iid=run.mr_iid
                 )
+            if run.workflow == "direct" and existing_review:
+                # Adoption, revision and interrupted publication all need the
+                # current approved evidence, not the branch's previous summary.
+                self.forge.update_merge_request_body(run.mr_iid, self._mr_body(run, ticket))
             self.store.save(run)
         except ForgeError as exc:
             self._fail_immediately(run, "MR_CREATE_FAILED", exc)

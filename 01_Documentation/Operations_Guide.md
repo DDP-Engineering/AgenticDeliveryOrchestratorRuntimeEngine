@@ -87,7 +87,15 @@ AEGIS task line or strict-check pass is implied. Empty questions files park
 rather than complete a candidate. The summary and configured questions file are
 excluded from all direct checkpoints and published candidates; unsafe present
 summary artifacts prevent checkpoint/approval. A checkpoint failure can resume
-conductor-owned validate without replaying completed implementation.
+conductor-owned validate without replaying completed implementation. Completion
+and entry into validate are saved together, so an interruption after that write
+can be recovered with Retry even at the launch limit.
+
+On adoption and each freshly approved direct revision, ADORE refreshes the MR/PR
+description with the current summary, file count and unverified notice. A refused
+or timed-out description write fails publication with `MR_CREATE_FAILED` rather
+than entering review with stale evidence. Restore forge access and Retry; the
+same approved description is written again without another implementation session.
 
 For AEGIS the approval presentation leads with the deviations the AEGIS journal
 recorded, as a count and in full, then lists strict evidence, warnings,

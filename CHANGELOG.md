@@ -18,6 +18,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   retain their summaries and present explicitly unverified candidates for fresh human
   approval; keep clarification, recovery, review and publication boundaries shared.
   CLI setup reports missing AEGIS as information; a present unusable payload is refused.
+  Adopted and revised reviews carry the current direct summary and unverified notice;
+  interrupted durable completion resumes without spending another implementation launch.
 
 ### Fixed
 

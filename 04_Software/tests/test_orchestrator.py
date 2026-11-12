@@ -72,6 +72,8 @@ class FakeForge:
         self.next_comment = 100
         self.opened: list[dict] = []
         self.branch_mr_exists = False
+        self.mr_body = ""
+        self.updated_bodies: list[tuple[int, str]] = []
         self.pipeline = "unknown"
         self.ready: list[Ticket] | None = None
 
@@ -141,7 +143,14 @@ class FakeForge:
         if self.mr:
             self.mr.labels = [item for item in self.mr.labels if item not in labels]
 
+    def update_merge_request_body(self, mr_iid: int, body: str) -> None:
+        """@brief Replace the review description without changing any other review field."""
+        assert self.mr and mr_iid == self.mr.iid
+        self.mr_body = body
+        self.updated_bodies.append((mr_iid, body))
+
     def open_merge_request(self, source, target, title, body, **kwargs):
+        self.mr_body = body
         self.opened.append({
             "source": source, "target": target, "title": title, "body": body, **kwargs,
         })
@@ -732,6 +741,46 @@ def test_direct_one_session_reaches_unverified_approval_and_publication(
         assert run.validation_evidence["summary"] in forge.opened[0]["body"]
 
 
+@pytest.mark.parametrize("failure", [None, "refused", "response-lost"])
+def test_direct_adoption_refreshes_body_and_retries_failed_update(tmp_path, monkeypatch, failure):
+    """@brief An adopted review receives exact direct evidence before entering in-review."""
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    executor.attempts.append(direct_edit(worktrees, summary="Candidate for adopted review."))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    forge.branch_mr_exists = True
+    forge.mr_body = "An older branch description."
+    update = forge.update_merge_request_body
+
+    def fail_update(mr_iid, body):
+        if failure == "response-lost":
+            update(mr_iid, body)
+        raise ForgeError("description update " + failure)
+
+    if failure:
+        monkeypatch.setattr(forge, "update_merge_request_body", fail_update)
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    if failure:
+        assert saved.lifecycle == "failed" and saved.outcome.startswith("MR_CREATE_FAILED:")
+        assert "description update " + failure in saved.outcome
+        assert not saved.published_fingerprint
+        monkeypatch.setattr(forge, "update_merge_request_body", update)
+        assert engine.retry(run.run_id)
+        saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "in-review" and saved.mr_iid == forge.mr.iid
+    assert saved.published_fingerprint == run.candidate_fingerprint
+    assert len(executor.prompts) == 1 and not forge.opened
+    assert forge.updated_bodies[-1] == (forge.mr.iid, forge.mr_body)
+    assert "Candidate for adopted review." in forge.mr_body
+    assert "Changed files: 2" in forge.mr_body
+    assert "Verification: not configured. This candidate is unverified." in forge.mr_body
+    assert run.candidate_fingerprint in forge.mr_body and run.candidate_base_ref in forge.mr_body
+    assert "AEGIS task" not in forge.mr_body
+    assert "An older branch description." not in forge.mr_body
+
+
 @pytest.mark.parametrize("summary", [None, "No product changes; inspected only."])
 def test_direct_no_changes_fails_once_with_summary(tmp_path, monkeypatch, summary):
     """@brief Summary-only work is not implementation and cannot obtain approval."""
@@ -979,6 +1028,56 @@ def test_direct_checkpoint_retry_finishes_without_another_implementation(tmp_pat
     assert saved.validation_evidence["summary"] == failed.validation_evidence["summary"]
 
 
+@pytest.mark.parametrize("completed", [False, True])
+def test_direct_completion_save_interruption_recovers_at_launch_limit(
+    tmp_path, monkeypatch, completed,
+):
+    """@brief A durable completion atomically enters validate; partial work cannot bypass limits."""
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    executor.attempts.append(direct_edit(worktrees, summary="Completed before interruption."))
+    engine.config.budgets.max_iterations = 1
+    save = engine.store.save
+
+    class Interrupted(BaseException):
+        """@brief Simulated conductor death after the first durable completion write."""
+
+    def save_then_interrupt(run):
+        save(run)
+        if run.validation_evidence.get("implementation") == "completed":
+            raise Interrupted
+
+    with monkeypatch.context() as crash:
+        crash.setattr(engine.store, "save", save_then_interrupt)
+        with pytest.raises(Interrupted):
+            engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.validation_evidence["summary"] == "Completed before interruption."
+    assert run.stage == "validate"
+    assert not worktrees.checkpoints and not run.candidate_fingerprint
+    if not completed:
+        # Missing completion is not authority to reuse partial edits at the launch limit.
+        run.validation_evidence.pop("implementation")
+        run.stage = "build"
+        engine.store.save(run)
+    monkeypatch.setattr(orchestrator_module, "_STALE_WORKING_GRACE_SECONDS", 0)
+    engine.poll_once()
+    failed = engine.store.load(run.run_id)
+    assert failed.outcome.startswith("STALE_WORKING:")
+    assert engine.retry(run.run_id)
+    saved = engine.store.load(run.run_id)
+    assert saved.iterations == len(executor.prompts) == 1
+    assert saved.validation_evidence["summary"] == "Completed before interruption."
+    assert saved.lifecycle == ("awaiting-approval" if completed else "failed")
+    if completed:
+        assert saved.stage == "done" and saved.approval_comment_id
+        assert saved.validation_evidence["verification"] == "not configured"
+        assert saved.candidate_fingerprint == worktrees.fingerprint
+    else:
+        assert saved.outcome.startswith("BUDGET_EXHAUSTED:")
+        assert not saved.approval_comment_id and not worktrees.checkpoints
+    assert not forge.opened and not worktrees.pushes
+
+
 @pytest.mark.parametrize("drift", [
     "target", "candidate", "missing-completion", "missing-verification",
 ])
@@ -1034,7 +1133,10 @@ def test_direct_reset_retains_workflow_and_refuses_aegis_stages(tmp_path, monkey
 
 
 @pytest.mark.parametrize("pipeline", [False, True])
-def test_direct_revision_retains_workflow_and_uses_fresh_thread(tmp_path, monkeypatch, pipeline):
+@pytest.mark.parametrize("update_fails", [False, True])
+def test_direct_revision_retains_workflow_and_uses_fresh_thread(
+    tmp_path, monkeypatch, pipeline, update_fails,
+):
     """@brief A bounded review revision needs no task, even after repository adoption of AEGIS."""
     engine, forge, worktrees, _, executor, work = direct_engine(tmp_path, monkeypatch)
     executor.attempts.extend([
@@ -1045,6 +1147,9 @@ def test_direct_revision_retains_workflow_and_uses_fresh_thread(tmp_path, monkey
     engine.poll_once()
     (work / ".agentic").mkdir()
     (work / ".agentic/aegis.py").write_text("# adoption\n")
+    original_body = forge.mr_body
+    worktrees.fingerprint = "d" * 64
+    monkeypatch.setattr(worktrees, "changed_files", lambda *args: 3)
     forge.mr_comments[500] = "Please fix this ${literal} {x}."
     if pipeline:
         engine.config.review.on_pipeline_failure = "revise"
@@ -1061,6 +1166,35 @@ def test_direct_revision_retains_workflow_and_uses_fresh_thread(tmp_path, monkey
     assert "Please fix this ${literal} {x}." in executor.prompts[1]
     assert engine.config.review.revise_label not in forge.mr.labels
     assert len(worktrees.pushes) == 1  # New revision awaits a second human approval.
+    assert forge.mr_body == original_body and not forge.updated_bodies
+    assert engine.poll_once()["approved"] == 0
+    assert forge.mr_body == original_body  # No update before fresh approval.
+    update = forge.update_merge_request_body
+    if update_fails:
+        def refuse_update(*args):
+            raise ForgeError("revision description write refused")
+        monkeypatch.setattr(forge, "update_merge_request_body", refuse_update)
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    assert engine.poll_once()["approved"] == 1
+    if update_fails:
+        failed = engine.store.load(saved.run_id)
+        assert failed.lifecycle == "failed" and failed.outcome.startswith("MR_CREATE_FAILED:")
+        assert failed.published_fingerprint != saved.candidate_fingerprint
+        assert forge.mr_body == original_body and not forge.updated_bodies
+        monkeypatch.setattr(forge, "update_merge_request_body", update)
+        assert engine.retry(saved.run_id)
+    published = engine.store.load(saved.run_id)
+    assert published.lifecycle == "in-review" and published.review_rounds == 1
+    assert published.published_fingerprint == saved.candidate_fingerprint
+    assert len(executor.prompts) == 2 and len(forge.opened) == 1
+    assert len(worktrees.pushes) == (3 if update_fails else 2)
+    assert forge.updated_bodies == [(forge.mr.iid, forge.mr_body)]
+    assert "Review fixed." in forge.mr_body and "Changed files: 3" in forge.mr_body
+    assert "Verification: not configured. This candidate is unverified." in forge.mr_body
+    assert saved.candidate_fingerprint in forge.mr_body
+    assert saved.candidate_base_ref in forge.mr_body
+    assert "Changed feature; checked with repository tests." not in forge.mr_body
+    assert "Changed files: 2" not in forge.mr_body and "AEGIS task" not in forge.mr_body
 
 
 def test_direct_integration_conflict_returns_to_fresh_build(tmp_path, monkeypatch):
