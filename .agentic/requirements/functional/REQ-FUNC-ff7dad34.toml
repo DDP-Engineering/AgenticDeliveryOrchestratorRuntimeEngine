@@ -18,7 +18,7 @@ title = "Conduct governed ticket delivery"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
-status = "active"
+status = "draft"
 
 # Self-contained prose: a reader with no other context must be able to
 # understand and check it. No ticket numbers, no run IDs, no references
@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-Before MR/PR publication, the conductor shall require fresh human approval bound to the exact candidate and target commit, with successful strict verification for an aegis run or explicit not-configured unverified evidence for a direct run.
+Before MR/PR publication, the conductor shall require fresh human approval bound to the exact candidate and target commit, with successful strict verification for an aegis run or, for a direct run, a passing configured verification result or explicit not-configured unverified evidence.
 """
 
 # The observation that settles whether the behavior holds — not a
@@ -49,14 +49,14 @@ Before MR/PR publication, the conductor shall require fresh human approval bound
 # "Inspection:" and name the method, and `check` records the requirement
 # as verified by hand instead of counting it among the tests still owed.
 # The prefix alone is not enough — it has to say what someone does.
-verification = "Offline public poll and Retry tests present aegis and direct candidates, reject a preexisting approval label and candidate/target drift, then accept a freshly added approval only for the unchanged candidate; aegis strict-check failure and missing direct candidate evidence each prevent publication."
+verification = "Offline public poll and Retry tests present AEGIS, configured-verified direct and unconfigured direct candidates, reject preexisting approval labels and candidate/target drift, then accept a freshly added approval only for the unchanged candidate; strict-check failure and missing, failed, timed-out or malformed direct verification evidence each prevent publication, and a changed candidate or integrated target requires fresh corresponding evidence and approval."
 
 # Repo-relative, forward slashes. The source files this behavior lives in.
 affected_paths = ["04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_integration_conflict_returns_to_fresh_build", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_direct_retry_settlement_failure_cannot_publish", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval", "04_Software/tests/test_orchestrator.py::test_failed_strict_check_returns_the_task_from_done", "04_Software/tests/test_orchestrator.py::test_target_drift_invalidates_approval_and_revalidates_from_done"]
+linked_tests = []
 
 # --- optional below this line ---
 

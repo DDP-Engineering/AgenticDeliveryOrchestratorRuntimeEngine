@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-91892175"
+title = "Keep configured direct verification out of AEGIS runs"
+status = "draft"
+requirement = "While conducting an aegis-workflow run, ADORE shall ignore workflow.verify_command in favor of the repository's existing AEGIS verification and stage-failure accounting."
+verification = "Offline full/quick AEGIS conductor tests set a verify_command whose fake execution would fail the test, then exercise strict pass and strict failure/remediation; assert only AEGIS check commands execute, existing strict evidence/prompt presentation remains and accepted AEGIS stage transitions retain their existing counter resets."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

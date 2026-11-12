@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-381fdaaa"
+title = "Refuse nonstring direct verification configuration"
+status = "draft"
+requirement = "If workflow.verify_command is not a string, ADORE configuration validation shall refuse it with a diagnostic naming workflow.verify_command."
+verification = "Offline tests submit integer, boolean, array and table values through configuration loading/validation and assert a key-named issue rather than coercion or a validation crash; an ordinary command string is the accepted control."
+affected_paths = ["04_Software/adore/config.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

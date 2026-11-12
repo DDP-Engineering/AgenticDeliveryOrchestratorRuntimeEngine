@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-50f9bf53"
+title = "Show configured verification in direct review descriptions"
+status = "draft"
+requirement = "When publishing an approved direct candidate with configured verification, the conductor shall show its retained verification command and result in the created or refreshed MR/PR body alongside the existing summary, file count and candidate binding."
+verification = "Offline pass/approve/publish tests reload state and inspect created, adopted and revised fake-forge descriptions for the same sanitized command/pass evidence as approval; absent configuration retains the unverified notice, stale approval writes no description and refused updates retain the existing publication failure without fabricating success."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-5dfb0e8d"
+title = "Name configured verification in direct prompts"
+status = "draft"
+requirement = "When launching a direct implementation attempt with a configured workflow.verify_command, the conductor shall include that command as literal prompt data with a request for Pi to run it before finishing."
+verification = "Capture offline first and remediation direct-session prompts with a quoted non-ASCII command containing dollar signs and braces; assert its literal value and pre-completion instruction, and compare an empty setting to confirm no configured-command instruction is fabricated."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/prompts.py", "04_Software/adore/prompts/"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

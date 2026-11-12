@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-465c51f3"
+title = "Route direct verification failures to bounded remediation"
+status = "draft"
+requirement = "If configured direct verification exits nonzero without timing out and a remediation attempt remains under recovery.max_stage_failures, the conductor shall return the run to build using the existing stage_failures accounting with that verification failure retained across successful remediation build-to-validate transitions."
+verification = "Offline direct poll tests fail verification once then pass with a limit above one, observing one validate failure and a return to build before the next fresh attempt; repeat failures across successful builds and reloads to prove the count is not reset, with max_stage_failures=1 authorizing no remediation session."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-bea4c0aa.md"
+priority = "high"
+rationale = "A successful fix session must not re-arm an unbounded verification loop."
+created = 2026-11-12
+updated = 2026-11-12

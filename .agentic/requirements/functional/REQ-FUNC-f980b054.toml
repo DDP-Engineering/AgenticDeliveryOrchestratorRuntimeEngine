@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-f980b054"
+title = "Refuse NUL in direct verification configuration"
+status = "draft"
+requirement = "If workflow.verify_command contains a NUL character, ADORE configuration validation shall refuse it with a diagnostic naming workflow.verify_command."
+verification = "Offline config tests load a TOML-escaped NUL within a command and validate an in-memory NUL-bearing value, observing a key-named issue without execution or truncation; a NUL-free single-line command is the accepted control."
+affected_paths = ["04_Software/adore/config.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-PLAT-125bc4c1"
+title = "Execute direct verification in the owned container"
+status = "draft"
+requirement = "When validating a container-backed direct run with workflow.verify_command configured, the conductor shall execute that command as sh -c inside the run's owned container from the worktree root with the validate-stage timeout override or otherwise budgets.per_gate_timeout_seconds."
+verification = "Offline bound-backend/conductor tests record the immutable owned resource, argv, worktree cwd and timeout for a shell compound command, using validate override and fallback cases independently of the build timeout; changed ownership and an unconfirmed timeout cleanup prevent another command through existing typed recovery handling."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/execution.py"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

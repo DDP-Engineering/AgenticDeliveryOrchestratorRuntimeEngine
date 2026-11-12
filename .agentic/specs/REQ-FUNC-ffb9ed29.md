@@ -28,8 +28,12 @@ on Windows. Unknown local fields/types fail closed. No tool/version manifest.
 
 Native Windows supports Windows Job Objects and executable CLI entrypoints
 (.exe, or an explicit node executable plus installed JavaScript entrypoint).
-Windows .cmd/.bat/PowerShell/shell wrappers are refused; prompts never pass through
-cmd.exe. Native Linux requires delegated cgroup v2 with cgroup.kill; this includes
+Ordinary native argv transport refuses Windows .cmd/.bat/PowerShell/shell
+wrappers; stage prompts never pass through cmd.exe. Configured direct-workflow
+verification has a separately authorized, owned platform-shell operation, not
+an ordinary-argv or interpreter-wrapper bypass. Its draft contracts are
+REQ-PLAT-a39ffa22, REQ-SEC-d94baaf1 and REQ-SEC-c81de547; ordinary transport keeps
+its shell refusal. Native Linux requires delegated cgroup v2 with cgroup.kill; this includes
 ADORE inside WSL2 only when those controls exist. Windows-to-WSL local wrapping,
 macOS, cgroup v1 and uncontained process-group fallbacks are unsupported before
 project code execution. OS details stay in the local process adapter.

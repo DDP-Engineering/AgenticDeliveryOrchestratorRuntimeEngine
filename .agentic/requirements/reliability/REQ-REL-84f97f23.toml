@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-84f97f23"
+title = "Count direct verification timeouts as failed attempts"
+status = "draft"
+requirement = "If a configured direct verification invocation reaches its validate time limit, the conductor shall account for exactly one failed attempt under recovery.max_stage_failures with evidence explicitly saying timed out and the same build-remediation or exhausted-failure routing as a nonzero result."
+verification = "Offline tests return an authoritative timed_out flag with captured output at limits one and greater than one, then inspect failure history, saved timed-out evidence and routing; an ordinary exit 124 without the timeout flag is a non-timeout failure, and timed_out=true with exit zero never counts as a pass."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = []
+spec = "specs/REQ-FUNC-bea4c0aa.md"
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12
