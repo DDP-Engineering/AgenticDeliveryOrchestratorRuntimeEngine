@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-38ee0625"
 title = "Describe unverified direct published candidates"
-status = "draft"
+status = "active"
 requirement = "When publishing an approved direct candidate, the conductor shall include its retained implementation/check summary, changed-file count and the exact notice 'Verification: not configured. This candidate is unverified.' in the MR/PR body without an AEGIS task line."
 verification = "Complete a direct run, reload saved state, freshly approve and publish with a fake forge, then inspect the captured MR/PR body for the retained summary/count/exact notice and no AEGIS task line; stale approval opens no review, and AEGIS publication retains its existing body."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_approved_publication_opens_draft_without_an_executor_session"]
 spec = ""
 priority = "high"
 rationale = "The unverified status must survive the approval-to-publication boundary."

@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-32203866"
 title = "Admit tickets without an AEGIS payload"
-status = "draft"
+status = "active"
 requirement = "When an otherwise eligible ticket is considered in a clone without .agentic/aegis.py, the conductor shall admit it without an AEGIS probe."
 verification = "Offline poll tests arrange an eligible ticket and an AEGIS-free clone, invoke automatic and selected-ticket admission, and observe a claim with zero AEGIS calls; compare a clone with a payload to prove presence still invokes its probe."
 affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/cli.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_claim_selects_worktree_workflow_before_first_save", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication"]
 spec = ""
 priority = "high"
 rationale = "Payload absence enables direct execution rather than a readiness failure."

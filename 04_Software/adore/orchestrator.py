@@ -9,11 +9,11 @@
 # -----------------------------------------------------------------------------
 """
 @file orchestrator.py
-@brief ADORE conductor for the agent-driven AEGIS workflow.
+@brief ADORE conductor for AEGIS and unverified direct implementation workflows.
 @details ADORE owns forge, isolation, budgets, recovery, approval and remote
-         publication. The executor owns every AEGIS task-journal transition.
-         Durable AEGIS journals are the only resume authority; executor
-         sessions are never resumed. Required problem notifications use a
+         publication. The executor owns every AEGIS task-journal transition;
+         direct completion uses conductor-owned durable evidence instead.
+         Executor sessions are always fresh, never resumed. Required problem notifications use a
          persisted outbox and a failed write stops code work. ADORE can open
          and update a draft MR/PR but deliberately has no merge operation.
 """
@@ -590,7 +590,13 @@ class Orchestrator:
         if resume_publication:
             # EVERY fingerprint refuses a dirty tree, including the freshness
             # check just below, so leftover work is committed first.
-            self._settle_worktree(run, "retry")
+            try:
+                self._settle_worktree(run, "retry")
+            except _CheckpointHalted:
+                return True
+            except IsolationError as exc:
+                self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
+                return True
             approval_absent = (
                 not run.approval_label_removed
                 or self.config.delivery.approval_label not in ticket.labels
@@ -667,6 +673,9 @@ class Orchestrator:
             return False
         if run.lifecycle in {"handed-off", "handoff-pending"}:
             self.log("human-owned run cannot be reset for automatic execution")
+            return False
+        if run.workflow == "direct" and stage not in {"build", "validate", "publishing"}:
+            self.log("direct runs can reset only to build, validate or publishing")
             return False
         run.stage = stage
         run.lifecycle = "failed"
@@ -891,8 +900,11 @@ class Orchestrator:
         try:
             if not run.worktree or not self.worktrees.exists(run_id):
                 raise IsolationError("local worktree unavailable; inspect preserved state")
+            if run.workflow == "direct":
+                self._consume_summary(run)
             created = self.worktrees.commit_all_if_dirty(
-                run_id, f"WIP ADORE human handoff {run.active_task_id or run_id}"
+                run_id, f"WIP ADORE human handoff {run.active_task_id or run_id}",
+                **({"exclude_paths": self._direct_exchanges()} if run.workflow == "direct" else {}),
             )
             self.store.journal(run_id, "checkpoint", created=created, reason="human handoff")
             self._push_checkpoint(run, handoff=True)
@@ -919,17 +931,23 @@ class Orchestrator:
                and event.get("kind") == "human-handoff"
                for event in self.store.read_journal(run.run_id)):
             return
+        instructions = (
+            "This run uses the direct workflow. Read the repository's own instructions "
+            "and the retained summary and questions before continuing. "
+            if run.workflow == "direct" else
+            f"AEGIS task: `{run.active_task_id or 'not created'}`\n\n"
+            "Read AGENTS.md, run `python .agentic/aegis.py brief "
+            f"{run.active_task_id or 'TASK-<id>'}` and read the full task journal before "
+            "continuing. "
+        )
         body = (
             f"{self.identity.tag} Human handoff complete. Automatic execution is disabled.\n\n"
             f"Work in progress; delivery is not approved by this handoff.\n\n"
             f"Branch: {self._checkpoint_branch_link(run)}\n"
             f"Remote checkpoint: `{run.checkpoint_remote_commit or 'not verified'}`\n"
             f"Local worktree: `{run.worktree}`\n"
-            f"AEGIS task: `{run.active_task_id or 'not created'}`\n\n"
-            "Read AGENTS.md, run `python .agentic/aegis.py brief "
-            f"{run.active_task_id or 'TASK-<id>'}` and read the full task journal before "
-            "continuing. "
-            "Fetch the branch only when the remote checkpoint is current; local files "
+            + instructions
+            + "Fetch the branch only when the remote checkpoint is current; local files "
             "and uncommitted changes remain authoritative when publication failed.\n"
             + (f"Recovery limitation: {_sanitize(run.checkpoint_error)}\n"
                if run.checkpoint_error else "")
@@ -949,8 +967,24 @@ class Orchestrator:
 
     # Selection and startup
 
+    @staticmethod
+    def _has_payload(root: str | Path) -> bool:
+        """@brief Treat every present payload entry as governed, including broken links.
+        @exception AegisError Payload presence cannot be observed reliably.
+        """
+        try:
+            (Path(root) / ".agentic/aegis.py").lstat()
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise AegisError(f"cannot inspect AEGIS payload: {exc}") from exc
+        return True
+
     def _probe_repository_payload(self) -> None:
-        """@brief Reject incompatible AEGIS before a ticket is claimed."""
+        """@brief Probe present governance only; absence enables the direct workflow."""
+        if not self._has_payload(self.config.worktree.repo_path):
+            return
+
         def execute(argv, *, timeout=None):
             return run_command(
                 argv,
@@ -1057,6 +1091,9 @@ class Orchestrator:
         )
         comments = self.forge.list_comments(ticket.iid)
         run.last_seen_comment_id = max((item.id for item in comments), default=None)
+        self._allocate_worktree(run)
+        run.workflow = "aegis" if self._has_payload(run.worktree) else "direct"
+        run.stage = "frame" if run.workflow == "aegis" else "build"
         self.store.save(run)
         self.store.save_ticket(run_id, self._ticket_snapshot(ticket))
         self.store.journal(run_id, "picked", ticket=ticket.iid, title=ticket.title)
@@ -1079,7 +1116,7 @@ class Orchestrator:
             self._in_flight_run_id = previous
 
     def _conduct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
-        """@brief Provision and supervise the active AEGIS task to approval."""
+        """@brief Provision and dispatch the recorded workflow to candidate approval."""
         with self._conducting(run.run_id):
             if not self._refresh_budgets(run):
                 return
@@ -1089,6 +1126,9 @@ class Orchestrator:
                 if self._cancel_if_requested(run):
                     return
                 self._fail_immediately(run, "INFRASTRUCTURE_EXHAUSTED", exc)
+                return
+            if run.workflow == "direct":
+                self._conduct_direct(run, ticket, thread)
                 return
             execute = self._execute(run)
             client = AegisClient(
@@ -1136,6 +1176,137 @@ class Orchestrator:
                 except AegisTimeoutError as exc:
                     if not self._stage_failure(run, "AEGIS_TIMEOUT", exc):
                         return
+
+    def _direct_exchanges(self) -> tuple[str, ...]:
+        """@brief Literal direct-only root summary and configured question paths."""
+        return ("ADORE_SUMMARY.md", self.questions_file)
+
+    def _consume_summary(self, run: RunState) -> None:
+        """@brief Durably retain sanitized summary text before authorizing owned removal.
+        @exception IsolationError A present executor artifact cannot be consumed safely.
+        """
+        artifact = self.worktrees.read_summary(run.run_id, max_chars=_MAX_EVIDENCE)
+        if artifact is not None:
+            run.validation_evidence["summary"] = _sanitize(artifact.text)
+            self.store.save(run)
+            self.worktrees.remove_summary(run.run_id, artifact)
+
+    @staticmethod
+    def _direct_completed(run: RunState) -> bool:
+        """@brief Only conductor-recorded implementation completion authorizes validate."""
+        return run.validation_evidence.get("implementation") == "completed"
+
+    def _conduct_direct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
+        """@brief Conduct fresh bounded implementation attempts, with no AEGIS command.
+        @details Validate is conductor-owned and records explicitly unverified evidence;
+                 a retained completion marker permits checkpoint recovery without Pi.
+        @param[in,out] run Durable direct run with no AEGIS task bindings.
+        @param[in] ticket Current source ticket.
+        @param[in] thread Human clarification or review discussion for the next fresh attempt.
+        """
+        failure_context = ""
+        try:
+            while run.lifecycle == "working":
+                if self._handoff_at_boundary(run) or self._cancel_if_requested(run):
+                    return
+                if not self._refresh_budgets(run):
+                    return
+                completed = self._direct_completed(run) and run.stage != "build"
+                budget = self._budget_exceeded(run, include_launch=not completed)
+                if budget:
+                    self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
+                    return
+                if not completed:
+                    run.stage = "build"
+                    run.validation_evidence = {"summary": ""}
+                    run.candidate_fingerprint = ""
+                    run.candidate_base_ref = ""
+                    self.store.save(run)
+                    self._status(run)
+                    if run.lifecycle != "working":
+                        return
+                    try:
+                        before = self.worktrees.worktree_progress_fingerprint(
+                            run.run_id, exclude_paths=self._direct_exchanges(),
+                        )
+                    except IsolationError as exc:
+                        self._fail_immediately(run, "WORKTREE_PROGRESS", exc)
+                        return
+                    result = self._launch_stage(run, ticket, None,
+                                                failure_context=failure_context, thread=thread)
+                    thread = ""
+                    if self._cancel_if_requested(run):
+                        return
+                    # Recheck exchange path ownership even if a file asks to park.
+                    try:
+                        after = self.worktrees.worktree_progress_fingerprint(
+                            run.run_id, exclude_paths=self._direct_exchanges(),
+                        )
+                        self._consume_summary(run)
+                    except IsolationError as exc:
+                        self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
+                        return
+                    questions_path = Path(run.worktree) / self.questions_file
+                    if result.has_questions or questions_path.exists():
+                        questions = result.questions or self._read_questions(run)
+                        self._park(run, questions)
+                        return
+                    if not result.ok or result.timed_out:
+                        code = "EXECUTOR_TIMEOUT" if result.timed_out else "EXECUTOR_EXIT"
+                        evidence = result.stderr or result.output or f"exit {result.exit_code}"
+                        if not self._stage_failure(run, code, evidence):
+                            return
+                        failure_context = _sanitize(evidence)
+                        continue
+                    if before == after:
+                        self._fail_immediately(
+                            run, "NO_CHANGES",
+                            "Session made no product changes.\n"
+                            + run.validation_evidence["summary"],
+                        )
+                        return
+                    budget = self._budget_exceeded(run, include_launch=False)
+                    if budget:
+                        self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
+                        return
+                    run.validation_evidence["implementation"] = "completed"
+                    self.store.save(run)
+                    self._successful_transition(run, "build", "validate")
+                self._checkpoint(run, "ADORE direct implementation")
+                if not self._integrate_target(run):
+                    if run.lifecycle != "working":
+                        return
+                    run.stage = "build"
+                    run.validation_evidence.pop("implementation", None)
+                    self.store.save(run)
+                    failure_context = self.prompts.render("recovery/integration-conflict.md")
+                    continue
+                budget = self._budget_exceeded(run, include_launch=False)
+                if budget:
+                    self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
+                    return
+                try:
+                    changed = self.worktrees.changed_files(run.run_id, run.base_ref)
+                    if type(changed) is not int or changed < 0:
+                        raise IsolationError("invalid changed-file count")
+                    run.candidate_fingerprint = self.worktrees.candidate_fingerprint(
+                        run.run_id, run.base_ref,
+                    )
+                    run.candidate_base_ref = self.worktrees.ref_head(run.base_ref)
+                except IsolationError as exc:
+                    self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
+                    return
+                run.validation_evidence.update(verification="not configured", changed_files=changed)
+                self._successful_transition(run, run.stage, "done")
+                self._present_for_approval(run, ticket)
+                return
+        except _CheckpointHalted:
+            return
+        except ExecutionRecoveryError as exc:
+            if not self._cancel_if_requested(run):
+                self._fail_immediately(run, "INFRASTRUCTURE_EXHAUSTED", exc)
+        except IsolationError as exc:
+            self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
 
     def _conduct_task(
         self, run: RunState, ticket: Ticket, client: AegisClient, thread: str,
@@ -1398,7 +1569,7 @@ class Orchestrator:
         self,
         run: RunState,
         ticket: Ticket,
-        task: AegisTask,
+        task: AegisTask | None,
         *,
         failure_context: str = "",
         thread: str = "",
@@ -1460,7 +1631,8 @@ class Orchestrator:
                 execute,
                 run.worktree,
                 self._io_dir(run.run_id),
-                self._stage_prompt(run, ticket, task, failure_context, thread),
+                (self._direct_prompt(run, ticket, failure_context, thread) if task is None
+                 else self._stage_prompt(run, ticket, task, failure_context, thread)),
                 timeout=timeout,
                 archive_stem=f"{run.stage}-attempt-{run.stage_failures + 1}",
                 **({"package_secrets": {**self.secrets,
@@ -1537,21 +1709,46 @@ class Orchestrator:
             ))
         if thread:
             parts.append(self.prompts.render("stage/human-thread.md", thread=thread))
-        if self.config.execution.backend == "container":
-            permission = (
-                self.prompts.render("stage/packages-enabled.md")
-                if self.config.container.system_packages else
-                self.prompts.render("stage/packages-disabled.md")
-            )
-            parts.append(
-                permission + self.prompts.render(
-                    "stage/network.md", mode=egress_policy(self.config).mode,
-                )
-            )
+        parts.extend(self._execution_notices())
         parts.append(self.prompts.render(
             "stage/closing.md", questions_file=self.questions_file,
             aegis=aegis, task_id=task.task_id,
         ))
+        return "\n\n".join(parts)
+
+    def _execution_notices(self) -> list[str]:
+        """@brief Preserve the shared container permission/network paragraph byte-for-byte."""
+        if self.config.execution.backend != "container":
+            return []
+        permission = self.prompts.render(
+            "stage/packages-enabled.md" if self.config.container.system_packages
+            else "stage/packages-disabled.md",
+        )
+        return [permission + self.prompts.render(
+            "stage/network.md", mode=egress_policy(self.config).mode,
+        )]
+
+    def _direct_prompt(
+        self, run: RunState, ticket: Ticket, failure_context: str, thread: str,
+    ) -> str:
+        """@brief Compose a complete direct implementation request using literal ticket data.
+        @param[in] run Run identity retained at the shared launch boundary.
+        @param[in] ticket Ticket title and description, never parsed as templates.
+        @param[in] failure_context Sanitized evidence from the preceding failed attempt.
+        @param[in] thread Human discussion passed to this fresh session.
+        @return The implementation request and applicable execution notices.
+        """
+        parts = [
+            self.prompts.render("direct/implementation.md", questions_file=self.questions_file),
+            self.prompts.render("stage/ticket.md", iid=str(ticket.iid), title=ticket.title,
+                                description=ticket.description.strip()),
+        ]
+        if failure_context:
+            parts.append(self.prompts.render("stage/recovery-context.md",
+                                             context=_sanitize(failure_context)))
+        if thread:
+            parts.append(self.prompts.render("stage/human-thread.md", thread=thread))
+        parts.extend(self._execution_notices())
         return "\n\n".join(parts)
 
     def _successful_transition(self, run: RunState, previous: str, current: str) -> None:
@@ -1571,8 +1768,11 @@ class Orchestrator:
     def _checkpoint(self, run: RunState, message: str) -> None:
         """@brief Create a durable local checkpoint and optionally publish WIP progress."""
         progress = self.config.delivery.publish_checkpoints and run.lifecycle != "publishing"
+        if run.workflow == "direct":
+            self._consume_summary(run)
         created = self.worktrees.commit_all_if_dirty(
-            run.run_id, f"WIP {message}" if progress else message
+            run.run_id, f"WIP {message}" if progress else message,
+            **({"exclude_paths": self._direct_exchanges()} if run.workflow == "direct" else {}),
         )
         self.store.journal(run.run_id, "checkpoint", message=message, created=created)
         if progress:
@@ -1886,6 +2086,16 @@ class Orchestrator:
     def _approval_body(self, run: RunState, ticket: Ticket) -> str:
         """@brief Build the candidate presentation bound to one fingerprint."""
         evidence = run.validation_evidence
+        if run.workflow == "direct":
+            return (
+                f"{self.identity.tag} Unverified candidate for ticket #{ticket.iid}.\n\n"
+                + self._direct_candidate_body(run)
+                + "\n\nADORE will never merge it. To approve this exact candidate, freshly add "
+                f"`{self.config.delivery.approval_label}` after this presentation. New reviews "
+                f"open as {'draft' if self.config.delivery.draft else 'ready for review'}.\n"
+                + self.identity.make_marker(run.run_id, "approval",
+                                            fingerprint=run.candidate_fingerprint)
+            )
         marker = self.identity.make_marker(
             run.run_id, "approval", fingerprint=run.candidate_fingerprint
         )
@@ -1934,6 +2144,9 @@ class Orchestrator:
             return False
         if label not in ticket.labels:
             return False
+        if run.workflow == "direct" and not self._direct_evidence_ready(run):
+            self._invalidate_approval(run, ticket, "direct candidate evidence is incomplete")
+            return False
         try:
             self._transient(run, "approval-fetch", self.worktrees.fetch)
             target = self.worktrees.ref_head(run.base_ref)
@@ -1955,7 +2168,11 @@ class Orchestrator:
             return
         run.lifecycle = "working"
         run.stage = "validate"
-        run.validation_evidence = {}
+        run.validation_evidence = (
+            {key: value for key, value in run.validation_evidence.items()
+             if key in {"summary", "implementation"}}
+            if run.workflow == "direct" else {}
+        )
         run.candidate_fingerprint = ""
         run.candidate_base_ref = ""
         run.approval_presented_at = ""
@@ -2068,7 +2285,9 @@ class Orchestrator:
         """
         if not run.worktree or not self.worktrees.exists(run.run_id):
             return
-        with contextlib.suppress(IsolationError):
+        guard = (contextlib.nullcontext() if run.workflow == "direct"
+                 else contextlib.suppress(IsolationError))
+        with guard:
             if self.worktrees.is_dirty(run.run_id):
                 self._checkpoint(
                     run, f"ADORE settle {reason} {run.active_task_id}"
@@ -2098,12 +2317,42 @@ class Orchestrator:
 
     def _mr_body(self, run: RunState, ticket: Ticket) -> str:
         """@brief Render a traceable human-review MR/PR description."""
+        if run.workflow == "direct":
+            return (
+                f"Delivery for ticket #{ticket.iid}.\n\n" + self._direct_candidate_body(run)
+                + "\n\nThis MR/PR was opened by ADORE "
+                "and must be reviewed and merged by a human.\n\n"
+                + self.identity.make_marker(run.run_id, "delivery")
+            )
         return (
             f"Delivery for ticket #{ticket.iid}.\n\n"
             f"AEGIS task: `{run.active_task_id}`\n\n"
             f"Candidate fingerprint: `{run.candidate_fingerprint}`\n\n"
             "This MR/PR was opened by ADORE and must be reviewed and merged by a human.\n\n"
             f"{self.identity.make_marker(run.run_id, 'delivery')}"
+        )
+
+    @staticmethod
+    def _direct_evidence_ready(run: RunState) -> bool:
+        """@brief Summary alone is not completion and can never authorize publication."""
+        evidence = run.validation_evidence
+        return (
+            evidence.get("implementation") == "completed"
+            and evidence.get("verification") == "not configured"
+            and type(evidence.get("changed_files")) is int and evidence["changed_files"] >= 0
+            and bool(run.candidate_fingerprint) and bool(run.candidate_base_ref)
+        )
+
+    @staticmethod
+    def _direct_candidate_body(run: RunState) -> str:
+        """@brief Render durable agent-reported checks without claiming verification."""
+        evidence = run.validation_evidence
+        return (
+            f"Agent summary (including its own checks):\n{evidence.get('summary', '')}\n\n"
+            f"Changed files: {evidence.get('changed_files', '?')}\n\n"
+            "Verification: not configured. This candidate is unverified.\n\n"
+            f"Candidate fingerprint: `{run.candidate_fingerprint}`\n\n"
+            f"Target commit: `{run.candidate_base_ref}`"
         )
 
     def _commit_list(self, run: RunState) -> list[str]:
@@ -2794,16 +3043,18 @@ class Orchestrator:
         try:
             comments = self.forge.list_mr_comments(run.mr_iid)
             self._transient(run, "revision-provision", lambda: self._provision(run))
-            execute = self._execute(run)
-            client = AegisClient(
-                execute,
-                self.config.workflow.aegis_python,
-                self._io_dir(run.run_id),
-            )
-            client.probe()
-            task_id = client.create_task(
-                f"Review round {run.review_rounds + 1}: {ticket.title}", "change"
-            )
+            task_id = None
+            if run.workflow == "aegis":
+                execute = self._execute(run)
+                client = AegisClient(
+                    execute,
+                    self.config.workflow.aegis_python,
+                    self._io_dir(run.run_id),
+                )
+                client.probe()
+                task_id = client.create_task(
+                    f"Review round {run.review_rounds + 1}: {ticket.title}", "change"
+                )
         except (ForgeError, IsolationError, AegisError) as exc:
             self._fail_immediately(run, "REVIEW_START_FAILED", exc)
             return
@@ -2823,10 +3074,11 @@ class Orchestrator:
                 return
         run.review_rounds += 1
         run.active_task_id = task_id
-        run.task_ids.append(task_id)
-        run.aegis_type = "change"
-        run.aegis_path = "full"
-        run.stage = "frame"
+        if task_id is not None:
+            run.task_ids.append(task_id)
+            run.aegis_type = "change"
+            run.aegis_path = "full"
+        run.stage = "build" if run.workflow == "direct" else "frame"
         run.stage_failures = 0
         run.validation_evidence = {}
         run.candidate_fingerprint = ""
@@ -3001,6 +3253,50 @@ class Orchestrator:
         """@brief Return the host-side executor exchange directory."""
         return self.store.run_dir(run_id) / "io"
 
+    def _plan_execution(self, run: RunState) -> None:
+        """@brief Resolve initial execution authority in memory before allocating a snapshot.
+        @details The caller persists only after it can select the worktree's workflow.
+                 Existing runs keep their pinned plan; provisioning verifies its receipts.
+        @exception ExecutionRecoveryError Initial execution authority cannot be resolved.
+        """
+        recipe = bool(self.config.execution.preparation)
+        local = self.config.execution.backend == "local"
+        packages = self.config.container.system_packages is True
+        if packages and local:
+            raise ExecutionRecoveryError("system_packages is available only in containers")
+        if run.execution or not (recipe or local or packages):
+            return
+        try:
+            if run.active_task_id:
+                raise PreparationError("active legacy run requires an explicit fresh execution run")
+            if recipe and not self.worktrees.exists(run.run_id):
+                self.worktrees.fetch()
+            plan = resolve_plan(
+                self.config,
+                runner=getattr(self.worktrees, "runner", run_command),
+                expected_revision=self.worktrees.ref_head(run.base_ref) if recipe else None,
+            )
+            if recipe:
+                run.base_ref = plan["selection"].rsplit("@", 1)[1]
+            run.execution = {
+                "plan": plan, "resource": {}, "status": "pending" if recipe else "not-required",
+                "attempts": 0, "steps": [], "history": [], "reprepare": False,
+            }
+        except (PreparationError, OSError, TypeError, ValueError) as exc:
+            raise ExecutionRecoveryError(str(exc)) from exc
+
+    def _allocate_worktree(self, run: RunState) -> Path:
+        """@brief Allocate the exact pinned snapshot without saving a provisional workflow."""
+        self._plan_execution(run)
+        if not self.config.execution.preparation and not self.worktrees.exists(run.run_id):
+            self.worktrees.fetch()
+        worktree = self.worktrees.create(
+            run.run_id, run.branch, run.base_ref or "HEAD",
+            **({"new_branch": True} if not run.worktree else {}),
+        )
+        run.worktree = str(worktree)
+        return worktree
+
     def _provision(self, run: RunState) -> None:
         """@brief Provision the pinned target and prepare once per verified resource."""
         recipe = bool(self.config.execution.preparation)
@@ -3014,28 +3310,7 @@ class Orchestrator:
         if managed_container or local or record:
             try:
                 if not run.execution:
-                    if (managed_container or local) and run.active_task_id:
-                        raise PreparationError(
-                            "active legacy run requires an explicit fresh execution run"
-                        )
-                    if recipe and not self.worktrees.exists(run.run_id):
-                        self.worktrees.fetch()
-                    plan = resolve_plan(
-                        self.config,
-                        runner=getattr(self.worktrees, "runner", run_command),
-                        expected_revision=self.worktrees.ref_head(run.base_ref) if recipe else None,
-                    )
-                    if recipe:
-                        run.base_ref = plan["selection"].rsplit("@", 1)[1]
-                    run.execution = {
-                        "plan": plan,
-                        "resource": {},
-                        "status": "pending" if recipe else "not-required",
-                        "attempts": 0,
-                        "steps": [],
-                        "history": [],
-                        "reprepare": False,
-                    }
+                    self._plan_execution(run)
                     self.store.save(run)
                 record = run.execution
                 plan = record["plan"]
@@ -3142,13 +3417,7 @@ class Orchestrator:
                         or image_id != record["resource"]["image_id"]):
                     raise ExecutionRecoveryError(
                         "package-enabled environment changed; start a fresh run to reinstall")
-        if not recipe and not self.worktrees.exists(run.run_id):
-            self.worktrees.fetch()
-        worktree = self.worktrees.create(
-            run.run_id, run.branch, run.base_ref or "HEAD",
-            **({"new_branch": True} if not run.worktree else {}),
-        )
-        run.worktree = str(worktree)
+        worktree = self._allocate_worktree(run)
         env = self._container_env(run)
         if local and record["resource"]:
             self.backend.bind(run.container, env, record["resource"])
@@ -3361,10 +3630,10 @@ class Orchestrator:
         self.config.budgets = current.budgets
         return True
 
-    def _budget_exceeded(self, run: RunState) -> str:
-        """@brief Return a reason for the first exhausted global budget."""
+    def _budget_exceeded(self, run: RunState, *, include_launch: bool = True) -> str:
+        """@brief Return an exhausted budget; completion does not authorize another launch."""
         budgets = self.config.budgets
-        if run.iterations >= budgets.max_iterations:
+        if include_launch and run.iterations >= budgets.max_iterations:
             return f"iteration budget reached ({run.iterations}/{budgets.max_iterations})"
         if run.active_work_seconds(utc_now_iso()) >= budgets.max_wall_clock_seconds:
             return f"active work clock reached {budgets.max_wall_clock_seconds}s"

@@ -7,25 +7,70 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Integrating a Runtime Project
 
-ADORE conducts repositories that already contain AEGIS. It uses the
-payload exactly as installed and never edits AEGIS source or payload files.
+ADORE conducts repositories with or without AEGIS through CLI/configured
+profiles. It selects the workflow from `.agentic/aegis.py` in the isolated
+worktree at claim, then keeps that identity through clarification, Retry,
+reset and review. Web enrollment still requires AEGIS in this build.
+ADORE never installs, upgrades or edits the target's AEGIS payload.
 
 ## Required Repository Contract
 
-The target clone must provide:
+Both workflows need Git with a configured `origin` and target branch, documented
+project instructions, ignore rules for generated artifacts and project build/test
+tools in the chosen container image or native account. Native ownership and
+container preparation remain independent of workflow selection.
 
-- Git with a configured `origin` and the target branch;
+### Without AEGIS: direct workflow
+
+Absence of `.agentic/aegis.py` selects direct. No task journal is created.
+The run starts at `build`; each attempt launches a fresh bounded Pi session to
+implement the ticket completely, reading `AGENTS.md`, `CLAUDE.md`,
+`CONTRIBUTING.md` and README when present and adding tests where the project
+has tests. The existing build timeout override, general gate timeout, egress,
+package permission and cumulative budgets all apply.
+
+Pi writes blocking questions to the configured questions file and a short
+change/check summary to root `ADORE_SUMMARY.md`. Do not use either exchange
+path for tracked project source: source-owned or unsafe collisions are refused.
+A questions file, even empty, parks the run without consuming a stage failure;
+a human reply plus `agent-answered` resumes a fresh session with the thread.
+A settled successful session must change the product progress fingerprint,
+excluding both exchange files. Otherwise the run fails with `NO_CHANGES` and
+retains the summary. Errors and timeouts use normal bounded build failures.
+
+ADORE owns `validate`: it saves a bounded sanitized summary before removing
+its file, checkpoints product changes, integrates the target and records the
+exact candidate at `done` / `awaiting-approval`. Both exchange paths are literally
+excluded and unstaged at every checkpoint, including recovery and handoff.
+There is **no configured direct verification command** in this build. Both the
+approval comment and MR/PR show summary, changed-file count and exactly:
+
+> Verification: not configured. This candidate is unverified.
+
+Pi's own reported checks are not independent validation. Summary absence alone
+is not a new completion failure; unsafe present summary artifacts fail closed.
+Retry after a failed checkpoint can finish conductor validation from durable
+completion evidence without repeating successful implementation. Without that
+evidence, recovery returns to build. Review revisions use the same workflow,
+branch and worktree, fresh Pi sessions and fresh human approval; no AEGIS task
+is introduced even if the repository adopts AEGIS later.
+
+### With AEGIS: governed workflow
+
+A present payload, including an unusable entry, never selects direct. The clone
+is probed before pickup when that entry is present. AEGIS projects provide:
+
 - `.agentic/aegis.py` reporting a supported `aegis` version;
 - schema-1 JSON from `python .agentic/aegis.py status --all --json`;
 - readable AEGIS task journals with no path escapes;
-- project test commands configured in AEGIS, written for the CONTAINER;
+- project test commands configured in AEGIS for the selected execution environment;
 - a `.gitignore` covering build artifacts and tool caches;
-- a project-specific container image with Python and required build tools.
+- for container execution, a project-specific image with Python and required build tools.
 
-### Commands run in the container, not on your machine
+### AEGIS commands run in the selected execution environment
 
-ADORE executes `[commands]` from `.agentic/aegis.toml` inside the Linux
-executor container during its own strict verification. A command written for the
+For container profiles ADORE executes `[commands]` from `.agentic/aegis.toml`
+inside the Linux executor container during its own strict verification. A command written for the
 workstation that authored it fails there, whatever it does locally. A Windows
 entry such as:
 
@@ -53,8 +98,8 @@ project image, while the standard library's `unittest` needs nothing.
 
 ### Ignore rules are part of the contract
 
-ADORE checkpoints each stage with `git add -A`, which is what captures governed
-artifacts and any new source the executor wrote. It cannot tell those apart from
+ADORE checkpoints with `git add -A` (plus literal exchange exclusions for direct
+runs), capturing governed artifacts and new source the executor wrote. It cannot tell those apart from
 generated files; only your `.gitignore` can. Without one, bytecode and tool
 caches join the candidate, consume the `max_files_touched` budget, and give the
 reviewer noise to read past. `adore init` reports a target repository that has
@@ -73,7 +118,8 @@ journals at `survey`, `components`, or `close`, and a legacy journal another tas
 left at `deliver`; those are valid foreign journals but are never valid stages
 for the ADORE-created task, whose decoder remains restricted to `frame`,
 `specify`, `design`, `build`, `validate`, and `done`. An AEGIS release older
-than 0.15.0, a different major, or any other contract is refused at probe.
+than the supported range, a different major, or any other contract is refused
+at probe. The range is declared only in `adore/aegis.py`.
 
 The pre-pick repository probe runs directly on the host. After a run container
 is provisioned, ADORE writes each fully shell-quoted AEGIS command to the run's
@@ -91,18 +137,17 @@ One ADORE run owns this durable relationship:
 forge ticket
   -> ADORE run state
   -> task branch + worktree + container
-  -> active AEGIS TASK journal
-  -> historical TASK journals from revisions
+  -> AEGIS task/history OR direct completion/summary evidence
   -> optional draft MR/PR
 ```
 
-The executor owns task-journal content and transitions. ADORE reads and
+For AEGIS runs the executor owns task-journal content and transitions. ADORE reads and
 validates it, but never writes it directly. ADORE owns local checkpoint
 commits, target integration, push, draft MR/PR creation, comments, labels and
 publication state. Executors may not commit, push, open an MR/PR, access forge
 credentials, or merge. ADORE also never merges.
 
-## Task Types and Paths
+## AEGIS Task Types and Paths
 
 Ticket labels map to task types in this precedence:
 
@@ -130,7 +175,7 @@ the task by advancing to done. A done task returns to validation when ADORE
 must revalidate it. Unknown stages, forward skips, and other regressions fail
 closed.
 
-## Stage Sessions and Checkpoints
+## AEGIS Stage Sessions and Shared Checkpoints
 
 ADORE creates the task after creating the branch. Every stage prompt declares
 the task in autopilot by explicit conductor instruction, the per-task
@@ -156,13 +201,15 @@ apart from a skipped stage. Either way the run loses the three benefits above,
 so a model that follows the one-stage instruction reliably is worth more than a
 marginally faster one.
 
-After every successful stage transition, ADORE creates an unpushed local
-checkpoint commit. Those commits preserve journal evolution, give crash
-recovery a clean tree, and are not remotely visible before approval.
+After successful stage transitions ADORE checkpoints locally. Direct runs
+checkpoint completed implementation and integration without journal artifacts.
+With `delivery.publish_checkpoints` enabled (the default), guarded WIP commits
+may be visible on the owned branch before approval, without opening an MR/PR;
+explicit false keeps them local. Neither policy bypasses human approval.
 
-## Final Validation and Approval
+## AEGIS Final Validation and Shared Approval
 
-Before final validation ADORE fetches and integrates the current target. It
+For AEGIS runs, before final validation ADORE fetches and integrates the current target. It
 then launches validation, whose session ends with AEGIS's own final strict
 check, `report` and `advance` to done. On that validate -> done advance ADORE
 independently runs:
@@ -199,11 +246,11 @@ Before draft creation, ADORE looks up and adopts an existing open MR/PR for the
 task branch. A failed push keeps the approval evidence, so `adore retry` checks
 freshness again and publishes the same candidate.
 
-A requested revision creates a new AEGIS task journal on the same branch.
-Earlier journals remain history. Every review round is bounded and requires a
-new validation presentation and fresh approval before push.
-The revise trigger remains applied until provisioning, payload probing, and
-new-task creation succeed.
+An AEGIS revision creates a new task journal on the same branch; earlier
+journals remain history. A direct revision starts build without a task.
+Every review round is bounded and requires a new evidence presentation and
+fresh approval before review publication. The revise trigger remains applied
+until provisioning and, for AEGIS, probing and new-task creation succeed.
 
 ## Failure Visibility
 

@@ -20,7 +20,7 @@ verification = "An offline publication test approves a verified candidate at sta
 
 affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/aegis.py", "04_Software/adore/isolation.py"]
 
-linked_tests = ["04_Software/tests/test_orchestrator.py::test_approved_publication_opens_draft_without_an_executor_session", "04_Software/tests/test_orchestrator.py::test_publication_adopts_existing_open_mr_before_create", "04_Software/tests/test_orchestrator.py::test_failed_publication_push_keeps_the_approval_for_retry", "04_Software/tests/test_checkpoint_handoff.py::test_checkpoint_handoff_delivery_still_requires_fresh_approval"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_publication_and_review_boundaries", "04_Software/tests/test_orchestrator.py::test_approved_publication_opens_draft_without_an_executor_session", "04_Software/tests/test_orchestrator.py::test_publication_adopts_existing_open_mr_before_create", "04_Software/tests/test_orchestrator.py::test_failed_publication_push_keeps_the_approval_for_retry", "04_Software/tests/test_checkpoint_handoff.py::test_checkpoint_handoff_delivery_still_requires_fresh_approval"]
 
 
 spec = ""
@@ -29,4 +29,4 @@ priority = "normal"   # low | normal | high
 rationale = "Under AEGIS 0.15.0 commit, push and review creation belong to ADORE; the approved candidate reaches the forge exactly as verified."
 
 created = 2026-10-25
-updated = 2026-10-25
+updated = 2026-11-12

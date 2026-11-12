@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-9b2bf2fb"
 title = "Park direct blocking questions"
-status = "draft"
+status = "active"
 requirement = "When a direct attempt leaves a questions file, the conductor shall park the run through the existing clarification mechanism without consuming a stage failure or presenting a candidate."
 verification = "Offline direct polling writes blocking questions, observes parked clarification and posted question evidence with unchanged stage_failures, and verifies no approval/checkpoint of the questions file; include questions alongside product edits and an empty questions file so file presence cannot be mistaken for completion."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_questions_park_and_resume_fresh_with_thread", "04_Software/tests/test_orchestrator.py::test_direct_clarification_deadline_and_round_limit"]
 spec = ""
 priority = "high"
 rationale = "Open questions take precedence over declaring a direct candidate complete."

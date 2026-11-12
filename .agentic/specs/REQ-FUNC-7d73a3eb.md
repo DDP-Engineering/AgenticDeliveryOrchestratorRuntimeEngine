@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # REQ-FUNC-7d73a3eb — Direct candidate completion
 
-Status: draft. This specifies the completion state machine, not implementation
+Status: active. This specifies the completion state machine, not implementation
 structure or a configurable verification facility.
 
 ## Authority and boundary
@@ -101,8 +101,8 @@ Verification: not configured. This candidate is unverified.
 - An AEGIS repository still uses its pinned task and existing strict gate; an
   unsupported present payload is not a direct candidate.
 
-These are offline fake forge/executor/Git acceptance cases, not claims of test
-execution. Targeted tests are written and linked during build.
+Offline fake forge/executor/Git acceptance tests are linked in the requirement;
+actual build commands and exit results are recorded in TASK-652f9133's Log.
 
 ## Assumptions and design resolution
 
@@ -122,6 +122,6 @@ execution. Targeted tests are written and linked during build.
   workflow dispatch in shared continuation helpers preserve the AEGIS stage loop.
   The conductor saves safely read summary text before isolation removes its file.
   Direct drift retains completed implementation evidence but invalidates the
-  candidate binding and requires integration plus fresh presentation. Actual
-  feasibility remains to be proven by build tests; the ticket's stop-and-ask
-  conditions still apply to expansion beyond those helpers or the one-field scope.
+  candidate binding and requires integration plus fresh presentation. Build's
+  linked offline tests prove these seams; the ticket's stop-and-ask conditions
+  remain the boundary for any expansion beyond those helpers or the one-field scope.

@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-2c632559"
 title = "Fail direct attempts without product progress"
-status = "draft"
+status = "active"
 requirement = "If a direct session settles successfully without questions but leaves its non-exchange progress fingerprint unchanged, the conductor shall fail the run with NO_CHANGES and retain its available summary as failure evidence."
 verification = "Fake direct sessions produce a product edit successfully as the control, then no edit and a summary-only edit; public polling observes failed/NO_CHANGES and the supplied summary for the unchanged cases, with no approval or additional remediation session for NO_CHANGES."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_no_changes_fails_once_with_summary", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication"]
 spec = ""
 priority = "high"
 rationale = "A summary alone cannot satisfy the ticket implementation goal."

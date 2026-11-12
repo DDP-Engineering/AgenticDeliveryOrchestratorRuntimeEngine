@@ -8,12 +8,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
-ADORE turns an opt-in forge ticket into a governed, isolated, human-approved
-draft merge request. It selects a ticket from GitHub, GitLab or Gitea, runs the Pi
-coding agent through the repository's installed AEGIS workflow one stage at
-a time inside a dedicated branch, worktree and container, verifies the result
-independently, and publishes a draft or ready MR/PR according to `delivery.draft` after a fresh human approval.
-It never merges.
+ADORE turns an opt-in GitHub, GitLab or Gitea ticket into an isolated,
+human-approved merge or pull request. Pi works in a dedicated branch and
+worktree using container or native local execution. A repository with AEGIS
+runs stage by stage with independent strict verification; a repository without
+AEGIS runs a bounded direct implementation session and presents an explicitly
+unverified candidate. Both require fresh human approval before ADORE publishes
+a draft or ready MR/PR according to `delivery.draft`. It never merges.
 
 Current release: **ADORE 0.13.0**.
 
@@ -23,28 +24,41 @@ Current release: **ADORE 0.13.0**.
 eligible ticket
   -> ADORE run state (schema 1)
   -> isolated branch + worktree + container
-  -> AEGIS task journal
-  -> one fresh executor session per stage; validate closes the AEGIS task
-  -> local checkpoint after each successful transition
-  -> target integration + strict independent verification
+  -> workflow selected from the worktree and recorded at claim:
+       AEGIS present: task journal + fresh sessions per stage + strict verification
+       AEGIS absent: fresh direct implementation session + unverified evidence
+  -> host-owned checkpoints + target integration
   -> candidate fingerprint + fresh human approval label
   -> push + draft MR/PR
   -> human review and merge
 ```
 
-A full task runs `frame -> specify -> design -> build -> validate -> done`;
-a small fix or change may take the quick path without `specify` and `design`.
-The executor decides and justifies the path in the AEGIS journal; the ticket
-label is only a hint.
+An AEGIS task runs `frame -> specify -> design -> build -> validate -> done`;
+a small fix or change may take its quick path without `specify` and `design`.
+The executor decides and justifies that path in the AEGIS journal.
+
+A direct run uses `build -> validate -> done`. Pi implements the whole ticket
+in one fresh bounded session per attempt, reads the project's own instructions
+and reports its changes/checks in `ADORE_SUMMARY.md`. ADORE retains the summary,
+removes that exchange file, excludes it and the questions file from checkpoints,
+and presents the changed candidate with: **Verification: not configured. This
+candidate is unverified.** There is no configured direct verification command
+in this build. Questions park either workflow; `agent-answered` resumes fresh
+with the discussion. Summary-only work fails with `NO_CHANGES`.
+
+Only payload absence selects direct. A present unsupported or broken AEGIS
+payload is refused, not bypassed. A run keeps its recorded workflow on Retry,
+clarification and review; later repository adoption affects new tickets only.
+ADORE never installs or edits the target's AEGIS payload.
 
 ## What you get
 
 - **Bounded, loud failure.** A stage gets a configurable number of attempts,
   three by default; the last one stops with durable JSONL evidence and a
   visible incident comment. Questions park the run without consuming attempts.
-- **A real approval gate.** After strict verification ADORE presents the
-  candidate and waits for a fresh `agent-approved` label bound to the exact
-  candidate fingerprint and target commit. Drift or mutation invalidates it.
+- **A real approval gate.** ADORE presents strict AEGIS evidence or explicit
+  unverified direct evidence and waits for a fresh `agent-approved` label bound
+  to the exact candidate fingerprint and target commit. Drift invalidates it.
 - **The executor stays off the remote.** Pi runs in a container with no forge
   credentials and never commits, pushes, opens or merges. ADORE owns checkpoints,
   push and draft creation, and has no merge operation at all.
@@ -66,8 +80,10 @@ label is only a hint.
 - Git with a target clone whose `origin` the run-as account can push to.
 - Docker or rootless Podman, natively or as Docker Engine inside WSL2.
 - An authenticated `gh`, `glab` or `tea` for the target forge.
-- A target repository that carries AEGIS as `.agentic/aegis.py` at 0.15.0 or
-  later on the major-0 line, reporting JSON schema 1.
+- A target repository with documented build/test instructions and ignored
+  generated artifacts. AEGIS is optional for CLI/configured projects. When
+  `.agentic/aegis.py` is present, it must meet the supported version/schema
+  contract declared in `04_Software/adore/aegis.py`.
 - A model-provider key for the Pi model, kept in the environment or a
   gitignored `.env`.
 
@@ -94,7 +110,10 @@ adore --profile my-project run --once
 ```
 
 `adore init` is a guided setup that probes the host tools and the target
-repository's AEGIS payload and writes a validated profile. Label a small ticket
+repository's AEGIS payload when present and writes a validated profile. Without
+it, setup reports: "No AEGIS found: tickets run in the direct workflow".
+Web enrollment still requires AEGIS in this build; enroll AEGIS-free projects
+through CLI/configuration. Label a small ticket
 `agent-ready` with a priority such as `P2`, run one supervised poll, review the
 presented evidence, add `agent-approved`, and poll again to see the draft MR/PR
 open. Unattended operation on Ubuntu (systemd) or Windows 11 (Task Scheduler)

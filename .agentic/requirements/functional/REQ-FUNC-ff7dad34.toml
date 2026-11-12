@@ -18,7 +18,7 @@ title = "Conduct governed ticket delivery"
 
 # draft while being written, active once it is built and tested,
 # retired when the behavior is deliberately removed.
-status = "draft"
+status = "active"
 
 # Self-contained prose: a reader with no other context must be able to
 # understand and check it. No ticket numbers, no run IDs, no references
@@ -56,7 +56,7 @@ affected_paths = ["04_Software/adore/orchestrator.py"]
 
 # "tests/path/test_file.py::test_name" entries. Kept current during build;
 # these select the impacted regression set.
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_integration_conflict_returns_to_fresh_build", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_approval_drift_requires_new_presentation", "04_Software/tests/test_orchestrator.py::test_direct_retry_settlement_failure_cannot_publish", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval", "04_Software/tests/test_orchestrator.py::test_failed_strict_check_returns_the_task_from_done", "04_Software/tests/test_orchestrator.py::test_target_drift_invalidates_approval_and_revalidates_from_done"]
 
 # --- optional below this line ---
 

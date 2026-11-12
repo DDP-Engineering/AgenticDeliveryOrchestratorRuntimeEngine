@@ -14,7 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
-- Explain the direct workflow in CLI setup when the target repository has no AEGIS payload.
+- Conduct CLI/configured tickets without AEGIS through bounded fresh direct Pi sessions,
+  retain their summaries and present explicitly unverified candidates for fresh human
+  approval; keep clarification, recovery, review and publication boundaries shared.
+  CLI setup reports missing AEGIS as information; a present unusable payload is refused.
 
 ### Fixed
 
@@ -65,6 +68,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 ### Changed
 
 - Delete the run-state directories under each configured `store_root/runs/` before starting this build.
+
+- Delete each configured statistics database before starting this build; summaries now record workflow.
 
 - Store agent prompts as shipped Markdown files in `adore/prompts/`, preserving the text sent to Pi.
 

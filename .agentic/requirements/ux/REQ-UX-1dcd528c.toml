@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-1dcd528c"
 title = "Describe unverified direct approval candidates"
-status = "draft"
+status = "active"
 requirement = "When presenting a direct candidate for approval, the conductor shall show its retained implementation/check summary, changed-file count and the exact notice 'Verification: not configured. This candidate is unverified.' without an AEGIS task line."
 verification = "Drive direct completion with a known summary and fake changed-file count, inspect the posted approval body for summary/count/exact notice and absence of the AEGIS task line; compare AEGIS approval text to prove it retains its strict-check/task presentation and direct text makes no verified claim."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval"]
 spec = ""
 priority = "high"
 rationale = "A human must know that Pi's reported checks are not independent configured verification."

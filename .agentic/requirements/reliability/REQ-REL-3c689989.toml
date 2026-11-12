@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-3c689989"
 title = "Account for direct executor timeouts"
-status = "draft"
+status = "active"
 requirement = "If a direct Pi attempt times out, the conductor shall account for the typed timeout through the existing bounded stage-failure policy with preserved timeout cause and stage."
 verification = "Offline fake direct execution reports a typed timeout, observes the timeout failure history and a fresh retry below the limit, then terminal failure at the limit; contrast a non-timeout exit error and a successful bounded session so stderr text alone never selects timeout classification."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_errors_use_bounded_build_failure_accounting", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication"]
 spec = ""
 priority = "high"
 rationale = "A timeout is not completion even if files were changed."

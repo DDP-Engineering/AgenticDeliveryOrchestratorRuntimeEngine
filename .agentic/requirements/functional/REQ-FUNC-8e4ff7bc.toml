@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-8e4ff7bc"
 title = "Resume direct clarification with the thread"
-status = "draft"
+status = "active"
 requirement = "When an agent-answered label authorizes clarification resume for a parked direct run, the conductor shall resume direct build in a fresh session receiving the ticket discussion thread through the existing bounded clarification mechanism."
 verification = "Park a direct run with a fake executor, add a human answer and agent-answered, poll and inspect a distinct fresh launch containing the rendered question/answer thread with retained run/worktree identity and cumulative budgets; without the label no session resumes, and existing deadline/round-limit refusal remains effective."
 affected_paths = ["04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_questions_park_and_resume_fresh_with_thread", "04_Software/tests/test_orchestrator.py::test_direct_clarification_deadline_and_round_limit"]
 spec = ""
 priority = "high"
 rationale = "Clarification does not turn a direct ticket into an AEGIS task or erase consumed work."

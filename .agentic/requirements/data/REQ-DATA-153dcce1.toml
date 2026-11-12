@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-DATA-153dcce1"
 title = "Record the workflow selected from the claimed worktree"
-status = "draft"
+status = "active"
 requirement = "When claiming a ticket, the conductor shall persist workflow selected by .agentic/aegis.py presence in the run worktree as aegis when present or direct when absent, with direct starting at build and carrying no active or historical AEGIS task id."
 verification = "Offline claim tests inspect saved state for present and absent worktree payloads, including clone/worktree presence disagreement, and observe worktree-selected workflow, direct build and empty task bindings; a present unsupported payload is never treated as direct."
 affected_paths = ["04_Software/adore/state.py", "04_Software/adore/orchestrator.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_claim_pins_preparation_revision_before_snapshot_allocation", "04_Software/tests/test_orchestrator.py::test_claim_selects_worktree_workflow_before_first_save", "04_Software/tests/test_orchestrator.py::test_preclaim_allocation_failure_keeps_ticket_eligible"]
 spec = ""
 priority = "high"
 rationale = "The isolated ticket snapshot, not a later clone revision, owns workflow identity."

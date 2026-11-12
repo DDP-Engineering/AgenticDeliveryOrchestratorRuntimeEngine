@@ -58,6 +58,19 @@ line may be skipped because `state.json`, not the log, drives decisions.
 
 ## 4. Workflow Integration
 
+The conductor selects `workflow` from the allocated pinned worktree before its
+first claim save. Clarification, Retry, reset and review never redetect or mutate
+it. Direct runs have no task bindings; reset rejects AEGIS-only direct stages
+before mutation.
+
+Direct `validation_evidence` carries sanitized bounded `summary`, conductor-owned
+`implementation = completed`, then `verification = not configured` and an observed
+`changed_files` count. Summary text is saved before file removal; the transient
+isolation receipt is never serialized. The completion marker permits checkpoint
+recovery at validate without replaying successful implementation. Missing
+completion returns recovery to build; summary alone does not authorize approval.
+This evidence claims no strict verification success.
+
 The conductor saves before every remote notification, after every counter or
 lifecycle change, and at every stage boundary. Explicit retry resets only the
 active failure counter; active work and history remain cumulative.

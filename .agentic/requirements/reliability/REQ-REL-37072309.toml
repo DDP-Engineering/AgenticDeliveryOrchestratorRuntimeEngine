@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-REL-37072309"
 title = "Refuse unsafe direct summary artifacts"
-status = "draft"
+status = "active"
 requirement = "If a present direct summary artifact cannot be safely read as text and removed within the owned worktree, the runtime shall fail closed with a typed isolation error before checkpointing or presenting that candidate."
 verification = "Use an ordinary readable summary as the successful control, then inject invalid text encoding, a directory, an external symlink and read/unlink errors at the summary path; observe typed refusal and no candidate/checkpoint or external target read/deletion, with existing failure evidence retained."
 affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/isolation.py"]
-linked_tests = ["04_Software/tests/test_isolation.py::test_summary_read_then_owned_removal", "04_Software/tests/test_isolation.py::test_summary_absence_is_not_an_error", "04_Software/tests/test_isolation.py::test_summary_refuses_unsafe_artifact", "04_Software/tests/test_isolation.py::test_summary_io_failure_is_typed", "04_Software/tests/test_isolation.py::test_summary_removal_rejects_changed_identity", "04_Software/tests/test_isolation.py::test_summary_refuses_a_linked_worktree", "04_Software/tests/test_isolation.py::test_summary_source_owned_collision_is_not_consumed", "04_Software/tests/test_isolation.py::test_summary_refuses_mutation_during_observation", "04_Software/tests/test_isolation.py::test_summary_removal_refuses_wrong_worktree"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_artifact_and_git_failures_preserve_cause", "04_Software/tests/test_orchestrator.py::test_direct_retry_settlement_failure_cannot_publish", "04_Software/tests/test_checkpoint_handoff.py::test_direct_handoff_never_checkpoints_exchange_files", "04_Software/tests/test_isolation.py::test_summary_read_then_owned_removal", "04_Software/tests/test_isolation.py::test_summary_absence_is_not_an_error", "04_Software/tests/test_isolation.py::test_summary_refuses_unsafe_artifact", "04_Software/tests/test_isolation.py::test_summary_io_failure_is_typed", "04_Software/tests/test_isolation.py::test_summary_removal_rejects_changed_identity", "04_Software/tests/test_isolation.py::test_summary_refuses_a_linked_worktree", "04_Software/tests/test_isolation.py::test_summary_source_owned_collision_is_not_consumed", "04_Software/tests/test_isolation.py::test_summary_refuses_mutation_during_observation", "04_Software/tests/test_isolation.py::test_summary_removal_refuses_wrong_worktree"]
 spec = ""
 priority = "high"
 rationale = "Executor-written artifacts cross the repository's fail-closed trust boundary; a missing summary alone is not a stated completion failure."

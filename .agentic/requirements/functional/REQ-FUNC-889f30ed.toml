@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-889f30ed"
 title = "Compose the direct implementation prompt"
-status = "draft"
+status = "active"
 requirement = "When launching a direct attempt, the conductor shall compose a catalog-backed prompt carrying the ticket title and body, applicable shared permission/network paragraphs, guidance to read repository AGENTS.md, CLAUDE.md, CONTRIBUTING.md and README when present and implement completely with tests where the repository has tests, the prohibition on commit/push/MR/PR/merge/forge credentials, the configured questions path and the request for a short change/check summary in root ADORE_SUMMARY.md."
 verification = "Capture the prompt in offline direct launches and assert all named instructions plus literal title/body and configured questions path; use non-ASCII and dollar/brace-bearing ticket input, system-package permission on/off and effective network modes to prove safe substitution and shared notice selection."
 affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/prompts.py", "04_Software/adore/prompts/"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_direct_questions_park_and_resume_fresh_with_thread", "04_Software/tests/test_prompts.py::test_direct_prompt_reuses_identical_permission_and_network_paragraph", "04_Software/tests/test_prompts.py::test_direct_resource_is_eagerly_required"]
 spec = ""
 priority = "high"
 rationale = "The prompt asks for implementation rather than journal-stage execution; catalog trust boundaries still apply."

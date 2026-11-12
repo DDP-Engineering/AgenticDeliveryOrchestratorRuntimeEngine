@@ -59,7 +59,9 @@ the `adore` package. An optional web API also exposes selected controls.
     ADORE's pointer to `frame`, `specify`, `design`, `build`, `validate` or
     `publishing`, refusing any other target with the run unchanged (a run
     saved at the removed `deliver` stage is already refused when its state
-    loads); AEGIS still owns the governed stage;
+    loads); AEGIS still owns the governed stage. Direct runs accept only
+    `build`, `validate` or `publishing`; AEGIS-only targets are refused before
+    state mutation;
   - `adore profile delete <name> --force --remove-resources [--remove-clone]` - under the
     conductor lock, refuses unfinished or corrupt runs, removes the containers,
     egress resources and worktrees recorded for the project's own runs except
@@ -166,6 +168,17 @@ The intervention commands mutate ADORE-owned state only: they do not edit
 AEGIS payload files or executor-owned task journals. Stop the service poller
 before an intervention command; `pause` stops pickup but does not release the
 process lock.
+
+CLI/configured projects may omit AEGIS. `init` reports the direct workflow as
+information; `run` delegates absence-only selection to the conductor, which
+presents explicitly unverified direct candidates for the same human gate.
+There is no mode selector or direct verification setting in this build.
+A present failed payload probe still produces `workflow_unavailable` with
+`payload_error` in the engine summary, so `_not_started_code` retains the
+existing `aegis_probe_failed` line and exit 1; absence starts normally and does
+not add another CLI reason. Existing smoke tests retain this contract, while
+public conductor tests prove actual direct admission and unsupported-payload
+refusal. Web enrollment readiness is not relaxed by these CLI changes.
 
 ## 8. Usage
 

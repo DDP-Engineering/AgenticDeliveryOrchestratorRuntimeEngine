@@ -32,6 +32,7 @@ LEGAL_PREFIX = (
     "-->\n"
 )
 FRAGMENTS = (
+    "direct/implementation.md",
     "stage/intro.md",
     "stage/ticket.md",
     "stage/active-task.md",

@@ -17,8 +17,8 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "new"
-topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
-text = { en = "Setup identifies repositories without AEGIS and explains the direct workflow.", fr = "La configuration repère les dépôts sans AEGIS et explique le flux direct.", de = "Die Einrichtung erkennt Repositorys ohne AEGIS und erklärt den direkten Ablauf.", ro = "Configurarea identifică depozitele fără AEGIS și explică fluxul direct." }
+topic = { en = "Direct workflow", fr = "Flux direct", de = "Direkter Ablauf", ro = "Flux direct" }
+text = { en = "Run CLI tickets without AEGIS; approve explicitly unverified candidates with agent summaries.", fr = "Traitez les tickets sans AEGIS en ligne de commande ; approuvez des candidats non vérifiés.", de = "CLI-Tickets ohne AEGIS ausführen; ungeprüfte Kandidaten mit Agentenzusammenfassung freigeben.", ro = "Rulați tichete CLI fără AEGIS; aprobați candidați neverificați cu rezumatul agentului." }
 
 [[release.entry]]
 category = "improved"

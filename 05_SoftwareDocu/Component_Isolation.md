@@ -468,5 +468,9 @@ paths, product progress controls, indexed/untracked exchange exclusions, staged
 set rechecks, corrupt Git results, source/path collisions, Unicode and bounded
 summary tails, absence, empty output, invalid encoding, directories/links, IO
 failures, stale identity, concurrent observation changes and cross-run removal.
-The direct conductor wiring and candidate/publication policy are separate from
-these isolation primitives.
+The direct conductor calls these APIs for both attempt progress observations
+and all checkpoints, including integration, Retry settlement and human handoff.
+It passes the existing `_MAX_EVIDENCE` bound, saves sanitized receipt text before
+removal and never serializes the receipt. Public conductor and handoff tests
+verify the integration and no-artifact publication; completion and approval
+policy remain separate from these isolation primitives.
