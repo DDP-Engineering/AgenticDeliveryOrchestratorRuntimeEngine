@@ -91,7 +91,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Refresh project Settings, Access, History and global Change history automatically. Settings pauses while edits are unsaved. Project History uses automatic updates in place of its Refresh buttons.
 
-- Delete each project profile’s `readiness.json` before starting this build.
+- Delete each project profile’s `readiness.json` before starting this build; workflow observations are now separate from prerequisite checks.
 
 - Ticket details place Body display and its selector together on the right of the description heading; action buttons wrap without splitting words when details open.
 

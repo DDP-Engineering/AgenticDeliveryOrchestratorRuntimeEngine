@@ -19,7 +19,7 @@ verification = "Offline API tests check a draft, create the same project, and co
 
 affected_paths = ["04_Software/adore/web/app.py"]
 
-linked_tests = ["04_Software/tests/test_web_enrollment.py::test_partial_enrollment_evidence_remains_partial_and_goes_stale", "04_Software/tests/test_web_transfer.py::test_transfer_creation_keeps_server_check"]
+linked_tests = ["04_Software/tests/test_web_enrollment.py::test_partial_enrollment_evidence_remains_partial_and_goes_stale", "04_Software/tests/test_web_transfer.py::test_transfer_creation_keeps_server_check", "04_Software/tests/test_repository_source.py::test_create_clones_after_review_and_checks_do_not"]
 
 
 spec = ""
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-09
-updated = 2026-11-09
+updated = 2026-11-12

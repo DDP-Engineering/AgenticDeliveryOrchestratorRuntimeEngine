@@ -404,6 +404,8 @@ def test_transfer_creation_keeps_server_check(tmp_path):
         assert created.status_code == 200, created.text
         assert created.json()["verification"]["status"] == checked["status"]
         assert created.json()["verification"]["checks"] == checked["checks"]
+        assert created.json()["verification"]["workflow"] == checked["workflow"] == "direct"
+        assert "aegis_files" not in checked["checks"]
 
 
 @pytest.mark.parametrize("bad", ["unknown", "duplicate", "missing", "both", "none"])
@@ -445,6 +447,27 @@ def test_clone_preview_defaults_reflect_the_copied_rules(tmp_path):
     for key, value in copied.items():
         if value != next(row["server_value"] for row in preview["mapping"] if row["key"] == key):
             assert key not in defaults, key
+
+
+@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
+def test_transfer_probe_rejects_invalid_workflow(tmp_path, monkeypatch, bad):
+    """@brief Portable enrollment never issues a token from malformed workflow evidence."""
+    import adore.web.app as web_app
+
+    evidence = {"checks": dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                                         "executor_cli", "egress_proxy"], True)}
+    if bad != "missing":
+        evidence["workflow"] = bad
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **kw: evidence)
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        headers, body, _, _ = _source(client, app, tmp_path, "project")
+        reviewed, _preview = _review(client, body, headers)
+        result = client.post("/api/v1/projects/transfer-check", json=reviewed, headers=headers)
+        assert result.status_code == 503, result.text
+        assert result.json()["detail"]["code"] == "readiness_probe_failed"
+        assert "evidence_token" not in result.json()
+        assert not app.state.profiles.profile_dir("target").exists()
 
 
 # END OF FILE

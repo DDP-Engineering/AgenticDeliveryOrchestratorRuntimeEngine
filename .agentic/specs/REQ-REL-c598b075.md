@@ -29,9 +29,10 @@ On error remove published metadata before releasing the conductor lock, remove o
 
 ## Readiness
 
-Draft revision for TASK-988d986a; this section becomes current when the changed
-readiness contract is built and validated. The other sections retain their
-existing scope. See the task's Design D2 for the chosen implementation seams.
+The backend contract below is implemented and covered by focused offline API tests
+in TASK-988d986a build. The final paragraph's browser-reader contract remains draft
+until its frontend build increment is implemented and proven. The other sections
+retain their existing scope; final strict validation remains outstanding.
 
 The /readiness-check response carries context/checks/checked_at plus revision,
 project_id, status, required_checks, auth_bound and a separate workflow enum.

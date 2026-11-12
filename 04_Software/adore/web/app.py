@@ -719,7 +719,6 @@ def _required_readiness_checks(config) -> set[str]:
         "forge_auth",
         "container_runtime",
         "executor_cli",
-        "aegis_files",
     }
     if config.executor.provider == CHATGPT:
         required.add("executor_sign_in")
@@ -738,7 +737,28 @@ def _readiness_auth_bound(profiles: ProfileStore, name: str, config) -> bool:
         raise _error(503, exc.code) from exc
 
 
-def _valid_readiness_checks(checks: object, config, *, pending_clone: bool = False) -> bool:
+def _workflow_observation(config) -> str:
+    """@brief Describe file presence without running or modifying repository code.
+
+    @param[in] config Configuration containing the selected clone path.
+    @return AEGIS, Direct or explicitly not-inspected for an unavailable clone.
+    @exception HTTPException File inspection failed rather than proving absence.
+    """
+    try:
+        clone = Path(config.worktree.repo_path)
+        if not clone.is_dir():
+            return "not-inspected"
+        return "aegis" if (clone / ".agentic" / "aegis.py").is_file() else "direct"
+    except OSError as exc:
+        raise _error(503, "readiness_probe_failed") from exc
+
+
+def _valid_workflow(value: object) -> bool:
+    """@brief Validate the closed descriptive workflow domain at evidence boundaries."""
+    return isinstance(value, str) and value in {"aegis", "direct", "not-inspected"}
+
+
+def _valid_readiness_checks(checks: object, config) -> bool:
     """@brief Fail closed on malformed probe results before any evidence publication."""
     if not isinstance(checks, dict) or set(checks) != _required_readiness_checks(config):
         return False
@@ -746,9 +766,6 @@ def _valid_readiness_checks(checks: object, config, *, pending_clone: bool = Fal
         type(value) is bool
         or key == "container_runtime"
         and value is None
-        or key == "aegis_files"
-        and pending_clone
-        and value == "not-checked"
         for key, value in checks.items()
     )
 
@@ -772,12 +789,14 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             "host",
             "binding",
             "auth_bound",
+            "workflow",
         }
         if (
             not isinstance(value, dict)
             or set(value) != keys
             or type(value["schema"]) is not int
-            or value["schema"] != 2
+            or value["schema"] != 3
+            or not _valid_workflow(value["workflow"])
             or value["project_id"] != profile.project_id
             or not isinstance(value["revision"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
@@ -804,7 +823,6 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             "forge_auth",
             "container_runtime",
             "executor_cli",
-            "aegis_files",
         }
         # Optional checks: the server's ChatGPT sign-in, the egress proxy
         # image (internet off) and the web search key (internet on).
@@ -822,8 +840,6 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             if type(result) is not bool and not (
                 key == "container_runtime"
                 and result is None
-                or key == "aegis_files"
-                and result == "not-checked"
             ):
                 raise ValueError("invalid readiness check value")
     except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
@@ -904,7 +920,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
     @param[in] external_auth Discover external auth; False when project_runner owns credentials.
     @param[in] chatgpt_dir The server's ChatGPT credential directory; a ChatGPT
                project gets the check `executor_sign_in`, read from its files.
-    @return Typed prerequisite checks and redacted model evidence.
+    @return Typed prerequisites, separate read-only workflow and optional native diagnostics.
     @exception HTTPException A prerequisite command fails to produce usable evidence.
     """
     deadline = monotonic() + 30
@@ -1007,13 +1023,11 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
 
         executor_probe = probe_local_executor(config, env_file, chatgpt_dir=chatgpt_dir)
         executor = executor_probe["ready"]
-        aegis_root = Path(config.worktree.repo_path) / ".agentic"
-        return {"local_probe": executor_probe, "checks": {"git": git.present and not git.detail,
+        return {"workflow": _workflow_observation(config),
+                "local_probe": executor_probe, "checks": {"git": git.present and not git.detail,
                             "forge_cli": forge.present and not forge.detail,
                             "forge_auth": auth.authenticated,
                             "container_runtime": True, "executor_cli": executor,
-                            "aegis_files": (aegis_root / "aegis.py").is_file()
-                            and (aegis_root / "aegis.toml").is_file(),
                             **({"executor_sign_in": chatgpt.status(
                                 chatgpt_dir or chatgpt.credential_dir()) == "signed-in"}
                                if config.executor.provider == CHATGPT else {}),
@@ -1038,7 +1052,6 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
     runtime_name = config.container.runtime.strip()
     runtime = (runtimes.docker if runtime_name == "docker" else
                runtimes.podman if runtime_name == "podman" else None)
-    aegis_root = Path(config.worktree.repo_path) / ".agentic"
     checks = {
         "git": git.present and not git.detail,
         "forge_cli": forge.present and not forge.detail,
@@ -1046,14 +1059,12 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         "container_runtime": (runtime.present and not runtime.detail
                               if runtime is not None else None),
         "executor_cli": executor,
-        "aegis_files": ((aegis_root / "aegis.py").is_file()
-                        and (aegis_root / "aegis.toml").is_file()),
     }
     if config.executor.provider == CHATGPT:
         checks["executor_sign_in"] = (
             chatgpt.status(chatgpt_dir or chatgpt.credential_dir()) == "signed-in")
     checks.update(_internet_checks(config, bounded_runner, env_file))
-    return {"checks": checks}
+    return {"workflow": _workflow_observation(config), "checks": checks}
 
 
 def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, WizardSetup | None]:
@@ -1195,6 +1206,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         preview["revision"] = sha256(json.dumps(snapshot, sort_keys=True,
                                                ensure_ascii=False).encode("utf-8")).hexdigest()
         preview["config_revision"] = sha256(candidate.document.encode("utf-8")).hexdigest()
+        preview["workflow"] = _workflow_observation(config)
         preview["defaults"] = _preview_defaults(candidate.document)
         # Normalize the Windows spelling for display only; preserve POSIX path case and identity.
         def shown_path(value: str) -> str:
@@ -1583,7 +1595,8 @@ def _publish_paused_locked(
                 _write_pending_config(
                     directory / "readiness.json",
                     {
-                        "schema": 2,
+                        "schema": 3,
+                        "workflow": readiness["workflow"],
                         "project_id": item.project_id,
                         "host": readiness["host"],
                         "binding": readiness["binding"], "auth_bound": readiness["auth_bound"],
@@ -3488,13 +3501,11 @@ def create_app(home: str | Path | None = None,
             or auth_bound != _readiness_auth_bound(profiles, body.target.name, config)
         ):
             raise _error(409, "stale_config_revision")
-        if not isinstance(evidence, dict):
+        if not isinstance(evidence, dict) or not _valid_workflow(evidence.get("workflow")):
             raise _error(503, "readiness_probe_failed")
         checks = evidence.get("checks")
         if not _valid_readiness_checks(checks, config):
             raise _error(503, "readiness_probe_failed")
-        if _pending_clone(body.target):
-            checks["aegis_files"] = "not-checked"  # The clone is made at creation.
         status = (
             "failed"
             if any(value is False for value in checks.values())
@@ -3510,6 +3521,7 @@ def create_app(home: str | Path | None = None,
             {
                 "checked_at": checked_at,
                 "checks": dict(checks),
+                "workflow": evidence["workflow"],
                 "host": host,
                 "binding": binding,
                 "auth_bound": auth_bound,
@@ -3620,13 +3632,11 @@ def create_app(home: str | Path | None = None,
             or auth_bound != _readiness_auth_bound(profiles, body.name, config)
         ):
             raise _error(409, "stale_config_revision")
-        if not isinstance(evidence, dict):
+        if not isinstance(evidence, dict) or not _valid_workflow(evidence.get("workflow")):
             raise _error(503, "readiness_probe_failed")
         checks = evidence.get("checks")
         if not _valid_readiness_checks(checks, config):
             raise _error(503, "readiness_probe_failed")
-        if _pending_clone(body):
-            checks["aegis_files"] = "not-checked"  # The clone is made at creation.
         status = (
             "failed"
             if any(value is False for value in checks.values())
@@ -3642,6 +3652,7 @@ def create_app(home: str | Path | None = None,
             {
                 "checked_at": checked_at,
                 "checks": dict(checks),
+                "workflow": evidence["workflow"],
                 "host": host,
                 "binding": binding,
                 "auth_bound": auth_bound,
@@ -3723,13 +3734,22 @@ def create_app(home: str | Path | None = None,
         @exception HTTPException Invalid/stale input or unusable probe fails closed.
         """
         preview, config = _reviewed_import(profiles, body)
+        auth_bound = _readiness_auth_bound(profiles, body.name, config)
         evidence = _probe_setup(config, probe_runner, chatgpt_dir=chatgpt_dir)
         _reviewed_import(profiles, body)
+        if auth_bound != _readiness_auth_bound(profiles, body.name, config):
+            raise _error(409, "stale_config_revision")
+        if (not isinstance(evidence, dict)
+                or not _valid_workflow(evidence.get("workflow"))
+                or not _valid_readiness_checks(evidence.get("checks"), config)):
+            raise _error(503, "readiness_probe_failed")
         checks = evidence["checks"]
         status = ("failed" if any(value is False for value in checks.values()) else
-                  "partial" if any(type(value) is not bool for value in checks.values())
+                  "partial" if not auth_bound or any(type(value) is not bool
+                                                     for value in checks.values())
                   else "verified")
         return {**evidence, "status": status, "revision": preview["revision"],
+                "required_checks": sorted(checks), "auth_bound": auth_bound,
                 "config_revision": preview["config_revision"], "context": "api-host",
                 "checked_at": datetime.now(UTC).isoformat()}
 
@@ -4098,12 +4118,13 @@ def create_app(home: str | Path | None = None,
                 )
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
-            if not isinstance(evidence, dict) or not _valid_readiness_checks(
-                evidence.get("checks"), config
-            ):
+            if (not isinstance(evidence, dict)
+                    or not _valid_workflow(evidence.get("workflow"))
+                    or not _valid_readiness_checks(evidence.get("checks"), config)):
                 raise _error(503, "readiness_probe_failed")
             value = {
-                "schema": 2,
+                "schema": 3,
+                "workflow": evidence["workflow"],
                 "project_id": item.project_id,
                 "revision": revision,
                 "host": host,

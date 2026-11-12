@@ -318,9 +318,11 @@ SQLite bytes, authorization, scope and financial redaction.
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
 - The administrator UI edits multiple settings and uses one dirty-aware Save. Important effects receive a no-write canonical preview and native modal; cancellation retains inputs without a new stored draft. Confirmed preparation/apply binds exact hashes and plans. Ordinary changes save directly. Drafts survive errors and stale revisions. Navigation and browser reload guard abandonment. Apply retains atomic idle/lock/pause authority and interrupted-apply reconciliation.
 - Explicit administrator readiness checks use bounded doctor probes from the
-  API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
-  executing repository code. The stored checks are exactly `git`, `forge_cli`,
-  `forge_auth`, `container_runtime`, `executor_cli` and `aegis_files`, plus the
+  API host and persist typed revision/time-bound evidence. Required `workflow` information
+  is `aegis` from `.agentic/aegis.py` alone, `direct` otherwise in an available clone,
+  or `not-inspected` when unavailable; read-only inspection runs no repository code.
+  The stored base checks are exactly `git`, `forge_cli`, `forge_auth`,
+  `container_runtime` and `executor_cli`, plus the
   boolean `executor_sign_in` for a project with provider `chatgpt` only (true
   when `chatgpt.status` of the server's credential directory is `signed-in`;
   read from the files without starting Pi; false makes the evidence `failed`).
@@ -1085,13 +1087,26 @@ The lazy authorized executor-output endpoint reads the last executor-artifacts h
 
 History projects ticket/job targets separately from queue IDs and reports actual terminal outcomes. Local CLI deletion receipts import once into the authorized audit view with crash uncertainty, immutable identity validation and explicit SQLite journal-mode checks. Completed import receipts retain only opaque keys.
 
-Guided and portable enrollment check tokens expire after 15 minutes, are single-use and bind administrator, draft and configuration; a pending clone keeps AEGIS files not checked. Pi thinking choices are validated against the bundled pinned-model capabilities and applied to stages and model checks.
+Guided and portable enrollment check tokens expire after 15 minutes, are single-use
+and bind administrator, draft and configuration. They retain measured workflow/checks
+unchanged at creation, including not-inspected for a pending clone; only a later explicit
+host check inspects the new clone. Pi thinking choices are validated against the bundled
+pinned-model capabilities and applied to stages and model checks.
 
-Readiness schema 2 includes a private machine/account binding and configuration-specific check set; invalid schema instructs the operator to delete the profile readiness.json. Managed credential changes invalidate prior evidence. The project list validates evidence before showing its verdict, and Repository access is neutral because CLI sign-in alone does not establish repository access.
+Readiness schema 3 includes a private machine/account binding, configuration-specific
+prerequisite check set and required closed workflow enum. No aegis_files check is allowed.
+Invalid schema/workflow or corrupt values fail closed even when stale and instruct the
+operator to delete the profile readiness.json; bytes are never repaired or replaced. Managed credential changes invalidate prior evidence. The project list validates evidence before showing its verdict, and Repository access is neutral because CLI sign-in alone does not establish repository access.
 
 A private authentication-context fingerprint binds managed, environment and CLI credential inputs; changes stale previous evidence. Probes recheck it under publication locks and reject old or corrupt readiness before replacing records. Public check sets declare required keys and the browser validates them.
 
-Unobservable external CLI identity remains partial even if its probe passed; a validated project-scoped credential is required for verified. Probe values are validated before writes; list requirements are independently derived from active config.
+Unobservable external CLI identity remains partial even if its probe passed; a validated
+project-scoped credential is required for verified. Workflow never changes the verdict.
+Guided, portable, exact-import and saved-project probes validate workflow and prerequisites
+before evidence release or writes; malformed workflow returns readiness_probe_failed.
+List requirements are independently derived from active config. Focused proof:
+test_web_readiness.py, test_web_enrollment.py, test_repository_source.py,
+test_web_transfer.py and test_web_import.py.
 
 Factory administrator guidance: store initialization announces the initial credentials once; login and own-session reads derive a boolean from the current factory password hash. The authenticated shell shows a four-locale reminder with a link to My account until the password changes. Password changes and resets revoke sessions; the reminder periodically rechecks the current session while visible. Corrupt credential evidence fails closed. No schema changes.
 

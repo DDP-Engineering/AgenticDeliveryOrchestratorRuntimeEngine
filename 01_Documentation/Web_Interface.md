@@ -1085,16 +1085,25 @@ checks and a redacted model reason. No profile or draft is stored. A changed rev
 returns 409 before probing. Gitea authentication uses the selected tea login.
 `POST /api/v1/projects/setup-create` rebuilds and compares the reviewed revision,
 then uses the existing atomic stopped-publication boundary. Duplicate IDs fail closed.
-Both routes require administrator mutation CSRF. The guided check returns a short-lived server-issued token; creation transfers only its bound measured checks. Missing evidence leaves the project unverified, and unchecked AEGIS files remain partial. TOML import checks remain separate.
+Both routes require administrator mutation CSRF. The guided check returns a short-lived
+server-issued token; creation transfers only its bound measured checks and observed
+workflow. Missing evidence leaves the project unverified. Pending clones remain
+`not-inspected` after creation until an explicit host check. Workflow information never
+blocks readiness. TOML import checks remain separate and ephemeral.
 
 Project reads report structural `validation`, `pickup_state` and `verification`
 independently. Explicit `readiness-check` stores revision/time-bound evidence:
 `unverified` means no evidence, `stale` means config bytes changed, `failed` means a
-check failed, `partial` includes undetected WSL runtime, and `verified` means the
-recorded checks succeeded for that revision. Age alone does not stale evidence;
+check failed, `partial` includes undetected runtime or unbound external CLI identity,
+and `verified` means the recorded prerequisites succeeded with bound authentication
+for that revision. The API reports workflow separately: `aegis` from `.agentic/aegis.py`
+alone, `direct` when absent in an available clone, or `not-inspected` when the clone
+is unavailable. It runs no repository command, writes no clone files and certifies
+no AEGIS version; the live pre-pick probe still decides executable compatibility. Age alone does not stale evidence;
 repeat verification when operational circumstances change. It does not grant approval
 or restart jobs. Corrupt readiness evidence fails closed: inspect the host sidecar,
-repair/remove invalid evidence and explicitly rerun verification. Keep credentials
+delete the affected profile's `readiness.json` and explicitly rerun verification.
+Only readiness schema 3 is accepted; no old record is migrated or automatically replaced. Keep credentials
 in supported environment references or protected mounts; inline secret values,
 provider JSON secrets and URL credentials are rejected without echoing them.
 

@@ -337,20 +337,28 @@ def test_create_clones_after_review_and_checks_do_not(tmp_path, aegis, toml) -> 
         preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
         assert preview["structural_valid"], preview
         assert preview["review"]["clone_url"] == URL and preview["review"]["clone"] == "new"
+        assert preview["workflow"] == "not-inspected"
         check = client.post(
             "/api/v1/projects/setup-check",
             json={**body, "revision": preview["revision"]},
             headers=headers,
         )
         assert check.status_code == 200, check.text
-        assert check.json()["checks"]["aegis_files"] == "not-checked"
+        assert check.json()["workflow"] == "not-inspected"
+        assert "aegis_files" not in check.json()["checks"]
         assert not Path(detected["repo_path"]).exists()
         created = client.post(
             "/api/v1/projects/setup-create",
-            json={**body, "revision": preview["revision"]},
+            json={**body, "revision": preview["revision"],
+                  "evidence_token": check.json()["evidence_token"]},
             headers=headers,
         )
         assert created.status_code == 200, created.text
+        assert created.json()["verification"]["workflow"] == "not-inspected"
+        assert created.json()["verification"]["checks"] == check.json()["checks"]
+        measured = client.post("/api/v1/projects/sample.service/readiness-check", headers=headers)
+        assert measured.status_code == 200, measured.text
+        assert measured.json()["workflow"] == ("aegis" if aegis else "direct")
         target = Path(detected["repo_path"])
         assert {str(path.relative_to(target)): path.read_bytes()
                 for path in target.rglob("*") if path.is_file()} == forge.cloned_files
