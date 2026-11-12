@@ -79,8 +79,11 @@ by CLI init and web setup-preview. It returns `(command, source)` or None:
 the eight ordered rows in Configuration_Reference.md, root before exactly one
 matching immediate child, with portable child names and clone-relative manifest
 provenance. External links, nonregular files and evidence over 1 MiB are ignored;
-only bounded package.json/Makefile content is read. Malformed package JSON is a
-miss; access/encoding failures propagate. No commands, network or writes occur.
+only bounded package.json/Makefile content is read. Malformed package JSON,
+including JSON decoder integer/recursion-limit failures, is a JavaScript miss;
+later rows remain eligible. Access/encoding failures propagate; static link loops
+are OSError(ELOOP), including on Python 3.11/3.12 where pathlib uses RuntimeError.
+No commands, network or writes occur.
 Proof: `04_Software/tests/test_verification_hint.py`; component contract:
 `05_SoftwareDocu/Component_Verification_Hint.md`.
 

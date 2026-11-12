@@ -720,6 +720,40 @@ def test_wizard_verification_invalid_or_cancelled_never_saves(tmp_path, changes,
     assert not store.exists("p") and not store.config_path("p").exists()
 
 
+@pytest.mark.parametrize("text", [
+    "[" * 2000,
+    '{"scripts":{"test":' + "1" * 5000 + "}}",
+    '{"unused":' + "[" * 2000 + "0" + "]" * 2000 + "}",
+], ids=["truncated-deep-json", "oversized-integer", "deep-json"])
+@pytest.mark.parametrize("fallback", [False, True])
+def test_wizard_hint_package_decoder_failure_is_a_miss(tmp_path, text, fallback):
+    """@brief Package decoder failures still offer the no-match or later-row CLI default."""
+    clone = _clone(tmp_path)
+    (clone / "package.json").write_text(text, encoding="utf-8")
+    if fallback:
+        (clone / "go.mod").touch()
+    store = _store(tmp_path)
+    asker = ScriptedAsker(_answers(clone), interactive=False)
+    run_wizard(store, asker=asker, out=lambda _: None, runner=_runner(), os_key="linux", name="p")
+    assert "verification_choice" in asker.reads
+    assert load_config(store.config_path("p")).workflow.verify_command == (
+        "go test ./..." if fallback else "")
+
+
+def test_wizard_hint_symlink_loop_is_field_addressed(tmp_path):
+    """@brief A static manifest link loop refuses setup before saving a profile."""
+    clone = _clone(tmp_path)
+    manifest = clone / "package.json"
+    manifest.symlink_to(manifest)
+    store = _store(tmp_path)
+    with pytest.raises(WizardError) as error:
+        run_wizard(store, asker=ScriptedAsker(_answers(clone)), out=lambda _: None,
+                   runner=_runner(), os_key="linux", name="p")
+    assert error.value.field == "repo_path"
+    assert str(manifest) not in str(error.value)
+    assert not store.exists("p") and not store.config_path("p").exists()
+
+
 def test_wizard_hint_access_failure_is_field_addressed(tmp_path, monkeypatch):
     """@brief Unreadable evidence is an explicit refusal, not a guessed empty default."""
     clone = _clone(tmp_path)

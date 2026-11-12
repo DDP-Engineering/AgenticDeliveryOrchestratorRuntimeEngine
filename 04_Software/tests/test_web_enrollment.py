@@ -1194,6 +1194,46 @@ def test_preview_hint_is_transient_and_never_changes_submitted_command(tmp_path,
     assert load_config(app.state.profiles.config_path("alpha")).workflow.verify_command == command
 
 
+@pytest.mark.parametrize("text", [
+    "[" * 2000,
+    '{"scripts":{"test":' + "1" * 5000 + "}}",
+    '{"unused":' + "[" * 2000 + "0" + "]" * 2000 + "}",
+], ids=["truncated-deep-json", "oversized-integer", "deep-json"])
+@pytest.mark.parametrize("fallback", [False, True])
+def test_preview_hint_package_decoder_failure_is_a_miss(tmp_path, text, fallback):
+    """@brief Untrusted package decoder failures preserve preview and later table rows."""
+    body = _body(tmp_path, verify_command="  echo human choice  ")
+    clone = Path(body["repo_path"])
+    (clone / "package.json").write_text(text, encoding="utf-8")
+    if fallback:
+        (clone / "go.mod").touch()
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        response = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
+        assert response.status_code == 200, response.text
+        preview = response.json()
+        assert preview["structural_valid"] and preview["workflow"] == "direct"
+        assert preview["verification_hint"] == (
+            {"command": "go test ./...", "source": "go.mod"} if fallback else None)
+        assert preview["review"]["verify_command"] == body["verify_command"]
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+def test_preview_hint_symlink_loop_refuses_without_publication(tmp_path):
+    """@brief A static manifest link loop uses the redacted filesystem refusal boundary."""
+    body = _body(tmp_path)
+    manifest = Path(body["repo_path"]) / "package.json"
+    manifest.symlink_to(manifest)
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        response = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
+        assert response.status_code == 503, response.text
+        assert response.json()["detail"]["code"] == "project_setup_invalid"
+        assert str(manifest) not in response.text
+        assert "Symlink loop" not in response.text
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
 def test_preview_hint_access_failure_refuses_without_publication(tmp_path, monkeypatch):
     """@brief Unreadable clone evidence returns the existing safe setup rejection."""
     body = _body(tmp_path)

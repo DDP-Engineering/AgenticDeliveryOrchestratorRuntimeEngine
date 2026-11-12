@@ -60,8 +60,11 @@ Contained symlinks retain their candidate source spelling.
 The byte limit is exactly 1048576, inclusive. Already oversized or external files
 are never opened for contents. Content reads recheck file type/size and containment
 and are bounded. Unexpected filesystem/encoding errors propagate rather than
-silently returning a partial or empty scan; malformed package JSON has its explicit
-parse-miss exception. CLI wraps access failures as field-addressed `WizardError`;
+silently returning a partial or empty scan. Static symlink loops, including the
+`RuntimeError` from path resolution on Python 3.11/3.12, propagate as `OSError`
+with `ELOOP`. Malformed package JSON has its explicit parse-miss exception:
+JSON syntax, integer-conversion and recursion-limit failures supply no JavaScript
+match, so later rows remain eligible. CLI wraps access failures as field-addressed `WizardError`;
 web preview uses its redacted setup-unavailable contract.
 
 ## 7. Workflow integration
@@ -77,8 +80,13 @@ preview; explicit Create saves submitted text only. Settings never calls discove
 root and child, variants, deterministic source ties, row/root precedence, unique
 and ambiguous children, unsupported names, no/deep match, malformed/placeholder
 package evidence, external symlinks and inclusive size guards that forbid content
-access. Repeatability and process/network/write guards prove the read-only seam;
-access failures remain explicit. API, wizard and browser integration are covered
+access. Deep/truncated JSON and excessive integer fixtures prove decoder failures
+are misses at root and child, including later Go-row fallback. Static root,
+manifest, lockfile, wrapper and child-directory link loops fail as filesystem
+errors. Repeatability and process/network/write guards prove the read-only seam;
+API/CLI loop regressions prove redacted/typed refusal without publication, and
+parser regressions preserve their no-match/later-row defaults.
+API, wizard and browser integration are covered
 by `test_web_enrollment.py`, `test_wizard.py` and `web/e2e/enrollment.spec.ts`.
 
 ## 10. Limitations

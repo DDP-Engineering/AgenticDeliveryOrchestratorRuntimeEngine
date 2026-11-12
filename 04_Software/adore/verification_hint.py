@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 # IMPORTS
+import errno
 import json
 import os
 from pathlib import Path
@@ -31,6 +32,22 @@ _NPM_PLACEHOLDER = 'echo "Error: no test specified" && exit 1'
 # HELPER FUNCTIONS
 
 
+def _resolve(path: Path, *, strict: bool = False) -> Path:
+    """
+    @brief     Normalize pathlib's older symlink-loop exception to a filesystem error.
+    @param[in] path Evidence or clone path to resolve.
+    @param[in] strict Whether a missing path must fail resolution.
+    @return    Resolved path.
+    @exception OSError Filesystem failures, including link loops, propagate to callers.
+    """
+    try:
+        return path.resolve(strict=strict)
+    except RuntimeError as exc:
+        # Python 3.11/3.12 use RuntimeError for the loop that newer versions
+        # report as OSError. Keep both under callers' filesystem boundaries.
+        raise OSError(errno.ELOOP, "Cannot resolve repository evidence.", str(path)) from exc
+
+
 def _eligible(path: Path, root: Path, *, directory: bool = False) -> Path | None:
     """
     @brief     Resolve evidence inside the clone before inspecting its type/size.
@@ -40,7 +57,7 @@ def _eligible(path: Path, root: Path, *, directory: bool = False) -> Path | None
     @return    Contained eligible target, or None for absent/ineligible evidence.
     @exception OSError Access failures other than missing evidence propagate.
     """
-    target = path.resolve()
+    target = _resolve(path)
     if not target.is_relative_to(root):
         return None
     try:
@@ -85,7 +102,9 @@ def _scan(directory: Path, root: Path) -> tuple[str, str] | None:
     if text is not None:
         try:
             document = json.loads(text)
-        except json.JSONDecodeError:
+        except (ValueError, RecursionError):
+            # JSONDecodeError is a ValueError; integer/recursion decoder limits
+            # also mean this optional manifest cannot supply JavaScript evidence.
             document = None
         scripts = document.get("scripts") if isinstance(document, dict) else None
         test = scripts.get("test") if isinstance(scripts, dict) else None
@@ -138,13 +157,14 @@ def suggest_verification_command(root: Path) -> tuple[str, str] | None:
     @brief     Read a clone's files to suggest, never run, a verification command.
     @param[in] root Existing clone root; links outside its resolved boundary are ignored.
     @return    (command, forward-slash relative source) or None when no unique match.
-    @exception OSError, UnicodeError Filesystem/encoding failures propagate to callers.
+    @exception OSError, UnicodeError Filesystem/encoding failures propagate to callers;
+               symlink loops are filesystem errors on every supported Python version.
     @note      Files over 1 MiB are ignored. Only package.json and Makefile need
                contents. One safe-named matching first-level directory gets a cd
                prefix only after no root match; matching children are counted
                before the portable-name restriction is applied.
     """
-    root = root.resolve(strict=True)
+    root = _resolve(root, strict=True)
     match = _scan(root, root)
     if match is not None:
         return match

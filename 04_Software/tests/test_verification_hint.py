@@ -15,6 +15,7 @@
 """
 
 # IMPORTS
+import errno
 import json
 from pathlib import Path
 import socket
@@ -244,6 +245,41 @@ def test_reader_is_repeatable_and_has_no_process_network_or_write(tmp_path, monk
     assert suggest(tmp_path) == suggest(tmp_path) == expected
     after = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
     assert after == before
+
+
+@pytest.mark.parametrize("text", [
+    "[" * 2000,
+    '{"scripts":{"test":' + "1" * 5000 + "}}",
+    '{"unused":' + "[" * 2000 + "0" + "]" * 2000 + "}",
+], ids=["truncated-deep-json", "oversized-integer", "deep-json"])
+@pytest.mark.parametrize("child", ["", "service"])
+def test_package_decoder_limits_are_misses_with_later_row_fallback(tmp_path, text, child):
+    """@brief Decoder resource limits are optional package misses, not scan failures."""
+    directory = tmp_path / child
+    put(directory, "package.json", text)
+    assert suggest(tmp_path) is None
+    put(directory, "go.mod")
+    prefix = f"cd {child} && " if child else ""
+    source = f"{child}/go.mod" if child else "go.mod"
+    assert suggest(tmp_path) == (prefix + "go test ./...", source)
+
+
+@pytest.mark.parametrize("kind", ["manifest", "lock", "directory", "wrapper", "root"])
+def test_symlink_loops_are_filesystem_errors(tmp_path, kind):
+    """@brief Static link loops fail as filesystem errors, never a partial suggestion."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    name = {"manifest": "package.json", "lock": "pnpm-lock.yaml",
+            "directory": "child", "wrapper": "gradlew", "root": "root-link"}[kind]
+    if kind == "lock":
+        put(root, "package.json", ROWS[0][1])
+    elif kind == "wrapper":
+        put(root, "build.gradle")
+    link = root / name
+    link.symlink_to(link, target_is_directory=kind in {"directory", "root"})
+    with pytest.raises(OSError) as error:
+        suggest(link if kind == "root" else root)
+    assert error.value.errno == errno.ELOOP
 
 
 def test_access_errors_are_not_empty_repository_evidence(tmp_path, monkeypatch):

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-51bf134b - [Direct] Suggest the verification command from repository files
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -593,6 +595,13 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 - 2026-11-12 validate: Validation reproduction evidence: cd 04_Software && uv run --frozen python (inline public-reader fixtures) exit 0 observed ordinary malformed package.json -> None, '[' repeated 2000 -> RecursionError, nontext scripts.test containing 5000 digits -> ValueError, and package.json self-symlink -> RuntimeError. Separate uv run --frozen --extra web python (inline existing offline API fixture, fake runner, TestClient) exit 0 observed ordinary malformed -> HTTP 200/hint null; deep malformed and large numeric test -> HTTP 500/Internal Server Error; no profile publication. These commands caught/reported defects and are not passing contract tests. Return to build: add negative public-reader and entry-point regressions, contain JSON decoder failures as the existing no-JavaScript-match contract, and contain static symlink-loop filesystem failures under existing typed CLI/redacted API refusals without adding a matching rule. Preserve later-row fallback and all existing table/size/containment/human-authority contracts.
 - 2026-11-12 validate: Validation inspection completed: reviewed authored diff against scope/D1-D6, matching/publication/error boundaries, source assertions, four Projects help locales, operator/component docs, CHANGELOG/notes and asset fingerprint. All 33 requirements are parseable active records with existing source/test/spec paths; mismatch remains parser behavior, not permission to weaken the requirement. Release-note checker --since 76bd110f2fac4716936bb51caa9226d1b0195f21 exit 0; git diff --check exit 0; all committed static fingerprint inputs/outputs match current SHA-256 bytes (no fresh-build claim). uv sync --frozen --extra web, Python imports, Playwright 1.63.0 and npm ls exit 0. No product files changed, full suite/strict gate/report deliberately not run because review requires return to build first. Remaining validate after fixes: reconcile helper/component knowledge and project/environment context, rerun both reviews at round 2, then final strict proof and report. Existing upstream deprecation, dependency advisories and generated-JS scan limitation remain as previously recorded.
 - 2026-11-12 validate: returned to build - Review round 1 requires correction: package JSON decoder ValueError/RecursionError escape the mandatory no-match/no-error contract; static symlink-loop RuntimeError escapes supported-Python typed CLI/redacted API filesystem refusals. Add public-helper and entry-point regressions, fix only these boundaries, rerun focused proof, then return for review round 2 and final strict gate.
+- 2026-11-12 build: Build correction bound: at most 30 minutes and 12 task-scoped files, only recorded round-1 findings (JSON decoder failures and static symlink-loop errors), targeted Python tests/lint plus advisory/release-note checks; no full suite, strict gate or frontend changes. Branch matches journal, uv sync --frozen --extra web and pytest/FastAPI imports exit 0; initialized machine identity present. Existing frontend dependencies need no changes for this Python-only correction.
+- 2026-11-12 build: red: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_verification_hint.py tests/test_web_enrollment.py tests/test_wizard.py -k 'decoder or symlink_loop' --tb=line exit 1 - 25 expected contract failures: deep/truncated JSON RecursionError and huge nontext integer ValueError escape optional package misses at root/child/API/CLI; real static symlink loops raise RuntimeError instead of filesystem errors/typed CLI/redacted API refusals (REQ-REL-cbc3b8e1, REQ-FUNC-d50a408d,f753863b,6c82ad42; REQ-SEC-95dddb65). Later Go-row fallback is asserted without changing matching rules.
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_verification_hint.py tests/test_web_enrollment.py tests/test_wizard.py -k 'decoder or symlink_loop' --tb=short exit 0 - 25 passed, 298 deselected; uv run --frozen ruff check adore tests exit 0. JSON loads alone now treats ValueError/RecursionError as the existing package miss and continues the table; path resolution alone normalizes Python 3.11/3.12 static-loop RuntimeError to OSError(ELOOP). Public reader proves root/child misses, later-row fallback and looped root/manifest/lock/wrapper/child errors; offline API/CLI prove no HTTP 500, no guessed defaults or publication on access failure. Existing pre-implementation anchor retained, not reset for this review correction.
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_web_enrollment.py tests/test_wizard.py tests/test_verification_hint.py exit 0 - 323 passed in 78.05s; uv run --frozen ruff check adore tests exit 0. One unchanged upstream Starlette/httpx deprecation warning. No full product suite or frontend rerun: this correction changes only the shared Python reader and its helper/API/CLI contract tests; production frontend inputs and assets are unchanged.
+- 2026-11-12 build: Inspection: all 33 task requirements remain active with existing affected source paths, linked test files/selectors and specs (TOML/AST path audit exit 0). Extended REQ-REL-cbc3b8e1 verification/links without weakening its contract; helper component documentation and owning wizard knowledge now describe decoder-limit misses, later-row fallback and filesystem ELOOP normalization. Existing four-locale help/release note and CHANGELOG feature entry are retained: no interface/copy change or additional release entry is needed for correcting the initial implementation. release-note checker --since 76bd110f2fac4716936bb51caa9226d1b0195f21 exit 0; git diff --check exit 0. Evolution refreshed and all 29 task implementation paths re-reviewed against D1-D6; eight files changed in this correction session, within the 12-file bound, no payload/planning/dependency/publication changes.
+- 2026-11-12 build: Advisory check: global exit 0, errors=0 warnings=37 notes=28; task --full/--json exit 0, errors=0 warnings=46 notes=28. Same unrelated ticket-ref/stale-path/legacy-journal/manual-verification findings as recorded previously; uncovered-source findings concern already explained supporting docs/copy/e2e/generated assets, not unmapped task behavior. Correction to earlier scan explanation: current JSON finding says possible secret (password literal), not an oversized-file skip. Direct generated-JS inspection finds localized password label strings (password:Password/Mot de passe/Passwort/Parolă and show/hide labels), not credentials; the bundle was not changed this session. DEVIATION build: retain generated-JS password-literal advisory as a copy false positive, without scanner bypass or configuration changes. No new candidate limitation; final independent round-2 reviews/full strict proof/report belong to the fresh validate session.
+- 2026-11-12 build: completed; next validate
 
 ## Rulings
 
@@ -604,13 +613,13 @@ Diagrams: [diagram_TASK-51bf134b.md](diagram_TASK-51bf134b.md)
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: Review round 1 requires correction: package JSON decoder ValueError/RecursionError escape the mandatory no-match/no-error contract; static symlink-loop RuntimeError escapes supported-Python typed CLI/redacted API filesystem refusals. Add public-helper and entry-point regressions, fix only these boundaries, rerun focused proof, then return for review round 2 and final strict gate.
-must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/4_build.md
-changed: Validation review and journal evidence only; implementation preserved unchanged for a fresh build session.
-evidence: Independent spec/quality reviews both changes_required; inline offline helper/API reproductions exit 0 observed uncaught parser/loop exceptions and HTTP 500; release-note checker, requirement/path audit, static SHA-256 audit and diff check exit 0.
-issues: Blocking malformed-package parser and symlink-loop error handling; final full suite, strict check and report not run because candidate must be corrected first.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-51bf134b.md, .agentic/steps/5_validate.md
+changed: Fixed recorded JSON decoder and static symlink-loop boundaries in verification_hint.py; added 25 public-helper/API/CLI regressions; updated helper docs, owning knowledge and requirement verification links.
+evidence: Targeted pytest test_web_enrollment.py test_wizard.py test_verification_hint.py exit 0 (323 passed); Ruff, release-note checker, requirement/path audit and git diff --check exit 0; evolution reviewed; advisory checks 0 errors with explained warnings.
+issues: Independent round-2 specification/quality reviews and final full strict gate/report remain for validate; unchanged upstream deprecation and advisory copy/generated-source findings recorded in Log.
 spec_compliance:
 implementation_quality:
 review_round: 1
