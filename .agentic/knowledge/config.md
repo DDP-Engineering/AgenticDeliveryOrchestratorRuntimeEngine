@@ -39,6 +39,9 @@ Focused public-contract proof: `04_Software/tests/test_branch_naming.py`, existi
   deterministic operator-facing problems.
 - `ConfigError` distinguishes unreadable/malformed configuration from a valid
   model with reported validation issues.
+- `WorkflowConfig.verify_command` is an exact string with empty default;
+  resolved serialization includes it. The conductor uses it only for direct
+  runs, with the validate override or general gate timeout.
 
 ## Invariants
 
@@ -105,6 +108,16 @@ Shared CLI/web defaults are acceptance=false, priority=true and maximum addition
 Both CLI and web use the same validated model before changing runtime policy.
 
 ## Key behaviors
+
+- `REQ-FUNC-222a0416`, `REQ-FUNC-381fdaaa`, `REQ-FUNC-fc7eac7a`,
+  `REQ-FUNC-f980b054`: workflow.verify_command preserves shell text without
+  trimming or coercion. Exactly empty means absent; nonstring, CR/LF and NUL
+  values produce a key-named validation issue. AEGIS ignores the setting.
+- `REQ-DATA-71366af6`: existing web resolved/raw reads and unrelated reviewed
+  edits preserve it, with existing authorization/redaction. Metadata marks the
+  key noneditable and frontend settings hide it; there is no dedicated web field.
+  Proof: `test_config.py`, `test_web_config.py`, `test_web_config_raw.py` and
+  exact catalog/settings tests.
 
 - REQ-FUNC-bf8a9a47 / REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b: `load_config` retains runtime-only absolute `source_path`, excluded from resolved serialization and equality. `validate_budgets` checks the closed table, positive integer limits, finite nonnegative cost and ChatGPT attempt cap without subprocesses. Startup includes this same check; conductor rereads bind parsed/resolved non-budget values to the validated configuration without rerunning the branch matcher. Proof: test_config.py, test_chatgpt.py and public Retry cases in test_orchestrator.py.
 

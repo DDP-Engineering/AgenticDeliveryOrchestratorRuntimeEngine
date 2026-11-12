@@ -157,6 +157,16 @@ Native child environments preserve the account's PATH and inherited PATHEXT so
 Windows shells resolve installed executable names. Forge credential variables
 remain filtered; project tools are still installed by the operator.
 
+Configured direct verification uses the validate timeout override or general gate
+limit from the worktree root: containers use sh -c, native Linux /bin/sh -c and
+native Windows the bound SystemRoot/System32/cmd.exe /d /s /c. Configure the exact
+single-line command in server TOML; empty stays unverified and AEGIS ignores it.
+Native verification output must be UTF-8 and its owned scope must drain; the
+shell has service-account permissions without container/host isolation. Ordinary
+native shell argv remains refused. Offline tests inject controllers/Jobs/cgroups
+and the Windows child/CreateProcess boundary; live platform acceptance remains
+operator-owned.
+
 Local profiles require independently installed CLI/native Python under the ADORE
 service account. Windows needs executable entrypoints (or installed Node/JS argv)
 and Jobs; Linux needs delegated cgroup v2 with kill. Local execution skips images/
