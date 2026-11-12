@@ -9,7 +9,7 @@ id = "REQ-UX-9cdaa57b"
 
 title = "Show the direct verification output tail"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a direct job has valid saved configured-verification evidence, its Jobs page shall display the bounded redacted verification output tail as inert text, with an explicit empty-output indication when the recorded tail is empty.
@@ -19,7 +19,7 @@ verification = "Read known saved tails through offline API/model fixtures and op
 
 affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = "specs/REQ-DATA-08ed925c.md"

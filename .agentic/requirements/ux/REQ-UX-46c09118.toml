@@ -9,7 +9,7 @@ id = "REQ-UX-46c09118"
 
 title = "Reject malformed direct evidence in the browser"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a direct job detail response contains malformed attempt or verification evidence, the Jobs browser reader shall reject that response into the existing error state without presenting a fabricated result.
@@ -19,7 +19,7 @@ verification = "Read valid absent, unconfigured, passed, failed and timeout cont
 
 affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = "specs/REQ-DATA-08ed925c.md"

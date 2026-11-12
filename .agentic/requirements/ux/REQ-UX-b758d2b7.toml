@@ -16,4 +16,4 @@ linked_tests = ["04_Software/web/e2e/jobs.spec.ts", "04_Software/web/tests/jobs.
 spec = "specs/REQ-UX-b758d2b7.md"
 priority = "high"
 created = 2026-10-05
-updated = 2026-10-06
+updated = 2026-11-12

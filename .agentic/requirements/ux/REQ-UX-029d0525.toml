@@ -9,7 +9,7 @@ id = "REQ-UX-029d0525"
 
 title = "Identify workflow on the job page"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When an authorized user opens a valid job page, the interface shall identify that job's recorded workflow as AEGIS or Direct in English, French, German and Romanian.
@@ -19,7 +19,7 @@ verification = "Read valid AEGIS and direct model fixtures and open their compos
 
 affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

@@ -9,7 +9,7 @@ id = "REQ-UX-5cf762f8"
 
 title = "Keep direct jobs free of AEGIS task presentation"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While displaying a direct job, the Jobs interface shall omit AEGIS task presentation.
@@ -19,7 +19,7 @@ verification = "Open valid direct build and done details in offline Jobs journey
 
 affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_jobs.py::test_jobs_refuse_corrupt_workflow_without_repair", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

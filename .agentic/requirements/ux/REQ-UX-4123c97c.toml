@@ -9,7 +9,7 @@ id = "REQ-UX-4123c97c"
 
 title = "Identify workflow in job lists"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When an authorized user views a valid job in the global or project Jobs list, the interface shall identify its recorded workflow as AEGIS or Direct in English, French, German and Romanian.
@@ -17,9 +17,9 @@ When an authorized user views a valid job in the global or project Jobs list, th
 
 verification = "Offline model fixtures with each recorded workflow are read and browser journeys open global and project job lists; assert the workflow label belongs to the same composite job identity in all four locales, with mixed-workflow rows and an unknown-workflow negative control preventing a default label."
 
-affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py", "04_Software/adore/release_notes.toml"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

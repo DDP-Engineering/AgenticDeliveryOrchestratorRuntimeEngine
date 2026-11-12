@@ -32,6 +32,27 @@ root and selected run environment under the validation time limit. Human edits a
 clearing survive repeated previews, checks and Back; saved Settings are authoritative. In-app Projects, Settings, Glossary and Tickets help describes these
 boundaries in all four locales.
 
+## Direct jobs in Jobs
+
+The global and project Jobs tables identify the saved **Workflow** as **AEGIS** or
+**Direct** under Status; the job page repeats it. Direct jobs show **Implementation**
+(`build`), **Validation** (`validate`), then **Done**, without an AEGIS task. AEGIS
+stage presentation is unchanged. Timelines show only recorded events.
+
+Direct details show the latest recorded executor attempt (not cumulative launches),
+then the saved verification command, result, duration in seconds and redacted literal
+output tail. **Passed**, **Failed**, **Timed out** and **Not configured: unverified**
+are distinct; absent attempt/result evidence stays explicitly unavailable. Empty
+recorded output is identified separately. Changing Settings does not replace saved
+verification evidence. Corrupt or unknown workflow/evidence produces an error, not
+a guessed workflow or result, and hides stale detail evidence.
+
+Under Settings → Implementation → Advanced stage time limits, direct implementation
+uses the `build` override and independent verification uses `validate` in
+`workflow.stage_timeout_overrides`. Each uses the general
+`budgets.per_gate_timeout_seconds` when no override is set. Other AEGIS stage limits
+do not apply to direct jobs. Jobs and Settings help explains this in all four locales.
+
 ## Quick start
 
 1. **Install from source.** From the repository root, use Python 3.11 or newer

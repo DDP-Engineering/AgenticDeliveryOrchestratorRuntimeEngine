@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Jobs identifies AEGIS and Direct workflows. Direct details show only Implementation
+  and Validation stages, the recorded attempt, and saved independent verification
+  command, outcome, duration and output tail. Unknown or corrupt evidence fails closed;
+  four-locale help explains direct stage limits without changing run behavior.
+
 - Suggest an optional verification command from bounded repository files during direct
   enrollment and `adore init`, with source provenance and human keep/edit/clear choices.
   Discovery never executes commands, changes saved Settings or suggests for AEGIS clones.

@@ -8,6 +8,12 @@ import { validPreparationEvidence, type PreparationEvidence } from "./executionP
 export const lifecycles = ["working", "publishing", "parked-clarification", "awaiting-approval", "in-review", "handoff-pending", "handed-off", "done", "failed", "cancelled", "stale"] as const;
 export const stages = ["frame", "specify", "design", "build", "validate", "done", "publishing"] as const;
 export type Lifecycle = typeof lifecycles[number];
+export type Workflow = "aegis" | "direct";
+export type DirectEvidence = { attempt: number | null; verification:
+  { status: "unavailable" | "not configured"; result: null } |
+  { status: "passed" | "failed" | "timed out"; result: {
+    command: string; exit_code: string; seconds: number; timed_out: boolean; output: string } }
+};
 export type JobBudget = { launches: number; active_seconds: number } & (
   { availability: "observed"; reason: null; max_launches: number;
     max_active_seconds: number; config_revision: string } |
@@ -15,6 +21,8 @@ export type JobBudget = { launches: number; active_seconds: number } & (
     max_launches: null; max_active_seconds: null; config_revision: null }
 );
 export type Job = {
+  workflow: Workflow;
+  direct?: DirectEvidence;
   state_revision?: string;
   budget?: JobBudget;
   preparation?: PreparationEvidence | null;
@@ -63,6 +71,8 @@ export function readJob(value: unknown, authorized: string[]): Job {
     !string(row.run_id) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(row.run_id) ||
     !string(row.project_name) || !string(row.project_display_name) || typeof row.project_archived !== "boolean" ||
     !count(row.ticket_iid) || Number(row.ticket_iid) < 1 || !optionalText(row.ticket_title) ||
+    (row.workflow !== "aegis" && row.workflow !== "direct") ||
+    row.workflow === "direct" && !["build", "validate", "done"].includes(String(row.stage)) ||
     !lifecycles.includes(row.lifecycle as Lifecycle) || !stages.includes(row.stage as typeof stages[number]) ||
     row.status_group !== lifecycleGroup(String(row.lifecycle)) || !string(row.outcome) ||
     !count(row.stage_failures) || !count(row.review_rounds) ||
@@ -128,6 +138,29 @@ export function readJobPage(value: unknown, authorized: string[], overview = fal
   return { ...page, items } as JobPage;
 }
 
+/** Validate the closed saved direct evidence before rendering any result. */
+function readDirectEvidence(value: unknown): DirectEvidence {
+  const direct = object(value), verification = object(direct.verification);
+  if (Object.keys(direct).sort().join(",") !== "attempt,verification" ||
+    direct.attempt !== null && (!count(direct.attempt) || Number(direct.attempt) < 1) ||
+    Object.keys(verification).sort().join(",") !== "result,status") invalid();
+  if (verification.status === "unavailable" || verification.status === "not configured") {
+    if (verification.result !== null) invalid();
+  } else {
+    const result = object(verification.result);
+    const text = (value: unknown): value is string => string(value) && !/[\x00\ud800-\udfff]/u.test(value);
+    if (Object.keys(result).sort().join(",") !== "command,exit_code,output,seconds,timed_out" ||
+      !text(result.command) || !result.command.trim() || /[\r\n]/.test(result.command) ||
+      !string(result.exit_code) || !/^(?:0|-?[1-9][0-9]*)$/.test(result.exit_code) ||
+      typeof result.seconds !== "number" || !Number.isFinite(result.seconds) || result.seconds < 0 ||
+      typeof result.timed_out !== "boolean" || !text(result.output) ||
+      /[\r\x0b\x0c\x1b-\x1e\x85\u2028\u2029]|\n$/.test(result.output) || [...result.output].length > 6000 || result.output.split("\n").length > 200) invalid();
+    const expected = result.timed_out ? "timed out" : result.exit_code === "0" ? "passed" : "failed";
+    if (verification.status !== expected) invalid();
+  }
+  return direct as DirectEvidence;
+}
+
 /** Validate strict detail; display observed events rather than inferred stage completion. */
 export function readJobDetail(value: unknown, project: string, run: string): Job & { timeline: NonNullable<Job["timeline"]> } {
   const response = object(value);
@@ -135,8 +168,11 @@ export function readJobDetail(value: unknown, project: string, run: string): Job
   if (response.complete !== true || !string(response.snapshot) || !/^[a-f0-9]{64}$/.test(response.snapshot)) invalid();
   const job = readJob(response.job, [project]);
   if (job.run_id !== run || !job.budget || !Array.isArray(job.timeline)) invalid();
+  if (job.workflow === "direct") readDirectEvidence(job.direct);
+  else if ("direct" in job) invalid();
   for (const event of job.timeline!) if (!event || !stamp(event.ts) || !string(event.event) || !event.event ||
-    event.stage !== null && !stages.includes(event.stage as typeof stages[number])) invalid();
+    event.stage !== null && (!stages.includes(event.stage as typeof stages[number]) ||
+      job.workflow === "direct" && !["build", "validate", "done"].includes(event.stage))) invalid();
   return job as Job & { timeline: NonNullable<Job["timeline"]> };
 }
 

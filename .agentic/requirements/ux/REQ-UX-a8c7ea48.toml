@@ -9,7 +9,7 @@ id = "REQ-UX-a8c7ea48"
 
 title = "Reject non-direct stages in direct job responses"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a direct job response names a stage outside build, validate and done in current state or recorded timeline stage evidence, the Jobs browser reader shall reject that response into the existing error state rather than display AEGIS-only steps.
@@ -19,7 +19,7 @@ verification = "Read valid direct build/validate/done model controls, independen
 
 affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

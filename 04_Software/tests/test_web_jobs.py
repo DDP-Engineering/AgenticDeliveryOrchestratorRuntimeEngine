@@ -77,6 +77,136 @@ def _get(client, query=""):
 
 
 # PUBLIC CONTRACT TESTS
+@pytest.mark.parametrize("role", ["admin", "developer"])
+@pytest.mark.parametrize("status,exit_code,timed_out,seconds,output", [
+    ("passed", 0, False, 0, ""),
+    ("failed", 124, False, 1.25, "  <script>literal</script> password=PRIVATE"),
+    ("timed out", 0, True, 2, "🙂" * 6000),
+    ("failed", -(2**100), False, 1e100, "\n".join(["line"] * 200)),
+    ("failed", 2**100, False, 1, "tail"),
+    ("not configured", None, None, None, None),
+    ("unavailable", None, None, None, None),
+])
+def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
+        tmp_path, role, status, exit_code, timed_out, seconds, output):
+    """@brief Detail projects saved direct evidence, not current config or counters."""
+    profiles, items, stores, app = _fixture(tmp_path)
+    evidence = {} if status == "unavailable" else {"verification": status}
+    result = None
+    if exit_code is not None:
+        result = {"command": "saved-check && echo password=PRIVATE", "exit_code": exit_code,
+                  "seconds": seconds, "timed_out": timed_out, "output": output}
+        evidence["verification_result"] = result
+    _state(stores[0], "same", workflow="direct", iterations=9, stage_failures=0,
+           validation_evidence=evidence)
+    stores[0].journal("same", "stage-launch", stage="build", attempt=1)
+    stores[0].journal("same", "stage-launch", stage="build", attempt=2,
+                      ts="2000-01-01T00:00:00Z")
+    # Missing current configuration must not erase retained verification evidence.
+    profiles.config_path("alpha").unlink()
+    if role == "developer":
+        dev = app.state.web_store.create_user("dev", "longer-password", "developer")
+        app.state.web_store.set_memberships(dev["id"], ["alpha"])
+        _state(stores[1], "same", workflow="corrupt-unauthorized")
+    paths = list(stores[0].run_dir("same").iterdir())
+    before = {path: path.read_bytes() for path in paths}
+    with TestClient(app) as client:
+        _login(client) if role == "admin" else _login(client, "dev", "longer-password")
+        page = _get(client, f"?project_id={items[0].project_id}")
+        assert all("direct" not in row for row in page["items"])
+        response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert response.status_code == 200, response.text
+        direct = response.json()["job"]["direct"]
+        assert set(direct) == {"attempt", "verification"} and direct["attempt"] == 2
+        expected = None if result is None else {
+            **result, "command": redact_text(result["command"]),
+            "exit_code": str(exit_code), "output": redact_text(output)}
+        assert direct["verification"] == {"status": status, "result": expected}
+        assert "PRIVATE" not in response.text
+        if role == "developer":
+            assert client.get(f"/api/v1/jobs/{items[1].project_id}/same").status_code == 404
+    assert {path: path.read_bytes() for path in paths} == before
+
+
+def test_direct_absent_launch_does_not_guess_from_other_counters(tmp_path):
+    """@brief Missing launch evidence is unknown even with consumed budget/failures."""
+    _, items, stores, app = _fixture(tmp_path)
+    _state(stores[0], "same", workflow="direct", iterations=9, stage_failures=3)
+    with TestClient(app) as client:
+        _login(client)
+        job = client.get(f"/api/v1/jobs/{items[0].project_id}/same").json()["job"]
+        assert job["direct"] == {"attempt": None, "verification": {
+            "status": "unavailable", "result": None}}
+
+
+@pytest.mark.parametrize("mutation", [
+    "attempt-missing", "attempt-bool", "attempt-zero", "attempt-float", "attempt-unsafe",
+    "current-stage", "timeline-stage", "result-null", "result-extra", "result-missing",
+    "status-missing", "status-null", "status-unknown", "unconfigured-result", "mismatch",
+    "exit-bool", "seconds-bool", "seconds-negative", "seconds-overflow", "timeout-type",
+    "output-type", "output-long", "output-lines", "output-nul", "output-ansi",
+    "output-cr", "output-surrogate", "output-trailing-lf", "output-separator",
+    "command-type", "command-nul",
+])
+def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_path, mutation):
+    """@brief All selected direct sources fail closed before filtering or totals."""
+    _, items, stores, app = _fixture(tmp_path)
+    result = {"command": "saved-check", "exit_code": 0, "seconds": 1,
+              "timed_out": False, "output": "tail"}
+    evidence = {"verification": "passed", "verification_result": result}
+    updates = {"workflow": "direct", "validation_evidence": evidence}
+    code = "run_state_corrupt"
+    if mutation.startswith("attempt-"):
+        attempt = {"attempt-bool": True, "attempt-zero": 0, "attempt-float": 1.5,
+                   "attempt-unsafe": 2**53}.get(mutation)
+        fields = {} if mutation == "attempt-missing" else {"attempt": attempt}
+        stores[0].journal("same", "stage-launch", stage="build", **fields)
+        # A later valid launch must not hide earlier corrupt evidence.
+        stores[0].journal("same", "stage-launch", stage="build", attempt=2)
+        code = "run_journal_corrupt"
+    elif mutation == "current-stage":
+        updates["stage"] = "publishing"
+    elif mutation == "timeline-stage":
+        stores[0].journal("same", "stage-advanced", current="design")
+        code = "run_journal_corrupt"
+    elif mutation == "result-null":
+        evidence["verification_result"] = None
+    elif mutation == "result-extra":
+        result["private"] = "PRIVATE"
+    elif mutation == "result-missing":
+        del evidence["verification_result"]
+    elif mutation == "status-missing":
+        del evidence["verification"]
+    elif mutation in {"status-null", "status-unknown", "unconfigured-result", "mismatch"}:
+        evidence["verification"] = {"status-null": None, "status-unknown": "PRIVATE",
+                                    "unconfigured-result": "not configured",
+                                    "mismatch": "failed"}[mutation]
+    else:
+        field, value = {
+            "exit-bool": ("exit_code", True), "seconds-bool": ("seconds", True),
+            "seconds-negative": ("seconds", -1), "seconds-overflow": ("seconds", 10**400),
+            "timeout-type": ("timed_out", 1), "output-type": ("output", []),
+            "output-long": ("output", "x" * 6001), "output-lines": ("output", "\n" * 200),
+            "output-nul": ("output", "\x00"), "output-ansi": ("output", "\x1b[31mred"),
+            "output-cr": ("output", "\r\n"), "output-surrogate": ("output", "\ud800"),
+            "output-trailing-lf": ("output", "tail\n"),
+            "output-separator": ("output", "one\u2028two"),
+            "command-type": ("command", []), "command-nul": ("command", "\x00"),
+        }[mutation]
+        result[field] = value
+    _state(stores[0], "same", **updates)
+    paths = list(stores[0].run_dir("same").iterdir())
+    before = {path: path.read_bytes() for path in paths}
+    with TestClient(app, raise_server_exceptions=False) as client:
+        _login(client)
+        for endpoint in ("/api/v1/jobs-page?q=nonmatching&limit=1",
+                         f"/api/v1/jobs/{items[0].project_id}/same"):
+            response = client.get(endpoint)
+            assert response.status_code == 503, response.text
+            assert response.json() == {"detail": {"code": code}}
+    assert {path: path.read_bytes() for path in paths} == before
+
+
 @pytest.mark.parametrize("workflow", ["aegis", "direct"])
 @pytest.mark.parametrize("role", ["admin", "developer"])
 def test_authorized_jobs_serialize_workflow(tmp_path, workflow, role):

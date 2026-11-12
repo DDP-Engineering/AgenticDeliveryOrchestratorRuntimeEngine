@@ -56,6 +56,8 @@ Pentru fluxul direct, ADORE o execută independent din rădăcina worktree-ului 
 
 Lucrările AEGIS ignoră această setare și folosesc comenzile de test AEGIS ale repository-ului. Câmpul rămâne vizibil în Setări pentru ambele fluxuri. Nicio comandă nu este sugerată sau selectată automat.
 
+Implementarea directă folosește limita **Implementare** `build` din `workflow.stage_timeout_overrides`; verificarea independentă folosește **Validare** `validate`. Fiecare revine la limita generală `budgets.per_gate_timeout_seconds` când nu există o suprascriere. Celelalte limite AEGIS nu se aplică joburilor directe.
+
 ## TOML original {#toml}
 
 Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Selectați fișierul exportat în [Importă configurația brută](/help/projects#import-project) iar ADORE verifică automat înainte de înrolare căile de pe server, dosarul de stare și secretele incluse în fișier.

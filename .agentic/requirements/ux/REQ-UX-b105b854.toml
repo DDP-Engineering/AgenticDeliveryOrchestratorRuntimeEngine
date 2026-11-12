@@ -9,7 +9,7 @@ id = "REQ-UX-b105b854"
 
 title = "Reject unrecognized job workflow in the browser"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a job response contains a missing, nontext or unknown workflow value, the Jobs browser reader shall reject that response into the existing error state without displaying guessed workflow evidence.
@@ -19,7 +19,7 @@ verification = "Start with accepted aegis/direct model fixtures, replace or remo
 
 affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

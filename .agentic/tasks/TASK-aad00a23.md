@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-aad00a23 - [Direct] Show direct jobs clearly in Jobs
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -127,8 +129,8 @@ Path and reason:
 
 STATED (ticket #66, accepted Frame and plan sections 1/4): each row below is
 one accepted observable response. OBSERVED (existing requirement/source/test
-inspection): three matching contracts are reused unchanged; twenty new contracts
-are draft, with empty linked_tests until build. Design owns the final column.
+inspection): three matching contracts are reused; twenty new contracts are now
+active, with linked tests populated in build. Design decisions map the final column.
 
 | Frame outcome | Atomic behavior | Requirement | Verification | Design decision or no impact |
 |---|---|---|---|---|
@@ -262,6 +264,23 @@ Diagrams: [diagram_TASK-aad00a23.md](diagram_TASK-aad00a23.md)
 - 2026-11-12 specify: completed; next design
 - 2026-11-12 design: Design complete under D1-D8: saved workflow remains authoritative; detail-only closed direct attempt/latest-verification projection uses captured sources and existing redaction/errors; exact decimal-text exit codes avoid JavaScript integer loss without changing storage; workflow-aware localized UI retains AEGIS assertions and observed-only timelines. All 23 coverage rows map to decisions/test seams; affected_paths updated; shared draft spec fixes transport; structure/sequence/read-state diagrams saved in .agentic/tasks/diagram_TASK-aad00a23.md. Audit of traceability, existing paths/specs, stage zone, headers and LF exited 0; git diff --check exited 0. check --task TASK-aad00a23 --full and --json exited 0: errors=0, warnings=35, notes=29; every warning-bearing file verified unchanged from task base. No product tests, setup, knowledge/context or product edits; no blocking question. Build owns failing tests first, implementation, four-locale help/release note, component/operator docs and production bundle; validate owns current knowledge and final strict proof.
 - 2026-11-12 design: completed; next build
+- 2026-11-12 build: red: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_web_jobs.py -k 'direct_saved or direct_absent or direct_corrupt' exit 1: 44 expected failures, missing direct projection and corrupt evidence accepted (REQ-DATA-08ed925c, REQ-SEC-5d0f86e7, REQ-UX-ef06a3c7, REQ-UX-1b6f2a83, REQ-UX-16f751b7, REQ-UX-f6c6e946, REQ-UX-7e9792e9, REQ-UX-647b1549, REQ-UX-631835f9, REQ-UX-009b4cb9, REQ-UX-9cdaa57b, REQ-UX-7fab3dcb, REQ-UX-a8c7ea48). Locked uv/npm setup succeeded; production npm audit reports zero vulnerabilities; two npm-ci high warnings are dev-only and no dependencies changed.
+- 2026-11-12 build: green: cd 04_Software && uv run --frozen --extra web python -m pytest -q tests/test_web_jobs.py exit 0 (169 passed); uv run --frozen ruff check adore/web/jobs.py tests/test_web_jobs.py exit 0. API direct attempt/verification increment covers REQ-DATA-08ed925c, REQ-DATA-18b26c84, REQ-SEC-5d0f86e7 and D2-D4 evidence requirements; all existing API tests retained. Upstream Starlette TestClient deprecation is nonblocking; no dependency changes.
+- 2026-11-12 build: red: cd 04_Software/web && node --test tests/jobs.test.mjs exit 1 (13 pass, 3 expected failures: missing/unknown workflow, malformed direct evidence and AEGIS-only direct stages accepted). REQ-UX-4123c97c, REQ-UX-029d0525, REQ-UX-b105b854, REQ-UX-46c09118, REQ-UX-a8c7ea48; positive evidence controls also cover D2/D3 attempt, outcome, duration and tail requirements.
+- 2026-11-12 build: green: cd 04_Software/web && node --test tests/jobs.test.mjs exit 0 (16 tests). Mandatory workflow, closed direct evidence, exact decimal exits, Unicode-scalar bounds, honest absence and direct-stage transport controls now pass; existing AEGIS assertions retained with additive workflow fixture field (REQ-UX-b105b854, REQ-UX-46c09118, REQ-UX-a8c7ea48 and D1-D3 model coverage).
+- 2026-11-12 build: red: npm run build:e2e exit 0; playwright test e2e/jobs.spec.ts --grep 'direct jobs show saved' exit 1: real persisted direct fixtures render legacy Build and lack Workflow: Direct (REQ-UX-4123c97c, REQ-UX-029d0525, REQ-UX-ad37f7e7, REQ-UX-5cf762f8 and D2/D3 presentation requirements). Added isolated opt-in direct fixture mode without changing default AEGIS seeds. Browser/runtime prerequisites verified available.
+- 2026-11-12 build: green: npm run build:e2e exit 0; playwright test e2e/jobs.spec.ts --grep 'Direct job evidence' proved five display/locale/layout journeys; after correcting late clock installation in test fixture, playwright test e2e/jobs.spec.ts --grep 'corrupt .* hides previously' exit 0 (4 passed). All nine direct journeys green across those focused runs; full Jobs regression remains before build completion. red: node --test tests/help.test.mjs tests/settingHelp.test.mjs exit 1 (16 pass, 2 expected failures: missing direct-evidence help and direct timeout mapping). REQ-UX-c77f7335, REQ-UX-558518e7.
+- 2026-11-12 build: green: node --test tests/help.test.mjs tests/settingHelp.test.mjs in combined focused run now passes all help/guidance assertions. red: combined jobs/help/settingHelp model run exit 1 (32 passed, 2 expected failures): newly added one-element array workflow/status coercion controls reveal String() could accept nontext enums (REQ-UX-b105b854, REQ-UX-46c09118).
+- 2026-11-12 build: release-notes: added
+- 2026-11-12 build: help: updated
+- 2026-11-12 build: green: node --test tests/jobs.test.mjs tests/help.test.mjs tests/settingHelp.test.mjs exit 0 (34); npm test exit 0 (170); npm run build:e2e/typecheck exit 0; uv run --frozen ruff check adore tests exit 0. All new direct Jobs/browser/help cases passed in the ticket run (57/60 overall). Inspection: operator/component docs, current direct read spec and existing allowlist exception now match implemented saved evidence and no-run-behavior boundary; all 23 pinned requirements are active with real linked tests and design affected_paths. Four-locale release note added and merged with related Jobs note to retain the category cap; checker exit 0.
+- 2026-11-12 build: DEVIATION build: ticket browser aggregate has three pre-existing host-check failures - accepted for this stage without changing unrelated product behavior: current Jobs/help 57 pass/3 fail, pristine HEAD archived to an automatically isolated temporary tree and baseline Jobs run 41 pass/the identical three failures. Targeted host-check reruns on both baseline and candidate yield 1 pass/2 identical API readiness_probe_failed failures. AEGIS render assertions remain unchanged; new direct/help cases all pass. Validate must report these baseline strict-gate blockers honestly, not waive the final check. npm dev-only audit warnings, upstream TestClient deprecation and existing Vite large-chunk advisory do not affect the direct evidence proof.
+- 2026-11-12 build: red: pytest -q tests/test_web_jobs.py -k 'output-trailing-lf or output-separator' exit 1 (2 expected failures) and node --test --test-name-pattern 'malformed direct evidence' tests/jobs.test.mjs exit 1: noncanonical saved output with trailing LF/alternate Unicode separators was accepted despite writer normalization (REQ-SEC-5d0f86e7, REQ-UX-46c09118, REQ-UX-9cdaa57b). Final source review identified the missing normalization check; no execution change.
+- 2026-11-12 build: red: node --test --test-name-pattern 'direct stage labels and timeline' tests/jobs.test.mjs exit 1: direct timeline explanatory Done translation differs from the existing locale stage label (REQ-UX-ad37f7e7, REQ-UX-b758d2b7). Public helper regression now asserts all direct names and unchanged AEGIS labels.
+- 2026-11-12 build: green: normalized-tail and locale-copy increments proven by final pytest tests/test_web_jobs.py exit 0 (171 passed), Ruff adore/tests exit 0, npm test exit 0 (171), npm run build:e2e/typecheck exit 0, playwright jobs/help focused domain run exit 0 (57 passed excluding the three baseline host-check cases already independently reproduced), and final direct/four-locale-help browser rerun exit 0 (13 passed). Public helper labels, malformed canonical exit text, all direct outcomes and stale-evidence controls remain green. npm run build exit 0 regenerates production assets/fingerprint. No full strict suite run in build.
+- 2026-11-12 build: Evolution reviewed: all 31 non-governance changes match D1-D8 (including API tests extended after anchor); generated JS replacement, index and fingerprint are the expected production output. Requirement/test-path audit and asset input/output fingerprint comparison exit 0; release-note checker and git diff --check exit 0. Check exit 0: errors=0 warnings=39 notes=28. All 35 original warning-bearing files remain unchanged at task base (stale paths/ticket refs/older journals/checklists); four candidate warnings are reviewed: generated minified JS is intentionally unscanned, and password literals in API tests, browser tests and server fixtures are synthetic isolated redaction/sign-in inputs, not credentials. No unrelated repairs or managed payload changes. Stage work stays under 60 changed files and 55 minutes, with no paid external operations; full suite/reviews/knowledge updates remain validate responsibilities.
+- 2026-11-12 build: DEVIATION build: retained the eight existing help topics' headerless format rather than adding HTML legal comments - the installed help subset requires a title on line 1 and rejects HTML; expanding its parser is outside ticket scope. Existing source/test/doc license prologues are preserved and generated assets are stamped with the project header.
+- 2026-11-12 build: completed; next validate
 
 ## Rulings
 
@@ -269,12 +288,12 @@ Diagrams: [diagram_TASK-aad00a23.md](diagram_TASK-aad00a23.md)
 ## State
 
 status: ready
-reported: design - completed
-next: start build: read .agentic/steps/4_build.md
-must_read: .agentic/tasks/TASK-aad00a23.md, .agentic/steps/4_build.md, .agentic/specs/REQ-DATA-08ed925c.md
-changed: Design D1-D8 and 23-row decision/test mapping complete; 23 affected_paths lists and shared direct-evidence spec updated; .agentic/tasks/diagram_TASK-aad00a23.md adds structure, sequence and read-state diagrams; knowledge and product unchanged
-evidence: AEGIS check --task TASK-aad00a23 --full and --json exit 0: errors=0 warnings=35 notes=29; traceability/path/stage-zone/header/LF audit and git diff --check exit 0; baseline audit confirms all warning files unchanged; no product tests run in design
-issues: No blocking decisions; 35 pre-existing warnings and expected pre-build no-anchor note; dependency availability and implementation test outcomes remain unverified
+reported: build - completed
+next: Start validate: review candidate, update current component knowledge, run the final strict gate without suppressing the documented baseline host-check failures, record independent verdicts/report and advance only on completed validation
+must_read: .agentic/tasks/TASK-aad00a23.md, .agentic/steps/5_validate.md, 05_SoftwareDocu/Component_Web_Jobs.md, 05_SoftwareDocu/Component_Web_Frontend.md
+changed: Implemented D1-D8: strict workflow/direct-evidence API and browser readers, localized Jobs labels/stages/attempt/verification panel, offline API/model/browser tests, four-locale help/guidance, component/operator docs, changelog/release note and regenerated production assets; all 23 requirements active with linked tests
+evidence: pytest tests/test_web_jobs.py exit 0 (171); Ruff adore/tests exit 0; npm test exit 0 (171); build:e2e/typecheck and production build exit 0; scoped Jobs/help browser exit 0 (57) and final direct/localized-help rerun exit 0 (13); release notes/fingerprint/diff audits exit 0; AEGIS check errors=0 warnings=39 notes=28
+issues: Three unchanged baseline host-check browser failures reproduced on pristine HEAD (full Jobs 41 pass/3 fail; candidate Jobs/help 57 pass/3 fail); strict final gate still required in validate. Remaining advisory warnings and headerless-help exception explained in Log. No execution changes or blocking product questions.
 spec_compliance:
 implementation_quality:
 review_round:

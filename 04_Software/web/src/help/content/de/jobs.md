@@ -19,6 +19,22 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 
 Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
+## Direkte Jobs {#direct-evidence}
+
+Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (`build`), **Validierung** (`validate`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.
+
+**Letzter gespeicherter Versuch** bezeichnet den letzten Executor-Phasenstart, nicht kumulative Starts oder Fehlversuche. Ohne gespeicherten Start erscheint **Versuch nicht verfügbar**. Die unabhängige Prüfung zeigt den gespeicherten Befehl vor dem Ergebnis, **Dauer (Sekunden)** und **Ausgabeende** als wörtlichen bereinigten Text. Leere Ausgabe wird ausdrücklich benannt. Änderungen in Einstellungen ersetzen weder gespeicherten Befehl noch Ergebnis.
+
+| Ergebnis | Bedeutung |
+|---|---|
+| Bestanden | Der Befehl endete mit null ohne Zeitüberschreitung. |
+| Fehlgeschlagen | Der Befehl endete mit einem anderen Code ohne Zeitüberschreitung; der letzte Fehler bleibt beim nächsten Implementierungsversuch sichtbar. |
+| Zeitlimit überschritten | Der Befehl überschritt sein Zeitlimit, unabhängig vom Exitcode. |
+| Nicht konfiguriert: ungeprüft | Kein Prüfbefehl war konfiguriert; das ist keine bestandene Prüfung. |
+| Prüfnachweis nicht verfügbar | Noch kein Prüfergebnis gespeichert; das bedeutet nicht nicht konfiguriert. |
+
+Direkte Implementierung verwendet das Limit **Implementierung** `build` in `workflow.stage_timeout_overrides`; die unabhängige Prüfung verwendet **Validierung** `validate`. Ohne eigene Vorgabe gilt jeweils das allgemeine `budgets.per_gate_timeout_seconds`. Die anderen AEGIS-Phasenlimits gelten nicht für direkte Jobs.
+
 ## Klärung {#clarification}
 
 Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt `agent-clarify`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**.
@@ -27,7 +43,7 @@ Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann `agent-
 
 ## Freigabe {#approval}
 
-Besteht die strenge Validierung, entfernt ADORE `agent-approved`, postet die Nachweise am Ticket und wartet. Der Auftrag zeigt **Wartet auf Freigabe**, und das Ticket behält `agent-working`. Die Nachweise nennen den genauen Kandidaten und alle Abweichungen, die der Executor festgehalten hat.
+Besteht die strenge AEGIS-Validierung oder die konfigurierte direkte Prüfung (oder ist die direkte Prüfung ausdrücklich nicht konfiguriert), entfernt ADORE `agent-approved`, postet die Nachweise am Ticket und wartet. Der Auftrag zeigt **Wartet auf Freigabe**, und das Ticket behält `agent-working`. Die Nachweise nennen den genauen Kandidaten und alle Abweichungen, die der Executor festgehalten hat.
 
 Prüfen Sie ihn und setzen Sie dann `agent-approved` erneut; nur ein frisches Setzen zählt. Die Freigabe ist an diesen Kandidaten und den Commit des Zielbranches gebunden. Ändert sich eines von beiden, ist die Freigabe ungültig, und ADORE integriert, validiert und fragt erneut. Dieses Warten hat keinen Timer. Die Auftragsdetails bieten **Kandidat auf der Forge prüfen**.
 
@@ -35,7 +51,7 @@ Prüfen Sie ihn und setzen Sie dann `agent-approved` erneut; nur ein frisches Se
 
 Nach der Freigabe überträgt ADORE den Branch und öffnet den MR/PR gegen den Zielbranch, fordert bei den Konten unter **Review anfordern von** ein Review an und setzt `agent-mr`. **PR/MR-Status bei Veröffentlichung** wählt Entwurf (Standard) oder Bereit zur Prüfung. Der Auftrag zeigt **Veröffentlichung** und dann **Menschliche Prüfung**. ADORE führt nie zusammen. Nachdem ein Mensch zusammengeführt hat, setzt ADORE `agent-done`, der Auftrag zeigt **Abgeschlossen**, und standardmäßig wird der Remote-Branch entfernt. Ein ohne Merge geschlossener MR/PR lässt den Auftrag fehlschlagen.
 
-Um Änderungen anzufordern, setzt ein Reviewer `agent-revise` am MR/PR. ADORE entfernt das Label, startet eine neue Aufgabe auf demselben Branch und wiederholt Validierung und frische Freigabe, bevor es überträgt. **Maximale Überarbeitungsrunden** (standardmäßig 5) begrenzt das. Eine Anfrage über das Limit hinaus lässt den Auftrag fehlschlagen.
+Um Änderungen anzufordern, setzt ein Reviewer `agent-revise` am MR/PR. ADORE entfernt das Label, startet neue Arbeit auf demselben Branch (eine neue Aufgabe bei AEGIS) und wiederholt Validierung und frische Freigabe, bevor es überträgt. **Maximale Überarbeitungsrunden** (standardmäßig 5) begrenzt das. Eine Anfrage über das Limit hinaus lässt den Auftrag fehlschlagen.
 
 Schlagen CI-Prüfungen am MR/PR fehl, entscheidet **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen**: Automatisch reparieren (Standard) startet eine Überarbeitung, Nur benachrichtigen postet einen Kommentar, und Ignorieren überspringt den CI-Status. Automatische Reparaturen teilen sich das Überarbeitungsbudget; ist es aufgebraucht, postet ADORE einen Hinweis, und der Auftrag bleibt in der Prüfung.
 
@@ -67,7 +83,7 @@ Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** ei
 |---|---|
 | Ticket | Nummer und Titel; öffnet die Auftragsdetails. |
 | Projekt | Das zugehörige Projekt. |
-| Status | Der Zustand, die aktuelle Phase und ein Link zum Ticket oder MR/PR, wenn ein Mensch handeln muss. |
+| Status | Der Zustand, der gespeicherte Workflow, die aktuelle Phase und ein Link zum Ticket oder MR/PR, wenn ein Mensch handeln muss. |
 | Letzte Aktivität | Zeitpunkt des letzten gespeicherten Ereignisses. |
 | Verbrauch | Vom Auftrag verbrauchte Token. |
 

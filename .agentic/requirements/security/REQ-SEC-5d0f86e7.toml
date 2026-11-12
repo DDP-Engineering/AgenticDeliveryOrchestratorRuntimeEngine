@@ -22,6 +22,7 @@ verification = "Corrupt state, ticket, journal, timestamps and URLs independentl
 affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/web/src/errors.ts", "04_Software/adore/web/static/", "04_Software/adore/web/static/index.html", "04_Software/tests/test_web_jobs.py"]
 
 linked_tests = [
+    "04_Software/tests/test_web_jobs.py::test_direct_corrupt_evidence_refuses_lists_and_details_without_repair",
     "04_Software/tests/test_web_jobs.py::test_corrupt_profile_decoding_is_typed_on_global_project_and_direct_reads",
     "04_Software/tests/test_web_jobs.py::test_free_text_masks_entire_quoted_and_authorization_credentials",
     "04_Software/tests/test_web_jobs.py::test_broken_runs_root_symlink_fails_closed",
@@ -38,4 +39,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-05
-updated = 2026-10-06
+updated = 2026-11-12

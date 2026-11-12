@@ -17,7 +17,7 @@ Settings scalar/batch response readers validate the same domain before recovery
 or apply. Admin edits use the existing reviewed save; developers remain read-only.
 An inspected AEGIS enrollment replaces the control with the repository-owned test
 commands note, preserving any saved draft text. Workflow observations are shown
-separately from prerequisite results; no mode selector or Jobs display change is added. Offline unit/render and enrollment/settings browser tests cover
+separately from prerequisite results; no mode selector is added. Offline unit/render and enrollment/settings browser tests cover
 these controls. Settings journeys bind the isolated profile to actual Direct and
 Python-entrypoint-only AEGIS clones, cover all four locales and both roles, and
 verify multiline clipboard refusal, exact Unicode/space preservation, empty
@@ -36,6 +36,41 @@ Both own-password change forms mask all three fields by default, offer independe
 The authenticated factory administrator sees a persistent localized password reminder linking to My account. A guarded visible-tab refresh checks the session while the reminder is active; stale responses cannot replace a newer session. The existing password form revokes sessions on success.
 
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
+
+## Direct Jobs presentation
+
+`jobModel.ts` requires saved `workflow: aegis | direct` on list and detail reads.
+Missing, nontext or unknown values reject the response, never choose a default.
+`JobWorkspace` identifies Workflow inside the existing Status cell and current-state
+card without adding a table column. `workflowStageLabel` keeps all AEGIS labels and
+observed-only timeline behavior; Direct uses Implementation/build, Validation/validate
+and Done only, without an AEGIS task or quick-path explanation. Lifecycle/action,
+consumption, budgets and operational executor-output controls retain their meanings.
+
+A direct detail requires a closed `direct` attempt/latest-independent-verification
+object (see Component_Web_Jobs.md). AEGIS details refuse this object. Positive safe
+attempts or explicit absence, closed status/result shapes, canonical decimal-text
+exit codes, outcome agreement, finite nonnegative seconds and normalized bounded
+Unicode tails are validated before any display. Direct current/non-null timeline
+stages outside build/validate/done fail closed instead of being filtered.
+List error/incomplete/source-change and detail failures hide stale detail evidence;
+request/composite/session guards remain unchanged.
+
+The localized `directCopy` and i18n stage keys cover English, French, German and
+Romanian. The independent-verification panel shows the saved attempt, command before
+result, elapsed seconds and a focusable literal `pre` tail, or explicit empty output.
+Passed, Failed, Timed out, Not configured: unverified and unavailable evidence are
+distinct. There is no command action or HTML/Markdown evaluation. Settings changes
+cannot substitute today's command for saved evidence. Direct working/timeline copy
+makes no AEGIS or synthetic progress claim. Help and inline timeout guidance map
+build/validate to direct implementation/independent verification with general fallback.
+
+`tests/jobs.test.mjs` exercises workflow/evidence/stage trust boundaries and valid
+controls; `e2e/jobs.spec.ts` uses opt-in persisted direct fixtures while retaining the
+default AEGIS cohort and assertions. Browser proof covers mixed global/project lists,
+all outcomes/absence, switching, post-success corruption, four locales, desktop/mobile,
+both themes and keyboard output access. Help model/browser tests cover terms, mapping,
+structure and navigation. The committed production bundle includes these inputs.
 
 ## Host-check response ordering
 

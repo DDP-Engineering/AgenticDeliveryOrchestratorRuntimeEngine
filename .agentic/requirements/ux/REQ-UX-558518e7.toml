@@ -9,7 +9,7 @@ id = "REQ-UX-558518e7"
 
 title = "Explain direct stage limits in localized guidance"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a user reads Jobs help, Settings help or inline stage-limit guidance in English, French, German or Romanian, the interface shall explain that direct implementation uses the Implementation build limit and independent verification uses the Validation validate limit, each falling back to the general attempt limit when no override is set.
@@ -19,7 +19,7 @@ verification = "Load both help topics and stage-limit setting guidance in all fo
 
 affected_paths = ["04_Software/web/src/settingHelp.ts", "04_Software/web/src/i18n.ts", "04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/web/src/help/content/en/settings.md", "04_Software/web/src/help/content/fr/settings.md", "04_Software/web/src/help/content/de/settings.md", "04_Software/web/src/help/content/ro/settings.md", "04_Software/web/tests/settingHelp.test.mjs", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/help.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/settingHelp.test.mjs", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/help.spec.ts"]
 
 
 spec = ""

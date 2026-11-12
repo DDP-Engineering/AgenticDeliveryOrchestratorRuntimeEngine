@@ -4768,7 +4768,7 @@ def create_app(home: str | Path | None = None,
         descending = (order or ("desc" if sort == "activity" else "asc")) == "desc"
         matched = sort_jobs(matched, sort, descending)
         page_limit = len(matched) if limit == "all" else int(limit)
-        visible = [{key: value for key, value in row.items() if key != "timeline"}
+        visible = [{key: value for key, value in row.items() if key not in {"timeline", "direct"}}
                    for row in matched[offset:offset + page_limit]]
         return {"items": visible, "total": len(matched),
                 "counts": counts, "groups": groups, "limit": page_limit, "offset": offset,

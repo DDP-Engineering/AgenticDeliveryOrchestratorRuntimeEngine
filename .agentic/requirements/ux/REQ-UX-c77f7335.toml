@@ -9,7 +9,7 @@ id = "REQ-UX-c77f7335"
 
 title = "Explain direct Jobs evidence in localized help"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a user reads the Jobs help topic in English, French, German or Romanian, the help center shall explain workflow labels, direct Implementation and Validation stages without an AEGIS task, recorded attempts and independent verification evidence including Passed, Failed, Timed out and Not configured: unverified.
@@ -19,7 +19,7 @@ verification = "Load the Jobs help topic for all four locales through offline he
 
 affected_paths = ["04_Software/web/src/help/content/en/jobs.md", "04_Software/web/src/help/content/fr/jobs.md", "04_Software/web/src/help/content/de/jobs.md", "04_Software/web/src/help/content/ro/jobs.md", "04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/help.spec.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/help.test.mjs", "04_Software/web/e2e/help.spec.ts"]
 
 
 spec = ""

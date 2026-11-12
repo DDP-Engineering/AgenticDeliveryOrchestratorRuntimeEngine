@@ -9,7 +9,7 @@ id = "REQ-UX-ad37f7e7"
 
 title = "Present direct workflow stages"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While displaying a valid direct job in Jobs, the interface shall present its recorded build and validate stages as Implementation and Validation followed by Done, using localized equivalents in English, French, German and Romanian and only recorded stage evidence.
@@ -19,7 +19,7 @@ verification = "Offline model and Jobs browser fixtures cover direct jobs at bui
 
 affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

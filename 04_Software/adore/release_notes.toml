@@ -17,6 +17,11 @@ version = "Unreleased"
 
 [[release.entry]]
 category = "improved"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "See workflows, attempts and checks; inspect output and budgets, recover drift and edit waiting jobs.", fr = "Workflows, tentatives et contrôles ; sorties, budgets et reprise après dérive, même en attente.", de = "Workflows, Versuche und Prüfungen; Ausgaben, Budgets und Drift beheben, auch bei wartenden Jobs.", ro = "Fluxuri, încercări și verificări; ieșiri, bugete și recuperare după derivă, inclusiv în așteptare." }
+
+[[release.entry]]
+category = "improved"
 topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
 text = { en = "Get an editable verification command suggestion from your repository, with its source.", fr = "Obtenez une suggestion modifiable de commande de vérification du dépôt, avec sa source.", de = "Ein bearbeitbarer Prüfbefehl wird aus dem Repository samt Quelle vorgeschlagen.", ro = "Primiți o sugestie editabilă de comandă de verificare din repository, cu sursa ei." }
 
@@ -115,11 +120,6 @@ text = { en = "Choose where Pi runs. Pick detected runtimes and images in WSL to
 category = "improved"
 topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
 text = { en = "Statistics is compact: one period row, each figure shown once, trends in one table.", fr = "Statistiques est compact : une ligne de période, chaque valeur une fois, tendances en un tableau.", de = "Statistiken sind kompakt: eine Zeitraumzeile, jeder Wert einmal, Trends in einer Tabelle.", ro = "Statistici e compact: un rând de perioadă, fiecare valoare o dată, tendințe într-un tabel." }
-
-[[release.entry]]
-category = "improved"
-topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Inspect job failures and safe output; recover after drift, track budgets and edit waiting jobs.", fr = "Échecs et sorties sûres ; reprenez après dérive et ajustez les budgets des travaux en attente.", de = "Jobfehler und sichere Ausgaben prüfen; nach Drift wiederherstellen und Wartebudgets anpassen.", ro = "Vezi eșecurile și ieșirile sigure; recuperează după derivă și ajustează bugetele în așteptare." }
 
 [[release.entry]]
 category = "improved"

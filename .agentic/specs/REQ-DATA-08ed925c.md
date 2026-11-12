@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # REQ-DATA-08ed925c — Direct job evidence reads
 
-Status: draft. This specification supplies the source, absence and error semantics
+Status: active. This specification supplies the source, absence and error semantics
 shared by the task's separate attempt and verification requirements. It changes
 presentation and the authorized read allowlist, not execution or stored formats.
 
@@ -28,12 +28,9 @@ presentation and the authorized read allowlist, not execution or stored formats.
   `specs/REQ-FUNC-bea4c0aa.md`): independent verification retains the latest result
   in `validation_evidence`, including failures/timeouts while the job returns to
   build; explicit absence of configuration is recorded as `not configured`.
-- OBSERVED (`adore/web/jobs.py`, `specs/REQ-FUNC-e8455ab6.md`): job reads currently
-  omit validation payloads and commands. STATED (ticket's conditional API scope):
-  this task authorizes only the narrow direct-evidence projection below. General
-  validation payloads, agent summaries, raw transcripts and unrelated fields
-  remain outside the read allowlist. The active read documentation is updated
-  when this draft is implemented, not described as already implemented here.
+- Authorized job reads expose only the narrow direct-evidence projection below.
+  General validation payloads, agent summaries, raw transcripts and unrelated fields
+  remain outside the read allowlist; `specs/REQ-FUNC-e8455ab6.md` records that exception.
 
 ## Source contract
 
@@ -146,9 +143,9 @@ build/validate/done is refused, never filtered into a plausible valid timeline.
   reads fail without consulting foreign corrupt sources; source bytes are
   unchanged and a runner that fails on invocation proves reads execute nothing.
 
-## Proposed detail transport (design D2/D3)
+## Detail transport
 
-INFERRED (the source/absence contracts above and TASK-aad00a23 Design): a direct
+A direct
 composite detail carries exactly this new closed object within its job:
 
 ```
@@ -192,14 +189,11 @@ direct = {
   decimal-text refusal, non-BMP boundary controls and redaction growth at the tail
   bound. Public API tests retain byte preservation and no-command assertions.
 
-## Design handoff and open decisions
+## Implementation and proof
 
-- INFERRED (ticket plus observed source semantics): the above fields suffice;
-  no new stored datum is necessary and no blocking product question is known.
-- INFERRED (TASK-aad00a23 Design D1–D8): the local read helper, detail-only object,
-  workflow-aware frontend copy, unchanged AEGIS presentation, error gating and
-  source/model/browser/help test seams are fixed in the task Design and coverage
-  table. This is a proposal until build; component knowledge remains unchanged.
-- STATED (ticket stop rule): if implementation needs a datum the run does not
-  record or finds a ticket/plan conflict, stop via the questions file and blocked
-  pause rather than add execution behavior or manufacture evidence.
+`adore/web/jobs.py::_direct_evidence` validates captured sources without invoking
+the orchestrator; `app.py` removes the detail-only object from list results.
+`jobModel.ts` validates the closed browser transport, and `JobWorkspace.tsx`
+renders localized literal evidence. Existing run state supplies all values;
+no stored datum, execution behavior or dependency is added. Offline public HTTP,
+model, Jobs browser and four-locale help tests prove the contracts in this spec.

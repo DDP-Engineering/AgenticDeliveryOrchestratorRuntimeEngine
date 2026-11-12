@@ -56,6 +56,8 @@ Pour le workflow direct, ADORE l’exécute indépendamment depuis la racine de 
 
 Les tâches AEGIS ignorent ce paramètre et utilisent les commandes de test AEGIS du dépôt. Le champ reste visible dans Paramètres pour les deux workflows. Aucune commande n’est proposée ou choisie automatiquement.
 
+L’implémentation directe utilise la limite **Implémentation** `build` de `workflow.stage_timeout_overrides` ; la vérification indépendante utilise **Validation** `validate`. Sans dérogation, chacune reprend la limite générale `budgets.per_gate_timeout_seconds`. Les autres limites AEGIS ne s’appliquent pas aux travaux directs.
+
 ## TOML d’origine {#toml}
 
 À côté du titre Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu ouvre une boîte de dialogue fermable et ne garde le texte qu’en mémoire. Le téléchargement fournit le `config.toml` enregistré exactement tel que stocké, avec ses commentaires, sa mise en forme et d’éventuels secrets en clair : traitez-le comme un secret. Ni l’un ni l’autre n’inclut un candidat en attente, les valeurs par défaut résolues, les fichiers `.env` séparés ou les identifiants externes. Les développeurs ne peuvent pas les utiliser. Sélectionnez le fichier exporté dans [Importer la configuration brute](/help/projects#import-project) et ADORE vérifie automatiquement les chemins du serveur, le dossier d’état et les secrets en clair avant l’inscription.

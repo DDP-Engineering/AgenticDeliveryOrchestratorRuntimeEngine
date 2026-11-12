@@ -4,8 +4,44 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import type { Locale } from "./i18n.ts";
-import type { Lifecycle } from "./jobModel.ts";
+import type { Locale, MessageKey } from "./i18n.ts";
+import type { Lifecycle, Workflow } from "./jobModel.ts";
+
+/** Direct jobs expose only saved executor/verification observations. */
+export const directCopy = {
+  en: {workflow: "Workflow", direct: "Direct", attempt: "Latest recorded attempt", attemptUnavailable: "Attempt unavailable",
+    title: "Independent verification", command: "Command", result: "Result", seconds: "Duration (seconds)", output: "Output tail",
+    passed: "Passed", failed: "Failed", "timed out": "Timed out", "not configured": "Not configured: unverified",
+    unavailable: "Verification evidence unavailable", empty: "No verification output.",
+    working: "ADORE is conducting the saved direct stage. The last record is not a live progress signal.",
+    timeline: "Only saved events are shown. Direct jobs use Implementation and Validation, then Done; unobserved steps are not marked complete."},
+  fr: {workflow: "Workflow", direct: "Direct", attempt: "Dernière tentative enregistrée", attemptUnavailable: "Tentative indisponible",
+    title: "Vérification indépendante", command: "Commande", result: "Résultat", seconds: "Durée (secondes)", output: "Fin de sortie",
+    passed: "Réussie", failed: "Échouée", "timed out": "Délai dépassé", "not configured": "Non configurée : non vérifié",
+    unavailable: "Preuve de vérification indisponible", empty: "Aucune sortie de vérification.",
+    working: "ADORE conduit l’étape directe enregistrée. Le dernier événement n’est pas un indicateur de progression en direct.",
+    timeline: "Seuls les événements sauvegardés sont affichés. Les travaux directs utilisent Implémentation et Validation, puis Terminée ; les étapes non observées ne sont pas marquées terminées."},
+  de: {workflow: "Workflow", direct: "Direkt", attempt: "Letzter gespeicherter Versuch", attemptUnavailable: "Versuch nicht verfügbar",
+    title: "Unabhängige Prüfung", command: "Befehl", result: "Ergebnis", seconds: "Dauer (Sekunden)", output: "Ausgabeende",
+    passed: "Bestanden", failed: "Fehlgeschlagen", "timed out": "Zeitlimit überschritten", "not configured": "Nicht konfiguriert: ungeprüft",
+    unavailable: "Prüfnachweis nicht verfügbar", empty: "Keine Prüfausgabe.",
+    working: "ADORE steuert die gespeicherte direkte Phase. Der letzte Eintrag ist kein Live-Fortschrittsindikator.",
+    timeline: "Nur gespeicherte Ereignisse werden angezeigt. Direkte Jobs verwenden Implementierung und Validierung, dann Fertig; unbeobachtete Schritte werden nicht als abgeschlossen markiert."},
+  ro: {workflow: "Flux de lucru", direct: "Direct", attempt: "Ultima încercare înregistrată", attemptUnavailable: "Încercare indisponibilă",
+    title: "Verificare independentă", command: "Comandă", result: "Rezultat", seconds: "Durată (secunde)", output: "Finalul ieșirii",
+    passed: "Reușită", failed: "Eșuată", "timed out": "Timp expirat", "not configured": "Neconfigurată: neverificat",
+    unavailable: "Dovada verificării indisponibilă", empty: "Fără ieșire de verificare.",
+    working: "ADORE conduce etapa directă salvată. Ultima înregistrare nu este un indicator de progres în timp real.",
+    timeline: "Sunt afișate doar evenimentele salvate. Joburile directe folosesc Implementare și Validare, apoi Finalizată; pașii neobservați nu sunt marcați ca terminați."},
+} satisfies Record<Locale, Record<string, string>>;
+
+/** Keep AEGIS stage names unchanged; callers provide the validated saved workflow. */
+export function workflowStageLabel(stage: string, workflow: Workflow, t: (key: MessageKey) => string): string {
+  const keys: Record<string, MessageKey> = {frame: "frameStage", specify: "specifyStage", design: "designStage",
+    build: workflow === "direct" ? "directImplementationStage" : "buildStage",
+    validate: workflow === "direct" ? "directValidationStage" : "validateStage", done: "done", publishing: "publishingStatus"};
+  return keys[stage] ? t(keys[stage]) : stage;
+}
 
 const en = {
   stageFailures: "Failed attempts in this stage: {count}",

@@ -328,7 +328,7 @@ def main() -> None:
             @exception HTTPException For missing authorization or unsupported fixture mode.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
-                "seed", "reset", "mutate", "corrupt", "legacy-timestamp",
+                "seed", "reset", "mutate", "corrupt", "legacy-timestamp", "direct",
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
             roots = [StateStore(home / "state" / name) for name in ("alpha", "beta")]
@@ -404,6 +404,39 @@ def main() -> None:
             roots[1].save_ticket("ux-working", {"iid": 42, "title": "Actual beta collision",
                                               "web_url": "https://forge.example/offline/beta/issues/42"})
             roots[0].save(RunState(run_id="ux-missing", ticket_iid=99, stage="build"))
+            if mode == "direct":
+                for index, (status, stage, lifecycle) in enumerate([
+                    ("passed", "done", "awaiting-approval"),
+                    ("failed", "build", "working"),
+                    ("timed out", "validate", "failed"),
+                    ("not configured", "done", "awaiting-approval"),
+                    ("unavailable", "build", "working"),
+                    ("empty", "done", "done"),
+                ]):
+                    run_id = "ux-direct-" + status.replace(" ", "-")
+                    evidence = {} if status == "unavailable" else {
+                        "verification": "passed" if status == "empty" else status}
+                    if status in {"passed", "failed", "timed out", "empty"}:
+                        evidence["verification_result"] = {
+                            "command": "saved-check && echo '<script>literal</script>'",
+                            "exit_code": 124 if status == "failed" else 0,
+                            "seconds": 0 if status == "empty" else 1.25,
+                            "timed_out": status == "timed out",
+                            "output": "" if status == "empty" else
+                            "  <script>literal tail</script> password=fixture-secret\n" + "x" * 300}
+                    roots[0].save(RunState(
+                        run_id=run_id, ticket_iid=70 + index, workflow="direct", stage=stage,
+                        lifecycle=lifecycle, iterations=9, stage_failures=0,
+                        validation_evidence=evidence))
+                    roots[0].save_ticket(run_id, {"iid": 70 + index,
+                                                "title": f"Direct {status} ticket"})
+                    if status != "unavailable":
+                        roots[0].journal(run_id, "stage-launch", stage="build", attempt=1)
+                        roots[0].journal(run_id, "stage-launch", stage="build", attempt=2)
+                        if stage != "build":
+                            roots[0].journal(run_id, "stage-advanced", current="validate")
+                        if stage == "done":
+                            roots[0].journal(run_id, "stage-advanced", current="done")
             return ids
 
         original_alpha = profiles.config_path("alpha").read_text(encoding="utf-8")

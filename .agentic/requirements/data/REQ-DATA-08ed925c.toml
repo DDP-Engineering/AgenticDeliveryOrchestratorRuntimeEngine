@@ -9,7 +9,7 @@ id = "REQ-DATA-08ed925c"
 
 title = "Project recorded direct evidence to authorized job details"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When an authorized web job detail read succeeds for a direct run, the job service shall project an allowlisted, validated and redacted view of its recorded executor attempt and latest independent verification evidence, using explicit absence where unrecorded and read-only local snapshots.
@@ -19,7 +19,7 @@ verification = "Persist genuine direct state/journals for absent, not-configured
 
 affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/adore/web/app.py", "04_Software/tests/test_web_jobs.py", "04_Software/web/e2e/server.py"]
 
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_jobs.py::test_direct_saved_evidence_is_authorized_redacted_and_read_only", "04_Software/tests/test_web_jobs.py::test_direct_absent_launch_does_not_guess_from_other_counters", "04_Software/tests/test_web_jobs.py::test_direct_corrupt_evidence_refuses_lists_and_details_without_repair"]
 
 
 spec = "specs/REQ-DATA-08ed925c.md"

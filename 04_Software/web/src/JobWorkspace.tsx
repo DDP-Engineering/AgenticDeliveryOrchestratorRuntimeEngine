@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
-import { budgetCopy, jobCopy, jobGuidance, lifecycleExplanation } from "./jobCopy";
+import { budgetCopy, directCopy, workflowStageLabel, jobCopy, jobGuidance, lifecycleExplanation } from "./jobCopy";
 import { ForgeMarkdown } from "./forgeMarkdown";
 import { ticketCopy } from "./ticketCopy";
 import { PreparationResults } from "./ExecutionPlanReview";
@@ -44,7 +44,6 @@ const lifecycleKeys: Record<string, MessageKey> = {
   "awaiting-approval": "awaitingApprovalStatus", "in-review": "inReviewStatus", "handoff-pending": "handoffPendingStatus",
   "handed-off": "handedOffStatus", done: "done", failed: "failed", cancelled: "cancelled",
 };
-const stageKeys: Record<string, MessageKey> = { frame: "frameStage", specify: "specifyStage", design: "designStage", build: "buildStage", validate: "validateStage", done: "done", publishing: "publishingStatus" };
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
 const normalizeFailure = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError("unexpected_response");
 const readOperation = (value: unknown): Operation => {
@@ -59,6 +58,8 @@ const readOperation = (value: unknown): Operation => {
 export function JobWorkspace(props: Props) {
   const { mode, locale, projects, scope, run, csrf, request, t, refresh, onOpen, onClose, fixedScope } = props;
   const copy = jobCopy[locale];
+  const directText = directCopy[locale];
+  const workflowText = (job: Job) => job.workflow === "direct" ? directText.direct : "AEGIS";
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
   const [page, setPage] = useState<JobPage | null>(null);
@@ -88,7 +89,7 @@ export function JobWorkspace(props: Props) {
   const [loadedDetailKey, setLoadedDetailKey] = useState("");
   const visible = dataKey === renderKey && state === "ready" ? page : null;
   const unreadable = visible?.unreadable_projects ?? [];
-  const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && state !== "changed" ? detail : null;
+  const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? detail : null;
   const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
   const consumptionKey = JSON.stringify([consumptionProjects, ids, renderKey, detailKey]);
   const [consumption, setConsumption] = useState<{ key: string; state: "loading" | "ready" | "error"; jobs: JobConsumption[] }>({ key: "", state: "loading", jobs: [] });
@@ -247,7 +248,7 @@ export function JobWorkspace(props: Props) {
   const table = (rows: Job[]) => <div className="table-scroll"><table className="action-jobs-table"><thead><tr>{heading("ticket", t("ticket"))}{heading("project", t("project"))}{heading("status", t("status"))}{heading("activity", t("lastActivity"))}<th>{copy.consumption}</th></tr></thead><tbody>{rows.map(job => <tr key={`${job.project_id}/${job.run_id}`}>
     <td><a className="strong" href={jobHref(job)} onClick={event => open(event, job)}>#{job.ticket_iid} · {job.ticket_title || copy.titleUnknown}</a></td>
     <td>{job.project_display_name}{job.project_archived && <small className="field-hint">{t("archived")}</small>}</td>
-    <td><StatusBadge code={job.lifecycle}>{job.lifecycle === "done" ? copy.completed : job.lifecycle === "stale" ? copy.staleJob : label(job.lifecycle, lifecycleKeys, t)}</StatusBadge><small className="field-hint">{t("stage")}: {label(job.stage, stageKeys, t)}</small>{job.waiting.next_action && job.waiting.evidence_url && <a href={job.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(job)} ↗</a>}</td>
+    <td><StatusBadge code={job.lifecycle}>{job.lifecycle === "done" ? copy.completed : job.lifecycle === "stale" ? copy.staleJob : label(job.lifecycle, lifecycleKeys, t)}</StatusBadge><small className="field-hint">{t("stage")}: {workflowStageLabel(job.stage, job.workflow, t)}</small><small className="field-hint">{directText.workflow}: {workflowText(job)}</small>{job.waiting.next_action && job.waiting.evidence_url && <a href={job.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(job)} ↗</a>}</td>
     <td><time dateTime={job.last_activity_at || undefined}>{date(job.last_activity_at)}</time></td><td>{consumptionView(job)}</td>
   </tr>)}</tbody></table></div>;
   const compactTable = (rows: Job[]) => <div className="table-scroll"><table className="overview-jobs-table"><thead><tr><th>{t("jobTerm")}</th><th>{t("status")}</th><th>{copy.details}</th></tr></thead><tbody>{rows.map(job => <tr key={`${job.project_id}/${job.run_id}`}>
@@ -268,12 +269,13 @@ export function JobWorkspace(props: Props) {
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
     {visibleDetail && <section className="panel detail-panel" aria-label={`${t("ticket")} #${visibleDetail.ticket_iid}`}>
       <div className="panel-heading"><div><p className="eyebrow">{visibleDetail.project_display_name} · #{visibleDetail.ticket_iid}</p><h2>{visibleDetail.ticket_title || copy.titleUnknown}</h2></div><button className="ghost" onClick={onClose}>{t("close")}</button></div>
-      <div className="next-action-panel"><h3>{copy.now}</h3><StatusBadge code={visibleDetail.lifecycle}>{visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}</StatusBadge><p>{lifecycleExplanation(locale, visibleDetail.lifecycle)}</p><p>{t("stage")}: <strong>{label(visibleDetail.stage, stageKeys, t)}</strong></p>{visibleDetail.lifecycle === "parked-clarification" && visibleDetail.waiting.reason ?
+      <div className="next-action-panel"><h3>{copy.now}</h3><StatusBadge code={visibleDetail.lifecycle}>{visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}</StatusBadge><p>{visibleDetail.workflow === "direct" && visibleDetail.lifecycle === "working" ? directText.working : lifecycleExplanation(locale, visibleDetail.lifecycle)}</p><p>{directText.workflow}: <strong>{workflowText(visibleDetail)}</strong></p><p>{t("stage")}: <strong>{workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)}</strong></p>{visibleDetail.lifecycle === "parked-clarification" && visibleDetail.waiting.reason ?
           <ForgeMarkdown source={visibleDetail.waiting.reason} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table} /> : <p>{reason(visibleDetail)}</p>}
         {visibleDetail.stage_failures > 0 && <p className="notice" role="status">{copy.stageFailures.replace("{count}", String(visibleDetail.stage_failures))}</p>}
         <dl className="action-explanation"><div><dt>{copy.who}</dt><dd>{actor(visibleDetail)}{visibleDetail.waiting.responsible_person ? ` · ${visibleDetail.waiting.responsible_person}` : visibleDetail.waiting.responsible_role ? ` · ${copy.personUnknown}` : ""}</dd></div><div><dt>{copy.where}</dt><dd>{visibleDetail.waiting.evidence_url && visibleDetail.waiting.next_action ? <a className="primary link-button" href={visibleDetail.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(visibleDetail)} ↗</a> : jobGuidance(locale, visibleDetail.lifecycle).where}</dd></div><div><dt>{copy.follows}</dt><dd>{visibleDetail.waiting.next_action ? visibleDetail.lifecycle === "awaiting-approval" ? copy.afterApproval : visibleDetail.lifecycle === "parked-clarification" ? copy.afterClarification : copy.afterReview : jobGuidance(locale, visibleDetail.lifecycle).follows}</dd></div></dl>
         <p className="muted">{t("lastActivity")}: {activity(visibleDetail)}</p>
       </div>
+      {visibleDetail.direct && <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} />}
       <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
       {stableExecutionDrift(visibleDetail) && <p role="note">{recoveryCopy[locale].drift}</p>}
       {commandAllowed(visibleDetail, "restart") && <div><p className="field-hint">{recoveryCopy[locale].help}</p><button className="danger" disabled={busy} onClick={() => void command("restart", visibleDetail)}>{recoveryCopy[locale].restart}</button></div>}
@@ -291,7 +293,7 @@ export function JobWorkspace(props: Props) {
       </section>}
       <h3>{copy.consumption}</h3>{consumptionView(visibleDetail, true)}
       {visibleDetail.preparation && <PreparationResults evidence={visibleDetail.preparation} locale={locale} />}
-      <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}
+      <h3>{t("timeline")}</h3><p className="muted">{visibleDetail.workflow === "direct" ? directText.timeline : copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} workflow={visibleDetail.workflow} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}
       <h3>{copy.artifacts}</h3><div className="button-row">{visibleDetail.ticket_url && <a className="ghost link-button" href={visibleDetail.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}{visibleDetail.mr_url && <a className="ghost link-button" href={visibleDetail.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>{!visibleDetail.ticket_url && !visibleDetail.mr_url && <p>{copy.unknown}</p>}
       <ExecutorOutputView key={`${detailKey}/${visibleDetail.state_revision}`} job={visibleDetail} locale={locale} request={request} t={t} />
       <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
@@ -312,14 +314,30 @@ export function JobWorkspace(props: Props) {
 }
 
 
+/** Saved verification is literal evidence, separate from operational executor output. */
+function DirectEvidenceView({evidence, locale}: {evidence: NonNullable<Job["direct"]>; locale: Locale}) {
+  const copy = directCopy[locale], {attempt, verification} = evidence, result = verification.result;
+  return <section className="direct-evidence" aria-label={copy.title}>
+    <h3>{copy.title}</h3>
+    <p>{attempt === null ? copy.attemptUnavailable : `${copy.attempt}: ${attempt}`}</p>
+    {result && <p>{copy.command}: <code>{result.command}</code></p>}
+    <p className="verification-result">{copy.result}: <strong>{copy[verification.status]}</strong></p>
+    {result && <>
+      <p>{copy.seconds}: {result.seconds}</p>
+      <h4>{copy.output}</h4>
+      {result.output ? <pre className="operation-detail" tabIndex={0}>{result.output}</pre> : <p>{copy.empty}</p>}
+    </>}
+  </section>;
+}
+
 /** Page actual events in reverse saved order without inferring progress. */
-function ObservedTimeline({ events, date, t, unknown }: { events: NonNullable<Job["timeline"]>; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
+function ObservedTimeline({ events, workflow, date, t, unknown }: { events: NonNullable<Job["timeline"]>; workflow: Job["workflow"]; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
   const [size, setSize] = useState<number | "all">(10);
   const [offset, setOffset] = useState(0);
   const rows = events.slice().reverse();
   const start = size === "all" ? 0 : Math.min(offset, Math.max(0, Math.ceil(rows.length / size) - 1) * size);
   const shown = size === "all" ? rows : rows.slice(start, start + size);
-  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? label(event.stage, stageKeys, t) : unknown}</td></tr>)}</tbody></table></div>
+  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? workflowStageLabel(event.stage, workflow, t) : unknown}</td></tr>)}</tbody></table></div>
     {rows.length > 10 && <div className="table-pagination timeline-pagination"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t("all")}</option></select></label><span>{start + 1}–{start + shown.length} / {rows.length}</span><div className="button-row"><button className="ghost" disabled={!start || size === "all"} onClick={() => setOffset(start - Number(size))}>{t("previous")}</button><button className="ghost" disabled={size === "all" || start + shown.length >= rows.length} onClick={() => setOffset(start + Number(size))}>{t("next")}</button></div></div>}
   </>;
 }
