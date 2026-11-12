@@ -112,6 +112,7 @@ test("cancel requires confirmation before a request", async ({page, context, req
   await page.route("**/operations/cancel", async route => {submitted++; expect(route.request().postDataJSON().confirmed).toBe(true); await route.fulfill({json:{id:3001,status:"pending"}});});
   await page.route("**/operations/3001", route => route.fulfill({json:{id:9999,status:"succeeded"}}));
   await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.locator(".detail-panel .job-actions summary").click();
   const cancel = page.locator(".detail-panel").getByRole("button", {name:"Cancel",exact:true});
   page.once("dialog", dialog => dialog.dismiss()); await cancel.click();
   expect(submitted).toBe(0);

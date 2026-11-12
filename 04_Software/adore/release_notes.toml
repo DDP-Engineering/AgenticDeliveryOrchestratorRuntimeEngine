@@ -119,7 +119,7 @@ text = { en = "Statistics is compact: one period row, each figure shown once, tr
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Inspect launch status and safe output. Retry live read conflicts and track job budgets.", fr = "Consultez le résultat et la sortie sûre. Relancez la lecture et suivez les budgets.", de = "Startstatus und sichere Ausgabe prüfen. Lesen erneut versuchen und Jobbudgets verfolgen.", ro = "Vezi starea lansării și ieșirea sigură. Reîncearcă citirea și urmărește bugetele." }
+text = { en = "Compact job details separate next steps, activity and safe output, with budgets and read retries.", fr = "Détails compacts : action, activité, sortie sûre, budgets et nouvelle lecture en cas de conflit.", de = "Kompakte Jobdetails mit nächsten Schritten, Aktivität, sicherer Ausgabe und Budgets.", ro = "Detalii compacte cu acțiuni, activitate, ieșire sigură, bugete și reîncercarea citirii." }
 
 [[release.entry]]
 category = "improved"

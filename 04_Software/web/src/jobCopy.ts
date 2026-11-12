@@ -176,7 +176,7 @@ export const jobCopy: Record<Locale, JobCopy> = {
 // Lifecycle explanations describe the engine contract; next actions remain conditional on evidence.
 const explanations: Record<Locale, Record<Lifecycle, string>> = {
   en: {
-    working: "ADORE is conducting the saved AEGIS stage. The executor may work within that stage; the last record is not a live progress signal.",
+    working: "ADORE is conducting the saved stage. The executor may work within that stage; the last record is not a live progress signal.",
     publishing: "ADORE is publishing the validated candidate under the project approval policy.",
     "parked-clarification": "Work is waiting for clarification. Answer the recorded question on the ticket when its location is available.",
     "awaiting-approval": "Work is waiting for human approval of the candidate. Approval is recorded on the forge and bound to the saved candidate.",
@@ -189,7 +189,7 @@ const explanations: Record<Locale, Record<Lifecycle, string>> = {
     stale: "The job is marked stale. Inspect the saved outcome and ask the operator to reconcile its history.",
   },
   fr: {
-    working: "ADORE conduit l’étape AEGIS enregistrée. L’exécuteur peut y travailler ; le dernier événement n’est pas un indicateur de progression en direct.",
+    working: "ADORE conduit l’étape enregistrée. L’exécuteur peut y travailler ; le dernier événement n’est pas un indicateur de progression en direct.",
     publishing: "ADORE publie le candidat valid\u00e9 selon la politique d’approbation du projet.",
     "parked-clarification": "Le travail attend une clarification. Répondez à la question enregistrée sur le ticket lorsque son emplacement est disponible.",
     "awaiting-approval": "Le travail attend l’approbation humaine du candidat, enregistrée sur la forge et liée au candidat sauvegardé.",
@@ -200,7 +200,7 @@ const explanations: Record<Locale, Record<Lifecycle, string>> = {
     cancelled: "Le travail a été annulé. Consultez les preuves conservées pour le résultat final enregistré.", stale: "Le travail est marqué périmé. Consultez le résultat sauvegardé et demandez une réconciliation à l’opérateur.",
   },
   de: {
-    working: "ADORE steuert die gespeicherte AEGIS-Phase. Der Executor kann darin arbeiten; der letzte Eintrag ist kein Live-Fortschrittsindikator.",
+    working: "ADORE steuert die gespeicherte Phase. Der Executor kann darin arbeiten; der letzte Eintrag ist kein Live-Fortschrittsindikator.",
     publishing: "ADORE ver\u00f6ffentlicht den validierten Kandidaten nach der Freigaberegel des Projekts.",
     "parked-clarification": "Die Arbeit wartet auf Klärung. Die gespeicherte Frage im Ticket beantworten, sobald der Ort verfügbar ist.",
     "awaiting-approval": "Die Arbeit wartet auf menschliche Kandidatengenehmigung. Diese wird auf der Forge gespeichert und an den Kandidaten gebunden.",
@@ -211,7 +211,7 @@ const explanations: Record<Locale, Record<Lifecycle, string>> = {
     cancelled: "Der Job wurde abgebrochen. Gespeicherte Nachweise zeigen das letzte aufgezeichnete Ergebnis.", stale: "Der Job ist als veraltet markiert. Gespeichertes Ergebnis prüfen und den Betreiber um Abgleich bitten.",
   },
   ro: {
-    working: "ADORE conduce etapa AEGIS salvată. Executorul poate lucra în acea etapă; ultima înregistrare nu este un indicator de progres în timp real.",
+    working: "ADORE conduce etapa salvată. Executorul poate lucra în acea etapă; ultima înregistrare nu este un indicator de progres în timp real.",
     publishing: "ADORE public\u0103 versiunea validat\u0103 conform politicii de aprobare a proiectului.",
     "parked-clarification": "Lucrul așteaptă o clarificare. Răspunde la întrebarea înregistrată pe tichet când locul ei este disponibil.",
     "awaiting-approval": "Lucrul așteaptă aprobarea umană a versiunii. Aprobarea se înregistrează pe platforma Git și este legată de versiunea salvată.",

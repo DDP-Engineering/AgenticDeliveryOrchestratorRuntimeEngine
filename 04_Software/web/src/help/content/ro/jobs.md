@@ -5,6 +5,8 @@ O lucrare este munca pe care o face ADORE pentru un tichet, de la preluare pân�
 
 Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directorul de lucru, inclusiv modificările nepublicate; pot rămâne resurse. Starea și dovezile rămân. Ștergerea este separată.
 
+Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.
+
 ## Etape {#stages}
 
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.
@@ -21,7 +23,7 @@ Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucr
 
 ## Clarificare {#clarification}
 
-Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**.
+Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**. Alege **Citește întrebarea** pentru a deschide **Întrebarea agentului**, apoi **Răspunde pe tichet** când există un loc înregistrat.
 
 Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answered`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
 
@@ -75,7 +77,7 @@ Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, 
 
 Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.
 
-Detaliile afișează **Ce se întâmplă acum**, **Cine intervine**, **Unde** și **Ce urmează**, apoi Consum, o Cronologie (Dată, Eveniment, Etapă), linkurile **Dovezi și artefacte** și **Detalii tehnice**. Cronologia listează doar evenimentele salvate. O activitate veche, singură, nu arată că lucrul s-a oprit.
+Detaliile înlocuiesc lista cât timp sunt deschise. Antetul compact reunește numărul și numele tichetului. **Ce se întâmplă acum** arată starea, cine acționează și **Pasul următor**. Bugetele și Consumul sunt alături pe ecrane late și dedesubt pe ecrane înguste. **Activitate** listează evenimentele salvate de la cel mai recent. **Întrebarea agentului** conține clarificarea activă; celelalte stări arată **Dovezi și artefacte**. **Detalii tehnice** conține identificatori, ieșirea executorului și **Evenimentele originale înregistrate**, care pot fi extinse. **Închide** revine la listă cu filtrele păstrate. Evenimentele trecute nu devin cereri curente de acțiune.
 
 ## Bugetele jobului {#budgets}
 
@@ -91,11 +93,11 @@ Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, 
 
 **În lucru** înseamnă că ADORE conduce etapa salvată; momentan nu se cere intervenția unui om. **Așteaptă clarificare** necesită un răspuns pe tichet. **Eșuat** oprește lucrul autonom și păstrează dovezile de recuperare. Cardul afișează încercările eșuate ale etapei curente chiar când jobul rămâne În lucru.
 
-Întrebările afișează Markdown cu liste, tabele și cod. HTML-ul rămâne literal, linkurile nesigure sunt inactive, iar imaginile nu se încarcă automat. Tabelele și codul lung au derulare în interiorul întrebării.
+Întrebările apar în **Întrebarea agentului** ca Markdown cu liste, tabele și cod. Comentariile HTML de la început sunt omise din vizualizarea lizibilă; **Întrebarea originală și dovezile** păstrează sursa exactă. Restul HTML rămâne text, linkurile nesigure sunt inactive și imaginile nu se încarcă automat. Tabelele late și codul se derulează în interiorul întrebării.
 
 Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.
 
-În **Dovezi și artefacte**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+În **Detalii tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
 
 Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.
 

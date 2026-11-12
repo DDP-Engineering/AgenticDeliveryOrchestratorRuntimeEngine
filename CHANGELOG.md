@@ -25,6 +25,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Redesign Job details with a compact ticket heading, explicit next action, resources and evidence tabs.
+
 - Save complete project exports directly, with recipe administration kept in Technical details.
 
 - Align the ticket Actions header and buttons to the right, keeping desktop actions on one row.

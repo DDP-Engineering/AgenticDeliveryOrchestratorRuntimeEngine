@@ -5,6 +5,8 @@ A job is the work ADORE does for one ticket, from pickup to a merged change. Thi
 
 Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime and worktree, including unpublished work; resources can remain if cleanup fails. Job state and evidence remain. Deleting a job is a separate action.
 
+Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.
+
 ## Stages {#stages}
 
 ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.
@@ -21,7 +23,7 @@ The quick path runs Frame, Build and Validate. After Validate the job shows the 
 
 ## Clarification {#clarification}
 
-When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**.
+When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**. Choose **Read the question** to open **Agent question**, then **Answer on the ticket** when a saved location is available.
 
 Reply with a normal comment on the ticket, then add `agent-answered`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
 
@@ -75,7 +77,7 @@ Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-t
 
 Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
 
-The detail shows **What is happening now**, **Who acts**, **Where** and **What follows**, then Consumption, a Timeline (Date, Event, Stage), **Evidence and artifacts** links and **Technical details**. The timeline lists only saved events. Old activity alone does not show that work stopped.
+The detail replaces the job list while open. Its compact heading combines the ticket number and title. **What is happening now** shows the state, who acts and **Next step**. Budgets and Consumption sit beside it on wide screens and below it on narrow screens. **Activity** lists saved events newest first. **Agent question** holds the active clarification; other states show **Evidence and artifacts**. **Technical details** holds identifiers, executor output and expandable **Original recorded events**. **Close** returns to the list with its filters. Old events do not become current action requests.
 
 ## Job budgets {#budgets}
 
@@ -91,11 +93,11 @@ If current limits cannot be read, the detail keeps saved consumption, evidence a
 
 **Working** means ADORE is conducting the saved stage; no human action is currently requested. **Waiting for clarification** needs an answer on the ticket. **Failed** stops autonomous work and keeps recovery evidence. The status card shows failed attempts in the current stage even while the job stays Working.
 
-Questions render as Markdown with lists, tables and code. HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
+Questions appear in **Agent question** as Markdown with lists, tables and code. Leading HTML comments are omitted in the readable view; **Original question and evidence** retains the exact source. Other HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
 
 Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.
 
-Under **Evidence and artifacts**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+Under **Technical details**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
 
 The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.
 

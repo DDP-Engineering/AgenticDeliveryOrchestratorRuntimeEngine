@@ -43,6 +43,7 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
     });
     await page.goto("/jobs?project=alpha&run=ux-failed");
     const detail = page.locator(".detail-panel");
+    await detail.locator(".job-actions summary").click();
     const restart = detail.getByRole("button", { name: recoveryCopy[locale].restart, exact: true });
     await expect(restart).toBeVisible();
     await expect(detail).toContainText(recoveryCopy[locale].drift);
@@ -78,6 +79,7 @@ test("retained unproven old branch is a visible successful recovery", async ({ p
     id: 991, status: "succeeded", result: "restart:retained",
   } }));
   await page.goto("/jobs?project=alpha&run=ux-failed");
+  await page.locator(".detail-panel .job-actions summary").click();
   page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: recoveryCopy.en.restart, exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: recoveryCopy.en.retained })).toBeVisible();

@@ -8,11 +8,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
-import { budgetCopy, jobCopy, jobGuidance, lifecycleExplanation } from "./jobCopy";
-import { ForgeMarkdown } from "./forgeMarkdown";
-import { ticketCopy } from "./ticketCopy";
-import { PreparationResults } from "./ExecutionPlanReview";
-import { activityAge, commandAllowed, stableExecutionDrift, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
+import { jobCopy } from "./jobCopy";
+import { JobDetails } from "./JobDetails";
+import { commandAllowed, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
 import { DataFeedback, StatusBadge } from "./Presentation";
 import { startVisiblePolling } from "./polling";
@@ -76,6 +74,7 @@ export function JobWorkspace(props: Props) {
   const mounted = useRef(true);
   const commandGeneration = useRef(0);
   const [reload, setReload] = useState(0);
+  const [usageReload, setUsageReload] = useState(0);
   const revision = useRef({ key: "", snapshot: "" });
   const [worker, setWorker] = useState("checking");
   const project = projects.find(item => item.id === scope);
@@ -97,7 +96,7 @@ export function JobWorkspace(props: Props) {
     if (consumption.key !== consumptionKey || consumption.state !== "ready") return <>
       <DataFeedback state={consumption.key === consumptionKey ? consumption.state : "loading"} t={t} />
       {consumption.key === consumptionKey && consumption.state === "error" &&
-        <button className="ghost" onClick={() => setReload(value => value + 1)}>{copy.refreshConsumption}</button>}
+        <button className="ghost" onClick={() => setUsageReload(value => value + 1)}>{copy.refreshConsumption}</button>}
     </>;
     const usage = consumption.jobs.find(row => consumptionIdentity(row) === consumptionIdentity(job));
     return usage ? <JobAmounts job={usage} locale={locale} admin={props.admin} t={t} compact={!full} /> : <span>{statisticsText.unavailable}</span>;
@@ -125,7 +124,7 @@ export function JobWorkspace(props: Props) {
     };
     void fetchUsage(); const stop = startVisiblePolling(() => void fetchUsage(), 30000);
     return () => { active = false; stop(); };
-  }, [consumptionKey, refresh, reload]);
+  }, [consumptionKey, refresh, reload, usageReload]);
   useEffect(() => { commandGeneration.current += 1; setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
 
   useEffect(() => {
@@ -233,11 +232,7 @@ export function JobWorkspace(props: Props) {
   const feedback = (status: ReadState, cause: unknown) => status === "incomplete" || status === "changed" ?
     <section className="panel data-feedback" role="alert"><div><h2>{status === "incomplete" ? copy.incomplete : copy.changed}</h2><p>{status === "incomplete" ? copy.incompleteHelp : copy.changedHelp}</p><button className="ghost" onClick={() => { revision.current = { key: "", snapshot: "" }; setFilters(current => ({ ...current, offset: 0 })); setReload(value => value + 1); }}>{copy.reload}</button></div></section> :
     <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause)}</p> : null}</>;
-  const reason = (job: Job) => job.waiting.reason === "candidate_approval_requested" ? copy.approvalReason : job.waiting.reason === "draft_review_open" ? copy.reviewReason : job.waiting.reason || job.outcome || jobGuidance(locale, job.lifecycle).reason;
   const actionText = (job: Job) => job.waiting.next_action === "answer_question_on_ticket" ? copy.openQuestion : job.waiting.next_action === "review_candidate_on_ticket" ? copy.openApproval : copy.openReview;
-  const actor = (job: Job) => ({ human_responder: copy.responder, human_approver: copy.approver, human_reviewer: copy.reviewer }[job.waiting.responsible_role || ""] ||
-    (job.lifecycle === "parked-clarification" ? copy.responder : ["working", "publishing"].includes(job.lifecycle) ? copy.system : ["failed", "stale", "handoff-pending"].includes(job.lifecycle) ? copy.operator : copy.unknown));
-  const activity = (job: Job) => <><time dateTime={job.last_activity_at || undefined}>{date(job.last_activity_at)}</time>{activityAge(job.last_activity_at) !== "recent" && <small className="field-hint">{job.last_activity_at ? copy.oldActivity : copy.missingActivity}</small>}</>;
   // Inside a project hub, job links address the hub's Jobs tab so new tabs and copied links stay there.
   const jobHref = (job: Job) => fixedScope ? formatRoute({ view: "projectDetails", project: job.project_id, tab: "jobs", run: job.run_id }) :
     formatRoute({ view: "jobs", project: job.project_id, run: job.run_id });
@@ -259,45 +254,23 @@ export function JobWorkspace(props: Props) {
   const pager = visible && <div className="table-pagination"><label>{t("rowsPerPage")}<select value={filters.size} onChange={event => change("size", event.target.value === "all" ? "all" : Number(event.target.value))}>{[10, 25, 50].map(size => <option key={size} value={size}>{size}</option>)}<option value="all">{t("all")}</option></select></label><span>{visible.total === 0 ? "0" : `${offset + 1}–${Math.min(offset + visible.items.length, visible.total)}`} / {visible.total}</span><div className="button-row"><button className="ghost" disabled={offset === 0} onClick={() => setFilters(current => ({ ...current, offset: Math.max(0, offset - visible.limit) }))}>{t("previous")}</button><button className="ghost" disabled={offset + visible.items.length >= visible.total || filters.size === "all"} onClick={() => setFilters(current => ({ ...current, offset: offset + visible.limit }))}>{t("next")}</button></div></div>;
 
   return <div className={`job-workspace${compactOverview ? " overview-workspace" : ""}${props.summaryHeader ? " project-summary-window" : ""}`}>
-    {props.summaryHeader?.(unreadable.length ? null : visible)}
+    {!run && props.summaryHeader?.(unreadable.length ? null : visible)}
     {/* Scope selection lives with the page; worker status appears only when it needs attention. */}
     {["unavailable", "error"].includes(worker) && <div className="overview-controls"><span className="worker-evidence alert" role="status">{worker === "unavailable" ? copy.workerUnavailable : copy.workerError}</span></div>}
     {!!operationError && <p className="alert" role="alert">{describeError(locale, operationError)}</p>}
     {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{operation.status === "pending" && <p>{t("workerQueueHelp")}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
-    {mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>
+    {!run && mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>
     </section>}
     {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
-    {visibleDetail && <section className="panel detail-panel" aria-label={`${t("ticket")} #${visibleDetail.ticket_iid}`}>
-      <div className="panel-heading"><div><p className="eyebrow">{visibleDetail.project_display_name} · #{visibleDetail.ticket_iid}</p><h2>{visibleDetail.ticket_title || copy.titleUnknown}</h2></div><button className="ghost" onClick={onClose}>{t("close")}</button></div>
-      <div className="next-action-panel"><h3>{copy.now}</h3><StatusBadge code={visibleDetail.lifecycle}>{visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}</StatusBadge><p>{lifecycleExplanation(locale, visibleDetail.lifecycle)}</p><p>{t("stage")}: <strong>{label(visibleDetail.stage, stageKeys, t)}</strong></p>{visibleDetail.lifecycle === "parked-clarification" && visibleDetail.waiting.reason ?
-          <ForgeMarkdown source={visibleDetail.waiting.reason} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table} /> : <p>{reason(visibleDetail)}</p>}
-        {visibleDetail.stage_failures > 0 && <p className="notice" role="status">{copy.stageFailures.replace("{count}", String(visibleDetail.stage_failures))}</p>}
-        <dl className="action-explanation"><div><dt>{copy.who}</dt><dd>{actor(visibleDetail)}{visibleDetail.waiting.responsible_person ? ` · ${visibleDetail.waiting.responsible_person}` : visibleDetail.waiting.responsible_role ? ` · ${copy.personUnknown}` : ""}</dd></div><div><dt>{copy.where}</dt><dd>{visibleDetail.waiting.evidence_url && visibleDetail.waiting.next_action ? <a className="primary link-button" href={visibleDetail.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(visibleDetail)} ↗</a> : jobGuidance(locale, visibleDetail.lifecycle).where}</dd></div><div><dt>{copy.follows}</dt><dd>{visibleDetail.waiting.next_action ? visibleDetail.lifecycle === "awaiting-approval" ? copy.afterApproval : visibleDetail.lifecycle === "parked-clarification" ? copy.afterClarification : copy.afterReview : jobGuidance(locale, visibleDetail.lifecycle).follows}</dd></div></dl>
-        <p className="muted">{t("lastActivity")}: {activity(visibleDetail)}</p>
-      </div>
-      <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
-      {stableExecutionDrift(visibleDetail) && <p role="note">{recoveryCopy[locale].drift}</p>}
-      {commandAllowed(visibleDetail, "restart") && <div><p className="field-hint">{recoveryCopy[locale].help}</p><button className="danger" disabled={busy} onClick={() => void command("restart", visibleDetail)}>{recoveryCopy[locale].restart}</button></div>}
-      {visibleDetail.budget && <section className="job-budgets" aria-label={budgetCopy[locale].title}>
-        <h3>{budgetCopy[locale].title}</h3>
-        <dl className="action-explanation">
-          <div><dt>{budgetCopy[locale].launches}</dt><dd>{visibleDetail.budget.launches} / {visibleDetail.budget.max_launches ?? "—"}</dd></div>
-          <div><dt>{budgetCopy[locale].active}</dt><dd>{Math.floor(visibleDetail.budget.active_seconds)} / {visibleDetail.budget.max_active_seconds ?? "—"}</dd></div>
-        </dl>
-        {visibleDetail.budget.availability === "unavailable" ? <p className="notice" role="status">{budgetCopy[locale].unavailable}</p> :
-          (visibleDetail.budget.launches / visibleDetail.budget.max_launches >= .9 || visibleDetail.budget.active_seconds / visibleDetail.budget.max_active_seconds >= .9) &&
-          <p className="notice" role="status">{visibleDetail.budget.launches >= visibleDetail.budget.max_launches || visibleDetail.budget.active_seconds >= visibleDetail.budget.max_active_seconds ? budgetCopy[locale].reached : budgetCopy[locale].near}</p>}
-        <p className="field-hint">{budgetCopy[locale].timing}</p>
-        {props.admin && !visibleDetail.project_archived && <a href={formatRoute({view:"projectDetails",project:visibleDetail.project_id,tab:"configuration"})}>{budgetCopy[locale].settings}</a>}
-      </section>}
-      <h3>{copy.consumption}</h3>{consumptionView(visibleDetail, true)}
-      {visibleDetail.preparation && <PreparationResults evidence={visibleDetail.preparation} locale={locale} />}
-      <h3>{t("timeline")}</h3><p className="muted">{copy.observedTimeline}</p>{visibleDetail.timeline?.length ? <ObservedTimeline key={detailKey} events={visibleDetail.timeline} date={date} t={t} unknown={copy.unknown} /> : <p>{copy.unknown}</p>}
-      <h3>{copy.artifacts}</h3><div className="button-row">{visibleDetail.ticket_url && <a className="ghost link-button" href={visibleDetail.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}{visibleDetail.mr_url && <a className="ghost link-button" href={visibleDetail.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>{!visibleDetail.ticket_url && !visibleDetail.mr_url && <p>{copy.unknown}</p>}
-      <ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />
-      <details><summary>{copy.technical}</summary><dl className="action-explanation"><div><dt>{t("project")}</dt><dd>{visibleDetail.project_id}</dd></div><div><dt>{t("jobTerm")}</dt><dd>{visibleDetail.run_id}</dd></div><div><dt>{t("reviewRounds")} / {t("attempts")}</dt><dd>{visibleDetail.review_rounds} / {visibleDetail.stage_failures}</dd></div><div><dt>{t("coverage")}</dt><dd>{Object.entries(visibleDetail.coverage).filter(([key]) => ["ticket", "journal", "title", "last_activity"].includes(key)).map(([key, value]) => `${key}: ${value}`).join(" · ")}</dd></div></dl></details>
-    </section>}
-    <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
+    {run && state === "changed" && feedback("changed", failure)}
+    {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy}
+      onClose={onClose} onCommand={(action, job) => void command(action, job)}
+      stageLabel={label(visibleDetail.stage, stageKeys, t)} stageName={stage => label(stage, stageKeys, t)}
+      statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
+      consumption={consumptionView(visibleDetail, true)}
+      output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />}
+      timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} date={date} t={t} unknown={copy.unknown} />} />}
+    {!run && <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
       {mode === "history" && <p className="muted">{copy.historyHelp}</p>}
@@ -308,7 +281,7 @@ export function JobWorkspace(props: Props) {
     </section>
     {compactOverview && visible && activePage && (activePage.items.length > 0 || unreadable.length === 0) && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
 
-    </div>
+    </div>}
   </div>;
 }
 

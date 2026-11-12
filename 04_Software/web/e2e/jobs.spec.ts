@@ -247,10 +247,10 @@ test("all real lifecycle groups explain exact stage evidence and protected hando
     const detail = page.locator(".detail-panel");
     await expect(detail.getByRole("heading", { name: "What is happening now" })).toBeVisible();
     await expect(detail.locator(".next-action-panel .status")).toContainText(_status);
-    await expect(detail.locator(".next-action-panel")).toContainText(`Stage: ${_stage}`);
-    await expect(detail.getByText("Who acts", { exact: true })).toBeVisible();
-    await expect(detail.getByText("Where", { exact: true })).toBeVisible();
-    await expect(detail.getByText("What follows", { exact: true })).toBeVisible();
+    await expect(detail.locator(".job-detail-meta")).toContainText(`Stage: ${_stage}`);
+    await expect(detail.getByText("Next step", { exact: true })).toBeVisible();
+    await expect(detail.getByRole("tab", {name:"Activity",exact:true})).toHaveAttribute("aria-selected", "true");
+    if (await detail.locator(".job-actions").count()) await detail.locator(".job-actions summary").click();
     await expect(detail.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(cancellable ? 1 : 0);
     await expect(detail.getByRole("button", { name: "Retry", exact: true })).toHaveCount(suffix === "failed" ? 1 : 0);
     await expect(detail.getByRole("button", { name: /merge|approve|pause|resume/i })).toHaveCount(0);
@@ -270,16 +270,20 @@ test("clarification candidate and draft actions open actual saved locations and 
   ]) {
     await page.goto(`/jobs?project=alpha&run=${run}`);
     const detail = page.locator(".detail-panel");
-    await expect(detail.locator(".next-action-panel").getByRole("link", { name })).toHaveAttribute("href", href);
-    await expect(detail).toContainText("Named person not recorded");
+    if (run === "ux-clarification") await detail.getByRole("button", {name:"Read the question",exact:true}).click();
+    await expect(detail.getByRole("link", { name }).first()).toHaveAttribute("href", href);
+
     if (run === "ux-clarification") {
       await expect(detail).toContainText("Which export format?");
       await expect(detail).not.toContainText("fixture-secret");
     }
     if (run === "ux-approval") {
+      await detail.getByRole("tab", {name:"Technical details",exact:true}).click();
+      await detail.getByText("Original recorded events", {exact:true}).click();
       const timeline = detail.getByRole("table", { name: "Timeline" });
       await expect(timeline).toContainText("Frame"); await expect(timeline).toContainText("Build"); await expect(timeline).toContainText("Validate");
       await expect(timeline).not.toContainText("Specify"); await expect(timeline).not.toContainText("Design");
+      await detail.getByRole("tab",{name:"Activity",exact:true}).click();
       await expect(detail).toContainText("Only saved events are shown.");
     }
   }
@@ -291,7 +295,7 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await page.goto("/jobs?project=alpha&run=ux-missing");
   await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
-  await expect(detail.getByRole("heading", { name: "Ticket title not recorded" })).toBeVisible();
+  await expect(detail.getByRole("heading", { name: /Ticket title not recorded/ })).toBeVisible();
   await expect(detail).toContainText("no human intervention is currently requested");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
   await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");
@@ -334,11 +338,11 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
   const links = await page.locator(".action-jobs-table tbody td:first-child a").evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href));
   expect(new Set(links).size).toBe(2);
   await page.getByRole("link", { name: /Actual beta collision/ }).click();
-  await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
+  await expect(page.locator(".detail-panel .job-detail-title h2")).toContainText("Actual beta collision");
   await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
   await expect(page.locator("#jobs-project option:checked")).toHaveText("beta");
   await page.reload();
-  await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
+  await expect(page.locator(".detail-panel .job-detail-title h2")).toContainText("Actual beta collision");
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page).not.toHaveURL(/run=/);
 });
@@ -415,7 +419,8 @@ test("queued pending and final successful commands do not predict job outcome", 
     release();
     await expect(notice).toContainText("finished");
     await page.goto("/jobs?project=alpha&run=ux-failed");
-    await expect(page.locator(".detail-panel")).toContainText("does not bypass validation or approval");
+    await page.locator(".detail-panel .job-actions summary").click();
+    await expect(page.locator(".job-action-menu")).toContainText("Retry follows validation");
     await page.locator(".detail-panel").getByRole("button", { name: "Retry", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Command failed" })).toBeVisible();
   } finally {
@@ -484,6 +489,8 @@ test("observed timeline retains paging and rejects unsafe action locations", asy
     await route.fulfill({ response, json: data });
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await page.getByText("Original recorded events",{exact:true}).click();
   const timeline = page.getByRole("table", { name: "Timeline", exact: true });
   await expect(timeline.getByRole("row")).toHaveCount(11);
   await expect(timeline).toContainText("saved-25");
@@ -1056,6 +1063,7 @@ test("job budgets show retained consumption and boundary timing in four locales"
     await expect(unavailable).toContainText("18 / —");
     await expect(unavailable).toContainText("90 / —");
     await expect(unavailable.getByRole("status")).toContainText("Current limits are unavailable");
+    await page.locator(".detail-panel .job-actions summary").click();
     await expect(page.locator(".detail-panel").getByRole("button",{name:"Retry",exact:true})).toBeVisible();
     await page.route("**/api/v1/jobs/*/ux-clarification", async route => {
       const response = await route.fetch(), data = await response.json();
@@ -1098,6 +1106,7 @@ test("executor output retains verified evidence across a live journal conflict",
     }});
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.getByRole("tab",{name:"Technical details",exact:true}).click();
   const output = page.locator(".executor-output");
   const read = output.getByRole("button",{name:"View latest executor output",exact:true});
   await read.click();
@@ -1139,6 +1148,8 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
   const card=page.locator(".next-action-panel"),detail=page.locator(".detail-panel");
   await expect(card).toContainText("Failed attempts in this stage: 1");
   await expect(card).not.toContainText(/Reason not recorded|Unknown — no recorded evidence|does not identify/);
+  await detail.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await detail.getByText("Original recorded events",{exact:true}).click();
   await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText(/:34/);
   await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText("Build");
   await expect(detail.getByRole("button",{name:"Refresh consumption",exact:true})).toBeVisible();
@@ -1160,13 +1171,15 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
     await route.fulfill({response,json:data});
   });
   await page.goto("/jobs?project=alpha&run=ux-clarification");
-  await expect(card.getByRole("heading",{name:"Choose a format"})).toBeVisible();
+  await card.getByRole("button",{name:"Read the question",exact:true}).click();
+  const question = detail.locator(".job-question");
+  await expect(question.getByRole("heading",{name:"Choose a format"})).toBeVisible();
   await expect(card).toContainText("Human responder");
   await expect(card).not.toContainText("Unknown — no recorded evidence");
-  await expect(card.locator("ul li")).toHaveCount(2);
-  await expect(card.locator("code")).toHaveText("code");
-  await expect(card).toContainText("<script>window.issue35=true</script>");
-  await expect(card.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
+  await expect(question.locator("ul li")).toHaveCount(2);
+  await expect(question.locator("code")).toHaveText("code");
+  await expect(question).toContainText("<script>window.issue35=true</script>");
+  await expect(question.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
   expect(await page.evaluate(()=>Object.hasOwn(window,"issue35"))).toBe(false);
 });
 
@@ -1204,7 +1217,8 @@ test("issue35 normal lifecycle copy in four locales and safe Markdown scroll on 
     await page.setViewportSize({width:390,height:900});
     await page.goto("/jobs?project=alpha&run=ux-clarification");
     await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
-    const regions=page.locator(".next-action-panel .forge-scroll");
+    await page.getByRole("button",{name:"Read the question",exact:true}).click();
+    const regions=page.locator(".job-question .forge-scroll");
     await expect(regions).toHaveCount(2);
     // Detail reads can replace the card; query both current regions atomically on each poll.
     await expect.poll(()=>regions.evaluateAll(elements=>elements.map(element=>({

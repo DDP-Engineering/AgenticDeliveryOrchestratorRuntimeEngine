@@ -5,6 +5,8 @@ Une tâche est le travail qu’ADORE effectue pour un ticket, de la prise en cha
 
 Confirmez **Annuler**. Le nettoyage tente de supprimer l’environnement et le dossier de travail, y compris les changements non publiés ; des ressources peuvent rester. L’état et les preuves restent. Supprimer une tâche est distinct.
 
+Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**, **Annuler** ou la reprise confirmée dans un nouveau travail si disponible. Seules les commandes autorisées pour ce travail sont affichées.
+
 ## Étapes {#stages}
 
 ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.
@@ -21,7 +23,7 @@ Le chemin rapide exécute Cadrage, Développement et Validation. Après la Valid
 
 ## Clarification {#clarification}
 
-Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose `agent-clarify`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**.
+Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose `agent-clarify`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**. Choisissez **Lire la question** pour ouvrir **Question de l’agent**, puis **Répondre sur le ticket** si un emplacement enregistré est disponible.
 
 Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.
 
@@ -75,7 +77,7 @@ Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un pr
 
 Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
 
-Le détail affiche **Que se passe-t-il maintenant**, **Qui intervient**, **Où** et **Ce qui suit**, puis la Consommation, une Chronologie (Date, Événement, Étape), des liens **Preuves et artefacts** et les **Détails techniques**. La chronologie ne liste que les événements enregistrés. Une ancienne activité ne prouve pas à elle seule que le travail s’est arrêté.
+Le détail remplace la liste tant qu’il est ouvert. Son titre compact réunit le numéro et le titre du ticket. **Que se passe-t-il maintenant** indique l’état, qui intervient et la **Prochaine action**. Budgets et Consommation sont à côté sur grand écran et en dessous sur écran étroit. **Activité** liste les événements enregistrés du plus récent au plus ancien. **Question de l’agent** contient la clarification active ; les autres états affichent **Preuves et artefacts**. **Détails techniques** contient identifiants, sortie de l’exécuteur et **Événements originaux enregistrés** à déplier. **Fermer** revient à la liste avec ses filtres. Les événements passés ne deviennent pas des demandes actuelles.
 
 ## Budgets du travail {#budgets}
 
@@ -91,11 +93,11 @@ Si les limites actuelles sont illisibles, le détail conserve la consommation, l
 
 **En cours** signifie qu’ADORE conduit l’étape enregistrée ; aucune action humaine n’est demandée. **En attente de clarification** nécessite une réponse sur le ticket. **Échoué** arrête le travail autonome et conserve les preuves de récupération. La carte affiche les tentatives échouées de l’étape courante même si le travail reste En cours.
 
-Les questions affichent listes, tableaux et code en Markdown. Le HTML reste littéral, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Tableaux et code larges défilent dans la question.
+Les questions apparaissent dans **Question de l’agent** en Markdown avec listes, tableaux et code. Les commentaires HTML initiaux sont omis de la vue lisible ; **Question originale et preuves** conserve la source exacte. Le reste du HTML reste littéral, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les tableaux larges et le code défilent dans la question.
 
 Les étapes de la chronologie viennent de l’étape, du contexte d’étape ou de la destination de transition enregistrés dans chaque événement ; les événements sans rapport restent inconnus. Les heures incluent les secondes. Un événement est une preuve enregistrée, pas une progression en direct.
 
-Dans **Preuves et artefacts**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
+Dans **Détails techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
 
 Le résumé affiche la tentative, son heure, le résultat et le code de sortie. Dépliez **stdout** ou **stderr** si des données sont présentes. Si un lancement est en cours, le panneau le signale et conserve la dernière sortie terminée. Si le journal change pendant la lecture, choisissez **Réessayer**. La dernière sortie vérifiée est signalée comme potentiellement périmée.
 

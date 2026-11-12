@@ -1038,7 +1038,7 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Operational Job details
 
-JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
+JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. The active clarification lives in its own tab and uses ForgeMarkdown with inert HTML, permitted navigation, image placeholders and local scrolling; its readable view omits leading comments while its original source remains expandable. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
 
 ExecutorOutputView fetches only on demand and rejects stale/unmounted or identity-mismatched responses. The viewer displays host-normalized diagnostics and explains omitted private content and unavailable provenance. Browser regressions exercise four locales, safe Markdown, concrete output, refresh and 390px dark-theme local scrolling.
 
@@ -1074,3 +1074,29 @@ are removed while configurations, credentials and jobs remain untouched.
 The PR/MR settings category presents the reviewed per-project human approval
 boolean in all four locales. It defaults to enabled and uses the existing
 administrator confirmation and idle-project mutation boundary.
+
+## Job details presentation
+
+`JobDetails.tsx` presents the verified detail separately from the job list. The
+header combines ticket number and title; Job actions shares the current-stage
+metadata row and exposes only commands allowed by the existing command policy.
+Retry, cancel and confirmed fresh-run recovery keep worker authorization, CSRF,
+revision binding and confirmation behavior. Close restores the existing list filters.
+
+The current lifecycle, responsible actor and Next step precede secondary budgets
+and consumption. Missing usage or limits remain explicitly unavailable, never
+zero or guessed progress. Activity lists saved events newest first with localized
+names for recognized events and the original event code. Unrecognized events use
+a neutral title. An older clarification event is historical, not a current action.
+
+Three keyboard-accessible tabs separate Activity, Agent question (only while
+clarification is active) or Evidence and artifacts, and Technical details. The
+question uses the existing safe Markdown renderer. Leading editorial HTML comments
+are omitted from its readable view; an expandable Original question and evidence
+retains the exact source. Other HTML stays inert text and images are never loaded.
+No historical question content is inferred when the API no longer provides it.
+Technical details retains identifiers, on-demand verified executor output, recovery
+diagnosis and the paged original timeline. All tabs use the same saved evidence;
+none starts an executor or grants candidate approval. Copy and help cover all four
+locales. The layout uses the application's light/dark tokens and stacks on narrow
+screens. No API, stored format or dependency change is required.

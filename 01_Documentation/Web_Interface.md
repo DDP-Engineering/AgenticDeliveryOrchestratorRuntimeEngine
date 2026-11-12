@@ -1356,7 +1356,7 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 Job details explains normal Working, Waiting for clarification and Failed states and shows failed attempts in the current stage in the status card. Timeline events retain their recorded stage/context/transition destination and times include seconds. Questions use safe Markdown with local scrolling; HTML remains literal and images do not load automatically.
 
-Evidence and artifacts → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
+Technical details → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
 
 The compact summary shows the attempt, its recorded stage when available,
 time, result and exit code. Open **stdout** and **stderr** to read their records.
@@ -1402,3 +1402,24 @@ per project in **PR/MR and review** when its jobs are finished. It is enabled
 by default. When disabled, validated candidates are published automatically
 after freshness checks; draft state and progress checkpoint settings are
 independent and only a human decides whether to merge.
+
+## Job details presentation
+
+Opening a job replaces its list with a dedicated detail. The compact heading
+combines ticket number and title; **Job actions** shares the current-stage row.
+It contains only commands allowed for the selected job, including Retry, Cancel
+or confirmed fresh-run recovery. Existing confirmations and worker permissions
+still apply. **Close** restores the list with its filters.
+
+The current state, responsible actor and **Next step** come first. Budgets and
+Consumption sit beside them on wide screens and below on narrow screens; missing
+values never mean zero or guessed progress. **Activity** lists saved events
+newest first. **Agent question** contains the active clarification; other states
+show **Evidence and artifacts**. Leading HTML comments are omitted from the
+readable question and retained under **Original question and evidence**. Other
+HTML stays inert text and images do not load automatically. Once the job resumes,
+its earlier clarification events remain history, not current requests.
+
+**Technical details** holds identifiers, on-demand executor output, recovery
+diagnosis and expandable **Original recorded events**. The tabs support arrow
+keys, Home and End. These views never approve a candidate or start an executor.

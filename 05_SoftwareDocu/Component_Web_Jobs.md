@@ -210,3 +210,12 @@ for the current job while refreshing, labels stale results and provides inline
 retry for 409. Nonempty streams use independent, scrollable disclosures.
 
 Snapshots are capped at 150 KiB JSON, with at most 500 diagnostic records and 64 KiB per stream. Run/journal reads are bounded. Public HTTP tests cover concrete missing-module/test-count diagnostics, scoped/revoked grants, unsafe references, malformed/oversized/linked files and explicit missing provenance.
+
+## Job detail consumer
+
+`web/src/JobDetails.tsx` consumes this existing projection without changing the
+API or stored formats. Its current-action card and tabs keep active clarification
+separate from historical events. Outside the parked lifecycle the API does not
+supply historical question text; the frontend never reconstructs it from event
+names. Presentation, safe question rendering and command delegation are described
+in [Component Web Frontend](Component_Web_Frontend.md#job-details-presentation).

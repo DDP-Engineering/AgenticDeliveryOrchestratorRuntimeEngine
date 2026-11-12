@@ -5,6 +5,8 @@ Ein Auftrag ist die Arbeit, die ADORE für ein Ticket leistet, von der Aufnahme 
 
 Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverzeichnis einschließlich unveröffentlichter Arbeit zu entfernen; Ressourcen können bleiben. Status und Nachweise bleiben. Löschen ist eine separate Aktion.
 
+Öffnen Sie **Jobaktionen** neben der aktuellen Phase für **Wiederholen**, **Abbrechen** oder den bestätigten Neustart, soweit verfügbar. Nur für diesen Job zulässige Befehle werden angezeigt.
+
 ## Phasen {#stages}
 
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.
@@ -21,7 +23,7 @@ Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validi
 
 ## Klärung {#clarification}
 
-Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt `agent-clarify`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**.
+Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt `agent-clarify`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**. Wählen Sie **Frage lesen**, um **Frage des Agenten** zu öffnen, dann **Im Ticket antworten**, wenn ein gespeicherter Ort vorliegt.
 
 Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann `agent-answered`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.
 
@@ -75,7 +77,7 @@ Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** ei
 
 Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
 
-Die Details zeigen **Was gerade geschieht**, **Wer handelt**, **Wo** und **Was folgt**, danach Verbrauch, einen Verlauf (Datum, Ereignis, Phase), Links unter **Nachweise und Artefakte** und **Technische Details**. Der Verlauf listet nur gespeicherte Ereignisse. Alte Aktivität allein belegt nicht, dass die Arbeit gestoppt hat.
+Die Details ersetzen die Jobliste, solange sie geöffnet sind. Die kompakte Überschrift vereint Ticketnummer und Titel. **Was gerade geschieht** zeigt Status, Zuständigkeit und **Nächster Schritt**. Budgets und Verbrauch stehen auf breiten Bildschirmen daneben, auf schmalen darunter. **Aktivität** listet gespeicherte Ereignisse vom neuesten zum ältesten. **Frage des Agenten** enthält die aktive Rückfrage; andere Zustände zeigen **Nachweise und Artefakte**. **Technische Details** enthält Kennungen, Executor-Ausgabe und aufklappbare **Gespeicherte Originalereignisse**. **Schließen** kehrt zur Liste mit ihren Filtern zurück. Frühere Ereignisse werden nicht zu aktuellen Handlungsaufforderungen.
 
 ## Jobbudgets {#budgets}
 
@@ -91,11 +93,11 @@ Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherst
 
 **In Arbeit** bedeutet, dass ADORE die gespeicherte Phase steuert; derzeit ist keine menschliche Aktion angefordert. **Klärung ausstehend** benötigt eine Antwort im Ticket. **Fehlgeschlagen** hält autonome Arbeit an und bewahrt Wiederherstellungsnachweise. Die Statuskarte zeigt Fehlversuche der aktuellen Phase auch bei laufendem Job.
 
-Fragen zeigen Markdown mit Listen, Tabellen und Code. HTML bleibt wörtlich, unsichere Links sind inaktiv und Bilder laden nicht automatisch. Breite Tabellen und Code scrollen innerhalb der Frage.
+Fragen erscheinen unter **Frage des Agenten** als Markdown mit Listen, Tabellen und Code. Führende HTML-Kommentare fehlen in der lesbaren Ansicht; **Originalfrage und Nachweise** bewahrt die genaue Quelle. Sonstiges HTML bleibt Text, unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Breite Tabellen und Code scrollen innerhalb der Frage.
 
 Zeitleistenphasen stammen aus der gespeicherten Phase, dem Phasenkontext oder dem Übergangsziel des Ereignisses; andere Ereignisse bleiben unbekannt. Jobzeiten enthalten Sekunden. Ein Ereignis ist ein gespeicherter Nachweis, kein Live-Fortschritt.
 
-Unter **Nachweise und Artefakte** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
+Unter **Technische Details** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
 
 Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Klappen Sie **stdout** oder **stderr** bei vorhandenen Einträgen auf. Einen laufenden Start zeigt die Ansicht zusammen mit der letzten abgeschlossenen Ausgabe. Ändert sich das Journal beim Lesen, wählen Sie **Wiederholen**. Der letzte geprüfte Stand ist als möglicherweise veraltet gekennzeichnet.
 
