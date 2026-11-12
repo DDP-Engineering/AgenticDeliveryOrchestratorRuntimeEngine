@@ -581,6 +581,8 @@ def test_implementation_setting_bad_input_never_writes(tmp_path, key, value):
 @pytest.mark.parametrize('key,value,claimed', [
     ('recovery.retry_backoff_seconds','[5,30]','[true]'),
     ('workflow.stage_timeout_overrides','{"build":300}','{"design":300}'),
+    ('workflow.verify_command', 'echo safe', 'echo changed'),
+    ('workflow.verify_command', 'echo safe', 'echo\nbad'),
 ])
 def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value,claimed):
     """@brief Corrupt persisted typed evidence cannot be read or applied as a reviewed value."""
@@ -606,6 +608,7 @@ def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value
 @pytest.mark.parametrize("key,value", [
     ("recovery.retry_backoff_seconds", "[5,30]"),
     ("workflow.stage_timeout_overrides", '{"build":300}'),
+    ("workflow.verify_command", 'echo "safe"'),
 ])
 def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         tmp_path, key, value):

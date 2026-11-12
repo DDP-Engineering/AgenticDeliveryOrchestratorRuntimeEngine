@@ -7,13 +7,22 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
-`workflow.verify_command` is preserved in resolved configuration, exact Admin raw
-TOML reads and unrelated reviewed edits. Metadata marks it noneditable; generic
-mutations return `setting_not_editable`. There is no dedicated web input in this
-change. Invalid saved values retain the diagnostic view's key-named validation
-issues (or existing typed corrupt-config refusal), never a clean configuration.
-Existing role, CSRF, revision, idle, locking and redaction boundaries are unchanged.
-Proof: `test_web_config.py`, `test_web_config_raw.py`, `test_web_setting_catalog.py`.
+`workflow.verify_command` is an editable exact-string setting in the API catalog.
+Enrollment accepts optional strict `verify_command` text, default empty, and saves
+it as a TOML string before canonical review hashing. Explicit null/nontext or
+CR/LF/NUL input returns 422 `invalid_request` with `verify_command` field feedback.
+The scalar/batch settings review uses the same command domain and literal-string
+writer; invalid text returns 400 `invalid_config` with value-free
+`workflow.verify_command` feedback, leaving active and pending bytes unchanged.
+Nothing trims, infers scalar types or executes the command during enrollment or save.
+The writer preserves newline style and verifies that no unrelated parsed TOML
+meaning changed; unsupported human spellings fail closed. Pending read/apply
+rechecks claimed text, typed domain and whole-document meaning against an unchanged
+base. Existing Admin/CSRF, revision, idle and locking boundaries remain authoritative.
+Resolved configuration, exact Admin raw TOML and unrelated edits preserve the value.
+Invalid saved values retain key-named diagnostic issues or typed corrupt-config refusal.
+Proof: `test_web_enrollment.py`, `test_web_config.py`, `test_web_config_raw.py`,
+`test_web_pending_config.py`, `test_web_settings_batch.py`.
 
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
@@ -636,9 +645,10 @@ description. Review includes complete setup, resolved env-key names, `provider`,
   Gitea auth uses the selected tea login. No draft, readiness record or profile persists.
 - `POST /api/v1/projects/setup-create`: rebuild, compare revision, publish the exact
   candidate using the existing locked stopped-pickup boundary. With `clone_url` and no
-  clone yet, it first clones (`repository_source.clone`), requires the AEGIS files and
-  `origin/<target_branch>` (`repository_aegis_missing` / `repository_branch_missing` 409,
-  `repository_clone_failed` 502) and removes the fresh clone if anything fails; the
+  clone yet, it first clones (`repository_source.clone`) and requires
+  `origin/<target_branch>` (`repository_branch_missing` 409,
+  `repository_clone_failed` 502), irrespective of AEGIS file presence. It adds no
+  files inside the clone and removes the fresh clone if anything fails; the
   same applies to `transfer-create` and `POST /projects`. `clone_url` is part of the
   draft revision; preview requires an absolute `repo_path` outside ADORE home or under
   `<home>/repos` (proposed `<home>/repos/<name>`) and a matching repository, refuses an

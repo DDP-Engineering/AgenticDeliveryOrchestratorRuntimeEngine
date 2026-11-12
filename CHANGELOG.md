@@ -14,6 +14,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Web enrollment accepts repositories without AEGIS or with only its Python entrypoint,
+  without adding files to the clone. Enrollment and reviewed settings APIs save an
+  optional exact verification command and refuse multiline or NUL input with field feedback.
+
 - Optional direct-workflow verification command with bounded fresh-session fixes,
   validate timeouts, sanitized retained evidence and approval/MR/PR results.
   Native verification uses an owned platform-shell operation; ordinary shell

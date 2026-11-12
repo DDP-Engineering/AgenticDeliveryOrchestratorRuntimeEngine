@@ -128,7 +128,13 @@ from adore.web.executor_settings import (
     save_model_evidence,
     update_credential,
 )
-from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
+from adore.web.implementation_settings import (
+    COLLECTION_KEYS,
+    set_collection,
+    set_verify_command,
+    valid_collection,
+    valid_verify_command,
+)
 from adore.web.jobs import JobReadError, read_job_budget, read_jobs, read_overview_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.repository_source import (
@@ -368,6 +374,15 @@ class ProjectInput(BaseModel):
     max_cost_usd: float = Field(default=5.0, ge=0, le=1000000, allow_inf_nan=False)
     max_files_touched: int = Field(default=120, ge=1, le=1000000, strict=True)
     clone_url: str = Field(default="", max_length=512)
+    verify_command: str = Field(default="", strict=True)
+
+    @field_validator("verify_command")
+    @classmethod
+    def validate_verify_command(cls, value: str) -> str:
+        """@brief Refuse invalid command text rather than trim, flatten or execute it."""
+        if not valid_verify_command(value):
+            raise ValueError("verify_command must be a single line without CR, LF or NUL")
+        return value
 
 
 class RepositorySourceInput(BaseModel):
@@ -1060,6 +1075,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "clone_url",
             "evidence_token",
             "thinking",
+            "verify_command",
         }
     )
     answers["budgets_choice"] = "custom"
@@ -1159,6 +1175,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             if body.thinking:
                 candidate.document = candidate.document.replace(
                     "[executor]\n", "[executor]\nthinking = " + json.dumps(body.thinking) + "\n", 1)
+            candidate.document = set_verify_command(candidate.document, body.verify_command)
             issues.extend(_config_findings(_config_from_bytes(candidate.document.encode("utf-8"))))
         except WizardError as exc:
             issues.append(_finding("setup_field_invalid", exc.field,
@@ -1380,7 +1397,7 @@ def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) ->
     @param[in]  runner Injectable command boundary.
     @param[in]  home ADORE home; parent folders are created only under its repos folder.
     @return     The fresh clone (the caller removes it if publication fails), or None.
-    @exception  HTTPException The clone failed, lacks AEGIS or lacks the target branch (removed).
+    @exception  HTTPException The clone failed or lacks the target branch (removed).
     """
     if not _pending_clone(body):
         return None
@@ -1401,11 +1418,7 @@ def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) ->
         force_rmtree(dest)
         raise _clone_rejection(502, "repository_clone_failed", "clone_url",
                                "Check that the server account can read the repository.")
-    aegis = dest / ".agentic"
     try:
-        if not ((aegis / "aegis.py").is_file() and (aegis / "aegis.toml").is_file()):
-            raise _clone_rejection(409, "repository_aegis_missing", "clone_url",
-                                   "Install AEGIS in the repository before enrolling it.")
         if not branch_exists(dest, body.target_branch, runner):
             raise _clone_rejection(409, "repository_branch_missing", "target_branch",
                                    "Choose a branch that exists in the repository.")
@@ -1783,6 +1796,8 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
                         and member != BATCH_KEY
                         and _valid_candidate_scalar(member, item, backend)
                         for member, item in proposed.items()))
+    if key == "workflow.verify_command":
+        return valid_verify_command(proposed)
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
     if key == CONNECTION_KEY:
@@ -1824,6 +1839,14 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
                 raise _error(400, "setting_not_editable")
             text = _set_candidate_value(text, member, wire)
         return text
+    if key == "workflow.verify_command":
+        if not valid_verify_command(value):
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_config",
+                "issues": [_finding("invalid_config", key,
+                                    "Use a single line without CR, LF or NUL.")],
+            })
+        return set_verify_command(text, value)
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
     if key == CONNECTION_KEY:
@@ -2010,12 +2033,13 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
                        "", value["key"], value["value"])), value["key"]))
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
-        if ((value["key"] in COLLECTION_KEYS or value["key"] in {CONNECTION_KEY, BATCH_KEY})
+        if ((value["key"] in COLLECTION_KEYS
+                or value["key"] in {CONNECTION_KEY, BATCH_KEY, "workflow.verify_command"})
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
                     active_text, value["key"], value["value"]))):
-            raise ValueError("collection candidate changed unrelated settings")
+            raise ValueError("candidate changed unrelated settings")
         public["proposed_value"] = proposed
         public["value"] = (json.dumps(proposed, ensure_ascii=False, separators=(",", ":"))
                            if isinstance(proposed, (list, dict)) else
@@ -2027,7 +2051,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
             if (candidate.get("container", {}).get("required_tool_checks", [])
                     != active.get("container", {}).get("required_tool_checks", [])):
                 raise ValueError("image candidate lost its tool-check review binding")
-    except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
+    except (HTTPException, KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
         raise _error(503, "pending_config_corrupt") from exc
     return public
 
@@ -2084,7 +2108,7 @@ def _editable_setting_key(key: str) -> bool:
     @return     True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
-               "workflow.aegis_python", "workflow.verify_command"}:
+               "workflow.aegis_python"}:
         return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds",
                CONNECTION_KEY, BATCH_KEY}:

@@ -16,6 +16,11 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "improved"
+topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
+text = { en = "Enroll repositories without AEGIS and save an optional verification command.", fr = "Inscrivez des dépôts sans AEGIS et enregistrez une commande de vérification facultative.", de = "Repositories ohne AEGIS aufnehmen und einen optionalen Prüfbefehl speichern.", ro = "Înregistrați repository-uri fără AEGIS și salvați o comandă de verificare opțională." }
+
+[[release.entry]]
 category = "new"
 topic = { en = "Direct workflow", fr = "Flux direct", de = "Direkter Ablauf", ro = "Flux direct" }
 text = { en = "Run tickets without AEGIS, with optional verification and bounded fixes before approval.", fr = "Tickets sans AEGIS : vérification facultative et corrections limitées avant approbation.", de = "Tickets ohne AEGIS: optionale Prüfung und begrenzte Korrekturen vor der Freigabe.", ro = "Tichete fără AEGIS, cu verificare opțională și corecții limitate înainte de aprobare." }
@@ -99,17 +104,12 @@ text = { en = "How ADORE works opens a help center; What's new lists each releas
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Pick folders without losing typed paths. Choose remote branches with the default preselected.", fr = "Le sélecteur garde le chemin saisi. La branche distante par défaut est présélectionnée.", de = "Eingegebene Ordnerpfade bleiben erhalten. Der Standardbranch ist vorausgewählt.", ro = "Selectorul păstrează calea tastată. Ramura remote implicită este preselectată." }
+text = { en = "Import checked files in a dialog; keep typed folder paths and preselect the default branch.", fr = "Import validé en dialogue ; chemins saisis conservés et branche par défaut présélectionnée.", de = "Dateiimport mit Prüfung; Ordnerpfade bleiben erhalten, der Standardbranch ist vorausgewählt.", ro = "Import validat în dialog; căile tastate rămân, iar ramura implicită este preselectată." }
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Agents", fr = "Agents", de = "Agenten", ro = "Agenți" }
 text = { en = "Choose where Pi runs. Pick detected runtimes and images in WSL too, or enter a command.", fr = "Choisissez où Pi tourne, avec moteurs et images détectés aussi dans WSL ou une commande.", de = "Wählen Sie Pi-Laufzeit und Image auch in WSL oder geben Sie einen eigenen Befehl ein.", ro = "Alege unde rulează Pi, cu runtime și imagini detectate și în WSL sau cu o comandă manuală." }
-
-[[release.entry]]
-category = "improved"
-topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Import raw configuration in a dialog that validates the file automatically.", fr = "Importez la configuration brute dans un dialogue qui valide le fichier automatiquement.", de = "Originalkonfiguration im Dialog importieren. Die Datei wird automatisch geprüft.", ro = "Importă configurația brută într-un dialog care validează automat fișierul." }
 
 [[release.entry]]
 category = "improved"

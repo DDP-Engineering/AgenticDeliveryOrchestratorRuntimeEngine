@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-44a8f043"
 title = "Refuse nontext enrollment verification commands"
-status = "draft"
+status = "active"
 requirement = "If an enrollment request explicitly supplies a verification command that is not a string, the web API shall reject the request with 422 invalid_request identifying the field rather than coercing the value or treating it as omitted."
 verification = "Offline authenticated enrollment API tests submit null, booleans, integers, arrays and objects to preview/check/create and assert 422 invalid_request with field identification and no published project; omitted and empty-string values remain accepted controls."
 affected_paths = ["04_Software/adore/web/app.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_enrollment.py::test_enrollment_verification_command_rejects_invalid_text", "04_Software/tests/test_web_enrollment.py::test_enrollment_verification_command_is_exact_and_review_bound"]
 spec = ""
 priority = "high"
 created = 2026-11-12

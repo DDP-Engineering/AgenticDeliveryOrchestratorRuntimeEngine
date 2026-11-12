@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-FUNC-5de55793"
 title = "Refuse enrollment verification commands containing line breaks or NUL"
-status = "draft"
+status = "active"
 requirement = "If a proposed web enrollment verification command contains CR, LF or NUL, ADORE shall refuse the value with typed field-identifying validation feedback without publishing a project or treating stripped or truncated text as an accepted command."
 verification = "Offline API tests submit LF, CR, CRLF, trailing line breaks and NUL through enrollment preview/check/create, observe a typed validation refusal identifying the command field and no valid canonical candidate or published profile; the equivalent valid single-line content is the accepted control."
 affected_paths = ["04_Software/adore/web/app.py"]
-linked_tests = []
+linked_tests = ["04_Software/tests/test_web_enrollment.py::test_enrollment_verification_command_rejects_invalid_text", "04_Software/tests/test_web_enrollment.py::test_enrollment_verification_command_is_exact_and_review_bound"]
 spec = ""
 priority = "high"
 rationale = "Web input retains the inherited current command domain; invalid text is not trimmed, split or silently normalized into a different command."

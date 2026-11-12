@@ -59,9 +59,12 @@ def offline_wizard(monkeypatch):
 class Forge:
     """@brief Fake git/tea boundary; `aegis` and `branch` shape what a clone contains."""
 
-    def __init__(self, *, reachable: bool = True, aegis: bool = True, branch: bool = True):
+    def __init__(self, *, reachable: bool = True, aegis: bool = True,
+                 toml: bool = True, branch: bool = True):
         self.calls: list[list[str]] = []
         self.reachable, self.aegis, self.branch = reachable, aegis, branch
+        self.toml = toml
+        self.cloned_files: dict[str, bytes] = {}
 
     def __call__(self, argv, **_options):
         argv = list(argv)
@@ -85,10 +88,15 @@ class Forge:
             (dest / ".git" / "config").write_text(
                 f'[remote "origin"]\n\turl = {argv[-2]}\n', encoding="utf-8"
             )
-            if self.aegis:
+            if self.aegis or self.toml:
                 (dest / ".agentic").mkdir()
-                (dest / ".agentic" / "aegis.py").write_text("", encoding="utf-8")
+            if self.aegis:
+                (dest / ".agentic" / "aegis.py").write_text(
+                    'raise RuntimeError("must not execute")\n', encoding="utf-8")
+            if self.toml:
                 (dest / ".agentic" / "aegis.toml").write_text("", encoding="utf-8")
+            self.cloned_files = {str(path.relative_to(dest)): path.read_bytes()
+                                 for path in dest.rglob("*") if path.is_file()}
             return CommandResult(argv=argv)
         if argv[:2] == ["git", "-C"] and "rev-parse" in argv:
             return CommandResult(argv=argv, exit_code=0 if self.branch else 1)
@@ -314,9 +322,11 @@ def test_corrupt_or_oversized_remote_refs_fail_closed(tmp_path, output):
         assert not (tmp_path / "home/repos").exists()
 
 
-def test_create_clones_after_review_and_checks_do_not(tmp_path) -> None:
-    """@brief Preview and checks leave the clone pending; creation clones and publishes."""
-    forge = Forge()
+@pytest.mark.parametrize(("aegis", "toml"), [(False, False), (False, True),
+                                           (True, False), (True, True)])
+def test_create_clones_after_review_and_checks_do_not(tmp_path, aegis, toml) -> None:
+    """@brief Both workflows enroll without adding or executing repository files."""
+    forge = Forge(aegis=aegis, toml=toml)
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
         headers = _login(client)
@@ -341,13 +351,20 @@ def test_create_clones_after_review_and_checks_do_not(tmp_path) -> None:
             headers=headers,
         )
         assert created.status_code == 200, created.text
-        assert (Path(detected["repo_path"]) / ".agentic" / "aegis.py").is_file()
+        target = Path(detected["repo_path"])
+        assert {str(path.relative_to(target)): path.read_bytes()
+                for path in target.rglob("*") if path.is_file()} == forge.cloned_files
+        assert created.json()["pickup_state"] == "stopped"
+        assert not any("aegis.py" in arg for call in forge.calls for arg in call)
         clone = [call for call in forge.calls if call[:2] == ["git", "clone"]]
         assert clone == [["git", "clone", "--origin", "origin", "--", URL, detected["repo_path"]]]
         assert app.state.profiles.load("sample.service")
 
 
-def test_matching_existing_clone_is_reused_and_occupied_folder_refused(tmp_path) -> None:
+@pytest.mark.parametrize(("aegis", "toml"), [(False, False), (False, True),
+                                           (True, False), (True, True)])
+def test_matching_existing_clone_is_reused_and_occupied_folder_refused(
+        tmp_path, aegis, toml) -> None:
     """@brief A clone of the same remote is reused; another folder there is never overwritten."""
     forge = Forge()
     app = create_app(tmp_path / "home", probe_runner=forge)
@@ -369,9 +386,13 @@ def test_matching_existing_clone_is_reused_and_occupied_folder_refused(tmp_path)
         (target / ".git" / "config").write_text(
             f'[remote "origin"]\n\turl = {URL}\n', encoding="utf-8"
         )
-        (target / ".agentic").mkdir()
-        for name in ("aegis.py", "aegis.toml"):
-            (target / ".agentic" / name).write_text("", encoding="utf-8")
+        if aegis or toml:
+            (target / ".agentic").mkdir()
+        for name, present in (("aegis.py", aegis), ("aegis.toml", toml)):
+            if present:
+                (target / ".agentic" / name).write_text("", encoding="utf-8")
+        original = {str(path.relative_to(target)): path.read_bytes()
+                    for path in target.rglob("*") if path.is_file()}
         again = client.post(
             "/api/v1/projects/repository-source", json={"url": URL}, headers=headers
         ).json()
@@ -387,17 +408,14 @@ def test_matching_existing_clone_is_reused_and_occupied_folder_refused(tmp_path)
         )
         assert created.status_code == 200, created.text
         assert not any(call[:2] == ["git", "clone"] for call in forge.calls)
+        assert {str(path.relative_to(target)): path.read_bytes()
+                for path in target.rglob("*") if path.is_file()} == original
 
 
-@pytest.mark.parametrize(
-    ("forge", "code"),
-    [
-        (Forge(aegis=False), "repository_aegis_missing"),
-        (Forge(branch=False), "repository_branch_missing"),
-    ],
-)
-def test_failed_clone_verification_removes_the_fresh_clone(tmp_path, forge, code) -> None:
-    """@brief A clone without AEGIS or the target branch is removed and nothing is published."""
+@pytest.mark.parametrize("aegis", [False, True])
+def test_failed_clone_verification_removes_the_fresh_clone(tmp_path, aegis) -> None:
+    """@brief A clone without the target branch is removed for either workflow."""
+    forge = Forge(aegis=aegis, toml=aegis, branch=False)
     app = create_app(tmp_path / "home", probe_runner=forge)
     with TestClient(app) as client:
         headers = _login(client)
@@ -412,7 +430,7 @@ def test_failed_clone_verification_removes_the_fresh_clone(tmp_path, forge, code
             headers=headers,
         )
         assert created.status_code == 409, created.text
-        assert created.json()["detail"]["code"] == code
+        assert created.json()["detail"]["code"] == "repository_branch_missing"
         assert not Path(detected["repo_path"]).exists()
         assert app.state.profiles.id_availability("sample.service")
 

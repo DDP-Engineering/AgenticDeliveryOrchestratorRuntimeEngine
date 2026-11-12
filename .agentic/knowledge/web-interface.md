@@ -120,15 +120,20 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
-`REQ-DATA-71366af6`: workflow.verify_command is present in the exact settings
-catalog and four-locale field guidance, but HIDDEN_SETTING_KEYS omits it from
-controls and backend metadata/mutations mark it noneditable. Existing resolved
-config reads, Admin exact raw TOML bytes and unrelated reviewed edits preserve
-it under existing validation, authorization and redaction. Invalid saved values
-remain key-named diagnostic issues or typed corrupt-config refusal. There is no
-dedicated input, enrollment or Jobs display for verification. Proof:
-`test_web_config.py`, `test_web_config_raw.py`, `test_web_setting_catalog.py`,
-`web/tests/settings.test.mjs` and `settingHelp.test.mjs`.
+`REQ-DATA-71366af6`: workflow.verify_command is an exact-string editable API
+setting; resolved reads, Admin exact raw TOML and unrelated reviewed edits preserve
+it under existing validation, authorization and redaction. Guided API enrollment
+accepts strict optional verify_command text, default empty, bound to canonical review.
+Nontext and CR/LF/NUL return field-identifying 422 invalid_request. Scalar/batch
+settings review refuses CR/LF/NUL with value-free command-field 400 invalid_config
+without replacing active/pending bytes. implementation_settings.py serializes a
+literal string and checks exact unrelated TOML meaning; pending reads/apply repeat
+typed-domain, claimed-text and unchanged-base semantic checks. Existing Admin/CSRF,
+revision, idle and locking gates remain. Invalid saved values retain key-named
+issues or typed corrupt-config refusal. Frontend HIDDEN_SETTING_KEYS still omits
+this control and Jobs presentation is unchanged. Proof: test_web_enrollment.py,
+test_web_config.py, test_web_config_raw.py, test_web_pending_config.py and
+test_web_settings_batch.py.
 
 The settings help catalog includes Pi reasoning effort and describes the native
 service account and optional tools PATH in all four locales.
@@ -204,7 +209,7 @@ SQLite bytes, authorization, scope and financial redaction.
   responses carry recorded `workflow` as aegis/direct (REQ-DATA-18b26c84).
   Missing/unknown/nontext workflows and direct task bindings return typed
   run_state_corrupt without repair. This is API serialization only; web
-  enrollment still requires AEGIS and Jobs presentation remains unchanged. See
+  enrollment accepts repositories with or without AEGIS and Jobs presentation remains unchanged. See
   `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
 
 - Exact Admin/CSRF import-preview suggests an available ID when omitted and
@@ -432,6 +437,7 @@ SQLite bytes, authorization, scope and financial redaction.
   fills forge, repository, login, branch and the derived ID and prefills an editable
   clone path `<home>/repos/<ID>`; Continue waits for a successful read; the clone is
   made only at creation (exclusive folder, reused if its origin matches, removed on failure);
+  neither AEGIS file is an enrollment prerequisite and no files are added to the clone;
   no existing-clone mode (a matching clone at the path is reused); no Stable project ID field;
   reviewers are optional (empty list = no review request) in the wizard and Settings.
   Projects offers Enroll new project at `/projects/new` and Import raw
@@ -804,7 +810,7 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `04_Software/adore/web/settings_batch.py`: closed batch parsing; authority and final configuration validation remain in app.py.
 - `04_Software/web/src/settingsSave.ts`: typed local drafts, meaningful equality, recovery, preview binding and four-locale Save copy.
-- `04_Software/adore/web/implementation_settings.py`: strict retry/map domain and semantic single-setting TOML writer.
+- `04_Software/adore/web/implementation_settings.py`: exact command text, strict retry/map domain and semantic single-setting TOML writers.
 - `04_Software/web/src/implementationSettings.ts`: typed Implementation drafts and localized editor terminology.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.

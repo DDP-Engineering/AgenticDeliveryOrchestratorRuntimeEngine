@@ -9,8 +9,9 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 The optional ADORE web interface lets operators enroll projects, start and
 follow jobs, and review their results using the same profiles and run state as
-the CLI. ADORE conducts the repository's AEGIS workflow; PR/MR creation
-requires human approval, and a person decides whether to merge.
+the CLI. ADORE conducts the repository's AEGIS workflow when present, or a bounded
+direct workflow otherwise; PR/MR creation requires human approval, and a person
+decides whether to merge.
 
 ## Quick start
 
@@ -43,8 +44,8 @@ requires human approval, and a person decides whether to merge.
    link to **My account → Change password**. Enter the current password and the
    new password twice; the new password must have at least eight characters.
    Sign in again with the new password. Existing databases keep their accounts.
-4. **Enroll a project.** Prepare a repository with AEGIS installed, its target
-   branch, Git clone credentials for the ADORE server account, and forge access
+4. **Enroll a project.** Prepare a repository, its target branch,
+   Git clone credentials for the ADORE server account, and forge access
    to read and update issues and create reviews. Git push credentials are
    separate from forge sign-in. An administrator selects **Projects → Enroll new
    project**, enters its URL and chooses **Read repository**. Confirm the
@@ -118,8 +119,9 @@ must already exist, or under its `repos` folder; `~` is not expanded). If the se
 stops during a clone, the location reports a running or interrupted clone: remove the
 partial folder and its `.<folder>.adore-cloning` marker, then create again. **Continue** stays disabled until the repository has been read.
 Nothing is written until creation, which clones the repository there (or reuses a clone
-with the same origin), requires the installed AEGIS files and the target branch, and
-removes a fresh clone if creation fails. The clone uses the ADORE service account's git
+with the same origin), requires the target branch, and removes a fresh clone if
+creation fails. Repositories with or without AEGIS can enroll; enrollment never
+installs or changes AEGIS or adds files inside the clone. The clone uses the ADORE service account's git
 credentials, the same ones publication uses. There is no separate existing-clone mode:
 an existing clone is reused when its path is the clone location and its origin matches. The wizard has five steps: repository/identity, agent/model,
 eligibility/reviewers/limits, verification, review/create. Review and create lists the
@@ -130,9 +132,10 @@ after creation ADORE reads the repository's labels and creates the missing label
 project's settings name (lifecycle, hold/exclude, priorities, bug type, approval, revise,
 quick-path and task-type labels) with a colour and description, never changing existing
 ones, and lists created, existing and failed labels; a failure leaves the project created.
-Settings → Repository offers the same as **Create missing labels**. AEGIS is the repository's
-workflow for framing, building, testing and reviewing changes; ADORE conducts that
-workflow for eligible issues and publishes draft or ready MR/PRs according to `delivery.draft` for human review.
+Settings → Repository offers the same as **Create missing labels**. In repositories
+with AEGIS, ADORE conducts its framing, building and testing stages. Without AEGIS,
+it uses bounded direct implementation and optional independent verification.
+Both workflows publish draft or ready MR/PRs according to `delivery.draft` for human review.
 Reviewers are optional: an empty list opens the MR/PR without requesting a review.
 Choose the **Provider** (Pi's API-key providers, **ChatGPT subscription** or
 **OpenAI-compatible endpoint**) and the **Model** (Pi's list for that provider
@@ -160,6 +163,14 @@ approval labels, forge reviewer usernames and four run limits are reviewed befor
 creation. Cost limit zero disables that cap and does not imply free execution.
 Visible guidance explains units, eligibility and approval. Existing hold/exclude
 rules remain applicable.
+
+The guided API accepts an optional `verify_command`, saved exactly as
+`[workflow] verify_command`; omission saves an empty string. The same setting is
+editable through the existing scalar/batch settings API review. It is one shell
+command line for direct-workflow verification, run from the worktree root under
+the validate-stage limit. Empty means no independent verification; AEGIS uses its
+repository-owned test commands instead. CR, LF, NUL and nontext input are refused,
+not stripped or converted. Preview, enrollment and configuration save never run it.
 
 Validate setup performs local structural validation without external probes.
 **Check environment** checks the host tools and repository authentication. For a

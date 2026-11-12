@@ -128,6 +128,67 @@ def test_guided_candidate_review_binds_complete_setup_without_probes(tmp_path, m
             **body, "revision": preview["revision"]}, headers=headers).status_code == 409
 
 
+@pytest.mark.parametrize("command", [None, "", "true", "123", "   ", "echo 💡",
+                                     ' printf \'$HOME {checks} café\\\\\' | grep "café" '])
+def test_enrollment_verification_command_is_exact_and_review_bound(tmp_path, command):
+    """@brief Enrollment preserves optional exact text and binds it to review and evidence."""
+    calls = []
+
+    def fake(argv, **_kwargs):
+        calls.append(argv)
+        return CommandResult(argv=argv, exit_code=127)
+
+    app = create_app(tmp_path / "home", probe_runner=fake)
+    body = _body(tmp_path, **({} if command is None else {"verify_command": command}))
+    expected = "" if command is None else command
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers)
+        assert preview.status_code == 200, preview.text
+        reviewed = preview.json()
+        assert reviewed["structural_valid"], reviewed
+        assert reviewed["review"]["verify_command"] == expected
+        assert calls == []
+        changed = {**body, "verify_command": expected + " echo changed",
+                   "revision": reviewed["revision"]}
+        for route in ("setup-check", "setup-create"):
+            response = client.post("/api/v1/projects/" + route, json=changed, headers=headers)
+            assert response.status_code == 409, response.text
+        assert calls == [] and app.state.profiles.id_availability("alpha")
+        check = client.post("/api/v1/projects/setup-check", headers=headers,
+                            json={**body, "revision": reviewed["revision"]})
+        assert check.status_code == 200, check.text
+        assert not any(expected and expected in call for call in calls)
+        created = client.post("/api/v1/projects/setup-create", headers=headers, json={
+            **body, "revision": reviewed["revision"],
+            "evidence_token": check.json()["evidence_token"]})
+        assert created.status_code == 200, created.text
+        assert created.json()["pickup_state"] == "stopped"
+    path = app.state.profiles.config_path("alpha")
+    assert load_config(path).workflow.verify_command == expected
+    assert sha256(path.read_bytes()).hexdigest() == reviewed["config_revision"]
+
+
+@pytest.mark.parametrize("command", ["one\ntwo", "one\rtwo", "one\r\ntwo", "one\n",
+                                     "one\r", "one\0two", None, True, 12, [], {}])
+@pytest.mark.parametrize("route", ["setup-preview", "setup-check", "setup-create", ""])
+def test_enrollment_verification_command_rejects_invalid_text(tmp_path, command, route):
+    """@brief Invalid text and nontext fail before preparation, probes or publication."""
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path, verify_command=command)
+    if route in {"setup-check", "setup-create"}:
+        body["revision"] = "0" * 64
+    with TestClient(app) as client:
+        response = client.post("/api/v1/projects" + ("/" + route if route else ""),
+                               json=body, headers=_login(client))
+        assert response.status_code == 422, response.text
+        detail = response.json()["detail"]
+        assert detail["code"] == "invalid_request"
+        assert any(issue["field"] == "verify_command" for issue in detail["issues"])
+        assert app.state.profiles.id_availability("alpha")
+        assert not list(app.state.profiles.home.glob("**/config.toml"))
+
+
 def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
     """@brief Draft probe returns honest failed checks; stale draft never probes."""
     calls = []
