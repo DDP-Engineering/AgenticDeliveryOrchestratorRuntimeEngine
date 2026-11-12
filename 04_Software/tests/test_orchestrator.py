@@ -23,6 +23,7 @@ from dataclasses import replace
 import json
 import os
 from pathlib import Path
+import sys
 from threading import Event
 
 from adore.aegis import (
@@ -662,6 +663,288 @@ def direct_edit(worktrees, *, summary="Changed feature; checked with repository 
 # PUBLIC API
 
 
+@pytest.mark.parametrize(("field", "value"), [
+    ("exit_code", True), ("exit_code", "0"), ("timed_out", 0),
+    ("seconds", -1), ("seconds", "1.0"), ("seconds", None),
+    pytest.param("seconds", 10**400, id="overflowing-positive-duration"),
+    pytest.param("seconds", -(10**400), id="overflowing-negative-duration"),
+    ("seconds", True), ("output", None), ("output", "line\n" * 201),
+    ("output", "x" * 6001), ("output", "token=private"), ("command", "other"),
+    ("output", "\x1b[31mcorrupt\x1b[0m"),
+    ("output", "line\r\nother"),
+    ("output", " " + "a" * 5998 + "\x00"),
+    ("output", " " + "a" * 5989 + "\x1b[31mvalue"),
+    ("output", " " + "a" * 5986 + "token=private"),
+    ("output", " " + "a" * 5977 + "authorization: private"),
+    ("output", " " + "a" * 5984 + "api_key=private"),
+    ("unknown", "field"),
+])
+def test_direct_verification_refuses_corrupt_saved_evidence(tmp_path, monkeypatch, field, value):
+    """@brief A corrupt retained result cannot authorize publication after state reload."""
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "test -f feature.txt"
+    executor.attempts.append(direct_edit(worktrees))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
+    run.validation_evidence["verification_result"][field] = value
+    engine.store.save(run)
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    engine.poll_once()
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed" and "VERIFICATION_EVIDENCE" in saved.outcome
+    assert not forge.opened and not worktrees.pushes and len(executor.prompts) == 1
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("exit_code", True), ("exit_code", "0"), ("timed_out", 1),
+    ("stdout", None), ("stderr", b"bytes"),
+])
+def test_direct_verification_refuses_malformed_execution(tmp_path, monkeypatch, field, value):
+    """@brief A corrupt backend result is an integrity failure, never approval or a guessed pass."""
+    engine, forge, worktrees, containers, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "test -f feature.txt"
+    executor.attempts.append(direct_edit(worktrees))
+    result = CommandResult()
+    setattr(result, field, value)
+    monkeypatch.setattr(containers, "exec", lambda *args, **kwargs: result)
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "failed"
+    assert "VERIFICATION_RESULT" in run.outcome
+    assert not run.approval_comment_id and not forge.opened
+
+
+@pytest.mark.parametrize("finish", [
+    9.0, float("nan"), float("inf"), float("-inf"),
+    pytest.param(10**400, id="overflowing-positive-duration"),
+    pytest.param(-(10**400), id="overflowing-negative-duration"),
+])
+def test_direct_verification_refuses_invalid_elapsed_time(tmp_path, monkeypatch, finish):
+    """@brief Nonfinite, unrepresentable or negative duration never authorizes approval."""
+    engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    executor.attempts.append(direct_edit(worktrees))
+    ticks = iter([10, finish])
+    monkeypatch.setattr(orchestrator_module.time, "monotonic", lambda: next(ticks))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "failed" and "VERIFICATION_RESULT" in run.outcome
+    assert not run.approval_comment_id
+
+
+@pytest.mark.parametrize("seconds", [
+    0, 7, 0.125, 1e300,
+    pytest.param(sys.float_info.max, id="largest-finite-float"),
+    pytest.param(int(sys.float_info.max), id="largest-finite-float-as-integer"),
+])
+def test_direct_verification_duration_survives_approval_and_publication(
+    tmp_path, monkeypatch, seconds,
+):
+    """@brief Valid numeric durations remain intact and render safely through both human gates."""
+    engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    executor.attempts.append(direct_edit(worktrees))
+    ticks = iter([0, seconds])
+    monkeypatch.setattr(orchestrator_module.time, "monotonic", lambda: next(ticks))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
+    result = run.validation_evidence["verification_result"]
+    assert result["seconds"] == seconds and type(result["seconds"]) is type(seconds)
+    duration = f"{seconds:.3f} seconds"
+    assert duration in forge.ticket_comments[run.approval_comment_id]
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    engine.poll_once()
+    published = engine.store.load(run.run_id)
+    assert published.lifecycle == "in-review"
+    assert published.validation_evidence == run.validation_evidence
+    assert duration in forge.opened[-1]["body"]
+    assert len(executor.prompts) == 1
+
+
+@pytest.mark.parametrize("lines", [0, 199, 200, 201])
+def test_direct_verification_output_boundaries(tmp_path, monkeypatch, lines):
+    """@brief Retained evidence is the actual tail, not a prefix, at each line boundary."""
+    engine, _, worktrees, containers, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    executor.attempts.append(direct_edit(worktrees))
+    output = "\n".join(f"line-{i}" for i in range(lines))
+    monkeypatch.setattr(containers, "exec", lambda *a, **kw: CommandResult(stdout=output))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
+    assert run.validation_evidence["verification_result"]["output"] == "\n".join(
+        output.splitlines()[-200:])
+
+
+@pytest.mark.parametrize(("characters", "leading"), [
+    (5999, ""), (6000, ""), (6001, " "), (6100, " "), (6100, "\t"),
+    (6100, "\n"), (6100, "\n  "),
+])
+@pytest.mark.parametrize("fail_first", [False, True])
+def test_direct_verification_character_boundaries(
+    tmp_path, monkeypatch, characters, leading, fail_first,
+):
+    """@brief Character cuts preserve valid leading whitespace through fixes and publication."""
+    engine, forge, worktrees, containers, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    retained = leading + "a" * (min(characters, 6000) - len(leading))
+    output = "x" * max(0, characters - 6000) + retained
+    outcomes = iter([1, 0] if fail_first else [0])
+    executor.attempts.extend(direct_edit(worktrees) for _ in range(2 if fail_first else 1))
+    calls = []
+
+    def verify(*args, **kwargs):
+        """@brief Return the same boundary output for each independently executed result."""
+        calls.append(args)
+        return CommandResult(exit_code=next(outcomes), stdout=output)
+
+    monkeypatch.setattr(containers, "exec", verify)
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "awaiting-approval"
+    assert run.validation_evidence["verification"] == "passed"
+    assert run.validation_evidence["verification_result"]["output"] == retained
+    assert len(calls) == len(executor.prompts) == (2 if fail_first else 1)
+    if fail_first:
+        assert retained in executor.prompts[1]
+        assert len(run.failure_history) == 1
+    rendered = "\n".join("    " + line for line in retained.splitlines())
+    assert rendered in forge.ticket_comments[run.approval_comment_id]
+    forge.ticket.labels.append(engine.config.delivery.approval_label)
+    engine.poll_once()
+    published = engine.store.load(run.run_id)
+    assert published.lifecycle == "in-review"
+    assert published.validation_evidence == run.validation_evidence
+    assert rendered in forge.opened[-1]["body"]
+    assert len(executor.prompts) == len(calls)
+
+
+@pytest.mark.parametrize("outcome", [124, "target-drift", "cleanup", "budget"])
+def test_direct_verification_failure_boundaries(tmp_path, monkeypatch, outcome):
+    """@brief Ordinary exit 124 is not timeout; target drift or unconfirmed cleanup cannot pass."""
+    engine, forge, worktrees, containers, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "check"
+    engine.config.recovery.max_stage_failures = 1
+    executor.attempts.append(direct_edit(worktrees))
+    exhausted = [False]
+    if outcome == "budget":
+        monkeypatch.setattr(RunState, "active_work_seconds", lambda *a:
+                            engine.config.budgets.max_wall_clock_seconds if exhausted[0] else 0)
+
+    def verify(*args, **kwargs):
+        """@brief Change one external verification boundary without real Git/runtime calls."""
+        if outcome == "budget":
+            exhausted[0] = True
+            return CommandResult()
+        if outcome == "cleanup":
+            raise orchestrator_module.ExecutionRecoveryError("cleanup not confirmed")
+        if outcome == "target-drift":
+            worktrees.target = "d" * 40
+            return CommandResult()
+        return CommandResult(exit_code=124)
+
+    monkeypatch.setattr(containers, "exec", verify)
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "failed" and not run.approval_comment_id and not forge.opened
+    if outcome == 124:
+        assert run.validation_evidence["verification"] == "failed"
+        assert run.validation_evidence["verification_result"]["timed_out"] is False
+        assert len(run.failure_history) == 1
+    else:
+        expected = {"target-drift": "CANDIDATE_FINGERPRINT", "cleanup": "INFRASTRUCTURE_EXHAUSTED",
+                    "budget": "BUDGET_EXHAUSTED"}
+        assert expected[outcome] in run.outcome
+
+
+@pytest.mark.parametrize("override", [None, 17])
+@pytest.mark.parametrize("outcomes", [(0,), (1, 0), (1, 1, 1), ("timeout", 0), ("timeout",)])
+def test_direct_configured_verification_bounds_and_evidence(
+    tmp_path, monkeypatch, override, outcomes,
+):
+    """@brief Independent verification gates approval and carries durable bounded fix context."""
+    engine, forge, worktrees, containers, executor, _ = direct_engine(tmp_path, monkeypatch)
+    command = 'printf \'$HOME ${result} {checks} café ```\' && test -f feature.txt'
+    engine.config.workflow.verify_command = command
+    engine.config.recovery.max_stage_failures = len(outcomes) if outcomes[-1] else 3
+    engine.config.workflow.stage_timeout_overrides = {"build": 29}
+    if override:
+        engine.config.workflow.stage_timeout_overrides["validate"] = override
+    executor.attempts.extend(direct_edit(worktrees) for _ in outcomes)
+    calls = []
+    script = iter(outcomes)
+
+    def verify(name, argv, **kwargs):
+        """@brief Observe durable validate entry, limits and exact command before a result."""
+        if argv[:2] != ["sh", "-c"]:
+            return CommandResult()
+        saved = engine.store.load("github-owner-repo-7")
+        assert saved.stage == "validate"
+        assert saved.validation_evidence["implementation"] == "completed"
+        assert saved.stage_failures == len(calls)
+        assert argv == ["sh", "-c", command]
+        assert kwargs["timeout"] == (override or engine.config.budgets.per_gate_timeout_seconds)
+        outcome = next(script)
+        calls.append(outcome)
+        return CommandResult(exit_code=0 if outcome == "timeout" else outcome,
+                             timed_out=outcome == "timeout",
+                             stdout="\n".join(f"line-{i}" for i in range(205)),
+                             stderr="token=private\x00 ${failure} café")
+
+    monkeypatch.setattr(containers, "exec", verify)
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    passed = outcomes[-1] == 0
+    assert run.lifecycle == ("awaiting-approval" if passed else "failed")
+    assert len(calls) == len(outcomes) == len(executor.prompts)
+    evidence = run.validation_evidence
+    result = evidence["verification_result"]
+    assert result["command"] == command
+    assert result["exit_code"] == (0 if outcomes[-1] == "timeout" else outcomes[-1])
+    assert result["timed_out"] is (outcomes[-1] == "timeout")
+    assert type(result["seconds"]) is float and result["seconds"] >= 0
+    assert len(result["output"].splitlines()) == 200
+    assert result["output"].startswith("line-6\n")
+    assert "private" not in result["output"] and "\x00" not in result["output"]
+    assert result["output"].endswith("token=[REDACTED] ${failure} café")
+    assert command in executor.prompts[0] and "before finishing" in executor.prompts[0]
+    assert "Previous verification" not in executor.prompts[0]
+    for prompt in executor.prompts[1:]:
+        assert "Previous verification" in prompt and command in prompt
+        assert "line-6" in prompt and "${failure}" in prompt and "private" not in prompt
+        if outcomes[0] == "timeout":
+            assert "timed out" in prompt
+    failures = [e for e in run.failure_history if e["code"] == "VERIFICATION_FAILED"]
+    assert len(failures) == len(outcomes) - int(passed)
+    assert all(e["stage"] == "validate" for e in failures)
+    if not passed:
+        assert run.outcome.startswith("VERIFICATION_FAILED:")
+        assert evidence["verification"] == ("timed out" if outcomes[-1] == "timeout" else "failed")
+        engine.poll_once()
+        assert len(calls) == len(outcomes)
+        executor.attempts.append(direct_edit(worktrees))
+        monkeypatch.setattr(containers, "exec",
+                            lambda *args, **kwargs: CommandResult(stdout="fixed"))
+        assert engine.retry(run.run_id)
+        retried = engine.store.load(run.run_id)
+        assert retried.lifecycle == "awaiting-approval" and retried.stage_failures == 0
+        assert retried.iterations == len(outcomes) + 1
+        assert retried.failure_history[:len(failures)] == run.failure_history
+        assert "Previous verification" in executor.prompts[-1]
+    else:
+        assert run.stage == "done" and run.stage_failures == 0
+        assert evidence["verification"] == "passed"
+        approval = forge.ticket_comments[run.approval_comment_id]
+        assert "Candidate validated" in approval and "unverified" not in approval
+        assert command in approval and "passed" in approval
+        assert "\n".join("    " + line for line in result["output"].splitlines()) in approval
+        forge.ticket.labels.append(engine.config.delivery.approval_label)
+        assert engine.poll_once()["approved"] == 1
+        assert command in forge.opened[0]["body"] and "passed" in forge.opened[0]["body"]
+
+
 @pytest.mark.parametrize("summary", [None, "Réalisé ${title} {x}; token=private checked."])
 @pytest.mark.parametrize("override", [None, 41])
 def test_direct_one_session_reaches_unverified_approval_and_publication(
@@ -741,10 +1024,14 @@ def test_direct_one_session_reaches_unverified_approval_and_publication(
         assert run.validation_evidence["summary"] in forge.opened[0]["body"]
 
 
+@pytest.mark.parametrize("verified", [False, True])
 @pytest.mark.parametrize("failure", [None, "refused", "response-lost"])
-def test_direct_adoption_refreshes_body_and_retries_failed_update(tmp_path, monkeypatch, failure):
+def test_direct_adoption_refreshes_body_and_retries_failed_update(
+    tmp_path, monkeypatch, failure, verified,
+):
     """@brief An adopted review receives exact direct evidence before entering in-review."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "test -f feature.txt" if verified else ""
     executor.attempts.append(direct_edit(worktrees, summary="Candidate for adopted review."))
     engine.poll_once(ticket_iid=7)
     run = engine.store.load("github-owner-repo-7")
@@ -775,7 +1062,11 @@ def test_direct_adoption_refreshes_body_and_retries_failed_update(tmp_path, monk
     assert forge.updated_bodies[-1] == (forge.mr.iid, forge.mr_body)
     assert "Candidate for adopted review." in forge.mr_body
     assert "Changed files: 2" in forge.mr_body
-    assert "Verification: not configured. This candidate is unverified." in forge.mr_body
+    if verified:
+        assert "Verification: passed" in forge.mr_body
+        assert engine.config.workflow.verify_command in forge.mr_body
+    else:
+        assert "Verification: not configured. This candidate is unverified." in forge.mr_body
     assert run.candidate_fingerprint in forge.mr_body and run.candidate_base_ref in forge.mr_body
     assert "AEGIS task" not in forge.mr_body
     assert "An older branch description." not in forge.mr_body
@@ -1040,11 +1331,13 @@ def test_direct_budget_boundaries_stop_without_approval(
     assert not run.approval_comment_id and not forge.opened
 
 
+@pytest.mark.parametrize("verified", [False, True])
 @pytest.mark.parametrize("failure", ["summary-read", "summary-remove", "progress", "checkpoint",
                                    "fingerprint", "count"])
-def test_direct_artifact_and_git_failures_preserve_cause(tmp_path, monkeypatch, failure):
+def test_direct_artifact_and_git_failures_preserve_cause(tmp_path, monkeypatch, failure, verified):
     """@brief Unsafe artifacts and failed observations/checkpoints never become a candidate."""
     engine, _, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "test -f feature.txt" if verified else ""
     executor.attempts.append(direct_edit(worktrees))
 
     def refuse(*args, **kwargs):
@@ -1094,12 +1387,14 @@ def test_direct_checkpoint_retry_finishes_without_another_implementation(tmp_pat
     assert saved.validation_evidence["summary"] == failed.validation_evidence["summary"]
 
 
+@pytest.mark.parametrize("verified", [False, True])
 @pytest.mark.parametrize("completed", [False, True])
 def test_direct_completion_save_interruption_recovers_at_launch_limit(
-    tmp_path, monkeypatch, completed,
+    tmp_path, monkeypatch, completed, verified,
 ):
     """@brief A durable completion atomically enters validate; partial work cannot bypass limits."""
     engine, forge, worktrees, _, executor, _ = direct_engine(tmp_path, monkeypatch)
+    engine.config.workflow.verify_command = "test -f feature.txt" if verified else ""
     executor.attempts.append(direct_edit(worktrees, summary="Completed before interruption."))
     engine.config.budgets.max_iterations = 1
     save = engine.store.save
@@ -1136,7 +1431,9 @@ def test_direct_completion_save_interruption_recovers_at_launch_limit(
     assert saved.lifecycle == ("awaiting-approval" if completed else "failed")
     if completed:
         assert saved.stage == "done" and saved.approval_comment_id
-        assert saved.validation_evidence["verification"] == "not configured"
+        assert saved.validation_evidence["verification"] == (
+            "passed" if verified else "not configured"
+        )
         assert saved.candidate_fingerprint == worktrees.fingerprint
     else:
         assert saved.outcome.startswith("BUDGET_EXHAUSTED:")
@@ -1697,10 +1994,13 @@ def test_poll_still_detects_a_working_run_without_a_conductor(
     ],
 )
 def test_clean_full_and_quick_paths_stop_for_fresh_approval(
-    tmp_path: Path, stages, path: str, task_type: str,
+    tmp_path: Path, monkeypatch, stages, path: str, task_type: str,
 ) -> None:
-    """@brief Both documented paths checkpoint locally and stop before push."""
+    """@brief Both AEGIS paths ignore configured direct commands and retain their gate."""
     engine, forge, worktrees, containers, executor = make_engine(tmp_path)
+    engine.config.workflow.verify_command = "must-not-run-direct-verification"
+    monkeypatch.setattr(containers, "exec", lambda *args, **kwargs: pytest.fail(
+        "AEGIS must not execute the configured direct command"))
     run = make_run(engine, task_type=task_type, path=path)
     client = FakeAegis(sequence(*stages, path=path, task_type=task_type))
 
@@ -2988,7 +3288,10 @@ def test_failed_strict_check_remediation_conducts_again(
              task, validation runs again, and a passing check presents the
              candidate.
     """
-    engine, forge, _, _, executor = make_engine(tmp_path)
+    engine, forge, _, containers, executor = make_engine(tmp_path)
+    engine.config.workflow.verify_command = "must-not-run-direct-verification"
+    monkeypatch.setattr(containers, "exec", lambda *args, **kwargs: pytest.fail(
+        "AEGIS strict remediation must not execute direct verification"))
     engine.config.recovery.max_stage_failures = 2
     run = make_run(engine)
     run.stage = "validate"

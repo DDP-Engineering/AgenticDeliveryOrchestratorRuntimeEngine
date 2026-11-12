@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-a751eb18"
+title = "Explain native verification service account authority"
+status = "active"
+requirement = "When consulting native local execution guidance, an operator shall find an explicit warning that configured direct verification shell commands run with the ADORE service account's permissions without container isolation and remain subject to owned process supervision rather than a host sandbox."
+verification = "Inspection: read Local_Execution.md and Component_Local_Execution.md after implementation, compare their verification-only shell description and service-account/non-isolation warning with the native operation, and confirm ordinary argv shell refusal is not described as removed."
+affected_paths = ["01_Documentation/Local_Execution.md", "05_SoftwareDocu/Component_Local_Execution.md"]
+linked_tests = []
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

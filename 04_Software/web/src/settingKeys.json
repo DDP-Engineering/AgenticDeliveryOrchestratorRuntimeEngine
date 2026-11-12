@@ -106,6 +106,7 @@
   "workflow.quick_label",
   "workflow.stage_timeout_overrides",
   "workflow.stage_timeout_overrides.*",
+  "workflow.verify_command",
   "worktree.branch_rule",
   "worktree.branch_template",
   "worktree.repo_path",

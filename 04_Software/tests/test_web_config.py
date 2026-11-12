@@ -26,6 +26,72 @@ from fastapi.testclient import TestClient
 import pytest
 
 
+@pytest.mark.parametrize("command", ["", 'printf \'$HOME {checks} café\\\\\' | grep "café"'])
+def test_direct_verification_web_preserves_cli_setting_without_editor(tmp_path, command):
+    """@brief Existing resolved/raw/edit seams preserve a CLI-only verification command."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha", store_root=str(tmp_path / "state"))
+    path = profiles.config_path("alpha")
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    text = text.replace('store_root = ".adore"',
+                        f'store_root = "{(tmp_path / "state").as_posix()}"')
+    # Work with both the pre-feature example and the current example.
+    text = text.replace('verify_command = ""\n', '')
+    text = text.replace('[workflow]\n', '[workflow]\nverify_command = '
+                        + json.dumps(command, ensure_ascii=False) + '\n')
+    path.write_bytes(text.replace("\n", "\r\n").encode())
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        assert client.get("/api/v1/projects/alpha/config/raw").status_code == 401
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        body = client.get("/api/v1/projects/alpha/config").json()
+        assert body["config"]["workflow"]["verify_command"] == command
+        settings = {item["key"]: item for item in body["settings"]}
+        assert settings["workflow.verify_command"]["editable"] is False
+        for suffix in ("", "?download=true"):
+            raw = client.get("/api/v1/projects/alpha/config/raw" + suffix)
+            assert raw.status_code == 200 and raw.content == original
+        refused = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                              json={"key": "workflow.verify_command", "value": "other",
+                                    "revision": body["revision"]})
+        assert refused.status_code == 400
+        assert refused.json()["detail"]["code"] == "setting_not_editable"
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": "delivery.reviewers", "value": '["alice"]',
+                                     "revision": body["revision"]})
+        assert response.status_code == 200, response.text
+        candidate = response.json()
+        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                             json={"candidate_revision": candidate["candidate_revision"],
+                                   "base_revision": candidate["base_revision"]})
+        assert result.status_code == 200, result.text
+    assert load_config(path).workflow.verify_command == command
+    expected = tomllib.loads(original.decode())
+    expected["delivery"]["reviewers"] = ["alice"]
+    assert tomllib.loads(path.read_text()) == expected
+
+
+@pytest.mark.parametrize("value", ["1", "true", "[]", "{}", '"one\\ntwo"', '"one\\u0000two"'])
+def test_direct_verification_web_refuses_invalid_resolved_config(tmp_path, value):
+    """@brief Invalid saved verification never becomes a usable resolved configuration."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    text = text.replace('verify_command = ""\n', '')
+    profiles.config_path("alpha").write_text(
+        text.replace('[workflow]\n', '[workflow]\nverify_command = ' + value + '\n'))
+    with TestClient(create_app(profiles.home)) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get("/api/v1/projects/alpha/config")
+        if response.status_code == 200:
+            # The diagnostic view may expose an invalid file with explicit issues.
+            assert any("workflow.verify_command" in issue for issue in response.json()["issues"])
+        else:
+            assert response.status_code == 503, response.text
+            assert response.json()["detail"]["code"] == "config_corrupt"
+
+
 @pytest.mark.parametrize("multiline", [False, True])
 def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_path, multiline):
     """@brief Admin reviews a reviewer list and changes only that complete TOML value."""

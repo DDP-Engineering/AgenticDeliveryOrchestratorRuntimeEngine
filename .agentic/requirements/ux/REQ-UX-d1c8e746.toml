@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-d1c8e746"
+title = "Explain direct verification configuration and workflow boundaries"
+status = "active"
+requirement = "When consulting the workflow configuration example and reference or runtime-project integration guidance, an operator shall find the optional direct verify_command setting, its execution environment and validate timeout, bounded fix attempts and evidence, the empty unverified path and the fact that AEGIS ignores it."
+verification = "Inspection: compare the Workflow header/comment and example setting with Configuration_Reference.md and Integrating_A_Runtime_Project.md against the implemented default, validation, environment, limits and evidence; check that AEGIS use is distinguished and empty configuration is not described as a pass."
+affected_paths = ["04_Software/config.example.toml", "01_Documentation/Configuration_Reference.md", "01_Documentation/Integrating_A_Runtime_Project.md", "05_SoftwareDocu/Component_Config.md", "05_SoftwareDocu/Component_Orchestrator.md", "05_SoftwareDocu/Component_Execution.md", "05_SoftwareDocu/Component_Prompts.md", "05_SoftwareDocu/Component_Web_API.md", "05_SoftwareDocu/Component_Web_Frontend.md"]
+linked_tests = []
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

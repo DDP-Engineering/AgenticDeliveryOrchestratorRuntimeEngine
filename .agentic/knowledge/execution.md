@@ -28,7 +28,25 @@ bounded scripts/time/output/replay; unchanged egress/credential scope; immutable
 source/image/resource evidence; setup finishes before AI. Explicit replay retains
 worktree effects and prior attempt receipts. No publication or merging authority.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Backend selection and paths | `ExecutionBackend`, `ContainerBackend`; see `local-execution.md` | `test_execution.py`, `test_local_execution.py` |
+| Bound container commands and timeout recovery | `BoundTarget` | `test_container_timeout.py`, `test_execution.py` |
+| Direct verification command integration | bound argv and `LocalTarget.run_verification`; see `orchestrator.md` | configured direct tests in `test_orchestrator.py`, native verification in `test_local_execution.py` |
+| Preparation file transport and receipts | `run_preparation_step`, `preparation_runner.py` | `test_preparation_lifecycle.py`, `test_preparation_runner.py` |
+
 ## Key behaviors
+
+- `REQ-PLAT-125bc4c1`, `REQ-PLAT-a39ffa22`: configured direct validation reuses
+  bound container argv as `sh -c` in the worktree, preserving immutable identity
+  and timeout recovery. Native verification uses `LocalTarget.run_verification`,
+  not ordinary native shell argv; see `local-execution.md`. The conductor owns
+  validate timeout selection, durable evidence and bounded fixes. AEGIS commands
+  keep their own transport and accounting. Offline proof: `test_execution.py`,
+  `test_container_timeout.py` and direct/native tests in `test_orchestrator.py`
+  and `test_local_execution.py`.
 
 - REQ-FUNC-c405688e: ContainerBackend.authorize_system_packages verifies the pinned running resource, then uses its immutable container ID for authorization. It adds no local installation authority.
 

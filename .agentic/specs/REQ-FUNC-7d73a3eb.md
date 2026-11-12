@@ -7,16 +7,17 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # REQ-FUNC-7d73a3eb — Direct candidate completion
 
-Status: active. This specifies the completion state machine, not implementation
-structure or a configurable verification facility.
+Status: active. This specifies completion when no direct verification command
+is configured. Configured direct verification has a separate contract in
+`REQ-FUNC-bea4c0aa.md`; this unconfigured path remains unchanged.
 
 ## Authority and boundary
 
 - STATED (ticket #62 Decisions, Done and Failures; direct-workflow plan sections
   4.1–4.3): direct work starts at `build`, uses fresh bounded Pi attempts and
   hands a completed candidate to the existing approval mechanism.
-- STATED (ticket #62 scope): no verification command or additional setting in
-  this change; every direct candidate is explicitly unverified.
+- STATED (ticket #63 Decisions): an empty verification command retains the
+  explicitly unverified direct-candidate path.
 - OBSERVED (`04_Software/adore/orchestrator.py::_present_for_approval`,
   `_approval_ready`, `_publish_impl`): publication already consumes candidate
   fingerprints, target identity and validation evidence separately from an AEGIS
@@ -61,8 +62,8 @@ candidate. Shared typed failure handling retains the actual stage/cause.
 Existing cancellation, handoff and required-notification boundaries remain in
 force; this sequence does not grant a bypass around them.
 
-No second Pi session performs verification in this ticket. `validate` is a
-conductor-owned phase and does not invoke AEGIS or fabricate passing commands.
+Without a configured command, `validate` is a conductor-owned phase that invokes
+neither Pi nor AEGIS and does not fabricate passing commands.
 Pi's summary of its own checks is reported as such, never as independent strict
 verification. The exact approval and MR/PR notice is:
 

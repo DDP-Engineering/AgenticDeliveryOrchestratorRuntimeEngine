@@ -40,6 +40,17 @@ Malformed external source, JSON, identity, receipts or persisted evidence fails
 closed. Successful resume requires the original plan, image/container IDs and
 intact immutable receipts; ordinary retry cannot replay partial setup.
 
+## Direct verification integration
+
+Configured direct verification reuses the bound container argv operation as
+`["sh", "-c", command]` from the container worktree; immutable resource admission
+and verified timeout recovery are unchanged. Native direct verification uses the
+separate `LocalTarget.run_verification` operation, never ordinary native shell
+argv. The conductor supplies the validate override/general timeout and owns the
+sanitized durable result and bounded fix accounting. AEGIS never uses this
+command. See `Component_Local_Execution.md` for the verification-only native
+shell authority and opt-in true-tail capture; other transports keep prefix mode.
+
 ## 7. Workflow Integration
 
 Plan resolution precedes worktree creation and setup. Provision/tool checks/auth

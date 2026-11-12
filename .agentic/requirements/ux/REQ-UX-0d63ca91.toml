@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-0d63ca91"
+title = "Show configured verification in direct approval comments"
+status = "active"
+requirement = "When presenting a direct candidate with configured verification for human approval, the conductor shall show the retained verification command and its result in the approval comment alongside the existing direct summary, file count and candidate binding."
+verification = "Offline passing direct polling inspects the posted approval comment after state reload for the actual sanitized command and passing result, including commands with literal quotes and backticks; an empty setting retains the exact unverified notice and no failed verification is presented as a pass."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_orchestrator.py::test_direct_verification_refuses_corrupt_saved_evidence"]
+spec = ""
+priority = "high"
+created = 2026-11-12
+updated = 2026-11-12

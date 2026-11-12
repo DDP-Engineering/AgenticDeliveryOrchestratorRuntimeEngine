@@ -9,6 +9,13 @@ import assert from "node:assert/strict";
 import { editValue, hasDefault, settingGroups, settingRows, settingPurpose, validSettingCatalog, validPendingConfig } from "../src/settings.ts";
 import { publicationCopy, publicationValue, pipelineFailureCopy, pipelineFailureValue, technicalSettingsHelp, settingLabel } from "../src/settingsCopy.ts";
 
+test("CLI direct verification stays hidden until its dedicated interface arrives", async () => {
+ const {settingVisible} = await import("../src/settings.ts");
+ assert.equal(settingVisible("workflow.verify_command"), false);
+ assert.equal(settingVisible("workflow.verify_command", true), false);
+ assert.equal(settingVisible("workflow.quick_label"), true);
+});
+
 test("technical guidance covers external ownership and existing data in all locales", () => {
  assert.deepEqual(Object.keys(technicalSettingsHelp).sort(), ["de", "en", "fr", "ro"]);
  for (const text of Object.values(technicalSettingsHelp)) {

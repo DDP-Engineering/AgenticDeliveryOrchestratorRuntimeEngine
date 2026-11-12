@@ -109,10 +109,10 @@
     "04_Software/web/src/releaseNotes.ts": "eb589e7a8bda9a060b52770560b702672ba96c16a1114a773b3981a97449bee9",
     "04_Software/web/src/routes.ts": "490d632c17311978c2684fe19fe14681134e2f083ced869cf9df7304c3c5b60f",
     "04_Software/web/src/serverImages.ts": "aef44c79a14a9549219b881f709e604a7cda917341bf192a1615e4eccf5bfb1f",
-    "04_Software/web/src/settingHelp.ts": "0ffb4811f5c529e4579c3cb3f526b74c1d21a3c80481a185f454072f2d7d01ee",
-    "04_Software/web/src/settingKeys.json": "f6e4da34bbab88681cc1f37f324f78be227e65fb59ed0f6adf7230e76899b92c",
+    "04_Software/web/src/settingHelp.ts": "3c3df93da147f818ce46882516e85431e6bed3865eaa62e34039e36f800610f6",
+    "04_Software/web/src/settingKeys.json": "8679eea0e3a8c339e25becf994ed42a30d25cad2f6a1d8fb62c897d3782951c0",
     "04_Software/web/src/settingLabels.ts": "a2101f174975504135986737c387cd20908428e93add210e193c933717a78c87",
-    "04_Software/web/src/settings.ts": "61cfb9233b5c28186fcbd919da7a4b3c68ed1bb2bb12e0aaf80e2cf90c82759f",
+    "04_Software/web/src/settings.ts": "b35d7b46baf5959158c1db7cef833d90122c06b2f764410547a6d897b4508eca",
     "04_Software/web/src/settingsCopy.ts": "23aa7a40fc27f9d66eddabe66a4a234062e7b068ab36affeb580473505da79cf",
     "04_Software/web/src/settingsSave.ts": "db89af7f64efae8bc19a7f082572cdd4fae88bf56c5e018aaa0c7e3c6a3b717d",
     "04_Software/web/src/setupCopy.ts": "e300e1cead0d1f90474df43f4008337e5d8d04767be28aaab6a60bcbf8a22a04",
@@ -132,8 +132,8 @@
     "LICENSE.txt": "2494616d0c43cfda4aa0fd8c53f429d615a2e38b50d45c3d9e6db264149e65a6",
     "THIRD_PARTY_NOTICES.md": "d37d52874114ed0021bdd24e27054209dd0278ba72a8bca3171a0db77235ed86",
     "assets/DDP_Engineering_logo_dark-BgzND1ZS.png": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481",
-    "assets/index-BU3Xkod5.js": "819243d5dd50c7ddbed2e451716f7a4447f2cdced2ae7700c9cef29c63245f56",
+    "assets/index-CsafF2l5.js": "eb4dfd4ded8e1674204fcb7869b216571ba496ae5f138366554665d6996b00f8",
     "assets/index-DfV7ZpbK.css": "470d778d8bf81f1b278c2d228a600aacea1b1af0e6d2305cc8f0a90caab5a33b",
-    "index.html": "7f7a4bcf0dc7264838b6c076e600e237b4a7b9621b433982154488108b5deb5a"
+    "index.html": "6a97968b061b20a3d3d4c3007e5bf71cca603625d7a8587cdfd7de775af3119e"
   }
 }
