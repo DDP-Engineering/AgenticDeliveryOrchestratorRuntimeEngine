@@ -664,6 +664,8 @@ for Add and Import project. Primary buttons take their text colour from the
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
 | Portable new-project file/copy API and source revision | `_prepare_transfer`, `transfer_source` | `test_web_transfer.py` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
+| Both-workflow enrollment and informational Workflow evidence | `_workflow_observation`, `_probe_setup`, `readiness.ts`, `ReadinessEvidence.tsx` | `test_repository_source.py`, `test_web_readiness.py`, `readiness.test.mjs`, `enrollment.spec.ts` |
+| Exact Verification command enrollment and reviewed saves | `ProjectInput`, `implementation_settings.py`, `EnrollmentWizard.tsx`, `implementationSettings.ts`, `settingsSave.ts` | `test_web_enrollment.py`, `test_web_config.py`, `settings.test.mjs`, `settingsSave.test.mjs`, `settings.spec.ts` |
 | Exact TOML enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
@@ -933,19 +935,22 @@ Git supplies isolated working copies; the repository command tool reads issues a
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
 in the local image (or, for a local project, that the installed Pi has a
-sign-in or approved key); workflow availability checks the two configured AEGIS files.
-An AI model connection row follows the six checks and shows the saved Test AI
+sign-in or approved key). A separate informational Workflow row reports AEGIS
+from `.agentic/aegis.py` alone, Direct when absent in an available clone, or
+not-inspected when the clone is unavailable; it never gates readiness.
+An AI model connection row follows the five base checks and shows the saved Test AI
 connection evidence (passed or failed, with executor and model), or Not checked
 with guidance to run Test AI connection when none is saved. A project whose
 runtime is `local` hides the container runtime row and shows local-agent copy
 for the agent row. A `chatgpt` project shows a **ChatGPT sign-in** row between the
-six checks and the AI model connection row; when it fails, its fix points to
+base checks and the AI model connection row; when it fails, its fix points to
 Sign in with ChatGPT in Settings → Agent and model. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
-check time and the exact six check keys/types, plus at most a boolean
-`executor_sign_in` (`readiness.ts` `readinessChecksShape`), before display;
+check time, closed workflow enum and exact configured prerequisite keys/types,
+including the five base checks and applicable boolean `executor_sign_in`,
+`egress_proxy` and `web_search_key` (`readiness.ts`), before display;
 invalid results produce a localized error and withhold the new check rows.
 
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,

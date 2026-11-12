@@ -123,11 +123,14 @@ Both CLI and web use the same validated model before changing runtime policy.
   `REQ-FUNC-f980b054`: workflow.verify_command preserves shell text without
   trimming or coercion. Exactly empty means absent; nonstring, CR/LF and NUL
   values produce a key-named validation issue. AEGIS ignores the setting.
-- `REQ-DATA-71366af6`: existing web resolved/raw reads and unrelated reviewed
-  edits preserve it, with existing authorization/redaction. Metadata marks the
-  key noneditable and frontend settings hide it; there is no dedicated web field.
-  Proof: `test_config.py`, `test_web_config.py`, `test_web_config_raw.py` and
-  exact catalog/settings tests.
+- `REQ-DATA-71366af6`: web resolved/raw reads and unrelated reviewed edits
+  preserve the exact command under existing authorization/redaction. Guided
+  enrollment and Settings → Implementation expose the optional string; Admins
+  save through the existing reviewed flow and assigned developers read only.
+  CR/LF/NUL and nontext are refused without coercion. The web interface owns
+  controls, candidate authority and exact TOML editing; see `web-interface.md`.
+  Proof: `test_config.py`, `test_web_enrollment.py`, `test_web_config.py`,
+  `test_web_config_raw.py` and exact catalog/settings tests.
 
 - REQ-FUNC-bf8a9a47 / REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b: `load_config` retains runtime-only absolute `source_path`, excluded from resolved serialization and equality. `validate_budgets` checks the closed table, positive integer limits, finite nonnegative cost and ChatGPT attempt cap without subprocesses. Startup includes this same check; conductor rereads bind parsed/resolved non-budget values to the validated configuration without rerunning the branch matcher. Proof: test_config.py, test_chatgpt.py and public Retry cases in test_orchestrator.py.
 
