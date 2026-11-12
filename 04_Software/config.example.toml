@@ -356,7 +356,7 @@ max_files_touched        = 120    # includes AEGIS forms/evidence + product file
 
 # ----- Delivery ------------------------------------------------------------------
 # ADORE opens the configured review state after human approval. It never merges.
-# true creates a draft; false creates a review-ready PR/MR. Both require human approval.
+# true creates a draft; false creates a review-ready PR/MR. Approval follows the setting below.
 [delivery]
 # Branch the MR/PR targets.
 target_branch = "develop"
@@ -368,6 +368,7 @@ reviewers = ["reviewer.one"]
 remove_source_branch = true
 # ADORE removes this label before presentation and accepts only a fresh re-add.
 approval_label = "agent-approved"
+require_human_approval = true
 # Publish remote WIP checkpoints by default; delivery needs fresh human approval.
 # Set false to keep intermediate checkpoints local.
 publish_checkpoints = true

@@ -1711,6 +1711,202 @@ def _approved_run(engine: Orchestrator, worktrees: FakeWorktrees) -> RunState:
     return run
 
 
+
+@pytest.mark.parametrize("backend", ["local", "container"])
+@pytest.mark.parametrize("draft", [True, False])
+def test_disabled_approval_publishes_fresh_waiting_candidate(
+    tmp_path: Path, draft: bool, backend: str,
+) -> None:
+    """@brief Disabling approval publishes the same validated candidate without a label."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.draft = draft
+    engine.config.execution.backend = backend
+    run = _approved_run(engine, worktrees)
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert worktrees.pushes == [run.branch]
+    assert forge.opened[0]["draft"] is draft
+
+
+
+def test_disabled_approval_publishes_after_validate(tmp_path: Path) -> None:
+    """@brief A newly validated job proceeds directly to publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "working"
+    engine.store.save(run)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("done")]), "")
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert worktrees.pushes == [run.branch]
+
+
+def test_disabled_approval_git_error_stops_publication(tmp_path: Path) -> None:
+    """@brief An unavailable target check fails closed."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    def fail_fetch():
+        raise IsolationError("offline")
+    worktrees.fetch = fail_fetch
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "failed"
+    assert not worktrees.pushes and not forge.opened
+
+
+
+def test_disabled_approval_rejects_corrupt_validation_evidence(tmp_path: Path) -> None:
+    """@brief Corrupt persisted validation cannot authorize automatic publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.validation_evidence = {"source": "bogus"}
+    engine.store.save(run)
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "failed"
+    assert not worktrees.pushes and not forge.opened
+
+
+
+@pytest.mark.parametrize("ticket_state", ["closed", "missing"])
+def test_automatic_publication_rechecks_source_ticket(tmp_path: Path, ticket_state: str) -> None:
+    """@brief A closed or deleted ticket cannot reach automatic publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "working"
+    engine.store.save(run)
+    snapshot = forge.ticket
+    forge.ticket = replace(snapshot, state="closed") if ticket_state == "closed" else None
+    engine._conduct_task(run, snapshot, FakeAegis([task("done")]), "")
+    assert not worktrees.pushes and not forge.opened
+
+
+def test_automatic_publication_rejects_partial_evidence_before_refresh(tmp_path: Path) -> None:
+    """@brief A missing validation field cannot be silently supplied before publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "working"
+    run.validation_evidence.pop("deviations")
+    engine.store.save(run)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("done")]), "")
+    assert not worktrees.pushes and not forge.opened
+
+
+def test_automatic_publication_rejects_missing_task_binding(tmp_path: Path) -> None:
+    """@brief Missing task identity does not validate against a null identity."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.active_task_id = None
+    run.validation_evidence["task_id"] = None
+    engine.store.save(run)
+    engine.poll_once()
+    assert not worktrees.pushes and not forge.opened
+
+
+
+def test_automatic_retry_rejects_closed_ticket(tmp_path: Path) -> None:
+    """@brief Explicit retry never publishes after the source ticket closes."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    engine.store.save(run)
+    forge.ticket = replace(forge.ticket, state="closed")
+    assert engine.retry(run.run_id)
+    assert not worktrees.pushes and not forge.opened
+
+
+
+def test_automatic_retry_closed_ticket_never_pushes_dirty_checkpoint(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """@brief A closed ticket is checked before settling a dirty worktree."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.publish_checkpoints = True
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    engine.store.save(run)
+    worktrees.dirty = True
+    forge.ticket = replace(forge.ticket, state="closed")
+    pushes = []
+    monkeypatch.setattr(engine, "_push_checkpoint", lambda *args, **kwargs: pushes.append(True))
+    assert engine.retry(run.run_id)
+    assert not pushes and not worktrees.pushes and not forge.opened
+
+
+
+def test_automatic_retry_corrupt_evidence_never_pushes_dirty_checkpoint(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """@brief Corrupt validation evidence is rejected before worktree settlement."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.publish_checkpoints = True
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.validation_evidence.pop("deviations")
+    engine.store.save(run)
+    worktrees.dirty = True
+    pushes = []
+    monkeypatch.setattr(engine, "_push_checkpoint", lambda *args, **kwargs: pushes.append(True))
+    assert engine.retry(run.run_id)
+    assert not pushes and not worktrees.pushes and not forge.opened
+
+
+def test_reenabled_approval_blocks_automatic_retry(tmp_path: Path, monkeypatch) -> None:
+    """@brief Enabling approval again blocks an unapproved failed automatic publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = True
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    run.approval_label_removed = False
+    engine.store.save(run)
+    conducted = []
+    monkeypatch.setattr(
+        engine, "_conduct", lambda state, ticket, thread="": conducted.append(state.run_id),
+    )
+    assert engine.retry(run.run_id)
+    assert conducted == [run.run_id]
+    assert not worktrees.pushes and not forge.opened
+
+
+def test_disabled_approval_retry_verifies_then_publishes(tmp_path: Path) -> None:
+    """@brief A failed automatic publication retry checks freshness and resumes."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    run.approval_label_removed = False
+    engine.store.save(run)
+    assert engine.retry(run.run_id)
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert worktrees.pushes == [run.branch] and forge.opened
+
+
+def test_disabled_approval_revalidates_target_drift(tmp_path: Path, monkeypatch) -> None:
+    """@brief Automatic publication does not bypass target freshness."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    worktrees.target = "d" * 40
+    conducted = []
+    monkeypatch.setattr(
+        engine, "_conduct", lambda state, ticket, thread="": conducted.append(state.run_id),
+    )
+    engine.poll_once()
+    assert conducted == [run.run_id]
+    assert not worktrees.pushes and not forge.opened
+
+
 @pytest.mark.parametrize("draft", [True, False])
 def test_approved_publication_opens_draft_without_an_executor_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, draft: bool,

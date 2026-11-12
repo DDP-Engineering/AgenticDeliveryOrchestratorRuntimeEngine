@@ -560,6 +560,9 @@ class Orchestrator:
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
             return False
+        if not self.config.delivery.require_human_approval and ticket.state != "opened":
+            self._fail_immediately(run, "TICKET_CLOSED", "ticket closed before retry publication")
+            return True
         try:
             self._revalidate_native_retry(run)
         except (IsolationError, PreparationError, OSError, ValueError) as exc:
@@ -572,12 +575,19 @@ class Orchestrator:
             self.store.journal(run_id, "operator-retry", stage="done")
             self._enter_review(run)
             return True
-        # An approved candidate waits at done; `reset --to publishing` points
+        if (not self.config.delivery.require_human_approval and run.validation_evidence
+                and not self._valid_automatic_evidence(run)):
+            self._fail_immediately(
+                run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+            )
+            return True
+        # A validated candidate waits at done; `reset --to publishing` points
         # retry at the same publication.
         resume_publication = (
             run.stage in {"done", "publishing"}
             and bool(run.validation_evidence)
-            and bool(run.approval_presented_at)
+            and (bool(run.approval_presented_at)
+                 or not self.config.delivery.require_human_approval)
         )
         if resume_publication:
             # EVERY fingerprint refuses a dirty tree, including the freshness
@@ -587,8 +597,11 @@ class Orchestrator:
                 not run.approval_label_removed
                 or self.config.delivery.approval_label not in ticket.labels
             )
-            approval_ready = self._approval_ready(run, ticket)
-            if not approval_ready and not approval_absent:
+            approval_ready = (self._approval_ready(run, ticket)
+                              if self.config.delivery.require_human_approval
+                              else self._automatic_publication_ready(run, ticket))
+            if not approval_ready and (not approval_absent
+                                       or not self.config.delivery.require_human_approval):
                 # Freshness errors and candidate drift already fail or re-conduct.
                 return True
             resume_publication = approval_ready
@@ -1181,6 +1194,12 @@ class Orchestrator:
             if run.lifecycle != "working":
                 return
             if task.done:
+                if (not self.config.delivery.require_human_approval and run.validation_evidence
+                        and not self._valid_automatic_evidence(run)):
+                    self._fail_immediately(
+                        run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+                    )
+                    return
                 if not self._already_verified(run):
                     run.validation_evidence = {}
                     run.candidate_fingerprint = ""
@@ -1232,7 +1251,10 @@ class Orchestrator:
                 self._refresh_deviations(run, task)
                 if self._cancel_if_requested(run):
                     return
-                self._present_for_approval(run, ticket)
+                if self.config.delivery.require_human_approval:
+                    self._present_for_approval(run, ticket)
+                elif self._automatic_publication_ready(run, ticket):
+                    self._publish(run, ticket)
                 return
             if task.stage == "validate" and not self._integrate_target(run):
                 failure_context = "Resolve the current target integration conflict."
@@ -1531,7 +1553,7 @@ class Orchestrator:
             "Autopilot governs WHO decides, not how much you do: never pause to present "
             "choices to a human or wait for an answer, because no human is reading. It "
             "does not ask you to carry on past this stage. ADORE supervises every stage "
-            "and owns the approval before publication.",
+            "and owns publication under the project approval policy.",
             "Complete all required work of the current stage before returning. A zero "
             "exit alone does not complete a stage. Finish a completed stage with "
             f"`{aegis} advance {task.task_id}`; validate finishes this way after its "
@@ -1873,6 +1895,60 @@ class Orchestrator:
             return False
         return True
 
+    @staticmethod
+    def _valid_automatic_evidence(run: RunState) -> bool:
+        """@brief Check the complete saved validation record and its task binding.
+        @param[in] run Run whose evidence is being evaluated.
+        @return True only for the current task's complete executor evidence.
+        """
+        evidence = run.validation_evidence
+        return (set(evidence) == {"source", "task_id", "deviations"}
+                and evidence.get("source") == "executor"
+                and isinstance(run.active_task_id, str) and bool(run.active_task_id)
+                and run.active_task_id in run.task_ids
+                and evidence.get("task_id") == run.active_task_id
+                and isinstance(evidence.get("deviations"), list)
+                and all(isinstance(item, str) for item in evidence["deviations"]))
+
+    def _automatic_publication_ready(self, run: RunState, ticket: Ticket) -> bool:
+        """@brief Verify saved validation, candidate and target before automatic publication.
+        @param[in,out] run Validated run to check or return for validation.
+        @param[in] ticket Source ticket used for revalidation notifications.
+        @return True only for a fresh candidate and target.
+        """
+        evidence = run.validation_evidence
+        if not evidence or not run.candidate_fingerprint or not run.candidate_base_ref:
+            self._invalidate_approval(run, ticket, "candidate validation is missing or changed")
+            return False
+        if not self._valid_automatic_evidence(run):
+            self._fail_immediately(
+                run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+            )
+            return False
+        try:
+            current_ticket = self.forge.get_ticket(ticket.iid)
+        except ForgeError as exc:
+            self._fail_immediately(run, "PUBLICATION_TICKET", exc)
+            return False
+        if current_ticket is None:
+            self._fail_immediately(run, "TICKET_DELETED", "ticket deleted before publication")
+            return False
+        if self._cancel_if_ticket_closed(run, current_ticket):
+            return False
+        try:
+            self._transient(run, "publication-fetch", self.worktrees.fetch)
+            target = self.worktrees.ref_head(run.base_ref)
+            fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
+        except IsolationError as exc:
+            self._fail_immediately(run, "PUBLICATION_FRESHNESS", exc)
+            return False
+        if target != run.candidate_base_ref or fingerprint != run.candidate_fingerprint:
+            self._invalidate_approval(run, ticket, "candidate or target changed after validation")
+            return False
+        self.store.journal(run.run_id, "automatic-publication-authorized",
+                           fingerprint=run.candidate_fingerprint, target=target)
+        return True
+
     def _invalidate_approval(self, run: RunState, ticket: Ticket, reason: str) -> None:
         """@brief Clear stale approval and require integration, validation and presentation."""
         try:
@@ -1894,9 +1970,10 @@ class Orchestrator:
             run,
             "approval-invalidated",
             f"{self.identity.tag} Approval invalidated: {_sanitize(reason)}. "
-            "The target will be integrated and the candidate revalidated before a fresh "
-            f"`{self.config.delivery.approval_label}` approval is accepted.\n"
-            f"{self.identity.make_marker(run.run_id, 'approval-invalidated')}",
+            "The target will be integrated and the candidate revalidated before publication. "
+            + (f"A fresh `{self.config.delivery.approval_label}` approval is required.\n"
+               if self.config.delivery.require_human_approval else "\n")
+            + f"{self.identity.make_marker(run.run_id, 'approval-invalidated')}",
         )
         if run.lifecycle == "working":
             self._conduct(run, ticket)
@@ -1912,10 +1989,8 @@ class Orchestrator:
         @brief      Push the approved candidate and open or adopt its MR/PR.
         @details    AEGIS 0.15.0 closes the task in validate, so publication is
                     Git and forge work only: no executor session and no AEGIS
-                    command runs after the human approved. `_approval_ready`
-                    fetched and re-checked the target commit and the candidate
-                    fingerprint just before every call, so the pushed branch is
-                    exactly the candidate the approval names.
+                    command runs during publication. The approval or automatic
+                    freshness check verifies target and candidate before the call.
         @param[in]  run The approved run at stage done.
         @param[in]  ticket The source ticket, for the MR/PR title.
         """
@@ -2359,9 +2434,8 @@ class Orchestrator:
         """
         @brief      Push the run branch, retrying a transient remote failure.
         @details    The push is the most expensive moment in a run to lose: every
-                    engineering stage has been paid for and a human has already
-                    approved this exact candidate, which a terminal failure
-                    discards along with the approval. Every fetch around it
+                    engineering stage has been paid for and the candidate has
+                    passed the configured publication policy. Every fetch around it
                     already retries through `_transient`; the push did not, so a
                     single "Failed to authenticate user" from a credential
                     refresh ended a fully validated run (live finding
@@ -2516,6 +2590,10 @@ class Orchestrator:
         if self._cancel_if_ticket_closed(run, ticket):
             return
         self._refresh_ticket_snapshot(run, ticket, context="approval")
+        if not self.config.delivery.require_human_approval:
+            if self._automatic_publication_ready(run, ticket):
+                self._publish(run, ticket)
+            return
         if not self._approval_ready(run, ticket):
             return
         summary["approved"] += 1

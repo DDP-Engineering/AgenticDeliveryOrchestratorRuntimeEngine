@@ -85,7 +85,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -1106,3 +1106,10 @@ This keeps polling handlers deterministic when unrouteAll removes routing; all
 CSRF, clone ownership and exact-name deletion assertions remain active.
 
 Project Settings exports directly through the optional browser destination picker or ordinary download: complete container ZIP or exact native TOML. Recipe administration is separate under closed Technical details; cancellation and scope changes invalidate pending saves, and write errors abort before commit with localized feedback.
+
+## Per-project publication approval
+
+The PR/MR and review settings include the localized boolean **Require human
+approval before PR/MR**. The existing Admin reviewed-save and idle-job rules
+apply; the default requires approval and disabling it permits automatic
+publication only after validation and freshness checks.

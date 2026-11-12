@@ -10,7 +10,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 The optional ADORE web interface lets operators enroll projects, start and
 follow jobs, and review their results using the same profiles and run state as
 the CLI. ADORE conducts the repository's AEGIS workflow; PR/MR creation
-requires human approval, and a person decides whether to merge.
+requires human approval by default, and a person decides whether to merge.
 
 ## Quick start
 
@@ -312,7 +312,7 @@ Jobs shows pending and completed handoffs. A completed handoff preserves its
 worktree, remains in history and cannot be cancelled from the web interface.
 `delivery.publish_checkpoints` defaults to true in both CLI and web. Owned
 ticket-branch progress commits are fetchable before approval; MR/PR creation
-still waits for fresh candidate-bound human approval. An explicit false keeps
+follows the project human-approval setting. An explicit false keeps
 intermediate checkpoints local. The GUI shows the shared model default and
 retains saved project overrides.
 Disabling a user revokes sessions; the last
@@ -735,7 +735,7 @@ concurrent ADORE edits receive a conflict instead of overwriting each other.
 Direct host file edits do not use this lock. A start request still applies
 ADORE's ready-ticket and hold/exclude rules. The current publication policy
 remains: automatic draft MR/PR creation
-after the existing `agent-approved` publication gate, with a human deciding
+after the configured publication approval gate, with a human deciding
 whether to merge.
 
 In Projects, an administrator can archive a project after its jobs have
@@ -1207,7 +1207,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -1394,3 +1394,11 @@ The Actions heading and ticket buttons align to the right. Ticket actions stay
 on one row on desktop when Details changes to Hide details, with the last
 button anchored to the same right edge.
 On narrow screens they may wrap to keep the controls and description within the page.
+
+## Human approval before publication
+
+An administrator can review and save **Require human approval before PR/MR**
+per project in **PR/MR and review** when its jobs are finished. It is enabled
+by default. When disabled, validated candidates are published automatically
+after freshness checks; draft state and progress checkpoint settings are
+independent and only a human decides whether to merge.

@@ -138,7 +138,7 @@ override AEGIS defines for its `[interaction]` default: the executor records
 choices to a human, because no human is reading. Autopilot governs who decides,
 not how much the executor does in one session. The target repository's
 `[interaction]` setting keeps governing human sessions and needs no change for
-conducted runs. ADORE supervises every stage and owns the approval before
+conducted runs. ADORE supervises every stage and owns the configured approval before
 publication. Each attempt uses a fresh executor session. Durable AEGIS artifacts
 are the resume authority. The prompt has the executor finish a stage with
 `python .agentic/aegis.py advance`, record unfinished work with `log` and end
@@ -157,7 +157,7 @@ marginally faster one.
 
 After every successful stage transition, ADORE creates an unpushed local
 checkpoint commit. Those commits preserve journal evolution, give crash
-recovery a clean tree, and are not remotely visible before approval.
+recovery a clean tree; their remote visibility follows the progress checkpoint setting.
 
 ## Final Validation and Approval
 
@@ -169,7 +169,7 @@ checkpoint. A done task without matching evidence returns to Validate in a
 fresh executor session.
 
 ADORE fingerprints the target commit, candidate tree and exact local commit
-series. It removes `agent-approved`, verifies absence, posts the evidence together
+series. When project approval is enabled, it removes `agent-approved`, verifies absence, posts the evidence together
 with every `DEVIATION <stage>` entry the AEGIS journal recorded, and stops
 the container in `awaiting-approval`. Only a fresh re-addition after that
 presentation is accepted. Candidate changes or target drift invalidate the
@@ -177,20 +177,17 @@ approval and force integration, validation, presentation and approval again.
 
 ## Publication and Review
 
-After approval, ADORE pushes the branch and opens or adopts the draft or ready
-MR/PR. No executor session and no AEGIS command runs after the human approved:
-the approval check fetched the target and re-checked the target commit and
-candidate fingerprint just before, so the pushed branch is exactly the
-approved candidate. The run keeps the stage `done` while it waits for approval,
+After any configured approval, ADORE pushes the branch and opens or adopts the draft or ready
+MR/PR. No executor session or AEGIS command runs during publication. The approval or automatic freshness check fetches the target and rechecks the candidate fingerprint before the push. The run keeps the stage `done` while it waits for approval,
 publishes and is in review.
 
 Before draft creation, ADORE looks up and adopts an existing open MR/PR for the
-task branch. A failed push keeps the approval evidence, so `adore retry` checks
+task branch. A failed push keeps the validation evidence, so `adore retry` checks
 freshness again and publishes the same candidate.
 
 A requested revision creates a new AEGIS task journal on the same branch.
 Earlier journals remain history. Every review round is bounded and requires a
-new validation presentation and fresh approval before push.
+new validation and follows the configured approval policy before push.
 The revise trigger remains applied until provisioning, payload probing, and
 new-task creation succeed.
 
@@ -216,3 +213,7 @@ Local projects use dedicated worktrees with independently prepared account tools
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.
+
+When `delivery.require_human_approval` is false, the validated candidate and
+fetched target are checked before automatic publication; no approval label is
+required. The human merge boundary remains unchanged.

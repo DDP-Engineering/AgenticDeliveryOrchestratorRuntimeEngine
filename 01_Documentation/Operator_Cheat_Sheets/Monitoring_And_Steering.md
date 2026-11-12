@@ -110,6 +110,6 @@ and MR/PR delivery have all been proven.
 One default is worth a deliberate decision on a new profile: `[review]
 on_pipeline_failure` is `revise`, so a newly failed pipeline on a published
 draft starts a repair round without anyone asking. It stays bounded by
-`max_review_rounds` and still ends at a fresh human approval before any push,
+`max_review_rounds` and follows the project approval policy before publication,
 but if you would rather be asked first while proving a project, set it to
 `notify`.

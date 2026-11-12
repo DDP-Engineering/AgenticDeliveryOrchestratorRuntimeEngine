@@ -531,6 +531,7 @@ class DeliveryConfig:
     reviewers: list[str] = field(default_factory=list)
     remove_source_branch: bool = True
     approval_label: str = "agent-approved"
+    require_human_approval: bool = True
     publish_checkpoints: bool = True
 
 
@@ -541,7 +542,7 @@ class ReviewConfig:
     @details `on_pipeline_failure` decides what a red forge pipeline on the
              published draft does. "revise" starts a governed repair round on
              the SAME bounded path the revise label uses, so the repair still
-             ends at a fresh human approval before anything is pushed;
+             follows the project publication approval policy;
              "notify" posts one comment and waits for a human; "ignore" skips
              the pipeline read entirely. Every mode obeys `max_review_rounds`.
     """
@@ -1560,6 +1561,8 @@ def validate_config(config: Config) -> list[str]:
     )
     check(valid_reviewers(config.delivery.reviewers),
           "[delivery] reviewers must list valid human account names (empty requests no review)")
+    check(type(config.delivery.require_human_approval) is bool,
+          "[delivery] require_human_approval must be a boolean")
     check(type(config.delivery.draft) is bool, "[delivery] draft must be a boolean")
     check(
         type(config.delivery.remove_source_branch) is bool,

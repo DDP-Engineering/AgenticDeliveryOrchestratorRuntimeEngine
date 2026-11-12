@@ -48,7 +48,7 @@ Insignele au un simbol, nu doar culoare, iar listele de lucrări arată etapa cu
 | Starea lucrării | Semnificație |
 |---|---|
 | În lucru | ADORE conduce o etapă. |
-| Publicare | ADORE publică un candidat aprobat. |
+| Publicare | ADORE publică un candidat validat conform politicii proiectului. |
 | Așteaptă clarificări | Agentul are nevoie de un răspuns în tichetul din repository. |
 | Așteaptă aprobarea | O persoană trebuie să aprobe candidatul pe forge. |
 | Revizie umană | Un MR/PR ciornă este deschis; oamenii decid dacă îl integrează. |

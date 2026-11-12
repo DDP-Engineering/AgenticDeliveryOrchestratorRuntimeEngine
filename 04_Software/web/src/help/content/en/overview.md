@@ -8,8 +8,8 @@ ADORE watches the projects an administrator has enrolled. When a ticket on the f
 
 - It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.
 - The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.
-- The executor validates the result. ADORE asks a person to approve that exact candidate.
-- After approval, ADORE publishes a draft MR/PR for people to review. A project can be set to publish a ready MR/PR instead.
+- The executor validates the result. By default, ADORE asks a person to approve the exact candidate; a project can disable this gate.
+- ADORE publishes a draft or ready MR/PR after validation and any required approval.
 
 > ADORE never merges. It has no merge operation; a person decides whether to merge on the forge.
 
@@ -25,9 +25,9 @@ If a project's job state cannot be read, **Needs attention** names that project.
 | 2. Work | Working | ADORE and the coding agent | ADORE creates the job and the agent works through the AEGIS stages. |
 | 3. Clarify | Waiting for clarification | A person | Only if the agent has a question. Answer in the repository issue and add the answered label. |
 | 4. Validate | Working | Coding agent | The executor runs the project's strict verification. |
-| 5. Approve | Waiting for approval | A person | ADORE presents the candidate on the forge. A person adds the approval label. Approval is bound to that exact candidate. |
+| 5. Approve | Waiting for approval | A person | When approval is enabled, ADORE presents the candidate and a person adds the approval label. |
 | 6. Publish | Publishing | ADORE | ADORE pushes the branch and opens the draft MR/PR. |
-| 7. Review | Human review | A person | People review. Requesting a revision starts another revision round, which needs a fresh approval. |
+| 7. Review | Human review | A person | People review. A requested revision repeats validation and follows the project approval policy. |
 | 8. Merge | Completed | A person | A person merges on the forge. ADORE does not. |
 
 If the candidate or its target branch changes after approval, the approval no longer applies and the job validates again. Terms are explained in the [glossary](/help/glossary).

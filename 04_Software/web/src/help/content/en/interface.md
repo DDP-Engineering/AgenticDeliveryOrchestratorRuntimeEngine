@@ -48,7 +48,7 @@ Badges carry a symbol as well as colour, and job lists show the current stage be
 | Job status | Meaning |
 |---|---|
 | Working | ADORE is conducting a stage. |
-| Publishing | ADORE is publishing an approved candidate. |
+| Publishing | ADORE is publishing the validated candidate under the project policy. |
 | Waiting for clarification | The agent needs an answer in the repository issue. |
 | Waiting for approval | A person must approve the candidate on the forge. |
 | Human review | A draft MR/PR is open; people decide whether to merge. |

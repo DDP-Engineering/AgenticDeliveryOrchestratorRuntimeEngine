@@ -330,3 +330,17 @@ test("the internet switch and web search have labels, help, values and a warning
  assert.equal(searchKeyNeeded({executor:{internet:false,web:{search:"tavily"}}}),false);
  assert.equal(searchKeyNeeded({}),false);
 });
+
+
+test("human approval policy is a reviewed per-project boolean in four locales", () => {
+ const key = "delivery.require_human_approval";
+ assert.equal(settingPurpose(key), "reviews");
+ for (const locale of ["en", "fr", "de", "ro"]) {
+  assert.ok(SETTING_HELP[locale][key].length > 60);
+ }
+ const config = {delivery: {require_human_approval: true}};
+ const rows = settingRows(config, [{key, edit_key:key, source:"default", editable:true,
+   restart:false, type:"boolean", default:true}]);
+ assert.equal(rows[0].input, "boolean");
+ assert.equal(rows[0].value, true);
+});

@@ -14,7 +14,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 | `working` | A fresh stage attempt may run. | Advance, park, or fail within budgets. |
 | `parked-clarification` | A human answer is required. | Comment plus `agent-answered`, or timeout. |
 | `awaiting-approval` | Validated candidate is presented. | Freshly add the approval label, or candidate/target drift invalidates it. |
-| `publishing` | The approved candidate is pushed and its MR/PR opened or adopted. | Reach draft MR/PR or fail loudly. |
+| `publishing` | The validated candidate is pushed and its MR/PR opened or adopted. | Reach draft MR/PR or fail loudly. |
 | `in-review` | Draft MR/PR awaits human action. | Merge, close, or request a bounded revision. |
 | `failed` | Execution stopped with preserved evidence. | Fix cause, clear pending notification, then explicit retry. |
 | `done` | A human merged the draft. | Cleanup is complete/auditable. |
@@ -73,6 +73,8 @@ best-effort telemetry.
 
 ## Approval Operations
 
+By default a project requires approval. An administrator may disable **Require human approval before PR/MR** in project settings when jobs are finished; ADORE then checks the validated candidate and target before automatic publication. Revisions and retry follow the same project policy; merge remains human.
+
 The approval presentation leads with the deviations the AEGIS journal
 recorded, as a count and in full, and identifies the validation source, diff
 size, exact commits, candidate fingerprint and target commit.
@@ -103,7 +105,7 @@ the `revision-task-created` journal event before manual recovery.
 
 During publication ADORE first adopts an existing open MR/PR for the task
 branch, avoiding duplicate creation after a crash or failed read-back.
-Publication pushes the approved candidate once and runs no executor session
+Publication pushes the validated candidate once and runs no executor session
 or AEGIS command before entering `in-review`; it refuses a run that is neither
 at stage `done` nor at the `publishing` reset pointer with `PUBLICATION_STAGE`.
 
@@ -132,7 +134,7 @@ decides what a new `failed` verdict does:
 A repair round is the same bounded path the revise label uses: a new AEGIS task
 on the same branch, the prior journals preserved, and the executor told that a
 green pipeline is part of this round's acceptance criteria. It therefore ends
-where every other round ends, at strict validation and a **fresh human approval**
+where every other round ends, at strict validation and, when configured, a **fresh human approval**
 before anything is pushed. ADORE still never merges.
 
 `max_review_rounds` bounds repairs and human-requested revisions together, so a

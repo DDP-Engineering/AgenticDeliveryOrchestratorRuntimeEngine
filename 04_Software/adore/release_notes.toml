@@ -84,7 +84,7 @@ text = { en = "Save provider, model and reasoning effort together. Use an API ke
 [[release.entry]]
 category = "new"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "Merge requests open as drafts or ready for review; ADORE watches and repairs failed pipelines.", fr = "Les demandes de fusion s'ouvrent en brouillon ou prêtes ; ADORE surveille et répare le pipeline.", de = "Merge-Requests öffnen als Entwurf oder prüfbereit; ADORE überwacht und repariert Pipelines.", ro = "Cererile de îmbinare se deschid ca schiță sau gata de revizie; ADORE repară pipeline-urile." }
+text = { en = "Choose draft or ready reviews and optional approval; failed pipelines trigger repair.", fr = "Choisissez brouillon ou pr\u00eat et approbation facultative ; les pipelines sont r\u00e9par\u00e9s.", de = "Entwurf oder bereit und optionale Freigabe w\u00e4hlen; fehlerhafte Pipelines werden repariert.", ro = "Alege\u021bi draft sau preg\u0103tit \u0219i aprobare op\u021bional\u0103; pipeline-urile sunt reparate." }
 
 [[release.entry]]
 category = "new"

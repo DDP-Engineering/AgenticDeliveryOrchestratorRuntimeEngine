@@ -852,3 +852,9 @@ History projects verified ticket and job target identities independently of oper
 Readiness checks bind private hashes of relevant owned and external CLI authentication inputs. Draft tokens and project checks recheck the binding before publication; changed credentials make old evidence stale. Corrupt or old readiness records are refused before any replacement. Responses declare required checks, and the browser verifies their presence before displaying a verdict.
 
 A successful external CLI sign-in is not a bound identity and keeps the overall result partial. Only a validated project-scoped repository credential binds the forge identity; the project list separately reports the check keys derived from current config. Probe values are validated before replacing evidence.
+
+## Publication approval setting
+
+The project configuration catalog exposes `delivery.require_human_approval`
+as an editable boolean. The normal Admin candidate review, authorization,
+validation and idle-project checks apply. Invalid scalar values are rejected.

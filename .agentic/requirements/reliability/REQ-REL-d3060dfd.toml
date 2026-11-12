@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-d3060dfd"
+
+title = "Verify candidate before automatic publication"
+
+status = "active"
+
+requirement = """
+When automatic publication is selected, ADORE shall publish only after validating the candidate and verifying its fingerprint and target remain unchanged.
+"""
+
+verification = "Offline fake runner tests exercise matching evidence, drift, errors and retry."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/app.py", "04_Software/web/src/settings.ts"]
+
+linked_tests = ["04_Software/tests/test_orchestrator.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

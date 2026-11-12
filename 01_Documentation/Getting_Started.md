@@ -17,7 +17,7 @@ The following sections describe source/CLI setup.
 
 ADORE selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS
 inside dedicated worktrees with container or native local execution, and opens draft MR/PRs after fresh
-human approval. It never merges.
+human approval by default. It never merges.
 
 ## Prerequisites
 
@@ -158,13 +158,13 @@ adore --profile my-project run --once
 
 ## Approval and Draft Publication
 
-When strict validation passes, ADORE removes the approval label, presents the
+With human approval enabled (the default), when strict validation passes ADORE removes the approval label, presents the
 evidence and fingerprint on the ticket, enters `awaiting-approval`, stops the
 container, and releases the slot. Review the evidence, then freshly add
 `agent-approved`. The next poll rechecks the exact candidate and target before
 publication.
 
-ADORE pushes only after approval, opens the configured draft or ready MR/PR,
+When the project disables human approval, ADORE checks the validated candidate and target and publishes automatically. ADORE opens the configured draft or ready MR/PR,
 and stops in `in-review`; the AEGIS task already closed in validate. A human
 reviews and merges.
 

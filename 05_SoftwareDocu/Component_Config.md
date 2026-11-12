@@ -45,11 +45,11 @@ gates or workers.
 nonempty nonnegative backoff list. Defaults are 3, 3 and `[5, 30, 120]`.
 
 `DeliveryConfig.approval_label` defaults to `agent-approved`, must be nonempty
-and cannot collide with lifecycle/control labels. `delivery.draft` is a strict boolean: true (default) creates drafts; false creates ready reviews. Fresh human approval remains mandatory.
+and cannot collide with lifecycle/control labels. `delivery.draft` is a strict boolean: true (default) creates drafts; false creates ready reviews. Fresh human approval is required when the project policy enables it.
 `publish_checkpoints` is a strict boolean, on by default for CLI and web.
 Explicit false keeps intermediate checkpoints local. When enabled, the
 conductor may publish guarded ticket-branch checkpoints before approval;
-MR/PR creation still waits for fresh candidate-bound approval. The reported
+MR/PR creation follows the project approval policy. The reported
 cost budget accepts a finite nonnegative USD amount; zero disables that cap
 for subscription or local execution while iteration, time and file caps remain.
 
@@ -238,3 +238,9 @@ Non-budget binding preserves scalar types as well as values: boolean false and n
 
 
 Pi thinking is optional; explicit values are validated against the pinned provider/model catalog, with custom endpoints limited to off. Invalid or unproven levels fail configuration validation.
+
+## Publication approval policy
+
+`delivery.require_human_approval` is a strict boolean, default true. It selects
+whether human candidate approval precedes publication; it does not change
+validation, draft state, guarded publication, or the human merge boundary.

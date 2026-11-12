@@ -319,6 +319,7 @@ draft = true
 reviewers = ["reviewer"]
 remove_source_branch = true
 approval_label = "agent-approved"
+require_human_approval = true
 
 [review]
 trigger = "label"
@@ -330,8 +331,8 @@ review_reminder_after = "48h"
 `review.on_pipeline_failure` is `revise` (default), `notify`, or `ignore`, and
 decides what a newly `failed` forge pipeline on the published draft does.
 `revise` starts a governed repair round on the same bounded path the revise
-label uses, so the repair still ends at strict validation and a fresh human
-approval before any push; `notify` posts one comment and waits; `ignore` skips
+label uses, so the repair ends at strict validation and follows the project
+approval policy before publication; `notify` posts one comment and waits; `ignore` skips
 the pipeline read. All three obey `max_review_rounds`, which bounds repairs and
 human-requested revisions together. Only a changed verdict is a signal, and an
 unreadable verdict is silent.
@@ -354,11 +355,20 @@ keep their remote branches. Cleanup uses bounded infrastructure retries; an
 unverified deletion completes the human-merged job with a branch-retained warning
 and preserves its local worktree for operator remediation.
 
-`draft` accepts only booleans: `true` (default) creates a draft; `false` creates a PR/MR ready for review. Both require human publication approval and ADORE never merges. Existing PR/MRs retain their current state, including during revisions and crash recovery. ADORE removes `approval_label` before presenting a
+`draft` accepts only booleans: `true` (default) creates a draft; `false` creates a PR/MR ready for review. Both follow `require_human_approval`; ADORE never merges. Existing PR/MRs retain their current state, including during revisions and crash recovery. ADORE removes `approval_label` before presenting a
 candidate and accepts only a fresh re-add after presentation. Approval is
 bound to candidate fingerprint and target commit. Every revision creates a
-new task and repeats validation and approval. Review reminder behavior remains
+new task, repeats validation and follows the configured approval policy. Review reminder behavior remains
 reserved; the hard round limit is enforced.
+
+`require_human_approval` is a per-project boolean, enabled by default. An
+administrator may change it in **PR/MR and review** through the reviewed settings
+flow when the project has no unfinished jobs. When disabled, ADORE publishes a
+validated candidate automatically after checking its fingerprint and target;
+validation, guarded pushes and the human merge decision remain required. The
+policy also applies to revisions and explicit publication retries. A project
+already in review stays there. Changing TOML outside the UI takes effect at the
+next safe reconciliation, and drift still forces revalidation.
 
 `awaiting-approval` and `in-review` are intentionally human-paced and have no
 timers. They wait until reconciliation observes approval, revision, merge,

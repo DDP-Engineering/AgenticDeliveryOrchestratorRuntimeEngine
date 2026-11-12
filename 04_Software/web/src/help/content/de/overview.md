@@ -8,8 +8,8 @@ ADORE beobachtet die Projekte, die ein Administrator eingerichtet hat. Ist ein T
 
 - Es führt einen Coding-Agenten (den Executor) in einer isolierten Umgebung aus: mit eigenem Branch, eigenem Arbeitsordner und eigenem Container.
 - Der Agent folgt dem AEGIS-Workflow des Repositorys Phase für Phase: Rahmen, Spezifikation, Entwurf, Umsetzung und Validierung. Eine kleine Änderung kann einen Schnellpfad ohne Spezifikation und Entwurf nehmen.
-- Der Executor validiert das Ergebnis. ADORE bittet um die Freigabe genau dieses Kandidaten.
-- Nach der Freigabe veröffentlicht ADORE einen MR/PR-Entwurf, den Menschen prüfen. Ein Projekt kann stattdessen so eingestellt werden, dass ein fertiger MR/PR veröffentlicht wird.
+- Der Executor validiert das Ergebnis. Standardmäßig gibt ein Mensch den Kandidaten frei; das Projekt kann dies deaktivieren.
+- ADORE veröffentlicht nach Validierung und gegebenenfalls Freigabe einen Entwurf oder fertigen MR/PR.
 
 > ADORE führt nie einen Merge aus. Es gibt keine Merge-Operation; ob zusammengeführt wird, entscheidet ein Mensch in der Forge.
 
@@ -25,9 +25,9 @@ Wenn sich der Auftragsstatus eines Projekts nicht lesen lässt, nennt **Handlung
 | 2. Arbeiten | In Arbeit | ADORE und der Coding-Agent | ADORE legt den Auftrag an und der Agent arbeitet die AEGIS-Phasen ab. |
 | 3. Klären | Wartet auf Klärung | Ein Mensch | Nur wenn der Agent eine Frage hat. Antworten Sie im Repository-Ticket und setzen Sie das Antwortlabel. |
 | 4. Validieren | In Arbeit | Coding-Agent | Der Executor führt die strenge Prüfung des Projekts aus. |
-| 5. Freigeben | Wartet auf Freigabe | Ein Mensch | ADORE stellt den Kandidaten in der Forge vor. Ein Mensch setzt das Freigabelabel. Die Freigabe ist an genau diesen Kandidaten gebunden. |
+| 5. Freigeben | Wartet auf Freigabe | Ein Mensch | Ist Freigabe aktiviert, stellt ADORE den Kandidaten vor und eine Person setzt das Freigabelabel. |
 | 6. Veröffentlichen | Veröffentlichung | ADORE | ADORE überträgt den Branch und öffnet den MR/PR-Entwurf. |
-| 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitungsanfrage startet eine weitere Überarbeitungsrunde, die eine neue Freigabe braucht. |
+| 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitung wiederholt die Validierung und folgt der Freigaberegel. |
 | 8. Zusammenführen | Abgeschlossen | Ein Mensch | Ein Mensch führt in der Forge zusammen. ADORE tut das nicht. |
 
 Ändert sich der Kandidat oder sein Zielbranch nach der Freigabe, gilt die Freigabe nicht mehr und der Auftrag wird erneut validiert. Begriffe erklärt das [Glossar](/help/glossary).

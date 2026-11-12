@@ -378,3 +378,6 @@ Pi RPC normalizes diagnostics while consuming the process streams. Only protocol
 PiRpcResult and GateRun carry optional diagnostics without altering stage success, usage or timeout decisions. Each stream keeps at most 500 short records within 64 KiB. `executor/diagnostics.py` owns normalization, strict canonical validation and host-owned snapshot persistence; it uses no runtime dependencies. Offline fake-Pi tests verify useful diagnostics and private-content suppression through real pipes.
 
 Recognized token-shaped module identifiers are withheld even when they satisfy Python identifier syntax. Diagnostic ring mutation and result snapshots share the evidence lock, including readers that outlive a bounded join.
+
+Executor publication guards always leave Git publication to ADORE, whether the
+project requires a human approval or permits automatic validated publication.

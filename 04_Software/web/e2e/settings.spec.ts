@@ -943,3 +943,22 @@ test("typed Implementation controls remain read-only for developers on narrow sc
  }
  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
+
+
+test("human approval policy is reviewed and saved per project", async ({ page }) => {
+  await openSettings(page);
+  const name = "Require human approval before PR/MR";
+  const row = page.locator(".setting-row").filter({has: page.getByText(name, {exact: true})});
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(before.config.delivery.require_human_approval).toBe(true);
+  await row.getByRole("button", {name: `Edit ${name}`, exact: true}).click();
+  await row.getByRole("combobox").selectOption("false");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
+  await expect(review).toContainText(name);
+  await expect(review).toContainText("false");
+  await review.getByRole("button", {name: "Save changes", exact: true}).click();
+  await expect(review).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get("/api/v1/projects/alpha/config"))
+    .json()).config.delivery.require_human_approval).toBe(false);
+});

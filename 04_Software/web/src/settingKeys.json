@@ -34,6 +34,7 @@
   "delivery.approval_label",
   "delivery.draft",
   "delivery.publish_checkpoints",
+  "delivery.require_human_approval",
   "delivery.remove_source_branch",
   "delivery.reviewers",
   "delivery.target_branch",

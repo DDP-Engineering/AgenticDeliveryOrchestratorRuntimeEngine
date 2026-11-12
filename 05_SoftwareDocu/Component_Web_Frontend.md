@@ -133,7 +133,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -1068,3 +1068,9 @@ lifecycle, scoped CSRF, clone ownership and exact-name deletion assertions.
 Recipe recovery errors name the server data to remove explicitly. A whole-catalog
 reset message in all four locales explains that image definitions for all projects
 are removed while configurations, credentials and jobs remain untouched.
+
+## Publication approval setting
+
+The PR/MR settings category presents the reviewed per-project human approval
+boolean in all four locales. It defaults to enabled and uses the existing
+administrator confirmation and idle-project mutation boundary.

@@ -13,10 +13,10 @@ Shared ticket eligibility excludes the configured epic type label from automatic
 
 `adore/orchestrator.py` is the deterministic ADORE conductor around the
 agent-driven AEGIS workflow. It prevents silent stalls and keeps remote
-publication human-approved with configurable draft or ready state.
+publication subject to the project approval policy with configurable draft or ready state.
 
 
-After observing a human merge, the shared CLI/web conductor honors `delivery.remove_source_branch` on GitHub, GitLab and Gitea. It checks review/run-branch ownership and performs bounded host-Git deletion with the last published commit lease. Every approved publication pins that commit even when progress commits are disabled. An absent branch succeeds; an unverified deletion leaves the job done with a branch-retained warning and keeps its local worktree for remediation. Closed unmerged reviews keep their remote branch.
+After observing a human merge, the shared CLI/web conductor honors `delivery.remove_source_branch` on GitHub, GitLab and Gitea. It checks review/run-branch ownership and performs bounded host-Git deletion with the last published commit lease. Every publication pins that commit even when progress commits are disabled. An absent branch succeeds; an unverified deletion leaves the job done with a branch-retained warning and keeps its local worktree for remediation. Closed unmerged reviews keep their remote branch.
 
 ## 2. Responsibilities
 
@@ -59,9 +59,9 @@ After observing a human merge, the shared CLI/web conductor honors `delivery.rem
   evidence, so the 6000-character evidence cut cannot drop it);
 - integrate the target, record executor validation and fingerprint the
   candidate/target/commit series;
-- require a fresh approval-label transition after presentation;
-- push the approved candidate once and open or update the configured draft or
-  ready MR/PR, with no executor session and no AEGIS command after approval;
+- require a fresh approval-label transition after presentation when configured;
+- push the validated candidate once and open or update the configured draft or
+  ready MR/PR, with no executor session and no AEGIS command during publication;
 - adopt an existing open branch MR/PR before attempting draft creation;
 - create a new AEGIS task before consuming each bounded review request;
 - reconcile parked, approval, review, stale-working and outbox states;
@@ -86,7 +86,7 @@ separately.
 `handed-off` disables further autonomous work, while cleanup protects the
 human-owned worktree. When handoff and web cancellation are both pending at a
 boundary, handoff takes precedence. Checkpoint publication never creates a
-draft MR/PR; candidate-bound approval still gates that step.
+draft MR/PR; the configured candidate-bound approval policy governs that step.
 
 Every nonterminal state has a poll action. Clarification has a timeout;
 `awaiting-approval` and `in-review` intentionally do not because they are
@@ -364,3 +364,12 @@ On parked recovery the conductor verifies a backend stop and removes the questio
 
 
 The orchestrator passes the configured Pi thinking level into the executor factory for each stage.
+
+## Project publication approval policy
+
+`delivery.require_human_approval` defaults to true. The conductor retains the
+fresh label-bound approval path when enabled. When disabled it checks saved
+validation, task identity, fetched target and candidate fingerprint before
+automatic publication; mismatch routes to validation and Git failures fail
+closed. Retry and waiting-job reconciliation use the active policy; jobs
+already in review remain there. Publication remains guarded and never merges.

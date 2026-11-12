@@ -18,7 +18,7 @@ Applies to ADORE 0.13.0 and AEGIS schema 1.
 - Notification outage: restore forge access and poll until the outbox delivers.
   `adore retry` is refused while it remains pending.
 - Target/candidate drift: expect approval removal, reintegration, validation,
-  new presentation and fresh approval.
+  new presentation and fresh approval when required by the project.
 
 Commands:
 

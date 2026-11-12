@@ -48,7 +48,7 @@ Badges tragen neben der Farbe auch ein Symbol, und Auftragslisten zeigen die akt
 | Auftragsstatus | Bedeutung |
 |---|---|
 | In Arbeit | ADORE steuert eine Phase. |
-| Veröffentlichung | ADORE veröffentlicht einen freigegebenen Kandidaten. |
+| Veröffentlichung | ADORE veröffentlicht den validierten Kandidaten nach der Projektregel. |
 | Wartet auf Klärung | Der Agent braucht eine Antwort im Repository-Ticket. |
 | Wartet auf Freigabe | Ein Mensch muss den Kandidaten in der Forge freigeben. |
 | Menschliche Prüfung | Ein MR/PR-Entwurf ist offen; Menschen entscheiden über das Zusammenführen. |

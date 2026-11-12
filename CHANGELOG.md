@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Configure whether each project requires human approval before PR/MR publication.
+
 - Import complete project ZIPs in one automatically validated dialog, retaining
   exact configuration and executor image sources together with monitoring paused.
 

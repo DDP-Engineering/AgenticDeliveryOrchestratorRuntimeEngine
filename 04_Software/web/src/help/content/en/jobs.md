@@ -15,7 +15,7 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
 | Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE records the completed validation and asks for approval of the exact candidate. |
+| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE records validation and follows the project approval policy. |
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
@@ -27,15 +27,17 @@ Reply with a normal comment on the ticket, then add `agent-answered`. Both are n
 
 ## Approval {#approval}
 
-When strict validation passes, ADORE removes `agent-approved`, posts the evidence on the ticket and waits. The job shows **Waiting for approval** and the ticket keeps `agent-working`. The evidence names the exact candidate and any deviations the executor recorded.
+With **Require human approval before PR/MR** enabled (default): ADORE removes `agent-approved`, posts the evidence on the ticket and waits. The job shows **Waiting for approval** and the ticket keeps `agent-working`. The evidence names the exact candidate and any deviations the executor recorded.
 
 Review it, then add `agent-approved` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.
 
+When disabled, ADORE checks the validated candidate and target and publishes without waiting for a label. ADORE never merges.
+
 ## Publication and review {#review}
 
-After approval ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets `agent-mr`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets `agent-done`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
+After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets `agent-mr`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets `agent-done`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
 
-To request changes, a reviewer adds `agent-revise` to the MR/PR. ADORE removes the label, starts a new task on the same branch, and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
+When a reviewer requests changes with `agent-revise`, ADORE starts a new task on the same branch and repeats validation and the configured approval policy. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
 
 If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Automatic repair (default) starts a revision, Notify only posts a comment, and Ignore skips CI status. Automatic repairs share the revision budget; once it is spent, ADORE posts a notice and the job stays in review.
 
@@ -43,7 +45,7 @@ If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Au
 
 When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action; when the agent exited without moving the stage on, the evidence also shows its last error-output lines. After the final attempt it posts a terminal comment, sets `agent-failed`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.
 
-In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or approval. In the Tickets view, Retry replaces Start. Removing `agent-failed` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
+In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or any required approval. In the Tickets view, Retry replaces Start. Removing `agent-failed` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
 
 For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.
 

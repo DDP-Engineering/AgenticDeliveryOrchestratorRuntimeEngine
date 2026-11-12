@@ -23,7 +23,7 @@ history and do not authorize new execution.
 
 Validate finishes with the companion's strict check, report and advance to Done.
 ADORE binds the executor's completed validation to the candidate checkpoint and
-requests fresh candidate-bound human approval. It owns publication; executors
+requests fresh candidate-bound human approval when configured. It owns publication; executors
 never commit, push or open reviews.
 
 Every stage session reads the installed step and `.agentic/templates/task.md`.

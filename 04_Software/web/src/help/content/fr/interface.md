@@ -48,7 +48,7 @@ Les badges portent un symbole en plus de la couleur, et les listes de tâches af
 | État de la tâche | Signification |
 |---|---|
 | En cours | ADORE conduit une étape. |
-| Publication | ADORE publie un candidat approuvé. |
+| Publication | ADORE publie le candidat validé selon la politique du projet. |
 | En attente de clarification | L’agent attend une réponse dans le ticket du dépôt. |
 | En attente d'approbation | Une personne doit approuver le candidat sur la forge. |
 | Revue humaine | Une MR/PR en brouillon est ouverte ; des personnes décident de fusionner ou non. |

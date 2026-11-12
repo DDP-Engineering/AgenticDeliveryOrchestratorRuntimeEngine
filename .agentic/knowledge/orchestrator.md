@@ -42,10 +42,10 @@ the env-file directory. Worktree/container/executor credentials stay separate.
 ## Invariants
 
 The conductor owns ticket claiming, worktrees/containers, budgets, retries,
-clarification parking, outbox replay, candidate fingerprinting and human-approved
+clarification parking, outbox replay, candidate fingerprinting and policy-governed
 MR/PR publication. One AEGIS task is pinned to each run. The executor's
 validate -> done advance triggers ADORE's own strict verification; strict
-verification and fresh candidate-bound approval precede the push and draft or
+verification and, when configured, fresh candidate-bound approval precede the push and draft or
 ready creation, and no executor session or AEGIS command runs after approval.
 A done task without verification evidence returns to validate through
 one fresh session first, and a failed check is routed back from done. A run
@@ -129,7 +129,7 @@ Container profiles without recipes or enabled package permission retain the exis
 
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
-- `REQ-FUNC-ff7dad34` - candidate-bound approval and human-approved draft or ready publication.
+- `REQ-FUNC-ff7dad34` - candidate-bound approval when configured and policy-governed draft or ready publication.
 - `REQ-FUNC-9246f8cc` - the validate -> done advance triggers the strict check before presentation.
 - `REQ-FUNC-faab24b2` - a conduct step that starts at done without verification evidence
   returns the task to validate first.
@@ -138,7 +138,7 @@ Container profiles without recipes or enabled package permission retain the exis
 - `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
 - `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing.
 - `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
-  approved unpublished one and conducts any other run from done.
+  fresh eligible unpublished one under the configured policy and conducts any other run from done.
 - `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
 - `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
@@ -220,3 +220,12 @@ Status comments identify the pinned or configured backend. Terminal failures nam
 Parked recovery rechecks backend stop and removes the handoff; failures terminate with PARK_CLEANUP_FAILED. Quoted notification markers never authorize comment adoption.
 
 The orchestrator supplies the configured Pi thinking level to the executor factory.
+
+## Publication approval policy
+
+`REQ-FUNC-751a55a1` / `REQ-REL-d3060dfd`: project delivery policy defaults
+to human approval. Automatic publication checks the persisted validation task,
+candidate fingerprint and freshly fetched target before publication; drift
+returns to validation and unavailable or invalid evidence stops publication.
+Waiting-job reconciliation and retry follow the current project policy; an
+existing review stays in review.
