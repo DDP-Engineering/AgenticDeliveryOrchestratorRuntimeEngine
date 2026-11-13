@@ -33,6 +33,15 @@ function fakeEnv(visibility = "visible") {
   };
 }
 
+test("distinguishes a periodic due tick from full visible-return revalidation", () => {
+  const page = fakeEnv();
+  const reasons = [];
+  startVisiblePolling(reason => reasons.push(reason), 15000, page.env);
+  page.elapse(); page.setVisibility("hidden"); page.setVisibility("visible");
+  page.setVisibility("visible"); page.elapse();
+  assert.deepEqual(reasons, ["interval", "visible", "interval"]);
+});
+
 test("polls on the interval while visible", () => {
   const page = fakeEnv();
   let ticks = 0;

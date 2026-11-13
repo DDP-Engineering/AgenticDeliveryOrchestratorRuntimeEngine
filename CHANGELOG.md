@@ -43,6 +43,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep global and project Statistics reports, table controls and CSV menus visible
+  during coordinated background updates. Add non-destructive Refresh/retry and
+  successful source times; mark retained transport/deadline failures stale while
+  rejecting invalid or unauthorized evidence. Selected reports no longer wait on
+  unrelated all-project reads; automatic cadence is unchanged.
+
 - Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
 
 - Keep healthy projects visible in Overview when another project's job state cannot be read.

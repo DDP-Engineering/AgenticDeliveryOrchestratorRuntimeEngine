@@ -119,7 +119,7 @@ text = { en = "Choose where Pi runs. Pick detected runtimes and images in WSL to
 [[release.entry]]
 category = "improved"
 topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
-text = { en = "Statistics is compact: one period row, each figure shown once, trends in one table.", fr = "Statistiques est compact : une ligne de période, chaque valeur une fois, tendances en un tableau.", de = "Statistiken sind kompakt: eine Zeitraumzeile, jeder Wert einmal, Trends in einer Tabelle.", ro = "Statistici e compact: un rând de perioadă, fiecare valoare o dată, tendințe într-un tabel." }
+text = { en = "Statistics keeps compact reports and table controls during updates, with Refresh and source times.", fr = "Statistiques garde rapports compacts et commandes lors des mises à jour, avec heures et réessai.", de = "Kompakte Statistiken bleiben bei Updates sichtbar, mit Aktualisieren und Zeiten je Quelle.", ro = "Statistici păstrează rapoartele compacte și controalele, cu reîncercare și orele surselor." }
 
 [[release.entry]]
 category = "improved"

@@ -963,7 +963,9 @@ The help center's **Glossary** topic (How ADORE works) defines the delivery voca
 
 Guided fields display essential instructions beside the control.
 Loading, an empty result and a failed request have distinct presentations.
-Failed requests withhold totals until the next automatic update. The header
+Failed reads normally withhold affected totals until a successful update;
+Statistics can retain a validated report with explicit stale feedback after a
+transport failure or read deadline, as described below. The header
 **Refresh** and the last refresh time appear in the header on Users. Missing measurements
 remain unavailable. When the project list is empty, the card explains the next
 step for your role. Admins can select **Enroll new project** on Overview.
@@ -1019,6 +1021,26 @@ Unknown values show a dash, measured zero shows 0, source errors show failed
 load, and unallocated usage is explicitly counted. Open reviews are current
 state. These controls preserve four-language guidance.
 
+Statistics updates already displayed data in the background without closing the
+CSV menu or resetting the current tab, sort or valid table page/page size. First
+reads and changes of account, authorized project scope or reporting period still
+show normal loading without the preceding context's data. Selected-project metrics
+refresh every 15 seconds; usage and all-project metrics every 30 seconds while
+visible. A full report waits for both required inputs to validate; no faster half
+is published by itself. A selected project does not wait on all-project reads.
+
+The in-view **Refresh** (or **Retry** after failure) uses the same bounded read
+path without remounting the report; repeated triggers share in-flight work.
+**Last refreshed** records the last complete metrics-and-usage read. **Metrics
+updated** and **Usage updated** show their individual successful read times;
+a metrics-only update does not renew usage or whole-report freshness.
+A transport failure or 30-second read deadline can leave the preceding validated
+report visible with a failed-refresh/stale notice and its original successful
+times. It is informational, not current authoritative evidence. Retry or the next
+successful complete read clears the notice. CSV downloads read current server
+data, not necessarily the retained screen. Initial, malformed, unauthorized,
+scope-mismatched and other application failures hide the affected report and exports.
+
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal
 outcomes, and each lifecycle count uses its actual event time; jobs active right
@@ -1043,8 +1065,9 @@ Trends shows usage coverage as a compact value and one table
 with a row per period bucket: started, completed and failed counts carry
 proportional bars, and tokens and administrator money show plain values or a
 dash. Administrators find unpriced usage events among the Usage totals and
-estimated cost per project in Projects. Empty periods have explicit empty feedback. Loading, failed,
-malformed or incompatible responses withhold numerical presentations and exports;
+estimated cost per project in Projects. Empty periods have explicit empty feedback.
+Initial/context loading, closed failures, malformed or incompatible responses
+withhold numerical presentations and exports;
 old responses cannot overwrite a newer selection or removed project access.
 
 Reporting scope is the authorized immutable project set, a half-open UTC

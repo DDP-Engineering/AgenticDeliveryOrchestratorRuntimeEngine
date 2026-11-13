@@ -16,7 +16,11 @@ Open **Statistics** in the sidebar to see every project you can access, or open 
 
 Dates and buckets use UTC unless the page address carries another time zone. The dates apply to every tab and every export. Changing the project keeps the period and the tab you are on.
 
-The **Export CSV** menu offers **Project metrics**, **Project usage** and **Job consumption** for one project, or **All-project metrics**, **All-project usage** and **Job consumption** for **All projects**. It appears once the data has loaded. If a request fails, the page shows **Could not load data** and withholds totals and exports.
+The **Export CSV** menu offers **Project metrics**, **Project usage** and **Job consumption** for one project, or **All-project metrics**, **All-project usage** and **Job consumption** for **All projects**. It appears once the data has loaded. Background reads keep the report, open menu and table controls visible until a complete validated replacement is ready.
+
+**Refresh** reads both metrics and usage without resetting the view. **Last refreshed** records their last complete successful read; **Metrics updated** and **Usage updated** give each source’s own time. Selected-project metrics update every 15 seconds; usage and all-project metrics every 30 seconds while visible.
+
+After a connection failure or read deadline, the last validated report can remain with a failed-refresh notice, its original times and **Retry**. It is not current evidence. A successful retry or automatic read clears the notice. CSV downloads read current server data, not necessarily this retained report. Initial, invalid, unauthorized or other failed reads show **Could not load data** and withhold totals and exports.
 
 A dash means the value is unknown. Under a value, **Measured zero** means ADORE observed zero, **Not available** means nothing was recorded, and **Partial · known subtotal** means the figure covers only the usage that reported tokens.
 

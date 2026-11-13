@@ -156,21 +156,23 @@ const browserEnv = (): PollEnv => ({
 /**
  * Repeat `tick` every `intervalMs` while the page is visible.
  * Hiding the page stops the timer; a hidden-to-visible transition runs `tick`
- * once and restarts the interval. Duplicate visibility events do not revalidate.
+ * once and restarts the interval. The trigger reason lets coordinated readers
+ * distinguish a periodic due mask from a full visible-return revalidation.
+ * Duplicate visibility events do not revalidate.
  * Returns a function that stops polling; async resource owners coalesce reads.
  */
-export function startVisiblePolling(tick: () => void, intervalMs: number, env: PollEnv = browserEnv()): () => void {
+export function startVisiblePolling(tick: (reason: "interval" | "visible") => void, intervalMs: number, env: PollEnv = browserEnv()): () => void {
   let timer: number | null = null;
   let visible = env.document.visibilityState === "visible";
   let stopped = false;
-  const eligibleTick = () => { if (!stopped && env.document.visibilityState === "visible") tick(); };
-  const start = () => { if (!stopped && timer === null) timer = env.setInterval(eligibleTick, intervalMs); };
+  const eligibleTick = (reason: "interval" | "visible") => { if (!stopped && env.document.visibilityState === "visible") tick(reason); };
+  const start = () => { if (!stopped && timer === null) timer = env.setInterval(() => eligibleTick("interval"), intervalMs); };
   const halt = () => { if (timer !== null) { env.clearInterval(timer); timer = null; } };
   const onVisibility = () => {
     const next = env.document.visibilityState === "visible";
     if (stopped || next === visible) return;
     visible = next;
-    if (visible) { eligibleTick(); start(); }
+    if (visible) { eligibleTick("visible"); start(); }
     else halt();
   };
   env.document.addEventListener("visibilitychange", onVisibility);

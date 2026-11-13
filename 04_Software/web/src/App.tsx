@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
-import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
+import { aggregateMetrics, aggregateUsage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { PasswordField } from "./PasswordField";
 import { messages, type Locale, type MessageKey } from "./i18n";
@@ -24,8 +24,8 @@ import { readReadiness, validProjectVerification, type ProjectReadiness } from "
 import { AuditHistory } from "./AuditHistory";
 import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
-import { ApiError, describeError } from "./errors";
-import { createReadController, startVisiblePolling, type ReadController } from "./polling";
+import { ApiError, ReadTransportError, describeError } from "./errors";
+import { createReadController, startVisiblePolling, type ReadController, type ReadSnapshot } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { BATCH_KEY, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
 import { ExecutorEnvironment, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
@@ -38,7 +38,7 @@ import { RawImportDialog } from "./RawImportDialog";
 import { importCopy } from "./importCopy";
 import { RawConfiguration } from "./RawConfiguration";
 import { EnrollmentWizard } from "./EnrollmentWizard";
-import { readStatistics, readConsumption } from "./statistics";
+import { createReportingRefresh, type ReportingRefresh, type ReportingReport } from "./statistics";
 import { StatisticsEvidence, TrendEvidence } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
 import { JobWorkspace } from "./JobWorkspace";
@@ -52,7 +52,7 @@ import { companyLogo, DashboardShell, type ShellLink } from "./DashboardShell";
 import { TicketWorkspace } from "./TicketWorkspace";
 import { readPreferences, type Preferences, type TicketBodyMode } from "./ticketPreferences";
 import { ticketCopy, operationResultText } from "./ticketCopy";
-import { DataFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
+import { DataFeedback, RefreshFeedback, ProjectEmpty, StatusBadge, type DataState, type ScopedState } from "./Presentation";
 import { HelpCenter, HelpLink } from "./HelpCenter";
 import { readServerImages, type ServerImages } from "./serverImages";
 import { ContainerRuntimePicker } from "./ContainerRuntimePicker";
@@ -106,7 +106,8 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (cause) {
-    throw new ApiError("network_error", String((cause as Error)?.message ?? cause));
+    if (signal?.aborted) throw cause;
+    throw new ReadTransportError();
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
@@ -117,7 +118,11 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
   if (!response.headers.get("content-type")?.includes("application/json")) {
     throw new ApiError("unexpected_response", `${path} (HTTP ${response.status})`);
   }
-  return response.json() as Promise<T>;
+  try { return await response.json() as T; }
+  catch (cause) {
+    if (signal?.aborted) throw cause;
+    throw new ApiError("unexpected_response");
+  }
 }
 
 async function readPrices(path: string): Promise<Price[]> {
@@ -151,20 +156,15 @@ export default function App() {
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
   const [projectSortDescending, setProjectSortDescending] = useState(false);
   const [selected, setSelected] = useState("");
-  const [selectedMetrics, setMetrics] = useState<Metrics | null>(null);
-  const [allMetrics, setAllMetrics] = useState<Record<string, Metrics> | null>(null);
+  const [reportSnapshot, setReportSnapshot] = useState<ReadSnapshot<ReportingReport> | null>(null);
   const [metricFrom, setMetricFrom] = useState("");
   const [metricTo, setMetricTo] = useState("");
   const [metricTimezone, setMetricTimezone] = useState("UTC");
   const [metricGranularity, setMetricGranularity] = useState<"day" | "week" | "month">("day");
   const [metricAllProjects, setMetricAllProjects] = useState(true);
-  const [metricsScope, setMetricsScope] = useState("");
   const [metricsTab, setMetricsTab] = useState<MetricsTab>("summary");
   const [usageSortKey, setUsageSortKey] = useState<UsageSortKey>("date");
   const [usageSortDescending, setUsageSortDescending] = useState(false);
-  const [selectedUsage, setUsage] = useState<Usage | null>(null);
-  const [usageScope, setUsageScope] = useState("");
-  const [allUsage, setAllUsage] = useState<Record<string, Usage> | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [configScope, setConfigScope] = useState("");
   const [pendingConfig, setPendingConfig] = useState<PendingConfig | null>(null);
@@ -214,10 +214,6 @@ export default function App() {
   const [requestedRun, setRequestedRun] = useState("");
   const [projectDataState, setProjectsState] = useState<DataState>("loading");
   const projectsState = projectsScope === projectsPrincipal ? projectDataState : "loading";
-  const [selectedState, setSelectedState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [globalState, setGlobalState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [usageState, setUsageState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [globalUsageState, setGlobalUsageState] = useState<ScopedState>({ key: "", state: "loading" });
   const [routeReady, setRouteReady] = useState(false);
   const routedProject = useRef<string | null>(null);
   const preserveError = useRef(false);
@@ -247,11 +243,9 @@ export default function App() {
   const aboutTrigger = useRef<HTMLButtonElement>(null);
   // Switching About views removes the pressed button; focus its counterpart so Escape and Tab keep working.
   const aboutSwitch = useRef<HTMLButtonElement>(null);
-  const selectedMetricsRequest = useRef(0);
+  const reportingReader = useRef<ReportingRefresh | null>(null);
   const projectsReader = useRef<ReadController | null>(null);
   const projectsHaveSnapshot = useRef(false);
-  const globalMetricsRequest = useRef(0);
-  const usageRequest = useRef(0);
   const configRequest = useRef(0);
   const configMutation = useRef(false);
   const configView = useRef("");
@@ -393,28 +387,23 @@ export default function App() {
   // The cross-project comparison tab exists only on the global Statistics page.
   useEffect(() => { if (metricsTab === "projects") setMetricsTab("summary"); }, [metricsTab]);
   // Per-project rows name the project and hint its repository instead of its identifier.
-  const projectCell = (name: string) => { const repo = projects.find(item => item.name === name)?.repo; return <td>{name}{repo && <small className="field-hint">{repo}</small>}</td>; };
+  const projectCell = (id: string) => { const project = projects.find(item => item.id === id); return <td>{project?.name}{project?.repo && <small className="field-hint">{project.repo}</small>}</td>; };
   const scopeLabel = allProjectScope ? t("metricsAllProjects") : selectedProject?.name || "";
-  const globalRows = allProjectScope ? Object.entries(allMetrics || {}) :
-    selectedMetrics && metricsScope === selected && selectedProject ? [[selectedProject.name, selectedMetrics] as [string, Metrics]] : [];
-  const selectedKey = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
-  const globalMetricKey = JSON.stringify([metricSuffix, authorizedMetricsKey]);
-  const globalUsageKey = JSON.stringify([usageSuffix, authorizedMetricsKey]);
-  const scopedUsageKey = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
-  const selectedDataState = selectedState.key === selectedKey ? selectedState.state : "loading";
-  const metricDataState = allProjectScope ? globalState.key === globalMetricKey ? globalState.state : "loading" : selectedDataState;
-  const usageDataState = allProjectScope ? globalUsageState.key === globalUsageKey ? globalUsageState.state : "loading" : usageState.key === scopedUsageKey ? usageState.state : "loading";
-  const canonicalScopes = (items: Array<Metrics | Usage>) => items.map(item => JSON.stringify([item.scope?.project_ids, item.scope?.mode, item.scope?.interval, item.scope?.from, item.scope?.to, item.scope?.timezone, item.scope?.granularity, item.scope?.interval_seconds])).sort().join("\0");
-  const metricScopeItems = allProjectScope ? Object.values(allMetrics ?? {}) : selectedMetrics ? [selectedMetrics] : [];
-  const usageScopeItems = allProjectScope ? Object.values(allUsage ?? {}) : selectedUsage ? [selectedUsage] : [];
-  const reportingDataState: DataState = metricDataState === "error" || usageDataState === "error" ? "error" :
-    metricDataState !== "ready" || usageDataState !== "ready" ? "loading" :
-    canonicalScopes(metricScopeItems) === canonicalScopes(usageScopeItems) ? "ready" : "error";
-  const metrics = reportingDataState !== "ready" ? null : allProjectScope ? (allMetrics ? aggregateMetrics(Object.values(allMetrics), metricTimezone, metricFrom, metricTo) : null) :
-    metricsScope === selected ? selectedMetrics : null;
-  const metricsEmpty = metrics !== null && !((metrics.totals.runs || 0) > 0);
-  const usage = reportingDataState !== "ready" ? null : allProjectScope ? (allUsage ? aggregateUsage(Object.values(allUsage)) : null) : usageScope === selected ? selectedUsage : null;
-  const scopedUsageRows = allProjectScope ? Object.entries(allUsage || {}) : selectedUsage && selectedProject ? [[selectedProject.name, selectedUsage] as [string, Usage]] : [];
+  // View controls are excluded from ownership. Principal, immutable scope and
+  // reporting query change the key before any passive cleanup/publication.
+  const reportKey = session && statisticsVisible && projectsState === "ready" && (allProjectScope || selectedProject)
+    ? JSON.stringify([projectsPrincipal, authorizedMetricsKey, allProjectScope ? "all" : selected, metricSuffix]) : "";
+  const liveReportKey = useRef(reportKey);
+  liveReportKey.current = reportKey;
+  const reportState = reportKey && reportSnapshot?.key === reportKey ? reportSnapshot : null;
+  const report = reportState?.data ?? null;
+  const reportingDataState: DataState = reportState?.status === "error" ? "error" : report ? "ready" : "loading";
+  const allUsage = allProjectScope ? report?.usage ?? null : null;
+  const globalRows = Object.entries(report?.metrics ?? {});
+  const scopedUsageRows = Object.entries(report?.usage ?? {});
+  const metrics = !report ? null : allProjectScope ? aggregateMetrics(Object.values(report.metrics), metricTimezone, metricFrom, metricTo) : report.metrics[selected];
+  const metricsEmpty = metrics != null && !((metrics.totals.runs || 0) > 0);
+  const usage = !report ? null : allProjectScope ? aggregateUsage(Object.values(report.usage)) : report.usage[selected];
   const formatNumber = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale).format(value);
   const formatPercent = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value);
   const formatMoney = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(value);
@@ -569,71 +558,43 @@ export default function App() {
     };
   }, [projectsOwnerKey]);
 
-  useEffect(() => { setMetrics(null); setAllMetrics(null); }, [metricSuffix]);
-
-  useEffect(() => { setUsage(null); setAllUsage(null); }, [usageSuffix, selected]);
-
   useEffect(() => { readinessRequest.current += 1; readinessPending.current = false; setReadinessBusy(false); setReadinessError(null); setProjectReadiness(null); setReadinessExpanded(false); }, [selected, page, session?.user.id]);
 
-  useEffect(() => {
-    if (!session || !selected || !statisticsVisible || projectsState !== "ready" || !projects.some(item => item.id === selected)) return;
-    let revision = ++usageRequest.current;
-    const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, usageSuffix, authorizedMetricsKey]);
-    const current = () => generation === viewGeneration.current && revision === usageRequest.current;
-    const refresh = async () => {
-      revision = ++usageRequest.current;
-      const sequence = revision;
-      const live = () => current() && sequence === usageRequest.current;
-      setUsageState({ key, state: "loading" });
-      if (isAdmin) setGlobalUsageState({ key: globalUsageKey, state: "loading" });
-      const scoped = async () => {
-        try {
-          const value = await request<Usage>("/projects/" + encodeURIComponent(selected) + "/usage" + usageSuffix);
-          readConsumption(value, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
-          if (live()) { setUsage(value); setUsageScope(selected); setUsageState({ key, state: "ready" }); }
-        } catch (cause) { if (live()) { setUsage(null); setUsageState({ key, state: "error" }); setError(cause); } }
-      };
-      const global = async () => {
-        try {
-          const value = await request<Record<string, Usage>>("/usage" + usageSuffix);
-          if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
-          if (Object.keys(value).sort().join("\0") !== projects.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
-          for (const project of projects) readConsumption(value[project.name], project.id, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, true);
-          if (live()) { setAllUsage(value); setGlobalUsageState({ key: globalUsageKey, state: "ready" }); }
-        } catch (cause) { if (live()) { setAllUsage(null); setGlobalUsageState({ key: globalUsageKey, state: "error" }); setError(cause); } }
-      };
-      await Promise.all([scoped(), ...(isAdmin ? [global()] : [])]);
+  const refreshSelected = useCallback(() => reportingReader.current?.refresh() ?? Promise.resolve(), []);
+
+  useLayoutEffect(() => {
+    if (!reportKey) return;
+    const key = reportKey, generation = viewGeneration.current;
+    // Freeze the name -> immutable-ID binding for this owner's entire lifetime.
+    const capturedProjects = allProjectScope ? [...projects] : [selectedProject!];
+    const readMap = async (member: "metrics" | "usage", signal: AbortSignal) => {
+      const path = allProjectScope ? `/${member}` : `/projects/${encodeURIComponent(selected)}/${member}`;
+      const value = await request<unknown>(path + metricSuffix, "GET", undefined, undefined, signal);
+      if (!allProjectScope) return { [selected]: value };
+      if (!value || typeof value !== "object" || Array.isArray(value) ||
+        JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(capturedProjects.map(project => project.name).sort())) throw new ApiError("unexpected_response");
+      return Object.fromEntries(capturedProjects.map(project => [project.id, (value as Record<string, unknown>)[project.name]]));
     };
-    void refresh();
-    const stopPolling = startVisiblePolling(() => void refresh(), 30000);
-    return () => { usageRequest.current += 1; stopPolling(); };
-  }, [session, selected, statisticsVisible, usageSuffix, isAdmin, authorizedMetricsKey, projectsState]);
-
-  const refreshSelected = useCallback(async () => {
-    const revision = ++selectedMetricsRequest.current;
-    if (!selected || !session || !statisticsVisible || projectsState !== "ready" || !projects.some(item => item.id === selected)) { setMetrics(null); return; }
-    const generation = viewGeneration.current;
-    const key = JSON.stringify([selected, metricSuffix, authorizedMetricsKey]);
-    setSelectedState({ key, state: "loading" });
-    try {
-      const metricData = await request<Metrics>(`/projects/${encodeURIComponent(selected)}/metrics${metricSuffix}`);
-      if (generation !== viewGeneration.current || revision !== selectedMetricsRequest.current) return;
-      readStatistics(metricData, selected, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, isAdmin);
-      setSelectedState({ key, state: "ready" });
-      setMetrics(metricData); setMetricsScope(selected);
-    } catch (cause) {
-      if (generation === viewGeneration.current && revision === selectedMetricsRequest.current) {
-        setSelectedState({ key, state: "error" }); setMetrics(null); setError(cause);
-      }
-    }
-  }, [selected, session, metricSuffix, statisticsVisible, authorizedMetricsKey, projectsState]);
-
-  useEffect(() => {
-    void refreshSelected();
-    const stopPolling = startVisiblePolling(() => void refreshSelected(), 15000);
-    return () => { selectedMetricsRequest.current += 1; stopPolling(); };
-  }, [refreshSelected]);
+    const reader = createReportingRefresh({
+      key, projectIds: capturedProjects.map(project => project.id), admin: isAdmin,
+      selection: { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity },
+      readMetrics: signal => readMap("metrics", signal), readUsage: signal => readMap("usage", signal),
+      publish: snapshot => {
+        if (key !== liveReportKey.current || generation !== viewGeneration.current) return;
+        setReportSnapshot(snapshot);
+      },
+    });
+    reportingReader.current = reader;
+    void reader.refresh();
+    let usageDueAt = Date.now() + 30000;
+    const stop = startVisiblePolling(reason => {
+      const now = Date.now();
+      const full = allProjectScope || reason === "visible" || now >= usageDueAt;
+      if (full) usageDueAt = now + 30000;
+      void reader.refresh({ metrics: true, usage: full });
+    }, allProjectScope ? 30000 : 15000);
+    return () => { stop(); reader.dispose(); if (reportingReader.current === reader) reportingReader.current = null; };
+  }, [reportKey]);
 
   useEffect(() => {
     setLastRefresh(new Date());
@@ -746,24 +707,6 @@ export default function App() {
     const stopPolling = startVisiblePolling(() => void check(), 30000);
     return () => { active = false; stopPolling(); };
   }, [page, isAdmin]);
-
-  useEffect(() => {
-    if (page !== "metrics" || !isAdmin || projectsState !== "ready") return;
-    const refresh = () => {
-      const revision = ++globalMetricsRequest.current;
-      const generation = viewGeneration.current;
-      setGlobalState({ key: globalMetricKey, state: "loading" });
-      return request<Record<string, Metrics>>(`/metrics${metricSuffix}`).then(value => {
-        if (!value || Array.isArray(value)) throw new ApiError("unexpected_response");
-        if (Object.keys(value).sort().join("\0") !== projects.map(item => item.name).sort().join("\0")) throw new ApiError("unexpected_response");
-        for (const project of projects) readStatistics(value[project.name], project.id, { from: metricFrom, through: metricTo, timezone: metricTimezone, granularity: metricGranularity }, true);
-        if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(value); setGlobalState({ key: globalMetricKey, state: "ready" }); }
-      }).catch(cause => { if (generation === viewGeneration.current && revision === globalMetricsRequest.current) { setAllMetrics(null); setGlobalState({ key: globalMetricKey, state: "error" }); setError(cause); } });
-    };
-    void refresh();
-    const stopPolling = startVisiblePolling(() => void refresh(), 30000);
-    return () => { globalMetricsRequest.current += 1; stopPolling(); };
-  }, [page, isAdmin, metricSuffix, authorizedMetricsKey, projectsState]);
 
   // Presentation expires independently of worker polling and persisted outcomes.
   useEffect(() => {
@@ -899,22 +842,20 @@ export default function App() {
     ticketModePending.current = false; setTicketModeBusy(false);
     confirmedTicketMode.current = "rendered"; setTicketBodyMode("rendered");
     setPage("overview"); setJobScope(""); setMenuOpen(false);
-    selectedMetricsRequest.current += 1;
-    globalMetricsRequest.current += 1;
-    usageRequest.current += 1;
+    reportingReader.current?.dispose(); reportingReader.current = null;
+    setReportSnapshot(null);
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
     setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setConfigState({ key: "", state: "loading" });
     projectsReader.current?.dispose(); projectsReader.current = null;
     projectsHaveSnapshot.current = false;
-    setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
-    setUsageState({ key: "", state: "loading" }); setGlobalUsageState({ key: "", state: "loading" });
+    setProjectsState("loading");
     setProjectsLoaded(false); setProjectTab("overview"); routedProject.current = null;
     setProjectSortKey("name"); setProjectSortDescending(false);
-    setMetrics(null); setAllMetrics(null); setMetricFrom(""); setMetricTo("");
-    setMetricAllProjects(true); setMetricsScope(""); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
-    setUsage(null); setUsageScope(""); setAllUsage(null); setUsageSortKey("date"); setUsageSortDescending(false);
+    setMetricFrom(""); setMetricTo("");
+    setMetricAllProjects(true); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
+    setUsageSortKey("date"); setUsageSortDescending(false);
     setConfig(null); setPendingConfig(null); setPrices([]);
     setUsers([]); setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
     setWorkerStatus("checking");
@@ -1299,10 +1240,15 @@ export default function App() {
   /** Statistics content; `fixed` keeps the project chosen by the project hub instead of offering a selector. */
   const statisticsView = (fixed: boolean) => <>
         <section className="panel compact metrics-period"><div className="metrics-period-row"><h2>{t("reportingPeriod")}</h2>{!fixed && projects.length > 0 && <label className="metrics-project-filter" htmlFor="metrics-project">{t("project")}<select id="metrics-project" value={allProjectScope ? "" : selected} onChange={event => { setMetricAllProjects(event.target.value === ""); if (event.target.value) setSelected(event.target.value); }}>{isAdmin && <option value="">{t("metricsAllProjects")}</option>}{projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}<label>{t("dateFromLocal")}<input type="date" value={metricFrom} max={metricTo || undefined} onChange={event => setMetricFrom(event.target.value)} /></label><label>{t("dateToLocal")}<input type="date" value={metricTo} min={metricFrom || undefined} onChange={event => setMetricTo(event.target.value)} /></label><label>{t("trendGranularity")}<select value={metricGranularity} onChange={event => setMetricGranularity(event.target.value as "day" | "week" | "month")}><option value="day">{t("byDay")}</option><option value="week">{t("byWeek")}</option><option value="month">{t("byMonth")}</option></select></label><button className="ghost" type="button" onClick={() => { setMetricFrom(""); setMetricTo(""); }}>{statisticsText.allTime}</button>{(selected || isAdmin) && reportingDataState === "ready" && <details className="metrics-export"><summary className="ghost metrics-export-trigger">{t("exportCsv")}</summary><div className="metrics-export-links">{!allProjectScope && selected && <><a href={`/api/v1/projects/${encodeURIComponent(selected)}/metrics.csv${metricSuffix}`}>{t("projectMetricsExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/usage.csv${usageSuffix}`}>{t("projectUsageExport")}</a><a href={`/api/v1/projects/${encodeURIComponent(selected)}/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}{allProjectScope && <><a href={`/api/v1/metrics.csv${metricSuffix}`}>{t("allMetricsExport")}</a><a href={`/api/v1/usage.csv${usageSuffix}`}>{t("allUsageExport")}</a><a href={`/api/v1/jobs-usage.csv${metricSuffix}`}>{statisticsText.jobs}</a></>}</div></details>}</div></section>
+        <RefreshFeedback snapshot={reportState ? { ...reportState, completedAt: report?.fullReportAt ?? null } : null}
+          locale={locale} t={t} onRefresh={() => { void refreshSelected(); }}
+          sources={report ? [{ label: t("metricsUpdated"), at: report.metricsAt }, { label: t("usageUpdated"), at: report.usageAt }] : []}>
+          {reportState?.status === "stale" && <span>{t("staleExportHelp")}</span>}
+        </RefreshFeedback>
         <div className="metrics-tabs" role="tablist" aria-label={t("metrics")}>
           {metricsTabs.map(tab => <button key={tab} id={`metrics-tab-${tab}`} type="button" role="tab" aria-controls="metrics-tab-panel" aria-selected={metricsTab === tab} tabIndex={metricsTab === tab ? 0 : -1} onClick={() => setMetricsTab(tab)} onKeyDown={event => onMetricsTabKeyDown(event, tab)}>{t(metricsTabLabels[tab])}</button>)}
         </div>
-        <div id="metrics-tab-panel" role="tabpanel" aria-labelledby={`metrics-tab-${metricsTab}`} tabIndex={0}>
+        <div key={reportKey} id="metrics-tab-panel" role="tabpanel" aria-labelledby={`metrics-tab-${metricsTab}`} tabIndex={0}>
         {reportingDataState !== "ready" ? <DataFeedback state={reportingDataState} t={t} /> : <>
         {metricsTab === "usage" && <>
         <section className="panel"><h2>{t("attributedUsage")}</h2>

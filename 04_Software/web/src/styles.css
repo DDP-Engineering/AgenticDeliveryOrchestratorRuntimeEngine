@@ -146,6 +146,12 @@ summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .top-actions .mobile-signout { display: none; }
 .top-actions .ghost { padding: 8px 12px; min-height: 36px; }
 .refresh-stamp { font-size: .7rem; color: var(--muted); margin-right: 8px; }
+.refresh-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; margin-block: .75rem; min-width: 0; }
+.refresh-feedback button[aria-disabled="true"] { opacity: .65; cursor: progress; }
+.refresh-progress { min-width: 10rem; min-height: 1.5em; color: var(--muted); }
+.refresh-freshness { display: flex; flex-wrap: wrap; gap: .25rem 1rem; min-width: 0; font-size: .875rem; line-height: 1.5; color: var(--muted); }
+.refresh-freshness > span { overflow-wrap: anywhere; }
+.refresh-freshness [role="status"] { flex-basis: 100%; color: var(--text); }
 .content { width: min(100%, 1500px); margin: 0 auto; padding: 22px clamp(16px, 3vw, 44px) 60px; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; margin-bottom: 25px; }
 .stat-card, .panel, .project-card { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 14px; }

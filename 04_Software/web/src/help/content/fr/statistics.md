@@ -16,7 +16,11 @@ Ouvrez **Statistiques** dans la barre latérale pour voir tous les projets auxqu
 
 Les dates et les tranches utilisent UTC, sauf si l’adresse de la page porte un autre fuseau horaire. Les dates s’appliquent à tous les onglets et à tous les exports. Changer de projet conserve la période et l’onglet affiché.
 
-Le menu **Exporter CSV** propose **Indicateurs du projet**, **Utilisation du projet** et **Consommation du job** pour un projet, ou **Indicateurs de tous les projets**, **Utilisation de tous les projets** et **Consommation du job** pour **Tous les projets**. Il apparaît une fois les données chargées. Si une requête échoue, la page affiche **Chargement des données impossible** et retient les totaux et les exports.
+Le menu **Exporter CSV** propose **Indicateurs du projet**, **Utilisation du projet** et **Consommation du job** pour un projet, ou **Indicateurs de tous les projets**, **Utilisation de tous les projets** et **Consommation du job** pour **Tous les projets**. Il apparaît une fois les données chargées. Les lectures en arrière-plan conservent le rapport, le menu ouvert et les commandes du tableau jusqu’à la validation d’un remplacement complet.
+
+**Actualiser** relit les mesures et l’utilisation sans réinitialiser la vue. **Actualisé le** indique leur dernière lecture complète réussie ; **Mesures actualisées** et **Utilisation actualisée** indiquent l’heure de chaque source. Les mesures du projet choisi s’actualisent toutes les 15 secondes ; l’utilisation et les mesures globales toutes les 30 secondes lorsque l’onglet est visible.
+
+Après une panne de connexion ou un délai de lecture dépassé, le dernier rapport validé peut rester avec un avis d’échec, ses heures d’origine et **Réessayer**. Ce ne sont pas des données actuelles. Une lecture manuelle ou automatique réussie efface l’avis. Les CSV lisent les données actuelles du serveur, pas nécessairement ce rapport conservé. Les lectures initiales, invalides, non autorisées ou les autres échecs affichent **Chargement des données impossible** et masquent totaux et exports.
 
 Un tiret signifie que la valeur est inconnue. Sous une valeur, **Zéro mesuré** signifie qu’ADORE a observé zéro, **Non disponible** signifie que rien n’a été enregistré, et **Partiel · sous-total connu** signifie que le chiffre ne couvre que l’utilisation qui a déclaré des jetons.
 

@@ -248,7 +248,7 @@ test("out-of-order old scope cannot overwrite new data or exports; route transit
     await route.fulfill({ json: body });
   });
   await page.goto(`/metrics?project=${alpha}`); await expect(page.locator(".statistics-evidence")).toBeVisible();
-  const staleResponse = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1/projects/${alpha}/metrics` && new URL(response.url()).searchParams.get("day_from") === "2026-10-24");
+  const staleResponse = page.waitForEvent("requestfailed", request => new URL(request.url()).pathname === `/api/v1/projects/${alpha}/metrics` && new URL(request.url()).searchParams.get("day_from") === "2026-10-24");
   await page.getByLabel("From", { exact: true }).fill("2026-10-24"); await started;
   await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByText("Export CSV", { exact: true })).toHaveCount(0);
   await page.getByLabel("From", { exact: true }).fill("2026-10-25");
@@ -284,7 +284,9 @@ test("known zero, partial coverage, job duration and trend table bars work in fo
   test.setTimeout(60_000);
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await signIn(page);
+  let failRefresh = false;
   await page.route("**/api/v1/metrics?*", async route => {
+    if (failRefresh) { await route.abort("failed"); return; }
     const body = await (await route.fetch()).json(); for (const name of Object.keys(body)) body[name] = analytical(body[name]); await route.fulfill({ json: body });
   });
   const cohort = (await (await page.request.get("/api/v1/projects")).json()).length;
@@ -295,6 +297,18 @@ test("known zero, partial coverage, job duration and trend table bars work in fo
     expect((await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme } })).ok()).toBe(true);
     await page.setViewportSize({ width: 390, height: 900 }); await page.goto("/metrics");
     await expect(page.locator(".statistics-evidence")).toContainText(copy.partial);
+    const feedback = page.locator(".refresh-feedback");
+    await expect(feedback.getByRole("button", { name: messages[locale].refresh, exact: true })).toBeVisible();
+    await expect(feedback.locator("time")).toHaveCount(3);
+    expect(await feedback.locator("time").first().evaluate(node => node.closest('[aria-live], [role="status"], [role="alert"]'))).toBeNull();
+    failRefresh = true;
+    await feedback.getByRole("button", { name: messages[locale].refresh, exact: true }).click();
+    await expect(feedback.getByRole("status")).toHaveText(messages[locale].refreshStale);
+    await expect(page.locator(".statistics-evidence")).toBeVisible();
+    const retry = feedback.getByRole("button", { name: messages[locale].retry, exact: true });
+    await retry.focus(); await expect(retry).toBeFocused();
+    failRefresh = false; await page.keyboard.press("Enter");
+    await expect(feedback.getByRole("status")).toHaveCount(0);
     await page.getByRole("tab", { name: messages[locale].metricsTabUsage, exact: true }).click();
     await expect(page.locator(".usage-totals").first()).toContainText(messages[locale].averageSpan);
     await expect(page.locator(".job-consumption")).toHaveCount(0);
@@ -365,6 +379,135 @@ test("revoked Dev grant hides earlier values and discards an authorized response
   } finally {
     release(); expect((await request.put(`/api/v1/projects/${alpha}/access/${developer}`, { headers: { "X-CSRF-Token": session.csrf }, data: { granted: true } })).ok()).toBe(true);
   }
+});
+
+/** Hold both reporting members to prove UI publication, not private controller state. */
+for (const scope of ["global", "selected", "hub"] as const) {
+  test(`coordinated background Statistics preserves every tab and export in ${scope} scope`, async ({ page }) => {
+    await signIn(page);
+    const projects = await (await page.request.get("/api/v1/projects")).json();
+    const alpha = projects.find((item: any) => item.name === "alpha").id;
+    await page.clock.install();
+    let hold = false, input = 7;
+    const releases: Partial<Record<"metrics" | "usage", () => void>> = {};
+    const reads = { metrics: 0, usage: 0, unrelated: 0 };
+    await page.route(/\/api\/v1\/(?:projects\/[^/]+\/)?(?:metrics|usage)\?/, async route => {
+      const path = new URL(route.request().url()).pathname;
+      const member = path.endsWith("/metrics") ? "metrics" : "usage";
+      if (scope !== "global" && !path.includes("/projects/")) reads.unrelated++;
+      const body = await (await route.fetch()).json();
+      const transform = (value: any) => member === "metrics" ? analytical(value, input) : {
+        ...value, totals: { ...value.totals, tokens_in: input, tokens_out: 0 },
+      };
+      const result = path.includes("/projects/") ? transform(body) : Object.fromEntries(Object.entries(body).map(([name, value]) => [name, transform(value)]));
+      reads[member]++;
+      if (hold) await new Promise<void>(resolve => { releases[member] = resolve; });
+      await route.fulfill({ json: result });
+    });
+    await page.goto(scope === "global" ? "/metrics" : scope === "selected" ? `/metrics?project=${alpha}` : `/projects/${alpha}/statistics`);
+    await expect(page.locator(".statistics-evidence")).toBeVisible();
+    const total = scope === "global" ? projects.length : 1;
+    for (const [index, tab] of ["Summary", "Usage", "Quality", "Trends"].entries()) {
+      await page.getByRole("tablist", { name: "Statistics", exact: true }).getByRole("tab", { name: tab, exact: true }).click();
+      if (index === 0) await page.getByText("Export CSV", { exact: true }).click();
+      const firstLink = page.locator(".metrics-export a").first();
+      await expect(firstLink).toBeVisible();
+      const panel = await page.locator("#metrics-tab-panel").elementHandle();
+      const disclosure = await page.locator(".metrics-export").elementHandle();
+      const baseline = { ...reads };
+      const times = await page.locator(".refresh-feedback time").evaluateAll(nodes => nodes.map(node => node.getAttribute("datetime")));
+      hold = true; input = index % 2 ? 19 : 7;
+      // Selected metrics stay at 15s; usage/global metrics at 30s. A slow
+      // metrics proposal crossing the due boundary must promote its usage pin.
+      await page.clock.runFor(30000);
+      await expect.poll(() => reads.metrics).toBe(baseline.metrics + 1);
+      await expect.poll(() => reads.usage).toBe(baseline.usage + 1);
+      await expect(firstLink).toBeVisible();
+      await expect(page.locator("#metrics-tab-panel .data-loading")).toHaveCount(0);
+      await expect(page.getByRole("tablist", { name: "Statistics", exact: true }).getByRole("tab", { name: tab, exact: true })).toHaveAttribute("aria-selected", "true");
+      expect(await panel!.evaluate(node => node === document.querySelector("#metrics-tab-panel"))).toBe(true);
+      // Alternate member order; the first completion cannot publish half a report.
+      const first = index % 2 ? "usage" : "metrics", second = first === "usage" ? "metrics" : "usage";
+      releases[first]!();
+      await expect(page.locator(".refresh-feedback")).toHaveAttribute("data-refreshing", "true");
+      expect(await page.locator(".refresh-feedback time").evaluateAll(nodes => nodes.map(node => node.getAttribute("datetime")))).toEqual(times);
+      await expect(firstLink).toBeVisible();
+      hold = false; releases[second]!();
+      await expect(page.locator(".refresh-feedback")).toHaveAttribute("data-refreshing", "false");
+      expect(await disclosure!.evaluate(node => node === document.querySelector(".metrics-export") && (node as HTMLDetailsElement).open)).toBe(true);
+      if (tab === "Summary") await expect(page.locator(".statistics-evidence")).toContainText(new Intl.NumberFormat("en").format(input * total));
+    }
+    expect(reads.unrelated).toBe(0);
+  });
+}
+
+test("Statistics manual refresh preserves paging focus and freshness through failure and recovery", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+  await page.clock.install();
+  let mode: "ready" | "hold" | "transport" | "malformed" = "ready";
+  let input = 7, release!: () => void, reads = 0;
+  await page.route("**/api/v1/projects/*/usage?*", async route => {
+    reads++;
+    if (mode === "transport") { await route.abort("failed"); return; }
+    if (mode === "malformed") { await route.fulfill({ contentType: "application/json", body: "{" }); return; }
+    const body = await (await route.fetch()).json();
+    body.totals.tokens_in = input;
+    body.daily = Array.from({ length: 61 }, (_, index) => ({ date: "2026-10-25", executor: "pi", model: `model-${String(index).padStart(2, "0")}`,
+      ...amounts(index, 0) }));
+    if (mode === "hold") await new Promise<void>(resolve => { release = resolve; });
+    await route.fulfill({ json: body });
+  });
+  await page.goto(`/projects/${alpha}/statistics?tab=usage`);
+  const table = page.locator(".usage-table"), feedback = page.locator(".refresh-feedback");
+  await expect(table).toBeVisible();
+  await page.getByRole("columnheader", { name: "Input tokens", exact: true }).getByRole("button").click();
+  const size = page.getByRole("combobox", { name: "Rows per page", exact: true });
+  await size.selectOption("25"); await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(table.locator("tbody tr")).toHaveCount(25);
+  const beforeRows = (await table.locator("tbody").textContent())!;
+  await page.getByText("Export CSV", { exact: true }).click();
+  const initialTime = await feedback.locator("time").first().getAttribute("datetime");
+  const firstInput = await table.locator("tbody tr").first().elementHandle();
+  const focused = await size.elementHandle();
+  const initialReads = reads;
+  mode = "hold"; input = 19;
+  await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect.poll(() => reads).toBe(initialReads + 1);
+  await feedback.getByRole("button", { name: "Refresh", exact: true }).focus();
+  await page.keyboard.press("Enter"); // aria-disabled remains focusable; the handler must coalesce/ignore.
+  await size.focus();
+  const scroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
+  try {
+    await page.clock.runFor(15000);
+    expect(reads).toBe(initialReads + 1);
+    await expect(size).toHaveValue("25"); await expect(size).toBeFocused();
+    await expect(table.locator("tbody")).toHaveText(beforeRows);
+    await expect(feedback.locator("time").first()).toHaveAttribute("datetime", initialTime!);
+    await expect(page.locator(".metrics-export")).toHaveAttribute("open", "");
+    mode = "ready"; release();
+    await expect(feedback).toHaveAttribute("data-refreshing", "false");
+    await expect(size).toHaveValue("25"); await expect(size).toBeFocused();
+    expect(await focused!.evaluate(node => node === document.activeElement)).toBe(true);
+    expect(await firstInput!.evaluate(node => node === document.querySelector(".usage-table tbody tr"))).toBe(true);
+    expect(await page.evaluate(() => ({ x: scrollX, y: scrollY }))).toEqual(scroll);
+    await expect(table.locator("tbody")).toHaveText(beforeRows);
+    await expect(page.locator(".usage-totals")).toContainText("19");
+    await expect(feedback.locator("time").first()).not.toHaveAttribute("datetime", initialTime!);
+    const successTime = await feedback.locator("time").first().getAttribute("datetime");
+    mode = "transport";
+    await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(feedback.getByRole("status")).toContainText("Refresh failed");
+    await expect(table).toBeVisible(); await expect(page.locator(".metrics-export")).toHaveAttribute("open", "");
+    await expect(feedback.locator("time").first()).toHaveAttribute("datetime", successTime!);
+    mode = "ready";
+    await feedback.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(feedback.getByRole("status")).toHaveCount(0); await expect(size).toHaveValue("25");
+    mode = "malformed";
+    await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible(); await expect(table).toHaveCount(0);
+    await expect(page.locator(".metrics-export")).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
+  } finally { release?.(); }
 });
 
 test("metric and usage responses with different canonical intervals fail closed together", async ({ page }) => {

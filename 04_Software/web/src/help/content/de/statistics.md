@@ -16,7 +16,11 @@ Statistiken zeigt, wie viel Arbeit ADORE geleistet hat, was dabei verbraucht wur
 
 Daten und Gruppen verwenden UTC, sofern die Seitenadresse keine andere Zeitzone enthält. Die Daten gelten für jeden Reiter und jeden Export. Ein Wechsel des Projekts behält den Zeitraum und den aktuellen Reiter bei.
 
-Das Menü **CSV exportieren** bietet **Projektkennzahlen**, **Projektnutzung** und **Jobverbrauch** für ein Projekt oder **Kennzahlen aller Projekte**, **Nutzung aller Projekte** und **Jobverbrauch** für **Alle Projekte**. Es erscheint, sobald die Daten geladen sind. Schlägt eine Anfrage fehl, zeigt die Seite **Daten konnten nicht geladen werden** und hält Summen und Exporte zurück.
+Das Menü **CSV exportieren** bietet **Projektkennzahlen**, **Projektnutzung** und **Jobverbrauch** für ein Projekt oder **Kennzahlen aller Projekte**, **Nutzung aller Projekte** und **Jobverbrauch** für **Alle Projekte**. Es erscheint, sobald die Daten geladen sind. Hintergrundabfragen lassen Bericht, offenes Menü und Tabellensteuerung sichtbar, bis ein vollständig geprüfter Ersatz bereitsteht.
+
+**Aktualisieren** liest Kennzahlen und Nutzung, ohne die Ansicht zurückzusetzen. **Zuletzt aktualisiert** zeigt die letzte vollständige erfolgreiche Abfrage; **Kennzahlen aktualisiert** und **Nutzung aktualisiert** zeigen die Zeit jeder Quelle. Kennzahlen des gewählten Projekts werden alle 15 Sekunden gelesen, Nutzung und globale Kennzahlen alle 30 Sekunden bei sichtbarem Tab.
+
+Nach einem Verbindungsfehler oder einer abgelaufenen Lesefrist kann der letzte geprüfte Bericht mit Fehlerhinweis, ursprünglichen Zeiten und **Wiederholen** sichtbar bleiben. Er ist kein aktueller Nachweis. Eine erfolgreiche manuelle oder automatische Abfrage entfernt den Hinweis. CSV-Downloads lesen aktuelle Serverdaten, nicht unbedingt diesen behaltenen Bericht. Erstabfragen, ungültige, nicht autorisierte oder andere fehlgeschlagene Abfragen zeigen **Daten konnten nicht geladen werden** ohne Summen und Exporte.
 
 Ein Strich bedeutet, dass der Wert unbekannt ist. Unter einem Wert bedeutet **Gemessene Null**, dass ADORE null beobachtet hat, **Nicht verfügbar**, dass nichts aufgezeichnet wurde, und **Teilweise · bekannte Teilsumme**, dass die Zahl nur die Nutzung umfasst, die Token gemeldet hat.
 

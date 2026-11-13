@@ -19,13 +19,21 @@ An explicit host-check result invalidates/cancels older directory work before
 publication; a later poll can still update verification. `web/e2e/jobs.spec.ts`
 proves request counts, cancellation/ordering and corrupt-refresh recovery.
 
-`statistics.ts::createReportingRefresh` is a coordination primitive, not yet App's
-Statistics reader. It validates exact immutable-ID metrics/usage maps, stages both
-under one 30-second deadline, compares canonical scopes and publishes one complete
-report. Explicit masks pin not-due baseline inputs with their original times;
-full/due triggers promote pins without duplicate reads. Failed proposals discard
-staged values and require their requested dependencies on recovery. Tests are in
-`web/tests/statistics.test.mjs`; UI continuity/coherence integration remains absent.
+App's Statistics reader uses `statistics.ts::createReportingRefresh`, keyed by
+principal/role, authorized immutable ID/name map, selected/all-project scope and
+reporting query, not tab/export/table state. Global name responses map to captured
+IDs; selected contexts request only selected endpoints. The owner validates exact
+metrics/usage maps under one 30-second deadline, compares canonical scopes and
+publishes one complete report. Explicit masks pin not-due baseline inputs with
+original times; full/due triggers promote pins without duplicate reads. Selected
+metrics keeps 15s cadence, usage/global metrics 30s, with full visible/manual reads.
+Failed proposals discard staged values and require requested dependencies on recovery.
+Statistics retains content/export while pending; only positively typed transport/
+deadline failures retain a marked stale report. Closed failures hide it. Shared
+four-locale RefreshFeedback exposes non-live progress and full/member successful
+times plus failure status/retry. CSV reads current server data, not the retained
+screen. Helper and offline Statistics browser tests cover the seam; Jobs/audit/
+Users integration and full cross-view authorization acceptance remain separate.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
@@ -327,8 +335,8 @@ SQLite bytes, authorization, scope and financial redaction.
   distinct pending/error feedback and role-specific empty project guidance.
   Essential field instructions remain visible and associated with controls.
 - App keys data by project/filter and guards completions by request/session
-  identity. Numeric totals render from successful reads; failed reads hide
-  stale totals until the next automatic update. Closing a job clears its
+  identity. Numeric totals render from successful reads; Statistics marks retained
+  transport/deadline failures stale, while closed failures hide affected totals. Closing a job clears its
   URL identity. Jobs/Overview default to complete all-authorized current/archived
   history or an explicit selected project. JobWorkspace guards render keys and
   composite detail identity; changed continuations hide totals/detail and require

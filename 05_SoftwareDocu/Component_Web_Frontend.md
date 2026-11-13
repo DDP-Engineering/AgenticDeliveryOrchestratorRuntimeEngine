@@ -73,7 +73,8 @@ require current evidence; opting into informational display is not action author
 `startVisiblePolling` preserves its supplied interval, stops while hidden and
 revalidates once on a hidden-to-visible transition. Repeated visible events do
 nothing; already queued periodic callbacks check visibility and stopped ownership.
-The scheduler does not itself serialize asynchronous readers. The browser-test
+Its callback receives `interval` or `visible`, allowing due-member masks versus
+full visible-return revalidation. The scheduler does not itself serialize asynchronous readers. The browser-test
 helper `e2e/polling.ts::revalidateVisiblePage` exercises hidden/visible transitions
 and restores the document's original property; it does not substitute duplicate
 visible events for elapsed polling. `tests/polling.test.mjs` uses deferred reads and
@@ -81,15 +82,20 @@ an injected deadline clock for overlap, success time, transport recovery,
 fail-closed failures, ignored aborts, invalidation and disposal; `errors.test.mjs`
 checks positive error classification and localized guidance.
 
-## Coordinated reporting primitive
+## Coordinated Statistics refresh
 
 `statistics.ts::createReportingRefresh` coordinates one context's immutable-ID
 metrics/usage maps through `createReadController` with one 30-second proposal
 bound. Transports return exactly the captured project ID set; complete existing
 metrics/usage validators enforce the copied selection and role before staging.
 Matching canonical scope fields are checked between corresponding map members
-before a single replacement publication. The helper is not yet wired to App's
-Statistics readers; its tests prove the coordination seam, not UI continuity.
+before a single replacement publication. App uses this owner for both global and
+project Statistics. Its render key captures the session principal/role, authorized
+immutable ID/name mapping, selected/all-project mode and reporting query; tab,
+export disclosure, sort and pagination do not recreate the reader. Global responses
+are checked against captured names and mapped to immutable IDs before validation.
+Selected reports read only their selected metrics/usage endpoints, including for
+administrators; irrelevant all-project reads cannot block readiness.
 
 `refresh()` requests both inputs. `refresh({metrics: true})` or the usage mask
 can pin a not-due member only from the committed baseline, retaining its original
@@ -101,7 +107,26 @@ discard staged values, abort siblings and require the failed proposal's requeste
 inputs on recovery. Strict failures clear the baseline; positively typed transport/
 deadline failures retain only the prior complete report as stale. Invalidation and
 disposal cancel both members, and late success/error cannot publish. No backend
-atomic instant, new API/storage format, scheduler or authorization is implied.
+atomic instant, new API/storage format or authorization is implied.
+
+App's single visible schedule keeps selected metrics at 15 seconds, adding usage
+when due at 30 seconds; all-project metrics and usage run at 30 seconds. Initial,
+manual Refresh/retry and visible return request both. Metadata with an unchanged
+identity/scope and equivalent session-notice reads do not restart the owner.
+Context exit disposes/aborts both members. Only committed data drives cards,
+tables and exports. Context changes synchronously hide the preceding report;
+initial and closed failures retain the existing DataFeedback boundary.
+
+`Presentation.tsx::RefreshFeedback` keeps Refresh focusable with `aria-disabled`
+and a guarded handler while pending; progress and full/member success times are
+non-live. Stale/closed failure status is announced separately. Statistics records
+Last refreshed from `fullReportAt` and labels Metrics updated/Usage updated with
+their own times, so a pinned usage input never appears newly read. Transport/deadline
+failures retain only explicitly marked informational evidence; a retained report's
+CSV links read current server data, not a guaranteed export of that screen.
+App's request transport positively types fetch failures, preserves owned aborts,
+and refuses invalid JSON/media evidence; arbitrary HTTP codes are not transport.
+The four-locale feedback wraps using shared theme tokens.
 
 `tests/statistics.test.mjs` uses validated fixtures and deferred member reads for
 both completion orders, pins/source times, promotion, partial failure/recovery,
@@ -328,8 +353,10 @@ remain independent of the Statistics selector. Statistics retains `/metrics`,
 existing exports and query parameters.
 
 Loading and failed requests have separate status/error panels. Numeric
-cards and data tables render after successful scoped responses. A failed
-refresh withholds prior totals until the next automatic update. A successful
+cards and data tables render after successful scoped responses. Statistics keeps
+its complete report during same-context reads and marked transport/deadline
+failure; closed failures withhold prior totals. Other readers keep their
+resource-specific error policies. A successful
 empty project card uses equal spacing for its title, guidance and any enrollment
 action. Its guidance explains enrollment for administrators or access requests
 for Dev users. Pending detail responses
@@ -800,7 +827,7 @@ terminal jobs in the same authorized hub. The Admin-only estimated-price form si
 in the Agent and model settings group (`executorAfter` slot of `SettingsList`),
 asks only for effective date and rates, submits executor `pi` and the applied
 `executor.model` as hidden fields, shows set-a-model guidance when that model
-is empty, and remounts per project and configuration revision. A successful empty Statistics response shows the measured zero lifecycle counts and explicit unavailable consumption; Quality and Trends show localized empty feedback. Loading or failed reads withhold numeric cards and CSV actions.
+is empty, and remounts per project and configuration revision. A successful empty Statistics response shows the measured zero lifecycle counts and explicit unavailable consumption; Quality and Trends show localized empty feedback. Initial/context loading and closed failures withhold numeric cards and CSV actions; same-context pending reads and explicitly marked transport/deadline failures retain the complete report.
 An account whose password an administrator reset signs in to a dedicated
 change-password card with the reason, language, theme and Sign out controls;
 the dashboard and its polling stay inactive until the change succeeds, after

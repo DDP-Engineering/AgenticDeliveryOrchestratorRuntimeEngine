@@ -16,7 +16,11 @@ Deschideți **Statistici** din bara laterală pentru a vedea toate proiectele la
 
 Datele și intervalele folosesc UTC, dacă adresa paginii nu poartă alt fus orar. Datele se aplică fiecărei file și fiecărui export. Schimbarea proiectului păstrează perioada și fila în care vă aflați.
 
-Meniul **Exportă CSV** oferă **Indicatorii proiectului**, **Utilizarea proiectului** și **Consumul jobului** pentru un singur proiect, sau **Indicatorii tuturor proiectelor**, **Utilizarea tuturor proiectelor** și **Consumul jobului** pentru **Toate proiectele**. Apare după încărcarea datelor. Dacă o cerere eșuează, pagina afișează **Datele nu au putut fi încărcate** și reține totalurile și exporturile.
+Meniul **Exportă CSV** oferă **Indicatorii proiectului**, **Utilizarea proiectului** și **Consumul jobului** pentru un singur proiect, sau **Indicatorii tuturor proiectelor**, **Utilizarea tuturor proiectelor** și **Consumul jobului** pentru **Toate proiectele**. Apare după încărcarea datelor. Citirile în fundal păstrează raportul, meniul deschis și controalele tabelului până când este validată o înlocuire completă.
+
+**Reîmprospătează** citește indicatorii și utilizarea fără a reseta vederea. **Ultima actualizare** arată ultima citire completă reușită; **Indicatori actualizați** și **Utilizare actualizată** arată ora fiecărei surse. Indicatorii proiectului ales se actualizează la 15 secunde; utilizarea și indicatorii globali la 30 de secunde cât timp fila este vizibilă.
+
+După o eroare de conexiune sau depășirea termenului de citire, ultimul raport validat poate rămâne cu un avertisment, orele originale și **Reîncearcă**. Nu este o dovadă actuală. O citire manuală sau automată reușită șterge avertismentul. CSV-urile citesc datele actuale de pe server, nu neapărat acest raport păstrat. Citirile inițiale, invalide, neautorizate sau alte eșecuri afișează **Datele nu au putut fi încărcate** fără totaluri și exporturi.
 
 O liniuță înseamnă că valoarea este necunoscută. Sub o valoare, **Zero măsurat** înseamnă că ADORE a observat zero, **Indisponibil** înseamnă că nu s-a înregistrat nimic, iar **Parțial · subtotal cunoscut** înseamnă că cifra acoperă doar utilizarea care a raportat tokenuri.
 

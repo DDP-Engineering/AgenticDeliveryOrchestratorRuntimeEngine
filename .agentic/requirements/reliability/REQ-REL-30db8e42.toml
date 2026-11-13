@@ -19,7 +19,7 @@ verification = "Offline browser as Admin: open Project Statistics and global Sta
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts"]
 
 
 spec = ""
