@@ -40,7 +40,20 @@ IANA timezone and day/week/month granularity. The selected category and export
 menu are view state, not a reason to discard an otherwise valid report.
 
 Validation covers the existing required metrics/usage structures and role-specific
-financial projection. Metrics run collections must be arrays of object rows with
+financial projection. Every raw response bound must match the captured inclusive
+local calendar query in its IANA timezone, not just the other response's scope.
+Independent local-midnight resolution verifies From and midnight after Through,
+including DST 23/25-hour days, fractional offsets, repeated/missing midnight and
+skipped dates with the server's Python ZoneInfo fold=0 semantics. Omitted bounds
+remain unbounded. Client resolution verifies binding only; event attribution and
+bucketing remain server-owned. Mutually agreeing wrong-period evidence fails
+before report/exports/success time publication. Required nonfinancial metrics
+`totals` fields are `runs`, `started`, `completed`, `failed`, `merged`, `mr_revisions`
+and `pipeline_repairs`; each is a present nonnegative safe integer. Absence cannot
+become a pooled zero or an empty Quality/Trends success. Helpers and all three
+browser scopes cover initial/replacement refusal, no pageerror and valid recovery;
+real-server calendar/DST/midnight/one-sided controls and optional-evidence controls
+remain valid. Metrics run collections must be arrays of object rows with
 nonnegative safe-integer review-round counts and a safe per-project derived total;
 malformed run evidence fails before publication, not inside global Quality rendering.
 Optional revisions may be absent or an empty array; present evidence must be an array

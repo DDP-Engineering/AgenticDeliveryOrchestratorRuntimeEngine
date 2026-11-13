@@ -18,7 +18,7 @@ const scope = (id = "alpha") => ({ project_ids: [id], mode: "all_time", from: nu
 const fixture = () => {
   const duration = { sampled_runs: 2, avg_span_seconds: 60, median_span_seconds: 60, sum_span_seconds: 120, samples_seconds: [0, 120] };
   return { scope: scope(), jobs: [job()], current_stock: { active_now: 1, jobs_now: 1, waiting_now: 0, review_now: 0, terminal_now: 0, basis: "current_state" },
-    totals: { runs: 1, started: 1, completed: 1, failed: 1, tokens_in: 0, tokens_out: 0 },
+    totals: { runs: 1, started: 1, completed: 1, failed: 1, merged: 0, mr_revisions: 0, pipeline_repairs: 0, tokens_in: 0, tokens_out: 0 },
     period: { from: null, to: null, started: 1, completed: 1, failed: 1, tokens_in: 0, tokens_out: 0, mr_revisions: 0, pipeline_repairs: 0, duration }, duration,
     coverage: { usage_events_with_tokens: 1, usage_events_without_tokens: 0, runs_with_usage: 1 },
     quality: { reviewed_jobs: 0, reworked_jobs: 0, validated_jobs: 0, first_pass_validations: 0, human_merged_jobs: 0, first_pass_merges: 0, open_review_jobs: 0, stage_failures: 0, operator_retries: 0,
@@ -197,6 +197,92 @@ test("reporting rejects malformed, foreign, missing and canonically mismatched r
   }
 });
 
+/** Bind local calendar controls to canonical instants, not just agreement between sources. */
+function scoped(value, selected, from, to) {
+  value.scope = { ...value.scope, mode: selected.from || selected.through ? "interval" : "all_time",
+    timezone: selected.timezone, granularity: selected.granularity, from, to,
+    interval_seconds: from && to ? (Date.parse(to) - Date.parse(from)) / 1000 : null };
+  if (value.period) Object.assign(value.period, { from, to });
+  return value;
+}
+const calendarCases = [
+  ["UTC", "2026-10-25", "2026-10-25", "2026-10-25T00:00:00Z", "2026-10-26T00:00:00Z"],
+  ["Europe/Bucharest", "2026-10-25", "2026-10-25", "2026-10-24T21:00:00Z", "2026-10-25T22:00:00Z"],
+  ["Europe/Bucharest", "2026-03-29", "2026-03-29", "2026-03-28T22:00:00Z", "2026-03-29T21:00:00Z"],
+  ["America/New_York", "2026-03-08", "2026-03-08", "2026-03-08T05:00:00Z", "2026-03-09T04:00:00Z"],
+  ["Asia/Kathmandu", "2026-10-25", "2026-10-25", "2026-10-24T18:15:00Z", "2026-10-25T18:15:00Z"],
+  ["Australia/Lord_Howe", "2026-10-04", "2026-10-04", "2026-10-03T13:30:00Z", "2026-10-04T13:00:00Z"],
+  // Python ZoneInfo uses fold=0: pre-transition offset for missing/ambiguous midnight.
+  ["America/Sao_Paulo", "2018-11-04", "2018-11-04", "2018-11-04T03:00:00Z", "2018-11-05T02:00:00Z"],
+  ["America/Havana", "2020-11-01", "2020-11-01", "2020-11-01T04:00:00Z", "2020-11-02T05:00:00Z"],
+  ["Pacific/Apia", "2011-12-30", "2011-12-31", "2011-12-30T10:00:00Z", "2011-12-31T10:00:00Z"],
+  ["Pacific/Apia", "2011-12-30", "2011-12-30", "2011-12-30T10:00:00Z", "2011-12-30T10:00:00Z"],
+  ["UTC", "2024-02-29", "2024-12-31", "2024-02-29T00:00:00Z", "2025-01-01T00:00:00Z"],
+];
+test("reporting binds calendar boundaries including DST midnight transitions and one-sided ranges", async () => {
+  for (const [timezone, fromDay, throughDay, start, end] of calendarCases) for (const bounds of ["both", "from", "through"]) {
+    const selected = { ...selection, timezone, from: bounds === "through" ? "" : fromDay, through: bounds === "from" ? "" : throughDay };
+    const from = selected.from ? start : null, to = selected.through ? end : null;
+    const h = reporting({ selection: selected });
+    const pending = h.owner.refresh(); await flush();
+    h.requests.metrics[0].resolve({ alpha: scoped(fixture(), selected, from, to) });
+    h.requests.usage[0].resolve({ alpha: scoped(consumption(), selected, from, to) });
+    await pending;
+    assert.equal(h.latest().status, "ready", `${timezone}/${bounds}`);
+    assert.equal(h.latest().data.fullReportAt, 1000); h.owner.dispose();
+    for (const [value, reader] of [[fixture(), readStatistics], [consumption(), readConsumption]]) {
+      scoped(value, selected, from && new Date(Date.parse(from) + 3600000).toISOString(), to);
+      if (from) assert.throws(() => reader(value, "alpha", selected, false), RangeError, "not a different hour of the same local day");
+      scoped(value, selected, from, to && new Date(Date.parse(to) + 3600000).toISOString());
+      if (to) assert.throws(() => reader(value, "alpha", selected, false), RangeError, "upper bound is next midnight, not an added 24 hours");
+    }
+  }
+});
+
+test("mutually matching wrong calendar intervals never publish initial or replacement freshness", async () => {
+  for (const bounds of ["both", "from", "through"]) {
+    const selected = { ...selection, from: bounds === "through" ? "" : "2026-10-25", through: bounds === "from" ? "" : "2026-10-25" };
+    const h = reporting({ selection: selected, projectIds: ["alpha", "beta"] });
+    const complete = async wrong => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = {}, usage = {};
+      for (const id of ["alpha", "beta"]) {
+        const from = selected.from ? wrong ? "2026-09-01T00:00:00Z" : "2026-10-25T00:00:00Z" : null;
+        const to = selected.through ? wrong ? "2026-09-02T00:00:00Z" : "2026-10-26T00:00:00Z" : null;
+        metrics[id] = scoped(fixture(), selected, from, to); usage[id] = scoped(consumption(), selected, from, to);
+        for (const value of [metrics[id], usage[id]]) { value.scope.project_ids = [id]; value.jobs[0].project_id = id; }
+      }
+      h.requests.metrics.at(-1).resolve(metrics); h.requests.usage.at(-1).resolve(usage); await pending;
+    };
+    await complete(true);
+    assert.equal(h.latest().status, "error"); assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false);
+    await complete(false); assert.equal(h.latest().status, "ready");
+    h.advance(100); await complete(true);
+    assert.equal(h.latest().status, "error"); assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete(false); assert.equal(h.latest().status, "ready"); assert.equal(h.latest().data.fullReportAt, 1100);
+    h.owner.dispose();
+  }
+});
+
+test("required metrics total counts cannot be omitted and silently pooled as zero", async () => {
+  for (const key of ["runs", "started", "completed", "failed", "merged", "mr_revisions", "pipeline_repairs"]) {
+    const h = reporting();
+    const complete = async missing => {
+      const pending = h.owner.refresh(); await flush();
+      const value = fixture(); if (missing) delete value.totals[key];
+      h.requests.metrics.at(-1).resolve({ alpha: value }); h.requests.usage.at(-1).resolve({ alpha: consumption() }); await pending;
+    };
+    await complete(true);
+    assert.equal(h.latest().status, "error", key); assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false);
+    await complete(false); assert.equal(h.latest().status, "ready");
+    h.advance(100); await complete(true);
+    assert.equal(h.latest().status, "error", key); assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete(false); assert.equal(h.latest().status, "ready"); h.owner.dispose();
+  }
+});
+
 test("matching request selections still require matching server canonical intervals", async () => {
   const intervalSelection = { ...selection, from: "2026-10-25", through: "2026-10-25" };
   const h = reporting({ selection: intervalSelection });
@@ -207,16 +293,17 @@ test("matching request selections still require matching server canonical interv
     value.scope = { ...value.scope, mode: "interval", from, to, interval_seconds: 86400 };
     if (value.period) { value.period.from = from; value.period.to = to; }
   }
-  // Individually valid for the selection; only the coordinated pair can reject this mismatch.
+  // The wrong member now fails its captured calendar binding independently,
+  // before coordinated publication can discover disagreement between sources.
   readStatistics(metrics.alpha, "alpha", intervalSelection, false);
-  readConsumption(usage.alpha, "alpha", intervalSelection, false);
+  assert.throws(() => readConsumption(usage.alpha, "alpha", intervalSelection, false), RangeError);
   h.requests.metrics[0].resolve(metrics); h.requests.usage[0].resolve(usage); await pending;
   assert.equal(h.latest().status, "error");
   assert.equal(h.latest().data, null);
   assert.equal(h.latest().completedAt, null);
 });
 
-/** Global pairs may each validate while disagreeing with the other project. */
+/** Global reports refuse wrong calendar members and invalid pooled evidence. */
 test("global reporting validates common canonical scope and pooled evidence before publication", async () => {
   const intervalSelection = { ...selection, from: "2026-10-25", through: "2026-10-25" };
   for (const failure of ["interval", "metrics aggregate", "usage aggregate"]) {
@@ -234,8 +321,13 @@ test("global reporting validates common canonical scope and pooled evidence befo
         Object.assign(metrics[id].period, { from, to });
         if (bad && failure === "metrics aggregate") metrics[id].totals.cost_usd = 1e308;
         if (bad && failure === "usage aggregate") usage[id].totals.reported_cost_usd = 1e308;
-        readStatistics(metrics[id], id, intervalSelection, true);
-        readConsumption(usage[id], id, intervalSelection, true);
+        if (bad && failure === "interval" && id === "beta") {
+          assert.throws(() => readStatistics(metrics[id], id, intervalSelection, true), RangeError);
+          assert.throws(() => readConsumption(usage[id], id, intervalSelection, true), RangeError);
+        } else {
+          readStatistics(metrics[id], id, intervalSelection, true);
+          readConsumption(usage[id], id, intervalSelection, true);
+        }
       }
       return { metrics, usage };
     };

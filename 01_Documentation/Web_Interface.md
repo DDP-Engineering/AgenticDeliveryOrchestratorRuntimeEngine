@@ -1147,8 +1147,12 @@ times. It is informational, not current authoritative evidence. Retry or the nex
 successful complete read clears the notice. CSV downloads read current server
 data, not necessarily the retained screen. Initial, malformed, unauthorized,
 scope-mismatched and other application failures hide the affected report and exports.
-All projects must share the same server reporting boundaries. An inconsistent
-project interval or invalid pooled result also shows error/Retry without a new
+All projects must share the same server reporting boundaries, and those boundaries
+must match the chosen calendar dates in the requested time zone. Even mutually
+matching reports for a different period are refused; daylight-saving changes and
+one-sided date ranges remain supported. Missing required job or lifecycle totals
+are invalid evidence, not measured zero or an empty Quality/Trends result.
+An inconsistent project interval or invalid pooled result also shows error/Retry without a new
 successful-update time; it cannot replace the page with a rendering failure.
 Token directions and known combined totals must be exact safe integers, including
 pooled reports and job consumption. Out-of-range evidence is refused, not rounded

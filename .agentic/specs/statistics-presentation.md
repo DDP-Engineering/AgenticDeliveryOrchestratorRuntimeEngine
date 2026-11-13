@@ -11,7 +11,7 @@ STATED: live #15 eight criteria; current #14 scoped-metrics.md remains authorita
 
 ## Behavior inventory and verification
 
-Scope selection: Admin all authorized projects or one project; Dev one authorized project. Inclusive From/Through calendar days, an explicit All-time action, IANA zone and day/week/month grouping. Existing URL project/tab compatibility remains; selected date/zone/group serialize in the statistics URL and survive reload/Back. The server computes the canonical [from,to) interval (including DST 23/25-hour days); the browser never calculates date attribution and does not display the interval or boundary explanations.
+Scope selection: Admin all authorized projects or one project; Dev one authorized project. Inclusive From/Through calendar days, an explicit All-time action, IANA zone and day/week/month grouping. Existing URL project/tab compatibility remains; selected date/zone/group serialize in the statistics URL and survive reload/Back. The server computes the canonical [from,to) interval (including DST 23/25-hour days); the browser never calculates date attribution and does not display the interval or boundary explanations. The browser verifies response boundaries against captured inclusive local dates using IANA local midnights, with the server's fold=0 behavior for missing/repeated midnight and omitted-bound semantics; agreement between sources on a different requested period is not sufficient.
 
 Response binding — coordinated revalidation: each Statistics read captures principal/role,
 authorized immutable project set, calendar/zone/group and selected context. A true
@@ -20,7 +20,10 @@ An initial pending read shows loading. A same-context pending read retains the
 committed validated report and export disclosure until a coherent replacement is
 ready. Reordered, superseded and unmounted completions cannot publish. Validate
 required scope/job/stock/amount/sample fields and immutable identity before any
-publication. Malformed, scope-mismatched, authorization, integrity and initial
+publication. Required nonfinancial metrics total counts must be present safe integers;
+a missing run/lifecycle/revision/repair count is invalid evidence, never an implicit
+zero or an empty Quality/Trends success. Optional evidence retains its existing
+absence/unknown contract. Malformed, scope-mismatched, authorization, integrity and initial
 failures hide affected numeric evidence and CSV actions. A positively classified
 same-context informational transport/deadline failure may retain the last validated
 report only with stale/failed-refresh feedback, last-success time and inline retry;

@@ -14,7 +14,7 @@ Statistiken zeigt, wie viel Arbeit ADORE geleistet hat, was dabei verbraucht wur
 | Gesamter Zeitraum | Leert beide Daten. Zwei leere Datumsfelder bedeuten ebenfalls den gesamten Zeitraum. |
 | CSV exportieren | Öffnet ein Menü mit Downloads für das aktuelle Projekt, die Daten und die Gruppierung. |
 
-Daten und Gruppen verwenden UTC, sofern die Seitenadresse keine andere Zeitzone enthält. Die Daten gelten für jeden Reiter und jeden Export. Ein Wechsel des Projekts behält den Zeitraum und den aktuellen Reiter bei.
+Daten und Gruppen verwenden UTC, sofern die Seitenadresse keine andere Zeitzone enthält. Die Daten gelten für jeden Reiter und jeden Export. Ein Bericht für andere Tage wird abgelehnt, selbst wenn beide Quellen übereinstimmen; Zeitumstellungen und ein leeres Datumsfeld bleiben unterstützt. Fehlende erforderliche Jobsummen zeigen einen Fehler und **Wiederholen**, nicht null oder einen leeren Bericht. Ein Wechsel des Projekts behält den Zeitraum und den aktuellen Reiter bei.
 
 Das Menü **CSV exportieren** bietet **Projektkennzahlen**, **Projektnutzung** und **Jobverbrauch** für ein Projekt oder **Kennzahlen aller Projekte**, **Nutzung aller Projekte** und **Jobverbrauch** für **Alle Projekte**. Es erscheint, sobald die Daten geladen sind. Hintergrundabfragen lassen Bericht, offenes Menü und Tabellensteuerung sichtbar, bis ein vollständig geprüfter Ersatz bereitsteht.
 

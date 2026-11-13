@@ -31,7 +31,10 @@ This project follows Keep a Changelog and Semantic Versioning.
   and absent counts remain unknown, and measured zero remains zero. Validate every
   pooled lifecycle, stock, quality, coverage, daily and total counter, review total
   and duration sum before success so exact project values cannot become rounded
-  fresh all-project evidence.
+  fresh all-project evidence. Bind each response's calendar boundaries to the chosen
+  period/time zone, including daylight-saving and midnight transitions; mutually
+  matching wrong-period data is refused. Require job/lifecycle/revision/repair totals
+  before publication instead of treating missing counts as zero or an empty report.
 - Keep Jobs/History rows, pages, open details, consumption and manual executor output
   through same-context reads and command results. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;

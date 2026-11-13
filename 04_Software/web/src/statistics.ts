@@ -16,15 +16,54 @@ const amount = (value: unknown) => value === null || typeof value === "number" &
 const tokens = (value: unknown) => value === null ? null : count(value);
 const instant = (value: unknown) => value === null || typeof value === "string" && /T.*(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value)) ? value as string | null : invalid();
 
-/** Preserve server boundaries; validate metadata against the captured request without estimating dates. */
+/**
+ * Resolve a requested local midnight solely to verify the server's scope binding.
+ * Intl supplies IANA offsets; calendar arithmetic never adds 24h to a zoned
+ * instant. Bracket offsets on both sides of midnight (including a skipped day).
+ * Match Python ZoneInfo fold=0: earlier instant for a repeated midnight, and the
+ * pre-transition offset for a missing midnight. Attribution/bucketing stays server-owned.
+ */
+function calendarBoundary(day: string, timezone: string, nextDay = false): number | null {
+  if (!day) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day.startsWith("0000")) return invalid();
+  const date = new Date(`${day}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== day) return invalid();
+  if (nextDay) date.setUTCDate(date.getUTCDate() + 1);
+  if (date.getUTCFullYear() > 9999) return invalid();
+  const nominal = date.getTime();
+  const format = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, calendar: "iso8601", numberingSystem: "latn",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+  const localTime = (instant: number) => {
+    const parts = Object.fromEntries(format.formatToParts(instant).map(part => [part.type, part.value]));
+    const local = new Date(0);
+    local.setUTCFullYear(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+    local.setUTCHours(Number(parts.hour), Number(parts.minute), Number(parts.second), 0);
+    return local.getTime();
+  };
+  const offsets = new Set([-2, -1, 0, 1, 2].map(days => {
+    const instant = nominal + days * 86400000;
+    return localTime(instant) - instant;
+  }));
+  const candidates = [...offsets].map(offset => nominal - offset);
+  const exact = candidates.filter(instant => localTime(instant) === nominal);
+  if (exact.length) return Math.min(...exact);
+  // No matching midnight is valid only in a positively identified clock gap.
+  if (!candidates.some(instant => localTime(instant) < nominal) ||
+    !candidates.some(instant => localTime(instant) > nominal)) return invalid();
+  return Math.max(...candidates);
+}
+
+/** Validate canonical server boundaries against the captured inclusive calendar query. */
 function scope(value: unknown, project: string, selection: ReportingSelection) {
   const row = object(value);
   if (!Array.isArray(row.project_ids) || row.project_ids.length !== 1 || row.project_ids[0] !== project ||
     row.timezone !== selection.timezone || row.granularity !== selection.granularity || row.interval !== "[from,to)" ||
-    row.mode !== (selection.from || selection.through ? "interval" : "all_time")) invalid();
+    row.mode !== (selection.from || selection.through ? "interval" : "all_time") ||
+    selection.from && selection.through && selection.from > selection.through) invalid();
   const from = instant(row.from), to = instant(row.to);
-  if (Boolean(from) !== Boolean(selection.from) || Boolean(to) !== Boolean(selection.through) ||
-    from && to && Date.parse(to) <= Date.parse(from)) invalid();
+  if ((from === null ? null : Date.parse(from)) !== calendarBoundary(selection.from, selection.timezone) ||
+    (to === null ? null : Date.parse(to)) !== calendarBoundary(selection.through, selection.timezone, true) ||
+    from && to && Date.parse(to) < Date.parse(from)) invalid();
   if (from && to) { if (count(row.interval_seconds) !== (Date.parse(to) - Date.parse(from)) / 1000) invalid(); }
   else if (row.interval_seconds !== null) invalid();
 }
@@ -65,6 +104,9 @@ function metricNumbers(value: unknown) {
     if (!["from", "to", "basis", "duration"].includes(key)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   }
   const totals = object(row.totals); tokenPair(totals);
+  // These nonfinancial fields are required even when their measured value is zero.
+  // Validating only present entries would let pooling fabricate missing counts.
+  for (const key of ["runs", "started", "completed", "failed", "merged", "mr_revisions", "pipeline_repairs"]) count(totals[key]);
   for (const [key, value] of Object.entries(totals)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   const coverage = object(row.coverage);
   for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "runs_with_usage"]) count(coverage[key]);

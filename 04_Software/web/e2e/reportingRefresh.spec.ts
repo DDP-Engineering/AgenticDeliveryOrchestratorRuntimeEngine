@@ -30,6 +30,72 @@ test.afterEach(async ({ page, request }) => {
   expect((await request.post("/__e2e__/jobs?mode=reset", { headers: { "X-ADORE-E2E": "local-test" } })).ok()).toBe(true);
 });
 
+for (const scope of ["global", "selected", "project"] as const) for (const failure of ["wrong calendar", "missing runs"] as const) {
+  test(`Statistics ${scope} rejects ${failure} before initial or replacement publication`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const id = await alpha(page);
+    let corrupt = true;
+    await page.route(/\/api\/v1\/(?:projects\/[^/]+\/)?(?:metrics|usage)\?/, async route => {
+      const body = await (await route.fetch()).json();
+      const rows = scope === "global" ? Object.values(body) : [body];
+      for (const value of rows as Array<{ scope: { from: string; to: string; interval_seconds: number }; period?: { from: string; to: string }; totals: Record<string, number>; runs?: unknown[] }>) {
+        // The job fixture has no dated picked/usage events in this interval.
+        // Supply a nonempty analytical cohort so missing counts cannot hide as an empty success.
+        if (value.period) { value.totals.runs = 1; value.runs = [{ run_id: "calendar-review", review_rounds: 0 }]; }
+        if (!corrupt) continue;
+        if (failure === "wrong calendar") {
+          // Both sources and every project agree, but not with the selected query.
+          Object.assign(value.scope, { from: "2026-09-01T00:00:00+00:00", to: "2026-10-02T00:00:00+00:00", interval_seconds: 2678400 });
+          if (value.period) Object.assign(value.period, { from: value.scope.from, to: value.scope.to });
+        } else if (value.period) delete value.totals.runs;
+      }
+      await route.fulfill({ json: body });
+    });
+    const path = scope === "project" ? `/projects/${id}/statistics` : "/metrics";
+    await page.goto(`${path}?from=2026-10-01&through=2026-10-31&tab=quality${scope === "selected" ? `&project=${id}` : ""}`);
+    for (let round = 0; round < 2; round++) {
+      await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.locator("#metrics-tab-panel table")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toHaveCount(0);
+      await expect(page.locator(".metrics-export")).toHaveCount(0);
+      expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+      await expect(page.getByLabel("From", { exact: true })).toHaveValue("2026-10-01");
+      await expect(page.getByLabel("Through", { exact: true })).toHaveValue("2026-10-31");
+      corrupt = false;
+      await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toBeVisible();
+      expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+      await page.getByText("Export CSV", { exact: true }).click();
+      for (const href of await page.locator(".metrics-export a").evaluateAll(nodes => nodes.map(node => node.getAttribute("href")!))) {
+        const query = new URL(href, "http://127.0.0.1:18765").searchParams;
+        expect(query.get("day_from")).toBe("2026-10-01"); expect(query.get("day_to")).toBe("2026-10-31");
+      }
+      if (round === 0) { corrupt = true; await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click(); }
+    }
+  });
+}
+
+for (const [timezone, from, through, seconds] of [
+  ["Europe/Bucharest", "2026-10-25", "2026-10-25", 90000],
+  ["Europe/Bucharest", "2026-03-29", "2026-03-29", 82800],
+  ["America/Sao_Paulo", "2018-11-04", "2018-11-04", 82800],
+  ["America/Havana", "2020-11-01", "2020-11-01", 90000],
+  ["Pacific/Apia", "2011-12-30", "2011-12-31", 86400],
+  ["Pacific/Apia", "2011-12-30", "2011-12-30", 0],
+  ["Asia/Kathmandu", "2026-10-25", "", null],
+  ["Australia/Lord_Howe", "", "2026-10-04", null],
+] as const) test(`Statistics validates server calendar scope ${timezone} ${from}/${through}`, async ({ page }) => {
+  const id = await alpha(page), query = new URLSearchParams({ from, through, timezone, granularity: "week" });
+  const response = page.waitForResponse(value => value.url().includes(`/projects/${id}/metrics?`) && value.ok());
+  await page.goto(`/projects/${id}/statistics?${query}`);
+  expect((await (await response).json()).scope.interval_seconds).toBe(seconds);
+  await expect(page.locator(".statistics-evidence")).toBeVisible();
+  expect((await times(page)).length).toBe(3);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
 for (const scope of ["global", "project"] as const) for (const member of ["metrics", "usage"] as const) {
   test(`Statistics ${scope} ${member} deadline releases initial and stale proposals without late publication`, async ({ page }) => {
     const settle = trackScopeReads(page), held = deferred();

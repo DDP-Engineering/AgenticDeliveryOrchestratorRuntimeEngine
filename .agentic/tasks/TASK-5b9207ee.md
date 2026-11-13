@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -759,6 +761,44 @@ strict proof/report and task closure remain the next validate session. The insta
 CLI's six-round recording limit remains unchanged; actual authorized review history
 is preserved in append-only Log rather than falsifying its counter.
 
+### Round-8 review corrections under RULING-001
+
+Both recorded findings are corrected before report/freshness publication. Every raw
+metrics/usage bound must match the captured inclusive calendar query in its IANA
+zone, not merely agree with the other members. Intl local-midnight resolution
+preserves server ZoneInfo fold=0 behavior for repeated/missing midnight, DST changes,
+fractional offsets, skipped dates and one-sided ranges. Correctly bound zero-length
+skipped days remain valid; reversed date queries/instants are refused. Client
+resolution verifies binding only; event attribution and bucketing remain server-owned.
+
+All required nonfinancial metrics total counts (runs, started, completed, failed,
+merged, reviewer revisions and pipeline repairs) must be present nonnegative safe
+integers. Missing counts never pool as zero or suppress populated Quality/Trends
+into false-empty success. Optional revision/cost/unknown evidence keeps its current
+semantics. Helpers cover every required total and initial/replacement refusal,
+withheld report/time and valid recovery; all three browser scopes verify missing
+run totals and mutually matching wrong periods with error/Retry, no evidence/CSV/
+time/pageerror and populated recovery. Eight real-server calendar controls prove
+the valid timezone/midnight/skipped-date/one-sided cases, including a skipped day
+with interval_seconds=0.
+
+Focused proof passes 83 helper/help contracts and 148 integrated reporting/Statistics/
+session/operation Chromium cases, retaining cadence/coherence/continuity, denial,
+post-result authority and four-locale/two-theme narrow regressions. New browser
+fixture recovery explicitly supplies a populated analytical cohort: seeded job
+state lacks dated picked/usage evidence in the requested interval. CSV assertions
+use the established day_from/day_to contract. No original oracle was weakened.
+Scoped requirement/spec/knowledge/component/user documentation, four-locale help,
+CHANGELOG and the merged localized Statistics release entry are current. Production
+assets are rebuilt and all 132 input/7 output hashes independently match.
+
+These are build results, not independent approval or final strict proof. Fresh
+independent round-9 reviews under RULING-001, full strict proof/report and task
+closure belong to the next validate session. Installed review counter limitations
+remain unchanged; actual authorized history is append-only in Log. No backend,
+schema, dependency, payload, cadence or publication change is made. This session
+stops immediately at the completed build advance.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -1040,6 +1080,16 @@ is preserved in append-only Log rather than falsifying its counter.
 - 2026-11-13 validate: Round-8 inspection/evidence: independently executed node /tmp/task77-r8-period-repro.mjs and node /tmp/task77-round8-quality-missing-count.mjs, both exit 0 because their assertions demonstrate the two defects, NOT successful contract proof. Production coordinator accepted September scope for October selection with fresh time 2000, and missing totals.runs became pooled zero with fresh time 2000 and one retained job; valid recovery controls passed. Inspected actual existing tests before identifying gaps. Also verified all 42 requirement records active with existing affected paths, release notes checker exit 0, git diff --check clean, and production fingerprint 132 inputs/7 outputs matching. Reviewed current component/project/environment knowledge and source/docs; no candidate edits made. Final strict proof/report deliberately not run because independent reviews require build correction; this is not an approved validation.
 - 2026-11-13 validate: DEVIATION validate: installed verdict CLI rejects --round 8 ('review round must be 1 through 6') despite RULING-001 authorizing rounds 7-9 - preserve both independent round-8 changes_required verdicts and findings in append-only Log, consistent with round 7, without falsifying round 6, editing CLI-owned State or modifying installed policy/payload. This recording limitation waives neither defect nor fresh review; return to build under the explicit user exception.
 - 2026-11-13 validate: returned to build - Round-8 independent specification and quality changes_required under RULING-001, independently reproduced: mutually matching wrong-period responses publish fresh under another selected calendar query; missing required totals.runs publishes fresh and pools to false zero. Correct captured calendar-bound validation preserving timezone/DST/one-sided semantics and required total-count presence; add initial/replacement helper/browser withholding/error/Retry/recovery coverage. CLI rejects authorized round 8, so both verdicts are preserved in Log. No corrections performed in validate; stop at this return boundary.
+- 2026-11-13 build: Round-8 correction build bounds under RULING-001: 45 minutes, at most 24 ticket-scoped changed paths and 12 focused verification commands. Correct only captured calendar-bound validation and required totals count presence, with initial/replacement withholding/Retry/recovery helpers and offline browser proof, DST/one-sided/optional controls, scoped docs/traceability/notes and rebuilt assets. Preserve anchor/history and stop at build advance. Fresh Node 22.23.4, locked node_modules/.venv, image Chromium path and nonempty machine identity verified; no backend/schema/dependency/payload/publication changes.
+- 2026-11-13 build: red: node --test tests/statistics.test.mjs exit 1 (26 pass/3 new failures): shifted local hours and mutually matching wrong calendar intervals publish ready, and missing totals.runs publishes ready/false pooled zero. npm run build:e2e/typecheck exit 0; playwright reportingRefresh --grep "global rejects (wrong calendar|missing runs)" exit 1 (2/2 expected failures: no error/Retry). Tests precede implementation and cover required total-count fields, initial/replacement withheld evidence/CSV/time, valid recovery and DST/midnight/one-sided controls (REQ-UX-9f1ec9fa, REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9). Original task anchor retained.
+- 2026-11-13 build: green: focused Node statistics/metrics/polling/request/errors/help suite exit 0 (83/83); build:e2e/typecheck exit 0; latest playwright reportingRefresh --grep "rejects (wrong calendar|missing runs)|validates server calendar scope" exit 0 (13/13). Every raw bound now matches the captured local-calendar query using Intl IANA midnight resolution with server fold=0 semantics; all required nonfinancial totals counts validate before raw/pooled publication. Helpers cover every required total, matching wrong-period initial/replacement/error/time/refusal/recovery and DST/midnight/fractional/one-sided controls. Browser recovery fixture corrected to explicitly populated analytical cohort because seeded jobs lack dated picked/usage events; CSV assertions use established day_from/day_to parameters. Prior integrated run passed 141/147 with only these new fixture assertions failing; not represented as full green. No original oracle weakened (REQ-UX-9f1ec9fa, REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9).
+- 2026-11-13 build: red: node --test --test-name-pattern="binds calendar boundaries" tests/statistics.test.mjs exit 1: server ZoneInfo resolves a wholly skipped local day (Pacific/Apia 2011-12-30) to equal canonical bounds with interval_seconds=0, but existing scope validation refuses equality. This belongs to recorded calendar-semantic preservation, not a new feature. Permit only correctly query-bound equal instants, retaining reversed-bound rejection; add matching real-server browser control. Focused verification-command bound increases from 12 to 14 only for this extra trust-boundary correction and final integrated proof; 45-minute/24-path limits remain.
+- 2026-11-13 build: green: final Node statistics/metrics/polling/request/errors/help suite exit 0 (83/83); npm run build:e2e/typecheck exit 0; integrated playwright e2e/reportingRefresh.spec.ts e2e/statistics.spec.ts e2e/sessionRefresh.spec.ts e2e/operationRefresh.spec.ts exit 0 (148/148 offline Chromium cases). All six new wrong-calendar/missing-total initial/replacement/refusal/recovery journeys and eight real-server calendar controls pass, including 23/25-hour DST, fractional offsets, missing/repeated midnight, skipped-day zero interval and one-sided bounds. Captured query order remains checked and only correctly bound equal instants are accepted. Existing coherence/cadence/continuity, denial and result-generation boundaries and four-locale/two-theme narrow regressions remain green. No original oracle weakened; final strict proof and fresh independent round-9 reviews remain validate-stage work.
+- 2026-11-13 build: release-notes: updated (merged the existing Statistics fixed entry in en/fr/de/ro to mention invalid dates as well as totals while preserving quiet refresh and honest unknown counts; no added category entry. check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-13 build: help: updated (Statistics en/fr/de/ro explains rejection of reports for different chosen dates and missing required job totals, with existing error/Retry, DST and one-sided date semantics; identical locale structure and existing labels. Help outline/parser/link contracts pass in the 83-test final helper run).
+- 2026-11-13 build: Round-8 correction build audit under RULING-001: npm run build, release-note checker, git diff --check and independent SHA-256/traceability audits exit 0. All 132 frontend inputs/7 outputs match; all 42 requirements remain active with existing affected paths/test links. Evolution exit 0 reviewed all 236 post-anchor paths (41 added/183 modified/12 removed), separating inherited target integration from this session’s 23/24 scoped paths: one validator, helper/browser proof, four requirement verifications, two reporting specs, component/user/knowledge docs, four-locale Statistics help, merged release entry/CHANGELOG, journal and four regenerated JS/index/stamp paths. Original anchor/history retained; both recorded findings corrected with focused proof. No backend/dependency/schema/payload/publication changes. Fresh independent round-9 reviews and full strict proof/report/closure remain required in validate; actual authorized review history stays in Log because installed CLI cannot encode rounds above 6.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 177 warnings, 28 notes. Inherited categories remain: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend tests/inherited sources; 5 outside-layout paths are untouched target configuration/release archives. Six secret flags retain inherited journal/Users fake credential wording, three target fixture-key literals and unavailable generated-JS scan; this correction introduces no secret. DEVIATION build: generated minified-JS added-lines scan remains unavailable - accepted with reviewed-source rebuild and all stamped hashes matching, not a detected secret or final strict proof. Existing Vite large-chunk warning retained without unrelated splitting/dependencies. No unresolved recorded correction remains in focused proof; independent approval/full suite not claimed.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
@@ -1048,13 +1098,13 @@ is preserved in append-only Log rather than falsifying its counter.
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: Round-8 independent specification and quality changes_required under RULING-001, independently reproduced: mutually matching wrong-period responses publish fresh under another selected calendar query; missing required totals.runs publishes fresh and pools to false zero. Correct captured calendar-bound validation preserving timezone/DST/one-sided semantics and required total-count presence; add initial/replacement helper/browser withholding/error/Retry/recovery coverage. CLI rejects authorized round 8, so both verdicts are preserved in Log. No corrections performed in validate; stop at this return boundary.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Corrected both round-7 reporting findings: validate all pooled numeric families before freshness and preserve mixed unknown unpriced counts; updated scoped tests/docs/help/notes and rebuilt assets.
-evidence: 80 helper/help tests and 134 integrated offline Chromium cases pass; typecheck/production build, release-note checker, whitespace and 132-input/7-output SHA-256 audits pass; advisory check has 0 errors.
-issues: Fresh independent round-8 reviews under RULING-001 and final strict proof/report/closure remain validate work. Installed verdict CLI cannot encode rounds above 6; actual review history is in Log. Inherited advisory/large-chunk/generated-scan warnings documented. No CI/live/deployed acceptance run.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected both round-8 findings: bind raw response bounds to captured calendar/timezone queries and require all nonfinancial metrics total counts before publication; added boundary/recovery proof, scoped docs/help/notes and rebuilt assets.
+evidence: 83 helper/help tests and 148 integrated offline Chromium cases pass; typecheck/production build, release-note checker, whitespace and independent 132-input/7-output SHA-256 and 42-requirement audits pass; advisory check has 0 errors.
+issues: Fresh independent round-9 reviews under RULING-001 and final strict proof/report/closure remain validate work. Installed verdict CLI cannot encode rounds above 6; authorized history is in Log. Inherited advisory/large-chunk/generated-scan warnings documented. No CI/live/deployed acceptance run.
 spec_compliance:
 implementation_quality:
 review_round: 6

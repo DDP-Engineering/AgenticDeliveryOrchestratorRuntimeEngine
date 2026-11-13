@@ -75,7 +75,15 @@ IDs; selected contexts request only selected endpoints. The owner validates exac
 metrics/usage maps under one 30-second deadline, compares canonical reporting
 fields across every project and both maps (project identities validate separately),
 and computes pooled metrics/usage within owned validation before publishing them
-on the complete report. App renders those stored aggregates without recomputing.
+on the complete report. Each raw bound also validates against the captured inclusive
+local date query through Intl IANA offsets and independent local midnights, including
+DST/fractional offsets and ZoneInfo fold=0 missing/repeated midnight semantics.
+Agreeing on the wrong requested period is invalid. Omitted dates alone are unbounded.
+Required metrics total counts must be present safe integers (runs and the six lifecycle/
+revision/repair counters); absence never becomes pooled zero or a false empty tab.
+Helpers and all-project/global-selected/project-hub browser cases prove initial and
+replacement refusal without report/exports/time/pageerror and valid recovery; real
+server DST/midnight/skipped-date/one-sided controls prove the calendar binding. App renders those stored aggregates without recomputing.
 Cross-project interval mismatch or pooled failure clears report/exports/success
 time with error/Retry; two-project helper/browser negatives also assert no pageerror.
 Shared raw/pooled numeric validation checks lifecycle/current-stock/total/day,

@@ -14,7 +14,7 @@ Ouvrez **Statistiques** dans la barre latérale pour voir tous les projets auxqu
 | Toute la période | Efface les deux dates. Laisser les deux dates vides signifie aussi toute la période. |
 | Exporter CSV | Ouvre un menu de téléchargements pour le projet, les dates et le regroupement en cours. |
 
-Les dates et les tranches utilisent UTC, sauf si l’adresse de la page porte un autre fuseau horaire. Les dates s’appliquent à tous les onglets et à tous les exports. Changer de projet conserve la période et l’onglet affiché.
+Les dates et les tranches utilisent UTC, sauf si l’adresse de la page porte un autre fuseau horaire. Les dates s’appliquent à tous les onglets et à tous les exports. Un rapport portant sur d’autres dates est refusé même si les deux sources concordent ; les changements d’heure et une date laissée vide restent pris en charge. Des totaux de jobs obligatoires manquants affichent une erreur et **Réessayer**, pas zéro ni un rapport vide. Changer de projet conserve la période et l’onglet affiché.
 
 Le menu **Exporter CSV** propose **Indicateurs du projet**, **Utilisation du projet** et **Consommation du job** pour un projet, ou **Indicateurs de tous les projets**, **Utilisation de tous les projets** et **Consommation du job** pour **Tous les projets**. Il apparaît une fois les données chargées. Les lectures en arrière-plan conservent le rapport, le menu ouvert et les commandes du tableau jusqu’à la validation d’un remplacement complet.
 

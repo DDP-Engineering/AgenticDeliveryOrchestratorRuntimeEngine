@@ -14,7 +14,7 @@ Deschideți **Statistici** din bara laterală pentru a vedea toate proiectele la
 | Tot istoricul | Șterge ambele date. Lăsarea ambelor date goale înseamnă tot istoricul. |
 | Exportă CSV | Deschide un meniu de descărcări pentru proiectul, datele și gruparea curente. |
 
-Datele și intervalele folosesc UTC, dacă adresa paginii nu poartă alt fus orar. Datele se aplică fiecărei file și fiecărui export. Schimbarea proiectului păstrează perioada și fila în care vă aflați.
+Datele și intervalele folosesc UTC, dacă adresa paginii nu poartă alt fus orar. Datele se aplică fiecărei file și fiecărui export. Un raport pentru alte date este refuzat chiar dacă ambele surse coincid; schimbările de oră și o dată lăsată goală rămân acceptate. Totalurile obligatorii de joburi lipsă afișează o eroare și **Reîncearcă**, nu zero sau un raport gol. Schimbarea proiectului păstrează perioada și fila în care vă aflați.
 
 Meniul **Exportă CSV** oferă **Indicatorii proiectului**, **Utilizarea proiectului** și **Consumul jobului** pentru un singur proiect, sau **Indicatorii tuturor proiectelor**, **Utilizarea tuturor proiectelor** și **Consumul jobului** pentru **Toate proiectele**. Apare după încărcarea datelor. Citirile în fundal păstrează raportul, meniul deschis și controalele tabelului până când este validată o înlocuire completă.
 

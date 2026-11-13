@@ -238,6 +238,18 @@ preview/pending boundaries, zero subsequent writes and unchanged-review controls
 metrics/usage maps through `createReadController` with one 30-second proposal
 bound. Transports return exactly the captured project ID set; complete existing
 metrics/usage validators enforce the copied selection and role before staging.
+Each response's UTC bounds must resolve the captured inclusive local dates in the
+requested IANA zone, not merely agree with the other response. `calendarBoundary`
+uses Intl offsets to verify independent local midnights, including 23/25-hour days,
+fractional offsets, repeated/missing midnight and skipped dates with Python ZoneInfo
+fold=0 semantics; it does not attribute events or generate buckets. One-sided dates
+leave only the omitted bound unbounded. Required nonfinancial total counts (`runs`,
+`started`, `completed`, `failed`, `merged`, `mr_revisions`, `pipeline_repairs`) must
+be present safe integers, never defaulted from absence to zero. Optional revisions,
+cost efficiency and financial/unknown evidence retain their existing contracts.
+Initial/replacement helper and all three browser scopes prove wrong-period and
+missing-count refusal without report/exports/time/pageerror, then valid recovery;
+real-server timezone/midnight/one-sided browser controls remain accepted.
 Matching canonical scope fields (excluding each member's separately validated
 project identity) are checked across every project and both resource maps before
 publication. Metrics and usage pooled results are computed inside that same owned
