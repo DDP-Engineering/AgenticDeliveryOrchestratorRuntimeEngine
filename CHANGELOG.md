@@ -43,10 +43,16 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Bound/coalesce ticket operation status reads without changing their cadence;
+  cancel obsolete reads and leave failed/invalid status explicitly unknown.
+  Observed results revalidate shared project metadata without rereading forge
+  tickets/comments or interrupting open bodies and controls.
+
 - Preserve Project Access reviews/focus and Settings groups through background and
   observed monitoring results. Cancel old grant reads before writes and require
   strict post-change validation; changed account/project authority invalidates reviews.
-  Keep Settings drafts guarded and validate own saved values without remounting.
+  Keep Settings drafts guarded and validate own saved values without remounting;
+  unrelated operation results cannot cancel a confirmed Save's validation read.
   Bound/coalesce App operation and System status reads without changing cadence or
   treating failed/invalid health checks as healthy or unknown completion as success.
 

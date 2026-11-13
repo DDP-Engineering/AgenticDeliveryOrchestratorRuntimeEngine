@@ -951,6 +951,12 @@ already has a job cannot be started; **Retry** re-runs a failed job; **Stop** as
 job and removes its ready label so monitoring does not pick it up again;
 **Details** shows the description and loads the comments, rendered as Markdown
 by default (headings, emphasis, code, nested/task lists, quotes, tables and links).
+Queued ticket operations are checked every 2 seconds while visible, with at most
+one status read in flight and a 30-second read limit. Hiding the tab pauses new
+checks; returning revalidates once. Failed, invalid or expired status reads say
+completion is unknown rather than announcing success. An observed result refreshes
+shared project metadata without rereading forge tickets/comments or closing open
+bodies; use **Read tickets** for a new forge snapshot.
 The **Body display** selector beside **Description** switches all open descriptions
 and comments between **Rendered** and exact **Markdown source**, preserving spaces
 and line breaks. A successfully saved choice belongs to your account across

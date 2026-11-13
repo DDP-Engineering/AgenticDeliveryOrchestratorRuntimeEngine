@@ -102,23 +102,29 @@ test("empty project overview offers enrollment without an empty table", async ({
 
 test("cancel requires confirmation before a request", async ({page, context, request}) => {
   expect((await request.post("/__e2e__/jobs", {headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
-  await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
-  await page.goto("/");
-  await page.getByLabel("Username", {exact:false}).fill("admin");
-  await page.getByLabel("Password", {exact:false}).fill("admin");
-  await page.getByRole("button", {name:"Sign in",exact:true}).click();
-  await expect(page.getByRole("heading", {name:"Overview",exact:true})).toBeVisible();
-  let submitted = 0;
-  await page.route("**/operations/cancel", async route => {submitted++; expect(route.request().postDataJSON().confirmed).toBe(true); await route.fulfill({json:{id:3001,status:"pending"}});});
-  await page.route("**/operations/3001", route => route.fulfill({json:{id:9999,status:"succeeded"}}));
-  await page.goto("/jobs?project=alpha&run=ux-working");
-  const cancel = page.locator(".detail-panel").getByRole("button", {name:"Cancel",exact:true});
-  page.once("dialog", dialog => dialog.dismiss()); await cancel.click();
-  expect(submitted).toBe(0);
-  page.once("dialog", dialog => {expect(dialog.message()).toContain("unpublished"); void dialog.accept();});
-  await cancel.click();
-  await expect(page.getByText("Command status could not be read; completion is unknown.", {exact:true})).toBeVisible();
-  expect(submitted).toBe(1);
+  try {
+    await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
+    await page.goto("/");
+    await page.getByLabel("Username", {exact:false}).fill("admin");
+    await page.getByLabel("Password", {exact:false}).fill("admin");
+    await page.getByRole("button", {name:"Sign in",exact:true}).click();
+    await expect(page.getByRole("heading", {name:"Overview",exact:true})).toBeVisible();
+    let submitted = 0;
+    await page.route("**/operations/cancel", async route => {submitted++; expect(route.request().postDataJSON().confirmed).toBe(true); await route.fulfill({json:{id:3001,status:"pending"}});});
+    await page.route("**/operations/3001", route => route.fulfill({json:{id:9999,status:"succeeded"}}));
+    await page.goto("/jobs?project=alpha&run=ux-working");
+    const cancel = page.locator(".detail-panel").getByRole("button", {name:"Cancel",exact:true});
+    page.once("dialog", dialog => dialog.dismiss()); await cancel.click();
+    expect(submitted).toBe(0);
+    page.once("dialog", dialog => {expect(dialog.message()).toContain("unpublished"); void dialog.accept();});
+    await cancel.click();
+    await expect(page.getByText("Command status could not be read; completion is unknown.", {exact:true})).toBeVisible();
+    expect(submitted).toBe(1);
+  } finally {
+    // Do not leave seeded working jobs to block later Settings saves in the
+    // shared offline home. The cancellation assertions above remain unchanged.
+    expect((await request.post("/__e2e__/jobs?mode=reset", {headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
+  }
 });
 
 

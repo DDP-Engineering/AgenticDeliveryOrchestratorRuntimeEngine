@@ -716,6 +716,10 @@ export default function App() {
       // Dirty Settings (including credentials/prices/sign-in) defers to its next
       // eligible tick; neither the draft nor a valid confirmation is discarded.
       const revalidate = async (afterWrite = false) => {
+        // An unrelated result must not cancel the confirmed Save's owned
+        // post-write validation or invalidate its settingsPoll token. The
+        // mutation keeps its barrier until that validation completes.
+        if (!afterWrite && configMutation.current) return;
         invalidateSettingsPoll();
         reading?.abort(); reading = null;
         readingPrices?.abort(); readingPrices = null;
@@ -795,6 +799,12 @@ export default function App() {
   const revalidateOperation = () => {
     // A completed write cannot join directory evidence begun before its result.
     projectsReader.current?.cancel(); void refreshProjects(); refreshView();
+  };
+  const revalidateTicketOperation = (projectId: string) => {
+    if (!projects.some(project => project.id === projectId)) return;
+    // Tickets stay on demand. Revalidate only shared metadata; keep ticket
+    // bodies, comments, paging and unrelated confirmations mounted.
+    projectsReader.current?.cancel(); void refreshProjects();
   };
   const operationPollingKey = session && page === "projectDetails" && selected === operationProject &&
     operation && ["pending", "running"].includes(operation.status)
@@ -1488,7 +1498,7 @@ export default function App() {
           {projectTab === "jobs" && selectedProject && <>
             {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} onOperationComplete={revalidateTicketOperation} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
             </div>
           </>}
@@ -1517,7 +1527,7 @@ export default function App() {
           <section className="panel compact"><div className="workspace-controls"><label htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label></div></section>
           {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
+              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} onOperationComplete={revalidateTicketOperation} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
             </div>
         </>}

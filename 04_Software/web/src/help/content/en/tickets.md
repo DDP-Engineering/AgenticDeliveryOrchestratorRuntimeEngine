@@ -65,6 +65,8 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 
 **Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
 
+Queued operations are checked every 2 seconds while this tab is visible, with one status read at a time and a 30-second read limit. Hidden tabs pause checks; returning performs one recheck. If a check fails or its result is invalid, completion remains unknown. An observed result updates shared project information without rereading forge tickets or comments or closing open bodies. Press **Read tickets** for a new repository snapshot.
+
 ## Reading descriptions and comments {#reading-bodies}
 
 **Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**

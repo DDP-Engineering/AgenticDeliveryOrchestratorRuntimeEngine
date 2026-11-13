@@ -55,7 +55,9 @@ App's configuration owner no longer depends on `viewRefresh`. Operation-result
 signals cancel older configuration/price work, then reread only through existing
 visible/clean/blocker/mutation guards. Dirty drafts and valid confirmations remain.
 Own confirmed Save or explicit stale discard instead awaits post-write validation
-before the editor's barrier is released, retaining open groups. Existing config
+before the editor's barrier is released, retaining open groups. Unrelated result
+signals check the mutation guard before cancellation/token invalidation, so a held
+own-Save validation cannot be cancelled or mistaken for a completed Save. Existing config
 revision, pending-candidate and price-write guards and 30s/15s request bounds remain;
 this is not a change to settings mutation authority or sign-in lifecycle.
 
@@ -71,8 +73,8 @@ healthy status. Readiness validates ready/worker/activity, storage validates its
 numeric, boolean and volume fields before display. `e2e/accessRefresh.spec.ts`
 proves these seams, including changed/archived review authority, post-write failure,
 deadline/late completion, cancellation, hidden pause, pending-to-running continuity
-and clean/dirty Settings after App results. Shared authenticated denial/session and
-TicketWorkspace result ownership remain separate seams.
+and clean/dirty Settings after App results, including an unrelated result racing
+held own-Save validation. Shared authenticated denial/session remains a separate seam.
 
 ## Owned informational read primitive
 
@@ -722,6 +724,22 @@ with `JobWorkspace` and the project status line), its `detail` lines in a bounde
 `pre`, and for a refused Start the labels it left on the ticket. Forge metadata
 remains inert React text with http(s)-only ticket-title navigation; description
 and comment bodies use the isolated ForgeMarkdown policy documented above.
+
+Ticket operation tracking uses a strict `createReadController<Operation>` with a
+30-second bound and unchanged 2-second visible cadence. The key binds session CSRF,
+authorized project ID/name set, originating project and operation ID, not its
+pending/running status; status changes do not restart it. Tick/visible triggers join
+one read with no backlog. The optional AbortSignal reaches App's transport; exit or
+context replacement cancels it. Invalid identity, malformed evidence and expired/
+failed reads leave completion explicitly unknown, never promote success. A validated
+terminal result (including an immediately settled Start/Retry or synchronous Stop)
+notifies App through `onOperationComplete(projectId)`. App cancels pre-result
+metadata then revalidates it without invoking ticket/comment reads or remounting
+bodies, controls or paging. `e2e/ticketRefresh.spec.ts` covers both scopes, pending/
+running/result counts, hidden/visible joins, deadline/late completion, cancellation,
+identity rejection and immediate-result paths. Live ticket review/action authority
+and shared authenticated denial are separate boundaries, not proven by this seam.
+
 The Jobs sub-tab renders `JobWorkspace` in jobs mode with a fixed scope, no start
 form and the hub's `onOpen`, so job detail stays in the tab; Statistics renders the
 shared `statisticsView(true)` without the project selector or the cross-project tab.

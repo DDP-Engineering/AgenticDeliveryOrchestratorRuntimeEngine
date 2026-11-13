@@ -100,6 +100,8 @@ App configuration ownership excludes result-refresh signals. Signals cancel olde
 config/price work, then honor visible/dirty/mutation/settingsPoll guards without
 resetting the view. Own confirmed Save/stale discard awaits explicit revalidation
 before releasing editor guards, retaining open groups and revision/candidate checks.
+Unrelated result signals check the mutation guard before cancelling/token invalidation,
+so held own-Save validation keeps its barrier until its actual read completes.
 App operations use principal/project/ID-bound 30s owners at 2s visible cadence;
 pending-to-running does not recreate ownership, leaving the project stops tracking
 and returning resumes unresolved work. Failure is error, not completion. Terminal
@@ -107,8 +109,19 @@ results cancel pre-result metadata then signal existing view owners. System stat
 uses strict 30s owned worker/storage reads at 5s/30s cadence, validating ready/worker/
 activity and storage fields; pending values remain, failed health does not.
 `web/e2e/accessRefresh.spec.ts` and existing Settings/issue37/shell journeys prove
-these seams. Shared session/denial, Tickets and remaining cross-view acceptance
+these seams. Shared session/denial and remaining cross-view acceptance
 are separate from this focused evidence.
+
+TicketWorkspace's operation tracker uses a strict 30s owned read with unchanged 2s
+visible cadence. Session CSRF, project ID/name set, origin project and operation ID
+own it, not pending/running status. Reads coalesce and cancel on ownership exit;
+wrong-ID/failed/expired results leave completion unknown. Observed terminal outcomes
+and immediate Start/Retry/synchronous Stop results notify App's metadata owner,
+which cancels older metadata before reading again; no forge read or view remount.
+`web/e2e/ticketRefresh.spec.ts` proves both scopes, body/focus retention, counts,
+hidden/visible, deadline/late-result/cancellation and invalid identity recovery.
+Live ticket review/action authority and shared denial/session invalidation remain
+separate seams; the tracker does not authorize mutations.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 

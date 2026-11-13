@@ -4,11 +4,11 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
-import { startVisiblePolling } from "./polling";
+import { createReadController, startVisiblePolling } from "./polling";
 import { keptLabels, outcomeText } from "./operationReason";
 import { jobCopy } from "./jobCopy";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
@@ -17,7 +17,7 @@ import { CONTEXT_TOPICS } from "./help/topics.ts";
 import { ForgeMarkdown } from "./forgeMarkdown";
 import type { TicketBodyMode } from "./ticketPreferences";
 
-type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
+type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string, signal?: AbortSignal) => Promise<T>;
 type TicketJob = { run_id: string; lifecycle: string };
 type Ticket = {
   iid: number; title: string; description: string; labels: string[]; author: string; web_url: string;
@@ -30,13 +30,15 @@ type Comment = { author: string; created_at: string; body: string };
 type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
 type StopResult = { cancel_operation_id: number | null; ready_label: "removed" | "absent" | "failed"; ready_label_error: string | null };
 /** A notice follows one queued operation; `labels` are those its Start added to the ticket. */
-type Notice = { lines: string[]; operation?: Operation; labels?: string[] };
+type Notice = { projectId: string; lines: string[]; operation?: Operation; labels?: string[] };
 type CommentState = { state: "loading" } | { state: "ready"; comments: Comment[] } | { state: "error"; error: unknown };
 type Project = { id: string; name: string; display_name?: string; archived: boolean };
 type Props = {
   /** One project in the hub or for a selected scope; every authorized project for All projects. */
   projects: Project[]; showProject?: boolean; locale: Locale; csrf: string; request: Request;
   bodyMode: TicketBodyMode; modeBusy: boolean; onBodyMode: (mode: TicketBodyMode) => void;
+  /** Notify the metadata owner after an observed result; never reread forge bodies. */
+  onOperationComplete: (projectId: string) => void;
 };
 /** One ticket row keeps its owning project and that project's label policy. */
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
@@ -105,7 +107,7 @@ function readStop(value: unknown): StopResult {
 }
 
 /** Tickets sub-tab: reads open forge tickets only on request and starts or stops one at a time. */
-export function TicketWorkspace({ projects, showProject = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode }: Props) {
+export function TicketWorkspace({ projects, showProject = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode, onOperationComplete }: Props) {
   const copy = ticketCopy[locale];
   const t = messages[locale];
   const [lists, setLists] = useState<Array<{ project: Project; list: TicketList }> | null>(null);
@@ -174,7 +176,11 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
     try {
       const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), ...(chosen ? { priority: chosen } : {}) }, csrf));
       const lines = [...(result.labels_added.length ? [fill(copy.labelsAdded, { labels: result.labels_added.join(", ") })] : []), named(row, fill(copy.startQueued, { iid, id: result.operation_id })), copy.startEffect];
-      if (mounted.current) { setNotice({ lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added }); setQueued(items => [...items, row.key]); }
+      if (mounted.current) {
+        setNotice({ projectId: row.project.id, lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added });
+        setQueued(items => [...items, row.key]);
+        if (!["pending", "running"].includes(result.status)) onOperationComplete(row.project.id);
+      }
     } catch (cause) {
       if (!mounted.current) return;
       setActionError({ error: cause, project: row.project });
@@ -195,7 +201,11 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
     setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null);
     try {
       const operation = readOperation(await request(`${base(row.project)}/operations/retry`, "POST", { run_id: ticket.job.run_id, idempotency_key: crypto.randomUUID() }, csrf));
-      if (mounted.current) { setNotice({ lines: [named(row, fill(copy.retryQueued, { iid: ticket.iid, id: operation.id }))], operation }); setQueued(items => [...items, row.key]); }
+      if (mounted.current) {
+        setNotice({ projectId: row.project.id, lines: [named(row, fill(copy.retryQueued, { iid: ticket.iid, id: operation.id }))], operation });
+        setQueued(items => [...items, row.key]);
+        if (!["pending", "running"].includes(operation.status)) onOperationComplete(row.project.id);
+      }
     } catch (cause) { if (mounted.current) setActionError({ error: cause, project: row.project }); }
     finally { if (mounted.current) setBusy(false); }
   };
@@ -209,28 +219,44 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
       const label = result.ready_label === "removed" ? copy.labelRemoved : result.ready_label === "absent" ? copy.labelAbsent :
         fill(copy.labelFailed, { reason: describeError(locale, new ApiError(result.ready_label_error || "unexpected_response")) });
       const cancel = result.cancel_operation_id ? fill(copy.cancelQueued, { iid, id: result.cancel_operation_id }) : fill(copy.noCancel, { iid });
-      if (mounted.current) setNotice({ lines: [named(row, cancel), label], operation: result.cancel_operation_id ? { id: result.cancel_operation_id, status: "pending" } : undefined });
+      if (mounted.current) {
+        setNotice({ projectId: row.project.id, lines: [named(row, cancel), label], operation: result.cancel_operation_id ? { id: result.cancel_operation_id, status: "pending" } : undefined });
+        if (!result.cancel_operation_id) onOperationComplete(row.project.id);
+      }
     } catch (cause) { if (mounted.current) setActionError({ error: cause, project: row.project }); }
     finally { if (mounted.current) setBusy(false); }
   };
 
-  // Follow the queued operation until the worker settles it.
+  // One bounded owner follows pending -> running without restarting or queuing
+  // ticks. A failed status read is unknown completion, never a successful result.
   const operation = notice?.operation;
-  useEffect(() => {
-    if (!operation || !["pending", "running"].includes(operation.status)) return;
-    let active = true, sequence = 0;
-    const poll = async () => {
-      const currentSequence = ++sequence;
-      try {
-        const current = readOperation(await request(`/operations/${operation.id}`));
-        if (current.id !== operation.id) throw invalid();
-        if (active && currentSequence === sequence) { setCommandStatusError(false); setNotice(value => value && value.operation?.id === current.id ? { ...value, operation: current } : value); }
-      } catch { if (active && currentSequence === sequence) setCommandStatusError(true); }
-    };
-    void poll();
-    const stopPolling = startVisiblePolling(() => void poll(), 2000);
-    return () => { active = false; stopPolling(); };
-  }, [operation?.id, operation?.status]);
+  const operationKey = operation && operationPending && notice && projects.some(project => project.id === notice.projectId)
+    ? JSON.stringify([csrf, projects.map(project => [project.id, project.name]).sort(), notice.projectId, operation.id]) : "";
+  const liveOperation = useRef({ key: operationKey, request, onOperationComplete });
+  liveOperation.current = { key: operationKey, request, onOperationComplete };
+  useLayoutEffect(() => {
+    if (!operationKey || !operation || !notice) return;
+    const key = operationKey, id = operation.id, projectId = notice.projectId;
+    const reader = createReadController<Operation>({ key, deadlineMs: 30000,
+      read: async signal => {
+        const current = readOperation(await liveOperation.current.request(`/operations/${id}`, "GET", undefined, undefined, signal));
+        if (current.id !== id) throw invalid();
+        return current;
+      },
+      publish: snapshot => {
+        if (key !== liveOperation.current.key || snapshot.refreshing) return;
+        if (snapshot.status === "error") { setCommandStatusError(true); return; }
+        if (snapshot.status !== "ready" || !snapshot.data) return;
+        const current = snapshot.data;
+        setCommandStatusError(false);
+        setNotice(value => value?.operation?.id === id && value.projectId === projectId ? { ...value, operation: current } : value);
+        if (!["pending", "running"].includes(current.status)) liveOperation.current.onOperationComplete(projectId);
+      },
+    });
+    void reader.refresh();
+    const stopPolling = startVisiblePolling(() => { void reader.refresh(); }, 2000);
+    return () => { stopPolling(); reader.dispose(); };
+  }, [operationKey]);
 
   const status = ({ ticket, list }: Row) => ticket.job ? fill(copy.job, { lifecycle: ticket.job.lifecycle }) :
     ticket.blocked_by === PICKUP_PAUSED ? copy.pickup_paused :

@@ -65,6 +65,8 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 
 **Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.
 
+Operațiile din coadă sunt verificate la fiecare 2 secunde cât timp fila este vizibilă, cu o singură citire de stare simultană și o limită de 30 de secunde. Filele ascunse suspendă verificările; revenirea face o reverificare. Dacă verificarea eșuează sau rezultatul este invalid, finalizarea rămâne necunoscută. Un rezultat observat actualizează informațiile comune ale proiectului fără a reciti tichetele sau comentariile de pe forge și fără a închide conținutul deschis. Apăsați **Citește tichetele** pentru o nouă citire din repository.
+
 ## Citirea descrierilor și comentariilor {#reading-bodies}
 
 **Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**

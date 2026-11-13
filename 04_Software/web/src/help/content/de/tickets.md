@@ -65,6 +65,8 @@ Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500
 
 **Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.
 
+Eingereihte Vorgänge werden bei sichtbarem Tab alle 2 Sekunden geprüft, mit jeweils einer Statusabfrage und einer Lesegrenze von 30 Sekunden. Verborgene Tabs pausieren die Prüfungen; beim Zurückkehren erfolgt eine erneute Prüfung. Schlägt sie fehl oder ist das Ergebnis ungültig, bleibt der Abschluss unbekannt. Ein beobachtetes Ergebnis aktualisiert gemeinsame Projektinformationen, ohne Forge-Tickets oder Kommentare neu zu lesen oder offene Inhalte zu schließen. Drücken Sie **Tickets lesen** für einen neuen Stand aus dem Repository.
+
 ## Beschreibungen und Kommentare lesen {#reading-bodies}
 
 **Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**

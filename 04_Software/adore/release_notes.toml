@@ -64,7 +64,7 @@ text = { en = "Jobs keep Git in the right repo and non-Latin text intact, withou
 [[release.entry]]
 category = "fixed"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Start while paused; confirm cancellation; History shows correct results and CLI deletions.", fr = "Démarrez en pause ; confirmez l’arrêt ; l’historique corrige résultats et suppressions CLI.", de = "Start bei Pause; Abbruch bestätigen; Verlauf zeigt Ergebnisse und CLI-Löschungen korrekt.", ro = "Pornire în pauză; confirmați anularea; istoricul arată rezultatele și ștergerile CLI." }
+text = { en = "Start while paused; confirm cancellation; correct CLI history; ticket results keep bodies open.", fr = "Démarrer en pause, arrêt confirmé et historique CLI corrigé ; résultats sans fermer les tickets.", de = "Start bei Pause, bestätigter Abbruch, korrekter CLI-Verlauf; Ergebnisse lassen Tickets offen.", ro = "Pornire în pauză, anulare confirmată, istoric CLI corect; rezultatele păstrează tichetele deschise." }
 
 [[release.entry]]
 category = "new"

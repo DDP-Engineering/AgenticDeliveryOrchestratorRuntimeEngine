@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { revalidateVisiblePage } from "./polling";
 import { messages } from "../src/i18n";
+import { settingsImpact, settingsSave } from "./settings-actions";
 
 async function hidden(page: Page) {
   await page.evaluate(() => { Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" }); document.dispatchEvent(new Event("visibilitychange")); });
@@ -198,6 +199,60 @@ test("System status holds values, coalesces bounded reads and rejects malformed 
     await expect(worker).toContainText(messages.en.workerCheckFailed); await expect(disk).toContainText(messages.en.storageCheckFailed);
     await expect.poll(() => cancelled).toBe(2);
   } finally { expired.resolve(); }
+});
+
+test("App operation result cannot cancel owned Settings post-write validation", async ({ page }) => {
+  const operation = deferred(), savedRead = deferred();
+  let operationReads = 0, configReads = 0, cancelled = 0;
+  await page.route("**/operations/resume", route => route.fulfill({ json: { id: 7703, status: "pending" } }));
+  await page.route("**/operations/pause", route => route.fulfill({ json: { id: 7703, status: "pending" } }));
+  await page.route("**/operations/7703", async route => { operationReads++; await operation.promise; await route.fulfill({ json: { id: 7703, status: "succeeded", action: "resume" } }).catch(() => {}); });
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const id = projects.find((project: { name: string }) => project.name === "alpha").id;
+  const endpoint = `/api/v1/projects/${id}/config`;
+  const before = await (await page.request.get(endpoint)).json();
+  const me = await (await page.request.get("/api/v1/me")).json();
+  const headers = { "X-CSRF-Token": me.csrf };
+  try {
+    await page.goto(`/projects/${id}`);
+    await page.getByRole("button", { name: /^(Activate|Pause) monitoring$/ }).click();
+    await expect.poll(() => operationReads).toBe(1);
+    await page.getByRole("tab", { name: "Settings", exact: true }).click();
+    const category = page.locator("details[data-setting-purpose=implementation]");
+    await category.locator(":scope > summary").click();
+    const row = page.locator('[id="setting-budgets.max_iterations"]');
+    await row.getByRole("button", { name: /^Edit / }).click();
+    await row.getByRole("spinbutton").fill(String(before.config.budgets.max_iterations + 1));
+    await page.route("**" + endpoint, async route => {
+      configReads++; const response = await route.fetch(); await savedRead.promise;
+      await route.fulfill({ response }).catch(() => {});
+    });
+    page.on("requestfailed", request => { if (request.url().endsWith(endpoint)) cancelled++; });
+    await settingsSave(page).click();
+    await settingsImpact(page).getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect.poll(() => configReads).toBe(1);
+    const metadata = page.waitForResponse(response => response.url().endsWith("/api/v1/projects"));
+    operation.resolve();
+    await expect(page.getByRole("status").filter({ hasText: "#7703" })).toContainText("succeeded");
+    await (await metadata).finished();
+    // Result metadata must really finish before checking that its reread signal
+    // did not abort our validation or release the editor's mutation barrier.
+    await revalidateVisiblePage(page);
+    await expect(row.getByRole("spinbutton")).toHaveValue(String(before.config.budgets.max_iterations + 1));
+    await expect(page.locator(".settings-save-bar button.primary")).toBeDisabled();
+    expect(cancelled).toBe(0); expect(configReads).toBe(1);
+    savedRead.resolve();
+    await expect(row.getByRole("spinbutton")).toHaveCount(0);
+    await expect(row.locator(".setting-control > code")).toHaveText(String(before.config.budgets.max_iterations + 1));
+    await expect(category).toHaveAttribute("open", "");
+    expect((await (await page.request.get(endpoint)).json()).config.budgets.max_iterations).toBe(before.config.budgets.max_iterations + 1);
+  } finally {
+    operation.resolve(); savedRead.resolve();
+    await page.request.delete(endpoint + "/pending", { headers });
+    const current = await (await page.request.get(endpoint)).json();
+    const prepared = await page.request.post(endpoint + "/pending", { headers, data: { key: "budgets.max_iterations", value: String(before.config.budgets.max_iterations), revision: current.revision } });
+    if (prepared.ok()) { const candidate = await prepared.json(); await page.request.post(endpoint + "/apply", { headers, data: { base_revision: candidate.base_revision, candidate_revision: candidate.candidate_revision } }); }
+  }
 });
 
 for (const view of ["access", "configuration", "dirty configuration"] as const) test(`App operation completion preserves ${view} local state and rereads after result`, async ({ page }) => {
