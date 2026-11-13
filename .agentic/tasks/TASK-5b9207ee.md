@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -953,19 +951,23 @@ and task closure remain the next validate stage; this session stops at build adv
 - 2026-11-13 validate: Round-6 parent validation finding (reproduced): readConsumption at statistics.ts:146-170 validates standard amount fields but never totals.unpriced_events; createReportingRefresh validates pooledUsage with amounts(), which also omits that field. Otherwise-valid Admin usage with unpriced_events=-1, "not-a-count", 1.5 or 9007199254740992 passes both production boundaries and publishes ready/completedAt. The exact App.tsx:1408 formatNumber call displays -1, NaN, fractional or unsafe counts as fresh evidence (also in global Usage table). Disposable licensed production-API reproduction node /tmp/task77-review6-unpriced-repro.mjs exit 0 asserts unsafe acceptance, not a successful contract proof. Existing statistics.test.mjs/reportingRefresh.spec.ts negatives omit unpriced_events; metrics.test.mjs:155 covers valid 2+3+0 only. Violates REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9. Required correction: validate optional role-appropriate raw and pooled unpriced-event counts before publication, reject malformed/negative/fractional/unsafe counts and pooled overflow, and add initial/replacement/recovery helper/browser negatives with withheld evidence/exports/time and valid unknown/zero controls. No product edit or final proof; await independent round-6 verdicts, then follow last-round blocked policy.
 - 2026-11-13 validate: Round-6 supplemental validation evidence: focused offline Node helper/help suite passed 76/76 (statistics, metrics, polling, request, errors, help), exit 0; it does not cover the reproduced unpriced-event count gap. A second production-API reproduction (/tmp/task77-review6-unpriced-replacement.mjs) first commits valid zero at time 1000, then malformed text at time 2000: coordinator publishes ready and advances successful freshness to 2000 while the displayed count formats to NaN; subsequent valid zero at time 3000 is accepted. Advisory check --task --json: 0 errors, 178 warnings, 28 notes (not strict/final evidence; existing project-wide warnings and unfinished validation/review checklist remain). Git diff whitespace, release-notes checker and 132-input/7-output fingerprint checks previously passed in this validation session. No full strict proof or final report attempted because an actual acceptance failure remains; no candidate artifacts changed.
 - 2026-11-13 validate: Round 6 independent read-only reviews completed successfully (both reviewer processes exit 0). Specification compliance CHANGES_REQUIRED and implementation quality CHANGES_REQUIRED, medium severity, independently reproduced the same unpriced-event count validation/publication defect. Reports: /tmp/task77-review6/spec.log and quality.log; independent production reproductions /tmp/task77-round6-count-repro.mjs and /tmp/task77-round6-quality-unpriced.mjs. Each reviewer ran 47 focused Statistics/polling/request tests successfully; neither used Playwright, changed repository artifacts, accessed forge, or treated deferred strict proof as a defect. Parent agrees with both findings; round-6 verdict recorded by CLI. review.max_fix_cycles=5 is exhausted, so no additional fix or backward routing attempted. ADORE_QUESTIONS.md asks for an explicit policy/scope decision before any additional bounded repair/review cycle. Current acceptance requirements/specifications remain unchanged; validation checklist and final proof/report remain incomplete. Candidate unchanged; only journal and decision handoff added in this session. Final git diff --check passed. Pause blocked at validate; do not advance or represent task as complete.
+- 2026-11-13 validate: Validation resumption after user authorization: branch matches journal and entry worktree is clean. Current statistics.ts amounts/readConsumption/coordinated pooled validation still omit optional unpriced_events; metrics.ts:120 sums it unchecked and App.tsx:1408,1460 formats it. The round-6 defect remains source-confirmed against REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9; no new reproduction or implementation test was run in this routing session. Record the user exception as rounds 7-9, preserving round-6 history, installed policy/payload and all existing contracts. ADORE_QUESTIONS.md is absent in this fresh checkout; the clarification is settled by the user ruling, not a new blocking question. Return to build only for the recorded raw/pooled unpriced-count validation and initial/replacement/recovery regressions, including malformed/negative/fractional/unsafe and pooled-overflow rejection, withheld report/CSV/success time, valid zero/absent controls and recovery. Fresh independent reviews and final strict proof/report remain mandatory after correction; no product, requirement, policy or payload edit, publication or full-proof claim in this session.
+- 2026-11-13 validate: returned to build - User RULING-001 authorizes three additional review rounds (7-9). Round-6 unpriced_events validation defect remains present: validate optional raw counts and pooled sums as nonnegative safe integers before publication, add initial/replacement/recovery rejection and valid zero/absent controls, then obtain fresh reviews.
 
 ## Rulings
+
+- RULING-001 | date=2026-11-13 | decision=Authorize three additional independent review rounds for this task: rounds 7, 8 and 9 after the exhausted round 6; permit the bounded build corrections and validation needed for those rounds without changing installed AEGIS policy or payload. | reason=User clarification explicitly states: I authorize 3 new review rounds. Installed review step 5 permits a user ruling to extend the bound. Existing acceptance contracts and publication restrictions remain unchanged. | source=user | supersedes=none
 
 
 ## State
 
-status: blocked
-reported: validate - blocked
-next: Resolve ADORE_QUESTIONS.md: round 6 is exhausted and both reviews require unpriced-event validation repairs; explicit policy/scope decision needed before any additional bounded build/review/validate cycle. Remain at validate; no advance or further fix under current policy.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Corrected round-5 Quality cost-evidence and pooled-result validation before publication; preserved unknown money, added initial/replacement/recovery proof, updated scoped docs/notes/traceability and rebuilt assets.
-evidence: 76 helper/help tests and 111 offline Chromium reporting/Statistics/session/operation cases pass; typecheck, production build, release-note check, git diff --check and independent 132-input/7-output SHA-256 audit exit 0; advisory check has 0 errors.
-issues: Fresh round-6 independent reviews, full strict proof/report and task closure remain validate work. Inherited advisory warnings and generated-JS scan limitation are explained in Log; existing bundle-size warning remains. No live/deployed or CI acceptance run.
-spec_compliance: changes_required
-implementation_quality: changes_required
+status: waiting
+reported: build - paused
+next: Correct only the recorded unpriced-event count validation/publication finding with focused helper/browser proof, scoped documentation/traceability and rebuilt assets; return to validate for independent round-7 reviews under RULING-001.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Recorded user-authorized three-round review-bound exception in RULING-001 and preserved the existing round-6 findings/history; no product or policy/payload edits.
+evidence: Current statistics.ts, metrics.ts and App.tsx inspected: raw/pooled unpriced_events remains unchecked; git diff --check exit 0. No implementation tests or final strict proof run in this routing session.
+issues: Known round-6 acceptance failure remains until build correction. Independent round-7 review and final strict proof/report/closure remain required; no CI, live or deployed acceptance run.
+spec_compliance:
+implementation_quality:
 review_round: 6
