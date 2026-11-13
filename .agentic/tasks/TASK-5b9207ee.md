@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -990,6 +988,13 @@ to the next validate session. This session stops at build advance.
 - 2026-11-13 build: Round-6 correction build audit under RULING-001: npm run build, release-note checker, git diff --check and independent SHA-256/traceability audits exit 0. All 132 frontend inputs/7 outputs match; all 42 requirements remain active with existing affected paths/test links. Evolution exit 0 reviewed all 236 post-anchor paths (41 added/183 modified/12 removed), preserving inherited target content and original anchor. This session changes 17/22 scoped paths: one validator, helper/browser tests, three requirement verifications, reporting spec/component/user/knowledge docs, merged localized note/CHANGELOG, journal and four regenerated asset paths. No dependency/backend/schema/payload/publication changes. Recorded finding corrected with focused proof; fresh independent round-7 reviews and full strict proof/report/closure remain required in validate.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 177 warnings, 28 notes. Inherited target categories remain: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend tests/inherited sources; 5 outside-layout paths are untouched target config/release archives. Six secret flags retain inherited journal/Users fake credential wording, three target fixture-key literals and unavailable generated-JS scan; no new secret introduced. DEVIATION build: generated minified-JS added-lines scan is unavailable - accepted with reviewed-source rebuild and all stamped hashes matching, not a detected secret or final strict proof. Existing large-chunk warning retained without unrelated splitting/dependencies. No unresolved recorded correction remains in focused proof; independent approval/full suite not claimed.
 - 2026-11-13 build: completed; next validate
+- 2026-11-13 validate: Validate round-7 bounds under RULING-001: 45-minute session, at most 12 scoped artifact edits and 8 focused checks before final proof. Obtain independent read-only specification and quality reviews on current candidate, reconcile all 42 contracts/knowledge/context/inspection, then run strict proof/report only after approval. Route implementation defects back to build and stop at that boundary; no child journals, publication or payload edits.
+- 2026-11-13 validate: Round-7 parent validation finding (reproduced): createReportingRefresh validates pooled token fields and cost efficiency but not pooled lifecycle/stock/quality counters. Two valid nonfinancial project metrics with period.started=9007199254740991 and 2 pass readStatistics; coordinator publishes ready/completedAt with pooled period.started=9007199254740992, while exact sum is 9007199254740993. StatisticsEvidence formats that rounded value as fresh Started jobs. Disposable licensed production-API reproduction: node /tmp/task77-review7/pooled-counters.mjs exit 0 asserting unsafe publication (not acceptance proof). Source: statistics.ts:260-263; metrics.ts:89-92; StatisticsEvidence.tsx:30. Violates complete validated replacement/error-before-freshness boundaries REQ-DATA-d535499a, REQ-SEC-7ee58549 and REQ-UX-cbca5fd9. Required correction: validate all displayed pooled count/derived numeric fields, not token/cost subsets only, before ready/time; add individually-valid project pooled-overflow initial/replacement/recovery negatives with error/Retry, withheld evidence/CSV/time and no pageerror. Inspect related stock/quality/coverage/day/duration sums under the same boundary rather than another one-field patch. No product edit or final proof; independent round-7 verdicts pending.
+- 2026-11-13 validate: Round-7 source anchors correction: the reproduced pooled count publication is statistics.ts:267-273 (pooled token/cost-only checks at 269), unchecked lifecycle sum is metrics.ts:85-89 and visible Started jobs uses StatisticsEvidence.tsx:33-36. Earlier parent log line numbers were approximate; the reproduced behavior and required correction are unchanged. Independent quality reviewer also returns changes_required, medium, reproducing valid baseline at time 1000 then rounded pooled replacement with renewed completedAt/fullReportAt at 2000 and valid recovery. Reviewer ran 49 focused tests successfully; existing overflow tests cover tokens/cost-efficiency/unpriced events, not lifecycle counters.
+- 2026-11-13 validate: Round-7 independent read-only reviews completed: specification=changes_required and implementation_quality=changes_required, medium, both independently reproduce pooled lifecycle precision loss. Specification also finds mixed optional unpriced counts incorrectly measured: metrics.ts:120 uses absent counts as zero when another project supplies the field. Parent independently confirms alpha unpriced_events=0 or 7 and beta absent both validate, yet coordinator publishes ready/time with pooled 0 or 7 instead of unknown; node /tmp/task77-review7/mixed-unpriced.mjs exit 0 asserts defect, not acceptance. This violates reporting spec absent-count semantics (REQ-DATA-d535499a); existing all-known/all-absent controls omit mixed contributors. Required second correction: retain unknown pooled count when any contributing count is absent, keep valid absence accepted, and add mixed zero/absent and positive/absent initial/replacement/global Usage proof. Reports: /tmp/task77-review7/spec.log and quality.log; reviewers each ran 49 focused tests successfully. No browser reproduction claimed; UI consequences are source-confirmed. Both findings require build; no product patch or final strict proof/report attempted.
+- 2026-11-13 validate: Round-7 reconciliation and evidence: all 42 active task requirements and both reporting specs re-read; affected source/test/spec paths exist and no explicit Manual:/Inspection: clause applies to these task records. Hunk review isolated ticket changes against integrated target fb14e06; target backend/release/delivery content is inherited, not new ticket scope. Existing web-interface knowledge and project/environment context accurately describe intended owners/continuity/authority, but do not excuse the two reproduced reporting contract failures. Parent focused Node statistics/metrics/polling/request/errors/help command passes 78/78 (exit 0); release-note checker since bafae7e55bbcfda18451ee621368204af9dd864b, git diff --check and independent 132-input/7-output SHA-256 audit pass. Advisory check has 0 errors, 178 warnings, 28 notes: inherited stale paths/test links/journals/target archives, coverage heuristics, reviewed fixture/generated-secret flags and outstanding review state; not final proof. Full strict suite/report deliberately deferred under correct-first/prove-last. Only executor-owned journal changed. No CI/live/deployed acceptance, publication, payload changes or child journal. RULING-001 permits next fresh independent round 8 after these bounded corrections.
+- 2026-11-13 validate: DEVIATION validate: installed verdict CLI rejects --round 7 with exit 2 ('review round must be 1 through 6') despite user RULING-001 authorizing rounds 7-9 - preserve both independent round-7 changes_required verdicts and their findings in append-only Log instead of falsifying round 6, hand-editing CLI-owned State or modifying installed policy/payload. The configured counter remains 6; the actual conducted review is round 7 under RULING-001. This recording limitation does not waive either finding or fresh subsequent reviews; route to build under the explicit user exception.
+- 2026-11-13 validate: returned to build - Round-7 independent spec/quality changes required under RULING-001: pooled lifecycle counters publish rounded unsafe values as fresh; mixed known/absent unpriced counts fabricate a measured pooled count. Correct both before publication and add initial/replacement/recovery boundary coverage. Installed verdict CLI rejects authorized round 7; both verdicts preserved in Log without policy/payload edits.
 
 ## Rulings
 
@@ -998,13 +1003,13 @@ to the next validate session. This session stops at build advance.
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Corrected optional raw/pooled unpriced-event validation before Statistics publication; added helper/browser rejection and recovery proof, scoped docs/traceability and four-locale notes; rebuilt static assets.
-evidence: 78/78 focused helpers/help and 124/124 offline Chromium cases pass; typecheck, isolated/production builds, release-note check and diff check exit 0; all 132 input/7 output hashes and 42 active requirement links verified.
-issues: Independent round-7 reviews under RULING-001 and final strict proof/report/closure remain validate work. Advisory check: 0 errors, 177 explained inherited/heuristic warnings, 28 notes; generated-JS scan and bundle-size limitations logged. No CI/live/deployed acceptance run.
+status: waiting
+reported: build - paused
+next: continue build: Round-7 independent spec/quality changes required under RULING-001: pooled lifecycle counters publish rounded unsafe values as fresh; mixed known/absent unpriced counts fabricate a measured pooled count. Correct both before publication and add initial/replacement/recovery boundary coverage. Installed verdict CLI rejects authorized round 7; both verdicts preserved in Log without policy/payload edits.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Validation only: recorded two independently reproduced reporting defects and round-7 review evidence; product candidate unchanged.
+evidence: 78 focused helpers pass; release-note and whitespace checks pass; all 132 input/7 output hashes match. Production-API reproductions confirm both defects; each independent reviewer passed 49 helpers.
+issues: Final strict proof/report/closure withheld pending corrections and fresh round-8 reviews. CLI round limit cannot encode user-authorized round 7; actual verdicts are in Log under RULING-001. No CI/live/deployed acceptance run.
 spec_compliance:
 implementation_quality:
 review_round: 6
