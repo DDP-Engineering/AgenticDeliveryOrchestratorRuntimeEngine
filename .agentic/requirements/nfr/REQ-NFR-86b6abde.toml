@@ -17,7 +17,7 @@ While eligible web polling is active, the interface shall preserve the existing 
 
 verification = "Offline fake-clock/browser: count eligible requests around the declared interval boundaries, including selected/global Statistics and operation/sign-in completion; assert no cadence inflation, global polling removal, perpetual completed-operation/sign-in polling or added ticket reads; slow in-flight work remains coalesced rather than causing a burst."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ChatGptSignIn.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

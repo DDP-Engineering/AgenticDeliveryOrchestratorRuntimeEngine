@@ -19,7 +19,7 @@ While an automatic, manual or operation-triggered same-context web reread is pen
 
 verification = "Offline browser: hold each affected read after a valid success, trigger its normal timer or explicit Refresh and assert mounted content remains; cover all four global/project Statistics tabs and Users manual rereads; first/context reads still show initial loading and rejected completed reads use their error boundary rather than remaining current."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = ["04_Software/web/e2e/jobs.spec.ts"]
 

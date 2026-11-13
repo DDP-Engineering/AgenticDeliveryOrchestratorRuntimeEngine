@@ -17,7 +17,7 @@ While global Change history or project History is visible, the interface shall r
 
 verification = "Chromium updates both history views with an active filter and expanded evidence, withholds malformed or cross-project results, and retries a stalled read after its deadline."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/AuditHistory.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/polling.ts"]
 
 linked_tests = ["04_Software/web/e2e/audit.spec.ts"]
 

@@ -17,7 +17,7 @@ While global/project Statistics, Jobs, project job History, job detail or consum
 
 verification = "Offline browser: activate Refresh/retry on each named informational view with a held response and existing data; assert controls, rows, disclosures and focus survive and repeated clicks share bounded reads; retry initial failure through the same control, and verify corrupt/auth failures remain withheld."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx"]
 
 linked_tests = []
 

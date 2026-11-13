@@ -17,7 +17,7 @@ While a same-context Statistics, jobs/detail/consumption, audit or Users reread 
 
 verification = "Offline browser: hold automatic and explicit rereads after a validated success, inspect the refresh control or localized accessible progress state while existing content stays mounted, then resolve unchanged; assert progress ends without added initial-loading announcements; first reads still have ordinary loading feedback."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/i18n.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx"]
 
 linked_tests = []
 

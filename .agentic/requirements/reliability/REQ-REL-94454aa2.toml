@@ -17,7 +17,7 @@ While a web resource read is in flight for the same context, the interface shall
 
 verification = "Offline fake-clock/browser: hold one resource, advance multiple ticks, dispatch repeated visibility events, double-click Refresh and complete an operation; observe maximum one concurrent request per context and no queued request burst on release; switch context and verify the new read is not blocked indefinitely by the old one."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

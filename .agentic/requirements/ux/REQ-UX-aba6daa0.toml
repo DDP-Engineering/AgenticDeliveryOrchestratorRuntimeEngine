@@ -17,7 +17,7 @@ While the selected composite job and executor-output evidence binding remain val
 
 verification = "Offline browser: explicitly open executor output, focus and scroll its literal text, then hold/resolve unchanged and unrelated changed parent reads; assert the snapshot remains and no extra output request occurs; changing job or invalidating the existing output binding uses its established unavailable/conflict behavior, never an unverified output fallback."
 
-affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 
 linked_tests = []
 

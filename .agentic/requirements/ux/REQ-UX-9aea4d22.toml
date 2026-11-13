@@ -17,7 +17,7 @@ While project Settings is visible, the interface shall reread its saved data eve
 
 verification = "Chromium protects a settings draft from delayed responses, resumes on the interval after discard, preserves price and credential drafts, and recovers a prepared edit alongside a new revision."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/ExecutorCredentials.tsx", "04_Software/web/src/ChatGptSignIn.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/polling.ts"]
 
 linked_tests = ["04_Software/web/e2e/settings.spec.ts"]
 

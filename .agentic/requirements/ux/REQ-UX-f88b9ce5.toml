@@ -17,7 +17,7 @@ When a same-context informational web revalidation returns unchanged validated d
 
 verification = "Offline browser: retain panel/row/control references, an open disclosure and a live-region mutation observer while a periodic read is held then resolves unchanged; assert no replacement loading panel, collapse or added loading announcement; resolve a real changed value separately to confirm meaningful updates remain observable."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = []
 

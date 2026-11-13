@@ -17,7 +17,7 @@ If a server-paged jobs reread rejects the selected paging snapshot, the interfac
 
 verification = "Offline browser: select a nonfirst Jobs/History page and hold a background continuation carrying its snapshot; return job_snapshot_changed, assert source-change/reload feedback and hidden conflicting rows/detail, then click reload and observe offset zero without the rejected snapshot; unchanged snapshots preserve the page."
 
-affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 
 linked_tests = []
 

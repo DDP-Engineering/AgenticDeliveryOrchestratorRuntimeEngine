@@ -17,7 +17,7 @@ While a web snapshot is retained after informational refresh failure, the interf
 
 verification = "Offline browser: retain a failed-refresh job detail that formerly offered Retry/Cancel/Restart and attempt keyboard/pointer activation; assert no evidence-dependent mutation is enabled or submitted until current authority is revalidated; unrelated informational consumption failure does not invent or invalidate independent server-owned authority."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

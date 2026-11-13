@@ -17,7 +17,7 @@ If a same-context informational web refresh fails with an application or unclass
 
 verification = "Offline browser: after valid Statistics/jobs/audit data, return a typed nontransport application error, unknown HTTP failure code or unclassified exception; assert explicit error and absent affected numeric/export/action evidence; a positively identified transport failure instead produces the deliberately marked stale informational state."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/errors.ts"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx"]
 
 linked_tests = []
 

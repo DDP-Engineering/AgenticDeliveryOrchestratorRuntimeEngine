@@ -17,7 +17,7 @@ If a jobs web read reports incomplete evidence outside the Overview API's valida
 
 verification = "Offline browser: load complete Jobs/History/detail, then return a valid incomplete response and assert incomplete feedback, hidden totals/detail and explicit reload; a validated Overview response naming unreadable projects still displays only the remaining verified rows and warnings."
 
-affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 
 linked_tests = []
 

@@ -19,7 +19,7 @@ The interface shall show the header Refresh control and last refresh time exclus
 
 verification = "Chromium finds header Refresh and its timestamp on Administration Users and verifies their absence on automatic views including project History."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/adore/web/static/"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
 

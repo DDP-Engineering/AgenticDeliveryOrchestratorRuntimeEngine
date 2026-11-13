@@ -17,7 +17,7 @@ When an automatic or explicit informational reread successfully validates a comp
 
 verification = "Offline browser: arrange success then transport failure, click inline retry or advance the next normal tick, and resolve valid unchanged then changed replacements; observe ready content and cleared stale feedback with controls intact; partial reporting completion or another failure leaves the stale state unresolved."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = []
 

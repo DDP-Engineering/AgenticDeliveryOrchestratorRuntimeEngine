@@ -17,7 +17,7 @@ If a web read completes after its principal, authorized scope, resource identity
 
 verification = "Offline helper/browser: release older successes and errors after a newer scope read, mutation, timeout/retry, account change and unmount; assert neither old values nor old failure notices or timestamps overwrite the new result; a live same-generation result still publishes."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/polling.ts"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

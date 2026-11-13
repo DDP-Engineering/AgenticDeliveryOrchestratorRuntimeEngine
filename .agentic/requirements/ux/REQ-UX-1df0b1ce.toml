@@ -17,7 +17,7 @@ While project Access is visible, the interface shall reread the selected project
 
 verification = "Chromium changes an Access read without navigation, then holds an old read through a grant and verifies that the confirmed result remains visible."
 
-affected_paths = ["04_Software/web/src/App.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/polling.ts"]
 
 linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
 

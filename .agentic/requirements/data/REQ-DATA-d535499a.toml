@@ -17,7 +17,7 @@ When Statistics publishes an initial or refreshed report globally or for one pro
 
 verification = "Offline browser: exercise all four Statistics tabs in all-project, global single-project and project-hub modes with metrics-first and usage-first held completions; assert the previous report/export disclosure survives until a complete matching generation succeeds, then changes together; reject mismatched canonical intervals, project sets, malformed members, foreign identities and superseded generation completions."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/StatisticsEvidence.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/polling.ts"]
 
 linked_tests = []
 

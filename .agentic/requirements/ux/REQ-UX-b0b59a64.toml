@@ -17,7 +17,7 @@ When a validated current-context informational web read succeeds with no matchin
 
 verification = "Offline browser: return a validated empty Statistics, jobs or audit result after initial loading and after a populated result; observe the appropriate empty/no-match presentation; return malformed or failed reads and verify they never become an empty success."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = []
 

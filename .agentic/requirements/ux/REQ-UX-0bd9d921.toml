@@ -17,7 +17,7 @@ When a validated web refresh establishes that a displayed project, account, job 
 
 verification = "Offline browser: remove a selected project/job/account or an expanded audit row from a validated reread and assert no orphaned detail/action remains under its old heading; archive a project and observe archived history with action restrictions rather than treating archive as deletion; unchanged identities preserve their view state."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/AccountActionDialog.tsx"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ When navigation, context invalidation, sign-out or unmount ends a web read's own
 
 verification = "Offline fake-clock/browser: navigate/unmount/sign out while each affected resource is held, observe its request cancellation and stopped timers/listeners, then advance time and release held responses; assert no obsolete reads, data, focus changes or error/freshness updates; a newly mounted authorized view reads normally."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

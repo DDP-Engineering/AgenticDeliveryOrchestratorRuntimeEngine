@@ -17,7 +17,7 @@ If an informational web read fails without a successfully validated snapshot for
 
 verification = "Offline browser: fail the first Statistics, Jobs/detail/consumption or audit read, and fail the first read after changing context; assert explicit error, absent old data, totals and exports rather than empty/zero or a stale-success timestamp; a valid retry can populate the new context."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = []
 

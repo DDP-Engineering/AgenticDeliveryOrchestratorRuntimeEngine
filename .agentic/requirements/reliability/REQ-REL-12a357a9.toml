@@ -17,7 +17,7 @@ If an authority-bearing Users, Access, configuration, approval or operational-ac
 
 verification = "Offline browser: fail initial, manual and post-mutation Users/Access/configuration reads with transport, typed server and malformed errors; assert explicit failure and withheld affected evidence/dependent actions rather than stale-enabled grants/approvals; pending reads and independent informational consumption errors do not blanket-clear unrelated valid drafts."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/errors.ts"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/AccountActionDialog.tsx"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ While global Change history or the project History change-evidence panel is disp
 
 verification = "Offline Chromium: on global and project change evidence apply filters, select a nonfirst page/size and expand a surviving row, then hold a manual Refresh and double-click it; assert one read with the same query, retained table/filter draft/pager/disclosure/focus, and valid changed results in place; actual query change may show initial loading and corrupt completion hides evidence."
 
-affected_paths = ["04_Software/web/src/AuditHistory.tsx"]
+affected_paths = ["04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/polling.ts", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = ["04_Software/web/e2e/audit.spec.ts"]
 

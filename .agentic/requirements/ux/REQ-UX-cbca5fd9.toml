@@ -17,7 +17,7 @@ When Statistics, jobs/detail/consumption, audit or Users completes a successful 
 
 verification = "Offline browser with a controlled clock: complete a good read, hold the next Refresh, fail it, then resolve a valid retry; assert the displayed completion time changes only after successful publication, including unchanged data; resolve reporting members separately and verify no whole-report success time appears before the complete coordinated replacement."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
 linked_tests = []
 

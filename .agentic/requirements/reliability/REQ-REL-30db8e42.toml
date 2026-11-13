@@ -17,7 +17,7 @@ While Statistics displays a selected project, the interface shall determine that
 
 verification = "Offline browser as Admin: open Project Statistics and global Statistics filtered to one project; hold or fail an unrelated all-project read and resolve the selected project's valid metrics/usage, observing a ready selected report; required selected-project failure still prevents a ready replacement."
 
-affected_paths = ["04_Software/web/src/App.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts"]
 
 linked_tests = []
 

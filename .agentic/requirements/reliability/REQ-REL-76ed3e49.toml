@@ -17,7 +17,7 @@ When a periodically refreshed web view becomes visible after being hidden, the i
 
 verification = "Offline fake-clock/browser: hide a loaded view for several intervals, show it, and observe one immediate request per eligible resource plus normal subsequent cadence; repeated visible events or an already-held read cannot multiply requests, and dirty Settings or pending mutations remain guarded."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/ChatGptSignIn.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

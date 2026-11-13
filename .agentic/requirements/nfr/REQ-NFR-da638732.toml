@@ -19,7 +19,7 @@ While the ADORE web page is hidden in the browser, the interface shall send no p
 
 verification = "Offline fake-clock helper and browser: hide a loaded polling view and advance several normal intervals while counting requests, asserting no periodic reads begin; an already-owned in-flight request may settle, and visible return is tested separately from hidden suppression."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/", "04_Software/web/src/polling.ts", "04_Software/web/tests/"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = ["04_Software/web/tests/polling.test.mjs"]
 

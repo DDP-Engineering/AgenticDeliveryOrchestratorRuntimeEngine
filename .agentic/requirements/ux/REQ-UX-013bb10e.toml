@@ -17,7 +17,7 @@ While a web view's focused control or selected text and its owning authorized it
 
 verification = "Offline browser: focus a Usage pager or audit filter, select clarification/output text and scroll a long job detail/local code region, then hold and complete parent and resource rereads; assert the same focused DOM element, selection and scroll offsets persist; context removal instead follows its explicit transition without focusing a detached control."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/styles.css"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/styles.css"]
 
 linked_tests = []
 

@@ -17,7 +17,7 @@ Where the web interface presents Refresh, retry, refresh-in-progress, failed-ref
 
 verification = "Offline copy/helper/browser: exercise ready, pending and failed-refresh/retry states in all four locales and both themes at desktop and 390px; assert localized control names, keyboard access, associated stale/time feedback and no overflow hiding retry; unchanged successful polling does not add repeated loading announcements."
 
-affected_paths = ["04_Software/web/src/i18n.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/auditCopy.ts", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/statisticsCopy.ts"]
+affected_paths = ["04_Software/web/src/i18n.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/adore/release_notes.toml", "04_Software/web/src/help/content/", "04_Software/adore/web/static/"]
 
 linked_tests = []
 

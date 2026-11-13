@@ -17,7 +17,7 @@ When an unrelated or unchanged successful web refresh leaves a Settings, Access,
 
 verification = "Offline browser: open a Settings impact review, Access/account grant review, Users dialog and ticket Start/Stop confirmation, then complete unrelated metadata/operation reads and unchanged relevant reads; assert review content and entered values survive; changed authority is a separate invalidation case, not a successful-unchanged preservation case."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/AccountActionDialog.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
 linked_tests = []
 

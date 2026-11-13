@@ -17,7 +17,7 @@ If an informational web read returns malformed, corrupt, mismatched-scope or int
 
 verification = "Offline helper/browser: begin with valid data, then return invalid media type/JSON, wrong field types, foreign project/run, mismatched report scopes, corrupt typed server errors and invalid provenance; assert the affected presentation and dependent actions disappear rather than becoming stale; valid evidence remains accepted in the control case."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/jobModel.ts", "04_Software/web/src/errors.ts"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/statistics.ts"]
 
 linked_tests = []
 
