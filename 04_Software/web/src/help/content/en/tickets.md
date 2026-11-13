@@ -5,6 +5,8 @@ ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when
 
 Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.
 
+Start is confirmed after the job is durably admitted and taken by the worker. The job then has its own progress and outcome. A queued or running command alone does not confirm admission. Cancel is confirmed only after the job has stopped with a saved cancellation result. Queueing the request or sending a stop signal does not confirm cancellation. If the result is uncertain, inspect the job before retrying.
+
 ## How pickup works {#how-pickup-works}
 
 Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.

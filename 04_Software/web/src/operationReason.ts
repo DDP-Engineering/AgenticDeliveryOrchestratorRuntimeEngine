@@ -41,8 +41,46 @@ const sentences: Record<Locale, Record<Reason, string>> = {
   },
 };
 
+const ownershipSentences = {
+  en: {
+    permission_revoked: "Request refused: your access has changed.",
+    project_identity_changed: "The requested project no longer exists. Refresh the project list.",
+    project_archived: "The project is archived. Restore it before requesting this action.",
+    project_corrupt: "Project information is unavailable. Ask the administrator to inspect it.",
+    owner_dead: "The worker stopped before confirming the result. Inspect the job before retrying.",
+    cancel_unconfirmed: "Stopping the job is not confirmed. Inspect its current state before retrying.",
+  },
+  fr: {
+    permission_revoked: "Demande refusée : vos droits ont changé.",
+    project_identity_changed: "Le projet demandé n’existe plus. Actualisez la liste des projets.",
+    project_archived: "Le projet est archivé. Restaurez-le avant cette action.",
+    project_corrupt: "Les informations du projet sont indisponibles. Contactez l’administrateur.",
+    owner_dead: "Le service s’est arrêté sans confirmer le résultat. Vérifiez la tâche avant de réessayer.",
+    cancel_unconfirmed: "L’arrêt de la tâche n’est pas confirmé. Vérifiez son état avant de réessayer.",
+  },
+  de: {
+    permission_revoked: "Anfrage abgelehnt: Ihre Zugriffsrechte haben sich geändert.",
+    project_identity_changed: "Das angeforderte Projekt existiert nicht mehr. Aktualisieren Sie die Projektliste.",
+    project_archived: "Das Projekt ist archiviert. Stellen Sie es vor dieser Aktion wieder her.",
+    project_corrupt: "Projektinformationen sind nicht verfügbar. Bitten Sie den Administrator um Prüfung.",
+    owner_dead: "Der Dienst endete ohne bestätigtes Ergebnis. Prüfen Sie den Auftrag vor dem Wiederholen.",
+    cancel_unconfirmed: "Der Auftragsstopp ist nicht bestätigt. Prüfen Sie vor dem Wiederholen den Status.",
+  },
+  ro: {
+    permission_revoked: "Cerere refuzată: drepturile de acces s-au schimbat.",
+    project_identity_changed: "Proiectul cerut nu mai există. Reîmprospătează lista proiectelor.",
+    project_archived: "Proiectul este arhivat. Restaurează-l înainte de această acțiune.",
+    project_corrupt: "Informațiile proiectului nu sunt disponibile. Cere verificarea administratorului.",
+    owner_dead: "Serviciul s-a oprit fără să confirme rezultatul. Verifică lucrarea înainte de reluare.",
+    cancel_unconfirmed: "Oprirea lucrării nu este confirmată. Verifică starea ei înainte de reluare.",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
 /** The localized sentence for a refusal reason, or null for an empty or unknown code. */
 export function reasonSentence(locale: Locale, reason: string | undefined): string | null {
+  if (reason && Object.hasOwn(ownershipSentences[locale], reason)) {
+    return ownershipSentences[locale][reason as keyof typeof ownershipSentences.en];
+  }
   return reason && (OPERATION_REASONS as readonly string[]).includes(reason) ? sentences[locale][reason as Reason] : null;
 }
 

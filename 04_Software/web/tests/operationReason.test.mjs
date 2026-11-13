@@ -11,6 +11,16 @@ import { OPERATION_REASONS, keptLabels, outcomeText, reasonSentence } from "../s
 
 const locales = ["en", "fr", "de", "ro"];
 
+test("ownership and cancellation reasons are localized without implying Start", () => {
+  const codes = ["permission_revoked", "project_identity_changed", "project_archived", "project_corrupt", "owner_dead", "cancel_unconfirmed"];
+  for (const locale of locales) for (const reason of codes) {
+    const sentence = reasonSentence(locale, reason);
+    assert.equal(typeof sentence, "string", `${locale} ${reason}`);
+    assert.ok(sentence.length > 10 && !sentence.includes("_"));
+    assert.deepEqual(keptLabels({ status: "failed", reason }, ["ready"]), []);
+  }
+});
+
 test("the reason codes match the ones the worker parses from the engine", () => {
   const worker = readFileSync(new URL("../../adore/web/commands.py", import.meta.url), "utf8");
   const codes = worker.match(/not started: "\s*r"\(([a-z_|]+)\)/)[1].split("|");

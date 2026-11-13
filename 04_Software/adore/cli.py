@@ -205,6 +205,11 @@ def _load(args: argparse.Namespace) -> Config | None:
         print("hint: list profiles with `adore profile list`")
         return None
     args.config = str(path)
+    from adore.web.worker_context import current_context
+
+    context = current_context()
+    if context is not None:
+        context.validate_configuration(path)
     try:
         config = load_config(path)
     except FileNotFoundError:
@@ -231,7 +236,13 @@ def _store(config: Config) -> StateStore:
     @param[in]  config Loaded configuration.
     @return     The StateStore for this deployment.
     """
-    return StateStore(config.state.store_root, config.agent.slug)
+    store = StateStore(config.state.store_root, config.agent.slug)
+    from adore.web.worker_context import current_context
+
+    context = current_context()
+    if context is not None:
+        store.before_write = context.authorize
+    return store
 
 
 def _env_file_for_config(config_path: str | Path) -> Path:
@@ -627,6 +638,11 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
                 engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
                     project_id, run_id, remove_source=remove_source,
                 )
+    from adore.web.worker_context import current_context
+
+    context = current_context()
+    if context is not None:
+        context.bind_engine(engine)
     return config, engine
 
 
@@ -1286,7 +1302,7 @@ def _cmd_cleanup(args: argparse.Namespace) -> int:
 # PUBLIC API
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     """
     @brief      Program entry point for the `adore` command.
     @param[in]  argv Optional argument vector (defaults to sys.argv).
@@ -1294,6 +1310,11 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
+    from adore.web.worker_context import current_context
+
+    context = current_context()
+    if context is not None:
+        context.validate_command(args)
     if args.command == "pi":
         from adore.pi_installation import PiInstallationError, install_pi, verify_pi
 
@@ -1337,6 +1358,19 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_profile(args)
     parser.error(f"unknown command: {args.command}")
     return EXIT_ERROR  # pragma: no cover - parser.error exits
+
+
+def main(argv: list[str] | None = None) -> int:
+    """@brief Dispatch standalone CLI or attach an explicit web-worker claim first."""
+    from adore.web.ownership import WebStoreError
+    from adore.web.worker_context import attached_context
+
+    try:
+        with attached_context():
+            return _main(argv)
+    except WebStoreError:
+        print("error: worker ownership lost or request authority revoked", file=sys.stderr)
+        return EXIT_ERROR
 
 
 # END OF FILE

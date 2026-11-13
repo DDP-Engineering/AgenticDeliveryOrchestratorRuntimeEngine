@@ -276,3 +276,25 @@ Focused proof: tests/test_retry_revalidation.py and CLI mutation-lock tests.
 
 
 The CLI delete boundary records a durable uncertain receipt in the home deletion audit before cleanup, then confirms it only after successful job removal. It refuses corrupt or unavailable receipts before cleanup and reports an unconfirmed post-delete receipt without asserting the job remains. CLI identity is not a web user.
+
+## Bound web-worker execution
+
+The CLI main wrapper accepts an internal ADORE_WORKER_CONTEXT only with an explicit home and closed owner/operation generations. It attaches the child process before dispatch, checks the command/profile/target and resolved configuration path, then binds effect fences to the engine and state store. Invalid/stale context returns a value-free ownership error. Parent death alone cannot recover a live attached child. Standalone CLI uses the ordinary path and does not import optional web storage unless a worker context exists.
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+An attached command pins its immutable request fields once and selects the run proof
+by the canonical command run ID, including during nested Restart reconciliation.
+A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
+before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
+capacity always counts all working jobs in that project. Completion verifies owner
+project/domain/run scope and validates the persisted operation again.

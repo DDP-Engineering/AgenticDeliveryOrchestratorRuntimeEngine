@@ -39,13 +39,17 @@ human-owned runs are
 left unchanged when a queued cancel arrives late. A run already cancelled by
 the active conductor resolves the queued operation as succeeded. Around
 every blocking worker command and project poll, a watcher inspects pending
-cancellations across projects, rechecks account and project grants, and writes a
-durable cancellation marker for a pending valid request. It
-has a six-hour subprocess timeout. On restart, previously running operations
-are marked `uncertain` for reconciliation rather than replayed. The worker
+cancellations across projects, atomically claims each exact execution-domain request,
+rechecks account and immutable project grants, and writes a durable cancellation
+marker only under the current owner/generation. The operation remains running
+until the saved run actually reaches cancelled; a signal alone is not success. It
+has a six-hour subprocess timeout. On restart, only operations belonging to demonstrably dead local owner processes
+become `uncertain`; live and uninspectable owners remain untouched. Heartbeat age
+never grants takeover authority. Recorded process creation identity distinguishes
+a reused PID; an attached live CLI child keeps ownership even if its parent dies. The worker
 uses `ADORE_HOME` for child CLI processes.
 A separate heartbeat thread refreshes the web store while an engine subprocess
-blocks. The worker clears readiness on graceful shutdown; after an abrupt stop,
+blocks. The worker clears its own supervisor readiness on graceful shutdown; after an abrupt stop,
 the timestamp becomes stale within ten seconds. If heartbeat storage fails,
 readiness fails closed and the worker exits after the current bounded command.
 
@@ -151,3 +155,80 @@ A successful CLI restart summary with `unproven_branch_retained: true` becomes l
 Start and Retry consume bound terminal evidence. Restart exit zero requires a JSON summary naming the original ticket; malformed, absent or mismatched evidence remains uncertain. The History projection distinguishes observed failure from refusal.
 
 Restart terminal evidence binds job, revision, exit and selected ticket; unbound output is uncertain and cannot establish a refusal or success.
+
+## Durable ownership and queue domains
+
+`WebStore.register_worker(role, project_id=..., run_id=...)` issues a `WorkerOwner`
+with a random owner ID and monotonically increasing scoped generation. Roles are
+supervisor (global), project (explicit immutable project), run (explicit project/run)
+and configuration (explicit project or global). `claim_next(owner, domain=...)`
+checks the matching execution, configuration_project or configuration_global domain;
+actor/grant/identity revocation produces a closed failed result without invoking an effect.
+A unique running-resource index serializes the same job across Retry and Restart,
+while different projects retain independent owners. Cancel has its own control resource.
+
+`enqueue_configuration(..., project_id=...)` queues only an opaque protected-candidate
+reference; `None` explicitly means global configuration. No configuration or credential
+payload enters the queue. The command bridge consumes only its declared CLI actions;
+protected configuration references remain for their dedicated consumer. Existing
+reviewed configuration HTTP saves keep their existing apply path in this step.
+
+All completion and effect calls carry the exact owner and operation generation.
+Exact terminal replay is idempotent; changed replay or a stale handle is refused.
+Recovery inspects PID creation evidence outside SQLite writer transactions and
+rechecks the complete owner/participant snapshot inside a short transaction.
+Unknown probes, stale heartbeat and shutdown requests cannot take live ownership.
+Role/project/run heartbeats are independently queryable; web readiness uses the supervisor.
+
+The CLI attaches to the internal bound claim before dispatch. It checks the exact
+command/profile/target and resolved configuration path, fences state writes, Git/forge
+commands and publication/conduct boundaries. Automatic project polls carry explicit
+project ownership too. A live attached child prevents recovery stealing the work.
+Owner IDs remain internal and are excluded from the public operation projection.
+
+Start succeeds at the admission callback after saved run identity, ticket snapshot
+and picked journal evidence, before conduction. `admitted_run_id` links the admission
+to its job; later job failure cannot rewrite this success. Exit zero without admission
+remains uncertain. Cancel exit zero also requires a saved cancelled lifecycle;
+otherwise `cancel_unconfirmed` is uncertain. Neither queue insertion nor claim proves
+an applied action. Offline contracts are in `tests/test_web_ownership.py`, worker,
+audit, readiness, CLI and state tests, plus four-locale operation-reason tests.
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+Retry/Restart acquire their canonical run role before the CLI handler, covering
+validation, reset and resource teardown as well as conduction/publication. A command
+already owned by that exact run handle reuses it and retains it through fenced
+completion. Claims defer another active run owner; effect authorization requires
+explicit proof of any separate run handle held by the child. Historical owner
+records and configuration-domain identity validate before mutation. SQLite faults
+become typed ownership-store errors; parent and child heartbeat failure is explicit.
+Linux missing boot or masked-live-process evidence is unknown, preserving ownership.
+Recovery compares process snapshots in canonical PID/birth order.
+
+
+An attached command pins its immutable request fields once and selects the run proof
+by the canonical command run ID, including during nested Restart reconciliation.
+A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
+before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
+capacity always counts all working jobs in that project. Completion verifies owner
+project/domain/run scope and validates the persisted operation again.
+
+
+Existing-store schema/audit checks use autocommit reads; only fresh initialization
+(or waiting to recheck a schema-0 store being initialized) takes the initialization
+writer lock. Corrupt existing history remains refused. Owner history is read and
+validated outside the writer transaction; registration compares its latest validated
+snapshot through an indexed generation lookup before inserting the successor.
+The current unique owner/resource indexes are validated at open. Deterministic
+held-projection tests prove another role can commit a heartbeat before validation
+is released, without replacing real SQLite writes with mocks.

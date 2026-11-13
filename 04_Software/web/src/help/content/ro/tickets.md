@@ -5,6 +5,8 @@ ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab
 
 Tichetele cu eticheta configurată pentru epic nu sunt preluate sau pornite. Pornirea manuală rămâne disponibilă pentru tichetele eligibile când monitorizarea este în pauză.
 
+Pornirea este confirmată după admiterea durabilă și preluarea lucrării de către serviciu. Lucrarea are apoi propriul progres și rezultat. O comandă în coadă sau în curs nu confirmă singură admiterea. Anularea este confirmată numai după oprirea lucrării cu un rezultat de anulare salvat. Punerea cererii în coadă sau trimiterea semnalului de oprire nu confirmă anularea. Dacă rezultatul este incert, verifică lucrarea înainte de reluare.
+
 ## Cum funcționează preluarea {#how-pickup-works}
 
 Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.

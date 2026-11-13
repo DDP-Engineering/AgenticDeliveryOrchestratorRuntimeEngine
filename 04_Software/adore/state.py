@@ -511,6 +511,7 @@ class StateStore:
         self.root = Path(root)
         self.slug = slug
         self._process_alive = process_alive
+        self.before_write: Callable[[], object] | None = None
 
     # -- paths ----------------------------------------------------------------
 
@@ -571,6 +572,8 @@ class StateStore:
         @return False if the run became terminal before the request.
         @exception StateError For an invalid run ID or malformed state/marker.
         """
+        if self.before_write is not None:
+            self.before_write()
         marker = self._cancel_marker(run_id)
         pending = self.cancel_requested(run_id)
         run = self.load(run_id)
@@ -593,6 +596,8 @@ class StateStore:
         @param[in] run_id Valid run identifier.
         @exception StateError For an invalid run ID or malformed marker.
         """
+        if self.before_write is not None:
+            self.before_write()
         marker = self._cancel_marker(run_id)
         self.cancel_requested(run_id)
         marker.unlink(missing_ok=True)
@@ -695,6 +700,8 @@ class StateStore:
         @details    Destructive; used by `adore delete`. Cancel keeps state.
         @param[in]  run_id Stable run identifier.
         """
+        if self.before_write is not None:
+            self.before_write()
         target = self.run_dir(run_id)
         if target.is_dir():
             shutil.rmtree(target)
@@ -733,6 +740,8 @@ class StateStore:
         @param[in] run_id Existing safe run identity.
         @exception StateError When the run is corrupt or already released.
         """
+        if self.before_write is not None:
+            self.before_write()
         if _RUN_ID_RE.fullmatch(run_id) is None or run_id in {".", ".."}:
             raise StateError("handoff requires a safe run identity")
         run = self.load(run_id)
@@ -771,6 +780,8 @@ class StateStore:
 
     def clear_handoff_request(self, run_id: str) -> None:
         """@brief Remove a request after durable ownership transfer."""
+        if self.before_write is not None:
+            self.before_write()
         (self.run_dir(run_id) / "handoff-request.json").unlink(missing_ok=True)
 
     # -- journal -----------------------------------------------------------------
@@ -783,6 +794,8 @@ class StateStore:
         @param[in]  details Arbitrary JSON-serializable event fields.
         """
         record = {"ts": utc_now_iso(), "event": event, **details}
+        if self.before_write is not None:
+            self.before_write()
         path = self.run_dir(run_id) / JOURNAL_FILE
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
@@ -920,6 +933,8 @@ class StateStore:
         """
         @brief   Stop picking new tickets (`adore pause`); in-flight runs continue.
         """
+        if self.before_write is not None:
+            self.before_write()
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / PAUSE_FILE).write_text(utc_now_iso() + "\n", encoding="utf-8")
 
@@ -927,6 +942,8 @@ class StateStore:
         """
         @brief   Allow picking new tickets again (`adore resume`).
         """
+        if self.before_write is not None:
+            self.before_write()
         (self.root / PAUSE_FILE).unlink(missing_ok=True)
 
     def is_paused(self) -> bool:
@@ -961,11 +978,15 @@ class StateStore:
         @param[in]  path Destination file.
         @param[in]  data JSON-serializable mapping.
         """
+        if self.before_write is not None:
+            self.before_write()
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
         with tmp.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, ensure_ascii=False, indent=2)
             handle.write("\n")
+        if self.before_write is not None:
+            self.before_write()
         tmp.replace(path)
 
 

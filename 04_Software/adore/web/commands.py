@@ -11,7 +11,7 @@
 @file commands.py
 @brief Single-host durable web operation worker.
 @details Uses the existing CLI as the bounded, locked engine boundary. A
-         stopped worker marks in-flight commands uncertain instead of replaying
+         demonstrably dead owner leaves in-flight commands uncertain instead of replaying
          a possible forge or container side effect.
 """
 
@@ -20,14 +20,16 @@ from __future__ import annotations
 # IMPORTS
 import argparse
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from hashlib import sha256
+import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 import time
 
 from adore.config import load_config, validate_config
@@ -48,6 +50,7 @@ from adore.util import (
     output_tail,
 )
 from adore.web.jobs import redact_text
+from adore.web.ownership import OwnershipError, WorkerOwner
 from adore.web.store import WebStore, WebStoreError
 
 
@@ -70,6 +73,7 @@ _NOT_STARTED = re.compile(
     r"(pickup_paused|at_capacity|aegis_probe_failed|not_eligible|conductor_busy)$",
     re.MULTILINE,
 )
+_COMMAND_ACTIONS = ("start", "retry", "restart", "cancel", "pause", "resume", "delete")
 
 
 # HELPER FUNCTIONS
@@ -106,42 +110,75 @@ class CommandWorker:
         self.profiles = profiles
         self.web = web
         self.runner = runner
+        self._owners: dict[tuple[str, str], WorkerOwner] = {}
+        self._owners_lock = Lock()
+        self._supervisor: WorkerOwner | None = None
+        self._cancel_claims: dict[int, tuple[dict, WorkerOwner]] = {}
         # Unbuffered UTF-8 output keeps the engine's lines in order and every character printable.
         self.environment = {**os.environ, "ADORE_HOME": str(profiles.home),
                             "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
 
     def run_pending(self) -> int:
         """@brief Execute at most one pending command; return 1 if claimed."""
-        operation = self.web.claim_next()
+        owner = None
+        operation = None
+        if self._cancel_claims:
+            operation, owner = self._cancel_claims.pop(next(iter(self._cancel_claims)))
+        else:
+            for domain, project_id in self.web.pending_domains(actions=_COMMAND_ACTIONS):
+                if domain == "configuration_global":
+                    continue
+                try:
+                    owner = self._owner(domain, project_id)
+                    operation = self.web.claim_next(
+                        owner, domain=domain,
+                        actions=_COMMAND_ACTIONS)
+                except OwnershipError:
+                    continue
+                if operation is not None:
+                    break
         if operation is None:
             return 0
+        if operation["status"] != "running":
+            return 1
+        def finish(operation_id, status, result, *, reason="", detail=""):
+            """@brief Finish this exact claim and release completed configuration ownership."""
+            self.web.finish(operation_id, status, result, owner=owner,
+                            generation=operation["generation"], reason=reason, detail=detail)
+            if owner.role == "configuration":
+                with self._owners_lock:
+                    try:
+                        self.web.clear_worker(owner)
+                    except OwnershipError:
+                        return
+                    self._owners.pop((operation["domain"], owner.project_id), None)
         actor = self.web.user_by_id(operation["actor_id"])
         project = operation["project"]
         try:
             grants = (self.web.memberships(actor["id"])
                       if actor is not None and actor["role"] != "admin" else set())
         except WebStoreError:
-            self.web.finish(operation["id"], "failed", "project grants are corrupt")
+            finish(operation["id"], "failed", "project grants are corrupt")
             return 1
         if (actor is None or actor["disabled"] or not self.profiles.exists(project)
                 or (actor["role"] != "admin" and project not in grants)):
-            self.web.finish(operation["id"], "failed", "permission or project revoked")
+            finish(operation["id"], "failed", "permission or project revoked")
             return 1
         try:
             profile = self.profiles.load(project)
             if profile.project_id != operation["project_id"]:
-                self.web.finish(operation["id"], "failed", "project identity changed")
+                finish(operation["id"], "failed", "project identity changed")
                 return 1
             if operation["action"] == "delete":
                 if actor["role"] != "admin" or not profile.archived:
-                    self.web.finish(operation["id"], "failed",
+                    finish(operation["id"], "failed",
                                     "delete requires an administrator and an archived project")
                     return 1
             elif profile.archived:
-                self.web.finish(operation["id"], "failed", "project archived")
+                finish(operation["id"], "failed", "project archived")
                 return 1
         except ProfileError:
-            self.web.finish(operation["id"], "failed", "project metadata corrupt")
+            finish(operation["id"], "failed", "project metadata corrupt")
             return 1
         argv = [sys.executable, "-m", "adore", "--profile", project]
         action = operation["action"]
@@ -154,13 +191,13 @@ class CommandWorker:
                 )
                 run = state.load(target)
             except (ProfileError, FileNotFoundError, StateError, OSError):
-                self.web.finish(operation["id"], "failed", "run is unavailable")
+                finish(operation["id"], "failed", "run is unavailable")
                 return 1
             if run.lifecycle == "cancelled":
-                self.web.finish(operation["id"], "succeeded", "run cancelled")
+                finish(operation["id"], "succeeded", "run cancelled")
                 return 1
             if run.lifecycle in ("done", "failed", "handoff-pending", "handed-off"):
-                self.web.finish(operation["id"], "failed", "run already finished")
+                finish(operation["id"], "failed", "run already finished")
                 return 1
         if action == "delete" and target in ("", "remove-clone"):
             # The delete target carries only the explicit clone-removal choice.
@@ -181,7 +218,7 @@ class CommandWorker:
                         or sha256(raw).hexdigest() != revision):
                     raise StateError("confirmed job changed")
             except (StateError, OSError):
-                self.web.finish(operation["id"], "failed", "restart:job_changed")
+                finish(operation["id"], "failed", "restart:job_changed")
                 return 1
             argv.extend(["restart", run_id, "--force", "--expected-revision", revision])
         elif action in ("retry", "cancel") and target:
@@ -189,12 +226,29 @@ class CommandWorker:
         elif action in ("pause", "resume") and actor["role"] == "admin" and not target:
             argv.append(action)
         else:
-            self.web.finish(operation["id"], "failed", "invalid operation")
+            finish(operation["id"], "failed", "invalid operation")
             return 1
         try:
-            outcome = self._run_with_cancel_watch(argv)
+            self.web.authorize_effect(operation["id"], owner=owner,
+                                      generation=operation["generation"])
+            context = json.dumps({"owner_id": owner.id, "owner_generation": owner.generation,
+                                  "role": owner.role, "project_id": owner.project_id,
+                                  "run_id": owner.run_id, "operation_id": operation["id"],
+                                  "generation": operation["generation"]})
+            outcome = self._run_with_cancel_watch(argv, context=context)
+        except OwnershipError as exc:
+            if exc.reason != "ownership_lost":
+                finish(operation["id"], "failed", exc.reason, reason=exc.reason)
+                return 1
+            # Never acknowledge or invoke effects under a stale owner.
+            raise
         except Exception:  # noqa: BLE001 - unexpected outcome needs reconciliation
-            self.web.finish(operation["id"], "uncertain", "worker invocation failed")
+            current = self.web.operation(operation["id"])
+            if action == "start" and current["status"] == "succeeded":
+                self.web.authorize_effect(operation["id"], owner=owner,
+                                          generation=operation["generation"])
+                return 1
+            finish(operation["id"], "uncertain", "worker invocation failed")
             return 1
         if isinstance(outcome, CommandResult):
             code, output = outcome.exit_code, outcome.stdout + "\n" + outcome.stderr
@@ -203,7 +257,7 @@ class CommandWorker:
         else:
             code, output = outcome, ""
         if type(code) is not int or type(output) is not str:
-            self.web.finish(operation["id"], "uncertain", "invalid engine outcome")
+            finish(operation["id"], "uncertain", "invalid engine outcome")
             return 1
         status = "uncertain" if code == 124 else "succeeded" if code == 0 else "failed"
         result = (
@@ -259,35 +313,65 @@ class CommandWorker:
         detail = output_tail(output, redact_text) if code != 0 else ""
         reason = (_refusal_reason(output, target) if status == "failed" and action == "start"
                   else retry_reason if action == "retry" else "")
-        self.web.finish(operation["id"], status, result, reason=reason, detail=detail)
+        if action == "cancel" and status == "succeeded":
+            try:
+                state = StateStore(
+                    profile.store_root or self.profiles.default_store_root(project))
+                observed = state.load(target)
+                if observed.lifecycle != "cancelled":
+                    status, result, reason = (
+                        "uncertain", "cancel not confirmed", "cancel_unconfirmed")
+            except (StateError, FileNotFoundError, OSError):
+                status, result, reason = "uncertain", "cancel not confirmed", "cancel_unconfirmed"
+        current = self.web.operation(operation["id"])
+        if action == "start" and current["status"] == "succeeded":
+            # Admission is already confirmed; subsequent job failure is separate.
+            self.web.authorize_effect(operation["id"], owner=owner,
+                                      generation=operation["generation"])
+            return 1
+        if action == "start" and status == "succeeded":
+            status, result, reason = "uncertain", "start:invalid_result", ""
+        finish(operation["id"], status, result, reason=reason, detail=detail)
         if action == "delete" and status == "succeeded":
             self.web.audit(actor["id"], "project-deleted", project)
         return 1
 
+    def _owner(self, domain: str, project_id: str) -> WorkerOwner:
+        """@brief Reuse only this worker's explicit project/domain owner handle."""
+        key = (domain, project_id)
+        with self._owners_lock:
+            if key not in self._owners:
+                role = "project" if domain == "execution" else "configuration"
+                try:
+                    self._owners[key] = self.web.register_worker(role, project_id=project_id)
+                except OwnershipError:
+                    # A child retained at startup may have exited since that inspection.
+                    self.web.recover_interrupted(project_id=project_id, role=role)
+                    self._owners[key] = self.web.register_worker(role, project_id=project_id)
+            return self._owners[key]
+
     def _signal_pending_cancels(self) -> None:
-        """@brief Recheck grants before signalling any active conductor."""
-        for operation in self.web.pending_cancels():
-            project = operation["project"]
-            actor = self.web.user_by_id(operation["actor_id"])
-            if actor is None or actor["disabled"] or not self.profiles.exists(project):
-                continue
+        """@brief Claim and authorize before writing any durable cancel signal."""
+        for pending in self.web.pending_cancels():
             try:
-                if actor["role"] != "admin" and project not in self.web.memberships(
-                    actor["id"]
-                ):
+                owner = self._owner("execution", pending["project_id"])
+                operation = self.web.claim_next(owner, domain="execution", action="cancel")
+                if operation is None or operation["status"] != "running":
                     continue
-                profile = self.profiles.load(project)
-                if profile.project_id != operation["project_id"]:
-                    continue
+                self._cancel_claims[operation["id"]] = (operation, owner)
+                operation = self.web.authorize_effect(operation["id"], owner=owner,
+                                                      generation=operation["generation"])
+                profile = self.profiles.load(operation["project"])
                 state = StateStore(
-                    profile.store_root or self.profiles.default_store_root(project)
-                )
+                    profile.store_root or self.profiles.default_store_root(profile.name))
                 state.request_cancel(operation["run_id"])
             except (WebStoreError, ProfileError, FileNotFoundError, StateError, OSError):
-                # The claimed command will report the unavailable run or state.
+                # The claimed command later records the unavailable/refused outcome.
                 continue
 
-    def _run_with_cancel_watch(self, argv: list[str]) -> int | CommandOutcome | CommandResult:
+    def _run_with_cancel_watch(
+        self, argv: list[str], *, context: str | None = None,
+    ) -> int | CommandOutcome | CommandResult:
         """@brief Watch queued cancellations around one blocking engine command."""
         done = Event()
 
@@ -300,21 +384,33 @@ class CommandWorker:
                     # The main worker still handles queued operations afterward.
                     return
 
-        self.web.set_worker_activity("busy")
+        if self._supervisor is not None:
+            self.web.set_worker_activity(self._supervisor, "busy")
         watcher = Thread(target=watch, daemon=True)
         watcher.start()
         try:
-            return self.runner(argv, self.environment)
+            environment = dict(self.environment)
+            environment.pop("ADORE_WORKER_CONTEXT", None)
+            if context is not None:
+                environment["ADORE_WORKER_CONTEXT"] = context
+            return self.runner(argv, environment)
         finally:
             done.set()
             watcher.join(timeout=2)
-            self.web.set_worker_activity("idle")
+            if self._supervisor is not None:
+                self.web.set_worker_activity(self._supervisor, "idle")
 
     def poll_project(self, project: str) -> int | CommandResult:
         """@brief Poll one project while watching for newly authorized cancels."""
+        profile = self.profiles.load(project)
+        owner = self._owner("execution", profile.project_id)
+        self.web.authorize_worker(owner)
         argv = [sys.executable, "-m", "adore", "--profile", project,
                 "run", "--once"]
-        outcome = self._run_with_cancel_watch(argv)
+        context = json.dumps({"owner_id": owner.id, "owner_generation": owner.generation,
+                              "role": owner.role, "project_id": owner.project_id,
+                              "run_id": owner.run_id, "operation_id": 0, "generation": 0})
+        outcome = self._run_with_cancel_watch(argv, context=context)
         return (outcome.code if isinstance(outcome, CommandOutcome) else
                 outcome.exit_code if isinstance(outcome, CommandResult) else outcome)
 
@@ -335,7 +431,10 @@ class CommandWorker:
             """@brief Keep readiness current while a conductor call blocks."""
             while not heartbeat_done.wait(heartbeat_interval):
                 try:
-                    self.web.touch_worker()
+                    self.web.touch_worker(self._supervisor)
+                    with self._owners_lock:
+                        for owner in self._owners.values():
+                            self.web.touch_worker(owner)
                 except (WebStoreError, OSError):
                     heartbeat_failed.set()
                     return
@@ -344,8 +443,9 @@ class CommandWorker:
         cadences: dict[str, PollCadence] = {}
         try:
             self.web.recover_interrupted()
-            self.web.set_worker_activity("idle")
-            self.web.touch_worker()
+            self._supervisor = self.web.register_worker("supervisor")
+            self.web.set_worker_activity(self._supervisor, "idle")
+            self.web.touch_worker(self._supervisor)
             heartbeat_started = True
             heartbeat_thread = Thread(target=beat, daemon=True)
             heartbeat_thread.start()
@@ -394,7 +494,11 @@ class CommandWorker:
                 heartbeat_thread.join(timeout=heartbeat_interval + 1)
             try:
                 if heartbeat_started:
-                    self.web.clear_worker()
+                    for owner in list(self._owners.values()):
+                        # Running effects retain ownership until demonstrated death.
+                        with suppress(OwnershipError):
+                            self.web.clear_worker(owner)
+                    self.web.clear_worker(self._supervisor)
             finally:
                 lock.release_lock()
 

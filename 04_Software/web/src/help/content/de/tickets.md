@@ -5,6 +5,8 @@ ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, 
 
 Tickets mit dem konfigurierten Epic-Label werden nicht übernommen oder gestartet. Starten bleibt für geeignete Tickets bei pausierter Überwachung verfügbar.
 
+Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt. Der Auftrag hat danach seinen eigenen Fortschritt und Ausgang. Ein wartender oder laufender Befehl bestätigt die Aufnahme allein nicht. Der Abbruch wird erst nach dem Auftragsstopp mit gespeichertem Abbruchergebnis bestätigt. Warteschlange oder Stoppsignal bestätigen keinen Abbruch. Prüfen Sie bei unklarem Ergebnis den Auftrag vor dem Wiederholen.
+
 ## So funktioniert die Aufnahme {#how-pickup-works}
 
 Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.

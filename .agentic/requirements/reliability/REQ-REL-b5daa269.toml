@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-b5daa269"
+title = "mark uncertain only operations whose recorded local owner and participating processes are "
+status = "active"
+requirement = "When recovering interrupted operations, the web store shall mark uncertain only operations whose recorded local owner and participating processes are demonstrably dead, retaining live or uninspectable owners regardless of heartbeat age."
+verification = "Inject deterministic process liveness with barriers; assert restarting A preserves B, PID reuse/unknown liveness retain claims, role/project/run heartbeat isolation and scoped shutdown."
+affected_paths = ["04_Software/adore/web/store.py", "04_Software/adore/web/commands.py", "04_Software/adore/web/ownership.py", "04_Software/adore/web/worker_context.py", "04_Software/adore/cli.py", "04_Software/adore/state.py", "04_Software/adore/orchestrator.py", "04_Software/web/src/operationReason.ts", "04_Software/web/src/help/content/**", "04_Software/web/tests/operationReason.test.mjs", "04_Software/web/e2e/server.py", "04_Software/adore/release_notes.toml", "04_Software/adore/web/static/**"]
+linked_tests = ["04_Software/tests/test_web_ownership.py", "04_Software/tests/test_web_commands.py", "04_Software/tests/test_web_audit_evidence.py", "04_Software/tests/test_web_server.py", "04_Software/tests/test_orchestrator.py", "04_Software/web/tests/operationReason.test.mjs"]
+created = 2026-11-13
+updated = 2026-11-13

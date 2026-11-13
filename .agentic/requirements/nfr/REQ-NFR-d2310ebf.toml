@@ -1,0 +1,15 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-NFR-d2310ebf"
+title = "Keep shared ownership writer transactions short"
+status = "active"
+requirement = "While existing web-store audit or owner history is being validated, the web store shall permit an independent worker heartbeat to commit without waiting for historical validation, while preserving atomic fresh initialization and fail-closed corruption checks."
+verification = "Hold Python audit projection or historical owner validation at deterministic events, then assert an independent SQLite heartbeat commits before release; existing malformed history, generation and schema/index contracts remain refused without reset."
+affected_paths = ["04_Software/adore/web/store.py"]
+linked_tests = ["04_Software/tests/test_web_ownership.py::test_historical_validation_does_not_hold_shared_writer_transaction", "04_Software/tests/test_web_ownership.py::test_corrupt_historical_owner_generation_refuses_successor", "04_Software/tests/test_web_audit_evidence.py", "04_Software/tests/test_web_auth.py", "04_Software/tests/test_web_commands.py::test_web_database_of_another_schema_is_refused_untouched"]
+created = 2026-11-13
+updated = 2026-11-13

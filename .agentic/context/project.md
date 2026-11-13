@@ -445,3 +445,12 @@ History identifies ticket/job targets and actual operation outcomes; CLI delete 
 A new web identity store announces its factory administrator credentials at creation. The unchanged factory administrator sees a persistent localized reminder linking to My account; password change and reset revoke sessions, and no stored format changes.
 
 Own-password changes, including after reset, offer independent password visibility and require matching confirmation; the existing server minimum is eight characters.
+
+
+Web queue ownership uses explicit execution/project-configuration/global-configuration
+domains and role/project/run generations bound to process creation identity. Only
+demonstrably dead owners are recovered; stale heartbeat and a dead parent with a live
+attached CLI child do not grant takeover. The CLI bridge retains serial scheduling in
+this step. Start confirms durable admission before conduction; Cancel confirms the saved
+cancelled result. Protected configuration references remain with their dedicated consumer.
+See web-interface.md and test_web_ownership.py.

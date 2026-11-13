@@ -32,6 +32,8 @@ from adore.state import RunState, StateStore, derive_run_id
 from adore.util import CommandResult
 import adore.web.app as web_app
 from adore.web.commands import CommandWorker
+from adore.web.ownership import WorkerOwner
+from adore.web.store import WebStore
 from adore.wizard import run_wizard
 from fastapi import BackgroundTasks, HTTPException, Request
 import uvicorn
@@ -69,10 +71,39 @@ def simulated_command(argv: list[str], _env: dict[str, str]) -> int:
         return 0
     if argv[-4:-1] == ["run", "--once", "--ticket"]:
         if argv[-1] in {"42", "44"}:
+            profiles = ProfileStore(Path(_env["ADORE_HOME"]))
+            project = argv[argv.index("--profile") + 1]
+            profile = profiles.load(project)
+            state = StateStore(profile.store_root or profiles.default_store_root(project))
+            ticket = int(argv[-1])
+            run_id = derive_run_id("gitlab", "group/subgroup/project", ticket)
+            run = RunState(run_id, ticket, workflow="direct", stage="build")
+            state.save(run)
+            state.save_ticket(run_id, {"iid": ticket, "title": f"Offline ticket {ticket}"})
+            state.journal(run_id, "picked", ticket=ticket)
+            context = json.loads(_env["ADORE_WORKER_CONTEXT"])
+            owner = WorkerOwner(context["owner_id"], context["owner_generation"], context["role"],
+                                context["project_id"], context["run_id"])
+            web = WebStore(profiles.home / "web.db")
+            run_owner = web.register_worker("run", project_id=owner.project_id, run_id=run_id)
+            web.acknowledge_start(
+                context["operation_id"], owner=owner,
+                generation=context["generation"], run_id=run_id, run_owner=run_owner)
+            run.lifecycle, run.stage = "done", "done"
+            state.save(run)
+            web.clear_worker(run_owner)
             return 0
         if argv[-1] == "43":
             return 7
     if argv[-2] in {"retry", "cancel"} and argv[-1].startswith("ux-"):
+        if argv[-2] == "cancel":
+            profiles = ProfileStore(Path(_env["ADORE_HOME"]))
+            project = argv[argv.index("--profile") + 1]
+            profile = profiles.load(project)
+            state = StateStore(profile.store_root or profiles.default_store_root(project))
+            run = state.load(argv[-1])
+            run.lifecycle = "cancelled"
+            state.save(run)
         return 7 if argv[-2] == "retry" else 0
     raise ValueError("unsupported offline test command")
 
@@ -134,7 +165,8 @@ def main() -> None:
                 f'\turl = ssh://git@forge.e2e.invalid:2222/offline/{name}.git\n',
                 encoding="utf-8")
             if workflow != "empty":
-                manifest = folder / "service" / "go.mod" if workflow == "child" else folder / "go.mod"
+                manifest = (folder / "service" / "go.mod" if workflow == "child"
+                            else folder / "go.mod")
                 manifest.parent.mkdir(exist_ok=True)
                 manifest.write_text("module fixture\n", encoding="utf-8")
             if workflow == "aegis":

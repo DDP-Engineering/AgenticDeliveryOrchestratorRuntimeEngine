@@ -8,7 +8,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; one worker serializes commands and polls, while authorized cancel signals reach active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
+The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; the CLI bridge schedules commands and polls serially, with explicitly owned cancellation signals reaching active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
@@ -609,7 +609,7 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   `detail` tail from `util.output_tail` with `jobs.redact_text` (redacted before
   the 20-line/2000-character cut), and a refused start keeps the CLI's
   not-started code for its own ticket as `reason` (REQ-FUNC-fbb6448c,
-  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 16), never in audit
+  REQ-FUNC-6055f2c6). Both stay on the operation row (schema 17), never in audit
   evidence. The UI localizes `reason` through `operationReason.ts` in Tickets,
   Jobs and the project status, names a refused Start's kept labels only for a
   failure with a known reason, and opens Start/Stop confirmations as a row under their
@@ -621,9 +621,11 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
   closes after page selection. Narrow panels wrap text while data tables keep
   their own horizontal scrolling.
 
-One web worker owns command ordering for one home. During any blocking engine
+The legacy CLI bridge schedules command ordering for one home while scoped owners
+provide independent execution/configuration claim boundaries. During any blocking engine
 command or project poll, the worker watches queued cancellations across projects and
-signals the active conductor after rechecking grants. Other queued operations
+claims the cancel operation and signals the active conductor only after rechecking
+current ownership, grants and immutable project identity. Other queued operations
 wait for the current engine command. Administrator metrics attribute usage and
 reported/estimated cost to the most recent revision-started event in each run;
 initial work remains in run totals and developers receive no financial rows.
@@ -883,6 +885,9 @@ Native control/auth route to local-execution.md. Focused proof:
 
 ## Files
 
+- `04_Software/adore/web/ownership.py`: typed owner handles and conservative local process birth evidence.
+- `04_Software/adore/web/worker_context.py`: child attachment, exact command binding, actual run scopes, scoped heartbeat and effect fences.
+- `04_Software/tests/test_web_ownership.py`: deterministic concurrent claims, recovery, corruption, process and authorization contracts.
 - `04_Software/web/src/forgeMarkdown.ts`: pinned react-markdown/remark-gfm React
   renderer with controlled anchors, inert images and named overflow regions.
 - `04_Software/web/src/ticketPreferences.ts`: closed account preference response reader.
@@ -1225,3 +1230,74 @@ The PR/MR and review settings include the localized boolean **Require human
 approval before PR/MR**. The existing Admin reviewed-save and idle-job rules
 apply; the default requires approval and disabling it permits automatic
 publication only after validation and freshness checks.
+
+## Durable worker ownership
+
+WK-01 queue ownership uses web schema 17 with explicit execution, configuration_project
+and configuration_global domains, canonical resource keys, operation/owner generations
+and role/project/run process participants. Register/claim/effect/finish calls require
+explicit handles. Revoked actors or immutable project identity fail closed at claim and
+before effects. Protected configuration candidates are queued only as opaque references
+with explicit project ID or explicit global None; the existing CLI bridge cannot consume
+them. Existing reviewed HTTP configuration application remains synchronous in this step.
+
+Recovery inspects process creation identity outside writer transactions, then rechecks
+owner/participant snapshots. Stale heartbeat, unknown liveness and shutdown requests do
+not surrender live work; a live attached CLI child keeps a dead parent's claim protected.
+Scoped registration retries re-inspect a previously retained owner, so eventual child
+exit can be recovered without restarting the new supervisor. Finish/replay and state/Git/
+forge effects reject old generations. Public operation transport excludes owner handles.
+
+Start admission is confirmed only after saved state, ticket snapshot and picked evidence,
+through the conductor admission callback before conduction; the job lifecycle remains
+independent. Queue/claim/exit-zero alone are unconfirmed. Cancel succeeds only from saved
+cancelled state. Six ownership/refusal codes have four-locale interface explanations.
+Tests: test_web_ownership.py (barriers, independent connections, child death, revocation,
+scoped configuration and CLI fencing), worker/audit/server/state/smoke/orchestrator tests,
+and web/tests/operationReason.test.mjs plus help.test.mjs.
+
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+Retry/Restart acquire their canonical run role before the CLI handler, covering
+validation, reset and resource teardown as well as conduction/publication. A command
+already owned by that exact run handle reuses it and retains it through fenced
+completion. Claims defer another active run owner; effect authorization requires
+explicit proof of any separate run handle held by the child. Historical owner
+records and configuration-domain identity validate before mutation. SQLite faults
+become typed ownership-store errors; parent and child heartbeat failure is explicit.
+Linux missing boot or masked-live-process evidence is unknown, preserving ownership.
+Recovery compares process snapshots in canonical PID/birth order.
+
+
+An attached command pins its immutable request fields once and selects the run proof
+by the canonical command run ID, including during nested Restart reconciliation.
+A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
+before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
+capacity always counts all working jobs in that project. Completion verifies owner
+project/domain/run scope and validates the persisted operation again.
+
+
+Existing-store schema/audit checks use autocommit reads; only fresh initialization
+(or waiting to recheck a schema-0 store being initialized) takes the initialization
+writer lock. Corrupt existing history remains refused. Owner history is read and
+validated outside the writer transaction; registration compares its latest validated
+snapshot through an indexed generation lookup before inserting the successor.
+The current unique owner/resource indexes are validated at open. Deterministic
+held-projection tests prove another role can commit a heartbeat before validation
+is released, without replacing real SQLite writes with mocks.
+
+
+Delayed fresh-file observations and schema-zero waiters re-read under the initialization
+lock and release it immediately once another initializer has committed a nonzero schema.
+They then validate existing history without writer ownership. An existing schema-zero
+store is refused without rebuilding, changing bytes or recreating accounts.

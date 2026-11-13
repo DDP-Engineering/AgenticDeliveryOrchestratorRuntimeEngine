@@ -14,6 +14,7 @@
 """
 
 from datetime import datetime
+import json
 import os
 from pathlib import Path
 import re
@@ -30,9 +31,24 @@ from adore.state import RunState, StateStore
 from adore.util import in_quiet_hours
 from adore.web.app import create_app
 from adore.web.commands import CommandOutcome, CommandWorker, _run
+from adore.web.ownership import WorkerOwner
 from adore.web.store import WebStore, WebStoreError
 from fastapi.testclient import TestClient
 import pytest
+
+
+def admit_start(profiles, web, env, run_id="run-42"):
+    """@brief Persist the fake engine's admission before acknowledging its exact claim."""
+    context = json.loads(env["ADORE_WORKER_CONTEXT"])
+    owner = WorkerOwner(context["owner_id"], context["owner_generation"], context["role"],
+                        context["project_id"], context["run_id"])
+    state = StateStore(profiles.default_store_root("alpha"))
+    state.save(RunState(run_id, 42, lifecycle="working"))
+    state.save_ticket(run_id, {"iid": 42})
+    state.journal(run_id, "picked", ticket=42)
+    run_owner = web.register_worker("run", project_id=owner.project_id, run_id=run_id)
+    web.acknowledge_start(context["operation_id"], owner=owner,
+                          generation=context["generation"], run_id=run_id, run_owner=run_owner)
 
 
 def test_authorized_start_uses_explicit_ticket_and_deduplicates(tmp_path):
@@ -45,7 +61,13 @@ def test_authorized_start_uses_explicit_ticket_and_deduplicates(tmp_path):
     first = web.enqueue(user["id"], "alpha", "start", "42", "one-request")
     again = web.enqueue(user["id"], "alpha", "start", "42", "one-request")
     calls = []
-    worker = CommandWorker(profiles, web, runner=lambda argv, env: calls.append(argv) or 0)
+    def runner(argv, env):
+        """@brief Admit one job with fixed argv and durably recorded evidence."""
+        calls.append(argv)
+        admit_start(profiles, web, env)
+        return 0
+
+    worker = CommandWorker(profiles, web, runner=runner)
     assert first["id"] == again["id"]
     assert worker.run_pending() == 1
     assert worker.run_pending() == 0
@@ -76,7 +98,7 @@ def test_worker_heartbeats_while_idle_and_clears_on_graceful_stop(tmp_path):
     assert not web.worker_ready()
 
 
-def test_worker_heartbeats_during_blocking_engine_command(tmp_path):
+def test_worker_heartbeats_during_blocking_engine_command(tmp_path, monkeypatch):
     """@brief A long project operation does not make a live worker look stale."""
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha")
@@ -86,6 +108,16 @@ def test_worker_heartbeats_during_blocking_engine_command(tmp_path):
     entered = Event()
     release = Event()
     stop = Event()
+    heartbeat_seen = Event()
+    original_touch = web.touch_worker
+
+    def touch(owner):
+        """@brief Observe a committed heartbeat after the engine enters its bounded wait."""
+        original_touch(owner)
+        if entered.is_set():
+            heartbeat_seen.set()
+
+    monkeypatch.setattr(web, "touch_worker", touch)
 
     def runner(_argv, _env):
         """@brief Hold the fake engine command until readiness is inspected."""
@@ -99,8 +131,8 @@ def test_worker_heartbeats_during_blocking_engine_command(tmp_path):
     thread.start()
     try:
         assert entered.wait(timeout=3)
-        time.sleep(0.25)
-        assert web.worker_ready(max_age_seconds=0.1)
+        assert heartbeat_seen.wait(timeout=3)
+        assert web.worker_ready()
         assert web.worker_activity() == "busy"
     finally:
         stop.set()
@@ -254,7 +286,7 @@ def test_cancel_rechecks_lifecycle_before_worker_execution(tmp_path):
     assert len(calls) == 1
     assert web.operation(delayed["id"])["status"] == "failed"
     assert state.load("run-1").lifecycle == "done"
-    assert web.operation(queued["id"])["status"] == "succeeded"
+    assert web.operation(queued["id"])["status"] == "uncertain"
 
 
 def test_cancel_submission_rejects_finished_run(tmp_path):
@@ -350,7 +382,7 @@ def test_active_poll_does_not_signal_revoked_developer_cancel(tmp_path):
 
     worker = CommandWorker(profiles, web, runner=poll)
     assert worker.poll_project("alpha") == 0
-    assert worker.run_pending() == 1
+    assert worker.run_pending() == 0
     assert web.operation(queued["id"])["status"] == "failed"
 
 
@@ -363,7 +395,8 @@ def test_cancel_is_claimed_before_older_non_cancel_work(tmp_path):
     web.set_memberships(user["id"], ["alpha"])
     web.enqueue(user["id"], "alpha", "start", "42", "start-older")
     cancel = web.enqueue(user["id"], "alpha", "cancel", "run-1", "cancel-newer")
-    assert web.claim_next()["id"] == cancel["id"]
+    owner = web.register_worker("project", project_id=profiles.load("alpha").project_id)
+    assert web.claim_next(owner, domain="execution")["id"] == cancel["id"]
 
 
 def test_web_started_job_watches_for_queued_cancel(tmp_path):
@@ -378,7 +411,7 @@ def test_web_started_job_watches_for_queued_cancel(tmp_path):
 
     def start(argv, env):
         assert argv[-4:] == ["run", "--once", "--ticket", "42"]
-        state.save(RunState(run_id="run-1", ticket_iid=42, lifecycle="working"))
+        admit_start(profiles, web, env, "run-1")
         web.enqueue(user["id"], "alpha", "cancel", "run-1", "cancel-later")
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline and not state.cancel_requested("run-1"):
@@ -436,7 +469,7 @@ def test_busy_other_project_does_not_signal_revoked_cancel(tmp_path):
 
     worker = CommandWorker(profiles, web, runner=poll)
     assert worker.poll_project("beta") == 0
-    assert worker.run_pending() == 1
+    assert worker.run_pending() == 0
     assert web.operation(queued["id"])["status"] == "failed"
 
 
@@ -665,7 +698,8 @@ def test_worker_resumes_automatic_polling_after_quiet_window(tmp_path, monkeypat
 
 @pytest.mark.parametrize("evidence,code,status,reason", [
     ('{"schema":1,"ticket":42,"exit_code":1,"reason":"at_capacity"}', 1, "failed", "at_capacity"),
-    ('{"schema":1,"ticket":42,"exit_code":0,"reason":"started"}', 0, "succeeded", "started"),
+    ('{"schema":1,"ticket":42,"exit_code":0,"reason":"started"}',
+     0, "uncertain", "invalid_result"),
     ('{"schema":1,"ticket":43,"exit_code":1,"reason":"held"}', 1, "failed", "invalid_result"),
     ('{"schema":1,"ticket":42,"exit_code":0,"reason":"held"}', 1, "failed", "invalid_result"),
     ('{"schema":1,"ticket":42,"exit_code":1,"reason":"PRIVATE"}', 1, "failed", "invalid_result"),
@@ -754,7 +788,7 @@ def test_failed_engine_operation_keeps_bounded_redacted_detail(tmp_path, case):
     elif case == "timeout":
         assert saved["status"] == "uncertain" and detail == "partial output"
     elif case == "success":
-        assert saved["status"] == "succeeded" and detail == ""
+        assert saved["status"] == "uncertain" and detail == ""
     else:
         assert saved["status"] == "failed" and detail == ""
 
@@ -847,7 +881,7 @@ def test_operation_api_returns_reason_and_detail(tmp_path):
     assert body["detail"] == "error: ticket #42 not started: pickup_paused"
 
 
-@pytest.mark.parametrize("version", [14, 15, 17])
+@pytest.mark.parametrize("version", [0, 14, 16, 18])
 def test_web_database_of_another_schema_is_refused_untouched(tmp_path, version):
     """@brief No migration: another schema version stops startup and names what to delete."""
     profiles, web, _queued = _queued_start(tmp_path)

@@ -13,6 +13,14 @@
 schema = 1
 
 [[release]]
+version = "Unreleased"
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Start confirms job admission; Cancel confirms the actual stop. Live work survives worker recovery.", fr = "Démarrage et annulation confirment le résultat réel. Les tâches actives survivent à la reprise.", de = "Start bestätigt Aufnahme, Abbruch den Stopp. Aktive Arbeit bleibt bei der Wiederherstellung sicher.", ro = "Pornirea confirmă admiterea, anularea oprirea reală. Recuperarea păstrează lucrările active." }
+
+[[release]]
 version = "0.15.0"
 date = "2026-11-12"
 

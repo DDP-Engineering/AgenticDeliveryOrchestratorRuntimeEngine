@@ -19,15 +19,17 @@ from __future__ import annotations
 from collections.abc import Callable
 
 # IMPORTS
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import sqlite3
 from typing import Any
 
@@ -39,11 +41,12 @@ from adore.deletion_audit import NAME as DELETION_AUDIT_NAME
 from adore.deletion_audit import DeletionAudit, DeletionAuditError
 from adore.profiles import ProfileError, ProfileStore
 from adore.web import audit as audit_contract
+from adore.web.ownership import OwnershipError, WebStoreError, WorkerOwner, process_birth
 
 # CONSTANTS
 _HASHER = PasswordHasher()
 # The only schema this build reads or writes; there are no migrations (AGENTS.md).
-_SCHEMA_VERSION = 16
+_SCHEMA_VERSION = 17
 _SCHEMA = """
 CREATE TABLE users (
     id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
@@ -69,6 +72,12 @@ CREATE TABLE operations (
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     idempotency_key TEXT NOT NULL,
     reason TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '',
+    domain TEXT NOT NULL CHECK(domain IN
+        ('execution','configuration_project','configuration_global')),
+    owner_id TEXT, owner_generation INTEGER, generation INTEGER NOT NULL DEFAULT 0,
+    admitted_run_id TEXT NOT NULL DEFAULT '',
+    run_owner_id TEXT NOT NULL DEFAULT '', run_owner_generation INTEGER NOT NULL DEFAULT 0,
+    resource_key TEXT NOT NULL,
     UNIQUE(actor_id, idempotency_key)
 );
 CREATE TABLE audit (
@@ -100,10 +109,21 @@ CREATE TABLE prices (
     actor_id INTEGER NOT NULL REFERENCES users(id), created_at TEXT NOT NULL,
     UNIQUE(project_id, executor, model, effective_from)
 );
-CREATE TABLE worker_heartbeat (
-    singleton INTEGER PRIMARY KEY CHECK(singleton=1),
-    updated_at TEXT NOT NULL
+CREATE TABLE worker_owners (
+    id TEXT PRIMARY KEY, generation INTEGER NOT NULL,
+    role TEXT NOT NULL, project_id TEXT NOT NULL, run_id TEXT NOT NULL,
+    host TEXT NOT NULL, status TEXT NOT NULL, updated_at TEXT NOT NULL,
+    activity TEXT NOT NULL DEFAULT 'idle'
 );
+CREATE UNIQUE INDEX worker_scope ON worker_owners(role,project_id,run_id) WHERE status='active';
+CREATE UNIQUE INDEX worker_generations ON worker_owners(role,project_id,run_id,generation DESC);
+CREATE TABLE worker_processes (
+    owner_id TEXT NOT NULL REFERENCES worker_owners(id), pid INTEGER NOT NULL,
+    birth TEXT NOT NULL, PRIMARY KEY(owner_id,pid,birth)
+);
+CREATE INDEX operation_queue ON operations(domain,project_id,status,id);
+CREATE UNIQUE INDEX active_operation_resource ON operations(domain,project_id,resource_key)
+    WHERE status='running';
 CREATE TABLE user_preferences (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     language TEXT, theme TEXT, ticket_body_mode TEXT
@@ -127,10 +147,6 @@ CREATE TABLE usage_cursor (
 
 
 # DATA MODELS / TYPEDEFINITIONS
-class WebStoreError(RuntimeError):
-    """@brief Corrupt or unsupported web storage and invalid account actions."""
-
-
 # HELPER FUNCTIONS
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -218,8 +234,10 @@ class WebStore:
              if the database file did not exist before initialization.
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *,
+                 process_probe: Callable[[int], str | None] = process_birth) -> None:
         self.path = Path(path)
+        self._process_probe = process_probe
         new = not self.path.exists()
         created = False
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -228,8 +246,17 @@ class WebStore:
             raise WebStoreError("web database missing after initialization")
         try:
             with self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
+                if version == 0:
+                    # Only initialization needs the writer lock. An opener that
+                    # observes an unfinished fresh store waits, then rechecks;
+                    # an existing schema-0 file is still refused, never reset.
+                    connection.execute("BEGIN IMMEDIATE")
+                    version = connection.execute("PRAGMA user_version").fetchone()[0]
+                    if version != 0:
+                        # Another initializer committed while this opener waited.
+                        # Historical validation must not retain its writer lock.
+                        connection.commit()
                 if version == 0 and new:
                     for statement in _SCHEMA.split(";"):
                         if statement.strip():
@@ -272,6 +299,32 @@ class WebStore:
                     ).fetchall()
                 }:
                     raise WebStoreError("web database missing operation identity")
+                for table, required in (
+                    ("operations", {"domain", "owner_id", "owner_generation", "generation",
+                                    "admitted_run_id", "resource_key", "run_owner_id",
+                                    "run_owner_generation"}),
+                    ("worker_owners", {"id", "generation", "role", "project_id", "run_id",
+                                       "host", "status", "updated_at", "activity"}),
+                    ("worker_processes", {"owner_id", "pid", "birth"}),
+                ):
+                    columns = {row[1] for row in connection.execute(
+                        f"PRAGMA table_info({table})").fetchall()}
+                    if not required.issubset(columns):
+                        raise WebStoreError("web database missing worker ownership schema")
+                for table, name, columns, partial in (
+                    ("worker_owners", "worker_scope", ("role", "project_id", "run_id"), 1),
+                    ("worker_owners", "worker_generations",
+                     ("role", "project_id", "run_id", "generation"), 0),
+                    ("operations", "active_operation_resource",
+                     ("domain", "project_id", "resource_key"), 1),
+                ):
+                    indexes = connection.execute(f"PRAGMA index_list({table})").fetchall()
+                    index = next((row for row in indexes if row["name"] == name), None)
+                    actual = tuple(row["name"] for row in connection.execute(
+                        f"PRAGMA index_info({name})").fetchall())
+                    if (index is None or index["unique"] != 1 or index["partial"] != partial
+                            or actual != columns):
+                        raise WebStoreError("web database ownership indexes are corrupt")
                 if "project_id" not in {
                     row[1] for row in connection.execute(
                         "PRAGMA table_info(prices)"
@@ -323,103 +376,224 @@ class WebStore:
         except sqlite3.DatabaseError as exc:
             raise WebStoreError(f"web database is corrupt: {exc}") from exc
 
-    def touch_worker(self) -> None:
-        """@brief Record that the single control worker is still operating."""
-        try:
-            with self._connect() as connection:
-                connection.execute(
-                    "INSERT INTO worker_heartbeat(singleton,updated_at) VALUES(1,?) "
-                    "ON CONFLICT(singleton) DO UPDATE SET updated_at=excluded.updated_at",
-                    (_now(),),
-                )
-        except sqlite3.DatabaseError as exc:
-            raise WebStoreError("worker heartbeat storage is corrupt") from exc
+    def register_worker(self, role: str, *, project_id: str = "",
+                        run_id: str = "") -> WorkerOwner:
+        """@brief Register one explicit role/project/run process incarnation.
+        @param[in] role Supervisor, project, run or configuration role.
+        @param[in] project_id Immutable project ID; empty only for global roles.
+        @param[in] run_id Exact run identity for run workers.
+        @return Current server-issued owner handle.
+        @exception OwnershipError A live owner already holds the scope.
+        """
+        self._worker_scope(role, project_id, run_id)
+        birth = self._process_probe(os.getpid())
+        if not isinstance(birth, str) or not birth:
+            raise OwnershipError("worker ownership process identity unavailable")
+        owner_id = secrets.token_hex(32)
+        with self._ownership_connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM worker_owners "
+                "WHERE role=? AND project_id=? AND run_id=? ORDER BY generation DESC",
+                (role, project_id, run_id)).fetchall()
+        # Historical validation is deliberately outside the shared writer lock.
+        for row in rows:
+            self._worker_record(row)
+        if len({row["generation"] for row in rows}) != len(rows):
+            raise WebStoreError("worker ownership generation history is corrupt")
+        if any(row["status"] == "active" for row in rows):
+            raise OwnershipError("worker ownership scope is already active")
+        expected = dict(rows[0]) if rows else None
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            latest = connection.execute(
+                "SELECT * FROM worker_owners WHERE role=? AND project_id=? AND run_id=? "
+                "ORDER BY generation DESC LIMIT 1", (role, project_id, run_id)).fetchone()
+            if (dict(latest) if latest else None) != expected:
+                raise OwnershipError("worker ownership scope changed during registration")
+            generation = (expected["generation"] if expected else 0) + 1
+            connection.execute(
+                "INSERT INTO worker_owners(id,generation,role,project_id,run_id,host,"
+                "status,updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                (owner_id, generation, role, project_id, run_id, socket.gethostname(),
+                 "active", _now()))
+            connection.execute(
+                "INSERT INTO worker_processes(owner_id,pid,birth) VALUES(?,?,?)",
+                (owner_id, os.getpid(), birth))
+        return WorkerOwner(owner_id, generation, role, project_id, run_id)
 
-    def _worker_lock_fingerprint(self) -> str | None:
-        """@brief Bind advisory activity to the current worker lock instance."""
-        path = self.path.parent / "web-control" / "adore-web.lock"
-        try:
-            with path.open("rb") as stream:
-                before = path.stat()
-                raw = stream.read(4097)
-                after = path.stat()
-            if (before.st_ino, before.st_ctime_ns) != (after.st_ino, after.st_ctime_ns):
-                return None
-            if len(raw) > 4096:
-                return None
-            value = json.loads(raw)
-            if (not isinstance(value, dict) or type(value.get("pid")) is not int
-                    or value["pid"] <= 0 or not isinstance(value.get("acquired_at"), str)
-                    or not value["acquired_at"] or not isinstance(value.get("host"), str)
-                    or not value["host"]):
-                return None
-            identity = f"{after.st_ino}:{after.st_ctime_ns}".encode("ascii")
-            return hashlib.sha256(raw + identity).hexdigest()
-        except (OSError, ValueError, TypeError, UnicodeError):
-            return None
+    @staticmethod
+    def _worker_scope(role: str, project_id: str, run_id: str) -> None:
+        """@brief Reject implicit/contradictory owner scope at the storage boundary."""
+        if (role not in ("supervisor", "project", "run", "configuration")
+                or not isinstance(project_id, str) or not isinstance(run_id, str)
+                or (project_id and not re.fullmatch(r"[a-f0-9]{32}", project_id))
+                or (run_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", run_id))
+                or (role == "supervisor" and (project_id or run_id))
+                or (role == "project" and (not project_id or run_id))
+                or (role == "run" and (not project_id or not run_id))
+                or (role == "configuration" and run_id)):
+            raise OwnershipError("invalid worker ownership scope")
 
-    def set_worker_activity(self, activity: str) -> None:
-        """@brief Publish advisory activity bound to the current worker lock."""
+    def _owned(self, connection, owner: WorkerOwner):
+        """@brief Verify the complete immutable handle against durable active ownership."""
+        if (not isinstance(owner, WorkerOwner) or not isinstance(owner.id, str)
+                or not re.fullmatch(r"[a-f0-9]{64}", owner.id)
+                or type(owner.generation) is not int or owner.generation < 1):
+            raise OwnershipError("explicit worker ownership required")
+        self._worker_scope(owner.role, owner.project_id, owner.run_id)
+        row = connection.execute("SELECT * FROM worker_owners WHERE id=?", (owner.id,)).fetchone()
+        if row is not None:
+            self._worker_record(row)
+        if (row is None or row["status"] != "active" or row["generation"] != owner.generation
+                or (row["role"], row["project_id"], row["run_id"])
+                != (owner.role, owner.project_id, owner.run_id)
+                or row["host"] != socket.gethostname()):
+            raise OwnershipError("worker ownership lost")
+        return row
+
+    def _worker_record(self, row) -> None:
+        """@brief Refuse corrupt historical or active owner evidence before using it."""
+        self._worker_scope(row["role"], row["project_id"], row["run_id"])
+        if (not isinstance(row["id"], str) or not re.fullmatch(r"[a-f0-9]{64}", row["id"])
+                or type(row["generation"]) is not int or row["generation"] < 1
+                or row["status"] not in ("active", "stopped", "dead")
+                or row["activity"] not in ("idle", "busy")
+                or not isinstance(row["host"], str) or not row["host"]):
+            raise WebStoreError("worker ownership record is corrupt")
+        try:
+            if datetime.fromisoformat(row["updated_at"]).tzinfo is None:
+                raise ValueError("missing timezone")
+        except (ValueError, TypeError, OverflowError) as exc:
+            raise WebStoreError("worker heartbeat timestamp is corrupt") from exc
+
+    def attach_worker(self, owner: WorkerOwner) -> None:
+        """@brief Bind the current child process before it can perform any effect."""
+        birth = self._process_probe(os.getpid())
+        if not isinstance(birth, str) or not birth:
+            raise OwnershipError("worker ownership process identity unavailable")
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._owned(connection, owner)
+            connection.execute(
+                "INSERT OR IGNORE INTO worker_processes(owner_id,pid,birth) VALUES(?,?,?)",
+                (owner.id, os.getpid(), birth))
+
+    def _participant(self, connection, owner: WorkerOwner) -> None:
+        """@brief Require this PID incarnation to participate in the owner."""
+        self._owned(connection, owner)
+        birth = self._process_probe(os.getpid())
+        if (not birth or connection.execute(
+                "SELECT 1 FROM worker_processes WHERE owner_id=? AND pid=? AND birth=?",
+                (owner.id, os.getpid(), birth)).fetchone() is None):
+            raise OwnershipError("worker ownership process identity changed")
+
+    def touch_worker(self, owner: WorkerOwner) -> None:
+        """@brief Refresh only the caller's explicit scoped heartbeat."""
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._participant(connection, owner)
+            connection.execute("UPDATE worker_owners SET updated_at=? WHERE id=?",
+                               (_now(), owner.id))
+
+    def authorize_worker(self, owner: WorkerOwner) -> dict[str, Any]:
+        """@brief Authorize autonomous project polling under explicit ownership."""
+        with self._ownership_connect() as connection:
+            self._participant(connection, owner)
+        if owner.role != "project":
+            raise OwnershipError("project polling ownership required")
+        profile = ProfileStore(self.path.parent).find_by_id(owner.project_id)
+        if profile is None or profile.archived:
+            raise OwnershipError("project polling ownership target unavailable")
+        return {"action": "poll", "project_id": owner.project_id, "project": profile.name,
+                "run_id": ""}
+
+    def assert_worker(self, owner: WorkerOwner) -> None:
+        """@brief Verify this process still participates in an exact role/project/run owner."""
+        with self._ownership_connect() as connection:
+            self._participant(connection, owner)
+
+    def set_worker_activity(self, owner: WorkerOwner, activity: str) -> None:
+        """@brief Publish activity only for the verified owner incarnation."""
         if activity not in ("idle", "busy"):
             raise ValueError("invalid worker activity")
-        path = self.path.with_name(self.path.name + ".activity")
-        temporary = path.with_name(path.name + ".tmp")
-        fingerprint = self._worker_lock_fingerprint()
-        try:
-            if fingerprint is None:
-                path.unlink(missing_ok=True)
-                return
-            temporary.write_text(f"{activity} {fingerprint}", encoding="ascii")
-            temporary.replace(path)
-        except OSError:
-            with suppress(OSError):
-                path.unlink(missing_ok=True)
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._participant(connection, owner)
+            connection.execute("UPDATE worker_owners SET activity=? WHERE id=?",
+                               (activity, owner.id))
 
     def worker_activity(self) -> str:
-        """@brief Reject missing, corrupt or differently bound activity evidence."""
-        fingerprint = self._worker_lock_fingerprint()
-        if fingerprint is None:
+        """@brief Aggregate recent supervisor activity without confusing ownership."""
+        rows = self.worker_heartbeats(role="supervisor")
+        active = [row for row in rows if row["ready"]]
+        if not active:
             return "unknown"
-        path = self.path.with_name(self.path.name + ".activity")
-        try:
-            with path.open("rb") as stream:
-                value = stream.read(80)
-        except OSError:
-            return "unknown"
-        for activity in ("idle", "busy"):
-            if value == f"{activity} {fingerprint}".encode("ascii"):
-                return activity
-        return "unknown"
+        return "busy" if any(row["activity"] == "busy" for row in active) else "idle"
 
-    def clear_worker(self) -> None:
-        """@brief Remove worker readiness after graceful shutdown."""
-        try:
-            with self._connect() as connection:
-                connection.execute("DELETE FROM worker_heartbeat WHERE singleton=1")
-        except sqlite3.DatabaseError as exc:
-            raise WebStoreError("worker heartbeat storage is corrupt") from exc
+    def clear_worker(self, owner: WorkerOwner) -> None:
+        """@brief Stop only an idle owner; running effects retain their ownership."""
+        with self._ownership_connect() as connection:
+            processes = connection.execute(
+                "SELECT * FROM worker_processes WHERE owner_id=?", (owner.id,)).fetchall()
+        for process in processes:
+            if process["pid"] != os.getpid():
+                try:
+                    live = self._process_probe(process["pid"]) == process["birth"]
+                except (WebStoreError, OSError):
+                    live = True
+                if live:
+                    raise OwnershipError("worker ownership still has live participants")
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._participant(connection, owner)
+            current_processes = connection.execute(
+                "SELECT * FROM worker_processes WHERE owner_id=?", (owner.id,)).fetchall()
+            if [dict(row) for row in current_processes] != [dict(row) for row in processes]:
+                raise OwnershipError("worker ownership participants changed during shutdown")
+            if connection.execute(
+                "SELECT 1 FROM operations WHERE owner_id=? AND status='running' LIMIT 1",
+                (owner.id,)).fetchone():
+                raise OwnershipError("worker ownership still has running operations")
+            connection.execute("UPDATE worker_owners SET status='stopped' WHERE id=?", (owner.id,))
 
-    def worker_ready(self, *, max_age_seconds: int = 10) -> bool:
-        """@brief Report a recent worker heartbeat, rejecting corrupt timestamps."""
-        try:
-            with self._connect() as connection:
-                row = connection.execute(
-                    "SELECT updated_at FROM worker_heartbeat WHERE singleton=1"
-                ).fetchone()
-        except sqlite3.DatabaseError as exc:
-            raise WebStoreError("worker heartbeat storage is corrupt") from exc
-        if row is None:
-            return False
-        try:
-            stamp = datetime.fromisoformat(row["updated_at"])
-            if stamp.tzinfo is None:
-                raise ValueError("missing timezone")
-            age = (datetime.now(UTC) - stamp).total_seconds()
-        except (TypeError, ValueError, OverflowError) as exc:
-            raise WebStoreError("worker heartbeat timestamp is corrupt") from exc
-        if age < -5:
-            raise WebStoreError("worker heartbeat is in the future")
-        return age <= max_age_seconds
+    def worker_heartbeats(self, *, role: str | None = None,
+                          project_id: str | None = None, run_id: str | None = None,
+                          max_age_seconds: float = 10) -> list[dict[str, Any]]:
+        """@brief Inspect heartbeat evidence per role, immutable project and run.
+        @return Scoped metadata and readiness; owner capability IDs stay private.
+        @exception WebStoreError Corrupt persisted timestamps or scope.
+        """
+        with self._ownership_connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM worker_owners WHERE status='active'").fetchall()
+        result = []
+        for row in rows:
+            self._worker_record(row)
+            if ((role is not None and row["role"] != role)
+                    or (project_id is not None and row["project_id"] != project_id)
+                    or (run_id is not None and row["run_id"] != run_id)):
+                continue
+            try:
+                stamp = datetime.fromisoformat(row["updated_at"])
+                if stamp.tzinfo is None:
+                    raise ValueError("missing timezone")
+                age = (datetime.now(UTC) - stamp).total_seconds()
+            except (ValueError, TypeError, OverflowError) as exc:
+                raise WebStoreError("worker heartbeat timestamp is corrupt") from exc
+            if age < -5:
+                raise WebStoreError("worker heartbeat is in the future")
+            if row["activity"] not in ("idle", "busy"):
+                raise WebStoreError("worker activity is corrupt")
+            result.append({"role": row["role"], "project_id": row["project_id"],
+                           "run_id": row["run_id"], "generation": row["generation"],
+                           "updated_at": row["updated_at"], "activity": row["activity"],
+                           "ready": age <= max_age_seconds})
+        return result
+
+    def worker_ready(self, *, max_age_seconds: float = 10) -> bool:
+        """@brief Readiness requires a recent supervisor heartbeat."""
+        return any(row["ready"] for row in self.worker_heartbeats(
+            role="supervisor", max_age_seconds=max_age_seconds))
 
     def allow_login(self, username: str, client: str) -> bool:
         """@brief Enforce five failed attempts per identity and client in ten minutes."""
@@ -468,6 +642,15 @@ class WebStore:
                 yield connection
         finally:
             connection.close()
+
+    @contextmanager
+    def _ownership_connect(self):
+        """@brief Translate ownership storage faults without changing account error contracts."""
+        try:
+            with self._connect() as connection:
+                yield connection
+        except sqlite3.DatabaseError as exc:
+            raise WebStoreError("worker ownership storage is corrupt") from exc
 
     def forget_run_usage(self, project_id: str, run_id: str, *,
                          remove_source: Callable[[], None]) -> None:
@@ -1227,10 +1410,40 @@ class WebStore:
                 granted.append(profile)
         return granted
 
-    def _operation_with_current_project(self, row: sqlite3.Row) -> dict[str, Any]:
-        """@brief Resolve a queued command's immutable target to its current label."""
+    def _operation_record(self, row) -> dict[str, Any]:
+        """@brief Validate persisted operation scope without filesystem work."""
         operation = dict(row)
+        action, domain = operation["action"], operation["domain"]
+        expected = ("execution" if action in ("start", "retry", "restart", "cancel") else
+                    "configuration_project" if action in ("pause", "resume", "delete") else
+                    domain if action == "configure" and domain in (
+                        "configuration_project", "configuration_global") else None)
+        if (domain not in ("execution", "configuration_project", "configuration_global")
+                or domain != expected or not isinstance(operation["run_id"], str)
+                or operation["status"] not in (
+                    "pending", "running", "succeeded", "failed", "uncertain")
+                or type(operation["generation"]) is not int or operation["generation"] < 0
+                or operation["resource_key"] != self._operation_resource(
+                    action, operation["run_id"])):
+            raise WebStoreError("operation scope or generation is corrupt")
+        project_id, project = operation["project_id"], operation["project"]
+        if domain == "configuration_global":
+            if project_id or project:
+                raise WebStoreError("global operation project scope is corrupt")
+        elif (not isinstance(project_id, str) or not re.fullmatch(r"[a-f0-9]{32}", project_id)
+              or not isinstance(project, str)
+              or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", project)):
+            raise WebStoreError("operation project scope is corrupt")
+        return operation
+
+    def _operation_with_current_project(self, row) -> dict[str, Any]:
+        """@brief Resolve a queued command's immutable target to its current label."""
+        operation = self._operation_record(row)
         project_id = operation["project_id"]
+        if operation["domain"] == "configuration_global":
+            if project_id or operation["project"]:
+                raise WebStoreError("global operation has a project")
+            return operation
         if (not isinstance(project_id, str)
                 or not re.fullmatch(r"[0-9a-f]{32}", project_id)):
             raise WebStoreError("operation identity is corrupt")
@@ -1248,21 +1461,25 @@ class WebStore:
         """@brief Persist an idempotent operation request."""
         if (
             action not in ("start", "retry", "cancel", "restart", "pause", "resume", "delete")
-            or not key
+            or type(actor_id) is not int or actor_id < 1
+            or not isinstance(key, str) or not key
             or len(key) > 128
         ):
             raise WebStoreError("invalid operation")
         identity = _profile_identity(self.path.parent, project)
         if identity is None:
             raise WebStoreError("project not found")
+        domain = ("configuration_project" if action in ("pause", "resume", "delete")
+                  else "execution")
         stamp = _now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
                 "INSERT OR IGNORE INTO operations(actor_id,project,project_id,"
-                "action,run_id,status,created_at,updated_at,idempotency_key) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
-                (actor_id, project, identity[0], action, run_id, "pending", stamp, stamp, key),
+                "action,run_id,status,created_at,updated_at,idempotency_key,domain,resource_key) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (actor_id, project, identity[0], action, run_id, "pending", stamp, stamp, key,
+                 domain, self._operation_resource(action, run_id)),
             )
             row = connection.execute(
                 "SELECT * FROM operations WHERE actor_id=? AND idempotency_key=?",
@@ -1303,6 +1520,106 @@ class WebStore:
             ).fetchone()
         return self._operation_with_current_project(row) if row else None
 
+    def enqueue_configuration(self, actor_id: int, reference: str, key: str, *,
+                              project_id: str | None) -> dict[str, Any]:
+        """@brief Queue a protected configuration reference with explicit global/project scope.
+        @param[in] reference Opaque reference to the existing protected candidate, never its data.
+        @param[in] project_id Immutable project ID, or explicit None for global configuration.
+        @exception WebStoreError Invalid scope, non-admin actor or conflicting idempotency key.
+        """
+        if (not isinstance(reference, str) or not re.fullmatch(r"[a-f0-9]{32}", reference)
+                or not isinstance(key, str) or not key or len(key) > 128):
+            raise WebStoreError("invalid configuration reference")
+        if project_id is None:
+            name, identity, domain = "", "", "configuration_global"
+        else:
+            if not isinstance(project_id, str) or not re.fullmatch(r"[a-f0-9]{32}", project_id):
+                raise WebStoreError("invalid configuration project")
+            profile = ProfileStore(self.path.parent).find_by_id(project_id)
+            if profile is None:
+                raise WebStoreError("project not found")
+            name, identity, domain = profile.name, profile.project_id, "configuration_project"
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            actor = connection.execute("SELECT role,disabled FROM users WHERE id=?",
+                                       (actor_id,)).fetchone()
+            if actor is None or actor["disabled"] or actor["role"] != "admin":
+                raise WebStoreError("configuration requires an administrator")
+            stamp = _now()
+            cursor = connection.execute(
+                "INSERT OR IGNORE INTO operations(actor_id,project,project_id,action,run_id,"
+                "status,created_at,updated_at,idempotency_key,domain,resource_key) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (actor_id, name, identity, "configure", reference, "pending", stamp, stamp, key,
+                 domain, "configuration:" + reference))
+            row = connection.execute(
+                "SELECT * FROM operations WHERE actor_id=? AND idempotency_key=?",
+                (actor_id, key)).fetchone()
+            if (row["project_id"], row["domain"], row["action"], row["run_id"]) != (
+                    identity, domain, "configure", reference):
+                raise WebStoreError("idempotency key belongs to another operation")
+            if cursor.rowcount:
+                self._write_audit(
+                    connection, actor_id, "operation-submitted", name, "configure",
+                    payload=self._evidence(connection, actor_id, project_id=identity or None,
+                                           resource_type="operation", resource_id=str(row["id"]),
+                                           operation_id=row["id"], phase="prepare",
+                                           result="prepared"),
+                    event_key=_digest(f"operation:{row['id']}:submitted"))
+        return self._operation_with_current_project(row)
+
+    def acknowledge_start(self, operation_id: int, *, owner: WorkerOwner,
+                          generation: int, run_id: str, run_owner: WorkerOwner) -> None:
+        """@brief Confirm Start only after exact durable run admission and pickup evidence.
+        @param[in] operation_id Requested Start operation.
+        @param[in] owner Current command owner.
+        @param[in] generation Exact claim generation.
+        @param[in] run_id Durably admitted job identity.
+        @param[in] run_owner Current exclusive run owner.
+        @details Completion describes admission; the subsequent job has its own lifecycle.
+        """
+        from adore.state import StateError, StateStore
+
+        operation = self.authorize_effect(operation_id, owner=owner, generation=generation)
+        if (not isinstance(run_owner, WorkerOwner) or run_owner.role != "run"
+                or run_owner.project_id != owner.project_id or run_owner.run_id != run_id):
+            raise OwnershipError("start run ownership mismatch")
+        if operation["action"] != "start" or not operation["run_id"].isdigit():
+            raise WebStoreError("invalid start admission")
+        try:
+            profiles = ProfileStore(self.path.parent)
+            profile = profiles.find_by_id(operation["project_id"])
+            if profile is None:
+                raise WebStoreError("start project identity changed")
+            state = StateStore(profile.store_root or profiles.default_store_root(profile.name))
+            run = state.load(run_id)
+            ticket = state.load_ticket(run_id)
+            picked = any(event.get("event") == "picked"
+                         and event.get("ticket") == run.ticket_iid
+                         for event in state.read_journal(run_id))
+            if (run.ticket_iid != int(operation["run_id"]) or ticket.get("iid") != run.ticket_iid
+                    or run.lifecycle != "working"
+                    or not picked):
+                raise WebStoreError("start admission evidence is invalid")
+        except (StateError, ProfileError, OSError, ValueError) as exc:
+            raise WebStoreError("start admission evidence unavailable") from exc
+        with self._ownership_connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._participant(connection, owner)
+            self._participant(connection, run_owner)
+            row = connection.execute(
+                    "SELECT * FROM operations WHERE id=?", (operation_id,)).fetchone()
+            self._operation_owner(row, owner, generation)
+            if row["status"] == "succeeded" and row["admitted_run_id"] == run_id:
+                return
+            if (row["status"] != "running"
+                    or self._request_permission(connection, dict(row), profile)):
+                raise OwnershipError("start admission ownership refused")
+            connection.execute(
+                "UPDATE operations SET admitted_run_id=?,run_owner_id=?,run_owner_generation=? "
+                "WHERE id=?", (run_id, run_owner.id, run_owner.generation, operation_id))
+            self._finish(connection, row, "succeeded", "completed")
+
     def operation_for_key(self, actor_id: int, key: str) -> dict | None:
         """@brief Resolve a durable idempotency key before preparing external work.
         @return Current operation or None; callers recheck immutable request binding.
@@ -1328,21 +1645,198 @@ class WebStore:
             raise WebStoreError("operation storage is corrupt") from exc
         return row is not None
 
-    def claim_next(self) -> dict[str, Any] | None:
-        """@brief Atomically claim one pending operation for the worker."""
-        with self._connect() as connection:
+    def pending_domains(self, *, actions: tuple[str, ...] = ()) -> list[tuple[str, str]]:
+        """@brief Discover explicit pending project domains without claiming them."""
+        with self._ownership_connect() as connection:
+            action_filter = ("AND action IN (" + ",".join("?" for _ in actions) + ") "
+                             if actions else "")
+            rows = connection.execute(
+                "SELECT domain,project_id FROM operations WHERE status='pending' "
+                + action_filter + "GROUP BY domain,project_id ORDER BY MIN(id)", actions).fetchall()
+        return [(row["domain"], row["project_id"]) for row in rows]
+
+    @staticmethod
+    def _operation_resource(action: str, target: str) -> str:
+        """@brief Normalize job identity across Retry and revision-bound Restart."""
+        if not isinstance(target, str):
+            raise WebStoreError("invalid operation target")
+        if action == "configure":
+            if not re.fullmatch(r"[a-f0-9]{32}", target):
+                raise WebStoreError("invalid configuration reference")
+            return "configuration:" + target
+        if action == "start":
+            if not re.fullmatch(r"[1-9][0-9]{0,18}", target):
+                raise WebStoreError("invalid start ticket")
+            return "ticket:" + target
+        if action in ("retry", "restart"):
+            pattern = (r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}\.[a-f0-9]{64}"
+                       if action == "restart" else r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}")
+            if not re.fullmatch(pattern, target):
+                raise WebStoreError("invalid job target")
+            run_id = target.rsplit(".", 1)[0] if action == "restart" else target
+            return "job:" + run_id
+        if ((action == "cancel" and not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", target))
+                or (action in ("pause", "resume") and target)
+                or (action == "delete" and target not in ("", "remove-clone"))):
+            raise WebStoreError("invalid operation target")
+        return action + ":" + target
+
+    @staticmethod
+    def _claim_scope(owner: WorkerOwner, domain: str) -> None:
+        """@brief Refuse cross-domain or implicit-project consumption."""
+        if not isinstance(owner, WorkerOwner):
+            raise OwnershipError("explicit worker ownership required")
+        expected = ("execution" if owner.role in ("project", "run") else
+                    "configuration_project" if owner.role == "configuration" and owner.project_id
+                    else "configuration_global" if owner.role == "configuration" else None)
+        if domain != expected:
+            raise OwnershipError("worker ownership cannot consume this domain")
+
+    def _profile_snapshot(self, project_id: str):
+        """@brief Inspect local profile identity outside a SQLite writer transaction."""
+        if not project_id:
+            return None
+        try:
+            return ProfileStore(self.path.parent).find_by_id(project_id)
+        except (ProfileError, OSError, ValueError):
+            return "project_corrupt"
+
+    def _request_permission(self, connection, operation: dict, profile) -> str:
+        """@brief Return a closed denial after current actor/immutable-project checks."""
+        actor = connection.execute("SELECT * FROM users WHERE id=?",
+                                   (operation["actor_id"],)).fetchone()
+        if actor is None or actor["disabled"]:
+            return "permission_revoked"
+        if operation["domain"] == "configuration_global":
+            return "" if actor["role"] == "admin" else "permission_revoked"
+        if isinstance(profile, str):
+            return profile
+        if profile is None:
+            return "project_identity_changed"
+        if profile.archived and operation["action"] != "delete":
+            return "project_archived"
+        if operation["domain"].startswith("configuration") and actor["role"] != "admin":
+            return "permission_revoked"
+        if actor["role"] == "admin":
+            return ""
+        grant = connection.execute(
+            "SELECT profile_created_at FROM memberships WHERE user_id=? AND project_id=?",
+            (actor["id"], operation["project_id"])).fetchone()
+        if grant is None or grant["profile_created_at"] != profile.created_at:
+            return "permission_revoked"
+        return ""
+
+    def claim_next(self, owner: WorkerOwner, *, domain: str, action: str = "",
+                   actions: tuple[str, ...] = ()) -> dict[str, Any] | None:
+        """@brief Atomically claim one authorized operation within the exact owner scope.
+        @param[in] owner Server-issued role/project/run handle.
+        @param[in] action Optional exact action filter.
+        @param[in] actions Optional declared consumer action allowlist.
+        @param[in] domain Explicit execution or project/global configuration domain.
+        @return Claimed operation, or None; revoked requests finish without effects.
+        """
+        self._claim_scope(owner, domain)
+        if domain == "execution":
+            self.recover_interrupted(project_id=owner.project_id, role="run")
+        if (not isinstance(actions, tuple) or any(item not in (
+                "start", "retry", "restart", "cancel", "pause", "resume", "delete", "configure"
+        ) for item in actions)):
+            raise WebStoreError("invalid operation action filter")
+        action_filter = ("AND o.action IN (" + ",".join("?" for _ in actions) + ") "
+                         if actions else "")
+        profile = self._profile_snapshot(owner.project_id)
+        with self._ownership_connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            self._participant(connection, owner)
+            running = connection.execute(
+                "SELECT * FROM operations WHERE domain=? AND project_id=? AND status='running'",
+                (domain, owner.project_id)).fetchall()
+            for active in running:
+                self._operation_record(active)
             row = connection.execute(
-                "SELECT * FROM operations WHERE status='pending' "
-                "ORDER BY CASE WHEN action='cancel' THEN 0 ELSE 1 END,id LIMIT 1"
-            ).fetchone()
+                "SELECT o.* FROM operations o WHERE o.status='pending' "
+                "AND o.domain=? AND o.project_id=? AND (?='' OR o.action=?) "
+                "AND (?='' OR o.resource_key=? OR o.resource_key=?) "
+                "AND NOT EXISTS (SELECT 1 FROM operations r WHERE r.status='running' "
+                "AND r.domain=o.domain AND r.project_id=o.project_id "
+                "AND r.resource_key=o.resource_key) "
+                "AND NOT EXISTS (SELECT 1 FROM worker_owners w WHERE w.role='run' "
+                "AND w.status='active' AND w.project_id=o.project_id AND w.id<>? "
+                "AND o.resource_key='job:' || w.run_id) "
+                + action_filter
+                + "ORDER BY CASE WHEN o.action='cancel' THEN 0 ELSE 1 END,o.id LIMIT 1",
+                (domain, owner.project_id, action, action, owner.run_id,
+                 "job:" + owner.run_id, "cancel:" + owner.run_id,
+                 owner.id, *actions)).fetchone()
             if row is None:
                 return None
+            self._operation_record(row)
+            if type(row["generation"]) is not int or row["generation"] < 0:
+                raise WebStoreError("operation generation is corrupt")
+            generation = row["generation"] + 1
             connection.execute(
-                "UPDATE operations SET status='running', updated_at=? WHERE id=?",
-                (_now(), row["id"]),
-            )
-        return {**self._operation_with_current_project(row), "status": "running"}
+                "UPDATE operations SET status='running',owner_id=?,owner_generation=?,"
+                "generation=?,updated_at=? WHERE id=? AND status='pending'",
+                (owner.id, owner.generation, generation, _now(), row["id"]))
+            operation = {**dict(row), "status": "running", "owner_id": owner.id,
+                         "owner_generation": owner.generation, "generation": generation}
+            denial = self._request_permission(connection, operation, profile)
+            if denial:
+                self._finish(connection, operation, "failed", denial, denial)
+                operation.update(status="failed", result=denial, reason=denial)
+        return self._operation_with_current_project(operation)
+
+    def authorize_effect(self, operation_id: int, *, owner: WorkerOwner,
+                         generation: int, run_owner: WorkerOwner | None = None) -> dict[str, Any]:
+        """@brief Recheck ownership, actor rights and project immediately before effects.
+        @param[in] operation_id Exact queued operation identity.
+        @param[in] owner Current command owner handle.
+        @param[in] generation Exact operation claim generation.
+        @param[in] run_owner Optional separately owned run scope for this child.
+        @return Current authorized immutable request.
+        @exception OwnershipError Stale owner, changed request or revoked access.
+        """
+        with self._ownership_connect() as connection:
+            self._participant(connection, owner)
+            row = connection.execute("SELECT * FROM operations WHERE id=?",
+                                     (operation_id,)).fetchone()
+            self._operation_owner(row, owner, generation)
+            operation = self._operation_record(row)
+            admitted = (row["status"] == "succeeded" and row["action"] == "start"
+                        and row["admitted_run_id"])
+            if row["status"] != "running" and not admitted:
+                raise OwnershipError("operation ownership is no longer active")
+            if operation["resource_key"].startswith("job:"):
+                run_id = operation["resource_key"][4:]
+                active = connection.execute(
+                    "SELECT * FROM worker_owners WHERE role='run' AND project_id=? "
+                    "AND run_id=? AND status='active'", (owner.project_id, run_id)).fetchone()
+                if active is not None and active["id"] != owner.id:
+                    if (not isinstance(run_owner, WorkerOwner) or run_owner.id != active["id"]
+                            or run_owner.project_id != owner.project_id
+                            or run_owner.run_id != run_id):
+                        raise OwnershipError(
+                            "operation ownership run is busy", reason="conductor_busy")
+                    self._participant(connection, run_owner)
+            denial = self._request_permission(
+                connection, dict(row), self._profile_snapshot(row["project_id"]))
+            if denial:
+                raise OwnershipError("operation ownership refused: " + denial, reason=denial)
+        return self._operation_with_current_project(row)
+
+    @staticmethod
+    def _operation_owner(row, owner: WorkerOwner, generation: int) -> None:
+        """@brief Fence stale operation and owner generations, including terminal replay."""
+        if (row is None or row["owner_id"] != owner.id
+                or row["owner_generation"] != owner.generation
+                or type(generation) is not int or row["generation"] != generation
+                or row["project_id"] != owner.project_id):
+            raise OwnershipError("operation ownership lost")
+        WebStore._claim_scope(owner, row["domain"])
+        if owner.role == "run" and row["resource_key"] not in (
+                "job:" + owner.run_id, "cancel:" + owner.run_id):
+            raise OwnershipError("operation ownership run identity changed")
 
     def pending_cancels(self, project: str | None = None) -> list[dict[str, Any]]:
         """@brief Inspect queued cancellations for one or every project."""
@@ -1350,7 +1844,7 @@ class WebStore:
                     if project is not None else None)
         if project is not None and identity is None:
             raise WebStoreError("project not found")
-        with self._connect() as connection:
+        with self._ownership_connect() as connection:
             if project is None:
                 rows = connection.execute(
                     "SELECT * FROM operations WHERE action='cancel' "
@@ -1363,39 +1857,95 @@ class WebStore:
                 ).fetchall()
         return [self._operation_with_current_project(row) for row in rows]
 
-    def recover_interrupted(self) -> int:
-        """@brief Atomically mark interrupted attempts uncertain; never replay side effects."""
-        with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            rows = connection.execute("SELECT * FROM operations WHERE status='running'").fetchall()
-            for row in rows:
-                self._finish(
-                    connection, row, "uncertain", "worker stopped before outcome could be confirmed"
-                )
-        return len(rows)
+    def recover_interrupted(self, *, project_id: str | None = None,
+                            role: str | None = None) -> int:
+        """@brief Recover only owners whose exact local process incarnations are dead.
+        @param[in] project_id Optional immutable project recovery scope.
+        @param[in] role Optional exact role recovery scope.
+        @return Number of interrupted operations marked uncertain.
+        @details Process inspection occurs before short CAS write transactions.
+                 Stale heartbeat, shutdown requests and unknown probes never prove death.
+        """
+        with self._ownership_connect() as connection:
+            owners = connection.execute(
+                "SELECT * FROM worker_owners WHERE status='active' "
+                "AND (? IS NULL OR project_id=?) AND (? IS NULL OR role=?)",
+                (project_id, project_id, role, role)).fetchall()
+            participants = connection.execute(
+                "SELECT * FROM worker_processes ORDER BY owner_id,pid,birth").fetchall()
+        recovered = 0
+        for owner in owners:
+            self._worker_record(owner)
+            if owner["host"] != socket.gethostname():
+                continue
+            processes = [dict(row) for row in participants if row["owner_id"] == owner["id"]]
+            if not processes:
+                raise WebStoreError("worker ownership process evidence is corrupt")
+            dead = True
+            for process in processes:
+                if (type(process["pid"]) is not int or process["pid"] < 1
+                        or not isinstance(process["birth"], str) or not process["birth"]):
+                    raise WebStoreError("worker ownership process evidence is corrupt")
+                try:
+                    birth = self._process_probe(process["pid"])
+                except (WebStoreError, OSError):
+                    dead = False
+                    break
+                if birth == process["birth"]:
+                    dead = False
+                    break
+                if birth is not None and (not isinstance(birth, str) or not birth):
+                    raise WebStoreError("worker process probe is corrupt")
+            if not dead:
+                continue
+            with self._ownership_connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                current = connection.execute("SELECT * FROM worker_owners WHERE id=?",
+                                             (owner["id"],)).fetchone()
+                current_processes = [dict(row) for row in connection.execute(
+                    "SELECT * FROM worker_processes WHERE owner_id=? ORDER BY pid,birth",
+                    (owner["id"],)).fetchall()]
+                if dict(current) != dict(owner) or current_processes != processes:
+                    continue
+                connection.execute("UPDATE worker_owners SET status='dead' WHERE id=?",
+                                   (owner["id"],))
+                rows = connection.execute(
+                    "SELECT * FROM operations WHERE status='running' AND owner_id=? "
+                    "AND owner_generation=?", (owner["id"], owner["generation"])).fetchall()
+                for row in rows:
+                    self._finish(
+                        connection, row, "uncertain",
+                        "worker stopped before outcome could be confirmed", "owner_dead")
+                recovered += len(rows)
+        return recovered
 
     def finish(self, operation_id: int, status: str, result: str, *,
-               reason: str = "", detail: str = "") -> None:
-        """@brief Commit terminal result/evidence together; exact replay is idempotent.
-        @param[in] reason Stable code of an engine refusal, or "".
-        @param[in] detail Bounded, redacted tail of the engine's output, or "".
+               owner: WorkerOwner, generation: int, reason: str = "", detail: str = "") -> None:
+        """@brief Commit a fenced observed outcome and audit atomically.
+        @param[in] owner Current owner handle; terminal replay requires the same owner.
+        @param[in] generation Exact operation claim generation.
+        @param[in] reason Closed refusal code, excluding credentials.
+        @param[in] detail Bounded, redacted engine tail.
         """
         if status not in ("succeeded", "failed", "uncertain"):
             raise WebStoreError("invalid completion status")
         try:
-            with self._connect() as connection:
+            with self._ownership_connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
+                self._participant(connection, owner)
                 row = connection.execute(
-                    "SELECT * FROM operations WHERE id=?", (operation_id,)
-                ).fetchone()
-                if row is None:
-                    raise WebStoreError("operation not found")
+                    "SELECT * FROM operations WHERE id=?", (operation_id,)).fetchone()
+                self._operation_owner(row, owner, generation)
+                self._operation_record(row)
                 if row["status"] in ("succeeded", "failed", "uncertain"):
-                    if row["status"] != status:
+                    if (row["status"], row["result"], row["reason"], row["detail"]) != (
+                            status, result[:1000], reason[:64], detail[-2000:]):
                         raise WebStoreError("audit replay conflict")
                     return
                 if row["status"] != "running":
-                    raise WebStoreError("operation was not claimed")
+                    raise OwnershipError("operation ownership was not claimed")
+                if row["action"] == "start" and status == "succeeded":
+                    raise WebStoreError("Start success requires durable run admission")
                 self._finish(connection, row, status, result, reason, detail)
         except sqlite3.DatabaseError as exc:
             raise WebStoreError("operation storage is corrupt") from exc

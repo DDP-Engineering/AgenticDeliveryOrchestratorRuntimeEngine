@@ -7,6 +7,8 @@ Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime 
 
 Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.
 
+Start is confirmed after the job is durably admitted and taken by the worker. The job then has its own progress and outcome. A queued or running command alone does not confirm admission. Cancel is confirmed only after the job has stopped with a saved cancellation result. Queueing the request or sending a stop signal does not confirm cancellation. If the result is uncertain, inspect the job before retrying.
+
 ## Stages {#stages}
 
 ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.

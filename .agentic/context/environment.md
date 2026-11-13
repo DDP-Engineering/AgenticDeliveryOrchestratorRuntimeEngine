@@ -302,3 +302,10 @@ job or user-service acceptance. See orchestrator.md and web-interface.md knowled
 Focused History and CLI deletion verification uses temporary home/profile stores and fake engines; it performs no live forge, model or runtime operation.
 
 Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.
+
+
+Worker ownership proof uses isolated web schema-17 stores with injectable process births,
+independent SQLite connections and deterministic barriers/events. It never starts DCP,
+contacts a forge/model or executes a target repository check. Linux /proc and Windows
+process creation evidence distinguish PID reuse; unavailable probes retain ownership.
+Existing stores in other schemas are refused with explicit database/marker deletion guidance.

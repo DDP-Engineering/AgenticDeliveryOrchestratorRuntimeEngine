@@ -146,3 +146,7 @@ clock evidence; conductor tests cover clarification, approval invalidation and
 review resumption without resetting consumed time.
 
 The parked-poll counter is a strictly nonnegative integer; positive values confirm parked cleanup was completed, so corrupt values fail with StateError at load.
+
+## Optional writer authority
+
+StateStore.before_write is an optional caller-supplied fence. JSON writes (including the final atomic replacement), journal appends, pause/resume, cancellation/handoff markers and run deletion call it before mutation. The worker-bound CLI installs the current operation/project owner check; ordinary standalone CLI leaves it unset. A lost owner cannot overwrite saved run state or append journal evidence. The run-state schema remains unchanged.

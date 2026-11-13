@@ -240,6 +240,10 @@ class Orchestrator:
         self.log = log
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
         self.on_delete = on_delete
+        self.on_admitted: Callable[[RunState], None] | None = None
+        self.before_effect: Callable[[], object] | None = None
+        self.run_scope: Callable[[str], Any] | None = None
+        self.owned_run_id = ""
         self._admission_branches: dict[int, str] = {}
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
         self._in_flight_run_id = ""
@@ -1110,6 +1114,8 @@ class Orchestrator:
         self.store.save(run)
         self.store.save_ticket(run_id, self._ticket_snapshot(ticket))
         self.store.journal(run_id, "picked", ticket=ticket.iid, title=ticket.title)
+        if self.on_admitted is not None:
+            self.on_admitted(run)
         try:
             self.forge.remove_labels(ticket.iid, [self.config.labels.lifecycle.ready])
             self.forge.add_labels(ticket.iid, [self.config.labels.lifecycle.working])
@@ -1124,12 +1130,17 @@ class Orchestrator:
         previous = self._in_flight_run_id
         self._in_flight_run_id = run_id
         try:
-            yield
+            scope = (self.run_scope(run_id) if self.run_scope is not None
+                     else contextlib.nullcontext())
+            with scope:
+                yield
         finally:
             self._in_flight_run_id = previous
 
     def _conduct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """@brief Provision and dispatch the recorded workflow to candidate approval."""
+        if self.before_effect is not None:
+            self.before_effect()
         with self._conducting(run.run_id):
             if not self._refresh_budgets(run):
                 return
@@ -2156,9 +2167,14 @@ class Orchestrator:
 
     def _publish(self, run: RunState, ticket: Ticket) -> None:
         """@brief Publish approved delivery while honoring safe ownership transfer."""
+        if self.before_effect is not None:
+            self.before_effect()
         if self._handoff_at_boundary(run):
             return
-        self._publish_impl(run, ticket)
+        scope = (self.run_scope(run.run_id) if self.run_scope is not None
+                 else contextlib.nullcontext())
+        with scope:
+            self._publish_impl(run, ticket)
 
     def _publish_impl(self, run: RunState, ticket: Ticket) -> None:
         """
@@ -2725,6 +2741,8 @@ class Orchestrator:
     def _reconcile_runs(self, summary: dict[str, Any]) -> None:
         """@brief Give every nonterminal state one bounded next action."""
         for run in self.store.list_runs():
+            if self.owned_run_id and run.run_id != self.owned_run_id:
+                continue
             if self._handoff_at_boundary(run):
                 continue
             if run.lifecycle != "publishing" and self._cancel_if_requested(run):

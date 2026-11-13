@@ -7,6 +7,8 @@ Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverz
 
 Öffnen Sie **Jobaktionen** neben der aktuellen Phase für **Wiederholen**, **Abbrechen** oder den bestätigten Neustart, soweit verfügbar. Nur für diesen Job zulässige Befehle werden angezeigt.
 
+Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt. Der Auftrag hat danach seinen eigenen Fortschritt und Ausgang. Ein wartender oder laufender Befehl bestätigt die Aufnahme allein nicht. Der Abbruch wird erst nach dem Auftragsstopp mit gespeichertem Abbruchergebnis bestätigt. Warteschlange oder Stoppsignal bestätigen keinen Abbruch. Prüfen Sie bei unklarem Ergebnis den Auftrag vor dem Wiederholen.
+
 ## Phasen {#stages}
 
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.

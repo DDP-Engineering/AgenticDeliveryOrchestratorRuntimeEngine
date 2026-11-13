@@ -291,3 +291,32 @@ candidate fingerprint and freshly fetched target before publication; drift
 returns to validation and unavailable or invalid evidence stops publication.
 Waiting-job reconciliation and retry follow the current project policy; an
 existing review stays in review.
+
+## Durable web admission and authority
+
+on_admitted observes saved run state, ticket snapshot and picked journal evidence before
+forge claim labels and conduction. The bound web Start uses this callback to acknowledge
+admission independently of job outcome; polling/Retry/Restart install no Start callback.
+before_effect checks current worker authority at conduction and publication boundaries.
+The bound CLI additionally fences state writers and Git/forge/container command runners.
+The existing conductor lock and human merge boundary remain authoritative. The parameterized
+claim-workflow tests assert callback durability/order without executing target tests.
+
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+An attached command pins its immutable request fields once and selects the run proof
+by the canonical command run ID, including during nested Restart reconciliation.
+A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
+before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
+capacity always counts all working jobs in that project. Completion verifies owner
+project/domain/run scope and validates the persisted operation again.

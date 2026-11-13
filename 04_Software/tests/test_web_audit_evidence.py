@@ -60,18 +60,20 @@ def test_completion_replay_and_crash_evidence(tmp_path):
     item = profiles.create("alpha")
     web = WebStore(tmp_path / "web.db")
     op = web.enqueue(1, "alpha", "resume", "", "caller-secret-key")
-    web.claim_next()
-    web.finish(op["id"], "succeeded", "completed")
-    web.finish(op["id"], "succeeded", "completed")
+    owner = web.register_worker("configuration", project_id=profiles.load("alpha").project_id)
+    claim = web.claim_next(owner, domain="configuration_project")
+    web.finish(op["id"], "succeeded", "completed", owner=owner, generation=claim["generation"])
+    web.finish(op["id"], "succeeded", "completed", owner=owner, generation=claim["generation"])
     rows = [row for row in web.recent_audit(None) if row["action"] == "operation-finished"]
     assert len(rows) == 1 and rows[0]["result"] == "applied"
     assert rows[0]["project_id"] == item.project_id
     assert rows[0]["after"] == {"pickup": "active"}
     assert "caller-secret-key" not in json.dumps(rows)
     with pytest.raises(WebStoreError):
-        web.finish(op["id"], "failed", "bad")
+        web.finish(op["id"], "failed", "bad", owner=owner, generation=claim["generation"])
     second = web.enqueue(1, "alpha", "pause", "", "second")
-    web.claim_next()
+    web.claim_next(owner, domain="configuration_project")
+    web._process_probe = lambda pid: None
     assert web.recover_interrupted() == 1
     assert web.operation(second["id"])["status"] == "uncertain"
     assert web.recent_audit()[0]["result"] == "uncertain"
@@ -112,7 +114,7 @@ def test_audit_row_without_evidence_is_corrupt(tmp_path):
     """@brief Every audit row the current build writes has evidence; one without it fails closed."""
     web = WebStore(tmp_path / "web.db")
     with sqlite3.connect(web.path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 16
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 17
         connection.execute(
             "INSERT INTO audit(actor_id,action,project,detail,created_at) "
             "VALUES (1,'old','alpha','historic','2020-01-01T00:00:00+00:00')"
@@ -332,14 +334,16 @@ def test_operation_completion_fault_rolls_back_status_and_event(tmp_path):
     ProfileStore(tmp_path).create("alpha")
     web = WebStore(tmp_path / "web.db")
     op = web.enqueue(1, "alpha", "pause", "", "one")
-    web.claim_next()
+    owner = web.register_worker(
+        "configuration", project_id=ProfileStore(tmp_path).load("alpha").project_id)
+    claim = web.claim_next(owner, domain="configuration_project")
     with sqlite3.connect(web.path) as connection:
         connection.execute(
             "CREATE TRIGGER reject_audit BEFORE INSERT ON audit "
             "BEGIN SELECT RAISE(ABORT,'private-secret'); END"
         )
     with pytest.raises(WebStoreError, match="is corrupt"):
-        web.finish(op["id"], "succeeded", "completed")
+        web.finish(op["id"], "succeeded", "completed", owner=owner, generation=claim["generation"])
     assert web.operation(op["id"])["status"] == "running"
     assert not [row for row in web.recent_audit() if row["result"] == "applied"]
 
@@ -646,8 +650,10 @@ def test_history_reflects_retry_failure_and_refusal(tmp_path):
     web = WebStore(tmp_path / "web.db")
     for key, result in (("a", "retry:not_failed"), ("b", "retry:failed:exhausted")):
         op = web.enqueue(1, "alpha", "retry", "job-9", key)
-        web.claim_next()
-        web.finish(op["id"], "failed", result)
+        owner = web.register_worker("project", project_id=profiles.load("alpha").project_id)
+        claim = web.claim_next(owner, domain="execution")
+        web.finish(op["id"], "failed", result, owner=owner, generation=claim["generation"])
+        web.clear_worker(owner)
     rows = [row for row in web.recent_audit(None) if row["action"] == "operation-finished"]
     assert [row["result"] for row in rows] == ["failed", "rejected"]
     assert all(row["resource_type"] == "job" and row["resource_id"] == "job-9" for row in rows)

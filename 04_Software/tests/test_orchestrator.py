@@ -1377,10 +1377,24 @@ def test_claim_selects_worktree_workflow_before_first_save(
     monkeypatch.setattr(worktrees, "create", create)
     monkeypatch.setattr(engine.store, "save", save)
     monkeypatch.setattr(engine, "_conduct", lambda *args: None)
+    admissions = []
+
+    def on_admitted(admitted):
+        """@brief The admission callback observes durable state before forge claim/conduction."""
+        observed = engine.store.load(admitted.run_id)
+        assert observed.lifecycle == "working"
+        assert engine.store.load_ticket(admitted.run_id)["iid"] == 7
+        assert any(event["event"] == "picked"
+                   for event in engine.store.read_journal(admitted.run_id))
+        assert engine.config.labels.lifecycle.ready in forge.ticket.labels
+        admissions.append(admitted.run_id)
+
+    engine.on_admitted = on_admitted
     result = engine.poll_once(ticket_iid=7 if manual else None)
     run = engine.store.load("github-owner-repo-7")
     expected = "aegis" if worktree_payload else "direct"
     assert result["picked"] == 7
+    assert admissions == [run.run_id]
     assert run.workflow == expected
     assert run.stage == ("frame" if worktree_payload else "build")
     assert run.active_task_id is None and run.task_ids == []
@@ -1388,6 +1402,37 @@ def test_claim_selects_worktree_workflow_before_first_save(
     assert probes == (["probe"] if clone_payload else [])
     assert allocations == [("origin/main", {"new_branch": True})]
     assert not executor.prompts
+
+
+@pytest.mark.parametrize("capacity,expected", [(1, None), (2, 7)])
+def test_run_owned_poll_preserves_other_jobs_and_counts_project_capacity(
+    tmp_path, monkeypatch, capacity, expected,
+):
+    """@brief A run-owned restart poll admits only its target and preserves other working jobs."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    clone, work = tmp_path / "clone", tmp_path / "selected"
+    clone.mkdir()
+    work.mkdir()
+    engine.config.worktree.repo_path = str(clone)
+    engine.config.polling.max_concurrent_runs = capacity
+    worktrees.repo_path = clone
+    engine.owned_run_id = "github-owner-repo-7"
+    forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P1"]
+    other = RunState("github-owner-repo-8", 8, workflow="direct", stage="build")
+    engine.store.save(other)
+    engine.store.journal(other.run_id, "owned-by-another-worker")
+    state_path = engine.store.run_dir(other.run_id) / "state.json"
+    journal_path = engine.store.run_dir(other.run_id) / "journal.jsonl"
+    state_before, journal_before = state_path.read_bytes(), journal_path.read_bytes()
+    conducted = []
+    monkeypatch.setattr(worktrees, "create", lambda *args, **kwargs: work)
+    monkeypatch.setattr(engine, "_conduct", lambda run, ticket: conducted.append(run.run_id))
+    result = engine.poll_once(ticket_iid=7)
+    assert result["picked"] == expected
+    assert conducted == ([engine.owned_run_id] if expected else [])
+    assert state_path.read_bytes() == state_before
+    assert journal_path.read_bytes() == journal_before
+    assert result["resumed"] == result["approved"] == result["notifications"] == 0
 
 
 @pytest.mark.parametrize("stale", [False, True])

@@ -10,6 +10,15 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 All notable changes to the Agentic Delivery Orchestrator & Runtime Engine are recorded here.
 This project follows Keep a Changelog and Semantic Versioning.
 
+## [Unreleased]
+
+### Changed
+
+- Persist scoped execution/configuration claims, worker generations and process-bound ownership;
+  recover only demonstrably dead owners and fence stale results and publication.
+- Confirm Start at durable job admission and Cancel only from the actual saved cancellation result.
+- Delete `ADORE_HOME/web.db` and `ADORE_HOME/web.db.initialized` before starting this build.
+
 ## [0.15.0] - 2026-11-12
 
 ### Added

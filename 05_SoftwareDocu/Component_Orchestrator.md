@@ -407,3 +407,25 @@ validation, task identity, fetched target and candidate fingerprint before
 automatic publication; mismatch routes to validation and Git failures fail
 closed. Retry and waiting-job reconciliation use the active policy; jobs
 already in review remain there. Publication remains guarded and never merges.
+
+## Durable admission and worker fencing
+
+on_admitted runs after run state, ticket snapshot and picked journal evidence are saved, before forge claim labels or conduction. The web-bound CLI uses it to acknowledge Start independently of the later job lifecycle. before_effect checks worker authority before conduction and publication; bound state and command collaborators check again before writes and Git/forge commands. No admission callback is installed for automatic polling or Retry/Restart. Existing conductor locks, validation and human merge boundaries retain authority.
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+An attached command pins its immutable request fields once and selects the run proof
+by the canonical command run ID, including during nested Restart reconciliation.
+A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
+before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
+capacity always counts all working jobs in that project. Completion verifies owner
+project/domain/run scope and validates the persisted operation again.

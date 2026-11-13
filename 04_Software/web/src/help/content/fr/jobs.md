@@ -7,6 +7,8 @@ Confirmez **Annuler**. Le nettoyage tente de supprimer l’environnement et le d
 
 Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**, **Annuler** ou la reprise confirmée dans un nouveau travail si disponible. Seules les commandes autorisées pour ce travail sont affichées.
 
+Le démarrage est confirmé après l’enregistrement durable et la prise en charge de la tâche. Celle-ci garde sa propre progression et son résultat. Une commande en attente ou en cours ne confirme pas son admission. L’annulation est confirmée uniquement après l’arrêt de la tâche avec un résultat enregistré. La mise en attente ou un signal d’arrêt ne confirme pas l’annulation. Si le résultat est incertain, vérifiez la tâche avant de réessayer.
+
 ## Étapes {#stages}
 
 ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.

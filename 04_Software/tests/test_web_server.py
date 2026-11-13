@@ -15,9 +15,9 @@
 
 import sqlite3
 
-from adore.state import StateStore
 from adore.web.app import create_app
 from adore.web.server import main
+from adore.web.store import WebStoreError
 from fastapi.testclient import TestClient
 import pytest
 
@@ -65,23 +65,21 @@ def test_api_health_and_worker_readiness_are_distinct(tmp_path):
         missing = client.get("/api/v1/ready")
         assert missing.status_code == 503
         assert missing.json()["detail"]["code"] == "worker_unavailable"
-        app.state.web_store.touch_worker()
-        assert client.get("/api/v1/ready").json() == {
-            "status": "ready", "worker": "ready", "activity": "unknown"}
         web = app.state.web_store
-        lock = StateStore(web.path.parent / "web-control", "adore-web")
-        assert lock.acquire_lock()
-        web.set_worker_activity("busy")
+        owner = web.register_worker("supervisor")
+        web.touch_worker(owner)
+        assert client.get("/api/v1/ready").json() == {
+            "status": "ready", "worker": "ready", "activity": "idle"}
+        web.set_worker_activity(owner, "busy")
         assert client.get("/api/v1/ready").json()["activity"] == "busy"
-        old_activity = web.path.with_name(web.path.name + ".activity").read_bytes()
-        lock.release_lock()
-        assert lock.acquire_lock()
-        web.path.with_name(web.path.name + ".activity").write_bytes(old_activity)
-        assert client.get("/api/v1/ready").json()["activity"] == "unknown"
-        web.path.with_name(web.path.name + ".activity").write_bytes(b"invalid")
-        assert client.get("/api/v1/ready").json()["activity"] == "unknown"
-        lock.release_lock()
-        app.state.web_store.clear_worker()
+        web.clear_worker(owner)
+        assert client.get("/api/v1/ready").status_code == 503
+        replacement = web.register_worker("supervisor")
+        assert replacement.generation > owner.generation
+        with pytest.raises(WebStoreError):
+            web.set_worker_activity(owner, "busy")
+        assert client.get("/api/v1/ready").json()["activity"] == "idle"
+        web.clear_worker(replacement)
         assert client.get("/api/v1/ready").status_code == 503
 
 
@@ -89,14 +87,15 @@ def test_corrupt_or_stale_worker_heartbeat_fails_readiness(tmp_path):
     """@brief Persisted clock corruption and a stopped worker fail closed."""
     app = create_app(tmp_path)
     web = app.state.web_store
-    web.touch_worker()
+    owner = web.register_worker("supervisor")
+    web.touch_worker(owner)
     with sqlite3.connect(web.path) as connection:
-        connection.execute("UPDATE worker_heartbeat SET updated_at=?", (
+        connection.execute("UPDATE worker_owners SET updated_at=?", (
             "2020-01-01T00:00:00+00:00",))
     with TestClient(app) as client:
         assert client.get("/api/v1/ready").status_code == 503
         with sqlite3.connect(web.path) as connection:
-            connection.execute("UPDATE worker_heartbeat SET updated_at=?", (
+            connection.execute("UPDATE worker_owners SET updated_at=?", (
                 "not-a-timestamp",))
         response = client.get("/api/v1/ready")
         assert response.status_code == 503

@@ -23,13 +23,13 @@ requires the account to choose a new password before further use,
 protects the last active admin, limits
 failed logins, and claims queued commands transactionally. A sidecar marker
 prevents recreating the default login after the identity database is deleted.
-The store does not authorize project operations by itself; the API and worker
+The store rechecks queued operation actor/project authority at claim and effect authorization; the API and worker
 both check current membership.
 
 ## 3. Implementation Overview
 
 Each method opens a short-lived SQLite connection with foreign keys and a ten
-second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 16): a new
+second busy timeout. The store has one schema (`_SCHEMA_VERSION`, 17): a new
 file gets it, and a database in any other version is refused with a message
 naming `web.db` and `web.db.initialized` to delete. There are no migrations
 while ADORE is in development (AGENTS.md "Stored data during development").
@@ -94,19 +94,19 @@ Renames retain bound rates, and replacement profiles cannot inherit them.
 Queued commands are bound to immutable profile IDs. Developer grants are bound
 to immutable profile IDs and stamped with the profile's creation time, so a
 profile replaced under the same name does not inherit them; renames retain
-them. Each account stores optional language, theme and ticket body mode preferences, the single
-control worker records a heartbeat, prices are immutable dated rows and login
+them. Each account stores optional language, theme and ticket body mode preferences, explicit role/project/run owners record independent heartbeats, prices are immutable dated rows and login
 failures are counted in windows. A finished operation keeps a stable refusal
 `reason` and a bounded, redacted `detail` of the engine's last output lines.
-An interrupted `running` operation becomes `uncertain` on worker startup and
-is never automatically replayed.
+An interrupted `running` operation becomes `uncertain` only after every recorded
+process incarnation of its owner is demonstrably dead. Live or uninspectable
+participants retain ownership regardless of heartbeat age; effects are never replayed.
 The archive guard queries queued and running operations for a project before
 profile metadata changes; database errors fail closed. The worker separately
 rechecks archived state when it claims a pending command.
 Pending cancellations can be listed for one or every project. The worker's
-watcher sees them during any blocking command or poll, and they are claimed
-ahead of other pending commands after that command returns. The watcher
-does not change operation status; the normal worker claim reconciles the result.
+watcher claims them in the execution domain during blocking commands or polls,
+then rechecks ownership, account and immutable project grants before signalling.
+The command bridge reconciles the saved cancelled state before success.
 
 
 ### Reviewed account creation
@@ -209,3 +209,53 @@ a reverse proxy should preserve a stable trusted address policy.
 
 
 Change history imports local CLI deletion receipts with a transactional attached SQLite ledger. Import validates schema, identities, state and durable journal modes, binds updates to the original event, and keeps an opaque completion receipt after importing applied evidence. Interrupted cleanup remains uncertain. Audit retention applies to the imported event.
+
+## Explicit operation ownership
+
+The current schema stores closed queue domains, canonical execution resource keys,
+owner and operation generations, admitted run IDs, scoped owner records and process
+participants. No older schema is accepted or rewritten. `enqueue_configuration`
+requires an explicit immutable project ID or explicit global None and stores only
+an opaque protected-candidate reference. Claims, fenced completion and audit updates
+use short SQLite transactions; no subprocess executes inside a transaction.
+`authorize_effect` repeats actor/project checks before an effect. Stale owner or
+operation generations raise `OwnershipError`, a `WebStoreError` subtype. Global
+references cannot carry a project or be consumed by a project worker. See
+Component_Web_Worker.md for process participation and admission/cancellation contracts.
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+Retry/Restart acquire their canonical run role before the CLI handler, covering
+validation, reset and resource teardown as well as conduction/publication. A command
+already owned by that exact run handle reuses it and retains it through fenced
+completion. Claims defer another active run owner; effect authorization requires
+explicit proof of any separate run handle held by the child. Historical owner
+records and configuration-domain identity validate before mutation. SQLite faults
+become typed ownership-store errors; parent and child heartbeat failure is explicit.
+Linux missing boot or masked-live-process evidence is unknown, preserving ownership.
+Recovery compares process snapshots in canonical PID/birth order.
+
+
+Existing-store schema/audit checks use autocommit reads; only fresh initialization
+(or waiting to recheck a schema-0 store being initialized) takes the initialization
+writer lock. Corrupt existing history remains refused. Owner history is read and
+validated outside the writer transaction; registration compares its latest validated
+snapshot through an indexed generation lookup before inserting the successor.
+The current unique owner/resource indexes are validated at open. Deterministic
+held-projection tests prove another role can commit a heartbeat before validation
+is released, without replacing real SQLite writes with mocks.
+
+
+Delayed fresh-file observations and schema-zero waiters re-read under the initialization
+lock and release it immediately once another initializer has committed a nonzero schema.
+They then validate existing history without writer ownership. An existing schema-zero
+store is refused without rebuilding, changing bytes or recreating accounts.

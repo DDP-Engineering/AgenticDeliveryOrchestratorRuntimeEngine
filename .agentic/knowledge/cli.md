@@ -129,3 +129,43 @@ The CLI adds delete --owned-resources for failed/cancelled jobs and restart --fo
 CLI delete records an uncertain local receipt outside the job before cleanup and confirms only afterward. It refuses corrupt/unavailable audit storage and reports post-delete confirmation failure as uncertain. A standalone CLI deletion never bootstraps web authentication.
 
 Restart emits a closed terminal result bound to the job, confirmed revision, process exit and selected ticket. The worker refuses missing or mismatched evidence; untrusted text cannot establish a refusal.
+
+## Bound worker child context
+
+main attaches an internal closed ADORE_WORKER_CONTEXT before dispatch. Exact owner/operation
+generations, command, immutable profile target and resolved config path are checked before
+effects; automatic polling carries explicit project ownership with no manual operation.
+The attached CLI child prevents recovery stealing work after parent death. Bound engines
+install admission/state/command/publication fences; invalid context returns a value-free
+ownership error. Standalone dispatch does not load optional web storage. Offline child
+context tests use fake engines/runners and isolated profile homes.
+
+
+
+Actual conductor and publication scopes acquire a unique run-role owner for the
+immutable project/run, with child-process creation evidence and an independent child
+heartbeat. Manual Start admission persists the exact run-owner ID/generation on its
+operation before acknowledging. The child verifies both command/project and active
+run owners before effects; completed scopes relinquish only their own run role.
+Retry/Restart and automatic conduction/publication use the same run-scope hook.
+A child heartbeat failure refuses subsequent effects; missing heartbeat never permits
+another process to steal the run. Invalid child transport cannot create a missing store.
+
+
+Retry/Restart acquire their canonical run role before the CLI handler, covering
+validation, reset and resource teardown as well as conduction/publication. A command
+already owned by that exact run handle reuses it and retains it through fenced
+completion. Claims defer another active run owner; effect authorization requires
+explicit proof of any separate run handle held by the child. Historical owner
+records and configuration-domain identity validate before mutation. SQLite faults
+become typed ownership-store errors; parent and child heartbeat failure is explicit.
+Linux missing boot or masked-live-process evidence is unknown, preserving ownership.
+Recovery compares process snapshots in canonical PID/birth order.
+
+
+An attached command pins its immutable request fields once and selects the run proof
+by the canonical command run ID, including during nested Restart reconciliation.
+A run-role command binds engine.owned_run_id so reconciliation skips unrelated runs
+before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
+capacity always counts all working jobs in that project. Completion verifies owner
+project/domain/run scope and validates the persisted operation again.

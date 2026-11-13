@@ -102,3 +102,12 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_checkpoint_handoff.py`
 
 The parked-poll counter must be a nonnegative integer. A positive value records completion of parked cleanup; corrupt values are refused at load. Proof: test_parked_poll_counter_rejects_corrupt_state.
+
+## Optional writer fencing
+
+StateStore.before_write is an optional injected authority callback. JSON writes check it
+before writing and again before replacement; journal appends and pause/resume, cancellation,
+handoff and deletion mutations check before effects. The web-bound CLI installs current
+worker/operation authority. Standalone CLI leaves it unset; run-state schema stays 1.
+A lost worker cannot overwrite a run or append evidence. Tests include state/CLI regressions
+and test_web_ownership.py::test_cli_attaches_and_fences_state_and_external_effects.

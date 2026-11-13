@@ -5,6 +5,8 @@ ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab 
 
 Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.
 
+Le démarrage est confirmé après l’enregistrement durable et la prise en charge de la tâche. Celle-ci garde sa propre progression et son résultat. Une commande en attente ou en cours ne confirme pas son admission. L’annulation est confirmée uniquement après l’arrêt de la tâche avec un résultat enregistré. La mise en attente ou un signal d’arrêt ne confirme pas l’annulation. Si le résultat est incertain, vérifiez la tâche avant de réessayer.
+
 ## Comment fonctionne la prise en charge {#how-pickup-works}
 
 Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.

@@ -323,7 +323,9 @@ only assigned projects, can start tickets (including adding the ready and
 priority labels), stop tickets and retry/cancel their runs,
 and never receive financial fields. Administrators can pause or resume new
 ticket pickup for a project; in-flight work continues. A cancel request is
-queued. While the worker runs a blocking command or project poll, it
+queued. Queueing or signalling does not confirm cancellation; success requires
+the saved job state to show cancelled. If the result is uncertain, inspect the
+job before requesting it again. While the worker runs a blocking command or project poll, it
 rechecks access and signals the conductor to stop an active executor gate; the
 conductor then performs normal cancellation cleanup. A cancel received while
 the conductor is outside an executor gate can still wait for that bounded
@@ -1464,3 +1466,22 @@ keys, Home and End. These views never approve a candidate or start an executor.
 The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
+
+### Durable command admission and recovery
+
+Start is confirmed after durable job admission and worker takeover, while the
+job retains its own progress and result. A queued/running command or CLI exit zero
+alone does not establish admission. Cancel is confirmed only from the actual saved
+cancellation result. The interface explains revoked access, removed/archived projects,
+worker loss and unconfirmed cancellation in all four languages.
+
+The web store binds each operation to an immutable project and an explicit execution
+or configuration domain, with owner/generation checks before effects and completion.
+Configuration references carry an explicit project or explicit global scope and no
+credential payload. Recovery changes only demonstrably dead owners' running requests;
+a stale heartbeat, reused PID or restarted neighbour cannot steal a live worker or
+its attached CLI child. Unknown liveness keeps ownership and requires inspection.
+This build accepts only the current web schema and reports which web database and
+initialization marker to delete when another schema is encountered; it never resets them.
+The worker command bridge still schedules serial CLI passes; independent process
+scheduling is outside this ownership contract.

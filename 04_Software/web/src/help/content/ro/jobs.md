@@ -7,6 +7,8 @@ Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directo
 
 Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.
 
+Pornirea este confirmată după admiterea durabilă și preluarea lucrării de către serviciu. Lucrarea are apoi propriul progres și rezultat. O comandă în coadă sau în curs nu confirmă singură admiterea. Anularea este confirmată numai după oprirea lucrării cu un rezultat de anulare salvat. Punerea cererii în coadă sau trimiterea semnalului de oprire nu confirmă anularea. Dacă rezultatul este incert, verifică lucrarea înainte de reluare.
+
 ## Etape {#stages}
 
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.
