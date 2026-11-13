@@ -1117,8 +1117,8 @@ in supported environment references or protected mounts; inline secret values,
 provider JSON secrets and URL credentials are rejected without echoing them.
 
 
-Project Summary uses two panels beneath the shared project header. The first
-shows separated label/value tiles for Container type, Executor, Monitoring,
+Project Summary uses two panels beneath the shared project header. Its seven facts use one compact row on wide screens and wrap on smaller screens; the redundant Pi executor tile is omitted. Panel, empty-state and table spacing is reduced without hiding job evidence. The first
+shows compact label/value tiles for Container type, Monitoring,
 environment verification and actual scoped Active jobs, Waiting, Draft review
 and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
 and withholds job rows. The second groups compact Needs attention and Active
@@ -1423,3 +1423,9 @@ its earlier clarification events remain history, not current requests.
 **Technical details** holds identifiers, on-demand executor output, recovery
 diagnosis and expandable **Original recorded events**. The tabs support arrow
 keys, Home and End. These views never approve a candidate or start an executor.
+
+## Compact project and Jobs controls
+
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+
+Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.

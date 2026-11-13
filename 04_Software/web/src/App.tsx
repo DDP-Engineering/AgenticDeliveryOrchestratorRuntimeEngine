@@ -1399,7 +1399,6 @@ export default function App() {
           <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">
               <div className="summary-fact"><dt>{selectedProject.runtime === "local" ? enrollmentCopy[locale].runsIn : t("containerType")}</dt><dd>{selectedProject.runtime === "local" ? enrollmentCopy[locale].installed : ({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
-              <div className="summary-fact"><dt>{t("executor")}</dt><dd>{selectedProject.executor === "pi" ? "Pi" : selectedProject.executor || "—"}</dd></div>
               <div className="summary-fact"><dt>{jc.pickup}</dt><dd><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></dd></div>
               <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
               {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
@@ -1461,8 +1460,10 @@ export default function App() {
         </>}
 
         {page === "jobs" && projectsState === "ready" && projects.length > 0 && <>
-          <section className="panel compact"><div className="workspace-controls"><label htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label></div></section>
-          {jobsSubtabs}
+          <div className="jobs-toolbar">
+            {jobsSubtabs}
+            <label className="jobs-scope" htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
+          </div>
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
               {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
@@ -1693,11 +1694,11 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
   const [editing, setEditing] = useState<Set<string>>(()=>recoveredEditors(drafts));
   const [saving, setSaving] = useState(false), [conflict, setConflict] = useState(false);
   const disabled = externallyDisabled || saving || readFailed;
-  const saveBar = useRef<HTMLDivElement>(null), wasSaving = useRef(false);
+  const saveBar = useRef<HTMLDivElement>(null), settingsPanel = useRef<HTMLElement>(null), wasSaving = useRef(false);
   useEffect(() => {
     if (wasSaving.current && !saving) {
       const button=saveBar.current?.querySelector<HTMLButtonElement>("button.primary:not(:disabled)");
-      if (button) button.focus(); else saveBar.current?.focus();
+      if (button) button.focus(); else (saveBar.current ?? settingsPanel.current)?.focus({preventScroll:true});
     }
     wasSaving.current=saving;
   }, [saving]);
@@ -1853,11 +1854,11 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           : (editing.has(row.key) ? draftFor(row) === "true" : row.value === true) && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>)}
 
       </div>;
-  return <section className="panel" id="project-settings">
+  return <section ref={settingsPanel} tabIndex={-1} className="panel" id="project-settings">
     {header ?? <div className="panel-heading"><div className="heading-with-help"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{!executorOnly && <HelpLink topic={CONTEXT_TOPICS.projectSettings} locale={locale} />}</div>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
-    {canEdit && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
-      <div><span role="status" aria-live="polite">{dirty ? saveCopy.dirty.replace("{count}",String(prepared.edits.length+prepared.invalid.length)) : branchCandidate ? saveCopy.prepared : saveCopy.clean}</span>
+    {canEdit && (dirty || branchCandidate || readFailed || saving) && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
+      <div><span role="status" aria-live="polite">{dirty ? saveCopy.dirty.replace("{count}",String(prepared.edits.length+prepared.invalid.length)) : readFailed ? copy.readFailed : saveCopy.prepared}</span>
       {stale && <p role="alert">{saveCopy.stale}</p>}
       {(prepared.invalid.length>0 || branchInvalid) && <p role="alert">{saveCopy.invalid}</p>}</div>
       <div className="button-row"><button type="button" className="ghost" disabled={externallyDisabled || saving || !dirty && !branchCandidate && !readFailed} onClick={()=>void discardAll()}>{saveCopy.discard}</button>

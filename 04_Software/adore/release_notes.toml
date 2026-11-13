@@ -120,12 +120,12 @@ text = { en = "Statistics is compact: one period row, each figure shown once, tr
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Compact job details separate next steps, activity and safe output, with budgets and read retries.", fr = "Détails compacts : action, activité, sortie sûre, budgets et nouvelle lecture en cas de conflit.", de = "Kompakte Jobdetails mit nächsten Schritten, Aktivität, sicherer Ausgabe und Budgets.", ro = "Detalii compacte cu acțiuni, activitate, ieșire sigură, bugete și reîncercarea citirii." }
+text = { en = "Compact details and search, scope beside tabs, with budgets, safe output and read retries.", fr = "Détails et recherche compacts, filtre près des onglets ; limites, sorties sûres et relecture.", de = "Kompakte Details und Suche, Bereich neben Reitern; Budgets, sichere Ausgabe und Lesewiederholung.", ro = "Detalii și căutare compacte, filtru lângă file; bugete, ieșire sigură și reîncercări de citire." }
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Statistics, History and Access.", fr = "Chaque projet s'ouvre en un espace avec Résumé, Paramètres, Tâches, Statistiques, Historique, Accès.", de = "Jedes Projekt bündelt Übersicht, Einstellungen, Aufträge, Statistik, Verlauf und Zugriff.", ro = "Fiecare proiect se deschide cu Rezumat, Setări, Lucrări, Statistici, Istoric și Acces." }
+text = { en = "Compact project hubs; save controls appear only for unsaved changes or recovery.", fr = "Projets compacts ; enregistrement visible seulement pour les changements ou la récupération.", de = "Kompakte Projektansicht; Speichern nur bei Änderungen oder Wiederherstellung sichtbar.", ro = "Proiecte compacte; bara de salvare apare doar pentru modificări sau recuperare." }
 
 [[release.entry]]
 category = "improved"

@@ -34,6 +34,8 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Modification {#editing}
 
+La barre **Enregistrer** et **Annuler les modifications** apparaît seulement pour des changements non enregistrés ou récupérés, pendant l’enregistrement ou en cas d’erreur à résoudre. Elle disparaît après enregistrement ou abandon réussi. Ouvrir un éditeur sans changer la valeur ne l’affiche pas.
+
 1. Choisissez **Modifier** à côté de chaque valeur à changer. Vous pouvez modifier plusieurs paramètres dans différents groupes.
 2. Utilisez le bouton unique **Enregistrer** au-dessus des groupes. Il est actif seulement si des valeurs changent et si toutes les modifications sont valides.
 3. Pour les changements importants, **Confirmer les modifications importantes** affiche le projet, les valeurs modifiées et les effets. Choisissez **Enregistrer les modifications**, ou **Continuer la modification** pour revenir sans enregistrer.

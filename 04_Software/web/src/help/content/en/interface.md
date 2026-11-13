@@ -26,13 +26,15 @@ The top bar shows the page title and these controls.
 - **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.
 - **How ADORE works**: opens this help center.
 
+On Jobs, **Job scope** sits to the right of **Tickets** and **Jobs** on wide screens. On narrow screens it wraps below the tabs.
+
 ## Project hub {#project-hub}
 
 Opening a project from Projects shows its name and repository path above these tabs.
 
 | Tab | What it holds |
 |---|---|
-| Summary | Container type, executor, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
+| Summary | Container type, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
 | Settings | Effective settings, one Save for administrators, and configuration export with retained executor image definitions. Developers read settings without secrets. See [Project settings](/help/settings). |
 | Jobs | The Tickets and Jobs sub-tabs for this project, without a project selector. |
 | Statistics | The same reporting period, tabs and exports as the Statistics page, for this project only. |

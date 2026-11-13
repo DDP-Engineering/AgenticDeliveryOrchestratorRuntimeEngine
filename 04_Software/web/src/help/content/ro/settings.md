@@ -34,6 +34,8 @@ Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent
 
 ## Editare {#editing}
 
+Bara **Salvează** și **Renunță la modificări** apare doar pentru modificări nesalvate sau recuperate, în timpul salvării ori când o eroare cere recuperare. Dispare după salvare sau renunțare reușită. Deschiderea unui editor fără schimbarea valorii nu afișează bara.
+
 1. Alege **Editează** lângă fiecare valoare de modificat. Poți edita mai multe setări din grupuri diferite.
 2. Folosește unicul buton **Salvează** deasupra grupurilor. Se activează doar când există valori schimbate și toate modificările sunt valide.
 3. Pentru schimbări importante, **Confirmă modificările importante** arată proiectul, valorile schimbate și efectele. Alege **Salvează modificările**, sau **Continuă editarea** pentru a reveni fără salvare.

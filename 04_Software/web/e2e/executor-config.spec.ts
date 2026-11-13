@@ -46,7 +46,7 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  const command=panel.getByLabel("Executor launch command",{exact:true});
  await expect(command).toHaveJSProperty("tagName","SELECT");
  await command.selectOption(PI_PRESET);
- await expect(settingsSave(page)).toBeDisabled();
+ await expect(page.locator(".settings-save-bar")).toHaveCount(0);
  await panel.getByRole("button",{name:"Cancel",exact:true}).click();
  await page.getByLabel("Credential variable",{exact:true}).selectOption("OPENAI_API_KEY");
  await page.getByLabel("API key",{exact:true}).fill("offline-private-key");
@@ -86,7 +86,7 @@ for (const user of ["admin", "developer"]) {
    await panel.getByRole("button",{name:"Edit Executor launch command",exact:true}).click();
    const command=panel.getByLabel("Executor launch command",{exact:true});
    await expect(command).toHaveValue(current);
-   await expect(settingsSave(page)).toBeDisabled();
+   await expect(page.locator(".settings-save-bar")).toHaveCount(0);
    await command.selectOption(config.settings.find((s:{key:string})=>s.key==="executor.command").choices[0]);
    await expect(settingsSave(page)).toBeEnabled();
    await panel.getByRole("button",{name:"Cancel",exact:true}).click();
@@ -257,7 +257,7 @@ test("important confirmation shows differences and unchanged editors keep Save d
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await discardSettings(page);
  await page.getByRole("button",{name:"Edit Model",exact:true}).click();
- await expect(settingsSave(page)).toBeDisabled();await expect(review).toHaveCount(0);
+ await expect(page.locator(".settings-save-bar")).toHaveCount(0);await expect(review).toHaveCount(0);
  expect(await(await page.request.get(`/api/v1/projects/${id}/config/pending`)).json()).toBeNull();
  expect((await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(before.revision);
 });

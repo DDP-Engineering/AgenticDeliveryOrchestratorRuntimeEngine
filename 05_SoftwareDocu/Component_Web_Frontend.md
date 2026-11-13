@@ -424,7 +424,7 @@ shared `statisticsView(true)` without the project selector or the cross-project 
 selector on the global page, From, Through, Group by, All time, Export CSV) with no
 time zone control (UTC unless the URL supplies one), and `StatisticsEvidence` shows no
 current-stock panel.
-Summary holds Monitoring Active/Paused status, runtime/executor and explicit
+Summary holds Monitoring Active/Paused status, runtime and explicit
 revision-bound verification evidence. Administrators use Summary to pause or
 activate monitoring, archive/restore, and delete archived idle projects using
 exact-name confirmation. Deletion intent clears on page or selected-ID changes;
@@ -857,8 +857,8 @@ infrastructure, full accessibility and participant acceptance remain human work.
 Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.
 
 
-Project Summary uses two panels beneath the shared project header. The first
-shows separated label/value tiles for Container type, Executor, Monitoring,
+Project Summary uses two panels beneath the shared project header. Its seven facts use one compact row on wide screens and wrap on smaller screens; the redundant Pi executor tile is omitted. Panel, empty-state and table spacing is reduced without hiding job evidence. The first
+shows compact label/value tiles for Container type, Monitoring,
 environment verification and actual scoped Active jobs, Waiting, Draft review
 and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
 and withholds job rows. The second groups compact Needs attention and Active
@@ -1100,3 +1100,9 @@ diagnosis and the paged original timeline. All tabs use the same saved evidence;
 none starts an executor or grants candidate approval. Copy and help cover all four
 locales. The layout uses the application's light/dark tokens and stacks on narrow
 screens. No API, stored format or dependency change is required.
+
+## Compact project and Jobs controls
+
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+
+Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.

@@ -34,6 +34,8 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 
 ## Bearbeiten {#editing}
 
+Die Leiste **Speichern** und **Änderungen verwerfen** erscheint nur bei ungespeicherten oder wiederhergestellten Änderungen, beim Speichern oder bei einem zu behebenden Fehler. Nach erfolgreichem Speichern oder Verwerfen verschwindet sie. Einen Editor ohne Wertänderung zu öffnen zeigt die Leiste nicht.
+
 1. Wählen Sie **Bearbeiten** neben jedem zu ändernden Wert. Sie können mehrere Einstellungen in verschiedenen Gruppen bearbeiten.
 2. Verwenden Sie die einzige Schaltfläche **Speichern** oberhalb der Gruppen. Sie ist nur bei geänderten Werten und gültigen Eingaben aktiv.
 3. Bei wichtigen Änderungen zeigt **Wichtige Änderungen bestätigen** das Projekt, die geänderten Werte und Auswirkungen. Wählen Sie **Änderungen speichern** oder **Weiter bearbeiten**, um ohne Speichern zurückzukehren.

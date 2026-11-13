@@ -78,6 +78,7 @@ test("overview surfaces worker faults and withholds corrupt active evidence", as
 });
 
 test("hub separates pickup and verification and keeps role-appropriate navigation", async ({ page }, info) => {
+  await page.setViewportSize({width:1366,height:768});
   let checks = 0;
   await page.route("**/api/v1/projects/*/readiness-check", route => {
     checks++; expect(route.request().headers()["x-csrf-token"]).toBeTruthy();
@@ -95,7 +96,8 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   const facts = page.locator(".project-summary");
   await expect(facts.locator(".summary-fact").filter({ hasText: "Container type" })).toContainText("Docker");
-  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toContainText("Pi");
+  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toHaveCount(0);
+  await expect(facts.locator(".summary-fact")).toHaveCount(7);
   await expect(facts.locator(".summary-fact").filter({ hasText: "Active jobs" })).toContainText("3");
   await expect(page.locator(".statistics-job-scope, .job-workspace .scope-note")).toHaveCount(0);
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
@@ -117,6 +119,8 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByRole("tab", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
   expect(checks).toBe(0);
+  expect((await facts.boundingBox())!.height).toBeLessThan(180);
+  await page.screenshot({path:info.outputPath("compact-project-summary.png"),fullPage:true});
   await facts.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(facts.locator(".readiness-verdict")).toHaveCount(0);
   await expect(facts.locator(".readiness-check").filter({ hasText: "Repository sign-in" })).toContainText("Sign in on the ADORE server");
@@ -137,6 +141,14 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
 
 test("jobs table shows compact columns and sorts on the server", async ({ page }) => {
   await signIn(page); await page.goto("/jobs?view=jobs");
+  const toolbar=page.locator(".jobs-toolbar");
+  const tabsBox=(await toolbar.getByRole("tablist").boundingBox())!;
+  const scopeBox=(await toolbar.locator("#jobs-project").boundingBox())!;
+  expect(scopeBox.x).toBeGreaterThan(tabsBox.x+tabsBox.width);
+  expect(Math.abs(scopeBox.y-tabsBox.y)).toBeLessThan(8);
+  await expect(page.locator("#job-search-help")).toHaveCount(0);
+  await expect(page.locator("#job-search")).not.toHaveAttribute("aria-describedby");
+  await expect(page.locator("#job-search")).toHaveAttribute("maxlength","80");
   const table = page.locator(".action-jobs-table");
   await expect(table.getByRole("columnheader")).toHaveText([/^Ticket/, /^Project/, /^Status/, /^Last activity/, /^Consumption/]);
   await expect(page.getByText(/Selected period/)).toHaveCount(0);
@@ -1228,4 +1240,43 @@ test("issue35 normal lifecycle copy in four locales and safe Markdown scroll on 
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({path:info.outputPath("issue35-question-dark-mobile.png"),fullPage:true});
   } finally {await preferences("en","light");}
+});
+
+
+test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({page}, info) => {
+  await page.setViewportSize({width:1366,height:768});
+  await signIn(page);
+  await page.goto("/projects/beta");
+  const summary=page.locator(".project-summary-window");
+  await expect(summary.locator(".summary-fact")).toHaveCount(7);
+  await expect(summary.locator(".summary-job-window")).toContainText("Actual beta collision");
+  const summaryBox=(await summary.boundingBox())!;
+  expect(summaryBox.y+summaryBox.height).toBeLessThanOrEqual(768);
+  await page.screenshot({path:info.outputPath("summary-one-screen.png")});
+
+  await page.goto("/jobs?view=jobs");
+  const toolbar=page.locator(".jobs-toolbar");
+  await expect(toolbar.locator("#jobs-project")).toBeVisible();
+  await page.screenshot({path:info.outputPath("jobs-toolbar-desktop.png")});
+  await page.setViewportSize({width:390,height:844});
+  const tabs=(await toolbar.getByRole("tablist").boundingBox())!;
+  const scope=(await toolbar.locator("#jobs-project").boundingBox())!;
+  expect(scope.y).toBeGreaterThanOrEqual(tabs.y+tabs.height);
+  expect(scope.x+scope.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  const projects=await(await page.request.get("/api/v1/projects")).json();
+  const beta=projects.find((item:{name:string})=>item.name==="beta").id;
+  await toolbar.locator("#jobs-project").selectOption(beta);
+  await expect(page.locator(".action-jobs-table")).toContainText("Actual beta collision");
+  await expect(page.locator("#job-search-help")).toHaveCount(0);
+  await toolbar.getByRole("tab",{name:"Tickets",exact:true}).click();
+  await expect(toolbar.locator("#jobs-project")).toHaveValue(beta);
+  await expect(page.getByRole("button",{name:"Read tickets",exact:true})).toBeVisible();
+  await page.screenshot({path:info.outputPath("jobs-toolbar-mobile.png")});
+
+  await page.setViewportSize({width:1366,height:768});
+  await page.goto(`/projects/${beta}/configuration`);
+  await expect(page.locator("#project-settings")).toBeVisible();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
+  await page.screenshot({path:info.outputPath("settings-clean.png")});
 });

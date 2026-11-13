@@ -25,6 +25,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Compact Project Summary, remove its redundant executor tile, show Settings save controls only for pending work, and align Job scope with Tickets/Jobs tabs.
+- Remove the verbose job-search hint while retaining the search limit and filters.
+
 - Redesign Job details with a compact ticket heading, explicit next action, resources and evidence tabs.
 
 - Save complete project exports directly, with recipe administration kept in Technical details.

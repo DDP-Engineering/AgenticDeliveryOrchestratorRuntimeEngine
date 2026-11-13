@@ -26,13 +26,15 @@ La barre supérieure affiche le titre de la page et ces commandes.
 - **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.
 - **Comment fonctionne ADORE** : ouvre ce centre d’aide.
 
+Dans Tâches, le sélecteur de périmètre se trouve à droite de **Tickets** et **Tâches** sur grand écran. Sur petit écran, il passe sous les onglets.
+
 ## Hub du projet {#project-hub}
 
 L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son dépôt au-dessus de ces onglets.
 
 | Onglet | Ce qu’il contient |
 |---|---|
-| Résumé | Type de conteneur, exécuteur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |
+| Résumé | Type de conteneur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |
 | Paramètres | Paramètres effectifs, enregistrement groupé pour les administrateurs et export avec les définitions d’image conservées. Les développeurs lisent sans secrets. Voir [Paramètres du projet](/help/settings). |
 | Tâches | Les sous-onglets Tickets et Tâches de ce projet, sans sélecteur de projet. |
 | Statistiques | La même période de rapport, les mêmes onglets et les mêmes exports que la page Statistiques, pour ce projet seulement. |

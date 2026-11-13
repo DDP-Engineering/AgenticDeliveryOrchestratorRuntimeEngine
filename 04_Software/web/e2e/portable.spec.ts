@@ -171,7 +171,7 @@ test("attach an executor definition in Technical details without editing project
   await expect(dialog).not.toContainText("Include Docker build files");
   await expect(dialog.getByLabel("Definition file",{exact:true})).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await expect(page.getByText("No unsaved changes",{exact:true})).toBeVisible();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
 });
 
 test("invalid or stale recipe evidence cannot save or unlock a complete export", async ({page}) => {

@@ -34,6 +34,8 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 
 ## Editing {#editing}
 
+The **Save** and **Discard changes** bar appears only for unsaved or recovered changes, while saving, or when an error needs recovery. It disappears after a successful save or discard. Opening an editor without changing its value does not show the bar.
+
 1. Choose **Edit** beside each value you want to change. You can edit several settings across groups.
 2. Use the single **Save** button above the groups. It is enabled only when values change and all open edits are valid.
 3. For important changes, **Confirm important changes** shows the project, changed values and effects. Choose **Save changes**, or **Keep editing** to return without saving.
