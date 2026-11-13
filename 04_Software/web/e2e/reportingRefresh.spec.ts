@@ -207,6 +207,45 @@ for (const failure of ["collection", "null row", "review count", "review total"]
   }
 });
 
+for (const scope of ["selected", "project"] as const) for (const failure of ["collection", "null row", "identity", "value", "date", "trigger", "duplicate"] as const) {
+  test(`Statistics ${scope} Quality rejects malformed revision ${failure} before publication and recovers`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const id = await alpha(page);
+    let corrupt = true, empty = false;
+    await page.route("**/api/v1/projects/*/metrics?*", async route => {
+      const body = await (await route.fetch()).json();
+      const row = { project_id: id, run_id: "revision-evidence-run", revision: 1, trigger: "revise-label",
+        date: "2026-10-25", tokens_in: 0, tokens_out: null, reported_cost_usd: 0, estimated_cost_usd: null };
+      body.revisions = empty ? [] : [row];
+      if (corrupt) body.revisions = failure === "collection" ? { length: 1 } : failure === "null row" ? [null] :
+        failure === "identity" ? [{ ...row, run_id: {} }] : failure === "value" ? [{ ...row, tokens_in: {} }] :
+        failure === "date" ? [{ ...row, date: "2026-02-30" }] : failure === "trigger" ? [{ ...row, trigger: {} }] : [row, row];
+      await route.fulfill({ json: body });
+    });
+    await page.goto(scope === "project" ? `/projects/${id}/statistics?tab=quality` : `/metrics?project=${id}&tab=quality`);
+    await expect(page.getByRole("tab", { name: "Quality", exact: true })).toHaveAttribute("aria-selected", "true");
+    for (let round = 0; round < 2; round++) {
+      await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toHaveCount(0);
+      await expect(page.locator("#metrics-tab-panel table")).toHaveCount(0);
+      await expect(page.locator(".metrics-export")).toHaveCount(0);
+      expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+      corrupt = false; empty = round === 1;
+      await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toBeVisible();
+      await expect(page.getByRole("cell", { name: "revision-evidence-run", exact: true })).toHaveCount(empty ? 0 : 1);
+      expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+      if (round === 0) {
+        await page.getByText("Export CSV", { exact: true }).click();
+        corrupt = true;
+        await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+      }
+    }
+  });
+}
+
 for (const failure of ["application", "media", "foreign", "scope"] as const) test(`Statistics ${failure} refresh refuses both report members and exports`, async ({ page }) => {
   const id = await alpha(page);
   await page.goto(`/projects/${id}/statistics`);

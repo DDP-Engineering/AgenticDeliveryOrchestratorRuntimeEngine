@@ -21,8 +21,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   unrelated all-project reads; automatic cadence is unchanged.
 - Validate common reporting boundaries and pooled Statistics before publication,
   including safe-integer token directions and combined totals in reports and job
-  consumption. Validate run rows, review-round counts and their derived total before
-  Quality renders. Invalid evidence shows error/Retry, not a crash or false success time.
+  consumption. Validate run rows, review-round counts and their derived total, plus
+  optional revision rows, identities and values before Quality renders. Invalid evidence
+  shows error/Retry, not a crash or false success time; absent/empty revisions remain valid.
 - Keep Jobs/History rows, pages, open details, consumption and manual executor output
   through same-context reads and command results. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;

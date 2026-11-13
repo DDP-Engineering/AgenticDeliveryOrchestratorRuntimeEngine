@@ -42,7 +42,16 @@ menu are view state, not a reason to discard an otherwise valid report.
 Validation covers the existing required metrics/usage structures and role-specific
 financial projection. Metrics run collections must be arrays of object rows with
 nonnegative safe-integer review-round counts and a safe per-project derived total;
-malformed run evidence fails before publication, not inside global Quality rendering. Each project in a global response maps to the current
+malformed run evidence fails before publication, not inside global Quality rendering.
+Optional revisions may be absent or an empty array; present evidence must be an array
+of object rows with scoped project/run identity and unique run/revision pairs.
+Revision numbers are positive safe integers; triggers are the server's closed string
+enum, dates are nullable valid local calendar days, token directions and known combined
+totals are safe, and reported/estimated money is nullable finite and nonnegative.
+Malformed revision evidence fails before selected-project Admin Quality rendering,
+without any report/exports/success time; initial/replacement browser negatives in
+both selected scopes assert no pageerror and valid populated/empty recovery.
+Each project in a global response maps to the current
 immutable identity, not just a reusable name. The response project set equals the
 captured authorized set. Corresponding metrics/usage canonical scopes agree on
 project IDs, mode, interval, from, to, timezone, granularity and interval seconds.

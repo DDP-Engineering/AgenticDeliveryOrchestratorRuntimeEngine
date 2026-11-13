@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -656,6 +658,29 @@ existing four-locale release entries are current. No new controls, labels or hel
 workflow are introduced. These are build results only: fresh round-4 independent
 reviews, full strict proof/report and closure remain the next validate stage.
 
+### Round-4 review correction
+
+The returned build corrects optional Statistics revision evidence at the owned
+validation boundary, before report or successful-time publication. Absent and empty
+collections remain valid. Present revisions require array/object structure, current
+project/run identity, unique run/revision pairs, positive safe revision numbers,
+closed string triggers, nullable valid local calendar dates, safe nullable token
+counts and known combined totals, and finite nonnegative nullable monetary values.
+Malformed initial and replacement reads now fail closed with error/Retry instead
+of crashing the administrator's selected-project Quality table.
+
+Helper negatives cover every consumed field, duplicate identity, malformed arrays
+and coercible triggers. Fourteen new browser cases exercise both the global selected
+filter and project hub, with no report/exports/success time/pageerror on failure and
+valid populated/empty recovery. Focused proof passes 74 helper/help contracts and
+88 integrated Chromium reporting/Statistics/session/operation journeys, including
+four-locale/two-theme regression coverage. Component/user/knowledge documentation,
+reporting spec and scoped verification links are current; the existing four-locale
+Statistics release entry and CHANGELOG are updated. No new help workflow or label
+is introduced. Production assets are rebuilt and all 132 input/7 output hashes match.
+Fresh independent round-5 reviews, full strict proof/report and task closure belong
+to the next validate session; this build does not claim that approval or full proof.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -876,19 +901,29 @@ reviews, full strict proof/report and closure remain the next validate stage.
 - 2026-11-13 validate: Validate round-4 bounds: 45-minute session, at most 12 ticket-scoped artifact edits and 8 focused checks before final proof; two independent read-only ephemeral specification/quality reviewers with 15-minute bounds. Inspect current candidate/42 contracts, reconcile current knowledge/context and manual inspections before strict proof. Any implementation defect routes to build and ends this stage session; no child journals or publication.
 - 2026-11-13 validate: Round-4 specification and quality reviews both CHANGES_REQUIRED (high): statistics.ts:104-117 validates runs but not optional revisions; App.tsx:1480-1482 selected-project Admin Quality calls revisions.map and dereferences row fields. Otherwise-valid metrics with revisions=[null] or revisions={length:1} pass readStatistics and createReportingRefresh, publish ready plus completedAt, then throw TypeError in the production render expression. Parent independently reran the disposable licensed reproduction: both failures confirmed (browser consequence source-inspected, not browser-reproduced). Violates REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9. Required build correction: validate optional revisions collection, object rows and every render-consumed identity/value before publication; preserve legitimate absent/empty revisions. Add helper and selected-project Admin Quality initial/replacement/recovery negatives asserting closed evidence/exports/success time, explicit Retry and no pageerror. Existing tests read: statistics helpers, reportingRefresh and Statistics Quality browser cases cover malformed runs, not malformed revisions. Both reviewers report focused polling/request/statistics helpers 44/44 passing; round-3 fixes remain present. Release-note check and diff whitespace check pass. No final strict proof/report or validation completion claimed: correct-first/prove-last stops for this implementation defect. No candidate files changed; only this journal updated; no publication. Review evidence was ephemeral /tmp/task77-review4/spec.log and quality.log; durable finding recorded here.
 - 2026-11-13 validate: returned to build - Round-4 spec/quality changes required: reject malformed optional Statistics revisions and render-consumed rows before reporting success; add helper and selected-project Quality initial/replacement/recovery regressions. Current malformed revisions publish ready/time then throw during rendering.
+- 2026-11-13 build: Round-4 correction build bounds: 45 minutes, at most 22 ticket-scoped paths and 12 focused verification commands. Correct only optional Statistics revisions validation before publication with helper and selected-project Admin Quality initial/replacement/recovery proof; preserve anchor/review round, update scoped documentation/traceability and rebuild assets. Node 22.23.4, locked node_modules, image Chromium and nonempty machine identity verified; no dependency/backend/schema/payload or publication changes.
+- 2026-11-13 build: red: cd 04_Software/web && node --test tests/statistics.test.mjs exit 1 (19 pass/1 fail). New optional-revisions owner test receives ready rather than error for malformed evidence. It covers absent/empty/valid controls, malformed collections/rows, scoped and duplicate identities, revision/trigger/date/tokens/money, initial and replacement withholding, no success time and valid recovery (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9). Existing anchor retained.
+- 2026-11-13 build: red: npm run build:e2e exit 0; playwright reportingRefresh --grep 'selected Quality rejects malformed revision null row' exit 1. Malformed revision rows crash selected-project Quality instead of showing explicit error/Retry. New browser matrix covers global selected filter and project hub, initial/replacement/recovery, no report/exports/success time/pageerror and valid populated/empty controls. Correction stays inside the existing Statistics validation boundary.
+- 2026-11-13 build: Round-4 focused proof: 74 helpers/help and 14 selected/project Quality browser cases pass after first correction. Additional red: node --test --test-name-pattern='optional revision' tests/statistics.test.mjs exits 1 when trigger=['revise-label']; coercing a trigger to String admits an array. Require an actual string enum before ready publication (REQ-SEC-7ee58549).
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/request.test.mjs tests/errors.test.mjs tests/help.test.mjs exit 0 (74/74); npm run build:e2e/typecheck and playwright e2e/reportingRefresh.spec.ts e2e/statistics.spec.ts e2e/sessionRefresh.spec.ts e2e/operationRefresh.spec.ts exit 0 (88/88 offline Chromium cases). Optional revisions now validate object rows, scoped/unique identity, positive safe revision, strict trigger enum, nullable calendar date/tokens/money and known combined totals before any success. Initial and replacement malformed evidence exposes error/Retry without report/exports/time/pageerror; absent/empty/populated controls and recovery pass in both selected scopes. Original cadence/coherence/view-state/session-denial/operation regressions remain green (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9).
+- 2026-11-13 build: release-notes: updated (existing Statistics fixed entry now names safe invalid Quality retry in en/fr/de/ro; category limits retained; check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-13 build: help: none (revision validation enforces the existing documented invalid-evidence/error/Retry boundary; no new labels, controls, steps, cadence or workflow. Existing four-locale Statistics help remains accurate; help contracts pass).
+- 2026-11-13 build: Round-4 build audit: npm run build, release-note check, git diff --check and independent SHA-256/traceability audit exit 0. All 132 frontend inputs and 7 outputs match; all 42 task requirements remain active with existing source/test links. Evolution exit 0 reviewed 235 post-anchor paths (41 added/182 modified/12 removed), preserving inherited target integration and original anchor. This session changes 17/22 scoped paths: one validator, helper and browser tests, three requirement verifications, spec/component/user/knowledge docs, merged four-locale release entry/CHANGELOG, journal and regenerated JS/index/stamp. No backend/dependency/schema/payload or publication changes. Full strict proof and fresh independent round-5 review remain validate work.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exits 0: 0 errors, 177 warnings, 28 notes. Remaining warning groups match the inherited target findings already explained in the integration and round-3 logs: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend browser fixtures and inherited sources; 5 outside-layout paths are untouched target config/release archives. Six secret flags remain inherited journal/Users fake credential wording, three target private-key fixture literals, and unavailable generated-JS scan; no new literal secret introduced. DEVIATION build: generated minified-JS added-lines scan is unavailable - accepted with reviewed-source rebuild and matching input/output hashes, not a detected secret or final strict proof. Existing Vite large-chunk warning retained without unrelated splitting/dependencies. No unresolved round-4 correction remains in focused proof; independent approval/full suite not claimed.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: Round-4 spec/quality changes required: reject malformed optional Statistics revisions and render-consumed rows before reporting success; add helper and selected-project Quality initial/replacement/recovery regressions. Current malformed revisions publish ready/time then throw during rendering.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Validate round 4 recorded both independent changes-required verdicts and reproducible revision-validation defect; no product edits.
-evidence: Focused reviewers: polling/request/statistics 44/44 pass; parent malformed-revisions reproduction confirms ready/completedAt followed by TypeError; release-note check and git diff --check pass. Final strict proof intentionally not run before required correction.
-issues: Selected-project Admin Quality can crash on malformed revision evidence instead of failing closed; validation remains incomplete.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected round-4 Statistics optional revision validation before publication; added helper and both selected-scope Quality regressions, updated scoped docs/requirements/four-locale notes and rebuilt production assets.
+evidence: 74 helper/help tests and 88 integrated offline Chromium cases pass; typecheck, production build, release-note check, diff whitespace, 42-contract path audit and 132-input/7-output SHA-256 audit exit 0. Advisory check: 0 errors, inherited warnings documented.
+issues: Fresh independent round-5 reviews and full strict repository proof/report remain for validate; no full-suite, deployed visual or live service acceptance claimed. Inherited target advisory findings and Vite chunk-size warning remain documented.
 spec_compliance:
 implementation_quality:
 review_round: 4

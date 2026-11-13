@@ -251,6 +251,14 @@ the derived per-project review-round total must also be safe. Global Quality the
 never discovers malformed run evidence after successful publication. Helper and
 Quality browser negatives cover invalid collections/rows/counts, initial and
 post-success failure, absent exports/times, no pageerror and valid recovery.
+Optional `revisions` is absent or an array of object rows. Each row validates its
+scoped project/run identity, unique run/revision pair, positive safe-integer revision,
+closed trigger, nullable valid local calendar date, nullable safe token directions
+and combined total, and nullable finite nonnegative reported/estimated money.
+Absent and empty collections remain valid; malformed revision evidence clears the
+whole report before selected-project Admin Quality can render or record success.
+Helper tests and global-selected/project-hub Quality journeys prove initial and
+replacement refusal, no pageerror/report/exports/time and populated/empty recovery.
 Cross-project interval disagreement or aggregate failure withholds the report,
 exports and success time with explicit error/Retry, rather than throwing in render. App uses this owner for both global and
 project Statistics. Its render key captures the session principal/role, authorized

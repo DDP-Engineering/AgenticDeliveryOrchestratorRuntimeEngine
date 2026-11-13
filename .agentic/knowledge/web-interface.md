@@ -82,6 +82,13 @@ Metrics run collections are arrays of object rows; review-round counts and their
 per-project derived total validate as nonnegative safe integers before publication.
 Malformed collections/rows/counts fail closed in global Quality without report,
 exports, successful times or pageerror; helper/browser tests prove valid recovery.
+Optional revision arrays validate object rows, scoped project/run identity, unique
+run/revision pairs, positive safe revision numbers, closed string triggers, nullable
+valid local dates, nullable safe tokens/combined totals and finite nonnegative money.
+Absent/empty revisions remain valid. Selected-project Admin Quality fails closed on
+malformed initial/replacement revisions before report/exports/time publication;
+helper and both global-selected/project-hub browser tests prove populated/empty
+recovery without pageerror.
 Raw and pooled token directions/cache counts and known combined input/output totals
 validate as safe integers before publication, including period/total/day and job
 consumption evidence. Missing directions keep totals unknown; known overflow fails

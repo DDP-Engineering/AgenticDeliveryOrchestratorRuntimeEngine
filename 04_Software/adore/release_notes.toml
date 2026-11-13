@@ -18,7 +18,7 @@ version = "Unreleased"
 [[release.entry]]
 category = "fixed"
 topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
-text = { en = "Reports stay visible during updates; invalid evidence offers Retry instead of breaking the view.", fr = "Rapports conservés à l’actualisation ; données invalides refusées sans plantage, avec Réessayer.", de = "Berichte bleiben bei Updates sichtbar; ungültige Daten erlauben Wiederholen statt eines Absturzes.", ro = "Rapoartele rămân vizibile la actualizare; dovezile invalide permit reîncercarea, fără blocare." }
+text = { en = "Reports stay visible during updates; invalid Quality data offers Retry instead of crashing.", fr = "Rapports conservés à l’actualisation ; Qualité refuse les données invalides et permet Réessayer.", de = "Berichte bleiben bei Updates sichtbar; ungültige Qualitätsdaten erlauben Wiederholen ohne Absturz.", ro = "Rapoartele rămân vizibile la actualizare; Calitate refuză datele invalide și permite reîncercarea." }
 
 [[release.entry]]
 category = "fixed"

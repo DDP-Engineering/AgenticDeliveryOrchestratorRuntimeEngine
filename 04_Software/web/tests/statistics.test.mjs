@@ -343,6 +343,50 @@ test("reporting validates run collections and review counts before publishing su
   }
 });
 
+/** Optional revision evidence is validated before selected-project Quality can render it. */
+test("reporting validates optional revision identities and values before publishing success", async () => {
+  const revision = () => ({ project_id: "alpha", run_id: "same-run", revision: 1, trigger: "revise-label",
+    date: "2026-10-25", tokens_in: 0, tokens_out: null, reported_cost_usd: 0, estimated_cost_usd: null });
+  const validRows = [revision(), { ...revision(), revision: 2, trigger: "pipeline-failed", date: null },
+    { ...revision(), run_id: "other-run", trigger: "unclassified", tokens_in: null }];
+  const invalidRows = [null, {}, { length: 1 }, [null], [[]], [{}], [revision(), revision()]];
+  for (const [key, values] of Object.entries({
+    project_id: [undefined, null, "beta"], run_id: [undefined, null, {}, "", "../foreign"],
+    revision: [undefined, null, {}, "1", 0, -1, 0.5, Number.MAX_SAFE_INTEGER + 1],
+    trigger: [undefined, null, {}, ["revise-label"], "unknown"], date: [undefined, {}, "not a date", "2026-02-30", "2026-10-25T00:00:00Z"],
+    tokens_in: [undefined, {}, "0", -1, 0.5, Number.MAX_SAFE_INTEGER + 1],
+    tokens_out: [undefined, {}, "0", -1, 0.5, Number.MAX_SAFE_INTEGER + 1],
+    reported_cost_usd: [undefined, {}, "0", -1, Infinity, NaN],
+    estimated_cost_usd: [undefined, {}, "0", -1, Infinity, NaN],
+  })) for (const value of values) invalidRows.push([{ ...revision(), [key]: value }]);
+  invalidRows.push([{ ...revision(), tokens_in: 5e15, tokens_out: 5e15 }]);
+  for (const rows of [undefined, [], validRows]) {
+    const value = fixture();
+    if (rows !== undefined) value.revisions = rows;
+    assert.equal(readStatistics(value, "alpha", selection, true).revisions, rows);
+  }
+  for (const rows of invalidRows) {
+    const h = reporting({ admin: true });
+    const complete = async revisions => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = memberValue("metrics", 1); metrics.alpha.revisions = revisions;
+      h.requests.metrics.at(-1).resolve(metrics);
+      h.requests.usage.at(-1).resolve(memberValue("usage", 1));
+      await pending;
+    };
+    await complete(rows);
+    assert.equal(h.latest().status, "error", `invalid revisions: ${JSON.stringify(rows)}`);
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false, "no transient success");
+    await complete(validRows); assert.equal(h.latest().status, "ready");
+    h.advance(100);
+    await complete(rows); assert.equal(h.latest().status, "error");
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete([]); assert.equal(h.latest().status, "ready", "empty revisions recover");
+    h.owner.dispose();
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();

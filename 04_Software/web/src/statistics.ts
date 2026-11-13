@@ -67,6 +67,25 @@ function jobs(value: unknown, project: string) {
   }
 }
 
+/** Validate optional Admin revision rows, including their stable rendering identity. */
+function revisions(value: unknown, project: string) {
+  if (!Array.isArray(value)) invalid();
+  const seen = new Set<string>();
+  for (const item of value as unknown[]) {
+    const row = object(item);
+    if (row.project_id !== project || typeof row.run_id !== "string" || !/^[A-Za-z0-9._-]{1,160}$/.test(row.run_id) ||
+      count(row.revision) === 0 || typeof row.trigger !== "string" || !["revise-label", "pipeline-failed", "unclassified"].includes(row.trigger)) invalid();
+    const identity = JSON.stringify([row.run_id, row.revision]);
+    if (seen.has(identity)) invalid();
+    seen.add(identity);
+    // Revision dates are local calendar days, not UTC instants. Reject rollover dates.
+    if (row.date !== null && (typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.date) ||
+      !Number.isFinite(Date.parse(row.date)) || new Date(row.date).toISOString().slice(0, 10) !== row.date)) invalid();
+    tokenPair(row);
+    for (const key of ["reported_cost_usd", "estimated_cost_usd"]) amount(row[key]);
+  }
+}
+
 /** Validate the explicit analytical contract before making it visible. */
 export function readStatistics(value: unknown, project: string, selection: ReportingSelection, admin: boolean): Metrics {
   const row = object(value);
@@ -104,6 +123,7 @@ export function readStatistics(value: unknown, project: string, selection: Repor
   if (!Array.isArray(row.runs)) invalid();
   let reviewRounds = 0;
   for (const item of row.runs as unknown[]) reviewRounds = count(reviewRounds + count(object(item).review_rounds));
+  if ("revisions" in row) revisions(row.revisions, project);
   const result = row as unknown as Metrics;
   const pooled = aggregateMetrics([result], selection.timezone, selection.from, selection.through);
   for (const source of [object(row.duration), object(period.duration)]) {

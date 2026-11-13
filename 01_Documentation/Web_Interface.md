@@ -1153,8 +1153,10 @@ successful-update time; it cannot replace the page with a rendering failure.
 Token directions and known combined totals must be exact safe integers, including
 pooled reports and job consumption. Out-of-range evidence is refused, not rounded
 or displayed as current; an unknown direction still makes its combined total unknown.
-Malformed job evidence or invalid review-round counts in a report likewise show
-error/Retry without a successful-update time, rather than breaking the Quality tab.
+Malformed job evidence, invalid review-round counts or invalid revision details in a
+report show error/Retry without a successful-update time, rather than breaking the
+Quality tab. This includes the administrator's selected-project revision table;
+valid reports without revision details still load normally.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal
