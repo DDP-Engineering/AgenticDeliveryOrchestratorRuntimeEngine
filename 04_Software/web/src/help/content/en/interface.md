@@ -41,6 +41,8 @@ Opening a project from Projects shows its name and repository path above these t
 
 Paused Monitoring stops new tickets from being picked up; jobs that already started continue.
 
+Monitoring, archive, restore and delete actions use the current project identity and state. Leaving the project or detecting changed or failed project data cancels the old browser submission; it does not undo a server-accepted command. Unchanged updates keep a delete confirmation and its typed name. If the name or project state changes, cancel and reopen that confirmation before submitting. A removed project returns you to Projects with unavailable feedback, not another project's Summary.
+
 ## Status labels and badges {#statuses}
 
 Badges carry a symbol as well as colour, and job lists show the current stage beside the status.
@@ -66,6 +68,8 @@ After **Start**, **Retry** or **Cancel**, a notice reports the command as queued
 ## Automatic updates, language and theme {#preferences}
 
 Overview, Projects, Jobs, project Settings, project Access, project History and Change history reload their data every 15 seconds while the browser tab is visible. Settings pauses while you have unsaved changes or a save or discard is in progress. Statistics and System status also refresh automatically. Background updates pause while the browser tab is hidden and resume when you return. Failed reads normally hide the affected data until a successful update. Statistics keeps its report and controls during background reads, with an in-view **Refresh** and source update times. After a connection failure or read deadline it can retain a clearly marked older report with **Retry**; invalid or unauthorized evidence stays hidden. See [Statistics and costs](/help/statistics). Both change-evidence panels also keep the same page during reads and offer **Refresh**, successful update time and marked older evidence with **Retry** after connection or deadline failures; see [Administration](/help/administration#change-history).
+
+An observed command result starts new reads for the displayed Statistics, Jobs and History evidence, cancelling reads begun before that result. Existing tables, tabs and export disclosures stay open; only validated replacements update them. Jobs needs new list and detail evidence before another dependent command can run. Unrelated Settings drafts and valid reviews remain guarded.
 
 In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
 

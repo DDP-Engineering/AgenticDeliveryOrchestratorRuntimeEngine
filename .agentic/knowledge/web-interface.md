@@ -29,6 +29,21 @@ directory IO before virtual jumps without weakening held-resource expiry oracles
 
 The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; one worker serializes commands and polls, while authorized cancel signals reach active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
+App project submissions (monitoring/archive/restore/delete) serialize and bind
+callbacks to the live principal/project view and semantic ID/name/archive/pickup
+metadata. Context or relevant authority change aborts old browser work and ignores
+late results/errors without claiming server rollback. Notices/tracking are scoped
+to the originating project. Archive/restore validate expected identity/state;
+delete reviews preserve unchanged drafts but latch changed/failed metadata invalid
+until dismiss/reopen. Validated selected-project removal uses the existing explicit
+unavailable-directory transition rather than silently selecting another Summary.
+Observed App results cancel pre-result Jobs/audit attempts before paint while
+retaining nodes. Jobs advances evidence generation without releasing its own
+pending-command barrier. Reporting revalidate() retains the committed presentation
+but cancels the proposal and requests both post-result members anew. Helper/browser
+proof is tests/statistics.test.mjs and e2e/operationRefresh.spec.ts; existing
+jobs/dashboard lifecycle fixtures now model actual archive identity responses.
+
 App's project metadata reader is a strict, 30-second bounded owner keyed by
 principal/session, role, assigned IDs and Overview fallback eligibility. Equivalent
 session-notice reads and initial publication do not recreate it; 15-second ticks,

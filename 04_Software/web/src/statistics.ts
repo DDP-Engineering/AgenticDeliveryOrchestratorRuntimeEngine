@@ -130,6 +130,8 @@ export type ReportingReport = {
   fullReportAt: number;
 };
 export type ReportingRefresh = {
+  /** Cancel pre-result work while retaining display, then read every member anew. */
+  revalidate(): Promise<void>;
   refresh(mask?: ReportingMask): Promise<void>;
   invalidate(): void;
   dispose(): void;
@@ -259,6 +261,13 @@ export function createReportingRefresh(options: {
           usageAt: committed?.usageAt ?? 0, fullReportAt: committed?.fullReportAt ?? 0 };
       }
       return owner.refresh();
+    },
+    revalidate() {
+      if (disposed) return Promise.resolve();
+      proposal = null;
+      owner.cancel();
+      // Both members must come from work begun after the observed result.
+      return this.refresh();
     },
     invalidate() {
       committed = null; proposal = null; recovery = { metrics: false, usage: false }; owner.invalidate();

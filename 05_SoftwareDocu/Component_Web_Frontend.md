@@ -89,12 +89,33 @@ own-Save validation cannot be cancelled or mistaken for a completed Save. Existi
 revision, pending-candidate and price-write guards and 30s/15s request bounds remain;
 this is not a change to settings mutation authority or sign-in lifecycle.
 
+App monitoring/archive/restore/delete submissions serialize against other current
+project actions and recheck ready live identity/name/archive/pickup state. A
+principal/project/view or relevant metadata change cancels the browser submission
+and revokes all result/error/notice callbacks before replacement rendering; this
+never rolls back a server-accepted command. Operation notices/tracking render only
+in their origin's current project context. Archive/restore responses validate the
+expected immutable ID, name and archive boolean before announcing success. Delete
+confirmation preserves unchanged drafts/focus, but changed or failed project
+authority latches submission invalid until dismiss/reopen. Removed selected
+projects use the existing unavailable-directory route, never silent substitution.
+`e2e/operationRefresh.spec.ts` proves these boundaries; lifecycle/notification
+fixtures in jobs/dashboard tests now return the actual archive identity contract.
+
 App pending operations use a strict 30-second owner keyed by principal/project/ID,
 not pending versus running, with 2-second visible cadence. Leaving the project
 context cancels tracking; returning resumes observation of an unresolved operation.
 Read failure/deadline reports an error, never successful completion. An observed
 terminal result cancels pre-result directory reads before revalidation and sends
-non-remounting reread signals to displayed owners. Administration worker/storage
+non-remounting reread signals to displayed owners. Jobs/audit invalidate their
+pre-result attempts before paint while keeping mounted presentation. Jobs advances
+its evidence generation (but never releases an owned pending-command barrier),
+requiring new list and detail before dependent commands. Reporting's `revalidate()`
+cancels the old proposal without removing its committed report, then requests both
+members in a fresh generation, never pinning pre-result inputs. Late old values or
+errors cannot publish. `tests/statistics.test.mjs` and the operation refresh browser
+suite prove full-member cancellation, retained History/Jobs/report nodes and CSV
+disclosure, including independent completion. Administration worker/storage
 owners keep 5s/30s cadence, 30s bounds and strict error/unavailable/unknown semantics;
 successful pending reads retain values, while failed/invalid reads do not retain a
 healthy status. Readiness validates ready/worker/activity, storage validates its

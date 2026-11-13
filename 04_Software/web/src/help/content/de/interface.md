@@ -41,6 +41,8 @@ Wenn Sie ein Projekt unter Projekte öffnen, sehen Sie seinen Namen und den Repo
 
 Pausierte Überwachung verhindert, dass neue Tickets aufgenommen werden; bereits gestartete Aufträge laufen weiter.
 
+Überwachung, Archivieren, Wiederherstellen und Löschen nutzen die aktuelle Projektidentität und den Zustand. Beim Verlassen des Projekts oder bei geänderten oder fehlerhaften Projektdaten wird die alte Browserübermittlung abgebrochen, nicht ein bereits angenommener Serverbefehl. Unveränderte Updates erhalten Löschbestätigung und eingegebenen Namen. Ändern sich Name oder Zustand, brechen Sie die Bestätigung ab und öffnen sie vor dem Senden erneut. Ein entferntes Projekt führt mit einem Nicht-verfügbar-Hinweis zu Projekte, nicht zur Zusammenfassung eines anderen Projekts.
+
 ## Statuslabels und Badges {#statuses}
 
 Badges tragen neben der Farbe auch ein Symbol, und Auftragslisten zeigen die aktuelle Phase neben dem Status.
@@ -66,6 +68,8 @@ Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befe
 ## Automatische Aktualisierung, Sprache und Design {#preferences}
 
 Übersicht, Projekte, Aufträge, Einstellungen, Zugriff und Verlauf eines Projekts sowie der Änderungsverlauf laden ihre Daten alle 15 Sekunden neu, solange der Browser-Tab sichtbar ist. Die Einstellungen pausieren bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen. Statistiken und Systemstatus aktualisieren sich ebenfalls automatisch. Beim Wechsel zurück zum Tab werden die Aktualisierungen fortgesetzt. Fehlgeschlagene Abfragen blenden betroffene Daten normalerweise bis zur nächsten erfolgreichen Abfrage aus. Statistiken behält Bericht und Steuerung bei Hintergrundabfragen mit **Aktualisieren** in der Ansicht und Zeiten je Quelle. Nach Verbindungsfehlern oder abgelaufener Lesefrist kann ein deutlich markierter älterer Bericht mit **Wiederholen** bleiben; ungültige oder nicht autorisierte Daten bleiben ausgeblendet. Siehe [Statistiken und Kosten](/help/statistics). Beide Änderungsnachweis-Ansichten behalten ebenfalls die Seite bei Abfragen und bieten **Aktualisieren**, Erfolgszeit und markierte ältere Nachweise mit **Wiederholen** nach Verbindungsfehlern oder Fristablauf; siehe [Verwaltung](/help/administration#change-history).
+
+Ein beobachtetes Befehlsergebnis startet neue Abfragen der angezeigten Nachweise in Statistiken, Aufträge und Verlauf und bricht davor begonnene Abfragen ab. Tabellen, Reiter und Exportbereiche bleiben offen; nur geprüfte Ersatzdaten aktualisieren sie. Aufträge benötigt neue Listen- und Detailnachweise vor einem weiteren davon abhängigen Befehl. Andere Einstellungsentwürfe und gültige Prüfungen bleiben geschützt.
 
 Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.
 

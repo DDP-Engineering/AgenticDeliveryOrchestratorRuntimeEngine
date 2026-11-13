@@ -241,6 +241,25 @@ test("report ownership invalidation releases both reads and cannot publish old s
   assert.equal(h.latest(), current);
 });
 
+test("post-result reporting revalidation retains presentation but cancels every pre-result member", async () => {
+  const h = reporting(); await completeReport(h);
+  const baseline = h.latest().data;
+  const older = h.owner.refresh({ metrics: true }); await flush();
+  const oldMetric = h.requests.metrics.at(-1);
+  const replacement = h.owner.revalidate(); await older; await flush();
+  assert.equal(oldMetric.signal.aborted, true);
+  assert.equal(h.latest().data, baseline);
+  assert.equal(h.requests.metrics.length, 3);
+  assert.equal(h.requests.usage.length, 2, "result requires a full post-result generation, never a pin");
+  oldMetric.resolve(memberValue("metrics", 999)); await flush();
+  assert.equal(h.latest().data, baseline);
+  h.requests.metrics[2].resolve(memberValue("metrics", 2)); await flush();
+  assert.equal(h.latest().data, baseline);
+  h.requests.usage[1].resolve(memberValue("usage", 2)); await replacement;
+  assert.equal(h.latest().data.metrics.alpha.period.started, 2);
+  assert.equal(h.latest().data.usage.alpha.totals.tokens_in, 2);
+});
+
 test("one reporting deadline bounds promotions, releases the slot and excludes expired completions", async () => {
   const h = reporting(); await completeReport(h);
   const pending = h.owner.refresh({ metrics: true }); await flush();

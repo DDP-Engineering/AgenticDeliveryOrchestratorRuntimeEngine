@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { messages, type Locale } from "./i18n";
 import { auditCopy } from "./auditCopy";
 import { createReadController, startVisiblePolling, type ReadController, type ReadSnapshot } from "./polling";
@@ -107,8 +107,14 @@ export function AuditHistory({ locale, projects, fixedProject, read, refresh = 0
     const stop = startVisiblePolling(() => void controller.refresh(), 15000);
     return () => { stop(); controller.dispose(); if (owner.current === controller) owner.current = null; };
   }, [queryKey]);
-  // Post-operation revalidation is a trigger, never a new component/query identity.
-  useEffect(() => { void owner.current?.refresh(); }, [refresh]);
+  // Post-result evidence cannot join an older attempt, but keeps the same query,
+  // mounted rows and disclosure state. Initial setup already starts its own read.
+  const observedRefresh = useRef(refresh);
+  useLayoutEffect(() => {
+    if (observedRefresh.current === refresh) return;
+    observedRefresh.current = refresh;
+    owner.current?.cancel(); void owner.current?.refresh();
+  }, [refresh]);
   const input = (key: keyof Filters, label: string, type = "text") => <label>{label}<input type={type} value={draft[key]} onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))} /></label>;
   return <section className="panel wide-panel audit-evidence" aria-label={c.title}>
     <div className="panel-heading"><h2>{c.title}</h2></div>

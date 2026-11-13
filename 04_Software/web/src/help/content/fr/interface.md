@@ -41,6 +41,8 @@ L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son d
 
 Une surveillance en pause empêche la prise en charge de nouveaux tickets ; les tâches déjà démarrées continuent.
 
+Surveillance, archivage, restauration et suppression utilisent l’identité et l’état courants du projet. Quitter le projet ou détecter des données modifiées ou en échec annule l’ancien envoi du navigateur, pas une commande acceptée par le serveur. Une actualisation inchangée conserve la confirmation de suppression et le nom saisi. Si le nom ou l’état change, annulez puis rouvrez la confirmation avant l’envoi. Un projet disparu vous ramène à Projets avec un message d’indisponibilité, pas au Résumé d’un autre projet.
+
 ## Libellés d’état et badges {#statuses}
 
 Les badges portent un symbole en plus de la couleur, et les listes de tâches affichent l’étape courante à côté de l’état.
@@ -66,6 +68,8 @@ Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la co
 ## Mises à jour automatiques, langue et thème {#preferences}
 
 Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet, ainsi que l’Historique des changements, rechargent leurs données toutes les 15 secondes quand l’onglet du navigateur est visible. Les Paramètres suspendent l’actualisation pendant une modification non enregistrée, un enregistrement ou un abandon. Statistiques et État du système s’actualisent aussi automatiquement. Les mises à jour reprennent au retour dans l’onglet. Les lectures échouées masquent normalement les données concernées jusqu’à une réussite. Statistiques conserve rapport et commandes pendant les lectures en arrière-plan, avec **Actualiser** dans la vue et les heures des sources. Après une panne de connexion ou un délai dépassé, un ancien rapport peut rester clairement signalé avec **Réessayer** ; les données invalides ou non autorisées restent masquées. Voir [Statistiques et coûts](/help/statistics). Les deux panneaux de preuves conservent aussi la page pendant les lectures, avec **Actualiser**, l’heure de réussite et des preuves anciennes signalées avec **Réessayer** après panne de connexion ou délai dépassé ; voir [Administration](/help/administration#change-history).
+
+Un résultat de commande observé lance de nouvelles lectures des preuves affichées dans Statistiques, Tâches et Historique, en annulant celles commencées avant ce résultat. Tableaux, onglets et exports restent ouverts ; seuls les remplacements validés les actualisent. Tâches exige de nouvelles preuves de liste et de détails avant une autre commande dépendante. Les saisies de Paramètres et les vérifications valides sans rapport restent protégées.
 
 Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.
 

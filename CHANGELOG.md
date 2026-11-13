@@ -43,6 +43,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Bind monitoring, archive, restore and delete callbacks/notices to current project
+  authority; cancel obsolete browser submissions without claiming server rollback.
+  Preserve unchanged delete drafts but invalidate changed reviews; removed projects
+  return explicitly to the directory. Observed App results replace pre-result
+  Statistics/Jobs/History reads without remounting content or trusting old action
+  evidence; reporting rereads both sources as a new coordinated generation.
+
 - Bound/coalesce ticket operation status reads without changing their cadence;
   cancel obsolete reads and leave failed/invalid status explicitly unknown.
   Observed results revalidate shared project metadata without rereading forge

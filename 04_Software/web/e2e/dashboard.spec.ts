@@ -277,7 +277,9 @@ test("single transient ordinary notification replaces operation feedback", async
   await expect(monitoring).toBeVisible();
   await page.clock.install();
   await page.route("**/api/v1/projects/*/operations/*", route => route.fulfill({ json: { id: 7201, status: "succeeded" } }));
-  await page.route("**/api/v1/projects/*/archive", route => route.fulfill({ json: {} }));
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = projects.find((project: { name: string }) => project.name === "alpha");
+  await page.route("**/api/v1/projects/*/archive", route => route.fulfill({ json: { ...alpha, archived: true } }));
   await monitoring.click();
   const notice = page.locator("main div.notice[role=status]");
   await expect(notice).toContainText("succeeded");

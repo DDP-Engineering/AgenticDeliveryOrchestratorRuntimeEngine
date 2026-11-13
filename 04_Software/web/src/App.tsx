@@ -244,6 +244,7 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   const [jobsView, setJobsView] = useState<"tickets" | "jobs">("tickets");
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteName, setDeleteName] = useState("");
+  const [deleteReviewInvalid, setDeleteReviewInvalid] = useState(false);
   const [deleteClone, setDeleteClone] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
@@ -262,6 +263,9 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   const operationId = useRef<number | null>(null);
   const operationBusy = useRef(false);
   const operationSubmission = useRef(0);
+  const operationRequest = useRef<AbortController | null>(null);
+  const operationOrigin = useRef("");
+  const [projectNotice, setProjectNotice] = useState<{ key: string; text: string } | null>(null);
   const [operationSubmitting, setOperationSubmitting] = useState(false);
   const [operationVisible, setOperationVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -398,6 +402,33 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
     else { setUsageSortKey(key); setUsageSortDescending(false); }
   };
   const selectedProject = projects.find(item => item.id === selected);
+  const liveSelection = useRef({ page, selected }); liveSelection.current = { page, selected };
+  const projectViewKey = page === "projectDetails" ? JSON.stringify([projectsPrincipal, selected]) : "";
+  const projectActionBinding = (item: Project | null | undefined) => item ? JSON.stringify([item.id, item.name, item.archived, item.paused]) : "";
+  const actionContext = projectViewKey && projectsState === "ready" && selectedProject
+    ? JSON.stringify([projectViewKey, projectActionBinding(selectedProject)]) : "";
+  const liveActionContext = useRef(actionContext); liveActionContext.current = actionContext;
+  const operationView = projectViewKey && projectsState === "ready" && selectedProject && selected === operationProject &&
+    operationOrigin.current === JSON.stringify([projectsPrincipal, selectedProject.id, selectedProject.name]) ? operation : null;
+  const projectActionBusy = operationSubmitting || !!operationView && ["pending", "running"].includes(operationView.status);
+  const deleteReviewCurrent = !deleteReviewInvalid && !!actionContext && !!deleteTarget && !!selectedProject?.archived &&
+    projectActionBinding(deleteTarget) === projectActionBinding(selectedProject);
+  useLayoutEffect(() => {
+    // Aborting browser work cannot undo an accepted server command. It does end
+    // the old callback's authority to publish notices/results in another view.
+    operationSubmission.current += 1;
+    operationRequest.current?.abort(); operationRequest.current = null;
+    operationBusy.current = false; setOperationSubmitting(false);
+    return () => { operationSubmission.current += 1; operationRequest.current?.abort(); };
+  }, [actionContext]);
+  useLayoutEffect(() => {
+    if (deleteTarget && (!actionContext || projectActionBinding(deleteTarget) !== projectActionBinding(selectedProject))) setDeleteReviewInvalid(true);
+  }, [actionContext, deleteTarget]);
+  useEffect(() => {
+    if (!projectNotice) return;
+    const timer = window.setTimeout(() => setProjectNotice(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [projectNotice]);
   useEffect(() => {
     if (selectedProject?.verification.status === "stale") setProjectReadiness(null);
   }, [selectedProject?.verification.status]);
@@ -586,6 +617,11 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
         if (key !== liveProjectsOwner.current || generation !== viewGeneration.current) return;
         if (snapshot.status === "ready" && snapshot.data) {
           const items = snapshot.data;
+          // Reuse the route's explicit unavailable transition rather than put a
+          // different project underneath a removed project's current heading.
+          const shown = liveSelection.current;
+          if (shown.page === "projectDetails" && shown.selected && !routedProject.current &&
+            !items.some(item => item.id === shown.selected)) routedProject.current = shown.selected;
           projectsHaveSnapshot.current = true;
           setProjects(items);
           setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
@@ -832,6 +868,13 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
     return () => window.clearTimeout(timer);
   }, [operationVisible, operation?.id, operation?.status]);
 
+  const observedReportRefresh = useRef(viewRefresh);
+  useLayoutEffect(() => {
+    if (observedReportRefresh.current === viewRefresh) return;
+    observedReportRefresh.current = viewRefresh;
+    void reportingReader.current?.revalidate();
+  }, [viewRefresh]);
+
   const revalidateOperation = () => {
     // A completed write cannot join directory evidence begun before its result.
     projectsReader.current?.cancel(); void refreshProjects(); refreshView();
@@ -842,9 +885,8 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
     // bodies, comments, paging and unrelated confirmations mounted.
     projectsReader.current?.cancel(); void refreshProjects();
   };
-  const operationPollingKey = session && page === "projectDetails" && selected === operationProject &&
-    operation && ["pending", "running"].includes(operation.status)
-    ? JSON.stringify([projectsPrincipal, operationProject, operation.id]) : "";
+  const operationPollingKey = session && operationView && ["pending", "running"].includes(operationView.status)
+    ? JSON.stringify([projectsPrincipal, operationProject, operationView.id]) : "";
   const liveOperationKey = useRef(operationPollingKey); liveOperationKey.current = operationPollingKey;
   useLayoutEffect(() => {
     if (!operationPollingKey || !operation) return;
@@ -1010,54 +1052,62 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
     await onSignOut(csrf);
   };
 
-  const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {
-    if (!session || !projectId || operationBusy.current) return;
+  /** Serialize project writes and bind every callback to live metadata/view authority. */
+  const submitProjectOperation = async (path: string, body: unknown, deleting = false) => {
+    if (!session || !isAdmin || !actionContext || actionContext !== liveActionContext.current ||
+      !selectedProject || operationBusy.current || projectActionBusy) return;
     operationBusy.current = true; setOperationSubmitting(true);
-    const submission = ++operationSubmission.current;
-    setError(""); setNotice("");
-    const body = action === "start" ? { ticket_iid: Number(target) } :
-      action === "retry" || action === "cancel" ? { run_id: target } : {};
+    const submission = ++operationSubmission.current, key = actionContext;
+    const controller = new AbortController(); operationRequest.current = controller;
+    const current = () => !controller.signal.aborted && submission === operationSubmission.current && key === liveActionContext.current;
+    setError(""); setNotice(""); setProjectNotice(null);
+    projectsReader.current?.cancel();
     try {
-      const op = readOperation(await request(
-        `/projects/${encodeURIComponent(projectId)}/operations/${action}`, "POST",
-        { ...body, idempotency_key: crypto.randomUUID() }, session.csrf,
-      ));
-      if (submission !== operationSubmission.current) return;
-      operationId.current = op.id; setOperationProject(projectId); setOperation(op);
-      setOperationVisible(true);
-      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; revalidateOperation(); }
-    } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
-    finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
+      const op = readOperation(await request(path, "POST", body, session.csrf, controller.signal));
+      if (!current()) return;
+      operationOrigin.current = JSON.stringify([projectsPrincipal, selectedProject.id, selectedProject.name]);
+      operationId.current = op.id; setOperationProject(selectedProject.id); setOperation(op); setOperationVisible(true);
+      if (deleting) { setDeleteTarget(null); setDeleteName(""); }
+      if (!["pending", "running"].includes(op.status)) revalidateOperation();
+    } catch (cause) {
+      if (current()) { setError(cause); revalidateOperation(); }
+    } finally {
+      if (current()) { operationBusy.current = false; operationRequest.current = null; setOperationSubmitting(false); }
+    }
+  };
+  const operate = async (action: "pause" | "resume", projectId = selected) => {
+    if (!selectedProject || selectedProject.id !== projectId || selectedProject.archived ||
+      action !== (selectedProject.paused ? "resume" : "pause")) return;
+    await submitProjectOperation(`/projects/${encodeURIComponent(projectId)}/operations/${action}`, { idempotency_key: crypto.randomUUID() });
   };
 
   const deleteProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(""); setNotice("");
-    if (operationBusy.current || !deleteTarget || !session || !isAdmin || page !== "projectDetails" || deleteTarget.id !== selected || deleteName !== deleteTarget.name || !deleteTarget.archived || !selectedProject?.archived) return;
-    operationBusy.current = true; setOperationSubmitting(true);
-    const submission = ++operationSubmission.current;
-    try {
-      const op = readOperation(await request(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
-        { confirm_name: deleteName, idempotency_key: crypto.randomUUID(), remove_clone: deleteClone }, session.csrf));
-      if (submission !== operationSubmission.current) return;
-      operationId.current = op.id; setOperationProject(deleteTarget.id); setOperation(op);
-      setOperationVisible(true);
-      setDeleteTarget(null); setDeleteName("");
-      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; revalidateOperation(); }
-    } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
-    finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
+    if (!deleteReviewCurrent || !deleteTarget || deleteName !== deleteTarget.name) return;
+    await submitProjectOperation(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`,
+      { confirm_name: deleteName, idempotency_key: crypto.randomUUID(), remove_clone: deleteClone }, true);
   };
 
   useEffect(() => { setDeleteTarget(null); setDeleteName(""); }, [page, selected, projectTab]);
 
   const setProjectArchive = async (archive: boolean, projectId = selected) => {
-    if (!projectId || !session || !isAdmin) return;
-    setError(""); setNotice("");
+    if (!session || !isAdmin || !actionContext || actionContext !== liveActionContext.current || !selectedProject ||
+      selectedProject.id !== projectId || selectedProject.archived === archive || operationBusy.current || projectActionBusy) return;
+    operationBusy.current = true; setOperationSubmitting(true);
+    const submission = ++operationSubmission.current, key = actionContext;
+    const controller = new AbortController(); operationRequest.current = controller;
+    const current = () => !controller.signal.aborted && submission === operationSubmission.current && key === liveActionContext.current;
+    setError(""); setNotice(""); setProjectNotice(null);
+    projectsReader.current?.cancel();
     try {
-      await request(`/projects/${encodeURIComponent(projectId)}/${archive ? "archive" : "restore"}`,
-        "POST", undefined, session.csrf);
-      await refreshProjects();
-      setNotice(t(archive ? "projectArchived" : "projectRestored"));
-    } catch (cause) { setError(cause); }
+      const result = await request<Project>(`/projects/${encodeURIComponent(projectId)}/${archive ? "archive" : "restore"}`,
+        "POST", undefined, session.csrf, controller.signal);
+      if (!current()) return;
+      if (!result || result.id !== projectId || result.name !== selectedProject.name || result.archived !== archive) throw new ApiError("unexpected_response");
+      setProjectNotice({ key: projectViewKey, text: t(archive ? "projectArchived" : "projectRestored") });
+      revalidateOperation();
+    } catch (cause) { if (current()) { setError(cause); revalidateOperation(); } }
+    finally { if (current()) { operationBusy.current = false; operationRequest.current = null; setOperationSubmitting(false); } }
   };
 
   const saveAuditPolicy = async (event: FormEvent<HTMLFormElement>) => {
@@ -1459,9 +1509,9 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
     </section></div>}>
 
         {error ? <div className="alert" role="alert">{describeError(locale, error)}<button onClick={() => setError("")} aria-label={t("close")}>×</button></div> : null}
-        {(notice || (operationVisible && operation)) && <div className="notice" role="status">
-          {notice || (operation && <>{t("operationStatus")}: #{operation.id} · {operation.status}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && operation.result !== "completed" ? ` · ${(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}` : ""}{operation.status === "pending" && <small>{t("workerQueueHelp")}</small>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}</>)}
-          <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
+        {(notice || projectNotice?.key === projectViewKey || (operationVisible && operationView)) && <div className="notice" role="status">
+          {notice || (projectNotice?.key === projectViewKey ? projectNotice.text : "") || (operationView && <>{t("operationStatus")}: #{operationView.id} · {operationView.status}{(operationView.reason ? outcomeText(locale, operationView) : operationResultText(operationView.result || "", locale)) && operationView.result !== "completed" ? ` · ${(operationView.reason ? outcomeText(locale, operationView) : operationResultText(operationView.result || "", locale))}` : ""}{operationView.status === "pending" && <small>{t("workerQueueHelp")}</small>}{operationView.status !== "succeeded" && operationView.detail && <pre className="operation-detail" tabIndex={0}>{operationView.detail}</pre>}</>)}
+          <button onClick={() => { setNotice(""); setProjectNotice(null); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} onEnroll={page === "overview" ? () => setPage("createProject") : undefined} />}
@@ -1506,9 +1556,9 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
               <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
               {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
             </dl>
-            {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" disabled={operationSubmitting || !!operation && ["pending", "running"].includes(operation.status)} onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
-              <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
-              {selectedProject.archived && <button className="danger" onClick={() => { setError(""); setDeleteName(""); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
+            {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" disabled={!actionContext || projectActionBusy} onClick={() => void operate(selectedProject.paused ? "resume" : "pause", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
+              <button className="ghost" disabled={!actionContext || projectActionBusy} onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
+              {selectedProject.archived && <button className="danger" disabled={!actionContext || projectActionBusy} onClick={() => { setError(""); setDeleteName(""); setDeleteClone(false); setDeleteReviewInvalid(false); setDeleteTarget(selectedProject); }}>{t("deleteProject")}</button>}
               <button ref={readinessTrigger} type="button" className="ghost" aria-disabled={readinessBusy} aria-controls="host-check-details" aria-expanded={readinessExpanded} onClick={() => void checkProjectReadiness()}>{t("checkHostPrerequisites")}</button>
 
             {!selectedProject.archived && <RepositoryConnection key={`${session.user.id}:${selectedProject.id}`} project={selectedProject.id} provider={selectedProject.platform} repository={selectedProject.repo} locale={locale}
@@ -1529,7 +1579,8 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
             <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
               <DeleteCloneOption locale={locale} project={deleteTarget.id} read={path => request(path)} checked={deleteClone} onChange={setDeleteClone} />
               <label><span className="delete-confirm-label">{t("deleteProjectConfirm").split("{project}").map((part, index) => <Fragment key={index}>{index > 0 && <strong className="delete-confirm-name">{deleteTarget.name}</strong>}{part}</Fragment>)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
-              <div className="button-row"><button className="danger" type="submit" disabled={operationSubmitting || !!operation && ["pending", "running"].includes(operation.status) || deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
+              {!deleteReviewCurrent && <p role="status">{userCopy[locale].reviewChanged}</p>}
+              <div className="button-row"><button className="danger" type="submit" disabled={projectActionBusy || !deleteReviewCurrent || deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
             </form>
           </section></ProjectDeleteDialog>}
           </>}

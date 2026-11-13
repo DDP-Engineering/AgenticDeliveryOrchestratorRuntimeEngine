@@ -41,6 +41,8 @@ Deschiderea unui proiect din Proiecte afișează numele și calea repository-ulu
 
 Monitorizarea în pauză oprește preluarea tichetelor noi; lucrările deja pornite continuă.
 
+Monitorizarea, arhivarea, restaurarea și ștergerea folosesc identitatea și starea curentă a proiectului. Părăsirea proiectului sau detectarea datelor schimbate ori eșuate anulează trimiterea veche din browser, nu o comandă acceptată de server. Actualizările neschimbate păstrează confirmarea ștergerii și numele introdus. Dacă numele sau starea se schimbă, anulați și redeschideți confirmarea înainte de trimitere. Un proiect eliminat vă întoarce la Proiecte cu un mesaj de indisponibilitate, nu la Rezumatul altui proiect.
+
 ## Etichete și insigne de stare {#statuses}
 
 Insignele au un simbol, nu doar culoare, iar listele de lucrări arată etapa curentă lângă stare.
@@ -66,6 +68,8 @@ După **Pornește**, **Reîncearcă** sau **Anulează**, o notificare raporteaz�
 ## Actualizări automate, limbă și temă {#preferences}
 
 Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiectului și Istoricul modificărilor își actualizează datele la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea Setărilor se oprește cât timp aveți modificări nesalvate sau cât timp se salvează ori se renunță la ele. Statistici și Starea sistemului se actualizează și ele automat. Actualizările se reiau când reveniți la filă. Citirile eșuate ascund de obicei datele afectate până la o citire reușită. Statistici păstrează raportul și controalele la citirile în fundal, cu **Reîmprospătează** în vedere și orele surselor. După o eroare de conexiune sau depășirea termenului poate păstra un raport mai vechi, marcat clar, cu **Reîncearcă**; datele invalide sau neautorizate rămân ascunse. Vezi [Statistici și costuri](/help/statistics). Ambele panouri de dovezi păstrează și ele pagina la citire și oferă **Reîmprospătează**, ora reușitei și dovezi mai vechi marcate cu **Reîncearcă** după erori de conexiune sau termen depășit; vezi [Administrare](/help/administration#change-history).
+
+Un rezultat de comandă observat pornește citiri noi pentru dovezile afișate în Statistici, Lucrări și Istoric, anulând citirile începute înaintea rezultatului. Tabelele, filele și secțiunile de export rămân deschise; doar înlocuirile validate le actualizează. Lucrări cere dovezi noi de listă și detalii înaintea altei comenzi dependente. Ciornele din Setări și revizuirile valide fără legătură rămân protejate.
 
 În [Contul meu](/account), **Aspect** conține **Limbă** (English, Français, Deutsch, Română) și **Temă** (**Sistem**, **Luminoasă**, **Întunecată**). Fiecare alegere este salvată în contul dumneavoastră și vă urmează în toate browserele; înainte de autentificare, pagina de autentificare reține alegerea în browser. **Schimbă parola** cere parola curentă și una nouă de cel puțin 8 caractere.
 

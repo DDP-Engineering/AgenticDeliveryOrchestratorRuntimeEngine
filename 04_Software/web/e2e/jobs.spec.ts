@@ -720,18 +720,20 @@ test("overview background poll stays visible while pending and fails closed", as
 
 test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", async ({ page }) => {
   let archived = false;
+  let projectIdentity: { id: string; name: string };
   const writes: { path: string; csrf: string; data: Record<string, unknown> | null }[] = [];
   await page.route("**/api/v1/projects", async route => {
     const response = await route.fetch(); const projects = await response.json();
+    projectIdentity = projects.find((project: { name: string }) => project.name === "alpha");
     await route.fulfill({ response, json: projects.map((project: { name: string }) => project.name === "alpha" ? { ...project, archived } : project) });
   });
   await page.route("**/api/v1/projects/*/archive", route => {
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
-    archived = true; return route.fulfill({ status: 200, json: {} });
+    archived = true; return route.fulfill({ status: 200, json: { ...projectIdentity, archived } });
   });
   await page.route("**/api/v1/projects/*/restore", route => {
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
-    archived = false; return route.fulfill({ status: 200, json: {} });
+    archived = false; return route.fulfill({ status: 200, json: { ...projectIdentity, archived } });
   });
   // The clone of alpha is ADORE's own until the preview says it is not.
   let clonePreview: Record<string, unknown> = { path: "/srv/adore/repos/alpha", removable: true, reason: "" };

@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
@@ -105,7 +105,8 @@ export function JobWorkspace(props: Props) {
   const activePage = currentList?.data?.activePage ?? null;
   const unreadable = visible?.unreadable_projects ?? [];
   const visibleDetail = ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? currentDetail?.data?.job ?? null : null;
-  const canAct = !commandBarrier.current && currentList?.status === "ready" && currentDetail?.status === "ready" &&
+  const observedRefresh = useRef(refresh);
+  const canAct = observedRefresh.current === refresh && !commandBarrier.current && currentList?.status === "ready" && currentDetail?.status === "ready" &&
     currentList.data?.generation === commandGeneration.current && currentDetail.data?.generation === commandGeneration.current &&
     !!project && !project.archived;
   const actionAuthority = useRef({ canAct, detail: visibleDetail, project });
@@ -221,10 +222,18 @@ export function JobWorkspace(props: Props) {
     return () => { stop(); controller.dispose(); detailOwner.current = null; };
   }, [detailKey, reload]);
 
-  // Parent operation/Refresh signals revalidate owners; they are not view identities.
+  // A parent result supersedes pre-result evidence before paint; it must not join
+  // an older request or remount controls. An owned command retains its barrier.
+  useLayoutEffect(() => {
+    if (observedRefresh.current === refresh) return;
+    observedRefresh.current = refresh;
+    if (!commandBarrier.current) commandGeneration.current += 1;
+    cancelEvidenceReads();
+    void listOwner.current?.refresh(); void detailOwner.current?.refresh(); void usageOwner.current?.refresh();
+  }, [refresh]);
   useEffect(() => {
     void listOwner.current?.refresh(); void detailOwner.current?.refresh(); void usageOwner.current?.refresh();
-  }, [refresh, commandContext]);
+  }, [commandContext]);
 
   useEffect(() => {
     const controller = createReadController<unknown>({

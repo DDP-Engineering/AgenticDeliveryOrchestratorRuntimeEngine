@@ -115,6 +115,23 @@ do not apply to direct jobs. Jobs and Settings help explains this in all four lo
 
 ## Interface and project settings details
 
+Monitoring, archive, restore and delete actions use current project identity and
+state. Leaving the project or detecting changed/failed project data cancels the
+old browser submission and prevents its result or error appearing under another
+project; accepted server commands are not rolled back. Operation feedback belongs
+only to its originating project. Unchanged metadata preserves a delete confirmation
+and its typed name; changed name/archive/pickup authority invalidates it until you
+cancel and reopen it. A removed selected project returns to Projects with explicit
+unavailable feedback rather than substituting another project's Summary.
+
+An observed operation result cancels older Statistics, Jobs and History reads and
+starts replacements without removing tables, disclosures, tabs or CSV controls.
+Statistics reads both sources anew after the result, not a pre-result source plus a
+new one. Jobs requires new list and detail evidence before another dependent
+command; a queued job command keeps its existing wait barrier. Settings drafts and
+valid reviews retain their own guards. Failed reads still follow their strict or
+clearly marked informational-stale policy; completion alone is not new authority.
+
 **Sign out** immediately hides private views and cancels their browser requests.
 The sign-out request finishes before another sign-in is offered, with a 30-second
 browser limit. Cancelling browser requests does not undo commands accepted by the
