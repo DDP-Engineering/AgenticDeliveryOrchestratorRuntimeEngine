@@ -99,8 +99,16 @@ ADORE's only coding agent.
   Unreadable job state produces a warning naming the affected project in Needs
   attention, while verified job rows from other projects remain visible;
   worker faults remain visible, with reporting/technical evidence in dedicated views.
+  Same-context Statistics, Jobs/detail/consumption and change-evidence reads keep
+  validated content and controls mounted while pending. Typed transport/deadline
+  failures retain only explicitly stale information with successful completion
+  times and Retry; invalid, unauthorized and other application failures hide it.
+  Statistics publishes coordinated scope-consistent metrics/usage, including
+  validated pooled results. Initial and changed-context reads retain scoped loading.
   Settings, Access, global Change history and project History refresh while
-  visible. Unsaved settings pause updates. Header Refresh is available on Users.
+  visible. Unsaved settings pause updates; unchanged valid reviews survive unrelated
+  reads, while changed authority requires a fresh review. Header Refresh remains
+  exclusive to manual Users; informational views have local Refresh/retry controls.
   Sidebar Jobs supplies scoped full-history navigation.
   Project Settings exports the saved TOML bytes. Projects imports exact TOML
   from a dialog that validates file selection automatically and publishes with stopped pickup.
@@ -267,8 +275,14 @@ explicit all-time versus current stock, honest zero/unknown/partial evidence,
 reported versus estimated Admin money, server samples, and labeled trends with
 accessible tables. Job list/detail consumption uses immutable project/run
 identity and selected-period/lifetime/unallocated measurements. Reporting routes
-preserve calendar/timezone/group selections; stale, revoked and malformed reads
-hide evidence. Four locales and both themes share these responsibilities.
+preserve calendar/timezone/group selections. Superseded, revoked and malformed
+reads hide evidence; same-context transport/deadline failures retain only a marked
+stale snapshot, never operational action authority. A coordinated reporting owner
+validates matching canonical boundaries across every project and both sources,
+and pools metrics/usage before publication. Selected metrics retain 15-second
+cadence, usage/global metrics 30 seconds. Full and individual source times remain
+distinct when a not-due source is carried. Four locales and both themes share these
+responsibilities.
 
 ## Web change evidence
 

@@ -293,3 +293,13 @@ job or user-service acceptance. See orchestrator.md and web-interface.md knowled
 Focused History and CLI deletion verification uses temporary home/profile stores and fake engines; it performs no live forge, model or runtime operation.
 
 Factory administrator proof uses isolated temporary identity stores and the serial offline browser fixture on port 18765. Production web source or help changes require a rebuilt and verified committed static bundle.
+
+Refresh-continuity proof uses the existing Node fake clocks and offline Chromium
+route holds in reportingRefresh, jobRefresh, audit, usersRefresh, accessRefresh,
+operationRefresh, settingsRefresh, ticketRefresh and sessionRefresh suites. Virtual
+deadline jumps drain actual supporting session/directory IO through the shared
+`e2e/polling.ts` fixture before isolating a held target read; supporting authority
+requests are not bypassed. Browser visibility stimuli use genuine hidden-to-visible
+transitions; repeated visible events are deliberately not refresh commands.
+No deployed visual reproduction or live forge/model/runtime acceptance follows
+from these offline fixtures. No new product dependency or setup step is required.

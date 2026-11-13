@@ -8,8 +8,9 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
-App owns `request.ts::createRequestScope` for every child/price/config/access
-request. It combines application lifetime and resource AbortSignals, refuses new
+App owns `request.ts::createRequestScope` for its JSON transport, including
+injected child, price, configuration and access requests. Explicit raw-TOML
+preview/download keeps its separate text-fetch lifecycle in RawConfiguration. It combines application lifetime and resource AbortSignals, refuses new
 work and late success/denial after disposal, and preserves transport-only stale
 classification. Resource validators still own successful JSON. A real security
 transition replaces AppView, not ordinary polling: detected authenticated HTTP
@@ -198,7 +199,7 @@ The production static bundle is committed with every frontend build-input change
 
 Statistics browser fixtures restore the authenticated account's English/light
 preferences in afterEach so a failed localized journey cannot leak its locale
-to later files. The four-locale/two-theme statistics journey has a60-second
+to later files. The four-locale/two-theme statistics journey has a 60-second
 case budget, with unchanged assertions and suite-wide limits.
 The malformed-consumption fixture selects a seeded nonempty job cohort rather
 than the first project, so legitimately empty newly enrolled projects cannot
@@ -893,6 +894,10 @@ for Add and Import project. Primary buttons take their text colour from the
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
 | Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
+| Owned reads, transport/stale policy, visibility and deadlines | `web/src/polling.ts::createReadController`, `request.ts::createRequestScope`, `Presentation.tsx::RefreshFeedback` | `tests/polling.test.mjs`, `request.test.mjs`, `e2e/sessionRefresh.spec.ts` |
+| Coordinated reporting, pins, promotion and validated pooled evidence | `statistics.ts::createReportingRefresh`, App reporting owner | `tests/statistics.test.mjs`, `e2e/statistics.spec.ts`, `reportingRefresh.spec.ts` |
+| Jobs/History continuity, command generations and manual output identity | `JobWorkspace.tsx`, `jobModel.ts` | `e2e/jobRefresh.spec.ts`, `operationRefresh.spec.ts`, `tests/jobs.test.mjs` |
+| Manual Users continuity and unchanged/invalid review authority | App Users owner, `UserCreation.tsx`, `AccountActionDialog.tsx`, `ProjectAccess` | `e2e/usersRefresh.spec.ts`, `accessRefresh.spec.ts`, `settingsRefresh.spec.ts` |
 | Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Settings, Access and Change history refresh | `settingsPoll` and `ProjectAccess` in `App.tsx`, `AuditHistory.tsx` | `e2e/settings.spec.ts`, `e2e/shell.spec.ts`, `e2e/audit.spec.ts` |
 | Error codes and messages | `adore/web/app.py` (`_error`, `_STORE_ERROR_CODES`), `web/src/errors.ts` | `test_web_errors.py`, `npm test` (`errors.test.mjs`) |
@@ -903,6 +908,21 @@ for Add and Import project. Primary buttons take their text colour from the
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- `REQ-DATA-d535499a`, `REQ-UX-9f1ec9fa`, `REQ-REL-30db8e42` — Statistics
+  publishes complete validated generations for the authorized scope; selected
+  contexts do not depend on unrelated global reads.
+- `REQ-UX-1b17b3d6`, `REQ-UX-046922f1`, `REQ-UX-013bb10e` — same-context
+  reads preserve content, surviving view controls, focus, selection and scroll.
+- `REQ-UX-ba04c883`, `REQ-SEC-b6a74dea`, `REQ-REL-12a357a9` — transport-only
+  informational stale display never supplies privileged or job-action authority;
+  authority-bearing failures remain closed.
+- `REQ-REL-207a1588`, `REQ-REL-94454aa2`, `REQ-REL-9e0b2628` — bounded
+  context owners coalesce reads and reject cancelled/superseded completions.
+- `REQ-UX-6f7688d6`, `REQ-SEC-6d0b0125` — unchanged valid reviews persist;
+  changed relevant authority requires a fresh review and cannot revive on revert.
+- `REQ-FUNC-fbf7b13f`, `REQ-UX-aba6daa0` — tickets/comments and executor
+  output stay explicit reads; unrelated polling does not refetch their bodies.
 
 - REQ-DATA-08ed925c / REQ-SEC-5d0f86e7: authorized read-only direct evidence is
   validated before filters/counts/paging, redacted for both roles and released
@@ -1057,6 +1077,13 @@ Native control/auth route to local-execution.md. Focused proof:
 
 
 ## Files
+
+- `04_Software/web/src/request.ts`, `polling.ts`, `Presentation.tsx` — principal
+  JSON transport, bounded resource ownership and localized refresh/freshness UI.
+- `04_Software/web/e2e/{reportingRefresh,jobRefresh,usersRefresh,accessRefresh,operationRefresh,settingsRefresh,ticketRefresh,sessionRefresh}.spec.ts` — offline
+  read continuity, negative trust boundaries and review/action authority journeys.
+- `04_Software/web/e2e/polling.ts` — real visibility transitions and supporting-IO
+  isolation for finite-deadline browser fixtures.
 
 - `04_Software/web/src/forgeMarkdown.ts`: pinned react-markdown/remark-gfm React
   renderer with controlled anchors, inert images and named overflow regions.

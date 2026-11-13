@@ -37,14 +37,16 @@ The authenticated factory administrator sees a persistent localized password rem
 
 ## Authenticated request boundary
 
-`request.ts` owns JSON transport and `createRequestScope`. Every App/child request,
-including Settings prices, ProjectAccess and SettingsList explicit actions, uses
-one application-lifetime AbortController combined with any resource signal. Fetch
+`request.ts` owns App's JSON transport and `createRequestScope`. Injected child
+JSON requests, including Settings prices, ProjectAccess and SettingsList explicit
+actions, use one application-lifetime AbortController combined with any resource
+signal. RawConfiguration retains its separate explicit raw-TOML text fetch and
+preview/download lifecycle. Fetch
 transport failures remain positively typed; invalid JSON/media and HTTP application
 errors never acquire informational stale eligibility. Successful transport is not
 resource validation. Disposal aborts browser work, refuses new requests and rejects
 late successes/errors even if a transport ignores abort. It never implies server
-mutation rollback. Only sign-out's separate DELETE uses raw transport after disposal.
+mutation rollback. Sign-out's separate DELETE uses raw JSON transport after disposal.
 
 App retains one `AppView` instance for ordinary updates. A detected authenticated
 HTTP 401/403 disposes its request scope and replaces that instance, removing all old

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -748,19 +746,24 @@ proof/report and task closure in validate; this session does not begin that stag
 - 2026-11-13 build: Review-fix build audit: evolution exit 0 reviewed all 70 post-anchor added/modified/removed paths against D1-D8, including the preserved candidate; this session changes exactly 22/22 scoped paths for two recorded findings, tests, two requirement links/verification, reporting spec, component/user/knowledge documentation, four help locales, changelog/merged notes and four rebuilt static paths. Existing anchor retained. All 42 requirements remain active with existing affected paths/test links; all 127 input and 7 output hashes independently match; release-note check and git diff --check exit 0. No backend/dependency/stored-schema/payload changes or publication. Both round-1 findings are corrected with focused negative/recovery and unchanged-review proof; round-2 independent approvals/final strict suite remain validate work.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 60 warnings, 28 notes. Preserve 35 inherited ticket-ref/stale-path/journal-header/legacy-deliver findings out of scope; 22 uncovered-source heuristics are frontend test paths with actual requirement links. Journal password-literal warning is test/session prose with no credential introduced; Users literal is intentionally fake offline data. DEVIATION build: generated minified JS added-lines secret scan is unavailable - accepted for this candidate because the bundle was rebuilt from reviewed source and every stamped hash matches; no final strict proof claimed. Existing large-chunk build warning retained without dependency/splitting expansion. No unresolved product defect identified in this focused correction; full suite and enabled fresh reviews intentionally not run in build.
 - 2026-11-13 build: completed; next validate
+- 2026-11-13 validate: Validate round-2 session bounds: 45 minutes, at most 12 ticket-scoped artifact edits and 8 focused verification commands before final proof; two independent read-only reviewer sessions, no child journals or publication. Review current candidate, reconcile knowledge/context/42 contracts and inspections first; final strict proof only after fresh approvals. Route implementation defects to build and stop at that boundary.
+- 2026-11-13 validate: validate round 2 finding (specification reviewer, independently reproduced): statistics.ts publishes ready/completedAt after aggregateMetrics accepts two project periods with tokens_in=tokens_out=3000000000000000 each; pooled directions are individually safe at 6000000000000000, but StatisticsEvidence.tsx:34 calls totalTokens(period), which throws RangeError for combined 12000000000000000 after publication. Disposable production-API reproduction: node --experimental-strip-types --experimental-specifier-resolution=node /tmp/task77-round2-token-repro.mjs exit 0, output confirms each project renders safely, report ready, then production render calculation throws. Violates REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9. Build must validate all render-required derived token totals before publication and add individually-valid two-project pooled-overflow rejection/recovery coverage; inspect analogous usage/job derived totals. Prior monetary-overflow tests do not cover this path. No product implementation edited and no final proof claimed.
+- 2026-11-13 validate: validate reconciliation: updated existing web-interface knowledge change map/requirement seams and current project/environment context for owned reads, informational-vs-authority policy, coordinated reporting and offline fixture boundaries; corrected component/knowledge JSON-scope wording so RawConfiguration explicit raw-TOML preview/download is not falsely claimed to use App's request scope. Reviewed refreshed evolution (70 non-agentic changed paths): same frontend/docs/help/release/assets scope, no new component/backend/storage contract. git diff --check passed; release-notes checker since task base passed earlier this session. Advisory check: 0 errors, 61 warnings/28 notes including incomplete review, pre-existing stale links/journals/manual checks, generated/test password literals and requirement path coverage heuristics; none waives the reproduced implementation defect. Final strict proof/report intentionally not run because review requires return to build.
+- 2026-11-13 validate: validate round 2 independent reviews: specification=changes_required (pooled combined token overflow); implementation_quality=changes_required (pooled direction/combined safe-integer overflow plus ticket Start review surviving pickup pause). Quality reviewer ran 38 focused reporting/polling/request tests successfully and reproduced both findings in offline Chromium; spec reviewer ran 3 focused existing reporting tests successfully. Parent independently confirmed token publication failure and ticket failure via PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright node /tmp/task77-quality-round2/repro.mjs exit 0: confirmation enabled before/after detected paused=true, zero correction alerts, one POST from the invalid review. TicketWorkspace.tsx Project/binding/scope/canAct omit paused; App retains the same component key on this metadata change. Violates REQ-SEC-6d0b0125. Build must bind Start eligibility/review to live pickup state and latch invalidation across pause/resume while preserving independent Stop authority; add unchanged-control and pause/resume no-write regressions. Reporting correction must cover both pooled-direction overflow and individually safe directions whose combined total is unsafe, with closed error/Retry, no success publication/render exception and valid recovery. Both reviewers accepted the Settings round-1 correction and canonical/monetary reporting fixes. Context/documentation-only reconciliation does not resolve either blocker. No final strict proof/report, product patch, commit, push or forge access performed; route back to build and stop.
+- 2026-11-13 validate: returned to build - Round-2 independent reviews require corrections: reject pooled token safe-integer/combined-total overflow before ready publication; invalidate ticket Start review on detected pickup pause, including pause/resume.
 
 ## Rulings
 
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Corrected both round-1 review findings: validate common cross-project reporting scope and pooled results before publication; latch Settings Save/review authority invalid across changed/restored metadata and held reads. Updated tests, docs/help/notes/traceability and production assets.
-evidence: 64 helpers/help tests, 125 integrated browser cases and final 31 reporting/Settings browser cases pass; production build, 134 recorded hashes, release-note check, traceability audit and diff check pass; advisory check has 0 errors.
-issues: Final strict suite, reconciliation and round-2 independent approvals remain validate-stage work. Advisory inherited/heuristic/false-positive warnings and unscanned minified added lines are explained in Log; no live acceptance claimed.
+status: waiting
+reported: build - paused
+next: Fix only round-2 reporting-token publication and ticket pickup-review findings, update regression coverage and affected docs, run focused proof, then return to validate for both round-3 reviews.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Reconciled frontend knowledge, project/environment context and component JSON/raw-TOML lifecycle wording; no product implementation edits.
+evidence: Independent round-2 spec/quality reviews changes_required; parent production-API overflow and offline Chromium pickup-pause reproductions confirmed both defects; git diff --check passed.
+issues: Reporting can publish ready then throw on pooled token totals; detected pickup pause leaves old ticket Start confirmation able to POST. Final strict proof/report deferred until corrected candidate is independently approved.
 spec_compliance:
 implementation_quality:
-review_round: 1
+review_round: 2
