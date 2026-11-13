@@ -14,8 +14,8 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 | Rahmen | Der Umfang wird abgestimmt, und der Executor hält fest, ob der Auftrag den vollen oder den schnellen Pfad nimmt. |
 | Spezifikation | Die Anforderung wird geschrieben. |
 | Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
-| Umsetzung | Zuerst kommt ein fehlschlagender Test, dann die Implementierung, bis die Tests bestehen. |
-| Validierung | Review, die vollständige Testsuite, eine strenge Prüfung und der AEGIS-Bericht; die AEGIS-Aufgabe wird abgeschlossen. ADORE wiederholt die strenge Prüfung danach selbst, bevor es um Freigabe bittet. |
+| Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |
+| Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
 
 Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
@@ -23,17 +23,9 @@ Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validi
 
 Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (`build`), **Validierung** (`validate`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.
 
-**Letzter gespeicherter Versuch** bezeichnet den letzten Executor-Phasenstart, nicht kumulative Starts oder Fehlversuche. Ohne gespeicherten Start erscheint **Versuch nicht verfügbar**. Die unabhängige Prüfung zeigt den gespeicherten Befehl vor dem Ergebnis, **Dauer (Sekunden)** und **Ausgabeende** als wörtlichen bereinigten Text. Leere Ausgabe wird ausdrücklich benannt. Änderungen in Einstellungen ersetzen weder gespeicherten Befehl noch Ergebnis.
+**Letzter gespeicherter Versuch** zeigt den letzten gespeicherten Agentenstart. Andernfalls erscheint **Versuch nicht verfügbar**. Tests und Prüfungen meldet der Agent; ADORE führt sie nicht zusätzlich aus.
 
-| Ergebnis | Bedeutung |
-|---|---|
-| Bestanden | Der Befehl endete mit null ohne Zeitüberschreitung. |
-| Fehlgeschlagen | Der Befehl endete mit einem anderen Code ohne Zeitüberschreitung; der letzte Fehler bleibt beim nächsten Implementierungsversuch sichtbar. |
-| Zeitlimit überschritten | Der Befehl überschritt sein Zeitlimit, unabhängig vom Exitcode. |
-| Nicht konfiguriert: ungeprüft | Kein Prüfbefehl war konfiguriert; das ist keine bestandene Prüfung. |
-| Prüfnachweis nicht verfügbar | Noch kein Prüfergebnis gespeichert; das bedeutet nicht nicht konfiguriert. |
-
-Direkte Implementierung verwendet das Limit **Implementierung** `build` in `workflow.stage_timeout_overrides`; die unabhängige Prüfung verwendet **Validierung** `validate`. Ohne eigene Vorgabe gilt jeweils das allgemeine `budgets.per_gate_timeout_seconds`. Die anderen AEGIS-Phasenlimits gelten nicht für direkte Jobs.
+Direkte **Implementierung** nutzt `build` aus `workflow.stage_timeout_overrides`, sonst `budgets.per_gate_timeout_seconds`. **Validierung** (`validate`) speichert den Kandidaten zur Freigabe ohne separaten Testbefehl.
 
 ## Klärung {#clarification}
 
@@ -43,7 +35,7 @@ Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann `agent-
 
 ## Freigabe {#approval}
 
-Besteht die strenge AEGIS-Validierung oder die konfigurierte direkte Prüfung (oder ist die direkte Prüfung ausdrücklich nicht konfiguriert), entfernt ADORE `agent-approved`, postet die Nachweise am Ticket und wartet. Der Auftrag zeigt **Wartet auf Freigabe**, und das Ticket behält `agent-working`. Die Nachweise nennen den genauen Kandidaten und alle Abweichungen, die der Executor festgehalten hat.
+Wenn der Agent seinen Workflow beendet, speichert ADORE den Kandidaten, entfernt das alte Freigabelabel und fordert eine neue menschliche Freigabe an. Prüfungen im Journal wurden vom Agenten gemeldet.
 
 Prüfen Sie ihn und setzen Sie dann `agent-approved` erneut; nur ein frisches Setzen zählt. Die Freigabe ist an diesen Kandidaten und den Commit des Zielbranches gebunden. Ändert sich eines von beiden, ist die Freigabe ungültig, und ADORE integriert, validiert und fragt erneut. Dieses Warten hat keinen Timer. Die Auftragsdetails bieten **Kandidat auf der Forge prüfen**.
 

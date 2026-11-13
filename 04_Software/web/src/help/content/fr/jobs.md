@@ -14,8 +14,8 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Cadrage | Le périmètre est convenu et l’exécuteur consigne si la tâche suit le chemin complet ou le chemin rapide. |
 | Spécification | L’exigence est rédigée. |
 | Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
-| Développement | Un test en échec vient d’abord, puis l’implémentation, jusqu’à ce que les tests passent. |
-| Validation | Revue, suite de tests complète, contrôle strict et rapport AEGIS ; la tâche AEGIS se clôt. ADORE répète ensuite lui-même le contrôle strict avant de demander l’approbation. |
+| Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
+| Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 
 Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
@@ -23,17 +23,9 @@ Le chemin rapide exécute Cadrage, Développement et Validation. Après la Valid
 
 La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (`build`), **Validation** (`validate`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.
 
-**Dernière tentative enregistrée** désigne la dernière tentative de lancement de l’exécuteur, pas les lancements cumulés ou les échecs. Sans lancement enregistré, la page affiche **Tentative indisponible**. La vérification indépendante montre la commande enregistrée avant son résultat, **Durée (secondes)** et **Fin de sortie** en texte littéral expurgé. Une sortie vide est explicite. Modifier les Paramètres ne remplace ni la commande ni le résultat enregistrés.
+**Dernière tentative enregistrée** indique le dernier lancement enregistré de l’agent. Sinon, **Tentative indisponible** apparaît. Les tests et contrôles sont rapportés par l’agent ; ADORE ne les exécute pas indépendamment.
 
-| Résultat | Signification |
-|---|---|
-| Réussie | La commande s’est terminée avec zéro, sans dépassement du délai. |
-| Échouée | La commande s’est terminée avec un code non nul, sans dépassement ; le dernier échec reste visible pendant une nouvelle tentative d’implémentation. |
-| Délai dépassé | La commande a dépassé sa limite, quel que soit le code de sortie. |
-| Non configurée : non vérifié | Aucune commande de vérification n’était configurée ; ce n’est pas une réussite. |
-| Preuve de vérification indisponible | Aucun résultat n’est encore enregistré ; cela ne signifie pas non configurée. |
-
-L’implémentation directe utilise la limite **Implémentation** `build` de `workflow.stage_timeout_overrides` ; la vérification indépendante utilise **Validation** `validate`. Sans dérogation, chacune reprend la limite générale `budgets.per_gate_timeout_seconds`. Les autres limites AEGIS ne s’appliquent pas aux travaux directs.
+**Implémentation** directe utilise la limite `build` dans `workflow.stage_timeout_overrides`, sinon `budgets.per_gate_timeout_seconds`. **Validation** (`validate`) enregistre le candidat pour approbation sans commande de test séparée.
 
 ## Clarification {#clarification}
 
@@ -43,7 +35,7 @@ Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`
 
 ## Approbation {#approval}
 
-Lorsque la validation AEGIS stricte ou la vérification directe configurée réussit (ou que la vérification directe est explicitement non configurée), ADORE retire `agent-approved`, publie les preuves sur le ticket et attend. La tâche affiche **En attente d'approbation** et le ticket conserve `agent-working`. Les preuves nomment le candidat exact et les écarts éventuellement consignés par l’exécuteur.
+Quand l’agent termine son workflow, ADORE enregistre le candidat, retire l’ancienne étiquette d’approbation et demande une nouvelle approbation humaine. Les contrôles du journal sont rapportés par l’agent.
 
 Examinez-le, puis ajoutez de nouveau `agent-approved` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.
 

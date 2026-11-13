@@ -7,6 +7,18 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Operations Guide
 
+## First web import
+
+Install and start Docker or Podman on the ADORE server before importing a container
+project. Guided enrollment and raw-file import prepare missing ADORE base and
+network-proxy images automatically and show progress before saving the project
+with monitoring paused. WSL runtimes use their selected distro and Linux account.
+Builds need server internet access even when the agent's internet access is off.
+Simultaneous imports reuse preparation; later imports inspect and reuse the images.
+After a failed build or server restart, retry the import to reuse cached layers.
+Custom project images are prepared by the administrator; native imports do not
+build container images. See [Project executor images](Project_Executor_Images.md).
+
 ## Runtime States
 
 | State | Meaning | Next action |
@@ -187,6 +199,10 @@ If only the final status write of an already terminal run fails, the replay is
 queued without changing its terminal lifecycle or outcome.
 
 ## Stopping and Cleanup
+
+Queued cancellation interrupts Direct verification as well as executor sessions.
+Cancellation takes precedence over a returned verification result, so it cannot
+start a fix attempt or present an approval candidate after the check has stopped.
 
 `cancel` removes active resources and retains audit state. Failed runs keep
 their worktree, container companions, and local evidence for explicit retry;

@@ -41,55 +41,31 @@ test.describe("Direct job evidence", () => {
       await page.request.patch("/api/v1/me/preferences", {headers: {"X-CSRF-Token": csrf}, data: {language: "en", theme: "light"}});
     }
   });
-  test("direct jobs show saved steps, attempts and every independent outcome", async ({page}) => {
+  test("publication reset retry and exact whitespace commands remain readable", async ({page}) => {
     await signIn(page);
-    await page.goto("/jobs?view=jobs");
-    await expect(page.locator(".action-jobs-table")).toContainText("Workflow: Direct");
-    await expect(page.locator(".action-jobs-table")).toContainText("Workflow: AEGIS");
-    const projects = await (await page.request.get("/api/v1/projects")).json();
-    const id = projects.find((row: {name: string}) => row.name === "alpha").id;
-    await page.goto(`/projects/${id}/jobs?view=jobs`);
-    await expect(page.locator(".action-jobs-table")).toContainText("Workflow: Direct");
-    for (const [suffix, status, stage] of [["passed", "Passed", "Done"], ["failed", "Failed", "Implementation"],
-      ["timed-out", "Timed out", "Validation"], ["not-configured", "Not configured: unverified", "Done"],
-      ["unavailable", "Verification evidence unavailable", "Implementation"], ["empty", "Passed", "Done"]]) {
-      await page.goto(`/jobs?project=${id}&run=ux-direct-${suffix}`);
+    for (const suffix of ["whitespace", "publication-reset", "retried"]) {
+      await page.goto(`/jobs?project=alpha&run=ux-direct-${suffix}`);
       const detail = page.locator(".detail-panel"), evidence = detail.locator(".direct-evidence");
-      await expect(detail.locator(".next-action-panel")).toContainText("Workflow: Direct");
-      await expect(detail.locator(".next-action-panel")).toContainText(`Stage: ${stage}`);
-      await expect(evidence).toContainText(status);
-      await expect(evidence).toContainText(suffix === "unavailable" ? "Attempt unavailable" : "Latest recorded attempt: 2");
-      await expect(detail).not.toContainText(/AEGIS|quick path|Framing|Specification|Design|TASK-/);
-      if (["passed", "failed", "timed-out", "empty"].includes(suffix)) {
-        await expect(evidence.locator("code")).toHaveText("saved-check && echo '<script>literal</script>'");
-        expect(await evidence.locator("code").evaluate(node => !!(node.compareDocumentPosition(node.closest("section")!.querySelector(".verification-result")!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-        await expect(evidence).toContainText(`Duration (seconds): ${suffix === "empty" ? "0" : "1.25"}`);
-        if (suffix === "empty") await expect(evidence).toContainText("No verification output.");
-        else {
-          await expect(evidence.locator("pre")).toContainText("  <script>literal tail</script> password=[REDACTED]");
-          await evidence.locator("pre").focus(); await expect(evidence.locator("pre")).toBeFocused();
-        }
-        await expect(evidence.locator("script")).toHaveCount(0);
-      } else await expect(evidence.locator("code, pre")).toHaveCount(0);
-      if (suffix === "unavailable") await expect(detail.locator(".timeline-table")).toHaveCount(0);
-      else await expect(detail.locator(".timeline-table")).not.toContainText(/Frame|Specify|Design/);
+      await expect(evidence).toContainText("Latest recorded attempt");
+      await expect(detail.locator(".next-action-panel")).toContainText(
+        suffix === "publication-reset" ? "Stage: Publishing" : "Stage: Done");
+      if (suffix !== "whitespace")
+        await expect(detail.locator(".timeline-table tr").filter({hasText:"reset"})).toContainText("Publishing");
+      await expect(evidence.locator("code, pre")).toHaveCount(0);
     }
-    await page.goto(`/jobs?project=${id}&run=ux-working`);
-    await expect(page.locator(".next-action-panel")).toContainText("Workflow: AEGIS");
-    await expect(page.locator(".next-action-panel")).toContainText("Stage: Build");
-    await expect(page.locator(".direct-evidence")).toHaveCount(0);
   });
+
   for (const corruption of ["workflow-list", "workflow-detail", "direct", "stage"]) {
     test(`corrupt ${corruption} hides previously valid direct evidence`, async ({page}) => {
       await page.clock.install();
       await signIn(page); await page.goto("/jobs?project=alpha&run=ux-direct-passed");
-      await expect(page.locator(".direct-evidence")).toContainText("Passed");
+      await expect(page.locator(".direct-evidence")).toContainText("Latest recorded attempt");
       const pattern = corruption === "workflow-list" ? "**/api/v1/jobs-page?*" : "**/api/v1/jobs/*/ux-direct-passed";
       await page.route(pattern, async route => {
         const response = await route.fetch(), data = await response.json();
         if (corruption === "workflow-list") data.items[0].workflow = "unrecognized";
         else if (corruption === "workflow-detail") data.job.workflow = "unrecognized";
-        else if (corruption === "direct") data.job.direct.verification.result.seconds = -1;
+        else if (corruption === "direct") data.job.direct.attempt = -1;
         else data.job.timeline.push({ts: null, event: "stage-launch", stage: "design"});
         await route.fulfill({response, json: data});
       });
@@ -102,34 +78,7 @@ test.describe("Direct job evidence", () => {
       if (corruption === "workflow-list") await expect(page.locator(".action-jobs-table, .table-pagination")).toHaveCount(0);
     });
   }
-  for (const locale of ["en", "fr", "de", "ro"] as const) {
-    test(`direct evidence is localized and keyboard-readable in ${locale}`, async ({page}) => {
-      await signIn(page);
-      const {csrf} = await (await page.request.get("/api/v1/me")).json();
-      const copy = {
-        en: {workflow: "Workflow", direct: "Direct", build: "Implementation", passed: "Passed", failed: "Failed", "timed out": "Timed out", "not configured": "Not configured: unverified", unavailable: "Verification evidence unavailable"},
-        fr: {workflow: "Workflow", direct: "Direct", build: "Implémentation", passed: "Réussie", failed: "Échouée", "timed out": "Délai dépassé", "not configured": "Non configurée : non vérifié", unavailable: "Preuve de vérification indisponible"},
-        de: {workflow: "Workflow", direct: "Direkt", build: "Implementierung", passed: "Bestanden", failed: "Fehlgeschlagen", "timed out": "Zeitlimit überschritten", "not configured": "Nicht konfiguriert: ungeprüft", unavailable: "Prüfnachweis nicht verfügbar"},
-        ro: {workflow: "Flux de lucru", direct: "Direct", build: "Implementare", passed: "Reușită", failed: "Eșuată", "timed out": "Timp expirat", "not configured": "Neconfigurată: neverificat", unavailable: "Dovada verificării indisponibilă"},
-      }[locale];
-      for (const theme of ["light", "dark"]) {
-        expect((await page.request.patch("/api/v1/me/preferences", {headers: {"X-CSRF-Token": csrf}, data: {language: locale, theme}})).ok()).toBe(true);
-        await page.setViewportSize({width: theme === "dark" ? 390 : 1440, height: 900});
-        for (const [suffix, key] of [["passed", "passed"], ["failed", "failed"], ["timed-out", "timed out"], ["not-configured", "not configured"], ["unavailable", "unavailable"]] as const) {
-          await page.goto(`/jobs?project=alpha&run=ux-direct-${suffix}`);
-          await expect(page.locator("html")).toHaveAttribute("lang", locale);
-          await expect(page.locator(".direct-evidence")).toContainText(copy[key]);
-          await expect(page.locator(".next-action-panel")).toContainText(`${copy.workflow}: ${copy.direct}`);
-          await expect(page.locator(".action-jobs-table")).toContainText(`${copy.workflow}: AEGIS`);
-          if (suffix === "failed") {
-            await expect(page.locator(".next-action-panel")).toContainText(copy.build);
-            const tail = page.locator(".direct-evidence pre"); await tail.focus(); await expect(tail).toBeFocused();
-          }
-          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-        }
-      }
-    });
-  }
+
 });
 
 test("overview uses compact attention and active tables without reporting noise", async ({ page }) => {
@@ -748,6 +697,8 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   await page.getByRole("button", { name: "Delete project", exact: true }).click();
   const confirm = page.getByRole("dialog").filter({ has: page.locator(".delete-confirm") });
   await expect(confirm).toBeVisible();
+  await expect(confirm.getByText(/This permanently removes|Kept:|Required field/)).toHaveCount(0);
+  await expect(confirm.locator(".delete-confirm-label")).toContainText("Type alpha to confirm");
   await page.keyboard.press("Escape");
   await expect(confirm).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete project", exact: true })).toBeFocused();

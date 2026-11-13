@@ -48,16 +48,6 @@ Es gelten folgende Regeln:
 
 Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
 
-## Prüfbefehl {#verification-command}
-
-Unter **Implementierung** ist **Prüfbefehl** optionaler einzeiliger Shell-Text, gespeichert als `[workflow] verify_command`. Administratoren nutzen dieselben Aktionen **Bearbeiten** und **Speichern** wie für andere Einstellungen; Entwickler dürfen ihn lesen, nicht bearbeiten. Er ist auch bei der Registrierung verfügbar; siehe [Repository-Workflows](/help/projects#workflows).
-
-Im direkten Workflow führt ADORE ihn unabhängig im Worktree-Stamm des Auftrags in der gewählten Umgebung unter dem Validierungszeitlimit aus. Behalten Sie benötigte Leerzeichen, Anführungszeichen und Shell-Operatoren exakt bei. Ein leerer Wert lässt den Kandidaten ausdrücklich ungeprüft. Zeilenumbrüche und NUL werden mit einer Feldmeldung abgelehnt und verhindern das Speichern; korrigieren Sie den Text, statt eine automatische Umwandlung in eine Zeile zu erwarten. Die Weboberfläche führt den Befehl bei Registrierung oder Speichern nie aus.
-
-AEGIS-Aufträge ignorieren diese Einstellung und verwenden die AEGIS-Testbefehle des Repositorys. Das Feld bleibt für beide Workflows in den Einstellungen sichtbar. Kein Befehl wird automatisch vorgeschlagen oder gewählt.
-
-Direkte Implementierung verwendet das Limit **Implementierung** `build` in `workflow.stage_timeout_overrides`; die unabhängige Prüfung verwendet **Validierung** `validate`. Ohne eigene Vorgabe gilt jeweils das allgemeine `budgets.per_gate_timeout_seconds`. Die anderen AEGIS-Phasenlimits gelten nicht für direkte Jobs.
-
 ## Original-TOML {#toml}
 
 Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Wählen Sie die exportierte Datei unter [Originalkonfiguration importieren](/help/projects#import-project) und ADORE prüft automatisch Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse.
@@ -79,3 +69,6 @@ Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen
 Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.
 
 Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
+
+
+**Implementierung** (`build`) nutzt `workflow.stage_timeout_overrides` oder `budgets.per_gate_timeout_seconds`. Bei AEGIS begrenzt **Validierung** (`validate`) ebenfalls die Agentensitzung. ADORE startet keine zusätzlichen Tests; der Agent wählt lokale und CI-Prüfungen gemäß den Repository-Anweisungen.

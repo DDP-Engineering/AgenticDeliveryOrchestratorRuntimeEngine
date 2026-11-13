@@ -314,19 +314,12 @@ export function JobWorkspace(props: Props) {
 }
 
 
-/** Saved verification is literal evidence, separate from operational executor output. */
+/** Direct jobs display agent attempts; no independent test execution is configured. */
 function DirectEvidenceView({evidence, locale}: {evidence: NonNullable<Job["direct"]>; locale: Locale}) {
-  const copy = directCopy[locale], {attempt, verification} = evidence, result = verification.result;
+  const copy = directCopy[locale];
   return <section className="direct-evidence" aria-label={copy.title}>
     <h3>{copy.title}</h3>
-    <p>{attempt === null ? copy.attemptUnavailable : `${copy.attempt}: ${attempt}`}</p>
-    {result && <p>{copy.command}: <code>{result.command}</code></p>}
-    <p className="verification-result">{copy.result}: <strong>{copy[verification.status]}</strong></p>
-    {result && <>
-      <p>{copy.seconds}: {result.seconds}</p>
-      <h4>{copy.output}</h4>
-      {result.output ? <pre className="operation-detail" tabIndex={0}>{result.output}</pre> : <p>{copy.empty}</p>}
-    </>}
+    <p>{evidence.attempt === null ? copy.attemptUnavailable : `${copy.attempt}: ${evidence.attempt}`}</p>
   </section>;
 }
 

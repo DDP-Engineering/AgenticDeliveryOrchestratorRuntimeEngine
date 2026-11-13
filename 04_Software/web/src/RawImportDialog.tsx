@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale } from "./i18n";
 import { importCopy } from "./importCopy";
+import { EnvironmentProgress } from "./EnvironmentProgress";
+import { environmentFailure, prepareEnvironment, type EnvironmentProgress as Progress } from "./environmentPreparation";
 
 type Finding = { code: string; field: string };
 type Candidate = { name: string; display_name: string; config_text: string; revision: string };
@@ -36,6 +38,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
 }) {
   const c = importCopy[locale];
   const [ready, setReady] = useState("");
+  const [environment, setEnvironment] = useState<Progress | null>(null);
   const [failure, setFailure] = useState<{ message: string; findings: Finding[] } | null>(null);
   const [busy, setBusy] = useState<"validate" | "import" | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -64,7 +67,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
     };
   }, [registerGuard]);
 
-  async function call(path: "import" | "import-preview", body: unknown, signal?: AbortSignal) {
+  async function call(path: "import" | "import-preview" | "import-environment", body: unknown, signal?: AbortSignal) {
     let response: Response;
     try {
       response = await fetch("/api/v1/projects/" + path, { method: "POST", credentials: "same-origin", cache: "no-store", signal,
@@ -87,6 +90,7 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
     validation.current?.abort();
     selected.current = file;
     reviewed.current = null;
+    setEnvironment(null);
     setReady(""); setFailure(null); setBusy(file ? "validate" : null);
     if (!file) return;
     const controller = new AbortController();
@@ -127,13 +131,18 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
       const text = await readFile(file).catch(() => null);
       if (!alive.current) return;
       if (text !== candidate.config_text) { setFailure({ message: c.changed, findings: [] }); return; }
+      setEnvironment(null);
+      await prepareEnvironment(() => call("import-environment", candidate), setEnvironment, () => alive.current);
       const value = await call("import", candidate);
       if (!alive.current) return;
       if (!value || value.name !== candidate.name || value.display_name !== candidate.display_name ||
         typeof value.id !== "string" || !/^[0-9a-f]{32}$/.test(value.id) ||
         value.paused !== true || value.pickup_state !== "stopped") throw new ApiError("unexpected_response");
       onImported();
-    } catch (cause) { if (alive.current) reject(cause); }
+    } catch (cause) { if (alive.current) {
+      if (environmentFailure(cause)) { reviewed.current = candidate; setReady(candidate.display_name); }
+      reject(cause);
+    } }
     finally { importing.current = false; if (alive.current) setBusy(null); }
   };
 
@@ -144,7 +153,8 @@ export function RawImportDialog({ locale, csrf, onClose, onImported, registerGua
       <label>{c.file}<input type="file" accept=".toml" autoFocus disabled={busy === "import"}
         onClick={event => { event.currentTarget.value = ""; void select(null); }}
         onChange={event => void select(event.target.files?.[0] ?? null)} /></label>
-      {busy && <p role="status">{busy === "validate" ? c.validating : c.importing}</p>}
+      {busy && (!environment || environment.status === "ready") && <p role="status">{busy === "validate" ? c.validating : c.importing}</p>}
+      <EnvironmentProgress value={environment} locale={locale} />
       {ready && <p role="status">{c.ready} <strong>{ready}</strong></p>}
       {failure && <div role="alert" className="alert">
         {failure.findings.length > 0 ? <ul>{failure.findings.map((item, index) => {

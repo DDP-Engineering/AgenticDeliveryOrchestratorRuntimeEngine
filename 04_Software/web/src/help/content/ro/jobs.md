@@ -14,8 +14,8 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Încadrare | Se stabilește domeniul, iar executorul înregistrează dacă lucrarea urmează calea completă sau cea rapidă. |
 | Specificare | Se scrie cerința. |
 | Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |
-| Construire | Mai întâi un test care eșuează, apoi implementarea, până când testele trec. |
-| Validare | Revizuire, suita completă de teste, o verificare strictă și raportul AEGIS; sarcina AEGIS se închide. ADORE repetă apoi singur verificarea strictă înainte să ceară aprobarea. |
+| Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |
+| Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
 
 Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
@@ -23,17 +23,9 @@ Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucr
 
 Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (`build`), **Validare** (`validate`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.
 
-**Ultima încercare înregistrată** este ultima încercare de lansare a executorului, nu lansările cumulate sau încercările eșuate. Fără lansare salvată, pagina arată **Încercare indisponibilă**. Verificarea independentă arată comanda salvată înaintea rezultatului, **Durată (secunde)** și **Finalul ieșirii** ca text literal cu secrete mascate. Ieșirea goală este explicită. Modificarea Setărilor nu înlocuiește comanda sau rezultatul salvat.
+**Ultima încercare înregistrată** arată ultima lansare înregistrată a agentului. Fără una, apare **Încercare indisponibilă**. Agentul raportează testele și verificările; ADORE nu le execută independent.
 
-| Rezultat | Semnificație |
-|---|---|
-| Reușită | Comanda a ieșit cu zero fără expirarea timpului. |
-| Eșuată | Comanda a ieșit cu un cod nenul fără expirarea timpului; ultimul eșec rămâne vizibil în noua încercare de implementare. |
-| Timp expirat | Comanda a depășit limita, indiferent de codul de ieșire. |
-| Neconfigurată: neverificat | Nu era configurată o comandă de verificare; nu înseamnă reușită. |
-| Dovada verificării indisponibilă | Nu există încă un rezultat salvat; nu înseamnă neconfigurată. |
-
-Implementarea directă folosește limita **Implementare** `build` din `workflow.stage_timeout_overrides`; verificarea independentă folosește **Validare** `validate`. Fiecare revine la limita generală `budgets.per_gate_timeout_seconds` când nu există o suprascriere. Celelalte limite AEGIS nu se aplică joburilor directe.
+**Implementare** directă folosește limita `build` din `workflow.stage_timeout_overrides`, cu revenire la `budgets.per_gate_timeout_seconds`. **Validare** (`validate`) înregistrează candidatul pentru aprobare fără o comandă de test separată.
 
 ## Clarificare {#clarification}
 
@@ -43,7 +35,7 @@ Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answer
 
 ## Aprobare {#approval}
 
-Când validarea strictă AEGIS sau verificarea directă configurată reușește (sau verificarea directă este explicit neconfigurată), ADORE elimină `agent-approved`, postează dovezile pe tichet și așteaptă. Lucrarea afișează **Așteaptă aprobarea**, iar tichetul păstrează `agent-working`. Dovezile numesc candidatul exact și eventualele abateri înregistrate de executor.
+Când agentul încheie fluxul, ADORE înregistrează candidatul, elimină eticheta veche de aprobare și cere o nouă aprobare umană. Verificările din jurnal sunt raportate de agent.
 
 Revizuiți-l, apoi adăugați din nou `agent-approved`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.
 

@@ -455,13 +455,15 @@ def test_aegis_probe_reports_a_missing_payload(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("entry", ["directory", "dangling-link"])
-def test_present_unusable_payload_is_not_announced_as_direct(tmp_path: Path, entry: str) -> None:
+def test_present_unusable_payload_is_not_announced_as_direct(tmp_path: Path, entry: str,
+                                                           request) -> None:
     """@brief An unusable payload entry is not permission to bypass AEGIS probes."""
     wrapper = tmp_path / ".agentic" / "aegis.py"
     wrapper.parent.mkdir()
     if entry == "directory":
         wrapper.mkdir()
     else:
+        request.getfixturevalue("symlink_support")
         wrapper.symlink_to(tmp_path / "missing-payload")
     runner = FakeRunner({"python .agentic/aegis.py": _fail("unusable payload")})
     status = doctor.detect_aegis(tmp_path, runner)

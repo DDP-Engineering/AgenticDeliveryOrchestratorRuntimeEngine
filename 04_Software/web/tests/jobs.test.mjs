@@ -149,10 +149,7 @@ test("normal lifecycle guidance and failure labels exist in all four locales", a
   }
 });
 
-const directJob = () => ({...job(), workflow: "direct", timeline: [], direct: {
-  attempt: 2, verification: {status: "passed", result: {
-    command: "saved-check && echo '<script>literal</script>'", exit_code: "0", seconds: 1.25,
-    timed_out: false, output: "  literal <script>tail</script>"}}}});
+const directJob = () => ({...job(), workflow:"direct", timeline:[], direct:{attempt:2}});
 const detailOf = row => readJobDetail({job: row, complete: true, snapshot}, id, "one");
 
 test("direct stage labels and timeline use the interface terms in every locale", async () => {
@@ -181,52 +178,9 @@ test("recorded workflow is required in list and detail without a guessed default
   }
 });
 
-test("direct details preserve actual attempt and all independent verification outcomes", () => {
-  const row = directJob();
-  assert.equal(detailOf(row).direct.attempt, 2);
-  for (const stage of ["build", "validate", "done"]) assert.equal(detailOf({...row, stage}).stage, stage);
-  for (const attempt of [1, 2, Number.MAX_SAFE_INTEGER, null]) {
-    assert.equal(detailOf({...row, direct: {...row.direct, attempt}}).direct.attempt, attempt);
-  }
-  for (const [status, exit_code, timed_out] of [["passed", "0", false], ["failed", "124", false],
-    ["failed", "1267650600228229401496703205376", false], ["failed", "-1267650600228229401496703205376", false],
-    ["timed out", "0", true], ["timed out", "124", true]]) {
-    for (const [seconds, output] of [[0, ""], [1.25, "  tail"], [1e100, "🙂".repeat(6000)], [1, Array(200).fill("line").join("\n")]]) {
-      const verification = {status, result: {...row.direct.verification.result, exit_code, timed_out, seconds, output}};
-      assert.deepEqual(detailOf({...row, direct: {...row.direct, verification}}).direct.verification, verification);
-    }
-  }
-  for (const status of ["unavailable", "not configured"]) {
-    const direct = {attempt: null, verification: {status, result: null}};
-    assert.deepEqual(detailOf({...row, direct}).direct, direct);
-  }
-});
 
-test("malformed direct evidence never becomes passed, unverified or unavailable", () => {
-  const row = directJob();
-  for (const direct of [undefined, null, {}, {...row.direct, extra: 1},
-    ...[0, -1, true, 1.5, Number.MAX_SAFE_INTEGER + 1, "2", undefined].map(attempt => ({...row.direct, attempt})),
-    ...[undefined, null, {}, {status: "passed", result: null}, {status: "not configured"},
-      {status: "unavailable", result: row.direct.verification.result}, {status: ["unavailable"], result: null},
-      {...row.direct.verification, extra: 1}, {...row.direct.verification, status: "invented"}]
-      .map(verification => ({...row.direct, verification}))]) {
-    assert.throws(() => detailOf({...row, direct}), /unexpected_response/);
-  }
-  for (const change of [{command: null}, {command: ""}, {command: "a\nb"}, {command: "\ud800"},
-    {exit_code: 0}, {exit_code: "00"}, {exit_code: "-0"}, {exit_code: "+1"}, {exit_code: "1"},
-    {seconds: -1}, {seconds: true}, {seconds: Infinity}, {seconds: NaN}, {timed_out: 1}, {timed_out: true},
-    {output: null}, {output: "x".repeat(6001)}, {output: "🙂".repeat(6001)}, {output: "\n".repeat(200)},
-    {output: "\x00"}, {output: "\x1b[31m"}, {output: "\r\n"}, {output: "\ud800"},
-    {output: "tail\n"}, {output: "one\u2028two"}, {output: "one\x0btwo"}, {extra: 1}]) {
-    const verification = {...row.direct.verification, result: {...row.direct.verification.result, ...change}};
-    assert.throws(() => detailOf({...row, direct: {...row.direct, verification}}), /unexpected_response/);
-  }
-  assert.throws(() => detailOf({...job(), timeline: [], direct: row.direct}));
-  for (const exit_code of ["1\n", "1\r", "1\u2028", "1\u2029"]) {
-    const verification = {status: "failed", result: {...row.direct.verification.result, exit_code}};
-    assert.throws(() => detailOf({...row, direct: {...row.direct, verification}}), /unexpected_response/);
-  }
-});
+
+
 
 test("direct current and timeline stages reject AEGIS-only or unknown stages", () => {
   for (const stage of ["frame", "specify", "design", "publishing", "unknown"]) {
@@ -236,6 +190,16 @@ test("direct current and timeline stages reject AEGIS-only or unknown stages", (
     if (stage !== "unknown") assert.equal(detailOf({...job(), stage, timeline: []}).stage, stage);
   }
 });
+
+test("direct publication reset remains readable before and after retry", () => {
+  const reset = {ts: null, event: "reset", stage: "publishing"};
+  const row = {...directJob(), lifecycle: "failed", status_group: "terminal", stage: "publishing", timeline: [reset]};
+  assert.equal(detailOf(row).stage, "publishing");
+  assert.equal(readJobPage({...page(), items: [row]}, [id]).items[0].stage, "publishing");
+  assert.deepEqual(detailOf({...directJob(), timeline: [reset]}).timeline, [reset]);
+});
+
+
 
 test("executor output transport is identity bound and closed to arbitrary transcripts", async () => {
   const { readExecutorOutput } = await import("../src/jobModel.ts");
@@ -248,4 +212,12 @@ test("executor output transport is identity bound and closed to arbitrary transc
     {availability:"missing"},{extra:"PRIVATE_CONFIG"}]) {
     assert.throws(()=>readExecutorOutput({...evidence,...change},id,"one"));
   }
+});
+
+
+test("direct details expose attempts without independent verification fields", () => {
+  assert.deepEqual(detailOf(directJob()).direct, {attempt:2});
+  for (const attempt of [0, -1, true, 1.5, 2**53])
+    assert.throws(() => detailOf({...directJob(), direct:{attempt}}));
+  assert.throws(() => detailOf({...directJob(), direct:{attempt:2, verification:{status:"passed",result:null}}}));
 });

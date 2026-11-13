@@ -7,10 +7,6 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 export const messages = {
   en: {
-    verificationCommand: "Verification command",
-    verificationCommandHelp: "Optional: one shell command line from the worktree root for direct runs. Empty means unverified. AEGIS uses the repository’s own test commands.",
-    verificationCommandInvalid: "Enter the Verification command on one line, without line breaks or NUL.",
-    aegisTestCommands: "Uses the repository's AEGIS test commands",
     resetPasswordFor: "Reset password for {user}",
     resetPasswordEffect: "Saving ends this account’s existing sessions. At the next sign-in, the user must choose a new password.",
     repeatNewPassword: "Repeat new password", showCurrentPassword: "Show current password", hideCurrentPassword: "Hide current password", showNewPassword: "Show new password", hideNewPassword: "Hide new password", showRepeatPassword: "Show repeated password", hideRepeatPassword: "Hide repeated password", passwordMismatch: "Passwords do not match.",
@@ -96,10 +92,6 @@ export const messages = {
     cancelled: "Cancelled", working: "Working", parked: "Parked", review: "In review", done: "Done", pause: "Stop pickup", resume: "Start pickup", paused: "Pickup stopped", pickupEnabled: "Pickup enabled",
   },
   fr: {
-    verificationCommand: "Commande de vérification",
-    verificationCommandHelp: "Facultatif : une commande shell sur une ligne depuis la racine de l’arbre de travail pour les exécutions directes. Vide signifie non vérifié. AEGIS utilise les commandes de test du dépôt.",
-    verificationCommandInvalid: "Saisissez la commande de vérification sur une ligne, sans saut de ligne ni NUL.",
-    aegisTestCommands: "Utilise les commandes de test AEGIS du dépôt",
     resetPasswordFor: "Réinitialiser le mot de passe de {user}",
     resetPasswordEffect: "L’enregistrement ferme les sessions de ce compte. À la prochaine connexion, l’utilisateur devra choisir un nouveau mot de passe.",
     repeatNewPassword: "Confirmer le nouveau mot de passe", showCurrentPassword: "Afficher le mot de passe actuel", hideCurrentPassword: "Masquer le mot de passe actuel", showNewPassword: "Afficher le nouveau mot de passe", hideNewPassword: "Masquer le nouveau mot de passe", showRepeatPassword: "Afficher la confirmation", hideRepeatPassword: "Masquer la confirmation", passwordMismatch: "Les mots de passe ne correspondent pas.",
@@ -185,10 +177,6 @@ export const messages = {
     cancelled: "Annulée", working: "En cours", parked: "En pause", review: "En revue", done: "Terminée", pause: "Suspendre la sélection", resume: "Reprendre la sélection", paused: "Prise en charge arrêtée", pickupEnabled: "Sélection active",
   },
   de: {
-    verificationCommand: "Prüfbefehl",
-    verificationCommandHelp: "Optional: ein einzeiliger Shell-Befehl ab der Worktree-Wurzel für direkte Läufe. Leer bedeutet ungeprüft. AEGIS verwendet die eigenen Testbefehle des Repositorys.",
-    verificationCommandInvalid: "Prüfbefehl in einer Zeile ohne Zeilenumbrüche oder NUL eingeben.",
-    aegisTestCommands: "Verwendet die AEGIS-Testbefehle des Repositorys",
     resetPasswordFor: "Passwort für {user} zurücksetzen",
     resetPasswordEffect: "Beim Speichern enden die bestehenden Sitzungen dieses Kontos. Bei der nächsten Anmeldung muss ein neues Passwort gewählt werden.",
     repeatNewPassword: "Neues Passwort wiederholen", showCurrentPassword: "Aktuelles Passwort anzeigen", hideCurrentPassword: "Aktuelles Passwort verbergen", showNewPassword: "Neues Passwort anzeigen", hideNewPassword: "Neues Passwort verbergen", showRepeatPassword: "Wiederholung anzeigen", hideRepeatPassword: "Wiederholung verbergen", passwordMismatch: "Die Passwörter stimmen nicht überein.",
@@ -274,10 +262,6 @@ export const messages = {
     cancelled: "Abgebrochen", working: "In Arbeit", parked: "Pausiert", review: "In Prüfung", done: "Fertig", pause: "Aufnahme pausieren", resume: "Aufnahme fortsetzen", paused: "Übernahme gestoppt", pickupEnabled: "Aufnahme aktiv",
   },
   ro: {
-    verificationCommand: "Comandă de verificare",
-    verificationCommandHelp: "Opțional: o comandă shell pe o singură linie, din rădăcina worktree-ului, pentru rulări directe. Gol înseamnă neverificat. AEGIS folosește comenzile de test ale repository-ului.",
-    verificationCommandInvalid: "Introdu comanda de verificare pe o singură linie, fără sfârșituri de linie sau NUL.",
-    aegisTestCommands: "Folosește comenzile de test AEGIS ale repository-ului",
     resetPasswordFor: "Resetează parola pentru {user}",
     resetPasswordEffect: "Salvarea închide sesiunile acestui cont. La următoarea autentificare, utilizatorul trebuie să aleagă o parolă nouă.",
     repeatNewPassword: "Repetă parola nouă", showCurrentPassword: "Arată parola curentă", hideCurrentPassword: "Ascunde parola curentă", showNewPassword: "Arată parola nouă", hideNewPassword: "Ascunde parola nouă", showRepeatPassword: "Arată parola repetată", hideRepeatPassword: "Ascunde parola repetată", passwordMismatch: "Parolele nu coincid.",

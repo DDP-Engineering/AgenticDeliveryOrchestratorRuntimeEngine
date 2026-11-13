@@ -294,7 +294,8 @@ def main() -> None:
                  "--dir", directory, *argv[script + 1:]],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        app = web_app.create_app(home, probe_runner=fixture_probe, chatgpt_popen=fixture_chatgpt)
+        app = web_app.create_app(home, probe_runner=fixture_probe, chatgpt_popen=fixture_chatgpt,
+                                environment_runner=lambda argv, **kwargs: CommandResult(argv=argv))
 
         @app.post("/__e2e__/provider")
         def provider_fixture(request: Request, value: str) -> dict:
@@ -412,13 +413,18 @@ def main() -> None:
                     ("not configured", "done", "awaiting-approval"),
                     ("unavailable", "build", "working"),
                     ("empty", "done", "done"),
+                    ("whitespace", "done", "awaiting-approval"),
+                    ("publication-reset", "publishing", "failed"),
+                    ("retried", "done", "awaiting-approval"),
                 ]):
                     run_id = "ux-direct-" + status.replace(" ", "-")
+                    passed = status in {"empty", "whitespace", "publication-reset", "retried"}
                     evidence = {} if status == "unavailable" else {
-                        "verification": "passed" if status == "empty" else status}
-                    if status in {"passed", "failed", "timed out", "empty"}:
+                        "verification": "passed" if passed else status}
+                    if passed or status in {"passed", "failed", "timed out"}:
                         evidence["verification_result"] = {
-                            "command": "saved-check && echo '<script>literal</script>'",
+                            "command": "   " if status == "whitespace" else
+                            "saved-check && echo '<script>literal</script>'",
                             "exit_code": 124 if status == "failed" else 0,
                             "seconds": 0 if status == "empty" else 1.25,
                             "timed_out": status == "timed out",
@@ -437,6 +443,10 @@ def main() -> None:
                             roots[0].journal(run_id, "stage-advanced", current="validate")
                         if stage == "done":
                             roots[0].journal(run_id, "stage-advanced", current="done")
+                        if status in {"publication-reset", "retried"}:
+                            roots[0].journal(run_id, "reset", stage="publishing")
+                            if status == "retried":
+                                roots[0].journal(run_id, "operator-retry", stage="done")
             return ids
 
         original_alpha = profiles.config_path("alpha").read_text(encoding="utf-8")

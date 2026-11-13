@@ -306,7 +306,7 @@ branch_rule = ""
 # ----- Workflow ------------------------------------------------------------------
 # A present supported AEGIS payload selects stage-by-stage journals: ADORE
 # creates the task after its branch; the frame executor chooses its path.
-# Without AEGIS, direct runs use build/validate/done and optional verification.
+# Without AEGIS, the agent implements the ticket directly and chooses its checks.
 # A broken/unsupported present payload is refused, never a direct fallback.
 # These settings are optional; absent values use the defaults below.
 [workflow]
@@ -323,11 +323,9 @@ quick_label = "agent-quick"
 aegis_python = "python"
 # Direct only: one shell command line from the worktree root. Container: sh -c;
 # local: platform shell with service-account permissions, not a host sandbox.
-# Empty means unverified. Non-string, CR/LF and NUL values are refused.
 # Validate timeout below (else per_gate_timeout_seconds) bounds the command.
 # Failures/timeouts consume max_stage_failures; fresh Pi sessions get evidence.
 # Approval and MR/PR show the sanitized command/result. AEGIS ignores this key.
-verify_command = ""
 # Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
 # stages that legitimately need more room than intake does. Keys are the AEGIS
 # stages that launch an executor: frame, specify, design, build, validate;

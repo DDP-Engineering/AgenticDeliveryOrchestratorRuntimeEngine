@@ -14,8 +14,8 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Frame | Scope is agreed and the executor records whether the job takes the full or the quick path. |
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
-| Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE then repeats the strict check itself before it asks for approval. |
+| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
+| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
@@ -23,17 +23,9 @@ The quick path runs Frame, Build and Validate. After Validate the job shows the 
 
 The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (`build`), **Validation** (`validate`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.
 
-**Latest recorded attempt** is the last executor stage-launch attempt, not cumulative launches or failed attempts. Without a saved launch, the page shows **Attempt unavailable**. Independent verification shows the saved command before its result, **Duration (seconds)** and **Output tail** as literal redacted text. Empty output is explicit. Changing Settings does not replace the saved command or result.
+**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.
 
-| Result | Meaning |
-|---|---|
-| Passed | The command exited zero without timing out. |
-| Failed | The command exited nonzero without timing out; the latest failure stays visible during a new implementation attempt. |
-| Timed out | The command exceeded its time limit, regardless of exit code. |
-| Not configured: unverified | No verification command was configured; this is not a pass. |
-| Verification evidence unavailable | No verification outcome is recorded yet; this does not mean not configured. |
-
-Direct implementation uses the **Implementation** `build` limit in `workflow.stage_timeout_overrides`; independent verification uses the **Validation** `validate` limit. Each falls back to the general `budgets.per_gate_timeout_seconds` when its override is unset. The other AEGIS stage limits do not apply to direct jobs.
+Direct **Implementation** uses the `build` override in `workflow.stage_timeout_overrides`, falling back to `budgets.per_gate_timeout_seconds`. **Validation** (`validate`) records the candidate for approval without running a separate test command.
 
 ## Clarification {#clarification}
 
@@ -43,7 +35,7 @@ Reply with a normal comment on the ticket, then add `agent-answered`. Both are n
 
 ## Approval {#approval}
 
-When AEGIS strict validation or configured direct verification passes (or direct verification is explicitly unconfigured), ADORE removes `agent-approved`, posts the evidence on the ticket and waits. The job shows **Waiting for approval** and the ticket keeps `agent-working`. The evidence names the exact candidate and any deviations the executor recorded.
+When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.
 
 Review it, then add `agent-approved` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.
 

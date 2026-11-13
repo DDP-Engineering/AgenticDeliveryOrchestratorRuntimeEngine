@@ -37,16 +37,6 @@ unknown stage. Mapping values accept only
 those three task kinds. Bug/fix mappings win over change, configured feature
 labels follow, and an unmatched ticket uses `default_kind`.
 
-`WorkflowConfig.verify_command` is an exact single-line string, empty by default.
-Validation is type-first and refuses CR, LF and NUL with
-`workflow.verify_command` named. Shell syntax is data, not split or normalized.
-Configured direct runs use the validate override or general gate timeout; AEGIS
-ignores the command and retains its own strict verification. Generic resolved
-serialization includes the key, raw reads preserve original bytes and unrelated
-web edits leave it intact. Metadata marks it noneditable and the frontend hides
-it pending a dedicated interface. Public proof: `test_config.py`,
-`test_web_config.py`, `test_web_config_raw.py` and exact catalog tests.
-
 `PollingConfig.max_concurrent_runs` is a capacity ceiling only. The current
 conductor is synchronous and serial; values above one do not create parallel
 gates or workers.

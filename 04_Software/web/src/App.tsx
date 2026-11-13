@@ -866,6 +866,11 @@ export default function App() {
     setError(new ApiError("project_not_found"));
   }, [projects, projectsLoaded]);
 
+  useEffect(() => {
+    if (page !== "projectDetails" || projectsState !== "ready" || projects.length) return;
+    setRequestedRun(""); setJobScope(""); setPage("projects");
+  }, [page, projectsState, projects.length]);
+
   const clearPrivateView = () => {
     setImportOpen(false);
     viewGeneration.current += 1;
@@ -1360,11 +1365,13 @@ export default function App() {
           <button onClick={() => { setNotice(""); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} onEnroll={page === "overview" ? () => setPage("createProject") : undefined} />}
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t}
+          onEnroll={() => { setError(""); setPage("createProject"); }}
+          onImport={() => { setError(""); setPage("projects"); setImportOpen(true); }} />}
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
-          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => setImportOpen(true)}>{t("importProject")}</button></>}</div>
+          <div className="section-actions">{isAdmin && projects.length > 0 && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => setImportOpen(true)}>{t("importProject")}</button></>}</div>
           {projects.length > 0 && <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -1420,9 +1427,7 @@ export default function App() {
           </section>} />
           {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">
             <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
-            <p>{t("deleteProjectRemoves")}</p>
-            <p className="muted">{t("deleteProjectKeeps")}</p>
-            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
+            <form className="form-stack" onSubmit={deleteProject}>
               <DeleteCloneOption locale={locale} project={deleteTarget.id} read={path => request(path)} checked={deleteClone} onChange={setDeleteClone} />
               <label><span className="delete-confirm-label">{t("deleteProjectConfirm").split("{project}").map((part, index) => <Fragment key={index}>{index > 0 && <strong className="delete-confirm-name">{deleteTarget.name}</strong>}{part}</Fragment>)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
               <div className="button-row"><button className="danger" type="submit" disabled={operationSubmitting || !!operation && ["pending", "running"].includes(operation.status) || deleteName !== deleteTarget.name}>{t("deleteProject")}</button><button className="ghost" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</button></div>
@@ -1826,7 +1831,6 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
             </div>;
           })}</div> : row.input === "retry-delays" ? <><textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required /><p className="muted">{editorCopy.schedule}</p></> : row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{agentValue(row.key, option, locale) ?? (row.key === "review.on_pipeline_failure" ? pipelineFailureValue(option, locale) ?? option : row.key === "delivery.draft" ? publicationValue(option, locale) : option)}</option>)}</select>
-            : row.key === "workflow.verify_command" ? <textarea rows={1} aria-label={label(row)} aria-describedby={`help-${row.key}` + (typedValue(row) === null ? ` error-${row.key}` : "")} aria-invalid={typedValue(row) === null || undefined} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} />
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} />
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"}
               list={row.key === "container.image" && serverImages?.images.length ? "setting-image-options" : undefined} />}
@@ -1834,7 +1838,7 @@ function SettingsList({ executorOnly=false, project, revision, csrf, branchCandi
           {row.key === "container.image" && serverImages && (!serverImages.available ? <p className="field-hint">{enrollmentCopy[locale].imagesUnavailable}</p>
             : draft.trim() && !serverImages.images.includes(draft.trim()) && <p className="field-hint" role="status">{enrollmentCopy[locale].imageMissing}</p>)}
           <div className="button-row"><button type="button" className="ghost" disabled={disabled} onClick={() => cancelEdit(row)}>{t("cancel")}</button></div>
-          {typedValue(row) === null && <p role="alert" id={`error-${row.key}`}>{row.key === "workflow.verify_command" ? t("verificationCommandInvalid") : row.input === "connection" ? connectionCopy[locale].invalid : editorCopy.invalid}</p>}
+          {typedValue(row) === null && <p role="alert" id={`error-${row.key}`}>{row.input === "connection" ? connectionCopy[locale].invalid : editorCopy.invalid}</p>}
         </div>;
   };
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>

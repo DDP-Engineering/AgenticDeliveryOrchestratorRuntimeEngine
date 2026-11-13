@@ -13,21 +13,22 @@ A successful external CLI sign-in remains partial because it can change outside 
 Have these ready:
 
 - The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.
-- An optional **Verification command** for a repository without AEGIS. You can leave it empty; the resulting candidate is then explicitly unverified.
 - A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.
 - The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).
-- The model ID for the Pi coding agent and, for a container project, an image on the server built from the ADORE base image, which contains Pi. See [Executors and models](/help/executors).
+- The model ID for Pi and, for containers, a running Docker or Podman service. The default shared image is prepared automatically on import; custom images must already exist on that service. See [Executors and models](/help/executors).
 
 ## Enroll new project {#add-project}
 
 Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.
+
+When no projects remain, Overview and Projects offer **Enroll new project** and **Import raw configuration** to administrators. Deleting the last project returns you to Projects, where both actions remain available.
 
 | Step | What it asks |
 |---|---|
 | Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
 | Agent and model | Choose **Provider**, **Model** and endpoint details, when needed. Select **Runs in**, the runtime and image for a container. Save the provider key in Settings after creation. For **Installed on the server**, only the current OS account and optional **Project tools PATH** are shown. |
 | Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
-| Verification | **Validate setup** checks structure and server folders. **Check environment** tests Git and forge access. **Workflow** separately reports the observed repository workflow without blocking enrollment. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |
+| Verification | Opening this step automatically checks the configuration, server folders, Git and forge access. **Recheck environment** repeats these checks. **Workflow** separately reports the observed repository workflow without blocking enrollment. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |
 | Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |
 
 For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.
@@ -40,14 +41,9 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 
 ## Repository workflows {#workflows}
 
-Repositories with or without AEGIS can be enrolled. ADORE never installs, upgrades or changes AEGIS, or adds files to the clone during enrollment. You do not select a workflow:
+When you confirm guided enrollment or a raw import, ADORE prepares missing shared executor and network-proxy images before saving the project. Progress shows the current stage; the first preparation may take several minutes and needs internet access on the server. Later imports reuse the images. After a preparation failure, retry the import without entering the same answers again. Native imports skip container preparation. Custom image definitions remain the administrator's responsibility.
 
-- **AEGIS, stage by stage** means `.agentic/aegis.py` is present; `.agentic/aegis.toml` is not required for enrollment. ADORE conducts the repository’s AEGIS stages and uses its test commands.
-- **Direct, no AEGIS found** means an inspected clone has no `.agentic/aegis.py`. Pi implements the ticket in a bounded session; ADORE then runs the optional verification command before human approval.
-
-**Workflow** is information, not a failed prerequisite or a version check. Until the local clone exists, it is not inspected; preview and checks do not clone it. Creation keeps the measured result unchanged. Run **Check host prerequisites** after creation to inspect the new clone. The live probe before ticket pickup still refuses a present broken or unsupported AEGIS payload; it never silently uses Direct instead.
-
-On entering Verification, ADORE reads the server folders and validates setup without external commands. **Verification command** is optional. For an existing direct clone, it is prefilled when repository files supply a suggestion, labeled **Suggested from** with its source file. Keep, edit or clear it; later checks and previews preserve your edits, including clearing. Without a match, or before the clone exists, it stays empty. Suggestions read root manifests first, then use a single matching first-level folder; several matching folders give none. Links outside the clone and files over 1 MiB are ignored. No suggestion is executed or proven to work, and Settings never replaces a saved value with one. Enter one shell command line; line breaks and NUL are refused with a message, not removed. Enrollment saves the exact text but never runs it. Direct verification runs from the job worktree root in the chosen execution environment, under its validation time limit. Empty means unverified. For an inspected AEGIS repository, the field is replaced by **Uses the repository's AEGIS test commands**. Change the saved command later in Settings → Implementation; see [Verification command](/help/settings#verification-command).
+**AEGIS / Direct**. The agent discovers and runs checks according to the repository instructions. With AEGIS it follows the recorded stages; without AEGIS it implements the ticket directly. ADORE monitors progress and the task journal, records the candidate and requests human approval. It does not independently run repository tests or strict AEGIS checks.
 
 ## Import raw configuration {#import-project}
 

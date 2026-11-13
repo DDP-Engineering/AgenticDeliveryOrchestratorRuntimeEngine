@@ -10,38 +10,39 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 All notable changes to the Agentic Delivery Orchestrator & Runtime Engine are recorded here.
 This project follows Keep a Changelog and Semantic Versioning.
 
-## [Unreleased]
+## [0.15.0] - 2026-11-13
 
 ### Added
 
-- Jobs identifies AEGIS and Direct workflows. Direct details show only Implementation
-  and Validation stages, the recorded attempt, and saved independent verification
-  command, outcome, duration and output tail. Unknown or corrupt evidence fails closed;
-  four-locale help explains direct stage limits without changing run behavior.
+- Web imports automatically prepare missing shared executor and network-proxy
+  images, show progress, share concurrent preparation and support retry before
+  saving a project. Existing images are reused, including through WSL.
 
-- Suggest an optional verification command from bounded repository files during direct
-  enrollment and `adore init`, with source provenance and human keep/edit/clear choices.
-  Discovery never executes commands, changes saved Settings or suggests for AEGIS clones.
+- Jobs identifies AEGIS and Direct workflows and shows recorded agent attempts.
+- Enroll repositories with or without AEGIS. ChatGPT subscriptions use server
+  sign-in without an API-key selector; container choices include detected WSL runtimes.
+- ADORE observes the agent's AEGIS journal and direct summaries, binds candidates
+  to human approval and publishes approved changes. Repository checks belong to
+  the agent; ADORE no longer runs strict AEGIS checks or standalone test commands.
 
-- Web enrollment accepts repositories without AEGIS or with only its Python entrypoint,
-  without adding files to the clone. Enrollment and Settings → Implementation save an
-  optional exact verification command and refuse multiline or NUL input with field feedback.
-  Workflow is informational, not a readiness gate; help covers both workflows in four locales.
-
-- Optional direct-workflow verification command with bounded fresh-session fixes,
-  validate timeouts, sanitized retained evidence and approval/MR/PR results.
-  Native verification uses an owned platform-shell operation; ordinary shell
-  refusal and candidate-bound human approval remain enforced. AEGIS is unchanged.
-
-- Conduct CLI/configured tickets without AEGIS through bounded fresh direct Pi sessions,
-  retain their summaries and present explicitly unverified candidates for fresh human
-  approval; keep clarification, recovery, review and publication boundaries shared.
-  CLI setup reports missing AEGIS as information; a present unusable payload is refused.
-  Adopted and revised reviews carry the current direct summary and unverified notice;
-  Gitea description updates require final 2xx acknowledgment before entering review.
-  Interrupted durable completion resumes without spending another implementation launch.
 
 ### Fixed
+
+- Restore enrollment and raw import actions after deleting the last project,
+  and simplify the delete confirmation while keeping the exact-name instruction.
+
+- Simplify enrollment helper text and credential spacing; automatically check setup
+  and server access on entering Verification, with one manual recheck action.
+
+- Check the configured container daemon, including WSL, during readiness and report
+  unavailable services or executor images before starting ChatGPT sign-in.
+
+- Read rewritten Direct summaries reliably on Windows, retaining file replacement
+  and modification checks.
+- Keep Direct Jobs readable across publication reset/retry history, while refusing
+  invalid execution stages.
+- Make tests independent of host shells, default encodings, newline
+  conversion and symlink privileges; give large parameter cases bounded test IDs.
 
 - Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
 

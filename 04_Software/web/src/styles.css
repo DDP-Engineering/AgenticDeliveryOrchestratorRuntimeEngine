@@ -503,6 +503,9 @@ td.strong { font-weight: 800; }
 .enrollment p, .enrollment dd { overflow-wrap: anywhere; }
 .enrollment-field [aria-invalid="true"] { border: 2px solid var(--danger); }
 .enrollment-errors { border: 2px solid var(--danger); border-radius: 8px; padding: 12px; margin-bottom: 20px; }
+.enrollment-credentials { margin-top: 24px; }
+.enrollment-credentials > summary { cursor: pointer; }
+.enrollment-credentials[open] > summary { margin-bottom: 16px; }
 .enrollment-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 /* Enroll from a repository URL: the address with Read repository, then what was detected. */
 .enrollment-url { margin-bottom: 14px; }

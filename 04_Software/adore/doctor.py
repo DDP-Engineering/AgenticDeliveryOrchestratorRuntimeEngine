@@ -437,7 +437,10 @@ def discover_container_commands(runner: CommandRunner = run_command) -> list[str
 
     found = [cli for cli in _CONTAINER_CLIS if probe([cli, "--version"]).ok]
     if detect_os() == "windows":
-        distros = [name for name in dict.fromkeys(detect_wsl_distros(probe))
+        # Starting WSL can take longer than a native CLI version probe, including
+        # the initial distro listing on a cold Windows host.
+        distros = [name for name in dict.fromkeys(detect_wsl_distros(
+                       lambda argv, **_kwargs: probe(argv, limit=_WSL_RUNTIME_PROBE_SECONDS)))
                    if _WSL_DISTRO_NAME.fullmatch(name)
                    and name.lower() not in _WSL_INTERNAL_DISTROS]
         for distro in distros[:_RUNTIME_DISCOVERY_DISTROS]:

@@ -297,6 +297,38 @@ def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_pa
                    and "none" in argv for argv, _timeout in calls)
 
 
+@pytest.mark.parametrize("outcome", ["ready", "stopped", "timeout", "invalid-exit"])
+def test_readiness_uses_configured_wsl_runtime_info(tmp_path, outcome):
+    """@brief Check the selected WSL daemon; an unavailable engine cannot launch Pi probes."""
+    profiles, path = _project(tmp_path)
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        'runtime = "docker"', 'runtime = "wsl -d Ubuntu -- docker"'), encoding="utf-8")
+    prefix = ["wsl", "-d", "Ubuntu", "--exec", "docker"]
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(list(argv))
+        if argv == [*prefix, "info"]:
+            return CommandResult(exit_code=1 if outcome == "stopped" else
+                                 False if outcome == "invalid-exit" else 0,
+                                 timed_out=outcome == "timeout", stderr="PRIVATE")
+        return CommandResult(stdout="PRIVATE")
+
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        csrf = client.post("/api/v1/session", json={
+            "username": "admin", "password": "admin"}).json()["csrf"]
+        response = client.post("/api/v1/projects/alpha/readiness-check",
+                               headers={"X-CSRF-Token": csrf})
+        assert response.status_code == 200, response.text
+        assert response.json()["checks"]["container_runtime"] is (outcome == "ready")
+        assert "PRIVATE" not in response.text
+    assert [*prefix, "info"] in calls
+    assert not any(call in (["docker", "--version"], ["podman", "--version"])
+                   for call in calls)
+    if outcome != "ready":
+        assert not any("--entrypoint" in call for call in calls)
+
+
 def test_host_executor_presence_does_not_hide_missing_image_tool(tmp_path):
     """@brief Readiness checks the actual executor image without a pull."""
     profiles, _path = _project(tmp_path)

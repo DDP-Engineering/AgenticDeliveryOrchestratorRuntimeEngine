@@ -33,8 +33,6 @@ LEGAL_PREFIX = (
 )
 FRAGMENTS = (
     "direct/implementation.md",
-    "direct/verification.md",
-    "direct/verification-failure.md",
     "stage/intro.md",
     "stage/ticket.md",
     "stage/active-task.md",
@@ -55,7 +53,6 @@ FRAGMENTS = (
     "recovery/integration-conflict.md",
     "recovery/continuation.md",
     "recovery/no-progress.md",
-    "recovery/strict-verification.md",
     "review/pipeline.md",
     "review/ticket-content-changed.md",
     "system/internet-off.md",

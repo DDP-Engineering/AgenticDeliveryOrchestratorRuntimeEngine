@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import {connectionOf, validConnection} from "./agentConnection.ts";
 import {validCredentialNames} from "./executorSettings.ts";
-import {durationParts, implementationDraft, validVerificationCommand} from "./implementationSettings.ts";
+import {durationParts, implementationDraft} from "./implementationSettings.ts";
 import {BATCH_KEY, editValue, validBatchValues, type PendingConfig, type SettingRow} from "./settings.ts";
 import type {Locale} from "./i18n";
 
@@ -36,7 +36,6 @@ export function settingDraftValue(row: SettingRow, config: Record<string,unknown
 /** Normalize only declared domains; incomplete input remains an unsaved draft. */
 export function normalizeSettingDraft(row: SettingRow, raw: string): string | null {
   if (row.input==="none") return null;
-  if (row.key==="workflow.verify_command") return validVerificationCommand(raw) ? raw : null;
   if (row.input==="connection" || row.input==="credential-names") {
     try {
       const parsed=JSON.parse(raw);

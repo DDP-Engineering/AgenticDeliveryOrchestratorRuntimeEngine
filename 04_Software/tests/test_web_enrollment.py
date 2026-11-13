@@ -128,68 +128,6 @@ def test_guided_candidate_review_binds_complete_setup_without_probes(tmp_path, m
             **body, "revision": preview["revision"]}, headers=headers).status_code == 409
 
 
-@pytest.mark.parametrize("command", [None, "", "true", "123", "   ", "echo 💡",
-                                     pytest.param("printf '\x7f💡'", id="del-and-non-bmp"),
-                                     ' printf \'$HOME {checks} café\\\\\' | grep "café" '])
-def test_enrollment_verification_command_is_exact_and_review_bound(tmp_path, command):
-    """@brief Enrollment preserves optional exact text and binds it to review and evidence."""
-    calls = []
-
-    def fake(argv, **_kwargs):
-        calls.append(argv)
-        return CommandResult(argv=argv, exit_code=127)
-
-    app = create_app(tmp_path / "home", probe_runner=fake)
-    body = _body(tmp_path, **({} if command is None else {"verify_command": command}))
-    expected = "" if command is None else command
-    with TestClient(app) as client:
-        headers = _login(client)
-        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers)
-        assert preview.status_code == 200, preview.text
-        reviewed = preview.json()
-        assert reviewed["structural_valid"], reviewed
-        assert reviewed["review"]["verify_command"] == expected
-        assert calls == []
-        changed = {**body, "verify_command": expected + " echo changed",
-                   "revision": reviewed["revision"]}
-        for route in ("setup-check", "setup-create"):
-            response = client.post("/api/v1/projects/" + route, json=changed, headers=headers)
-            assert response.status_code == 409, response.text
-        assert calls == [] and app.state.profiles.id_availability("alpha")
-        check = client.post("/api/v1/projects/setup-check", headers=headers,
-                            json={**body, "revision": reviewed["revision"]})
-        assert check.status_code == 200, check.text
-        assert not any(expected and expected in call for call in calls)
-        created = client.post("/api/v1/projects/setup-create", headers=headers, json={
-            **body, "revision": reviewed["revision"],
-            "evidence_token": check.json()["evidence_token"]})
-        assert created.status_code == 200, created.text
-        assert created.json()["pickup_state"] == "stopped"
-    path = app.state.profiles.config_path("alpha")
-    assert load_config(path).workflow.verify_command == expected
-    assert sha256(path.read_bytes()).hexdigest() == reviewed["config_revision"]
-
-
-@pytest.mark.parametrize("command", ["one\ntwo", "one\rtwo", "one\r\ntwo", "one\n",
-                                     "one\r", "one\0two", None, True, 12, [], {}])
-@pytest.mark.parametrize("route", ["setup-preview", "setup-check", "setup-create", ""])
-def test_enrollment_verification_command_rejects_invalid_text(tmp_path, command, route):
-    """@brief Invalid text and nontext fail before preparation, probes or publication."""
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    body = _body(tmp_path, verify_command=command)
-    if route in {"setup-check", "setup-create"}:
-        body["revision"] = "0" * 64
-    with TestClient(app) as client:
-        response = client.post("/api/v1/projects" + ("/" + route if route else ""),
-                               json=body, headers=_login(client))
-        assert response.status_code == 422, response.text
-        detail = response.json()["detail"]
-        assert detail["code"] == "invalid_request"
-        assert any(issue["field"] == "verify_command" for issue in detail["issues"])
-        assert app.state.profiles.id_availability("alpha")
-        assert not list(app.state.profiles.home.glob("**/config.toml"))
-
-
 def test_draft_verification_is_explicit_ephemeral_and_revision_bound(tmp_path):
     """@brief Draft probe returns honest failed checks; stale draft never probes."""
     calls = []
@@ -1122,8 +1060,7 @@ def test_draft_workflow_preview_check_and_creation(tmp_path, files, workflow):
         preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
         assert preview["structural_valid"], preview
         assert preview["workflow"] == workflow
-        assert preview["verification_hint"] == (
-            {"command": "go test ./...", "source": "go.mod"} if workflow == "direct" else None)
+        assert "verification_hint" not in preview
         checked = client.post("/api/v1/projects/setup-check", headers=headers,
                               json={**body, "revision": preview["revision"]})
         assert checked.status_code == 200, checked.text
@@ -1167,93 +1104,15 @@ def test_draft_invalid_workflow_never_issues_evidence(tmp_path, monkeypatch, bad
         assert not app.state.profiles.profile_dir("alpha").exists()
 
 
-@pytest.mark.parametrize("command", ["", "npm test", "  echo chosen | cat  "])
-def test_preview_hint_is_transient_and_never_changes_submitted_command(tmp_path, command):
-    """@brief Discovery is evidence only; explicit Create still saves exact human text."""
-    from adore.verification_hint import suggest_verification_command
-
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    body = _body(tmp_path, verify_command=command)
-    clone = Path(body["repo_path"])
-    (clone / "package.json").write_text('{"scripts":{"test":"vitest run"}}', encoding="utf-8")
-    expected_command, source = suggest_verification_command(clone)
-    with TestClient(app) as client:
-        headers = _login(client)
-        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
-        assert preview["verification_hint"] == {"command": expected_command, "source": source}
-        assert preview["review"]["verify_command"] == command
-        assert not app.state.profiles.profile_dir("alpha").exists()
-        (clone / "package.json").unlink()
-        no_hint = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
-        assert no_hint["verification_hint"] is None
-        assert no_hint["revision"] == preview["revision"]
-        assert no_hint["config_revision"] == preview["config_revision"]
-        result = client.post("/api/v1/projects/setup-create", headers=headers,
-                             json={**body, "revision": preview["revision"]})
-        assert result.status_code == 200, result.text
-    assert load_config(app.state.profiles.config_path("alpha")).workflow.verify_command == command
-
-
-@pytest.mark.parametrize("text", [
-    "[" * 2000,
-    '{"scripts":{"test":' + "1" * 5000 + "}}",
-    '{"unused":' + "[" * 2000 + "0" + "]" * 2000 + "}",
-], ids=["truncated-deep-json", "oversized-integer", "deep-json"])
-@pytest.mark.parametrize("fallback", [False, True])
-def test_preview_hint_package_decoder_failure_is_a_miss(tmp_path, text, fallback):
-    """@brief Untrusted package decoder failures preserve preview and later table rows."""
-    body = _body(tmp_path, verify_command="  echo human choice  ")
-    clone = Path(body["repo_path"])
-    (clone / "package.json").write_text(text, encoding="utf-8")
-    if fallback:
-        (clone / "go.mod").touch()
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    with TestClient(app) as client:
-        response = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
-        assert response.status_code == 200, response.text
-        preview = response.json()
-        assert preview["structural_valid"] and preview["workflow"] == "direct"
-        assert preview["verification_hint"] == (
-            {"command": "go test ./...", "source": "go.mod"} if fallback else None)
-        assert preview["review"]["verify_command"] == body["verify_command"]
-        assert not app.state.profiles.profile_dir("alpha").exists()
-
-
-def test_preview_hint_symlink_loop_refuses_without_publication(tmp_path):
-    """@brief A static manifest link loop uses the redacted filesystem refusal boundary."""
-    body = _body(tmp_path)
-    manifest = Path(body["repo_path"]) / "package.json"
-    manifest.symlink_to(manifest)
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    with TestClient(app) as client:
-        response = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
-        assert response.status_code == 503, response.text
-        assert response.json()["detail"]["code"] == "project_setup_invalid"
-        assert str(manifest) not in response.text
-        assert "Symlink loop" not in response.text
-        assert not app.state.profiles.profile_dir("alpha").exists()
-
-
-def test_preview_hint_access_failure_refuses_without_publication(tmp_path, monkeypatch):
-    """@brief Unreadable clone evidence returns the existing safe setup rejection."""
-    body = _body(tmp_path)
-    clone = Path(body["repo_path"])
-    original = Path.iterdir
-
-    def denied(path):
-        if path == clone:
-            raise PermissionError("private fixture path")
-        return original(path)
-
-    monkeypatch.setattr(Path, "iterdir", denied)
-    app = create_app(tmp_path / "home", probe_runner=_no_probe)
-    with TestClient(app) as client:
-        result = client.post("/api/v1/projects/setup-preview", json=body, headers=_login(client))
-        assert result.status_code == 503, result.text
-        assert result.json()["detail"]["code"] == "project_setup_invalid"
-        assert "private fixture path" not in result.text
-        assert not app.state.profiles.profile_dir("alpha").exists()
-
-
 # END OF FILE
 
+
+
+def test_removed_verification_command_cannot_be_reintroduced_through_enrollment(tmp_path):
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        headers = _login(client)
+        result = client.post("/api/v1/projects/setup-preview", headers=headers,
+                             json={**_body(tmp_path), "verify_command": "must-not-run"})
+        assert result.status_code == 422
+        assert not app.state.profiles.list_profiles()

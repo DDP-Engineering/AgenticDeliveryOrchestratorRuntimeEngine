@@ -7,35 +7,30 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
-Enrollment's Verification step and Settings → Implementation expose the optional
-**Verification command**, with shared four-locale names and help. Enrollment
-prefills an untouched direct draft from transient repository evidence and shows
-localized source provenance; Settings preserves saved values, including empty.
-Normal-height one-row textareas retain pasted line breaks; the shared exact-string
-validator refuses CR/LF/NUL before preview or Save, with localized field feedback.
-Settings scalar/batch response readers validate the same domain before recovery
-or apply. Admin edits use the existing reviewed save; developers remain read-only.
-An inspected AEGIS enrollment replaces the control with the repository-owned test
-commands note, preserving any saved draft text. Workflow observations are shown
-separately from prerequisite results; no mode selector is added. Offline unit/render and enrollment/settings browser tests cover
-these controls. Settings journeys bind the isolated profile to actual Direct and
-Python-entrypoint-only AEGIS clones, cover all four locales and both roles, and
-verify multiline clipboard refusal, exact Unicode/space preservation, empty
-reviewed batch saves and narrow light/dark layouts. Projects, Settings, Glossary
-and Tickets help explains only delivered workflow/command behavior in all four
-locales; helper and browser contracts check structure, terms, navigation and
-live-probe authority. The committed production bundle is rebuilt with these inputs.
-The offline enrollment-to-Statistics regression runs both specifications in one
-fixture home. Malformed-consumption injection selects a seeded nonempty job
-cohort explicitly, not the first project: newly enrolled projects legitimately
-have no jobs. The existing hidden-evidence, error and unavailable-export assertions
-remain unchanged for malformed and aborted responses.
+ADORE guides agents and observes their recorded workflow. AEGIS completion is
+read from the task journal; Direct completion comes from the implementation
+session and its summary. Tests and their local/CI selection belong to the agent.
+ADORE does not invoke `check --strict --run` or run a separately configured test
+command. Candidate fingerprints, target freshness and fresh human approval remain
+required before publication. Old `workflow.verify_command` values are ignored
+without rewriting profiles and cannot be edited through the API.
+
+Guided enrollment and raw-file import call the reviewed shared-environment
+preparation route automatically on confirmation. `EnvironmentProgress` shows the
+current stage and an indeterminate progress indicator in four locales; the user
+can retry preparation failures with the reviewed answers/file retained. Saving
+waits for a strictly validated ready response with the same operation ID. Navigation
+guards remain active throughout preparation and publication. Closed views stop
+polling and never proceed to publication; shared server preparation can finish
+and be reused. Long builds refresh previously measured readiness before saving.
+`environment.test.mjs` covers transport/state boundaries; browser journeys cover
+visible progress, publication order and failed-build retry.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 
 The authenticated factory administrator sees a persistent localized password reminder linking to My account. A guarded visible-tab refresh checks the session while the reminder is active; stale responses cannot replace a newer session. The existing password form revokes sessions on success.
 
-Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
+Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty project views offer enrollment and raw import to administrators. Deleting the last project returns to Projects, which omits the empty table panel. The delete dialog keeps the clone choice and exact-name instruction without the introductory paragraphs.
 
 ## Direct Jobs presentation
 
@@ -44,7 +39,9 @@ Missing, nontext or unknown values reject the response, never choose a default.
 `JobWorkspace` identifies Workflow inside the existing Status cell and current-state
 card without adding a table column. `workflowStageLabel` keeps all AEGIS labels and
 observed-only timeline behavior; Direct uses Implementation/build, Validation/validate
-and Done only, without an AEGIS task or quick-path explanation. Lifecycle/action,
+and Done, without an AEGIS task or quick-path explanation. The failed publication
+reset pointer and historical publication reset event retain the Publishing label.
+They are administrative recovery evidence, never an executor launch stage. Lifecycle/action,
 consumption, budgets and operational executor-output controls retain their meanings.
 
 A direct detail requires a closed `direct` attempt/latest-independent-verification
@@ -52,7 +49,9 @@ object (see Component_Web_Jobs.md). AEGIS details refuse this object. Positive s
 attempts or explicit absence, closed status/result shapes, canonical decimal-text
 exit codes, outcome agreement, finite nonnegative seconds and normalized bounded
 Unicode tails are validated before any display. Direct current/non-null timeline
-stages outside build/validate/done fail closed instead of being filtered.
+stages outside build/validate/done fail closed, except for that failed pointer and
+`reset` event. Nonempty saved commands retain exact spaces and tabs, matching the
+configuration and conductor domain. Empty configured-result commands remain invalid.
 List error/incomplete/source-change and detail failures hide stale detail evidence;
 request/composite/session guards remain unchanged.
 
@@ -63,7 +62,7 @@ Passed, Failed, Timed out, Not configured: unverified and unavailable evidence a
 distinct. There is no command action or HTML/Markdown evaluation. Settings changes
 cannot substitute today's command for saved evidence. Direct working/timeline copy
 makes no AEGIS or synthetic progress claim. Help and inline timeout guidance map
-build/validate to direct implementation/independent verification with general fallback.
+build to direct agent implementation with the general timeout fallback; validate only records the candidate.
 
 `tests/jobs.test.mjs` exercises workflow/evidence/stage trust boundaries and valid
 controls; `e2e/jobs.spec.ts` uses opt-in persisted direct fixtures while retaining the
@@ -364,71 +363,6 @@ An unavailable operation read explicitly leaves completion unknown. The API and
 worker recheck authority and lifecycle; the browser does not claim job success
 from command acceptance.
 
-Administration's account section is labelled Users in every locale.
-The About dialog constrains its width and height to the viewport, with internal
-scrolling for the license and notice content and an accessible Close button.
-It opens with the DDP Engineering logo on a dark band, ADORE and its version
-as the largest text, the license name, and What's new, License and Third-party
-notices buttons; License and Third-party notices expand their texts only on
-request (`aria-expanded`). What's new replaces the content in the same, wider
-dialog with Back: each release from `/api/v1/about` `release_notes`, newest
-first (`Unreleased` as In development, released ones with version and date),
-grouped New, Improved, Fixed and by topic in the user's locale with English
-fallback (`src/releaseNotes.ts`).
-Projects shows two administrator actions. Enroll new project opens
-`EnrollmentWizard` at `/projects/new`. Import raw configuration opens
-`RawImportDialog` on Projects. A browser Back refused by a guarded wizard restores the URL of the page
-shown (`shownUrl`). Enroll new project opens the administrator-only `EnrollmentWizard`.
-It presents five ordered steps, starting at repository/identity, with shared visible,
-associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
-review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
-The verification step uses the draft's execution mode for the introduction and
-check labels, with a separate neutral Workflow observation and optional Verification
-command textarea (or the repository-owned AEGIS test-command note after inspection).
-On entry to Verification, an offline preview may provide `verification_hint` as
-null or a complete command/source pair for Direct only. Local `validPreview`
-checks the full response before applying it, including single-line command and
-relative forward-slash non-traversing source. React renders the source as text.
-An untouched draft accepts the hint and uses at most one additional canonical
-preview of the resulting exact command. Old candidate/check/review evidence is
-cleared; a failed second preview keeps the editable draft but blocks Check/Continue.
-A sticky memory-only human edit flag includes explicit clearing; request generations
-ensure typing during either preview wins. No command-keyed effect or recursive
-resuggestion exists. AEGIS/uninspected clones get none. The browser never executes
-the command; Create submits only the exact reviewed draft, not hint evidence. For server execution, the Pi row uses the validated local probe
-reason for its remediation text.
-Step 1 reads a repository URL by default: **Read repository** calls
-`/api/v1/projects/repository-source` and fills forge, repository, Gitea login,
-target branch and the derived project ID (`name`, never an input), and prefills an
-editable clone location (`repo_path`) with a note on whether it is cloned or reused;
-Display name starts as the repository name and is cleared with the URL that filled it.
-Continue is disabled until the read succeeds. There is no existing-clone mode; the server
-reuses a clone at the chosen path when its origin matches. Every text field shows an example
-placeholder. Reviewers are optional (an empty list requests no review), in the wizard and
-in the Settings reviewer editor.
-Step 2 offers **Provider** (OpenAI-compatible endpoint, ChatGPT subscription and Pi's
-API-key providers from `GET /api/v1/pi-providers`), **Model** (any typed ID, with Pi's
-models for an API-key provider as a datalist; a ChatGPT subscription gets no
-suggestions there) and, only for an endpoint, **Endpoint base URL**
-and **Endpoint API type**; a help paragraph names the credential variable to save after
-creation (`credentialNote`), because enrollment takes no secret. Review and create lists
-them plus **Credential to save after creation**. **Runs in** offers Container or
-Installed on the server (`execution.backend`); Container adds **Container runtime**
-and a free-text **Executor image** whose suggestions come from `serverImages.ts`
-(`GET /api/v1/executor-images`), and Installed shows the native command and local
-account fields. There is no agent choice: Pi is the only coding agent. A
-container project uses API-key mode; a local project chooses API-key mode or
-the account's own Pi sign-in (`existing`). Additional credential references are optional.
-`ForgeLabels.tsx` offers the label option on Review and create (ticked by default; after
-creation the wizard calls `labels/ensure` and shows the report, a failure leaving the project
-created) and **Create missing labels** in Settings → Repository.
-Review and create also shows `DefaultSettings`: the preview's `defaults` grouped by
-`settingPurpose`, named by `settingLabels.ts` (`settingDisplayLabel`, the label function
-Settings uses too) and formatted like Settings values, read-only.
-The separate human display name and stable profile ID are reviewed with forge
-identity, target branch, selected Gitea tea login, credential environment names,
-ready/approval labels, reviewers, four run limits and canonical server paths.
-
 Wizard state lives in the mounted component. Back and Change retain values;
 each changed answer invalidates preview, verification and frozen review and
 increments a generation guard. Late responses cannot refill a changed/unmounted
@@ -645,7 +579,11 @@ those views after the switch.
 ## 3. Implementation Overview
 
 `EnrollmentWizard.tsx` runs guided setup with the setup preview, check and
-create endpoints. Portable transfer has its own API contract, exercised by
+create endpoints. Entering Verification automatically previews the current draft
+and then checks server prerequisites. One Recheck environment action repeats both
+checks; navigation or edits discard late responses. Normal inline helper paragraphs
+are omitted in favor of the contextual help link, with separate spacing for optional
+credentials. Portable transfer has its own API contract, exercised by
 `tests/test_web_transfer.py`.
 
 

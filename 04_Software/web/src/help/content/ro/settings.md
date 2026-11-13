@@ -48,16 +48,6 @@ Reguli aplicabile:
 
 Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
 
-## Comandă de verificare {#verification-command}
-
-În **Implementare**, **Comandă de verificare** este text shell opțional pe o singură linie, salvat ca `[workflow] verify_command`. Administratorii folosesc aceleași acțiuni **Editează** și **Salvează** ca pentru celelalte setări; dezvoltatorii pot citi valoarea, dar nu o pot edita. Câmpul apare și la înrolare; vedeți [Fluxurile repository-ului](/help/projects#workflows).
-
-Pentru fluxul direct, ADORE o execută independent din rădăcina worktree-ului lucrării, în mediul ales și sub limita de validare. Păstrați exact spațiile, ghilimelele și operatorii shell necesari. O valoare goală lasă candidatul explicit neverificat. Sfârșiturile de linie și NUL sunt refuzate cu un mesaj la câmp și împiedică salvarea; corectați textul, nu așteptați eliminarea automată a liniilor noi. Interfața web nu rulează niciodată comanda la înrolare sau salvare.
-
-Lucrările AEGIS ignoră această setare și folosesc comenzile de test AEGIS ale repository-ului. Câmpul rămâne vizibil în Setări pentru ambele fluxuri. Nicio comandă nu este sugerată sau selectată automat.
-
-Implementarea directă folosește limita **Implementare** `build` din `workflow.stage_timeout_overrides`; verificarea independentă folosește **Validare** `validate`. Fiecare revine la limita generală `budgets.per_gate_timeout_seconds` când nu există o suprascriere. Celelalte limite AEGIS nu se aplică joburilor directe.
-
 ## TOML original {#toml}
 
 Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Selectați fișierul exportat în [Importă configurația brută](/help/projects#import-project) iar ADORE verifică automat înainte de înrolare căile de pe server, dosarul de stare și secretele incluse în fișier.
@@ -79,3 +69,6 @@ Administratorii pot urma **Ajustează bugetele în Setările proiectului**, desc
 Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
 
 Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
+
+
+**Implementare** (`build`) folosește `workflow.stage_timeout_overrides` sau limita generală `budgets.per_gate_timeout_seconds`. Pentru AEGIS, **Validare** (`validate`) limitează tot sesiunea agentului. ADORE nu rulează teste suplimentare; agentul alege verificările locale și CI conform instrucțiunilor repository-ului.

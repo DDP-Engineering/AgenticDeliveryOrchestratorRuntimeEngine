@@ -13,7 +13,8 @@
 schema = 1
 
 [[release]]
-version = "Unreleased"
+version = "0.15.0"
+date = "2026-11-13"
 
 [[release.entry]]
 category = "improved"
@@ -23,17 +24,17 @@ text = { en = "See workflows, attempts and checks; inspect output and budgets, r
 [[release.entry]]
 category = "improved"
 topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
-text = { en = "Get an editable verification command suggestion from your repository, with its source.", fr = "Obtenez une suggestion modifiable de commande de vérification du dépôt, avec sa source.", de = "Ein bearbeitbarer Prüfbefehl wird aus dem Repository samt Quelle vorgeschlagen.", ro = "Primiți o sugestie editabilă de comandă de verificare din repository, cu sursa ei." }
+text = { en = "Simpler enrollment with ChatGPT, WSL and automatic setup checks; recheck with one button.", fr = "Inscription allégée avec ChatGPT, WSL, contrôles automatiques et un bouton pour les relancer.", de = "Einfachere Registrierung mit ChatGPT, WSL, automatischen Prüfungen und einem Wiederholungsbutton.", ro = "Înrolare simplificată cu ChatGPT, WSL, verificări automate și un singur buton de reverificare." }
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Enroll without AEGIS or import checked files, retaining folder paths and the default branch.", fr = "Inscrivez sans AEGIS ou importez un fichier validé ; chemins et branche par défaut conservés.", de = "Ohne AEGIS aufnehmen oder geprüfte Dateien importieren; Ordnerpfade und Standardbranch bleiben.", ro = "Înrolați fără AEGIS sau importați fișiere validate, păstrând căile și ramura implicită." }
+text = { en = "Imports prepare shared images automatically, show progress and retain folder paths and branch.", fr = "Les imports préparent les images communes, affichent le progrès et gardent chemins et branche.", de = "Importe bereiten gemeinsame Images vor, zeigen Fortschritt und behalten Ordner und Branch.", ro = "Importurile pregătesc automat imaginile comune, arată progresul și păstrează căile și ramura." }
 
 [[release.entry]]
 category = "new"
 topic = { en = "Direct workflow", fr = "Flux direct", de = "Direkter Ablauf", ro = "Flux direct" }
-text = { en = "Run tickets without AEGIS, with optional verification and bounded fixes before approval.", fr = "Tickets sans AEGIS : vérification facultative et corrections limitées avant approbation.", de = "Tickets ohne AEGIS: optionale Prüfung und begrenzte Korrekturen vor der Freigabe.", ro = "Tichete fără AEGIS, cu verificare opțională și corecții limitate înainte de aprobare." }
+text = { en = "Agents own repository checks; ADORE guides workflows and asks for human approval without reruns.", fr = "Les agents contrôlent le dépôt ; ADORE guide les workflows et demande l’approbation sans relance.", de = "Agenten prüfen das Repository; ADORE führt Workflows und fragt ohne erneute Tests nach Freigabe.", ro = "Agentul verifică repository-ul; ADORE ghidează fluxul și cere aprobarea fără să reia testele." }
 
 [[release.entry]]
 category = "improved"
@@ -49,17 +50,17 @@ text = { en = "Jobs preserve progress and stop checkpoints containing suspicious
 [[release.entry]]
 category = "fixed"
 topic = { en = "Agent and model", fr = "Agent et modèle", de = "Agent und Modell", ro = "Agent și model" }
-text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, including WSL2.", fr = "Les abonnements ChatGPT fonctionnent en natif sous Windows et Linux, y compris WSL2.", de = "ChatGPT-Abos funktionieren jetzt nativ unter Windows und Linux, einschließlich WSL2.", ro = "Abonamentele ChatGPT funcționează acum nativ pe Windows și Linux, inclusiv WSL2." }
+text = { en = "ChatGPT works natively on Windows/Linux. Container checks explain unavailable services and images.", fr = "ChatGPT natif sous Windows/Linux. Les contrôles signalent les services et images indisponibles.", de = "ChatGPT nativ unter Windows/Linux. Container-Prüfungen melden fehlende Dienste und Images.", ro = "ChatGPT nativ pe Windows/Linux. Verificările containerelor explică serviciile și imaginile lipsă." }
 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Keep sign-in and host checks. Show native Pi errors. Retry brief Windows file locks.", fr = "Connexion et contrôles conservés. Erreurs Pi natif visibles. Réessai si Windows verrouille.", de = "Anmeldung und Prüfungen bleiben erhalten. Native Pi-Fehler und Wiederholung bei Windows-Sperren.", ro = "Păstrează autentificarea și verificările. Arată erorile Pi. Reîncearcă blocările Windows." }
+text = { en = "Keep sign-in and Pi errors; retry Windows locks. Restore enrollment after deleting the last project.", fr = "Connexion, Pi et verrous Windows corrigés. Inscription possible après la dernière suppression.", de = "Anmeldung, Pi-Fehler, Windows-Sperren: korrigiert. Nach letztem Löschen wieder registrieren.", ro = "Păstrează autentificarea și erorile Pi; reia blocările Windows. Înrolare după ultimul proiect șters." }
 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Jobs keep Git in the right repo and non-Latin text intact, without pagers or Windows pop-ups.", fr = "Git vise le bon dépôt ; textes multilingues préservés, sans pagineurs ni consoles Windows.", de = "Git nutzt das richtige Repository; native Texte bleiben korrekt, ohne Pager oder Windows-Konsolen.", ro = "Git folosește repo-ul corect și păstrează diacriticele, fără paginare sau console Windows." }
+text = { en = "Jobs keep Git and text correct. Direct jobs fix Windows summaries and recovery.", fr = "Git et textes préservés. Tâches Direct : résumés Windows, annulation et reprise corrigés.", de = "Git und Texte bleiben korrekt. Direkte Aufträge: Windows-Berichte, Abbruch und Wiederherstellung.", ro = "Git și textele rămân corecte. Joburi Direct: rezumate Windows, anularea verificărilor și recuperare." }
 
 [[release.entry]]
 category = "fixed"

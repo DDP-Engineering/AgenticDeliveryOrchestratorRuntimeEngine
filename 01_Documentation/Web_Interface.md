@@ -19,19 +19,6 @@ information, not a readiness gate or an AEGIS version claim. A missing local clo
 stays not inspected until an explicit check can read it. The live pre-pick probe
 remains authoritative for a present AEGIS payload.
 
-During enrollment's Verification step, **Verification command** is optional. An
-untouched direct-clone draft is prefilled from repository files when a match exists,
-with **Suggested from `<file>`** provenance; otherwise it stays empty. It saves exact single-line shell text as `[workflow] verify_command`
-for Direct runs. An inspected AEGIS repository shows **Uses the repository's AEGIS
-test commands** instead. Settings → Implementation keeps the same field visible for
-both workflows, with reviewed Admin edits and Dev read-only access. Pasted line
-breaks or NUL produce field feedback and cannot be submitted; they are not stripped.
-An empty command leaves Direct candidates explicitly unverified. Enrollment and
-settings saves never execute it; actual independent verification uses the worktree
-root and selected run environment under the validation time limit. Human edits and
-clearing survive repeated previews, checks and Back; saved Settings are authoritative. In-app Projects, Settings, Glossary and Tickets help describes these
-boundaries in all four locales.
-
 ## Direct jobs in Jobs
 
 The global and project Jobs tables identify the saved **Workflow** as **AEGIS** or
@@ -203,32 +190,6 @@ approval labels, forge reviewer usernames and four run limits are reviewed befor
 creation. Cost limit zero disables that cap and does not imply free execution.
 Visible guidance explains units, eligibility and approval. Existing hold/exclude
 rules remain applicable.
-
-Entering enrollment's **Verification** step performs an offline structural preview.
-For an existing direct clone, **Verification command** offers an editable repository
-suggestion with **Suggested from `<file>`**. It is saved only by explicit Create,
-never by preview; a later Settings Save persists only human-reviewed text. A human
-edit or clear is sticky for the mounted draft, including across Back and rechecks.
-Discovery reads root manifests in table order, falling back only to one matching
-first-level directory; see [matching rules](Configuration_Reference.md#verification-command-suggestions).
-External links and files over 1 MiB are ignored. No matching file, ambiguous folders
-or an absent clone produces no suggestion; no command is executed or validated.
-Applying a default invalidates old review evidence and uses one additional canonical
-preview before Check or Continue can be enabled. An inspected AEGIS clone instead
-shows **Uses the repository's AEGIS test commands**. **Workflow** shows AEGIS,
-Direct or not inspected as information, never as a failed prerequisite. Until the
-clone exists, its workflow remains uninspected; a later explicit host check can
-inspect the created clone.
-
-The command saves exactly as `[workflow] verify_command`; omission saves an empty
-string. The same field is editable in **Settings → Implementation** through the
-existing reviewed Save. Developers see the value without edit controls. A pasted
-multiline command remains visible and is refused with field feedback before
-submission; invalid text is never flattened into a different command. It is one shell
-command line for direct-workflow verification, run from the worktree root under
-the validate-stage limit. Empty means no independent verification; AEGIS uses its
-repository-owned test commands instead. CR, LF, NUL and nontext input are refused,
-not stripped or converted. Preview, enrollment and configuration save never run it.
 
 Validate setup performs local structural validation without external probes.
 **Check environment** checks the host tools and repository authentication. For a

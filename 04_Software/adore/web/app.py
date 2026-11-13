@@ -109,8 +109,8 @@ from adore.util import (
     run_command,
     strict_json_loads,
 )
-from adore.verification_hint import suggest_verification_command
 from adore.web import analytics
+from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
     CONNECTION_KEYS,
@@ -132,9 +132,7 @@ from adore.web.executor_settings import (
 from adore.web.implementation_settings import (
     COLLECTION_KEYS,
     set_collection,
-    set_verify_command,
     valid_collection,
-    valid_verify_command,
 )
 from adore.web.jobs import JobReadError, read_job_budget, read_jobs, read_overview_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
@@ -375,15 +373,6 @@ class ProjectInput(BaseModel):
     max_cost_usd: float = Field(default=5.0, ge=0, le=1000000, allow_inf_nan=False)
     max_files_touched: int = Field(default=120, ge=1, le=1000000, strict=True)
     clone_url: str = Field(default="", max_length=512)
-    verify_command: str = Field(default="", strict=True)
-
-    @field_validator("verify_command")
-    @classmethod
-    def validate_verify_command(cls, value: str) -> str:
-        """@brief Refuse invalid command text rather than trim, flatten or execute it."""
-        if not valid_verify_command(value):
-            raise ValueError("verify_command must be a single line without CR, LF or NUL")
-        return value
 
 
 class RepositorySourceInput(BaseModel):
@@ -911,6 +900,17 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
+def _container_probe(runner: CommandRunner, argv: list[str]) -> bool:
+    """@brief Check bounded container prerequisites without exposing command output."""
+    try:
+        result = runner(argv, timeout=8)
+    except (OSError, TimeoutError):
+        return False
+    return (isinstance(result, CommandResult) and type(result.exit_code) is int
+            and result.exit_code == 0 and type(result.timed_out) is bool
+            and not result.timed_out)
+
+
 def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None,
                  chatgpt_dir: Path | None = None, *, external_auth: bool = True) -> dict:
     """@brief Run bounded redacted prerequisites for an explicit config snapshot.
@@ -1014,8 +1014,6 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
         auth = doctor.auth_status(config.platform.kind, bounded_runner, external_auth=False)
-        runtimes = (doctor.detect_runtimes(bounded_runner)
-                    if config.execution.backend == "container" else None)
     except (OSError, UnicodeError, TypeError, ValueError,
             KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
@@ -1033,6 +1031,9 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                                 chatgpt_dir or chatgpt.credential_dir()) == "signed-in"}
                                if config.executor.provider == CHATGPT else {}),
                             **_internet_checks(config, bounded_runner, env_file)}}
+    prefix = doctor.inventory_runtime_argv(config.container.runtime.strip())
+    runtime_ready = bool(prefix and _container_probe(bounded_runner, [*prefix, "info"]))
+    executor = False
     try:
         image_runtime = ContainerManager(
             config.container.runtime, config.container.image,
@@ -1041,24 +1042,20 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
             egress=egress_policy(config),
             selinux_relabel=config.container.selinux_relabel,
         )
-        executor = bounded_runner([
+        executor = runtime_ready and _container_probe(bounded_runner, [
             *image_runtime.runtime_argv, "run", "--rm", "--pull=never",
             "--network", "none", "--entrypoint", "python",
             config.container.image, "-c",
             "import shutil,sys; sys.exit(0 if shutil.which(sys.argv[1]) else 1)",
             EXECUTOR_NAME,
-        ], timeout=8).ok
+        ])
     except (IsolationError, OSError, TimeoutError, ValueError):
         executor = False
-    runtime_name = config.container.runtime.strip()
-    runtime = (runtimes.docker if runtime_name == "docker" else
-               runtimes.podman if runtime_name == "podman" else None)
     checks = {
         "git": git.present and not git.detail,
         "forge_cli": forge.present and not forge.detail,
         "forge_auth": auth.authenticated,
-        "container_runtime": (runtime.present and not runtime.detail
-                              if runtime is not None else None),
+        "container_runtime": runtime_ready,
         "executor_cli": executor,
     }
     if config.executor.provider == CHATGPT:
@@ -1087,7 +1084,6 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "clone_url",
             "evidence_token",
             "thinking",
-            "verify_command",
         }
     )
     answers["budgets_choice"] = "custom"
@@ -1187,7 +1183,6 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             if body.thinking:
                 candidate.document = candidate.document.replace(
                     "[executor]\n", "[executor]\nthinking = " + json.dumps(body.thinking) + "\n", 1)
-            candidate.document = set_verify_command(candidate.document, body.verify_command)
             issues.extend(_config_findings(_config_from_bytes(candidate.document.encode("utf-8"))))
         except WizardError as exc:
             issues.append(_finding("setup_field_invalid", exc.field,
@@ -1810,8 +1805,6 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
                         and member != BATCH_KEY
                         and _valid_candidate_scalar(member, item, backend)
                         for member, item in proposed.items()))
-    if key == "workflow.verify_command":
-        return valid_verify_command(proposed)
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
     if key == CONNECTION_KEY:
@@ -1853,14 +1846,6 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
                 raise _error(400, "setting_not_editable")
             text = _set_candidate_value(text, member, wire)
         return text
-    if key == "workflow.verify_command":
-        if not valid_verify_command(value):
-            raise HTTPException(status_code=400, detail={
-                "code": "invalid_config",
-                "issues": [_finding("invalid_config", key,
-                                    "Use a single line without CR, LF or NUL.")],
-            })
-        return set_verify_command(text, value)
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
     if key == CONNECTION_KEY:
@@ -2048,7 +2033,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
         if ((value["key"] in COLLECTION_KEYS
-                or value["key"] in {CONNECTION_KEY, BATCH_KEY, "workflow.verify_command"})
+                or value["key"] in {CONNECTION_KEY, BATCH_KEY})
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
@@ -2122,7 +2107,7 @@ def _editable_setting_key(key: str) -> bool:
     @return     True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
-               "workflow.aegis_python"}:
+               "workflow.aegis_python", "workflow.verify_command"}:
         return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds",
                CONNECTION_KEY, BATCH_KEY}:
@@ -2715,17 +2700,20 @@ def _run_view(run) -> dict:
 # PUBLIC API
 def create_app(home: str | Path | None = None,
                *, probe_runner: CommandRunner = run_command,
+               environment_runner: CommandRunner | None = None,
                chatgpt_popen: Callable[..., subprocess.Popen] = subprocess.Popen) -> FastAPI:
     """
     @brief Construct the optional web service for a profile home.
     @param[in] home ADORE_HOME override used by tests and deployment.
     @param[in] probe_runner Injectable runner for explicit readiness probes.
+    @param[in] environment_runner Optional separate boundary for shared image preparation.
     @param[in] chatgpt_popen Process factory of the ChatGPT sign-in helper.
     @return Configured FastAPI application.
     """
     profiles = ProfileStore(home)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
+    environment = EnvironmentPreparation(profiles.home, environment_runner or probe_runner)
     enrollment_evidence: dict[str, tuple[int, str, str, float, dict]] = {}
     enrollment_lock = Lock()
 
@@ -2802,7 +2790,9 @@ def create_app(home: str | Path | None = None,
                        "/api/v1/projects/setup-check",
                        "/api/v1/projects/setup-create", "/api/v1/projects/transfer-source",
                        "/api/v1/projects/transfer-preview", "/api/v1/projects/transfer-check",
-                       "/api/v1/projects/transfer-create"}
+                       "/api/v1/projects/transfer-create", "/api/v1/projects/setup-environment",
+                       "/api/v1/projects/import-environment",
+                       "/api/v1/projects/transfer-environment"}
         if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
             detail["issues"] = issues
         return JSONResponse(status_code=422, content={"detail": detail})
@@ -3391,16 +3381,6 @@ def create_app(home: str | Path | None = None,
     ) -> dict:
         """@brief Preview exact setup and separate direct-only file hints, without probes."""
         preview, _candidate = _prepare_project(profiles, body)
-        preview["verification_hint"] = None
-        if preview["structural_valid"] and preview.get("workflow") == "direct":
-            try:
-                hint = suggest_verification_command(Path(body.repo_path).expanduser())
-            except (OSError, UnicodeError) as exc:
-                raise _contract_rejection(
-                    "project_setup_unavailable", "repo_path",
-                    "Check local repository file access.") from exc
-            if hint is not None:
-                preview["verification_hint"] = {"command": hint[0], "source": hint[1]}
         web.audit(
             _user["id"],
             "enrollment-prepared",
@@ -3550,6 +3530,31 @@ def create_app(home: str | Path | None = None,
             "auth_bound": auth_bound,
         }
 
+    def prepare_environment(config, user: dict, name: str) -> dict:
+        """Start shared preparation only after the enrollment's exact review passes."""
+        try:
+            job = environment.start(config)
+        except EnvironmentError as exc:
+            raise _error(503, exc.code) from exc
+        web.audit(user["id"], "environment-preparation-started", name)
+        return job
+
+    @app.get("/api/v1/environment-preparations/{job_id}")
+    def read_environment_preparation(job_id: str,
+                                     _user: Annotated[dict, Depends(administrator)]) -> dict:
+        """Expose only bounded, value-free progress to server administrators."""
+        job = environment.read(job_id)
+        if job is None:
+            raise _error(404, "environment_preparation_expired")
+        return job
+
+    @app.post("/api/v1/projects/transfer-environment", status_code=202)
+    def prepare_transfer_environment(body: ReviewedTransferInput, request: Request,
+                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, candidate = reviewed_transfer(body, request)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        return prepare_environment(config, user, body.target.name)
+
     @app.post("/api/v1/projects/transfer-create")
     def create_transfer(
         body: ReviewedTransferInput,
@@ -3618,6 +3623,13 @@ def create_app(home: str | Path | None = None,
         if not secrets.compare_digest(body.revision, preview["revision"]):
             raise _error(409, "stale_config_revision")
         return preview, candidate
+
+    @app.post("/api/v1/projects/setup-environment", status_code=202)
+    def prepare_setup_environment(body: ReviewedProjectInput,
+                                  user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, candidate = reviewed_setup(body)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        return prepare_environment(config, user, body.name)
 
     @app.post("/api/v1/projects/setup-check")
     def check_project_setup(
@@ -3733,6 +3745,12 @@ def create_app(home: str | Path | None = None,
             candidate_revision=preview.get("revision"),
         )
         return preview
+
+    @app.post("/api/v1/projects/import-environment", status_code=202)
+    def prepare_import_environment(body: ProjectImportInput,
+                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, config = _reviewed_import(profiles, body)
+        return prepare_environment(config, user, body.name)
 
     @app.post("/api/v1/projects/import-check")
     def check_project_import(body: ProjectImportInput,
@@ -3979,6 +3997,15 @@ def create_app(home: str | Path | None = None,
             config.container.uv_cache_volume, config.container.npm_cache_volume,
             probe_runner, run_args=config.container.run_args,
             selinux_relabel=config.container.selinux_relabel)
+        if manager is not None:
+            for command, code in (
+                ([*manager.runtime_argv, "info"], "container_runtime_unavailable"),
+                ([*manager.runtime_argv, "image", "inspect", manager.image],
+                 "executor_image_unavailable"),
+            ):
+                if not _container_probe(probe_runner, command):
+                    web.audit(user["id"], "chatgpt-sign-in-failed", item.name, detail=code)
+                    raise _error(503, code)
         manager = chatgpt.helper_for(config, manager, runner=probe_runner)
         with chatgpt_lock:
             previous = chatgpt_pending["session"]

@@ -13,21 +13,22 @@ Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich a
 Halten Sie Folgendes bereit:
 
 - Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.
-- Einen optionalen **Prüfbefehl** für ein Repository ohne AEGIS. Er darf leer bleiben; der Kandidat ist dann ausdrücklich ungeprüft.
 - Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.
 - Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).
-- Die Modell-ID für den Coding-Agenten Pi und, für ein Container-Projekt, ein Image auf dem Server auf Basis des ADORE-Basis-Images, das Pi enthält. Siehe [Executor und Modelle](/help/executors).
+- Die Modell-ID für Pi und bei Containern einen laufenden Docker- oder Podman-Dienst. Das gemeinsame Standardimage wird beim Import automatisch vorbereitet; eigene Images müssen bereits in diesem Dienst vorhanden sein. Siehe [Executor und Modelle](/help/executors).
 
 ## Neues Projekt registrieren {#add-project}
 
 Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.
+
+Wenn keine Projekte mehr vorhanden sind, bieten Übersicht und Projekte Administratoren **Neues Projekt registrieren** und **Rohkonfiguration importieren** an. Nach dem Löschen des letzten Projekts kehren Sie zu Projekte zurück, wo beide Aktionen verfügbar bleiben.
 
 | Schritt | Was abgefragt wird |
 |---|---|
 | Repository und Identität | **Repository-URL** und **Repository lesen**: ADORE füllt **Forge**, **Repository**, **Gitea tea login**, **Zielbranch** und die Projekt-ID zur Bestätigung aus und schlägt einen änderbaren **Lokaler Klonpfad** vor. **Weiter** bleibt deaktiviert, bis das Repository gelesen wurde. **Anzeigename** beginnt mit dem Repository-Namen; **Beschreibung** ist optional. |
 | Agent und Modell | Wählen Sie **Anbieter**, **Modell** und bei Bedarf den Endpunkt. Wählen Sie für einen Container Laufzeit und Image. Speichern Sie den Anbieterschlüssel nach der Erstellung unter Einstellungen. Unter **Auf dem Server installiert** erscheinen das aktuelle Systemkonto und der optionale **PATH für Projektwerkzeuge**. |
 | Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, optional **Prüfende (kommagetrennt)** und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |
-| Überprüfung | **Konfiguration validieren** prüft Struktur und Serverordner. **Umgebung prüfen** testet Git und den Forge-Zugriff. **Workflow** zeigt separat den beobachteten Repository-Workflow, ohne die Registrierung zu sperren. Bei Ausführung auf dem Server zeigt **Pi auf dem Server** lokale Fehler wie inkompatible Node-Versionen. Bei Containerausführung werden die Engine und Pi im lokalen Image geprüft. Es wird nichts veröffentlicht. **Weiter** öffnet die Prüfung, sobald die Konfiguration gültig ist. |
+| Überprüfung | Beim Öffnen dieses Schritts werden Konfiguration, Serverordner, Git und Forge-Zugriff automatisch geprüft. **Umgebung erneut prüfen** wiederholt diese Prüfungen. **Workflow** zeigt separat den beobachteten Repository-Workflow, ohne die Registrierung zu sperren. Bei Ausführung auf dem Server zeigt **Pi auf dem Server** lokale Fehler wie inkompatible Node-Versionen. Bei Containerausführung werden die Engine und Pi im lokalen Image geprüft. Es wird nichts veröffentlicht. **Weiter** öffnet die Prüfung, sobald die Konfiguration gültig ist. |
 | Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte sowie eine eingeklappte Liste **Auf Standard belassene Einstellungen** mit dem Standardwert jeder weiteren Einstellung (nur lesbar; nach dem Erstellen in den Einstellungen änderbar). **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** klont zuerst das Repository (aus einer URL), prüft den Zielbranch und speichert dann das Projekt; sofern Sie **ADORE-Labels im Repository anlegen** nicht abwählen, legt es die fehlenden ADORE-Labels an und zeigt das Ergebnis; danach folgt **Projekt öffnen**. |
 
 Für die native lokale Ausführung wählen Sie **Ausführung → Auf dem Server installiert**. Spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.
@@ -40,14 +41,9 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 
 ## Repository-Workflows {#workflows}
 
-Repositorys mit oder ohne AEGIS können registriert werden. ADORE installiert, aktualisiert oder ändert AEGIS nie und fügt dem Klon bei der Registrierung keine Dateien hinzu. Sie wählen keinen Workflow:
+Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports bereitet ADORE fehlende gemeinsame Ausführungs- und Proxy-Images vor dem Speichern des Projekts vor. Die aktuelle Phase wird angezeigt; die erste Vorbereitung kann mehrere Minuten dauern und benötigt Internet auf dem Server. Weitere Importe verwenden die Images erneut. Nach einem Vorbereitungsfehler können Sie den Import ohne erneute Eingabe derselben Antworten wiederholen. Native Importe überspringen die Container-Vorbereitung. Eigene Images bleiben Aufgabe des Administrators.
 
-- **AEGIS, Phase für Phase** bedeutet, dass `.agentic/aegis.py` vorhanden ist; `.agentic/aegis.toml` ist für die Registrierung nicht nötig. ADORE führt die AEGIS-Phasen des Repositorys mit dessen Testbefehlen durch.
-- **Direkt, kein AEGIS gefunden** bedeutet, dass ein geprüfter Klon keine `.agentic/aegis.py` enthält. Pi setzt das Ticket in einer begrenzten Sitzung um; ADORE führt danach den optionalen Prüfbefehl vor der menschlichen Freigabe aus.
-
-**Workflow** ist eine Information, keine fehlgeschlagene Voraussetzung oder Versionsprüfung. Solange der lokale Klon nicht existiert, ist er nicht geprüft; Vorschau und Prüfungen klonen ihn nicht. Die Erstellung behält das gemessene Ergebnis bei. Nutzen Sie danach **Host-Voraussetzungen prüfen**, um den neuen Klon zu prüfen. Die Live-Prüfung vor der Ticketaufnahme weist ein vorhandenes defektes oder nicht unterstütztes AEGIS weiterhin ab; sie wechselt nie stillschweigend zu Direkt.
-
-Beim Öffnen der Überprüfung liest ADORE die Serverordner und validiert die Konfiguration ohne externe Befehle. **Prüfbefehl** ist optional. Bei einem vorhandenen direkten Klon wird er vorausgefüllt, wenn Repository-Dateien einen Vorschlag liefern; **Vorgeschlagen aus** nennt die Quelldatei. Behalten, ändern oder leeren Sie ihn; spätere Prüfungen und Vorschauen bewahren Ihre Änderungen, auch das Leeren. Ohne Treffer oder vor dem Klonen bleibt er leer. Vorschläge prüfen zuerst Manifeste im Stamm, dann genau einen passenden Ordner der ersten Ebene; mehrere passende Ordner liefern keinen Vorschlag. Links aus dem Klon und Dateien über 1 MiB werden ignoriert. Kein Vorschlag wird ausgeführt oder als funktionsfähig bestätigt; Einstellungen ersetzt keinen gespeicherten Wert durch einen Vorschlag. Geben Sie einen einzeiligen Shell-Befehl ein; Zeilenumbrüche und NUL werden mit einer Meldung abgelehnt, nicht entfernt. Die Registrierung speichert den genauen Text, führt ihn aber nie aus. Die direkte Prüfung startet im Worktree-Stamm des Auftrags in der gewählten Ausführungsumgebung unter deren Validierungszeitlimit. Leer bedeutet ungeprüft. Für ein geprüftes AEGIS-Repository ersetzt **Verwendet die AEGIS-Testbefehle des Repositorys** das Feld. Den gespeicherten Befehl ändern Sie später unter Einstellungen → Implementierung; siehe [Prüfbefehl](/help/settings#verification-command).
+**AEGIS / Direkt**. Der Agent wählt und führt Prüfungen gemäß den Repository-Anweisungen aus. Mit AEGIS folgt er den gespeicherten Phasen, sonst implementiert er das Ticket direkt. ADORE beobachtet Fortschritt und Journal, speichert den Kandidaten und fordert menschliche Freigabe an. Es startet keine zusätzlichen Repository-Tests oder strikten AEGIS-Prüfungen.
 
 ## Originalkonfiguration importieren {#import-project}
 

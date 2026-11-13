@@ -7,39 +7,46 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
-Enrollment `setup-preview` returns transient `verification_hint: {command, source}`
-or null, separate from submitted review text and revision digests. After valid
-preparation, only an inspected Direct clone calls `suggest_verification_command`.
-AEGIS, absent clones, no match and invalid drafts return null. Preview never clones
-or probes for discovery. `OSError`/`UnicodeError` map to a redacted 503
-`project_setup_invalid` with `repo_path` finding; no profile is published.
-Create/shared preparation and Settings never discover or install defaults; the
-existing exact reviewed command remains the sole saved value. Offline
-`test_web_enrollment.py` proves direct/source, AEGIS/pending suppression, unchanged
-review/digests, explicit publication and inaccessible evidence. See
-[Verification hint reader](Component_Verification_Hint.md).
+ADORE guides agents and observes their recorded workflow. AEGIS completion is
+read from the task journal; Direct completion comes from the implementation
+session and its summary. Tests and their local/CI selection belong to the agent.
+ADORE does not invoke `check --strict --run` or run a separately configured test
+command. Candidate fingerprints, target freshness and fresh human approval remain
+required before publication. Old `workflow.verify_command` values are ignored
+without rewriting profiles and cannot be edited through the API.
 
-`workflow.verify_command` is an editable exact-string setting in the API catalog.
-Enrollment accepts optional strict `verify_command` text, default empty, and saves
-it as a TOML string before canonical review hashing. Explicit null/nontext or
-CR/LF/NUL input returns 422 `invalid_request` with `verify_command` field feedback.
-The scalar/batch settings review uses the same command domain and literal-string
-writer; invalid text returns 400 `invalid_config` with value-free
-`workflow.verify_command` feedback, leaving active and pending bytes unchanged.
-Nothing trims, infers scalar types or executes the command during enrollment or save.
-The writer preserves newline style, escapes DEL (U+007F) as a TOML Unicode
-escape while retaining literal non-BMP Unicode, and verifies that no unrelated
-parsed TOML meaning changed; unsupported human spellings fail closed. Pending read/apply
-rechecks claimed text, typed domain and whole-document meaning against an unchanged
-base. Existing Admin/CSRF, revision, idle and locking boundaries remain authoritative.
-Resolved configuration, exact Admin raw TOML and unrelated edits preserve the value.
-Invalid saved values retain key-named diagnostic issues or typed corrupt-config refusal.
-Proof: `test_web_enrollment.py`, `test_web_config.py`, `test_web_config_raw.py`,
-`test_web_pending_config.py`, `test_web_settings_batch.py`. The browser uses this
-same domain for enrollment and Implementation settings with four-locale field
-feedback; the guided AEGIS note changes presentation only, not saved command text.
-Offline enrollment/settings journeys cover both actual clone workflows, exact
-nonempty and empty saves, role refusal and multiline clipboard input.
+The browser starts `POST /api/v1/projects/setup-environment` or `import-environment`
+with the exact reviewed enrollment, then polls administrator-only
+`GET /api/v1/environment-preparations/{id}` before publishing with the existing
+create/import route. `transfer-environment` accepts the same reviewed transfer
+contract as `transfer-create`. Admin/CSRF and stale-source checks precede all work.
+No project is published by preparation. Progress contains only an opaque ID,
+status, stage and allowlisted failure code; no build output or credentials.
+
+`environment.py` prepares missing default executor/proxy images from four bundled
+files, matches service UID/GID (including WSL), verifies Pi with no network or
+mounts, and reuses existing images. Custom image names are inspected, never built
+or pulled automatically. WSL aliases share a canonical runtime key. Simultaneous
+imports share progress; crash-reclaiming locks serialize builds across web processes.
+There are at most eight active and 64 retained operations; each build has a
+30-minute limit. Failed/restarted preparation can be retried with engine layer-cache
+reuse. Progress is in memory; after a web restart callers retry, and image presence
+is inspected again. Build files are included in the wheel as `adore/container_assets`.
+Regression coverage: `test_web_environment.py`, browser enrollment/import journeys
+and `environment.test.mjs`. Existing API creation routes remain compatible; browser
+enrollment automatically invokes preparation before them. Manual checks/previews
+remain read-only. Measured readiness is refreshed after long builds before creation.
+
+Container readiness checks the configured Docker/Podman daemon with `info`,
+including canonical WSL command prefixes, before probing Pi inside the selected
+image without network access. ChatGPT sign-in checks that daemon and the local
+image before starting its helper. Failures return redacted 503 codes
+`container_runtime_unavailable` or `executor_image_unavailable`, audited by code
+and translated in all four locales. Probes have eight-second bounds and reject
+timeouts even with exit code zero. They never pull/build images or alter credentials.
+The shared executor image is prepared once per container service and reused by
+projects selecting it. Regression coverage: `test_web_readiness.py` and
+`test_web_chatgpt.py`.
 
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 

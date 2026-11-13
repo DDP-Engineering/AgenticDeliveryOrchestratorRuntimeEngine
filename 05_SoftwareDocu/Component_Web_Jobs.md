@@ -113,33 +113,24 @@ controls and backslashes, including percent-decoded forms. Free text redacts
 common token/password/secret/API-key/authorization assignments and Basic/Bearer
 credentials. Descriptions, authors, arbitrary journal values, financial payloads,
 outbox bodies, worktree paths and general validation payloads are excluded. The
-narrow saved direct verification projection below is the only command/output exception.
+projection below contains only the recorded agent attempt.
 
 `workflow` is the recorded `aegis` or `direct` value in authorized list and detail
 reads. Missing/unknown/nontext workflows and direct AEGIS task bindings return
 503 `run_state_corrupt`, never an inferred value. Jobs uses that saved value for
 workflow labels and direct-stage presentation; repository readiness cannot replace it.
 
-Direct details additionally expose a closed `direct = {attempt, verification}` object.
-`attempt` is the last saved `stage-launch` attempt in append order (positive safe
-integer), or null with no launch. Every launch is validated; a later good launch
-cannot hide earlier corruption. Cumulative launches and current failures are not
-substitutes. `verification` is exactly `{status, result}`. Absent saved status/result
-becomes `unavailable`/null; explicit `not configured` without result remains distinct.
-Configured `passed`, `failed` or `timed out` requires exactly command, exit_code,
-seconds, timed_out and output with agreeing outcome. Timeout takes priority over
-exit; exit 124 without timeout is failed. Exit codes project as canonical decimal
-text so arbitrary saved Python integers survive JavaScript transport exactly.
-Duration is a finite nonnegative number, including zero. Output is normalized,
-valid Unicode, bounded to 200 LF lines/6000 Unicode scalars, without NUL/ANSI.
-Command/output are credential-masked for both roles before any final tail cut;
-leading whitespace and empty output remain evidence. Current configuration is not
-consulted for these saved values. An old failure stays visible during remediation.
+Direct details expose only the closed `direct = {attempt}` object. The attempt
+comes from the last recorded stage launch, never from budget or failure counters.
+Old independent-verification fields in retained state are not projected or executed.
+The UI displays agent attempts without command/result/output verification panels.
 
 `_direct_evidence` consumes the same captured run/events as `_view`, before filters,
 counts or paging. `jobs_page` strips `direct` along with timeline from list rows.
-AEGIS details omit `direct`. Direct current/non-null timeline stages must be
-build/validate/done; malformed saved state/result produces `run_state_corrupt`,
+AEGIS details omit `direct`. Direct execution stages are build/validate/done.
+The failed `publishing` recovery pointer is also readable, and a `reset` event may
+record `publishing` even after Retry has completed. Other events cannot introduce
+that execution stage. Malformed saved state/result produces `run_state_corrupt`,
 malformed attempts/events produce `run_journal_corrupt`. No source is repaired,
 engine helper invoked, stored field added or execution behavior changed.
 

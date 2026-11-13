@@ -6,10 +6,6 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
-/** Exact optional shell-command domain; never trim or flatten pasted input. */
-export function validVerificationCommand(value: unknown): value is string {
- return typeof value === "string" && !/[\r\n\u0000]/.test(value);
-}
 
 export const executionStages = ["frame", "specify", "design", "build", "validate"] as const;
 

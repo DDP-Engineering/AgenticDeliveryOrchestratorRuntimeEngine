@@ -34,9 +34,9 @@ test("translations differ from the English text", () => {
   }
 });
 
-test("direct stage limits map build and validate with general-limit fallback in every locale", () => {
+test("agent stage limits retain their general-limit fallback in every locale", () => {
   for (const locale of locales) {
-    for (const key of ["budgets.per_gate_timeout_seconds", "workflow.stage_timeout_overrides", "workflow.stage_timeout_overrides.*"]) {
+    for (const key of ["workflow.stage_timeout_overrides", "workflow.stage_timeout_overrides.*"]) {
       const text = SETTING_HELP[locale][key];
       assert.match(text, /build/, `${locale}: ${key}`);
       assert.match(text, /validate/, `${locale}: ${key}`);

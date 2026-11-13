@@ -86,7 +86,8 @@ def _get(client, query=""):
     ("failed", 2**100, False, 1, "tail"),
     ("not configured", None, None, None, None),
     ("unavailable", None, None, None, None),
-])
+], ids=["passed-empty", "failed-redacted", "timeout-unicode", "large-negative-exit",
+        "large-positive-exit", "not-configured", "unavailable"])
 def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
         tmp_path, role, status, exit_code, timed_out, seconds, output):
     """@brief Detail projects saved direct evidence, not current config or counters."""
@@ -117,11 +118,7 @@ def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
         response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
         assert response.status_code == 200, response.text
         direct = response.json()["job"]["direct"]
-        assert set(direct) == {"attempt", "verification"} and direct["attempt"] == 2
-        expected = None if result is None else {
-            **result, "command": redact_text(result["command"]),
-            "exit_code": str(exit_code), "output": redact_text(output)}
-        assert direct["verification"] == {"status": status, "result": expected}
+        assert direct == {"attempt": 2}
         assert "PRIVATE" not in response.text
         if role == "developer":
             assert client.get(f"/api/v1/jobs/{items[1].project_id}/same").status_code == 404
@@ -135,18 +132,12 @@ def test_direct_absent_launch_does_not_guess_from_other_counters(tmp_path):
     with TestClient(app) as client:
         _login(client)
         job = client.get(f"/api/v1/jobs/{items[0].project_id}/same").json()["job"]
-        assert job["direct"] == {"attempt": None, "verification": {
-            "status": "unavailable", "result": None}}
+        assert job["direct"] == {"attempt": None}
 
 
 @pytest.mark.parametrize("mutation", [
     "attempt-missing", "attempt-bool", "attempt-zero", "attempt-float", "attempt-unsafe",
-    "current-stage", "timeline-stage", "result-null", "result-extra", "result-missing",
-    "status-missing", "status-null", "status-unknown", "unconfigured-result", "mismatch",
-    "exit-bool", "seconds-bool", "seconds-negative", "seconds-overflow", "timeout-type",
-    "output-type", "output-long", "output-lines", "output-nul", "output-ansi",
-    "output-cr", "output-surrogate", "output-trailing-lf", "output-separator",
-    "command-type", "command-nul",
+    "current-stage", "timeline-stage", "publication-launch", "publication-transition",
 ])
 def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_path, mutation):
     """@brief All selected direct sources fail closed before filtering or totals."""
@@ -169,31 +160,10 @@ def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_pa
     elif mutation == "timeline-stage":
         stores[0].journal("same", "stage-advanced", current="design")
         code = "run_journal_corrupt"
-    elif mutation == "result-null":
-        evidence["verification_result"] = None
-    elif mutation == "result-extra":
-        result["private"] = "PRIVATE"
-    elif mutation == "result-missing":
-        del evidence["verification_result"]
-    elif mutation == "status-missing":
-        del evidence["verification"]
-    elif mutation in {"status-null", "status-unknown", "unconfigured-result", "mismatch"}:
-        evidence["verification"] = {"status-null": None, "status-unknown": "PRIVATE",
-                                    "unconfigured-result": "not configured",
-                                    "mismatch": "failed"}[mutation]
-    else:
-        field, value = {
-            "exit-bool": ("exit_code", True), "seconds-bool": ("seconds", True),
-            "seconds-negative": ("seconds", -1), "seconds-overflow": ("seconds", 10**400),
-            "timeout-type": ("timed_out", 1), "output-type": ("output", []),
-            "output-long": ("output", "x" * 6001), "output-lines": ("output", "\n" * 200),
-            "output-nul": ("output", "\x00"), "output-ansi": ("output", "\x1b[31mred"),
-            "output-cr": ("output", "\r\n"), "output-surrogate": ("output", "\ud800"),
-            "output-trailing-lf": ("output", "tail\n"),
-            "output-separator": ("output", "one\u2028two"),
-            "command-type": ("command", []), "command-nul": ("command", "\x00"),
-        }[mutation]
-        result[field] = value
+    elif mutation in {"publication-launch", "publication-transition"}:
+        stores[0].journal("same", "stage-launch" if mutation == "publication-launch"
+                         else "stage-advanced", stage="publishing", attempt=2)
+        code = "run_journal_corrupt"
     _state(stores[0], "same", **updates)
     paths = list(stores[0].run_dir("same").iterdir())
     before = {path: path.read_bytes() for path in paths}

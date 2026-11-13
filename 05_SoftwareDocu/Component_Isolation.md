@@ -452,6 +452,11 @@ same owned-path/source boundary, refuses links/hardlinks/nonregular files, check
 file identity and content metadata before/during/after the read, and retains only
 the caller's positive evidence-length bound in memory. The complete stream is
 decoded, so an invalid prefix cannot be hidden by keeping only the tail.
+Cross-comparison of path and descriptor receipts uses device, inode, mode, link
+count, size and modification time. Change time remains part of each API's own
+before/after receipt, since Windows can report different change-time semantics
+through `lstat` and `fstat`. Removal retains the full path receipt. Binary descriptor
+opening preserves CRLF and control-Z bytes before strict UTF-8 decoding.
 The receipt contains text, the owned path, and stable identity metadata; it is
 not run-state data and must not be persisted as an object.
 

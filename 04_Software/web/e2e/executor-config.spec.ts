@@ -295,6 +295,11 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
   await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Provider API key",exact:true})).toHaveCount(0);
   await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["not-signed-in"]);
+  expect((await page.request.post("/__e2e__/enrollment?mode=failed",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
+  await panel.getByRole("button",{name:c.start,exact:true}).click();
+  await expect(panel.getByRole("alert")).toHaveText(errorMessages.en.container_runtime_unavailable);
+  await expect(panel.getByRole("link",{name:c.link,exact:true})).toHaveCount(0);
+  expect((await page.request.post("/__e2e__/enrollment?mode=partial",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
   await panel.getByRole("button",{name:c.start,exact:true}).click();
   const link=panel.getByRole("link",{name:c.link,exact:true});
   await expect(link).toHaveAttribute("href",/^https:\/\/auth\.openai\.com\//);
@@ -314,6 +319,7 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
  } finally {
   await page.request.delete("/api/v1/chatgpt-sign-in",{headers:{"X-CSRF-Token":(await(await page.request.get("/api/v1/session")).json()).csrf}}).catch(()=>undefined);
   expect((await fixture("openai")).ok()).toBe(true);
+  expect((await page.request.post("/__e2e__/enrollment?mode=failed",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
  }
 });
 

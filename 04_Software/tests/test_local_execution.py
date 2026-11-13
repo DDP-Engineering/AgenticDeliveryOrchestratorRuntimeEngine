@@ -139,156 +139,6 @@ def test_local_selection_is_explicit_and_rejects_container_contracts(tmp_path):
     assert validate_config(config) == []
 
 
-@pytest.mark.parametrize("system", ["Windows", "Linux"])
-@pytest.mark.parametrize("outcome", ["pass", "fail", "timeout"])
-def test_native_direct_verification_uses_only_owned_platform_shell(
-    tmp_path, monkeypatch, system, outcome,
-):
-    """@brief Only the exact configured command gets owned native shell authority."""
-    config, context, _, controller, work = local_fixture(tmp_path, monkeypatch)
-    context["system"] = system
-    root = tmp_path / "Windows"
-    shell = root / "System32/cmd.exe"
-    shell.parent.mkdir(parents=True)
-    shell.touch()
-    monkeypatch.setenv("SystemRoot", str(root))
-    monkeypatch.setenv("COMSPEC", str(work / "untrusted.exe"))
-    command = 'echo "${value} {x} café" && test -f feature.txt'
-    config.workflow.verify_command = command
-    backend = LocalBackend(config, context=context, controller=controller)
-    exchange = Path(config.state.store_root) / "runs/run-1/io"
-    backend.provision("run-1", work, work, exchange, {"OPENAI_API_KEY": "provider-secret"})
-    target = backend.bind("run-1", {"OPENAI_API_KEY": "provider-secret"})
-
-    def execute(argv, **kwargs):
-        """@brief Inject actual exit/timeout and output at the owned controller boundary."""
-        controller.calls.append((argv, kwargs))
-        kwargs["stdout"].write_text("café provider-secret")
-        kwargs["stderr"].write_text("failure" if outcome == "fail" else "")
-        return CommandResult(
-            exit_code=7 if outcome == "fail" else 124 if outcome == "timeout" else 0,
-            timed_out=outcome == "timeout",
-        )
-
-    controller.run_files = execute
-    result = target.run_verification(command, timeout=17)
-    argv, options = controller.calls[-1]
-    expected = [str(shell.resolve()), "/d", "/s", "/c", command] if system == "Windows" else [
-        str(Path("/bin/sh").resolve()), "-c", command,
-    ]
-    assert argv == expected
-    assert options["cwd"] == work and options["timeout"] == 17
-    assert options["env"] == target.env and options["capture_tail"] is True
-    assert options["windows_verification"] == (system == "Windows")
-    assert options["run_id"] == target.resource["id"] and options["host"] == context["host"]
-    assert "provider-secret" not in result.stdout and "café" in result.stdout
-    assert result.timed_out == (outcome == "timeout")
-    assert result.exit_code == (7 if outcome == "fail" else 124 if outcome == "timeout" else 0)
-    before = len(controller.calls)
-    for forbidden in ["sh", "bash", "cmd.exe", "powershell.exe", "script.cmd"]:
-        with pytest.raises(LocalExecutionError):
-            target([forbidden, "-c", command], timeout=17)
-    for invalid in [None, 1, True, [], "", command + "x", "test\nnext", "test\r", "test\x00"]:
-        with pytest.raises(LocalExecutionError):
-            target.run_verification(invalid, timeout=17)
-    assert len(controller.calls) == before
-    context["host"] = "b" * 64
-    with pytest.raises(LocalExecutionError):
-        target.run_verification(command, timeout=17)
-    assert len(controller.calls) == before
-
-
-@pytest.mark.parametrize("command", [
-    r'"C:\Program Files\Project Tools\verify.exe" "argument with spaces"',
-    r'echo "nested quotes" && echo %PROJECT_NAME% | findstr "text" > "result file.txt"',
-    'echo café & echo "C:\\trailing path\\\\"',
-    "echo plain",
-])
-@pytest.mark.parametrize("outcome", ["pass", "fail", "timeout", "cleanup"])
-def test_native_windows_verification_preserves_command_at_child_boundary(
-    tmp_path, monkeypatch, command, outcome,
-):
-    """@brief Owned cmd launch preserves shell text instead of applying C argv escaping."""
-    from types import SimpleNamespace
-
-    from adore import local_child
-
-    config, context, _, _, work = local_fixture(tmp_path, monkeypatch)
-    root = tmp_path / "Windows with spaces"
-    shell = root / "System32/cmd.exe"
-    shell.parent.mkdir(parents=True)
-    shell.touch()
-    monkeypatch.setenv("SystemRoot", str(root))
-    config.workflow.verify_command = command
-    jobs = Jobs()
-    scopes = NativeScopes("Windows", windows=jobs)
-    calls, envelopes = [], []
-
-    def launch(command_line, **kwargs):
-        """@brief Capture the exact CreateProcess input without invoking a Windows shell."""
-        assert Path(envelopes[-1]["release"]).is_file()
-        calls.append((command_line, kwargs))
-        return SimpleNamespace(returncode=7 if outcome == "fail" else 0)
-
-    class Process:
-        """@brief Run the real trusted helper only after the controller's durable release."""
-
-        pid = 42
-        stdout = io.BytesIO(b"verification output")
-        stderr = io.BytesIO(b"verification error" if outcome == "fail" else b"")
-        waits = 0
-
-        def wait(self, timeout):
-            self.waits += 1
-            if self.waits == 1:
-                code = local_child.main(str(envelope_path))
-                if outcome == "timeout":
-                    raise subprocess.TimeoutExpired("injected", timeout)
-                jobs.birth_value = None
-                return code
-            return 0
-
-    envelope_path = None
-
-    def spawn(argv, **kwargs):
-        """@brief Exercise the parent envelope and child transport with an offline Job."""
-        nonlocal envelope_path
-        envelope_path = Path(argv[3])
-        envelopes.append(json.loads(envelope_path.read_text()))
-        assert not Path(envelopes[-1]["release"]).exists()
-        return Process()
-
-    controller = LocalProcessController(scopes, spawn=spawn)
-    backend = LocalBackend(config, context=context, controller=controller)
-    exchange = Path(config.state.store_root) / "runs/run-1/io"
-    backend.provision("run-1", work, work, exchange, {})
-    target = backend.bind("run-1", {})
-    monkeypatch.setattr(local_child.subprocess, "run", launch)
-    if outcome == "cleanup":
-        scopes.remove = lambda *_: (_ for _ in ()).throw(LocalExecutionError("cleanup refused"))
-        with pytest.raises(LocalExecutionError, match="cleanup refused"):
-            target.run_verification(command, timeout=17)
-    else:
-        result = target.run_verification(command, timeout=17)
-        assert result.exit_code == (7 if outcome == "fail" else 124 if outcome == "timeout" else 0)
-        assert result.timed_out == (outcome == "timeout")
-        assert result.stdout == "verification output"
-        assert jobs.killed and jobs.removed
-    command_line, options = calls[0]
-    assert isinstance(command_line, str), "verification still uses C argv serialization"
-    assert envelopes[-1]["windows_verification"] is True
-    # Only the executable uses C-runtime quoting. cmd /s strips exactly the
-    # extra outer pair around the original shell text; no backslash escaping.
-    expected = subprocess.list2cmdline([str(shell.resolve())]) + f' /d /s /c "{command}"'
-    assert command_line == expected
-    assert options["executable"] == str(shell.resolve())
-    assert options["cwd"] == str(work) and options["creationflags"] == 0x08000000
-    assert options["stdin"] == subprocess.DEVNULL
-    assert options["stdout"] is sys.stdout and options["stderr"] is sys.stderr
-    assert options.get("shell", False) is False
-    assert (envelope_path.parents[2] / "active-process.json").exists() == (outcome == "cleanup")
-
-
 def test_local_backend_is_available_through_the_shared_contract():
     """@brief Local selection has an adapter on the established backend boundary."""
     assert hasattr(execution, "LocalBackend"), "local backend adapter is absent"
@@ -304,7 +154,7 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
     assert env["HOME"] == context["home"] and env["OPENAI_API_KEY"] == "provider-secret"
     auth = Path(context["home"]) / ".pi/agent/auth.json"
     auth.parent.mkdir(parents=True)
-    auth.write_text('{"provider":{"refresh":"existing-subscription-secret"}}')
+    auth.write_text('{"provider":{"refresh":"existing-subscription-secret"}}', encoding="utf-8")
     io_dir = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, io_dir, env)
     resource = backend.resource_identity("run-1")
@@ -312,9 +162,11 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
     assert target(["pi", "--version"], timeout=1).ok
     assert controller.calls[0][1]["env"]["GIT_PAGER"] == "cat"
     assert controller.calls[0][1]["secrets"] == ["provider-secret"]
-    assert auth.read_text() == '{"provider":{"refresh":"existing-subscription-secret"}}'
+    assert auth.read_text(encoding="utf-8") == (
+        '{"provider":{"refresh":"existing-subscription-secret"}}')
     assert not any(
-        "existing-subscription-secret" in p.read_text() for p in io_dir.parent.rglob("*.json")
+        "existing-subscription-secret" in p.read_text(encoding="utf-8")
+        for p in io_dir.parent.rglob("*.json")
     )
     config.local.account = "another-account"
     with pytest.raises(LocalExecutionError):
@@ -396,7 +248,7 @@ def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, mo
     if change == "policy":
         config.local.path = str(work)
     elif change == "resource":
-        (io_dir.parent / "local-control/runtime.json").write_text("{}")
+        (io_dir.parent / "local-control/runtime.json").write_text("{}", encoding="utf-8")
     elif change == "executable":
         Path(backend.policy["executable"]).write_bytes(b"replaced")
     with pytest.raises(LocalExecutionError):
@@ -493,152 +345,10 @@ def test_local_scope_control_refuses_reused_process_identity(tmp_path, change):
     path = tmp_path / "active-process.json"
     atomic_record(path, lease)
     if change == "duplicate":
-        path.write_text('{"schema":1,"schema":2}')
+        path.write_text('{"schema":1,"schema":2}', encoding="utf-8")
     with pytest.raises(LocalExecutionError):
         LocalProcessController(scopes).interrupt(tmp_path, "c" * 32, "a" * 64)
     assert jobs.killed == [] and path.exists()
-
-
-@pytest.mark.parametrize("mode", ["success", "nonzero", "timeout", "bad-utf8", "cleanup",
-                                  "split-known", "ansi-token", "spaced-marker", "long-known"])
-def test_native_verification_capture_keeps_true_sanitized_tail(tmp_path, mode):
-    """@brief Owned tail capture drains all bytes, masks split tokens and confirms cleanup."""
-    jobs = Jobs()
-    scopes = NativeScopes("Windows", windows=jobs)
-    control = tmp_path / "control"
-    # Credentials cross the 4096-byte drain boundary and the rolling eviction boundary.
-    raw = (b"prefix\n" * 12000 + b"x" * 4090 + b"token=" + b"secret" * 15000
-           + b"\nBearer " + b"credential" * 15000 + b"\n" + b" " * 4091
-           + b"approved-secret\n" + "café end\n".encode())
-    if mode == "bad-utf8":
-        raw += b"\xff"
-    if mode == "split-known":
-        raw = b"x" * 4093 + b"approved-secret-long\n" + "café end\n".encode()
-    elif mode == "ansi-token":
-        raw = b"x" * 4093 + b"to\x1b[31mken=" + b"secret" * 15000 + b"\n"
-        raw += b"approved-secret\n" + "café end\n".encode()
-    elif mode == "spaced-marker":
-        raw = b"authorization" + b" " * 80000 + b": Bearer hidden-value\n"
-        raw += b"approved-secret\n" + "café end\n".encode()
-    elif mode == "long-known":
-        raw = b"x" * 4093 + b"K" * 10000 + b"\n" + "café end\n".encode()
-
-    class Process:
-        """@brief Offline supervisor exposing long streams after its durable release."""
-
-        pid = 42
-        stdout = io.BytesIO(raw)
-        stderr = io.BytesIO(b"api_key=" + b"hidden" * 15000 + b"\nlast error")
-        waits = 0
-
-        def wait(self, timeout):
-            assert list(control.glob("launches/*/release"))
-            assert json.loads((control / "active-process.json").read_text())["pid"] == self.pid
-            self.waits += 1
-            if mode == "timeout" and self.waits == 1:
-                raise subprocess.TimeoutExpired("injected", timeout)
-            jobs.birth_value = None
-            return 7 if mode == "nonzero" else 0
-
-    process = Process()
-    controller = LocalProcessController(scopes, spawn=lambda *args, **kwargs: process)
-    if mode == "cleanup":
-        scopes.remove = lambda *_: (_ for _ in ()).throw(LocalExecutionError("cleanup refused"))
-    arguments = dict(cwd=tmp_path, env={}, timeout=1, stdout=tmp_path / "stdout",
-                     stderr=tmp_path / "stderr", control=control, run_id="c" * 32,
-                     host="a" * 64,
-                     secrets=["approved-secret", "approved-secret-long", "K" * 10000],
-                     capture_tail=True)
-    if mode in {"bad-utf8", "cleanup"}:
-        with pytest.raises(LocalExecutionError):
-            controller.run_files(["platform-shell", "-c", "configured"], **arguments)
-        assert (control / "active-process.json").exists()
-    else:
-        result = controller.run_files(["platform-shell", "-c", "configured"], **arguments)
-        assert result.exit_code == (124 if mode == "timeout" else 7 if mode == "nonzero" else 0)
-        assert result.timed_out == (mode == "timeout")
-        text = arguments["stdout"].read_text()
-        assert text.endswith("[REDACTED]\ncafé end\n") and len(text.encode()) <= 65536
-        assert "secret" not in text and "credential" not in text and "approved" not in text
-        assert "hidden-value" not in text and "-long" not in text and "K" not in text
-        assert arguments["stderr"].read_text() == "api_key=[REDACTED]\nlast error"
-        assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
-
-
-@pytest.mark.parametrize("outcome", ["success", "nonzero", "timeout"])
-@pytest.mark.parametrize("stream_name", ["stdout", "stderr"])
-@pytest.mark.parametrize("offset, read_size, secret_values, value, masked", [
-    (0, 4096, ["prefix", "fixVERY_PRIVATE_VALUE"], "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
-    (0, 1, ["prefix", "fixVERY_PRIVATE_VALUE"], "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
-    # The earliest match is complete but the overlapping one is not yet readable.
-    (4096 - len("fixVERY_PRIVATE_VALUE"), 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
-     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
-    (4090, 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
-     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
-    (65530, 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
-     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
-    (73728 - len("fixVERY_PRIVATE_VALUE"), 4096, ["prefix", "fixVERY_PRIVATE_VALUE"],
-     "prefixVERY_PRIVATE_VALUE", "[REDACTED]"),
-    (0, 4096, ["abab", "baba", "abEND_PRIVATE_VALUE"],
-     "ab" * 40000 + "END_PRIVATE_VALUE", "[REDACTED]"),
-    (0, 4096, ["aaa"], "a" * 90000, "[REDACTED]"),
-    (0, 7, ["prefix", "fixVERY_PRIVATE_VALUE", "VALUE_MORE"],
-     "prefixVERY_PRIVATE_VALUE_MORE / prefixVERY_PRIVATE_VALUE",
-     "[REDACTED] / [REDACTED]"),
-], ids=["same-read", "byte-reads", "partial-overlap", "chunk-edge", "retention-edge",
-        "eviction-edge", "long-chain", "self-overlap", "separate-chains"])
-def test_native_verification_capture_masks_overlapping_secrets(
-    tmp_path, outcome, stream_name, offset, read_size, secret_values, value, masked,
-):
-    """@brief Redact the union of credential spans before chunking or tail eviction."""
-    jobs = Jobs()
-    scopes = NativeScopes("Windows", windows=jobs)
-    control = tmp_path / "control"
-    # Partial values are ordinary output, not credentials; keep them and the final line.
-    suffix = "\npre fi VERY_PRIVATE_VALU\ncafé verification ended\n"
-    raw = ("x" * offset + value + suffix).encode("utf-8")
-
-    class Pipe(io.BytesIO):
-        """@brief Simulate short OS reads, including split UTF-8 and secret values."""
-
-        def read(self, size):
-            return super().read(min(size, read_size))
-
-    class Process:
-        """@brief Expose injected streams with the real owned release/drain lifecycle."""
-
-        pid = 42
-        stdout = Pipe(raw if stream_name == "stdout" else b"ordinary output\n")
-        stderr = Pipe(raw if stream_name == "stderr" else b"ordinary output\n")
-        waits = 0
-
-        def wait(self, timeout):
-            assert list(control.glob("launches/*/release"))
-            assert json.loads((control / "active-process.json").read_text())["pid"] == self.pid
-            self.waits += 1
-            if outcome == "timeout" and self.waits == 1:
-                raise subprocess.TimeoutExpired("injected", timeout)
-            jobs.birth_value = None
-            return 7 if outcome == "nonzero" else 0
-
-    process = Process()
-    controller = LocalProcessController(scopes, spawn=lambda *args, **kwargs: process)
-    paths = {name: tmp_path / name for name in ("stdout", "stderr")}
-    # Ordering approved credentials must not change which bytes are protected.
-    result = controller.run_files(
-        ["platform-shell", "-c", "configured"], cwd=tmp_path, env={}, timeout=1,
-        **paths, control=control, run_id="c" * 32, host="a" * 64,
-        secrets=list(reversed(secret_values)), capture_tail=True,
-    )
-    expected = ("x" * offset + masked + suffix).encode("utf-8")[-65536:]
-    assert paths[stream_name].read_bytes() == expected
-    other_stream = "stderr" if stream_name == "stdout" else "stdout"
-    assert paths[other_stream].read_bytes() == b"ordinary output\n"
-    assert process.stdout.tell() == len(process.stdout.getvalue())
-    assert process.stderr.tell() == len(process.stderr.getvalue())
-    assert result.exit_code == (124 if outcome == "timeout" else 7 if outcome == "nonzero" else 0)
-    assert result.timed_out == (outcome == "timeout")
-    assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
 
 
 @pytest.mark.parametrize("mode", ["success", "nonzero", "timeout"])
@@ -658,7 +368,7 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
 
         def wait(self, timeout):
             assert (
-                json.loads((control / "active-process.json").read_text())["birth"]
+                json.loads((control / "active-process.json").read_text(encoding="utf-8"))["birth"]
                 == "original-birth"
             )
             assert list((control / "launches").glob("*/release"))
@@ -685,9 +395,11 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
     )
     assert result.exit_code == (124 if mode == "timeout" else 7 if mode == "nonzero" else 0)
     assert result.timed_out == (mode == "timeout")
-    assert len(stdout.read_bytes()) <= 65536 and "approved-secret" not in stdout.read_text()
+    assert len(stdout.read_bytes()) <= 65536
+    assert "approved-secret" not in stdout.read_text(encoding="utf-8")
     assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
-    assert all("approved-secret" not in p.read_text() for p in control.rglob("*.json"))
+    assert all("approved-secret" not in p.read_text(encoding="utf-8")
+               for p in control.rglob("*.json"))
 
 
 @pytest.mark.parametrize("interrupted", [False, True])
@@ -722,7 +434,7 @@ def test_native_rpc_stream_is_owned_before_release_and_drained(tmp_path, interru
     controller = LocalProcessController(scopes, spawn=spawn)
     with controller.stream(["node.exe", "cli.js"], cwd=tmp_path, env={}, control=control,
                            run_id="a" * 32, host="b" * 64) as stream:
-        lease = json.loads((control / "active-process.json").read_text())
+        lease = json.loads((control / "active-process.json").read_text(encoding="utf-8"))
         assert lease["pid"] == process.pid and lease["scope"]["name"] == jobs.name
         assert list(control.glob("launches/*/release"))
         assert stream.stdin is process.stdin and stream.stdout is process.stdout
@@ -747,15 +459,17 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
     backend = LocalBackend(config, context=context, controller=controller)
     personal = Path(context["home"]) / ".pi/agent"
     (personal / "extensions").mkdir(parents=True)
-    (personal / "extensions/evil.ts").write_text("throw new Error('must not load')")
-    (personal / "settings.json").write_text('{"extensions":["extensions/evil.ts"]}')
+    (personal / "extensions/evil.ts").write_text(
+        "throw new Error('must not load')", encoding="utf-8")
+    (personal / "settings.json").write_text(
+        '{"extensions":["extensions/evil.ts"]}', encoding="utf-8")
     monkeypatch.setenv("PI_CODING_AGENT_DIR", str(personal))
     monkeypatch.setenv("NODE_OPTIONS", "--require=hostile.js")
     monkeypatch.setenv("GITEA_TOKEN", "forge-secret")
     exchange = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, exchange, {})
     target = backend.bind("run-1", {"OPENAI_API_KEY": "provider-secret"})
-    (work / "questions.md").write_text("stale")
+    (work / "questions.md").write_text("stale", encoding="utf-8")
     agent_dirs = []
     original_stream = controller.stream
 
@@ -768,7 +482,7 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
         assert env["PI_OFFLINE"] == "1" and env["PI_TELEMETRY"] == "0"
         assert not {"GITEA_TOKEN", "NODE_OPTIONS"}.intersection(env)
         agent_dirs.append(agent)
-        (work / "questions.md").write_text("operator question: provider-secret")
+        (work / "questions.md").write_text("operator question: provider-secret", encoding="utf-8")
         with original_stream(argv, **kwargs) as process:
             yield process
 
@@ -813,8 +527,8 @@ def test_local_aegis_file_transport_uses_native_argv(tmp_path):
 
         def run_files(self, argv, stdout, stderr, **kwargs):
             calls.append(argv)
-            stdout.write_text(json.dumps(task_payload()))
-            stderr.write_text("")
+            stdout.write_text(json.dumps(task_payload()), encoding="utf-8")
+            stderr.write_text("", encoding="utf-8")
             return CommandResult()
 
     client = AegisClient(Target(), python_command="native-python", io_dir=exchange)
@@ -902,7 +616,7 @@ def test_local_readiness_never_invokes_container_tools(tmp_path, monkeypatch):
     config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     env_file = tmp_path / ".env"
-    env_file.write_text("OPENAI_API_KEY=readiness-provider-key\n")
+    env_file.write_text("OPENAI_API_KEY=readiness-provider-key\n", encoding="utf-8")
     monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
     seen = []
 
@@ -963,7 +677,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
         def stream(argv, **kwargs):
             env = kwargs["env"]
             agent = Path(env["PI_CODING_AGENT_DIR"])
-            model = json.loads((agent / "models.json").read_text())
+            model = json.loads((agent / "models.json").read_text(encoding="utf-8"))
             provider = model["providers"]["adore-endpoint"]
             assert provider["baseUrl"] == config.executor.endpoint.base_url
             assert provider["apiKey"] == "adore-no-key"
@@ -976,7 +690,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
     if scenario == "keyless-endpoint":
         monkeypatch.delenv("ADORE_ENDPOINT_API_KEY", raising=False)
     else:
-        env_file.write_text("OPENAI_API_KEY=fake-key\n")
+        env_file.write_text("OPENAI_API_KEY=fake-key\n", encoding="utf-8")
     result = probe_model_connection(
         config, lambda *args, **kwargs: pytest.fail("container call"), env_file
     )
@@ -1049,10 +763,10 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
     """@brief Linux control uses the exact owned cgroup and refuses inode/scope drift."""
     root = tmp_path / "delegated"
     root.mkdir()
-    (root / "cgroup.controllers").write_text("pids")
+    (root / "cgroup.controllers").write_text("pids", encoding="utf-8")
     leaf = root / ("adore-" + "c" * 32)
     leaf.mkdir()
-    (leaf / "cgroup.kill").write_text("")
+    (leaf / "cgroup.kill").write_text("", encoding="utf-8")
     scopes = NativeScopes("Linux", str(root), linux_base=root, birth_reader=lambda pid: "boot:123")
     detail = leaf.stat()
     scope = {
@@ -1086,8 +800,8 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
     )
     driver = LocalProcessController(scopes)
     driver.interrupt(control, "a" * 32, "b" * 64)
-    assert (leaf / "cgroup.kill").read_text() == "1"
-    (leaf / "cgroup.kill").write_text("")
+    assert (leaf / "cgroup.kill").read_text(encoding="utf-8") == "1"
+    (leaf / "cgroup.kill").write_text("", encoding="utf-8")
     scope["inode"] += 1
     atomic_record(
         control / "active-process.json",
@@ -1102,7 +816,7 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
     )
     with pytest.raises(LocalExecutionError):
         driver.interrupt(control, "a" * 32, "b" * 64)
-    assert (leaf / "cgroup.kill").read_text() == ""
+    assert (leaf / "cgroup.kill").read_text(encoding="utf-8") == ""
     with pytest.raises(LocalExecutionError):
         NativeScopes("Linux", str(tmp_path), linux_base=root)
 
@@ -1120,7 +834,7 @@ def test_local_native_settings_accept_tools_path_and_refuse_launch_overrides(tmp
         "[worktree]\nrepo_path=" + json.dumps(str(work)) + "\n"
         '[delivery]\nreviewers=["reviewer"]\n[executor]\nprovider="openai"\nmodel="model"\n'
     )
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     command = json.dumps(str(Path(context["path"]) / "pi.exe")) + " -p {prompt}"
     body = ConfigEdit(
         key="local.path",
@@ -1170,7 +884,7 @@ def test_local_node_entrypoint_drift_refuses_execution(tmp_path, monkeypatch):
     backend.provision("run-1", work, work, exchange, {})
     target = backend.bind("run-1", backend.environment)
     assert target([str(node), str(script), "--version"]).ok
-    script.write_text("replaced installed executor")
+    script.write_text("replaced installed executor", encoding="utf-8")
     with pytest.raises(LocalExecutionError):
         target([str(node), str(script), "--version"])
 
@@ -1260,7 +974,8 @@ def test_local_child_release_barrier_and_cancel_are_native(
                 "release": str(tmp_path / "release"),
                 "scope": {"kind": "windows-job", "name": "owned"},
             }
-        )
+        ),
+        encoding="utf-8",
     )
     (tmp_path / ("cancel" if cancel else "release")).touch()
     calls = []
@@ -1276,85 +991,9 @@ def test_local_child_release_barrier_and_cancel_are_native(
         assert calls[0][0] == ["native", "prompt with spaces"]
         assert calls[0][1]["stdin"] == (sys.stdin if streaming else subprocess.DEVNULL)
         assert calls[0][1]["stdout"] is sys.stdout and calls[0][1]["stderr"] is sys.stderr
-    envelope.write_text('{"unexpected":true}')
+    envelope.write_text('{"unexpected":true}', encoding="utf-8")
     with pytest.raises(ValueError):
         local_child.main(str(envelope))
-
-
-@pytest.mark.parametrize("invalid", [
-    "false", "nonboolean", "linux", "rpc", "switch", "missing-command", "other-shell",
-    "relative-shell", "newline", "carriage-return", "nul", "empty",
-])
-def test_local_child_refuses_invalid_windows_verification_transport(tmp_path, monkeypatch, invalid):
-    """@brief A malformed dedicated transport cannot release a project command."""
-    from adore import local_child
-
-    envelope = {
-        "argv": [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c", "echo valid"],
-        "cwd": str(tmp_path), "release": str(tmp_path / "release"),
-        "scope": {"kind": "windows-job", "name": "owned"}, "windows_verification": True,
-    }
-    if invalid in {"false", "nonboolean"}:
-        envelope["windows_verification"] = False if invalid == "false" else "true"
-    elif invalid == "linux":
-        envelope["scope"] = {"kind": "linux-cgroup", "path": str(tmp_path)}
-    elif invalid == "switch":
-        envelope["argv"][1] = "/k"
-    elif invalid == "missing-command":
-        envelope["argv"].pop()
-    elif invalid == "other-shell":
-        envelope["argv"][0] = r"C:\Windows\System32\powershell.exe"
-    elif invalid == "relative-shell":
-        envelope["argv"][0] = "cmd.exe"
-    elif invalid in {"newline", "carriage-return", "nul", "empty"}:
-        envelope["argv"][-1] = {
-            "newline": "echo a\necho b", "carriage-return": "echo a\r", "nul": "echo a\x00",
-            "empty": "",
-        }[invalid]
-    path = tmp_path / "command.json"
-    path.write_text(json.dumps(envelope))
-    (tmp_path / "release").touch()
-    monkeypatch.setattr(local_child.subprocess, "run", lambda *_args, **_kwargs: pytest.fail(
-        "invalid verification transport launched a process"))
-    with pytest.raises(ValueError):
-        local_child.main(str(path), streaming=invalid == "rpc")
-    assert not (tmp_path / "cgroup.procs").exists()
-
-
-def test_local_child_windows_verification_cancel_prevents_launch(tmp_path, monkeypatch):
-    """@brief Cancellation still wins over release for the dedicated Windows command."""
-    from adore import local_child
-
-    envelope = {
-        "argv": [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c", 'echo "valid"'],
-        "cwd": str(tmp_path), "release": str(tmp_path / "release"),
-        "scope": {"kind": "windows-job", "name": "owned"}, "windows_verification": True,
-    }
-    path = tmp_path / "command.json"
-    path.write_text(json.dumps(envelope))
-    (tmp_path / "cancel").touch()
-    (tmp_path / "release").touch()
-    monkeypatch.setattr(local_child.subprocess, "run", lambda *_args, **_kwargs: pytest.fail(
-        "cancelled verification launched a process"))
-    assert local_child.main(str(path)) == 125
-
-
-@pytest.mark.parametrize("mode", ["nonboolean", "linux"])
-def test_native_controller_refuses_invalid_windows_verification_mode(tmp_path, mode):
-    """@brief Invalid transport selection fails before any scope or supervisor is created."""
-    scopes = NativeScopes("Windows", windows=Jobs())
-    if mode == "linux":
-        scopes.system = "Linux"
-    controller = LocalProcessController(scopes, spawn=lambda *_args, **_kwargs: pytest.fail(
-        "invalid transport selection launched a supervisor"))
-    with pytest.raises(LocalExecutionError, match="verification mode"):
-        controller.run_files(
-            [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c", "echo valid"],
-            cwd=tmp_path, env={}, timeout=1, stdout=tmp_path / "stdout", stderr=tmp_path / "stderr",
-            control=tmp_path / "control", run_id="c" * 32, host="a" * 64, secrets=[],
-            windows_verification="true" if mode == "nonboolean" else True,
-        )
-    assert not (tmp_path / "control").exists()
 
 
 @pytest.mark.parametrize("query_ok", [True, False])
@@ -1387,10 +1026,10 @@ def test_linux_scope_removal_requires_closed_liveness(tmp_path, monkeypatch, eve
     """@brief Owned cgroup removal accepts empty evidence and refuses corrupt liveness."""
     root = tmp_path / "delegated"
     root.mkdir()
-    (root / "cgroup.controllers").write_text("pids")
+    (root / "cgroup.controllers").write_text("pids", encoding="utf-8")
     leaf = root / ("adore-" + "c" * 32)
     leaf.mkdir()
-    (leaf / "cgroup.events").write_text(events)
+    (leaf / "cgroup.events").write_text(events, encoding="utf-8")
     scopes = NativeScopes("Linux", str(root), linux_base=root)
     stat = leaf.stat()
     scope = {"kind": "linux-cgroup", "path": str(leaf), "device": stat.st_dev, "inode": stat.st_ino}
@@ -1480,8 +1119,8 @@ def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkey
 
     def output(argv, **kwargs):
         assert kwargs["stdout_limit"] == MAX_JSON_BYTES
-        kwargs["stdout"].write_text(json.dumps({"journal": "x" * 100000}))
-        kwargs["stderr"].write_text("")
+        kwargs["stdout"].write_text(json.dumps({"journal": "x" * 100000}), encoding="utf-8")
+        kwargs["stderr"].write_text("", encoding="utf-8")
         return CommandResult()
 
     controller.run_files = output

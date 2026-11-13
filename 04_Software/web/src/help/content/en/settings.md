@@ -48,16 +48,6 @@ Rules that apply:
 
 Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
 
-## Verification command {#verification-command}
-
-In **Implementation**, **Verification command** is optional single-line shell text saved as `[workflow] verify_command`. Administrators use the same **Edit** and **Save** flow as other settings; developers can read it but cannot edit. It is also available during enrollment; see [Repository workflows](/help/projects#workflows).
-
-For the direct workflow, ADORE runs it independently from the job worktree root in the selected execution environment under the validation time limit. Keep the exact spaces, quotes and shell operators you need. An empty value leaves the candidate explicitly unverified. Line breaks and NUL are refused with field feedback and prevent Save; correct the text rather than expecting it to be flattened. The web interface never runs the command on enrollment or save.
-
-AEGIS jobs ignore this setting and use the repository’s AEGIS test commands. The field remains visible in Settings for either workflow. No command is suggested or selected automatically.
-
-Direct implementation uses the **Implementation** `build` limit in `workflow.stage_timeout_overrides`; independent verification uses the **Validation** `validate` limit. Each falls back to the general `budgets.per_gate_timeout_seconds` when its override is unset. The other AEGIS stage limits do not apply to direct jobs.
-
 ## Original TOML {#toml}
 
 Beside the Project settings heading, administrators have **Preview raw configuration** and **Export raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. Select the exported file in [Import raw configuration](/help/projects#import-project) and ADORE automatically checks server paths, state-folder ownership and inline secrets before enrollment.
@@ -79,3 +69,6 @@ Administrators can follow **Adjust budgets in project Settings**, open **Impleme
 Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.
 
 If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
+
+
+**Implementation** (`build`) uses `workflow.stage_timeout_overrides` or the general `budgets.per_gate_timeout_seconds`. For AEGIS, **Validation** (`validate`) bounds the agent session too. ADORE does not run additional tests; the agent selects local and CI checks according to the repository instructions.
