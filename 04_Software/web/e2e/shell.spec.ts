@@ -272,7 +272,8 @@ test("access background reads update grants, preserve confirmed changes and reje
   await signIn(page);
   const grants = (granted: boolean | string) => ({ developers: [{ id: 2, username: "developer", granted, disabled: false }] });
   let json = grants(false);
-  let hold = false, held = false;
+  let hold = false, held = false, cancelled = false;
+  page.on("requestfailed", request => { if (request.url().endsWith("/access")) cancelled = true; });
   let release = () => {};
   const delayed = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/api/v1/projects/*/access", async route => {
@@ -302,9 +303,8 @@ test("access background reads update grants, preserve confirmed changes and reje
     await remove.click();
     await page.getByRole("button", { name: "Apply reviewed access" }).click();
     await expect(grant).toBeEnabled();
-    const old = page.waitForResponse(response => response.url().endsWith("/access"));
+    await expect.poll(() => cancelled).toBe(true);
     release();
-    await (await old).finished();
     await expect(grant).toBeEnabled();
   } finally { release(); }
   json = grants("true");

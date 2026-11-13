@@ -88,6 +88,28 @@ but latch relevant changes invalid until reviewed again. `web/e2e/usersRefresh.s
 and `web/e2e/users.spec.ts` prove this seam; cross-view denial/operation ownership
 remains separate.
 
+ProjectAccess uses a strict 30s owned read and unchanged 15s visible cadence;
+principal/project keys no longer contain refresh counters. Pending reads retain
+rows and valid reviews/focus. Review authority binds developer identity/name/grant/
+disabled and live project identity/name/archive; changed/failed evidence latches it
+invalid until correction. Render and submit require ready nonarchived project
+metadata. Writes cancel pre-write reads and block actions until strict post-write
+validation; failure hides grant evidence. Exit aborts owned reads and scheduling.
+
+App configuration ownership excludes result-refresh signals. Signals cancel older
+config/price work, then honor visible/dirty/mutation/settingsPoll guards without
+resetting the view. Own confirmed Save/stale discard awaits explicit revalidation
+before releasing editor guards, retaining open groups and revision/candidate checks.
+App operations use principal/project/ID-bound 30s owners at 2s visible cadence;
+pending-to-running does not recreate ownership, leaving the project stops tracking
+and returning resumes unresolved work. Failure is error, not completion. Terminal
+results cancel pre-result metadata then signal existing view owners. System status
+uses strict 30s owned worker/storage reads at 5s/30s cadence, validating ready/worker/
+activity and storage fields; pending values remain, failed health does not.
+`web/e2e/accessRefresh.spec.ts` and existing Settings/issue37/shell journeys prove
+these seams. Shared session/denial, Tickets and remaining cross-view acceptance
+are separate from this focused evidence.
+
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
 Statistics browser fixtures restore the authenticated account's English/light

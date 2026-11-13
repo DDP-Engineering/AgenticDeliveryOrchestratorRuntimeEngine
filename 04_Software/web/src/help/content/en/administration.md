@@ -31,11 +31,13 @@ In the **Users** list each account offers these actions.
 
 A project's **Access** tab lists every developer account with **Has access** or **No access**. Choose **Grant access** or **Remove access** beside a developer, compare **Before** and **After**, then choose **Apply reviewed access**. The change leaves the developer's other projects alone and is recorded in Change history. The access list refreshes every 15 seconds while the browser tab is visible.
 
+Updates keep the list, unchanged review and keyboard focus in place. Changed grants, account details or an archived project invalidate the review; choose **Correct access** and review again. Grant actions stay blocked until the post-change read succeeds. A failed read or its 30-second deadline hides grant evidence and blocks dependent actions until a successful update.
+
 A developer with access sees the project and can start, retry or cancel its jobs. Administrators always have access.
 
 ## System status {#system-status}
 
-Under **Administration**, open [System status](/admin/status). It refreshes by itself.
+Under **Administration**, open [System status](/admin/status). It refreshes by itself. Worker status updates every 5 seconds and storage every 30 seconds while visible. Pending reads keep displayed values; overlapping updates share one read. A failed, invalid or 30-second-expired read shows the corresponding failure, not a retained healthy status.
 
 - **Control worker** shows **Ready** when idle, **Busy** while processing, **Activity unknown** when the activity evidence is missing, **Unavailable**, **Status check failed** or **Checking…**. A recent heartbeat does not confirm forge, executor or model reachability.
 - **Storage** reads **Space available**, **Low disk space** or **Storage check failed**. It measures free disk space for the ADORE account database and each project's job state folder, grouped by physical volume. One shared disk gets a single line; several disks get a **Volume**, **Free** and **Status** table. Below 1 GiB free counts as low, and a failed measurement is never shown as free space.

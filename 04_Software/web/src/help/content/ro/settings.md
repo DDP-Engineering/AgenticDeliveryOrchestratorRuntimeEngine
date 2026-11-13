@@ -6,7 +6,7 @@ Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică
 
 Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Statistici, Istoric și, pentru administratori, Acces.
 
-Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT.
+Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT. Un rezultat de monitorizare observat recitește setările salvate fără modificări în curs, fără a închide grupurile; ciornele și confirmările valide își păstrează protecțiile. Salvarea proprie reușită validează valorile salvate înainte de reluarea editării, fără a închide grupurile deschise.
 
 Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Fiecare proiect are propriile setări; capacitatea globală și păstrarea auditului aparțin Administrării.
 

@@ -122,7 +122,13 @@ withholds the affected project view until a valid reread succeeds. Returning to 
 visible tab requests one immediate update. A completed **Check host prerequisites**
 cancels any older metadata read so it cannot undo the check; later normal updates
 can still change the verification status. The initial-password session reminder
-does not cause duplicate project reads.
+does not cause duplicate project reads. Monitoring status is read every 2 seconds
+while its project context is visible, sharing one bounded read. A read failure or
+30-second deadline is an error, not command success; returning to the project
+resumes observation of an unresolved command. Its actual result triggers fresh
+project reads without closing Access reviews or clean Settings groups. Dirty
+settings and valid confirmations remain guarded. A successful Settings Save
+validates saved values before editing resumes and retains open groups.
 
 Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One worker handles projects and operations in turn; authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
 
@@ -499,6 +505,18 @@ Assigned-project editing under Users and the project's Access tab both show
 **Before** and **After** before **Apply reviewed access**, then the actual result.
 **Correct access** cancels that review without applying. These remain Admin-only;
 Dev direct routes and API calls retain project, administration and cost restrictions.
+
+Project Access reads every 15 seconds while visible; overlapping triggers share a
+30-second bounded read. Pending reads retain rows, unchanged reviews and focus.
+Changed account/grant/project authority or archival invalidates the review until
+**Correct access** and a fresh review. Failed reads hide grants and block dependent
+actions. A grant change cancels older work and blocks actions until strict
+post-change validation succeeds; an optimistic displayed grant is never authority.
+
+System status retains worker/storage values while successful reads are pending,
+with 5-second worker and 30-second storage cadence. Reads coalesce and expire after
+30 seconds. Failed or malformed reads show their existing failure/unavailable
+feedback rather than keeping a healthy value as current.
 
 Every view has its own address, so links can be bookmarked or shared and the
 browser's reload, Back and Forward keep your place. Examples:

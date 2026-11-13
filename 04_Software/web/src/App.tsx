@@ -125,8 +125,9 @@ async function request<T>(path: string, method = "GET", body?: unknown, csrf?: s
   }
 }
 
-async function readPrices(path: string): Promise<Price[]> {
-  const prices = await request<Price[]>(path + "/prices", "GET", undefined, undefined, AbortSignal.timeout(15000));
+async function readPrices(path: string, signal?: AbortSignal): Promise<Price[]> {
+  const prices = await request<Price[]>(path + "/prices", "GET", undefined, undefined,
+    signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000));
   const validRate = (value: unknown) => typeof value === "string" && /^\d+(?:\.\d{1,6})?$/.test(value) && Number(value) <= 1000000;
   if (!Array.isArray(prices) || prices.some(row => !row || !Number.isSafeInteger(row.id) || row.id < 1 ||
     typeof row.executor !== "string" || typeof row.model !== "string" ||
@@ -231,6 +232,7 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false);
   const lastRefresh = usersRead?.completedAt == null ? null : new Date(usersRead.completedAt);
   const [operation, setOperation] = useState<Operation | null>(null);
+  const [operationProject, setOperationProject] = useState("");
   const operationId = useRef<number | null>(null);
   const operationBusy = useRef(false);
   const operationSubmission = useRef(0);
@@ -241,11 +243,9 @@ export default function App() {
   const registerSettingsGuard = useCallback((guard: (() => boolean) | null) => {
     enrollmentGuard.current = guard;
   }, []);
-  const refreshView = (interactive = false) => {
-    if (enrollmentGuard.current && (!interactive || !enrollmentGuard.current())) return false;
-    setViewRefresh(value => value + 1);
-    return true;
-  };
+  // A result is a reread signal, never a component/context identity. Each
+  // authority-bearing owner keeps its own edit/mutation guards.
+  const refreshView = () => setViewRefresh(value => value + 1);
   // The address of the page shown now, restored when a guarded wizard refuses browser Back.
   const shownUrl = useRef("");
   const [accountAction, setAccountAction] = useState<AccountAction | null>(null);
@@ -257,6 +257,7 @@ export default function App() {
   const projectsReader = useRef<ReadController | null>(null);
   const projectsHaveSnapshot = useRef(false);
   const configRequest = useRef(0);
+  const configRefresh = useRef<((afterWrite?: boolean) => Promise<void>) | null>(null);
   const configMutation = useRef(false);
   const configView = useRef("");
   configView.current = `${page}:${selected}`;
@@ -652,12 +653,15 @@ export default function App() {
       const generation = viewGeneration.current;
       request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause));
     }
+  }, [page, isAdmin, projectsPrincipal]);
+
+  useEffect(() => {
     if (page === "projectDetails" && selected) {
       const generation = viewGeneration.current;
       const revision = ++configRequest.current;
       let active = true;
-      let reading = false;
-      let readingPrices = false;
+      let reading: AbortController | null = null;
+      let readingPrices: AbortController | null = null;
       setConfigState({ key: selected, state: "loading" });
       setPendingReadFailed(false); setPendingReady(false); setSettingsStale(false);
       setConfig(null); setConfigScope(""); setPendingConfig(null); setPendingConfigScope(""); setPrices([]); setPricesScope("");
@@ -668,18 +672,20 @@ export default function App() {
         const current = () => active && generation === viewGeneration.current && revision === configRequest.current &&
           (!background || poll === settingsPoll.current && !configMutation.current);
         if (isAdmin && !readingPrices) {
-          readingPrices = true;
+          const priceController = new AbortController();
+          readingPrices = priceController;
           const write = priceWrite.current;
-          const currentPrices = () => current() && write === priceWrite.current;
-          void readPrices(path).then(value => {
+          const currentPrices = () => !priceController.signal.aborted && current() && write === priceWrite.current;
+          void readPrices(path, priceController.signal).then(value => {
             if (currentPrices()) { setPrices(value); setPricesScope(selected); }
           }).catch(cause => {
             if (currentPrices()) { setPrices([]); setError(cause); }
-          }).finally(() => { readingPrices = false; });
+          }).finally(() => { if (readingPrices === priceController) readingPrices = null; });
         }
         if (reading) return;
-        reading = true;
-        const signal = AbortSignal.timeout(30000);
+        const controller = new AbortController();
+        reading = controller;
+        const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]);
         const [configuration, pending] = await Promise.allSettled([
           request<Config>(path + "/config", "GET", undefined, undefined, signal).then(value => {
             if (!value || !value.config || typeof value.revision !== "string" || !Array.isArray(value.issues) || !validSettingCatalog(value.settings)) throw new ApiError("unexpected_response");
@@ -692,8 +698,8 @@ export default function App() {
             return value;
           }) : Promise.resolve(null),
         ]);
-        reading = false;
-        if (!current()) return;
+        if (reading === controller) reading = null;
+        if (controller.signal.aborted || !current()) return;
         if (configuration.status === "fulfilled") {
           setConfig(configuration.value); setConfigScope(selected); setConfigState({ key: selected, state: "ready" });
         } else {
@@ -706,47 +712,69 @@ export default function App() {
         if (pending.status === "fulfilled") setPendingConfig(pending.value);
         else { setPendingConfig(null); setError(pending.reason); }
       };
+      // Cancel pre-result work rather than joining evidence begun before a write.
+      // Dirty Settings (including credentials/prices/sign-in) defers to its next
+      // eligible tick; neither the draft nor a valid confirmation is discarded.
+      const revalidate = async (afterWrite = false) => {
+        invalidateSettingsPoll();
+        reading?.abort(); reading = null;
+        readingPrices?.abort(); readingPrices = null;
+        await load(!afterWrite);
+      };
+      configRefresh.current = revalidate;
       void load();
       const stop = startVisiblePolling(() => void load(true), 15000);
-      return () => { active = false; stop(); };
+      return () => {
+        active = false; stop(); reading?.abort(); readingPrices?.abort();
+        if (configRefresh.current === revalidate) configRefresh.current = null;
+      };
     }
-  }, [page, isAdmin, selected, viewRefresh, session?.user.id]);
+  }, [page, isAdmin, selected, projectsPrincipal]);
 
-  useEffect(() => {
-    if (page !== "administration" || !isAdmin) return;
-    let active = true;
-    const check = async () => {
-      try {
-        const response = await fetch("/api/v1/ready", { cache: "no-store" });
-        const code = response.ok ? "" : (await response.json().catch(() => ({})))?.detail?.code;
-        const activity = response.ok ? (await response.json()).activity : null;
-        if (active) setWorkerStatus(response.ok ? activity === "busy" ? "busy" : activity === "idle" ? "ready" : "unknown" : code === "worker_unavailable" ? "unavailable" : "error");
-      } catch {
-        if (active) setWorkerStatus("error");
-      }
-    };
-    setWorkerStatus("checking");
-    void check();
-    const stopPolling = startVisiblePolling(() => void check(), 5000);
-    return () => { active = false; stopPolling(); };
-  }, [page, isAdmin]);
+  useEffect(() => { if (viewRefresh) void configRefresh.current?.(); }, [viewRefresh]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (page !== "administration" || !isAdmin) return;
-    let active = true;
-    const check = async () => {
-      try {
-        const value = await request<StorageStatus>("/system/storage");
-        if (active) { setStorageStatus(value); setStorageError(false); }
-      } catch {
-        if (active) { setStorageStatus(null); setStorageError(true); }
-      }
-    };
-    setStorageStatus(null); setStorageError(false);
-    void check();
-    const stopPolling = startVisiblePolling(() => void check(), 30000);
-    return () => { active = false; stopPolling(); };
-  }, [page, isAdmin]);
+    const reader = createReadController<WorkerStatus>({ key: projectsPrincipal, deadlineMs: 30000,
+      read: async signal => {
+        const value = await request<{ status: string; worker: string; activity: string }>("/ready", "GET", undefined, undefined, signal);
+        if (!value || value.status !== "ready" || value.worker !== "ready" ||
+          !["busy", "idle", "unknown"].includes(value.activity)) throw new ApiError("unexpected_response");
+        return value.activity === "busy" ? "busy" : value.activity === "idle" ? "ready" : "unknown";
+      },
+      publish: value => {
+        if (value.refreshing) return;
+        if (value.status === "ready") setWorkerStatus(value.data!);
+        else if (value.status === "error") setWorkerStatus(value.error instanceof ApiError && value.error.code === "worker_unavailable" ? "unavailable" : "error");
+      },
+    });
+    setWorkerStatus("checking"); void reader.refresh();
+    const stop = startVisiblePolling(() => { void reader.refresh(); }, 5000);
+    return () => { stop(); reader.dispose(); };
+  }, [page, isAdmin, projectsPrincipal]);
+
+  useLayoutEffect(() => {
+    if (page !== "administration" || !isAdmin) return;
+    const reader = createReadController<StorageStatus>({ key: projectsPrincipal, deadlineMs: 30000,
+      read: async signal => {
+        const value = await request<StorageStatus>("/system/storage", "GET", undefined, undefined, signal);
+        const bytes = (part: unknown): part is number => Number.isSafeInteger(part) && Number(part) >= 0;
+        if (!value || !bytes(value.threshold_bytes) || typeof value.low !== "boolean" || !Array.isArray(value.volumes) ||
+          value.volumes.some(volume => !volume || !["home", "project"].includes(volume.scope) ||
+            (volume.project !== null && typeof volume.project !== "string") || typeof volume.volume_id !== "string" || !volume.volume_id ||
+            !bytes(volume.free_bytes) || !bytes(volume.total_bytes) || volume.free_bytes > volume.total_bytes || typeof volume.low !== "boolean")) throw new ApiError("unexpected_response");
+        return value;
+      },
+      publish: value => {
+        if (value.refreshing) return;
+        if (value.status === "ready") { setStorageStatus(value.data); setStorageError(false); }
+        else if (value.status === "error") { setStorageStatus(null); setStorageError(true); }
+      },
+    });
+    setStorageStatus(null); setStorageError(false); void reader.refresh();
+    const stop = startVisiblePolling(() => { void reader.refresh(); }, 30000);
+    return () => { stop(); reader.dispose(); };
+  }, [page, isAdmin, projectsPrincipal]);
 
   // Presentation expires independently of worker polling and persisted outcomes.
   useEffect(() => {
@@ -764,29 +792,33 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [operationVisible, operation?.id, operation?.status]);
 
-  useEffect(() => {
-    if (!operation || !["pending", "running"].includes(operation.status)) return;
-    let active = true, sequence = 0;
-    const poll = async () => {
-      const currentSequence = ++sequence;
-      const generation = viewGeneration.current;
-      try {
-        const current = readOperation(await request(`/operations/${operation.id}`), operation.id);
-        if (!active || currentSequence !== sequence || generation !== viewGeneration.current || operationId.current !== operation.id) return;
-        setOperation(current);
-        if (!["pending", "running"].includes(current.status)) {
-          operationBusy.current = false;
-          if (current.action === "delete") await refreshProjects();
-          else { await refreshSelected(); await refreshProjects(); refreshView(); }
+  const revalidateOperation = () => {
+    // A completed write cannot join directory evidence begun before its result.
+    projectsReader.current?.cancel(); void refreshProjects(); refreshView();
+  };
+  const operationPollingKey = session && page === "projectDetails" && selected === operationProject &&
+    operation && ["pending", "running"].includes(operation.status)
+    ? JSON.stringify([projectsPrincipal, operationProject, operation.id]) : "";
+  const liveOperationKey = useRef(operationPollingKey); liveOperationKey.current = operationPollingKey;
+  useLayoutEffect(() => {
+    if (!operationPollingKey || !operation) return;
+    const key = operationPollingKey, id = operation.id, generation = viewGeneration.current;
+    const reader = createReadController<Operation>({ key, deadlineMs: 30000,
+      read: async signal => readOperation(await request(`/operations/${id}`, "GET", undefined, undefined, signal), id),
+      publish: value => {
+        if (value.refreshing || key !== liveOperationKey.current || generation !== viewGeneration.current || operationId.current !== id) return;
+        if (value.status === "error") { setError(value.error); return; }
+        if (value.status !== "ready" || !value.data) return;
+        setOperation(value.data);
+        if (!["pending", "running"].includes(value.data.status)) {
+          operationBusy.current = false; revalidateOperation();
         }
-      } catch (cause) {
-        if (active && currentSequence === sequence && generation === viewGeneration.current && operationId.current === operation.id) setError(cause);
-      }
-    };
-    void poll();
-    const stopPolling = startVisiblePolling(poll, 2000);
-    return () => { active = false; stopPolling(); };
-  }, [operation?.id, operation?.status, refreshSelected, refreshProjects]);
+      },
+    });
+    void reader.refresh();
+    const stop = startVisiblePolling(() => { void reader.refresh(); }, 2000);
+    return () => { stop(); reader.dispose(); };
+  }, [operationPollingKey]);
 
   useEffect(() => {
     if (preserveError.current) { preserveError.current = false; return; }
@@ -899,7 +931,7 @@ export default function App() {
     setConfig(null); setPendingConfig(null); setPrices([]);
     usersReader.current?.dispose(); usersReader.current = null;
     setUsersSnapshot(null); setUsersAuthority(false); usersWriting.current = false; setUsersMutating(false);
-    setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
+    setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationProject(""); setOperationVisible(false);
     setWorkerStatus("checking");
     setNotice("");
   };
@@ -942,9 +974,9 @@ export default function App() {
         { ...body, idempotency_key: crypto.randomUUID() }, session.csrf,
       ));
       if (submission !== operationSubmission.current) return;
-      operationId.current = op.id; setOperation(op);
+      operationId.current = op.id; setOperationProject(projectId); setOperation(op);
       setOperationVisible(true);
-      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; await refreshProjects(); }
+      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; revalidateOperation(); }
     } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
     finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
   };
@@ -958,10 +990,10 @@ export default function App() {
       const op = readOperation(await request(`/projects/${encodeURIComponent(deleteTarget.id)}/delete`, "POST",
         { confirm_name: deleteName, idempotency_key: crypto.randomUUID(), remove_clone: deleteClone }, session.csrf));
       if (submission !== operationSubmission.current) return;
-      operationId.current = op.id; setOperation(op);
+      operationId.current = op.id; setOperationProject(deleteTarget.id); setOperation(op);
       setOperationVisible(true);
       setDeleteTarget(null); setDeleteName("");
-      if (!["pending", "running"].includes(op.status)) operationBusy.current = false;
+      if (!["pending", "running"].includes(op.status)) { operationBusy.current = false; revalidateOperation(); }
     } catch (cause) { if (submission === operationSubmission.current) { operationBusy.current = false; setError(cause); } }
     finally { if (submission === operationSubmission.current) setOperationSubmitting(false); }
   };
@@ -1075,8 +1107,13 @@ export default function App() {
       }, session?.csrf);
       if (applied.revision !== candidate.candidate_revision) throw new ApiError("unexpected_response");
       if (!current()) return false;
-      setPendingConfig(null); setNotice(t("changeApplied")); setViewRefresh(value => value + 1);
-      await refreshProjects();
+      setPendingConfig(null);
+      // Our own confirmed Save is not an unrelated poll: validate saved state
+      // before releasing the editor's mutation/draft barrier, without remounting.
+      await configRefresh.current?.(true);
+      if (!current()) return false;
+      setNotice(t("changeApplied"));
+      projectsReader.current?.cancel(); await refreshProjects();
       return true;
     } catch (cause) {
       if (current()) {
@@ -1092,7 +1129,7 @@ export default function App() {
   const discardPendingConfig = async () => {
     if (!selected || configMutation.current) return false;
     if (!projectPendingConfig && !pendingReadFailed) {
-      if (settingsStale) {setSettingsStale(false);setViewRefresh(value => value + 1);}
+      if (settingsStale) { setSettingsStale(false); await configRefresh.current?.(true); }
       return true;
     }
     const target = selected, key = projectPendingConfig?.key, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
@@ -1106,7 +1143,7 @@ export default function App() {
         if (!(cause instanceof ApiError) || cause.code !== "pending_config_not_found") throw cause;
       }
       if (current()) { setPendingConfig(null); setPendingReadFailed(false); setPendingReady(true); setNotice(t("changeDiscarded"));
-        if (settingsStale) {setSettingsStale(false);setViewRefresh(value => value + 1);}
+        if (settingsStale) { setSettingsStale(false); await configRefresh.current?.(true); }
         configDiscardFocus.current = () => {
           if (!current()) return;
           const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button[data-edit-key]")).find(item => item.dataset.editKey === key);
@@ -1472,7 +1509,7 @@ export default function App() {
             </>}
           </SettingsList>}
           </>}
-          {projectTab === "access" && isAdmin && selected && <ProjectAccess key={`${session.user.id}:${selected}:${viewRefresh}`} project={selected} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
+          {projectTab === "access" && isAdmin && selectedProject && <ProjectAccess key={`${projectsPrincipal}:${selected}`} project={selectedProject!} ready={projectsState === "ready"} refresh={viewRefresh} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
           </div>
         </>}
 
@@ -1580,58 +1617,75 @@ function FormLegend({ t }: { t: (key: MessageKey) => string }) {
 type ProjectDeveloper = { id: number; username: string; disabled: boolean; granted: boolean };
 const validDevelopers = (value: unknown): value is { developers: ProjectDeveloper[] } => !!value && typeof value === "object" && "developers" in value && Array.isArray(value.developers) && value.developers.every(row => row && Number.isSafeInteger(row.id) && row.id > 0 && typeof row.username === "string" && typeof row.disabled === "boolean" && typeof row.granted === "boolean") && new Set(value.developers.map(row => row.id)).size === value.developers.length;
 
-/** Administrator view of one project’s developers, granting or removing access one at a time. */
-function ProjectAccess({ project, csrf, locale, t, onError, onNotice }: { project: string; csrf?: string; locale: Locale; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
-  const [developers, setDevelopers] = useState<ProjectDeveloper[] | null>(null);
-  const [failed, setFailed] = useState(false);
+/** Strict grant authority with stable reviews and serialized post-write validation. */
+function ProjectAccess({ project, ready, refresh, csrf, locale, t, onError, onNotice }: { project: Project; ready: boolean; refresh: number; csrf?: string; locale: Locale; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
+  const path = `/projects/${encodeURIComponent(project.id)}/access`;
+  const [snapshot, setSnapshot] = useState<ReadSnapshot<ProjectDeveloper[]> | null>(null);
+  const current = snapshot?.key === path ? snapshot : null;
+  const developers = current?.data ?? null;
+  const failed = current?.status === "error";
   const [busy, setBusy] = useState(false);
-  const mounted = useRef(true);
   const changing = useRef(false);
-  const accessMutation = useRef(0);
-  const [review, setReview] = useState<ProjectDeveloper | null>(null);
-  const copy = userCopy[locale];
-  const path = `/projects/${encodeURIComponent(project)}/access`;
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const reader = useRef<ReadController | null>(null);
+  const [review, setReview] = useState<{ developer: ProjectDeveloper; project: string } | null>(null);
+  const [reviewInvalid, setReviewInvalid] = useState(false);
+  const projectBinding = JSON.stringify([project.id, project.name, project.archived]);
+  const liveProject = useRef({ binding: projectBinding, ready });
+  liveProject.current = { binding: projectBinding, ready };
+  const sameDeveloper = (row: ProjectDeveloper, previous: ProjectDeveloper) => row.id === previous.id &&
+    row.username === previous.username && row.granted === previous.granted && row.disabled === previous.disabled;
+  const authority = ready && !project.archived && current?.status === "ready" && !busy;
+  const reviewValid = authority && !!review && !reviewInvalid && review.project === projectBinding &&
+    !!developers?.some(row => sameDeveloper(row, review.developer));
+  // Latch invalidation: later equal-looking values must not revive an old review.
   useEffect(() => {
-    let live = true;
-    let reading = false;
-    setDevelopers(null); setFailed(false);
-    const load = async () => {
-      if (reading || changing.current) return;
-      reading = true;
-      const mutation = accessMutation.current;
-      const current = () => live && mutation === accessMutation.current;
-      try {
-        const value = await request<{ developers: ProjectDeveloper[] }>(path);
+    if (review && (!ready || project.archived || failed || review.project !== projectBinding ||
+      developers !== null && !developers.some(row => sameDeveloper(row, review.developer)))) setReviewInvalid(true);
+  }, [review, ready, projectBinding, failed, developers]);
+  const copy = userCopy[locale];
+  useLayoutEffect(() => {
+    const owner = createReadController<ProjectDeveloper[]>({ key: path, deadlineMs: 30000,
+      read: async signal => {
+        const value = await request<unknown>(path, "GET", undefined, undefined, signal);
         if (!validDevelopers(value)) throw new ApiError("unexpected_response");
-        if (current()) {
-          setDevelopers(value.developers); setFailed(false);
-          setReview(previous => previous && value.developers.some(row => row.id === previous.id &&
-            row.granted === previous.granted && row.disabled === previous.disabled && row.username === previous.username) ? previous : null);
-        }
-      } catch (cause) {
-        if (current()) { setDevelopers(null); setReview(null); setFailed(true); onError(cause); }
-      } finally { reading = false; }
-    };
-    void load();
-    const stop = startVisiblePolling(() => void load(), 15000);
-    return () => { live = false; stop(); };
+        return value.developers;
+      },
+      publish: value => { setSnapshot(value); if (value.status === "error") onError(value.error); },
+    });
+    reader.current = owner;
+    void owner.refresh();
+    const stop = startVisiblePolling(() => { if (!changing.current) void owner.refresh(); }, 15000);
+    return () => { stop(); owner.dispose(); if (reader.current === owner) reader.current = null; };
   }, [path, onError]);
-  const change = async (developer: ProjectDeveloper) => {
+  const previousRefresh = useRef(refresh);
+  useEffect(() => {
+    if (previousRefresh.current === refresh) return;
+    previousRefresh.current = refresh;
     if (changing.current) return;
-    accessMutation.current += 1;
+    // An operation result cannot join a read that began before that result.
+    reader.current?.cancel(); void reader.current?.refresh();
+  }, [refresh]);
+  const change = async () => {
+    const owner = reader.current;
+    if (changing.current || !review || !reviewValid || !owner) return;
+    const developer = review.developer, binding = projectBinding;
     changing.current = true; setBusy(true); onError("");
+    owner.cancel();
+    const stillOwned = () => reader.current === owner && liveProject.current.ready && liveProject.current.binding === binding;
     try {
       const result = await request<{ id: number; granted: boolean }>(`${path}/${developer.id}`, "PUT", { granted: !developer.granted }, csrf);
-      if (result.id !== developer.id || result.granted !== !developer.granted) throw new ApiError("unexpected_response");
-      if (!mounted.current) return;  // another project is shown now; say nothing about this one
-      setDevelopers(current => current && current.map(row => row.id === developer.id ? { ...row, granted: !developer.granted } : row));
-      setReview(null);
+      if (!result || result.id !== developer.id || result.granted !== !developer.granted) throw new ApiError("unexpected_response");
+      if (!stillOwned()) return;
+      setReview(null); setReviewInvalid(false);
       onNotice(`${copy.applied}: ${developer.username} · ${t(result.granted ? "hasAccess" : "noAccess")}`);
-      const value = await request<{ developers: ProjectDeveloper[] }>(path);
-      if (!validDevelopers(value)) throw new ApiError("unexpected_response");
-      if (mounted.current) setDevelopers(value.developers);
-    } catch (cause) { if (mounted.current) onError(cause); } finally { if (mounted.current) { changing.current = false; setBusy(false); } }
+    } catch (cause) { if (stillOwned()) { setReviewInvalid(true); onError(cause); } }
+    finally {
+      if (reader.current === owner) {
+        // Keep actions disabled until a strict post-write read has validated.
+        await owner.refresh();
+        if (reader.current === owner) { changing.current = false; setBusy(false); }
+      }
+    }
   };
   return <section className="panel wide-panel"><h2>{t("projectAccessTab")}</h2><p className="muted">{t("projectAccessHelp")}</p>
     {developers === null ? <DataFeedback state={failed ? "error" : "loading"} t={t} /> : (developers.length === 0 ? <p className="empty">{t("noDevelopers")}</p> : <div className="user-list">{developers.map(developer =>
@@ -1639,9 +1693,10 @@ function ProjectAccess({ project, csrf, locale, t, onError, onNotice }: { projec
         <span className="user-avatar">{developer.username.charAt(0).toUpperCase()}</span>
         <div><strong>{developer.username}</strong><small>{t("developer")}{developer.disabled ? ` · ${t("accountDisabled")}` : ""}</small></div>
         <span className={developer.granted ? "status status-working" : "status"}>{t(developer.granted ? "hasAccess" : "noAccess")}</span>
-        <button type="button" className="ghost" disabled={busy || review !== null} aria-label={`${t(developer.granted ? "removeAccess" : "grantAccess")}: ${developer.username}`} onClick={() => setReview(developer)}>{t(developer.granted ? "removeAccess" : "grantAccess")}</button>
+        <button type="button" className="ghost" disabled={!authority || review !== null} aria-label={`${t(developer.granted ? "removeAccess" : "grantAccess")}: ${developer.username}`} onClick={() => { setReview({ developer, project: projectBinding }); setReviewInvalid(false); }}>{t(developer.granted ? "removeAccess" : "grantAccess")}</button>
       </div>)}</div>)}
-    {review && <AccessReview subject={`${review.username} · ${project}`} before={t(review.granted ? "hasAccess" : "noAccess")} after={t(review.granted ? "noAccess" : "hasAccess")} copy={copy} busy={busy} correct={() => setReview(null)} apply={() => void change(review)} />}
+    {review && (reviewInvalid || !reviewValid && !busy) && <p role="alert" className="alert">{copy.reviewChanged}</p>}
+    {review && <AccessReview subject={`${review.developer.username} · ${project.name}`} before={t(review.developer.granted ? "hasAccess" : "noAccess")} after={t(review.developer.granted ? "noAccess" : "hasAccess")} copy={copy} busy={busy} canApply={reviewValid} correct={() => { setReview(null); setReviewInvalid(false); }} apply={() => void change()} />}
   </section>;
 }
 

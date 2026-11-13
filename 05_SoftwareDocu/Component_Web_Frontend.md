@@ -37,6 +37,43 @@ The authenticated factory administrator sees a persistent localized password rem
 
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
 
+## Access, Settings and App result ownership
+
+ProjectAccess has a strict 30-second `createReadController` keyed by immutable
+project identity under the principal-bound parent key, with 15-second visible
+polling. Refresh signals invoke the existing owner, not a refresh-counter key.
+Pending reads retain rows/review/focus. Reviews bind developer ID/name/grant/disabled
+and live project ID/name/archive; changed or failed evidence latches submission
+invalid until correction. An unchanged valid review stays mounted. Current project
+metadata must be ready and nonarchived at render and submit. A grant write cancels
+pre-write work, serializes against periodic reads and keeps controls disabled until
+strict post-write validation settles. Failure hides grants rather than retaining
+optimistic permission evidence. Context exit aborts the read and scheduler; late
+write results cannot publish into another owner.
+
+App's configuration owner no longer depends on `viewRefresh`. Operation-result
+signals cancel older configuration/price work, then reread only through existing
+visible/clean/blocker/mutation guards. Dirty drafts and valid confirmations remain.
+Own confirmed Save or explicit stale discard instead awaits post-write validation
+before the editor's barrier is released, retaining open groups. Existing config
+revision, pending-candidate and price-write guards and 30s/15s request bounds remain;
+this is not a change to settings mutation authority or sign-in lifecycle.
+
+App pending operations use a strict 30-second owner keyed by principal/project/ID,
+not pending versus running, with 2-second visible cadence. Leaving the project
+context cancels tracking; returning resumes observation of an unresolved operation.
+Read failure/deadline reports an error, never successful completion. An observed
+terminal result cancels pre-result directory reads before revalidation and sends
+non-remounting reread signals to displayed owners. Administration worker/storage
+owners keep 5s/30s cadence, 30s bounds and strict error/unavailable/unknown semantics;
+successful pending reads retain values, while failed/invalid reads do not retain a
+healthy status. Readiness validates ready/worker/activity, storage validates its
+numeric, boolean and volume fields before display. `e2e/accessRefresh.spec.ts`
+proves these seams, including changed/archived review authority, post-write failure,
+deadline/late completion, cancellation, hidden pause, pending-to-running continuity
+and clean/dirty Settings after App results. Shared authenticated denial/session and
+TicketWorkspace result ownership remain separate seams.
+
 ## Owned informational read primitive
 
 `polling.ts::createReadController<T>` provides a framework-independent, memory-only

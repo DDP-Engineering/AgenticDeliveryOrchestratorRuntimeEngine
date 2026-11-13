@@ -31,11 +31,13 @@ In der Liste **Benutzer** bietet jedes Konto diese Aktionen.
 
 Der Reiter **Zugriff** eines Projekts listet jedes Entwicklerkonto mit **Hat Zugriff** oder **Kein Zugriff**. Wählen Sie neben einem Entwickler **Zugriff gewähren** oder **Zugriff entziehen**, vergleichen Sie **Vorher** und **Nachher** und wählen Sie dann **Geprüften Zugriff anwenden**. Die Änderung lässt die anderen Projekte des Entwicklers unberührt und wird im Änderungsverlauf festgehalten. Die Zugriffsliste wird alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist.
 
+Updates erhalten die Liste, eine unveränderte Prüfung und den Tastaturfokus. Geänderte Zugriffe, Kontodaten oder ein archiviertes Projekt machen die Prüfung ungültig; wählen Sie **Zugriff korrigieren** und prüfen Sie erneut. Aktionen bleiben bis zur erfolgreichen Abfrage nach der Änderung gesperrt. Fehler oder die Lesefrist von 30 Sekunden blenden Zugriffsdaten aus und sperren abhängige Aktionen bis zum erfolgreichen Update.
+
 Ein Entwickler mit Zugriff sieht das Projekt und kann dessen Aufträge starten, wiederholen oder abbrechen. Administratoren haben immer Zugriff.
 
 ## Systemstatus {#system-status}
 
-Öffnen Sie unter **Verwaltung** den [Systemstatus](/admin/status). Er aktualisiert sich selbst.
+Öffnen Sie unter **Verwaltung** den [Systemstatus](/admin/status). Er aktualisiert sich selbst. Workerstatus lädt alle 5 Sekunden und Speicherplatz alle 30 Sekunden, solange die Seite sichtbar ist. Laufende Abfragen erhalten angezeigte Werte; überlappende Updates teilen eine Abfrage. Fehler, ungültige Nachweise oder die Lesefrist von 30 Sekunden zeigen den jeweiligen Fehler, keinen alten gesunden Status.
 
 - **Steuerungs-Worker** zeigt **Bereit** im Leerlauf, **Beschäftigt** bei Arbeit, **Aktivität unbekannt** ohne Nachweis, **Nicht verfügbar**, **Statusprüfung fehlgeschlagen** oder **Prüfung…**. Ein aktueller Heartbeat bestätigt nicht die Erreichbarkeit von Forge, Executoren oder Modellen.
 - **Speicherplatz** lautet **Platz verfügbar**, **Wenig Speicherplatz** oder **Speicherprüfung fehlgeschlagen**. Es misst den freien Speicherplatz für die ADORE-Kontendatenbank und den Auftragsstatus-Ordner jedes Projekts, gruppiert nach physischem Datenträger. Eine gemeinsame Platte erhält eine einzige Zeile; mehrere Platten erhalten eine Tabelle mit **Datenträger**, **Frei** und **Status**. Weniger als 1 GiB frei gilt als wenig, und eine fehlgeschlagene Messung wird nie als freier Platz angezeigt.

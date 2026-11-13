@@ -6,7 +6,7 @@ L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’AD
 
 Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Statistiques, Historique et, pour les administrateurs, Accès.
 
-Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT.
+Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT. Un résultat de surveillance observé relit les paramètres enregistrés sans modification en cours ni fermeture des groupes ; saisies et confirmations valides gardent leurs protections. Votre propre enregistrement réussi valide les valeurs avant la reprise des modifications, sans fermer les groupes ouverts.
 
 Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet a ses propres paramètres ; la capacité globale et la conservation de l’audit relèvent de l’Administration.
 

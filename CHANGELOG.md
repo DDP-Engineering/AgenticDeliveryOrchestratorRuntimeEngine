@@ -43,6 +43,13 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Preserve Project Access reviews/focus and Settings groups through background and
+  observed monitoring results. Cancel old grant reads before writes and require
+  strict post-change validation; changed account/project authority invalidates reviews.
+  Keep Settings drafts guarded and validate own saved values without remounting.
+  Bound/coalesce App operation and System status reads without changing cadence or
+  treating failed/invalid health checks as healthy or unknown completion as success.
+
 - Keep Users rows, access reviews, dialog drafts and focus during manual refresh;
   record successful completion rather than request start. Refuse failed or changed
   authority, recheck selected projects at creation and cancel pre-write list reads

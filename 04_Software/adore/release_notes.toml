@@ -134,7 +134,7 @@ text = { en = "System status shows storage and retention; Users keeps drafts and
 [[release.entry]]
 category = "improved"
 topic = { en = "Navigation", fr = "Navigation", de = "Navigation", ro = "Navigare" }
-text = { en = "Settings and Access update automatically; both change histories keep your place and offer Retry.", fr = "Paramètres et Accès s’actualisent ; les historiques gardent votre place et proposent Réessayer.", de = "Einstellungen und Zugriff laden automatisch; beide Änderungsverläufe bleiben beim Wiederholen offen.", ro = "Setări și Acces se actualizează; istoricul păstrează pagina și oferă Reîncearcă în ambele vederi." }
+text = { en = "Updates keep Settings groups and valid Access reviews; change histories keep your place and Retry.", fr = "Mises à jour : groupes et accès vérifiés préservés ; historiques stables avec Réessayer.", de = "Updates erhalten Gruppen und gültige Zugriffsprüfungen; Verläufe bleiben beim Wiederholen offen.", ro = "Actualizările păstrează grupurile și revizuirile valide; istoricul păstrează pagina și Reîncearcă." }
 
 [[release.entry]]
 category = "improved"

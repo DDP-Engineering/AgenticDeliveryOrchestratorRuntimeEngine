@@ -31,11 +31,13 @@ Dans la liste **Utilisateurs**, chaque compte propose ces actions.
 
 L’onglet **Accès** d’un projet liste chaque compte développeur avec **A accès** ou **Pas d’accès**. Choisissez **Donner l’accès** ou **Retirer l’accès** à côté d’un développeur, comparez **Avant** et **Après**, puis choisissez **Appliquer les accès vérifiés**. Le changement laisse intacts les autres projets du développeur et est consigné dans l’Historique des changements. La liste des accès s’actualise toutes les 15 secondes quand l’onglet du navigateur est visible.
 
+Les mises à jour conservent la liste, la vérification inchangée et le focus clavier. Des accès ou détails de compte modifiés, ou un projet archivé, invalident la vérification ; choisissez **Corriger les accès** et vérifiez à nouveau. Les actions restent bloquées jusqu’à une relecture réussie après modification. Un échec ou le délai de 30 secondes masque les accès et bloque les actions liées jusqu’à une mise à jour réussie.
+
 Un développeur qui a accès voit le projet et peut démarrer, relancer ou annuler ses tâches. Les administrateurs ont toujours accès.
 
 ## État du système {#system-status}
 
-Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actualise seul.
+Sous **Administration**, ouvrez [État du système](/admin/status). Il s’actualise seul. L’agent se met à jour toutes les 5 secondes et le stockage toutes les 30 secondes quand la page est visible. Les lectures en cours conservent les valeurs ; les actualisations simultanées partagent une lecture. Un échec, une preuve invalide ou le délai de 30 secondes affiche l’échec correspondant, jamais un ancien état sain.
 
 - **Agent de contrôle** affiche **Prêt** au repos, **Occupé** en traitement, **Activité inconnue** si la preuve manque, **Indisponible**, **Échec de la vérification** ou **Vérification…**. Un battement récent ne confirme pas l’accès à la forge, aux exécuteurs ou aux modèles.
 - **Stockage** indique **Espace disponible**, **Espace disque faible** ou **Échec de la vérification du stockage**. Il mesure l’espace disque libre pour la base de comptes d’ADORE et le dossier d’état des tâches de chaque projet, regroupés par volume physique. Un disque partagé donne une seule ligne ; plusieurs disques donnent un tableau **Volume**, **Libre** et **État**. Moins de 1 Gio libre est considéré comme faible, et une mesure en échec n’est jamais présentée comme de l’espace libre.

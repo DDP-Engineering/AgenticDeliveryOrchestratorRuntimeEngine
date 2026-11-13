@@ -6,7 +6,7 @@ A project's Settings tab lists the working rules ADORE applies to it: which tick
 
 Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Statistics, History and, for administrators, Access.
 
-Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in.
+Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in. An observed monitoring result revalidates clean saved settings without closing groups; dirty drafts and valid confirmations keep their existing guards. Your own successful Save validates the saved values before editing resumes, without closing the open groups.
 
 Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project has its own settings; global capacity and audit retention belong to Administration.
 

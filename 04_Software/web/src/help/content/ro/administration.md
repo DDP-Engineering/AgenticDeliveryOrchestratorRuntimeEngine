@@ -31,11 +31,13 @@ Contul și accesul lui se creează împreună sau deloc. Un nume de utilizator d
 
 Fila **Acces** a unui proiect listează fiecare cont de dezvoltator cu **Are acces** sau **Fără acces**. Alegeți **Acordă acces** sau **Retrage accesul** lângă un dezvoltator, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. Modificarea nu afectează celelalte proiecte ale dezvoltatorului și este înregistrată în Istoricul modificărilor. Lista de acces se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă.
 
+Actualizările păstrează lista, revizuirea neschimbată și focalizarea tastaturii. Accesul sau datele contului schimbate ori un proiect arhivat invalidează revizuirea; alegeți **Corectează accesul** și revizuiți din nou. Acțiunile rămân blocate până la recitirea reușită după modificare. O eroare sau termenul de 30 de secunde ascunde dovezile accesului și blochează acțiunile dependente până la o actualizare reușită.
+
 Un dezvoltator cu acces vede proiectul și îi poate porni, reîncerca sau anula lucrările. Administratorii au întotdeauna acces.
 
 ## Starea sistemului {#system-status}
 
-Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actualizează singură.
+Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actualizează singură. Starea lucrătorului se actualizează la 5 secunde, iar stocarea la 30 de secunde cât timp pagina este vizibilă. Citirile în curs păstrează valorile afișate; actualizările suprapuse folosesc aceeași citire. O eroare, dovezi invalide sau termenul de 30 de secunde afișează eroarea corespunzătoare, nu o stare sănătoasă veche.
 
 - **Lucrătorul de control** afișează **Pregătit** în repaus, **Ocupat** în lucru, **Activitate necunoscută** fără dovadă, **Indisponibil**, **Verificarea stării a eșuat** sau **Se verifică…**. Un semnal recent nu confirmă accesul la forge, executori sau modele.
 - **Stocare** afișează **Spațiu disponibil**, **Spațiu pe disc redus** sau **Verificarea stocării a eșuat**. Măsoară spațiul liber pe disc pentru baza de date de conturi ADORE și pentru dosarul de stare al lucrărilor fiecărui proiect, grupat pe volum fizic. Un singur disc partajat primește o singură linie; mai multe discuri primesc un tabel **Volum**, **Liber** și **Stare**. Sub 1 GiB liber se consideră redus, iar o măsurătoare eșuată nu este afișată niciodată ca spațiu liber.
