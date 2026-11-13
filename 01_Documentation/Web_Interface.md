@@ -115,6 +115,17 @@ do not apply to direct jobs. Jobs and Settings help explains this in all four lo
 
 ## Interface and project settings details
 
+**Sign out** immediately hides private views and cancels their browser requests.
+The sign-out request finishes before another sign-in is offered, with a 30-second
+browser limit. Cancelling browser requests does not undo commands accepted by the
+server. Detected authentication or access denial also removes the previous view:
+a changed session is checked again, a required password change opens its form,
+and an unchanged denied session requires explicit sign-in rather than repeated
+background retries. Missing project/job responses still use their scoped unavailable
+or error transitions. While the initial-password reminder applies, its 15-second
+visible session checks share one bounded read; account, role, grant or password
+transitions cannot retain the previous account's data.
+
 Project metadata updates every 15 seconds while the page is visible. An update
 already in progress is shared by further refresh triggers; the current project
 view stays visible while it waits. A completed failed or malformed metadata read

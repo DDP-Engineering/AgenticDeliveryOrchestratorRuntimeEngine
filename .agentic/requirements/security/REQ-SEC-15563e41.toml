@@ -17,9 +17,9 @@ When sign-out, account or role change, session expiry, required password change 
 
 verification = "Offline browser: hold privileged reads across sign-out/sign-in as another role and across Dev grant revocation, then release old successes; assert private data, money, exports and actions are absent under the new account/scope; exercise factory-session expiry/password-change transitions and confirm only authorized replacement data can appear."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/request.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
-linked_tests = ["04_Software/web/e2e/ticketRefresh.spec.ts"]
+linked_tests = ["04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/tests/request.test.mjs"]
 
 
 spec = ""

@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
-import { revalidateVisiblePage } from "./polling";
+import { revalidateVisiblePage, trackScopeReads } from "./polling";
 import { messages } from "../src/i18n";
 import { settingsImpact, settingsSave } from "./settings-actions";
 
@@ -105,6 +105,7 @@ for (const failure of ["transport", "malformed"] as const) test(`Access ${failur
 });
 
 test("Access deadline fails closed, releases read slot and rejects expired completion", async ({ page }) => {
+  const settleScope = trackScopeReads(page);
   await page.clock.install(); await access(page);
   await grant(page).click();
   const held = deferred(); let reads = 0;
@@ -113,7 +114,7 @@ test("Access deadline fails closed, releases read slot and rejects expired compl
     const metadata = page.waitForResponse(response => response.url().endsWith("/api/v1/projects"));
     await revalidateVisiblePage(page); await expect.poll(() => reads).toBe(1);
     await (await metadata).finished();
-    await hidden(page);
+    await hidden(page); await settleScope();
     await page.clock.runFor(30001);
     await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
     await expect(apply(page)).toBeDisabled();
@@ -160,6 +161,7 @@ test("App monitoring status coalesces through running, expires safely and cancel
 });
 
 test("System status holds values, coalesces bounded reads and rejects malformed replacements", async ({ page }) => {
+  const settleScope = trackScopeReads(page);
   await page.clock.install();
   const storage = { threshold_bytes: 1024, low: false, volumes: [{ scope: "home", project: null, free_bytes: 4096, total_bytes: 8192, low: false, volume_id: "test-volume" }] };
   await page.route("**/api/v1/ready", route => route.fulfill({ json: { status: "ready", worker: "ready", activity: "idle" } }));
@@ -195,7 +197,7 @@ test("System status holds values, coalesces bounded reads and rejects malformed 
   try {
     await hidden(page); await page.clock.runFor(45000); expect(reads).toBe(0);
     await revalidateVisiblePage(page); await expect.poll(() => reads).toBe(2);
-    await hidden(page); await page.clock.runFor(30001);
+    await hidden(page); await settleScope(); await page.clock.runFor(30001);
     await expect(worker).toContainText(messages.en.workerCheckFailed); await expect(disk).toContainText(messages.en.storageCheckFailed);
     await expect.poll(() => cancelled).toBe(2);
   } finally { expired.resolve(); }

@@ -99,6 +99,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Announce the initial web account and remind its administrator to change the factory password.
 
+- Immediately remove private web views and cancel browser requests on sign-out or
+  detected HTTP authentication/access loss, including Settings prices and explicit
+  child reads. Recheck changed sessions or require explicit sign-in instead of an
+  automatic denial loop. Keep new sign-in behind the bounded sign-out request;
+  coalesce applicable factory-session checks and fail closed on invalid transitions.
+
 - Clarify enrollment and project settings, preserve current readiness evidence, and support Pi reasoning effort.
 
 - Complete localized setting help for Pi reasoning effort and native execution.

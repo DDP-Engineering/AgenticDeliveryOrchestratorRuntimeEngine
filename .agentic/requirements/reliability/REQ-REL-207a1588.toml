@@ -17,9 +17,9 @@ If a web read completes after its principal, authorized scope, resource identity
 
 verification = "Offline helper/browser: release older successes and errors after a newer scope read, mutation, timeout/retry, account change and unmount; assert neither old values nor old failure notices or timestamps overwrite the new result; a live same-generation result still publishes."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/request.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
-linked_tests = ["04_Software/web/tests/polling.test.mjs", "04_Software/web/tests/statistics.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/usersRefresh.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts", "04_Software/web/e2e/ticketRefresh.spec.ts"]
+linked_tests = ["04_Software/web/tests/polling.test.mjs", "04_Software/web/tests/statistics.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/usersRefresh.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts", "04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts", "04_Software/web/tests/request.test.mjs"]
 
 
 spec = ""

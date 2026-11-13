@@ -149,7 +149,7 @@ text = { en = "AEGIS 0.15.0 jobs publish again. Setup checks use the configured 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
-text = { en = "Confirm and reveal passwords in Add user, Reset password and My account. Initial admin reminder.", fr = "Ajout, réinitialisation et changement de mot de passe avec confirmation et affichage.", de = "Passwörter beim Hinzufügen, Zurücksetzen und Ändern bestätigen und anzeigen.", ro = "Confirmă și afișează parola la adăugare, resetare și schimbare. Memento pentru adminul inițial." }
+text = { en = "Confirm/reveal passwords and initial admin reminder; sign-out or lost access hides private views.", fr = "Confirmation/affichage des mots de passe, rappel admin ; déconnexion ou accès perdu masque les vues.", de = "Passwortbestätigung, Anzeige und Admin-Hinweis; Abmeldung oder Rechteverlust blendet Privates aus.", ro = "Confirmare/afișare parole și memento admin; deconectarea sau accesul pierdut ascunde datele private." }
 
 [[release.entry]]
 category = "fixed"

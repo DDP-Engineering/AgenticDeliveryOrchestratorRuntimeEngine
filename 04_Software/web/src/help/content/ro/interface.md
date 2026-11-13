@@ -69,6 +69,8 @@ Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiect
 
 În [Contul meu](/account), **Aspect** conține **Limbă** (English, Français, Deutsch, Română) și **Temă** (**Sistem**, **Luminoasă**, **Întunecată**). Fiecare alegere este salvată în contul dumneavoastră și vă urmează în toate browserele; înainte de autentificare, pagina de autentificare reține alegerea în browser. **Schimbă parola** cere parola curentă și una nouă de cel puțin 8 caractere.
 
-Administratorul inițial vede un memento până la schimbarea parolei inițiale. Alegeți **Schimbă parola** din memento pentru a deschide Contul meu.
+**Deconectare** ascunde imediat vederile private și anulează citirile lor din browser. Așteptați încheierea înainte de a vă autentifica din nou; browserul așteaptă cel mult 30 de secunde. Un refuz de acces sau de sesiune detectat elimină și vederea veche. O sesiune schimbată este reverificată; altfel, autentificați-vă explicit. O schimbare obligatorie a parolei deschide formularul său. Anularea unei cereri din browser nu anulează o comandă deja acceptată de server.
+
+Administratorul inițial vede un memento până la schimbarea parolei inițiale. Alegeți **Schimbă parola** din memento pentru a deschide Contul meu. Cât timp se aplică mementoul, sesiunea este verificată la fiecare 15 secunde în fila vizibilă, partajând o citire deja în curs. Schimbările de cont, rol, acces la proiecte sau parolă elimină contextul precedent.
 
 La schimbarea parolei, introduceți parola nouă de două ori. Butoanele afișează sau ascund fiecare câmp. Parola nouă trebuie să aibă cel puțin 8 caractere.

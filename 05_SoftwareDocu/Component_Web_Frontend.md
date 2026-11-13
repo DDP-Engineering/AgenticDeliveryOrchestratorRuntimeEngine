@@ -33,7 +33,35 @@ remain unchanged for malformed and aborted responses.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 
-The authenticated factory administrator sees a persistent localized password reminder linking to My account. A guarded visible-tab refresh checks the session while the reminder is active; stale responses cannot replace a newer session. The existing password form revokes sessions on success.
+The authenticated factory administrator sees a persistent localized password reminder linking to My account. While applicable, one strict 30s owned session read uses the existing 15s visible cadence and coalesces visible-return/timer triggers. Hidden tabs start no reads. Validated password-required, account, role, CSRF or grant changes end the old application context; failed or malformed session reads do not preserve its authority. The existing password form revokes sessions on success.
+
+## Authenticated request boundary
+
+`request.ts` owns JSON transport and `createRequestScope`. Every App/child request,
+including Settings prices, ProjectAccess and SettingsList explicit actions, uses
+one application-lifetime AbortController combined with any resource signal. Fetch
+transport failures remain positively typed; invalid JSON/media and HTTP application
+errors never acquire informational stale eligibility. Successful transport is not
+resource validation. Disposal aborts browser work, refuses new requests and rejects
+late successes/errors even if a transport ignores abort. It never implies server
+mutation rollback. Only sign-out's separate DELETE uses raw transport after disposal.
+
+App retains one `AppView` instance for ordinary updates. A detected authenticated
+HTTP 401/403 disposes its request scope and replaces that instance, removing all old
+private snapshots, reviews, callbacks and action authority. Authentication/CSRF loss
+returns to sign-in. Other denials permit a validated `/me` correction only if the
+principal actually changed or a password change is required; unchanged identity
+stops at explicit sign-in, preventing an automatic denial loop. Missing-resource
+404 stays resource-local and is not guessed to mean whole-account loss.
+
+Sign-out invalidates locally before waiting for DELETE, so held reads and scheduling
+cannot retain private views. A localized signing-out screen withholds a new login
+until DELETE settles (30s browser bound), avoiding a late old-session cookie response
+racing a new sign-in. Successful own-password change similarly replaces the context.
+The boundary supports development StrictMode effect replay without reviving obsolete
+requests. `tests/request.test.mjs` and `e2e/sessionRefresh.spec.ts` prove transport,
+late denial/success, five-view immediate sign-out, HTTP/session correction, price
+ownership, account replacement, bounded session reads and hidden/coalesced polling.
 
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
 
@@ -74,7 +102,7 @@ numeric, boolean and volume fields before display. `e2e/accessRefresh.spec.ts`
 proves these seams, including changed/archived review authority, post-write failure,
 deadline/late completion, cancellation, hidden pause, pending-to-running continuity
 and clean/dirty Settings after App results, including an unrelated result racing
-held own-Save validation. Shared authenticated denial/session remains a separate seam.
+held own-Save validation. Authenticated denial/session uses the shared boundary above.
 
 ## Ticket live scope and response ownership
 
@@ -99,7 +127,7 @@ the browser request and ignores its result without claiming the server rolled ba
 Only a live result may publish notices/queued state or notify metadata. Operation
 tracking binds the originating project authority, not the full project array. Errors
 and success feedback cannot appear under another principal/project. Shared detected
-HTTP-denial/session invalidation remains a separate App transport responsibility.
+HTTP-denial/session invalidation uses App's shared request boundary above.
 `e2e/ticketRefresh.spec.ts` proves unchanged/changed reviews, removed identities,
 late read/write refusal, explicit deadline/recovery, request counts, no forge polling
 and keyboard-accessible four-locale/two-theme narrow feedback; existing ticket tests

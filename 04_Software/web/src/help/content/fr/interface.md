@@ -69,6 +69,8 @@ Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet,
 
 Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.
 
-L’administrateur initial voit un rappel jusqu’au changement du mot de passe initial. Choisissez **Changer le mot de passe** dans le rappel pour ouvrir Mon compte.
+**Se déconnecter** masque immédiatement les vues privées et annule leurs lectures dans le navigateur. Attendez la fin avant de vous reconnecter ; le navigateur attend au plus 30 secondes. Un refus d’accès ou de session détecté retire aussi l’ancienne vue. Une session modifiée est revérifiée ; sinon, reconnectez-vous explicitement. Un changement de mot de passe obligatoire ouvre son formulaire. Annuler une requête du navigateur n’annule pas une commande déjà acceptée par le serveur.
+
+L’administrateur initial voit un rappel jusqu’au changement du mot de passe initial. Choisissez **Changer le mot de passe** dans le rappel pour ouvrir Mon compte. Tant que ce rappel s’applique, les contrôles de session ont lieu toutes les 15 secondes dans l’onglet visible et partagent une lecture déjà en cours. Un changement de compte, rôle, accès aux projets ou mot de passe retire le contexte précédent.
 
 Pour changer votre mot de passe, saisissez deux fois le nouveau. Les boutons affichent ou masquent chaque saisie. Il faut au moins 8 caractères.

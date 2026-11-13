@@ -69,6 +69,8 @@ Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befe
 
 Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.
 
-Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto.
+**Abmelden** blendet private Ansichten sofort aus und bricht ihre Browserabfragen ab. Warten Sie vor einer neuen Anmeldung auf das Ende; der Browser wartet höchstens 30 Sekunden. Ein erkannter Zugriffs- oder Sitzungsfehler entfernt ebenfalls die alte Ansicht. Eine geänderte Sitzung wird erneut geprüft; andernfalls melden Sie sich ausdrücklich neu an. Ein erforderlicher Passwortwechsel öffnet sein Formular. Der Abbruch einer Browseranfrage macht einen bereits vom Server angenommenen Befehl nicht rückgängig.
+
+Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto. Solange die Erinnerung gilt, wird die Sitzung im sichtbaren Tab alle 15 Sekunden geprüft; laufende Abfragen werden geteilt. Änderungen an Konto, Rolle, Projektzugriff oder Passwort entfernen den bisherigen Kontext.
 
 Geben Sie beim Ändern das neue Passwort zweimal ein. Die Schaltflächen zeigen oder verbergen jede Eingabe. Mindestens 8 Zeichen sind erforderlich.

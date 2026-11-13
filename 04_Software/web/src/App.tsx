@@ -24,7 +24,8 @@ import { readReadiness, validProjectVerification, type ProjectReadiness } from "
 import { AuditHistory } from "./AuditHistory";
 import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
-import { ApiError, ReadTransportError, describeError } from "./errors";
+import { ApiError, describeError } from "./errors";
+import { createRequestScope, rawRequest, type Request } from "./request";
 import { createReadController, startVisiblePolling, type ReadController, type ReadSnapshot } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { BATCH_KEY, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
@@ -97,35 +98,17 @@ const initialLocale = (): Locale => {
   return browser in messages ? browser : "en";
 };
 
-async function request<T>(path: string, method = "GET", body?: unknown, csrf?: string, signal?: AbortSignal): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/v1${path}`, {
-      method, credentials: "same-origin", cache: "no-store", signal,
-      headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (cause) {
-    if (signal?.aborted) throw cause;
-    throw new ReadTransportError();
-  }
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const detail = payload?.detail;
-    if (typeof detail?.code === "string") throw new ApiError(detail.code, typeof detail.message === "string" ? detail.message : "");
-    throw new ApiError("request_failed", `HTTP ${response.status}`);
-  }
-  if (!response.headers.get("content-type")?.includes("application/json")) {
-    throw new ApiError("unexpected_response", `${path} (HTTP ${response.status})`);
-  }
-  try { return await response.json() as T; }
-  catch (cause) {
-    if (signal?.aborted) throw cause;
-    throw new ApiError("unexpected_response");
-  }
+/** Validate account evidence before it can establish or replace a principal. */
+function readSession(value: unknown): Session {
+  const item = value as Session, user = item?.user;
+  if (!item || typeof item.csrf !== "string" || !item.csrf || !user || !Number.isSafeInteger(user.id) || user.id < 1 ||
+    typeof user.username !== "string" || !user.username || !["admin", "developer"].includes(user.role) || user.disabled !== false ||
+    [user.password_change_required, user.factory_password].some(flag => flag !== undefined && typeof flag !== "boolean") ||
+    user.projects !== undefined && (!Array.isArray(user.projects) || user.projects.some(id => typeof id !== "string") || new Set(user.projects).size !== user.projects.length)) throw new ApiError("unexpected_response");
+  return item;
 }
 
-async function readPrices(path: string, signal?: AbortSignal): Promise<Price[]> {
+async function readPrices(request: Request, path: string, signal?: AbortSignal): Promise<Price[]> {
   const prices = await request<Price[]>(path + "/prices", "GET", undefined, undefined,
     signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000));
   const validRate = (value: unknown) => typeof value === "string" && /^\d+(?:\.\d{1,6})?$/.test(value) && Number(value) <= 1000000;
@@ -137,10 +120,53 @@ async function readPrices(path: string, signal?: AbortSignal): Promise<Price[]> 
   return prices;
 }
 
+const sessionPrincipal = (current: Session) => JSON.stringify([current.csrf, current.user.id, current.user.role, [...(current.user.projects ?? [])].sort()]);
+type SessionBoundary = { epoch: number; bootstrap: boolean; signingOut?: boolean; session?: Session; error?: unknown; passwordChanged?: boolean; deniedPrincipal?: string };
+
+/** Only a real security-context transition replaces the application instance. */
 export default function App() {
+  const [boundary, setBoundary] = useState<SessionBoundary>({ epoch: 0, bootstrap: true });
+  const replace = (next: Omit<SessionBoundary, "epoch">) => {
+    window.history.replaceState(null, "", "/");
+    setBoundary(previous => ({ ...next, epoch: previous.epoch + 1 }));
+  };
+  const denied = (code: string, previous?: Session) => replace({
+    bootstrap: !["authentication_required", "csrf_required"].includes(code), error: new ApiError(code),
+    deniedPrincipal: previous ? sessionPrincipal(previous) : undefined,
+  });
+  const signOut = async (csrf?: string) => {
+    replace({ bootstrap: false, signingOut: true });
+    let error: unknown;
+    try { await rawRequest("/session", "DELETE", undefined, csrf, AbortSignal.timeout(30000)); }
+    catch (cause) { error = cause; }
+    // Do not admit a new sign-in until DELETE settles: its Set-Cookie belongs
+    // to the old account. The browser bound does not imply server rollback.
+    replace({ bootstrap: false, error });
+  };
+  if (boundary.signingOut) return <main className="splash" aria-busy="true">{messages[initialLocale()].logout}…</main>;
+  return <AppView key={boundary.epoch} boundary={boundary} onDenied={denied}
+    onSession={current => replace({ bootstrap: false, session: current })}
+    onPasswordChanged={() => replace({ bootstrap: false, passwordChanged: true })} onSignOut={signOut} />;
+}
+
+function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }: {
+  boundary: SessionBoundary; onDenied: (code: string, previous?: Session) => void; onSession: (session: Session) => void;
+  onPasswordChanged: () => void; onSignOut: (csrf?: string) => Promise<void>;
+}) {
+  const sessionIdentity = useRef<Session | undefined>(boundary.session);
+  const denial = (code: string) => onDenied(code, sessionIdentity.current);
+  const transport = useRef<ReturnType<typeof createRequestScope> | null>(null);
+  if (!transport.current) transport.current = createRequestScope(denial);
+  const request: Request = useCallback((...args) => transport.current!.request(...args), []);
+  useLayoutEffect(() => {
+    // Development StrictMode replays setup/cleanup on the same instance.
+    if (transport.current!.disposed()) transport.current = createRequestScope(denial);
+    if (boundary.session) transport.current!.activate();
+    return () => transport.current!.dispose();
+  }, []);
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [theme, setTheme] = useState(localStorage.getItem("adore-theme") || "system");
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null>(boundary.session?.user.password_change_required ? null : boundary.session ?? null);
   const [ticketBodyMode, setTicketBodyMode] = useState<TicketBodyMode>("rendered");
   const confirmedTicketMode = useRef<TicketBodyMode>("rendered");
   const ticketModePending = useRef(false);
@@ -210,9 +236,9 @@ export default function App() {
   const [aboutView, setAboutView] = useState<"about" | "whatsNew">("about");
   const [helpTopic, setHelpTopic] = useState<HelpTopic | undefined>();
   const [aboutOpen, setAboutOpen] = useState({ license: false, notices: false });
-  const [error, setError] = useState<unknown>("");
+  const [error, setError] = useState<unknown>(boundary.error ?? "");
   const [passwordMismatch, setPasswordMismatch] = useState(false);
-  const [passwordSession, setPasswordSession] = useState<Session | null>(null);
+  const [passwordSession, setPasswordSession] = useState<Session | null>(boundary.session?.user.password_change_required ? boundary.session : null);
   useEffect(() => { setPasswordMismatch(false); }, [page, session?.csrf, passwordSession?.csrf]);
   const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
   const [jobsView, setJobsView] = useState<"tickets" | "jobs">("tickets");
@@ -227,8 +253,8 @@ export default function App() {
   const projectsState = projectsScope === projectsPrincipal ? projectDataState : "loading";
   const [routeReady, setRouteReady] = useState(false);
   const routedProject = useRef<string | null>(null);
-  const preserveError = useRef(false);
-  const [notice, setNotice] = useState("");
+  const preserveError = useRef(!!boundary.error);
+  const [notice, setNotice] = useState(boundary.passwordChanged ? messages[locale].passwordChanged : "");
   const [importOpen, setImportOpen] = useState(false);
   const lastRefresh = usersRead?.completedAt == null ? null : new Date(usersRead.completedAt);
   const [operation, setOperation] = useState<Operation | null>(null);
@@ -434,7 +460,13 @@ export default function App() {
     let active = true;
     const generation = viewGeneration.current;
     const currentView = () => active && generation === viewGeneration.current;
-    request<Session>("/me").then(async current => {
+    if (!boundary.bootstrap && !boundary.session) { setLoading(false); return; }
+    (boundary.session ? Promise.resolve(boundary.session) : request<unknown>("/me").then(readSession)).then(async current => {
+      // A denial followed by an unchanged /me is not fresh permission for the
+      // rejected resource. Stop at explicit sign-in instead of a retry loop.
+      if (boundary.deniedPrincipal === sessionPrincipal(current) && !current.user.password_change_required) throw boundary.error;
+      sessionIdentity.current = current;
+      transport.current!.activate();
       try {
         const saved = readPreferences(await request<unknown>("/me/preferences"));
         if (currentView()) applyPreferences(saved);
@@ -442,32 +474,36 @@ export default function App() {
       if (!currentView()) return;
       if (current.user.password_change_required) setPasswordSession(current);
       else setSession(current);
-    }).catch(() => { if (currentView()) setSession(null); }).finally(() => { if (currentView()) setLoading(false); });
+    }).catch(cause => {
+      if (!currentView()) return;
+      setSession(null);
+      if (!(cause instanceof ApiError) || cause.code !== "authentication_required") setError(cause);
+    }).finally(() => { if (currentView()) setLoading(false); });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
     if (!session?.user.factory_password) return;
-    let active = true, serial = 0;
-    const csrf = session.csrf;
-    const refreshFactoryState = async () => {
-      if (document.hidden) return;
-      const requestId = ++serial;
-      try {
-        const current = await request<Session>("/me");
-        if (active && requestId === serial && current.csrf === csrf) {
-          setSession(previous => previous?.csrf === csrf ? current : previous);
+    const principal = projectsPrincipal;
+    const reader = createReadController<Session>({ key: principal, deadlineMs: 30000,
+      read: async signal => readSession(await request("/me", "GET", undefined, undefined, signal)),
+      publish: value => {
+        if (value.refreshing) return;
+        if (value.status === "error") {
+          if (!transport.current!.disposed()) { transport.current!.dispose(); onDenied("authentication_required"); }
+          return;
         }
-      } catch (cause) {
-        if (active && requestId === serial && cause instanceof ApiError && cause.code === "authentication_required") {
-          setSession(previous => previous?.csrf === csrf ? null : previous);
-        }
-      }
-    };
-    const timer = window.setInterval(refreshFactoryState, 15000);
-    document.addEventListener("visibilitychange", refreshFactoryState);
-    return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshFactoryState); };
-  }, [session?.csrf, session?.user.factory_password]);
+        if (value.status !== "ready" || !value.data) return;
+        const current = value.data;
+        const nextPrincipal = sessionPrincipal(current);
+        if (current.user.password_change_required || nextPrincipal !== principal) {
+          transport.current!.dispose(); onSession(current);
+        } else setSession(current);
+      },
+    });
+    const stop = startVisiblePolling(() => { void reader.refresh(); }, 15000);
+    return () => { stop(); reader.dispose(); };
+  }, [projectsPrincipal, session?.user.factory_password]);
 
   const updatePreference = (key: "language" | "theme", value: string) => {
     const previous = key === "language" ? locale : theme;
@@ -676,7 +712,7 @@ export default function App() {
           readingPrices = priceController;
           const write = priceWrite.current;
           const currentPrices = () => !priceController.signal.aborted && current() && write === priceWrite.current;
-          void readPrices(path, priceController.signal).then(value => {
+          void readPrices(request, path, priceController.signal).then(value => {
             if (currentPrices()) { setPrices(value); setPricesScope(selected); }
           }).catch(cause => {
             if (currentPrices()) { setPrices([]); setError(cause); }
@@ -952,8 +988,10 @@ export default function App() {
     try {
       clearPrivateView();
       const generation = viewGeneration.current;
-      const authenticated = await request<Session>("/session", "POST", Object.fromEntries(fields));
+      const authenticated = readSession(await request("/session", "POST", Object.fromEntries(fields)));
       if (generation !== viewGeneration.current) return;
+      sessionIdentity.current = authenticated;
+      transport.current!.activate();
       let saved: Preferences | null = null;
       try { saved = readPreferences(await request<unknown>("/me/preferences")); }
       catch (cause) { if (generation === viewGeneration.current) setError(cause); }
@@ -967,8 +1005,9 @@ export default function App() {
 
   const signOut = async () => {
     if (enrollmentGuard.current && !enrollmentGuard.current()) return;
-    try { await request("/session", "DELETE", undefined, (session ?? passwordSession)?.csrf); }
-    finally { setSession(null); setPasswordSession(null); clearPrivateView(); window.history.pushState(null, "", "/"); }
+    const csrf = (session ?? passwordSession)?.csrf;
+    transport.current!.dispose(); clearPrivateView();
+    await onSignOut(csrf);
   };
 
   const operate = async (action: "start" | "retry" | "cancel" | "pause" | "resume", target = "", projectId = selected) => {
@@ -1053,7 +1092,7 @@ export default function App() {
     setPasswordMismatch(false);
     try {
       await request("/me/password", "POST", { current, replacement }, (session ?? passwordSession)?.csrf);
-      clearPrivateView(); setSession(null); setPasswordSession(null); setNotice(t("passwordChanged"));
+      transport.current!.dispose(); clearPrivateView(); onPasswordChanged();
     } catch (cause) { setError(cause); }
   };
 
@@ -1203,7 +1242,7 @@ export default function App() {
     setSettingsPollBlocked("prices", true);
     try {
       await request(path + "/prices", "POST", Object.fromEntries(new FormData(form)), session?.csrf);
-      const rates = await readPrices(path);
+      const rates = await readPrices(request, path);
       if (current()) {
         setPrices(rates); setPricesScope(selected);
         setNotice(t("priceSaved")); form.reset();
@@ -1506,7 +1545,7 @@ export default function App() {
           {projectTab === "history" && <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="history" fixedScope />}
           {projectTab === "configuration" && <>
           {configDataState !== "ready" && <DataFeedback state={configDataState} t={t} />}
-          {projectConfig && <SettingsList key={selected} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} setPollBlocked={blockSettingsEdits} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:value}:current); }} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
+          {projectConfig && <SettingsList request={request} key={selected} project={selected} revision={projectConfig.revision} csrf={session.csrf} branchCandidate={projectPendingConfig} config={projectConfig.config} localIdentity={projectConfig.local_execution} settings={projectConfig.settings || []} t={t} locale={locale} canEdit={isAdmin} disabled={configBusy || isAdmin && !pendingReady && !pendingReadFailed} readFailed={pendingReadFailed} stale={settingsStale} onSave={saveSettings} onDiscard={discardPendingConfig} registerGuard={registerSettingsGuard} setPollBlocked={blockSettingsEdits} executorBefore={selectedProject && <><ModelConnection heading={agentSettingsCopy[locale].connection} key={`${session.user.id}:${selected}:${projectConfig.revision}:${projectConfig.model_connection?.checked_at || "untested"}`} project={selectedProject.id} revision={projectConfig.revision} executor={selectedProject.executor} model={String(settingValue(projectConfig.config,"executor.model"))} locale={locale} saved={projectConfig.model_connection} readOnly={!isAdmin || selectedProject.archived} onResult={value=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:value}:current); }} test={()=>request(`/projects/${encodeURIComponent(selected)}/model-connection-test`,"POST",{},session.csrf)} />
                   <p className="muted">{executorCopy[locale].modelHelp}</p></>} executorAuthentication={selectedProject && <>{isAdmin && !selectedProject.archived && <>{String(settingValue(projectConfig.config, "executor.provider") ?? "") === CHATGPT && <ChatGptSignIn setPollBlocked={blockChatGpt} key={`${session.user.id}:chatgpt`} locale={locale} read={() => request("/chatgpt-sign-in")} start={() => request(`/projects/${encodeURIComponent(selected)}/chatgpt-sign-in`, "POST", undefined, session.csrf)} complete={(redirect_url: string) => request("/chatgpt-sign-in", "PUT", {redirect_url}, session.csrf)} cancel={() => request("/chatgpt-sign-in/pending", "DELETE", undefined, session.csrf)} disconnect={() => request("/chatgpt-sign-in", "DELETE", undefined, session.csrf)} />}{(String(settingValue(projectConfig.config, "executor.provider") ?? "") !== CHATGPT || searchKeyNeeded(projectConfig.config)) && <ExecutorCredentials embedded setPollBlocked={blockCredentials} key={`${session.user.id}:${selected}:${projectConfig.revision}`} provider={String(settingValue(projectConfig.config, "executor.provider") ?? "")} project={selectedProject.id} revision={projectConfig.revision} locale={locale} disabled={!!projectPendingConfig || configBusy || pendingReadFailed || !pendingReady || !selectedProject.paused} read={() => request(`/projects/${encodeURIComponent(selected)}/executor-credentials`)} write={(method,body)=>request(`/projects/${encodeURIComponent(selected)}/executor-credentials`,method,body,session.csrf)} onChanged={()=>{ invalidateSettingsPoll(); setConfig(current=>current?{...current,model_connection:null}:current); }} />}</>}</>} executorAfter={selectedProject && <><ExecutorEnvironment environment={projectConfig.executor_environment} executor={selectedProject.executor} locale={locale} />
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={`${selected}:${priceModel}`} ref={priceFormRef} className="form-grid" onChange={event=>updatePriceDraft(event.currentTarget)} onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
@@ -1519,7 +1558,7 @@ export default function App() {
             </>}
           </SettingsList>}
           </>}
-          {projectTab === "access" && isAdmin && selectedProject && <ProjectAccess key={`${projectsPrincipal}:${selected}`} project={selectedProject!} ready={projectsState === "ready"} refresh={viewRefresh} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
+          {projectTab === "access" && isAdmin && selectedProject && <ProjectAccess request={request} key={`${projectsPrincipal}:${selected}`} project={selectedProject!} ready={projectsState === "ready"} refresh={viewRefresh} csrf={session?.csrf} locale={locale} t={t} onError={setError} onNotice={setNotice} />}
           </div>
         </>}
 
@@ -1628,7 +1667,7 @@ type ProjectDeveloper = { id: number; username: string; disabled: boolean; grant
 const validDevelopers = (value: unknown): value is { developers: ProjectDeveloper[] } => !!value && typeof value === "object" && "developers" in value && Array.isArray(value.developers) && value.developers.every(row => row && Number.isSafeInteger(row.id) && row.id > 0 && typeof row.username === "string" && typeof row.disabled === "boolean" && typeof row.granted === "boolean") && new Set(value.developers.map(row => row.id)).size === value.developers.length;
 
 /** Strict grant authority with stable reviews and serialized post-write validation. */
-function ProjectAccess({ project, ready, refresh, csrf, locale, t, onError, onNotice }: { project: Project; ready: boolean; refresh: number; csrf?: string; locale: Locale; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
+function ProjectAccess({ request, project, ready, refresh, csrf, locale, t, onError, onNotice }: { request: Request; project: Project; ready: boolean; refresh: number; csrf?: string; locale: Locale; t: (key: MessageKey) => string; onError: (cause: unknown) => void; onNotice: (text: string) => void }) {
   const path = `/projects/${encodeURIComponent(project.id)}/access`;
   const [snapshot, setSnapshot] = useState<ReadSnapshot<ProjectDeveloper[]> | null>(null);
   const current = snapshot?.key === path ? snapshot : null;
@@ -1753,7 +1792,8 @@ function SettingsImpactDialog({config, candidate, edits, project, paused, locale
   </dialog>;
 }
 
-function SettingsList({ executorOnly=false, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, setPollBlocked, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
+function SettingsList({ request, executorOnly=false, project, revision, csrf, branchCandidate=null, config, localIdentity, settings, t, locale, canEdit, disabled: externallyDisabled, stale: externallyStale=false, readFailed=false, onSave, onDiscard, registerGuard, setPollBlocked, actions, children, header, executorBefore, executorAfter, executorAuthentication }: {
+  request: Request;
   executorBefore?:ReactNode; executorAfter?:ReactNode; executorAuthentication?:ReactNode;
   project?:string; revision?:string; csrf?:string; branchCandidate?:PendingConfig|null;
   header?:ReactNode; actions?:ReactNode; children?:ReactNode; executorOnly?:boolean;

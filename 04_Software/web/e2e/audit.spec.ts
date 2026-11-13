@@ -218,6 +218,21 @@ test(`change history ${failure} refresh has honest freshness and recovery`, asyn
   });
   try {
     await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    if (failure === "denied") {
+      // Denial invalidates the whole authenticated context, not just audit data.
+      await expect(panel).toHaveCount(0);
+      await expect(page.locator('input[name="username"]')).toBeVisible();
+      await page.unroute("**/api/v1/audit-page?*");
+      await page.clock.runFor(1000);
+      await page.locator('input[name="username"]').fill("admin");
+      await page.locator('input[name="password"]').fill("admin");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page.getByRole("navigation", { name: "Primary navigation", exact: true })).toBeVisible();
+      await page.goto("/admin/audit");
+      await expect(panel.getByRole("table")).toBeVisible();
+      await expect(feedback.locator("time")).not.toHaveAttribute("datetime", lastSuccess!);
+      return;
+    }
     if (failure === "deadline") await page.clock.runFor(10000);
     const informational = failure === "transport" || failure === "deadline";
     if (informational) {

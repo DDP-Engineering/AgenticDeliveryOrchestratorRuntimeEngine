@@ -8,6 +8,25 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 # Web interface
 
+App owns `request.ts::createRequestScope` for every child/price/config/access
+request. It combines application lifetime and resource AbortSignals, refuses new
+work and late success/denial after disposal, and preserves transport-only stale
+classification. Resource validators still own successful JSON. A real security
+transition replaces AppView, not ordinary polling: detected authenticated HTTP
+401/403 cancels the scope and removes all private data/reviews/old callbacks.
+Authentication/CSRF loss returns to sign-in. Other denials check `/me`; only changed
+principal or required-password evidence may establish a correction automatically.
+An unchanged denied principal needs explicit sign-in, avoiding denial loops. HTTP
+404 stays resource-local. Sign-out removes the view immediately, then awaits its
+separate raw DELETE with a 30s browser bound before admitting login; browser abort
+never promises server rollback. Own-password success also replaces the context.
+Applicable factory-notice `/me` reads now use strict 30s ownership with unchanged
+15s visible cadence, coalescing and hidden pause. Validated account/role/CSRF/grant
+or password-required transitions replace the context; malformed/failed session reads
+cannot retain authority. Helper/browser proof is `web/tests/request.test.mjs` and
+`web/e2e/sessionRefresh.spec.ts`. Deadline fixtures track actual supporting session/
+directory IO before virtual jumps without weakening held-resource expiry oracles.
+
 The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; one worker serializes commands and polls, while authorized cancel signals reach active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
 App's project metadata reader is a strict, 30-second bounded owner keyed by
@@ -109,8 +128,8 @@ results cancel pre-result metadata then signal existing view owners. System stat
 uses strict 30s owned worker/storage reads at 5s/30s cadence, validating ready/worker/
 activity and storage fields; pending values remain, failed health does not.
 `web/e2e/accessRefresh.spec.ts` and existing Settings/issue37/shell journeys prove
-these seams. Shared session/denial and remaining cross-view acceptance
-are separate from this focused evidence.
+these seams. Shared session/denial uses the request boundary above; remaining cross-view
+acceptance is separate from this focused evidence.
 
 TicketWorkspace's operation tracker uses a strict 30s owned read with unchanged 2s
 visible cadence. Session CSRF, project ID/name set, origin project and operation ID
@@ -133,8 +152,8 @@ ignore obsolete response/error/notices/metadata notifications. Aborting an obsol
 browser write never claims server rollback. Operation ownership uses its own project
 epoch, not unrelated project membership. The ticket refresh suite covers these
 boundaries, explicit deadlines/recovery and four-locale/two-theme narrow correction.
-Shared detected denial/session invalidation remains an App transport seam; the
-operation tracker itself does not authorize mutations.
+Shared detected denial/session invalidation uses App's request boundary above;
+the operation tracker itself does not authorize mutations.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 

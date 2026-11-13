@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
-import { revalidateVisiblePage } from "./polling";
+import { revalidateVisiblePage, trackScopeReads } from "./polling";
 import { messages, type Locale } from "../src/i18n";
 
 test.beforeEach(async ({ context, request, page }) => {
@@ -67,7 +67,7 @@ for (const resource of ["list", "detail", "usage"]) {
     }
     failure = ""; await feedback.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(feedback.getByRole("status")).toHaveCount(0); await expect(cancel).toBeEnabled();
-    for (const invalid of ["malformed", "denied", "application"]) {
+    for (const invalid of ["malformed", "application"]) {
       failure = invalid; await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
       await expect(feedback.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
       await expect(evidence).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
@@ -75,11 +75,19 @@ for (const resource of ["list", "detail", "usage"]) {
       failure = ""; await feedback.getByRole("button", { name: "Retry", exact: true }).click();
       await expect(evidence).toBeVisible();
     }
+    // HTTP denial now crosses the shared session boundary: no resource-local
+    // Retry may reuse old authority, even if /me still reports the old role.
+    failure = "denied"; await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(evidence).toHaveCount(0);
+    await expect(page.locator(".job-workspace")).toHaveCount(0);
+    await expect(page.locator('input[name="username"]')).toBeVisible();
+    expect(mutations).toBe(0);
   });
 }
 
 for (const resource of ["list", "detail", "usage"]) {
   test(`Jobs ${resource} deadline distinguishes initial failure and stale retry without accepting late evidence`, async ({ page }) => {
+    const settleScope = trackScopeReads(page);
     await page.clock.install();
     const id = await alphaId(page);
     let hold = true;
@@ -94,6 +102,9 @@ for (const resource of ["list", "detail", "usage"]) {
       await page.goto(`/jobs?project=${id}&run=ux-working`);
       const feedback = page.locator(resource === "list" ? ".jobs-list-refresh .refresh-feedback" : resource === "detail" ? ".jobs-detail-refresh .refresh-feedback" : ".jobs-consumption-refresh .refresh-feedback");
       await expect.poll(() => releases.length).toBe(1);
+      // Drain real supporting HTTP work before a virtual 30s jump. Only the
+      // deliberately held resource is under deadline test, not session/metadata.
+      await settleScope();
       // Let this in-flight request expire without a coincident automatic retry.
       await page.evaluate(() => {
         Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
@@ -428,6 +439,7 @@ for (const outcome of ["succeeded", "failed"]) {
 }
 
 test("Jobs worker and operation reads coalesce, expire and cancel on navigation without late publication", async ({ page }) => {
+  const settleScope = trackScopeReads(page);
   await page.clock.install();
   const id = await alphaId(page);
   await page.goto(`/jobs?project=${id}&run=ux-working`);
@@ -457,6 +469,7 @@ test("Jobs worker and operation reads coalesce, expire and cancel on navigation 
       Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
       document.dispatchEvent(new Event("visibilitychange"));
     });
+    await settleScope();
     const aborted: string[] = [];
     page.on("requestfailed", request => { if (/\/ready$|\/operations\/7702$/.test(request.url())) aborted.push(request.url()); });
     await page.clock.fastForward(30001);

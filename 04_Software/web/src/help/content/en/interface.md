@@ -69,6 +69,8 @@ Overview, Projects, Jobs, project Settings, project Access, project History and 
 
 In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
 
-The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account.
+**Sign out** hides private views immediately and cancels their browser reads. Wait for sign-out to finish before signing in again; the browser waits at most 30 seconds. A detected access or session denial also removes the old view. A changed session is checked again; if it has not changed, sign in explicitly. A required password change opens its form. Cancelling a browser request does not undo a command already accepted by the server.
+
+The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account. While this reminder applies, visible session checks run every 15 seconds, sharing any read already in progress. Account, role, project-access or password changes remove the previous context.
 
 When changing your password, enter the new password twice. Use the buttons to show or hide each entry. The new password needs at least 8 characters.
