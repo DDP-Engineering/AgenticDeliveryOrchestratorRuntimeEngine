@@ -18,6 +18,27 @@ export class ApiError extends Error {
   }
 }
 
+/** Client-owned fetch transport failure, never constructed from an HTTP error code. */
+export class ReadTransportError extends ApiError {
+  constructor() {
+    super("network_error");
+    this.name = "ReadTransportError";
+  }
+}
+
+/** An owned read expired; cancellation/navigation must not create this error. */
+export class ReadDeadlineError extends ApiError {
+  constructor() {
+    super("network_error");
+    this.name = "ReadDeadlineError";
+  }
+}
+
+/** Only positively classified client failures admit informational stale retention. */
+export function isInformationalReadFailure(failure: unknown): boolean {
+  return failure instanceof ReadTransportError || failure instanceof ReadDeadlineError;
+}
+
 /** Shared recovery steps use the interface field and action names. */
 export const repositoryConnectionHelp: Record<Locale, string> = {
   en: "In Project Summary, choose Repository access. Enter Repository server and Access token, choose Verify and connect, then Check host prerequisites. Existing CLI sign-in must belong to the account running ADORE on this computer.",

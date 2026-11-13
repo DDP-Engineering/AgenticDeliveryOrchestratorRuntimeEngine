@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 
@@ -412,7 +413,7 @@ test("global complete search paging basic filters and source revision conflicts"
   expect(new URL((await continuation).url()).searchParams.get("snapshot")).toMatch(/^[a-f0-9]{64}$/);
   await expect(page.locator(".action-jobs-table tbody tr")).not.toHaveCount(10);
   await page.request.post("/__e2e__/jobs?mode=mutate", { headers: { "X-ADORE-E2E": "local-test" } });
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.getByRole("heading", { name: "Job sources changed", exact: true })).toBeVisible();
   await expect(page.locator(".action-jobs-table")).toHaveCount(0);
   await page.getByRole("button", { name: "Reload first page", exact: true }).click();
@@ -457,12 +458,12 @@ test("incomplete corrupt and failed job reads hide totals and stale details", as
     const response = await route.fetch(); const value = await response.json(); value.complete = false;
     await route.fulfill({ response, json: value });
   });
-  // Overview refreshes itself; a visibilitychange runs its poll at once.
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  // Overview refreshes itself; returning to a visible page runs its poll at once.
+  await revalidateVisiblePage(page);
   await expect(page.getByRole("heading", { name: "Incomplete job response", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
   mode = "malformed";
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.getByRole("heading", { name: "Could not load data", exact: true })).toBeVisible();
   await expect(page.locator(".overview-jobs-table")).toHaveCount(0);
   mode = "server";
@@ -625,7 +626,7 @@ test("project hub shows verification state and rejects corrupt stamps", async ({
   // The compact summary presents status; API evidence stamps are still validated.
   await expect(page.locator(".project-verification-evidence")).toHaveCount(0);
   corrupt = true;
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.getByRole("alert").first()).toBeVisible();
   await expect(verification).toHaveCount(0);
   // Drain in-flight rewrites before fixture teardown disposes their API responses.
@@ -927,7 +928,7 @@ test("host check result survives an older project snapshot but accepts a fresh p
   await page.route("**/readiness-check", route => route.fulfill({ status: 200,
     json: readinessFixture(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4]), { forge_auth: false }) }));
   // Visibility resumes the real project poll; hold its older snapshot across the mutation.
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await captured;
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(fact).toContainText("Verification failed");
@@ -937,7 +938,7 @@ test("host check result survives an older project snapshot but accepts a fresh p
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect(fact).toContainText("Verification failed");
   hold = false;
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(fact).toContainText("Verified");
 });
 

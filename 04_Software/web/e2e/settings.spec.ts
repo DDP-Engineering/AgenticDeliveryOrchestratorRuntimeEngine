@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import {settingsSave,settingsImpact,saveSettings,discardSettings} from "./settings-actions";
 import {settingsSaveCopy} from "../src/settingsSave";
 import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
@@ -626,7 +627,7 @@ test("settings background reads pause for edits and ignore a delayed invalid res
     return route.fulfill({ json: { ...config, config: { ...config.config,
       budgets: { ...config.config.budgets, max_iterations: 19 } } } });
   });
-  const tick = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  const tick = () => revalidateVisiblePage(page);
   const edit = page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true });
   await tick();
   try {
@@ -683,7 +684,7 @@ test("settings background keeps unsaved prices and credentials on the original m
     const next = { ...current, revision: "b".repeat(64), model_connection: null,
       config: { ...current.config, executor: { ...current.config.executor, model: "updated-model" } } };
     await page.route("**/api/v1/projects/*/config", route => { reads += 1; return route.fulfill({ json: next }); });
-    const tick = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    const tick = () => revalidateVisiblePage(page);
     await tick();
     await expect(key).toHaveValue("offline-key-draft");
     await key.clear();
@@ -740,7 +741,7 @@ test("stale Save and malformed restored candidate fail closed while retaining ed
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({json:{candidate_revision:"broken"}});
   });
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
   const implementation = page.locator('[data-setting-purpose="implementation"]');
   if (await implementation.getAttribute("open") === null) await implementation.locator("summary").first().click();

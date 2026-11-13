@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ApiError, describeError, errorMessages } from "../src/errors.ts";
+import * as errors from "../src/errors.ts";
 
 const locales = ["en", "fr", "de", "ro"];
 const clientCodes = ["network_error", "unexpected_response", "request_failed"];
@@ -74,6 +75,22 @@ test("unknown codes and unexpected failures use a localized generic message", ()
   }
   assert.ok(describeError("de", new TypeError("boom")).includes("boom"));
   assert.notEqual(describeError("de", new TypeError("boom")), "boom");
+});
+
+test("only client-owned transport and deadline failures qualify for informational retention", () => {
+  assert.equal(typeof errors.isInformationalReadFailure, "function", "positive read-failure classification exists");
+  const transport = new errors.ReadTransportError();
+  const deadline = new errors.ReadDeadlineError();
+  for (const failure of [transport, deadline]) {
+    assert.ok(failure instanceof ApiError);
+    assert.equal(errors.isInformationalReadFailure(failure), true);
+    for (const locale of locales) assert.equal(describeError(locale, failure), errorMessages[locale].network_error);
+  }
+  for (const failure of [new ApiError("network_error"), new ApiError("request_failed"),
+    new ApiError("authentication_required"), new TypeError("Failed to fetch"), new SyntaxError("bad JSON"),
+    new DOMException("Aborted", "AbortError"), { code: "network_error", name: "ReadTransportError" }, null]) {
+    assert.equal(errors.isInformationalReadFailure(failure), false);
+  }
 });
 
 test("already localized text passes through unchanged", () => {

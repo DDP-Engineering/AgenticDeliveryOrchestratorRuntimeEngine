@@ -37,6 +37,50 @@ The authenticated factory administrator sees a persistent localized password rem
 
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
 
+## Owned informational read primitive
+
+`polling.ts::createReadController<T>` provides a framework-independent, memory-only
+read owner. It captures one immutable context `key`, a finite `deadlineMs`, a
+`read(signal)` that validates its entire result, and a `publish` callback. The
+callback receives `{key, status, data, refreshing, error, completedAt}`. Status is
+initial `loading`, validated `ready`, explicitly retained `stale`, or closed
+`error`; `refreshing` is independent of an already displayed snapshot. Successful
+completion, including unchanged or empty data, records the injected clock's epoch
+milliseconds. Starting, failing, cancelling or ignoring a read never renews that
+time. Closed failure clears both evidence and its success time.
+
+`refresh()` joins one active promise with no queued backlog or deadline extension.
+A deadline settles callers and aborts the signal even if the transport ignores
+cancellation. Failed aggregate validation also aborts remaining sibling work.
+`invalidate()` ends publication authority and clears evidence before an intervening
+write; the owner explicitly rereads after the mutation. `dispose()` aborts and
+settles work without publication and prevents later reads. Late success/failure
+cannot change a replacement owner's data, error or time. Owners must separately
+stop their scheduler on cleanup and gate rendering by the captured context key
+before effects run; the primitive does not authorize, cache across contexts, retry
+writes or validate wire data on the caller's behalf. Existing view readers retain
+their own policies unless explicitly wired to this controller.
+
+The default policy is strict: every failed completed read removes evidence.
+`policy: "informational"` permits stale retention only for the client-owned
+`ReadTransportError` and `ReadDeadlineError` from `errors.ts`, after a validated
+success. A stale retry remains stale until complete validated success. Ordinary
+`ApiError("network_error")`, HTTP failures, parser/validator exceptions and unknown
+errors are not transport exemptions. Both internal failure types use existing
+four-locale network guidance. Authority-dependent actions must independently
+require current evidence; opting into informational display is not action authority.
+
+`startVisiblePolling` preserves its supplied interval, stops while hidden and
+revalidates once on a hidden-to-visible transition. Repeated visible events do
+nothing; already queued periodic callbacks check visibility and stopped ownership.
+The scheduler does not itself serialize asynchronous readers. The browser-test
+helper `e2e/polling.ts::revalidateVisiblePage` exercises hidden/visible transitions
+and restores the document's original property; it does not substitute duplicate
+visible events for elapsed polling. `tests/polling.test.mjs` uses deferred reads and
+an injected deadline clock for overlap, success time, transport recovery,
+fail-closed failures, ignored aborts, invalidation and disposal; `errors.test.mjs`
+checks positive error classification and localized guidance.
+
 ## Direct Jobs presentation
 
 `jobModel.ts` requires saved `workflow: aegis | direct` on list and detail reads.

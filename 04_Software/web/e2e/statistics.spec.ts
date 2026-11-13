@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import { test, expect, type Page } from "@playwright/test";
 import { messages, type Locale } from "../src/i18n";
 import { statisticsCopy } from "../src/statisticsCopy";
@@ -357,7 +358,7 @@ test("revoked Dev grant hides earlier values and discards an authorized response
   await page.getByRole("combobox", { name: "Group by", exact: true }).selectOption("week"); await started;
   try {
     expect((await request.put(`/api/v1/projects/${alpha}/access/${developer}`, { headers: { "X-CSRF-Token": session.csrf }, data: { granted: false } })).ok()).toBe(true);
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await revalidateVisiblePage(page);
     await expect(page.locator("#metrics-project")).toHaveCount(0); release();
     await expect(page.locator(".statistics-evidence")).toHaveCount(0); await expect(page.getByText("Export CSV", { exact: true })).toHaveCount(0);
     expect((await page.request.get(`/api/v1/projects/${alpha}/usage.csv`)).status()).toBe(404);

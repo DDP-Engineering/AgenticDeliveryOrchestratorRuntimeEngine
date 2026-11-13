@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import { test, expect, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ context }) => {
@@ -165,7 +166,7 @@ test("pending and failed data hide false totals and refresh recovers", async ({ 
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toHaveCount(0);
   failing = false;
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.getByRole("region", { name: "Active jobs", exact: true })).toBeVisible();
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
@@ -237,7 +238,7 @@ test("configuration and administration request failures have explicit feedback",
   await page.goto("/projects/alpha/configuration");
   await expect(page.getByText("Could not load data", { exact: true }).first()).toBeVisible();
   await page.unroute("**/api/v1/projects/*/config");
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
   await page.route("**/api/v1/users", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"request_failed"}}' }));
   await page.goto("/admin/users");
@@ -249,7 +250,7 @@ test("configuration and administration request failures have explicit feedback",
   await page.goto("/admin/audit");
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await page.unroute("**/api/v1/audit-page?*");
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
 });
 
@@ -289,7 +290,7 @@ test("access background reads update grants, preserve confirmed changes and reje
   await page.goto("/projects/alpha/access");
   const grant = page.getByRole("button", { name: "Grant access: developer" });
   const remove = page.getByRole("button", { name: "Remove access: developer" });
-  const tick = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  const tick = () => revalidateVisiblePage(page);
   await expect(grant).toBeVisible();
   json = grants(true);
   await page.clock.fastForward(15000);
@@ -404,7 +405,7 @@ test("closing a job removes its deep-link identity and refresh cannot reopen it"
   await expect(page.locator(".detail-panel")).toBeVisible();
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page).not.toHaveURL(/run=/);
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(page.locator(".detail-panel")).toHaveCount(0);
 });
 

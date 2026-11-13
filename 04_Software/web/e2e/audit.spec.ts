@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import { auditCopy } from "../src/auditCopy";
 import type { Locale } from "../src/i18n";
 import { test, expect } from "@playwright/test";
@@ -121,7 +122,7 @@ test(`${view} change history background reads keep the active filters and open e
   await expect(panel.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(project ? 0 : 1);
   if (project) projectId = "0".repeat(32);
   else actor = "invalid actor!";
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(panel.getByRole("alert")).toContainText("Could not load data");
   await expect(panel.getByRole("table")).toHaveCount(0);
   actor = "recovered_actor";

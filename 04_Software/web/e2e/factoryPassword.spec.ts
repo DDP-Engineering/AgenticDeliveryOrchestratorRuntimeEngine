@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import { test, expect } from "@playwright/test";
 
 test("factory reminder persists in four languages and links to password change", async ({ page, context }) => {
@@ -58,7 +59,7 @@ test("a delayed session refresh cannot restore a signed-out session", async ({ p
     await held;
     await route.fulfill({ response });
   });
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await waiting;
   await page.getByRole("button", { name: "Sign out", exact: true }).filter({ visible: true }).click();
   release();

@@ -4,6 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
+import { revalidateVisiblePage } from "./polling";
 import {test, expect} from "@playwright/test";
 import {discardSettings,settingsImpact,settingsSave} from "./settings-actions";
 
@@ -101,7 +102,7 @@ test("dirty settings guard navigation and background refresh without losing inva
  let reads=0;
  page.on("request", request=>{if(request.method()==="GET"&&request.url().endsWith("/config"))reads++;});
  const projectPoll=page.waitForResponse(response=>response.url().endsWith("/api/v1/projects"));
- await page.evaluate(()=>document.dispatchEvent(new Event("visibilitychange")));
+ await revalidateVisiblePage(page);
  await projectPoll;
  await expect(row.getByRole("spinbutton")).toHaveValue("");await expect(settingsSave(page)).toBeDisabled();
  expect(reads).toBe(0);expect(prompts).toBe(1);
