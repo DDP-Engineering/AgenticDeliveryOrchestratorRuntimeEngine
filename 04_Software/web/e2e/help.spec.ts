@@ -8,6 +8,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { messages } from "../src/i18n";
 import { workflowCopy } from "../src/readiness";
+import { directCopy } from "../src/jobCopy";
 
 const title = (locale: string, topic: string) =>
   readFileSync(new URL(`../src/help/content/${locale}/${topic}.md`, import.meta.url), "utf8").split("\n")[0].replace(/^# /, "").trim();
@@ -95,6 +96,15 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
       await expect(page.locator("#verification-command")).toBeInViewport();
       await expect(article(page)).toContainText("[workflow] verify_command");
       await expect(article(page)).toContainText("NUL");
+      await expect(article(page)).toContainText("stage_timeout_overrides");
+      await expect(article(page)).toContainText("per_gate_timeout_seconds");
+      await page.goto("/help/jobs#direct-evidence");
+      await expect(page.locator("#direct-evidence")).toBeInViewport();
+      for (const key of ["attempt", "passed", "failed", "timed out", "not configured", "unavailable"] as const)
+        await expect(article(page)).toContainText(directCopy[locale][key]);
+      await expect(article(page)).toContainText(messages[locale].directImplementationStage);
+      await expect(article(page)).toContainText(messages[locale].directValidationStage);
+      await expect(article(page)).toContainText("per_gate_timeout_seconds");
       await page.goto("/help/glossary");
       await expect(article(page).getByRole("cell", { name: messages[locale].verificationCommand, exact: true })).toBeVisible();
       const direct = { en: "Direct workflow", fr: "Workflow direct", de: "Direkter Workflow", ro: "Flux direct" }[locale];

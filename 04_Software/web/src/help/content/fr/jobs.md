@@ -19,6 +19,22 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 
 Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
+## Travaux directs {#direct-evidence}
+
+La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (`build`), **Validation** (`validate`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.
+
+**Dernière tentative enregistrée** désigne la dernière tentative de lancement de l’exécuteur, pas les lancements cumulés ou les échecs. Sans lancement enregistré, la page affiche **Tentative indisponible**. La vérification indépendante montre la commande enregistrée avant son résultat, **Durée (secondes)** et **Fin de sortie** en texte littéral expurgé. Une sortie vide est explicite. Modifier les Paramètres ne remplace ni la commande ni le résultat enregistrés.
+
+| Résultat | Signification |
+|---|---|
+| Réussie | La commande s’est terminée avec zéro, sans dépassement du délai. |
+| Échouée | La commande s’est terminée avec un code non nul, sans dépassement ; le dernier échec reste visible pendant une nouvelle tentative d’implémentation. |
+| Délai dépassé | La commande a dépassé sa limite, quel que soit le code de sortie. |
+| Non configurée : non vérifié | Aucune commande de vérification n’était configurée ; ce n’est pas une réussite. |
+| Preuve de vérification indisponible | Aucun résultat n’est encore enregistré ; cela ne signifie pas non configurée. |
+
+L’implémentation directe utilise la limite **Implémentation** `build` de `workflow.stage_timeout_overrides` ; la vérification indépendante utilise **Validation** `validate`. Sans dérogation, chacune reprend la limite générale `budgets.per_gate_timeout_seconds`. Les autres limites AEGIS ne s’appliquent pas aux travaux directs.
+
 ## Clarification {#clarification}
 
 Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose `agent-clarify`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**.
@@ -27,7 +43,7 @@ Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`
 
 ## Approbation {#approval}
 
-Lorsque la validation stricte réussit, ADORE retire `agent-approved`, publie les preuves sur le ticket et attend. La tâche affiche **En attente d'approbation** et le ticket conserve `agent-working`. Les preuves nomment le candidat exact et les écarts éventuellement consignés par l’exécuteur.
+Lorsque la validation AEGIS stricte ou la vérification directe configurée réussit (ou que la vérification directe est explicitement non configurée), ADORE retire `agent-approved`, publie les preuves sur le ticket et attend. La tâche affiche **En attente d'approbation** et le ticket conserve `agent-working`. Les preuves nomment le candidat exact et les écarts éventuellement consignés par l’exécuteur.
 
 Examinez-le, puis ajoutez de nouveau `agent-approved` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.
 
@@ -35,7 +51,7 @@ Examinez-le, puis ajoutez de nouveau `agent-approved` ; seul un nouvel ajout com
 
 Après l’approbation, ADORE pousse la branche et ouvre la MR/PR vers la branche cible, demande une revue aux comptes indiqués dans **Demander une revue à**, et pose `agent-mr`. **État de la PR/MR à la publication** choisit Brouillon (par défaut) ou Prête pour revue. La tâche affiche **Publication** puis **Revue humaine**. ADORE ne fusionne jamais. Après la fusion par une personne, ADORE pose `agent-done`, la tâche affiche **Terminé**, et par défaut la branche distante est supprimée. Une MR/PR fermée sans fusion fait échouer la tâche.
 
-Pour demander des modifications, un relecteur ajoute `agent-revise` sur la MR/PR. ADORE retire l’étiquette, démarre une nouvelle tâche sur la même branche, puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.
+Pour demander des modifications, un relecteur ajoute `agent-revise` sur la MR/PR. ADORE retire l’étiquette, démarre un nouveau travail sur la même branche (une nouvelle tâche pour AEGIS), puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.
 
 Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des vérifications CI de la PR/MR** décide : Réparation automatique (par défaut) démarre une révision, Notifier uniquement publie un commentaire, et Ignorer ignore l’état de la CI. Les réparations automatiques partagent le budget de révisions ; une fois celui-ci épuisé, ADORE publie un avis et la tâche reste en revue.
 
@@ -67,7 +83,7 @@ Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un pr
 |---|---|
 | Ticket | Numéro et titre ; ouvre le détail de la tâche. |
 | Projet | Le projet propriétaire. |
-| État | L’état, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |
+| État | L’état, le Workflow enregistré, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |
 | Dernière activité | Heure du dernier événement enregistré. |
 | Consommation | Jetons utilisés par la tâche. |
 

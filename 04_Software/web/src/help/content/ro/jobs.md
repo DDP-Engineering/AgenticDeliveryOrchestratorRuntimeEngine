@@ -19,6 +19,22 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 
 Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
+## Joburi directe {#direct-evidence}
+
+Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (`build`), **Validare** (`validate`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.
+
+**Ultima încercare înregistrată** este ultima încercare de lansare a executorului, nu lansările cumulate sau încercările eșuate. Fără lansare salvată, pagina arată **Încercare indisponibilă**. Verificarea independentă arată comanda salvată înaintea rezultatului, **Durată (secunde)** și **Finalul ieșirii** ca text literal cu secrete mascate. Ieșirea goală este explicită. Modificarea Setărilor nu înlocuiește comanda sau rezultatul salvat.
+
+| Rezultat | Semnificație |
+|---|---|
+| Reușită | Comanda a ieșit cu zero fără expirarea timpului. |
+| Eșuată | Comanda a ieșit cu un cod nenul fără expirarea timpului; ultimul eșec rămâne vizibil în noua încercare de implementare. |
+| Timp expirat | Comanda a depășit limita, indiferent de codul de ieșire. |
+| Neconfigurată: neverificat | Nu era configurată o comandă de verificare; nu înseamnă reușită. |
+| Dovada verificării indisponibilă | Nu există încă un rezultat salvat; nu înseamnă neconfigurată. |
+
+Implementarea directă folosește limita **Implementare** `build` din `workflow.stage_timeout_overrides`; verificarea independentă folosește **Validare** `validate`. Fiecare revine la limita generală `budgets.per_gate_timeout_seconds` când nu există o suprascriere. Celelalte limite AEGIS nu se aplică joburilor directe.
+
 ## Clarificare {#clarification}
 
 Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**.
@@ -27,7 +43,7 @@ Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answer
 
 ## Aprobare {#approval}
 
-Când validarea strictă reușește, ADORE elimină `agent-approved`, postează dovezile pe tichet și așteaptă. Lucrarea afișează **Așteaptă aprobarea**, iar tichetul păstrează `agent-working`. Dovezile numesc candidatul exact și eventualele abateri înregistrate de executor.
+Când validarea strictă AEGIS sau verificarea directă configurată reușește (sau verificarea directă este explicit neconfigurată), ADORE elimină `agent-approved`, postează dovezile pe tichet și așteaptă. Lucrarea afișează **Așteaptă aprobarea**, iar tichetul păstrează `agent-working`. Dovezile numesc candidatul exact și eventualele abateri înregistrate de executor.
 
 Revizuiți-l, apoi adăugați din nou `agent-approved`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.
 
@@ -35,7 +51,7 @@ Revizuiți-l, apoi adăugați din nou `agent-approved`; contează doar o adăuga
 
 După aprobare, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează `agent-mr`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează `agent-done`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.
 
-Pentru a cere modificări, un recenzor adaugă `agent-revise` pe MR/PR. ADORE elimină eticheta, pornește o sarcină nouă pe aceeași ramură și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.
+Pentru a cere modificări, un recenzor adaugă `agent-revise` pe MR/PR. ADORE elimină eticheta, pornește lucru nou pe aceeași ramură (un task nou pentru AEGIS) și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.
 
 Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările CI ale PR/MR eșuează**: Reparare automată (implicit) pornește o revizie, Doar notificare postează un comentariu, iar Ignoră sare peste starea CI. Reparările automate consumă același buget de revizii; după epuizare, ADORE postează o notificare, iar lucrarea rămâne în revizuire.
 
@@ -67,7 +83,7 @@ Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, 
 |---|---|
 | Tichet | Numărul și titlul; deschide detaliile lucrării. |
 | Proiect | Proiectul căruia îi aparține. |
-| Stare | Starea, Etapa curentă și un link către tichet sau MR/PR când o persoană trebuie să acționeze. |
+| Stare | Starea, Flux de lucru înregistrat, Etapa curentă și un link către tichet sau MR/PR când o persoană trebuie să acționeze. |
 | Ultima activitate | Momentul ultimului eveniment salvat. |
 | Consum | Tokenurile folosite de lucrare. |
 

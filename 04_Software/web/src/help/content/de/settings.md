@@ -56,6 +56,8 @@ Im direkten Workflow führt ADORE ihn unabhängig im Worktree-Stamm des Auftrags
 
 AEGIS-Aufträge ignorieren diese Einstellung und verwenden die AEGIS-Testbefehle des Repositorys. Das Feld bleibt für beide Workflows in den Einstellungen sichtbar. Kein Befehl wird automatisch vorgeschlagen oder gewählt.
 
+Direkte Implementierung verwendet das Limit **Implementierung** `build` in `workflow.stage_timeout_overrides`; die unabhängige Prüfung verwendet **Validierung** `validate`. Ohne eigene Vorgabe gilt jeweils das allgemeine `budgets.per_gate_timeout_seconds`. Die anderen AEGIS-Phasenlimits gelten nicht für direkte Jobs.
+
 ## Original-TOML {#toml}
 
 Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Wählen Sie die exportierte Datei unter [Originalkonfiguration importieren](/help/projects#import-project) und ADORE prüft automatisch Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse.

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-b105b854"
+
+title = "Reject unrecognized job workflow in the browser"
+
+status = "active"
+
+requirement = """
+If a job response contains a missing, nontext or unknown workflow value, the Jobs browser reader shall reject that response into the existing error state without displaying guessed workflow evidence.
+"""
+
+verification = "Start with accepted aegis/direct model fixtures, replace or remove workflow in list and detail responses with unknown text, null, number and collection values, then assert reader errors; intercept Jobs browser reads after valid evidence and confirm an error with no stale detail, totals or guessed AEGIS/Direct label."
+
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

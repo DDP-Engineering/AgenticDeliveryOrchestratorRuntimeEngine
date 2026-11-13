@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 import ipaddress
 import json
+import math
 from pathlib import Path
 import re
 from urllib.parse import quote, unquote, urlsplit
@@ -321,6 +322,65 @@ def _waiting(run: RunState, events: list[dict], ticket_url: str | None,
     return result
 
 
+def _direct_evidence(run: RunState, events: list[dict]) -> dict:
+    """
+    @brief Project saved direct attempts and independent verification, never config.
+    @param[in] run Validated captured run state.
+    @param[in] events Captured journal in append order.
+    @return Closed redacted detail evidence with explicit unrecorded values.
+    @exception JobReadError For malformed selected state or journal evidence.
+    """
+    if run.stage not in {"build", "validate", "done"}:
+        raise JobReadError("run_state_corrupt")
+    attempt = None
+    for event in events:
+        stage = _event_stage(event)
+        if stage is not None and stage not in {"build", "validate", "done"}:
+            raise JobReadError("run_journal_corrupt")
+        if event["event"] == "stage-launch":
+            attempt = event.get("attempt")
+            if type(attempt) is not int or not 1 <= attempt <= 2**53 - 1:
+                raise JobReadError("run_journal_corrupt")
+    evidence = run.validation_evidence
+    if "verification" not in evidence and "verification_result" not in evidence:
+        verification = {"status": "unavailable", "result": None}
+    elif evidence.get("verification") == "not configured" and "verification_result" not in evidence:
+        verification = {"status": "not configured", "result": None}
+    else:
+        result = evidence.get("verification_result")
+        if not isinstance(result, dict) or set(result) != {
+            "command", "exit_code", "seconds", "timed_out", "output",
+        }:
+            raise JobReadError("run_state_corrupt")
+        command = _text(result["command"], "run_state_corrupt")
+        output = _text(result["output"], "run_state_corrupt")
+        raw_output = result["output"]
+        if (not isinstance(result["command"], str) or "\r" in result["command"]
+                or "\n" in result["command"] or not result["command"].strip()
+                or type(result["exit_code"]) is not int
+                or type(result["timed_out"]) is not bool
+                or type(result["seconds"]) not in {int, float}
+                or len(raw_output) > 6000 or len(raw_output.split("\n")) > 200
+                or "\n".join(raw_output.splitlines()) != raw_output or "\x1b" in raw_output):
+            raise JobReadError("run_state_corrupt")
+        try:
+            seconds = float(result["seconds"])
+        except (ValueError, OverflowError) as exc:
+            raise JobReadError("run_state_corrupt") from exc
+        if not math.isfinite(seconds) or seconds < 0:
+            raise JobReadError("run_state_corrupt")
+        status = ("timed out" if result["timed_out"] else
+                  "passed" if result["exit_code"] == 0 else "failed")
+        if evidence.get("verification") != status:
+            raise JobReadError("run_state_corrupt")
+        # Redaction may grow short credentials; bound only after masking the full tail.
+        output = "\n".join(output.split("\n")[-200:])[-6000:]
+        verification = {"status": status, "result": {
+            "command": command, "exit_code": str(result["exit_code"]),
+            "seconds": seconds, "timed_out": result["timed_out"], "output": output}}
+    return {"attempt": attempt, "verification": verification}
+
+
 def _view(item: Profile, run_id: str, sources: dict) -> dict:
     """
     @brief Validate schema-1 inputs and return the job evidence allowlist.
@@ -376,6 +436,7 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         "project_archived": item.archived, "run_id": run.run_id, "ticket_iid": run.ticket_iid,
         "ticket_title": title, "ticket_url": ticket_url, "mr_url": mr_url,
         "lifecycle": run.lifecycle, "stage": run.stage, "workflow": run.workflow,
+        **({"direct": _direct_evidence(run, events)} if run.workflow == "direct" else {}),
         "state_revision": sha256(sources[(item.project_id, run_id, "state.json")]).hexdigest(),
         "status_group": _GROUPS[run.lifecycle], "outcome": _text(run.outcome, "run_state_corrupt"),
         "stage_failures": run.stage_failures, "review_rounds": run.review_rounds,

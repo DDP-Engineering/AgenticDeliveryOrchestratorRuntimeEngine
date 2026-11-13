@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-a8c7ea48"
+
+title = "Reject non-direct stages in direct job responses"
+
+status = "active"
+
+requirement = """
+If a direct job response names a stage outside build, validate and done in current state or recorded timeline stage evidence, the Jobs browser reader shall reject that response into the existing error state rather than display AEGIS-only steps.
+"""
+
+verification = "Read valid direct build/validate/done model controls, independently inject frame/specify/design/publishing/unknown into current stage and timeline stage, and assert reader refusal; Jobs e2e corrupt-direct-stage injection shows an error and no forbidden step while existing AEGIS stage cases stay accepted."
+
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12
