@@ -60,6 +60,9 @@ function amounts(value: unknown) {
   count(row.events); tokenPair(row);
   for (const key of ["cache_read_tokens", "cache_write_tokens"]) tokens(row[key]);
   for (const key of ["reported_cost_usd", "estimated_cost_usd"]) if (key in row) amount(row[key]);
+  // Optional Admin evidence: absence is unknown, but present raw or pooled
+  // counts must be exact integers before publication or freshness can advance.
+  if ("unpriced_events" in row) count(row.unpriced_events);
 }
 function jobs(value: unknown, project: string) {
   if (!Array.isArray(value)) invalid();

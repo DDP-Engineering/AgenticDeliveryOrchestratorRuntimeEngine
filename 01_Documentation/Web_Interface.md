@@ -1161,6 +1161,10 @@ values or evidence counts, including an overflowing all-project weighted result,
 also show error/Retry before reporting success. They never appear as negative,
 non-numeric or infinite money. Unknown cost evidence remains unavailable rather
 than measured zero; valid measured zero and evidence-weighted costs remain distinct.
+Unpriced usage event counts must also be exact nonnegative whole numbers, both per
+project and across all projects. Invalid or overflowing counts show error/Retry
+without totals, exports or a successful-update time. Missing counts remain unknown
+(a dash), not measured zero; valid zero counts still show 0.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal

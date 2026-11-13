@@ -122,7 +122,7 @@
     "04_Software/web/src/settingsCopy.ts": "8a826dad1205638e8e6e0b2a178b8aa29b73c49f047937704aa4343f8a2c3072",
     "04_Software/web/src/settingsSave.ts": "db89af7f64efae8bc19a7f082572cdd4fae88bf56c5e018aaa0c7e3c6a3b717d",
     "04_Software/web/src/setupCopy.ts": "e300e1cead0d1f90474df43f4008337e5d8d04767be28aaab6a60bcbf8a22a04",
-    "04_Software/web/src/statistics.ts": "c30b0d136163290107ec81ceace6926ac74719c28580b976f81642db0889a86b",
+    "04_Software/web/src/statistics.ts": "b6cb7455f88ff64bd5d02c21f1a1545619889d5636b6e730fe13bd3584bae577",
     "04_Software/web/src/statisticsCopy.ts": "abae1bc20d085b130f6490bd8fb8850e69f7a6ef179e579cc70e74e1f74690f9",
     "04_Software/web/src/styles.css": "a3f954fa31b046631c10aea3f708f824ba61b9071c9502d55cf57b77824d504f",
     "04_Software/web/src/ticketCopy.ts": "8a827aa032341ad0db1d050508e1edd4d58746db534d7fb93b972b6230a0e19c",
@@ -138,8 +138,8 @@
     "LICENSE.txt": "2494616d0c43cfda4aa0fd8c53f429d615a2e38b50d45c3d9e6db264149e65a6",
     "THIRD_PARTY_NOTICES.md": "d37d52874114ed0021bdd24e27054209dd0278ba72a8bca3171a0db77235ed86",
     "assets/DDP_Engineering_logo_dark-BgzND1ZS.png": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481",
-    "assets/index-B-c8cUcl.js": "a47bef698fbabeb78e0183fb81a61015784c9e8e11954685d7e9704c2bbee8b9",
+    "assets/index-Dip-oDmt.js": "969db3758c53583bf8b69047fe9fbfde30ecd5c1f8efe278cfdb6e8174ba457a",
     "assets/index-fy_DMSsS.css": "10c50edff28830170a04f3a86d3b276ecb01cae5aa6aca905c90d4d1cfa786db",
-    "index.html": "1a45829b916e6c749349df451a151156537395f63a19ea2e628344027cfdc75e"
+    "index.html": "ed2016d316ecf818712044aebfcfaa755b5fac6c9515ce3ed8c2958d6c951083"
   }
 }

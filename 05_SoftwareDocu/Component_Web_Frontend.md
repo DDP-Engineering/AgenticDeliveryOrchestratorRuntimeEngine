@@ -268,6 +268,13 @@ unsafe count sums and weighted product/sum overflow cannot publish ready or fres
 valid zero and evidence-weighted means are unchanged. Helper and global/global-selected/
 project-hub Quality browser negatives prove initial/replacement refusal with no
 report, exports, success time or pageerror, then valid weighted/zero/unknown recovery.
+Optional Admin `unpriced_events` counts validate as nonnegative safe integers at
+raw amount boundaries and again after pooling. Present null, text, fractional,
+negative or unsafe evidence and pooled sum overflow fail before ready or freshness;
+absence remains unknown and measured zero stays zero. Dev financial projections
+remain forbidden. Helper tests cover amount/role boundaries; global, global-selected
+and project-hub Usage browser tests cover initial/replacement refusal, hidden
+report/exports/time, no pageerror and valid known/zero/absent recovery.
 Cross-project interval disagreement or aggregate failure withholds the report,
 exports and success time with explicit error/Retry, rather than throwing in render. App uses this owner for both global and
 project Statistics. Its render key captures the session principal/role, authorized

@@ -26,7 +26,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   cost-efficiency collections, counts, money and pooled weighted results before success;
   unknown contributing money stays unavailable rather than measured zero. Invalid
   evidence shows error/Retry, not a crash, false money or success time; absent/empty
-  optional collections remain valid.
+  optional collections remain valid. Reject malformed, negative, fractional or unsafe
+  unpriced-event counts and overflowing pooled sums before publication; absent counts
+  remain unknown and measured zero remains zero.
 - Keep Jobs/History rows, pages, open details, consumption and manual executor output
   through same-context reads and command results. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;

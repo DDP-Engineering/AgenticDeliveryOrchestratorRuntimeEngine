@@ -96,6 +96,13 @@ unsafe sums and weighted overflow. Unknown contributing money remains null rathe
 than measured zero; valid zero/weighted means are unchanged. Statistics helper
 and global/global-selected/project-hub browser negatives prove initial/replacement
 withholding, no report/exports/time/pageerror and valid recovery.
+Optional Admin unpriced-event counts validate as nonnegative safe integers in raw
+amounts and pooled totals before ready/time. Malformed, null, negative, fractional
+or unsafe counts and pooled overflow fail closed; absent counts remain unknown,
+zero remains measured zero and Dev financial evidence stays forbidden. Statistics
+helpers and global/global-selected/project-hub Usage browser cases prove initial
+and replacement withholding, no report/exports/time/pageerror and known/zero/absent
+recovery.
 Raw and pooled token directions/cache counts and known combined input/output totals
 validate as safe integers before publication, including period/total/day and job
 consumption evidence. Missing directions keep totals unknown; known overflow fails

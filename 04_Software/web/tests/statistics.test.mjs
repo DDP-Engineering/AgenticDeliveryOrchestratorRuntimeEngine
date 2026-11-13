@@ -467,6 +467,62 @@ test("reporting validates pooled efficiency counts and weighted money including 
   }
 });
 
+/** Optional Admin counts remain absent when unknown; present evidence is never coerced. */
+test("consumption validates optional unpriced counts at every amount boundary and role", () => {
+  const targets = value => [value.totals, value.lifetime, value.unallocated, value.daily[0],
+    value.jobs[0].lifetime, value.jobs[0].in_period, value.jobs[0].unallocated];
+  const value = consumption();
+  value.daily = [{ date: "2026-10-25", executor: "pi", model: "example", ...amounts(0, 0) }];
+  assert.doesNotThrow(() => readConsumption(value, "alpha", selection, false));
+  assert.equal("unpriced_events" in readConsumption(value, "alpha", selection, true).totals, false);
+  for (const target of targets(value)) {
+    for (const valid of [0, 2, Number.MAX_SAFE_INTEGER]) {
+      target.unpriced_events = valid;
+      assert.doesNotThrow(() => readConsumption(value, "alpha", selection, true));
+      assert.throws(() => readConsumption(value, "alpha", selection, false), RangeError, "Dev financial evidence remains forbidden");
+    }
+    for (const invalid of [undefined, null, "not-a-count", "0", {}, [], -1, 0.5, Number.MAX_SAFE_INTEGER + 1, Infinity, NaN]) {
+      target.unpriced_events = invalid;
+      assert.throws(() => readConsumption(value, "alpha", selection, true), RangeError, `invalid count: ${String(invalid)}`);
+    }
+    delete target.unpriced_events;
+  }
+});
+
+test("reporting rejects raw unpriced counts and pooled overflow before success then recovers", async () => {
+  for (const failure of [-1, "not-a-count", 0.5, Number.MAX_SAFE_INTEGER + 1, null, { toString: null }, "pooled overflow"]) {
+    const h = reporting({ admin: true, projectIds: ["alpha", "beta"] });
+    const complete = async mode => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = {}, usage = {};
+      for (const id of ["alpha", "beta"]) {
+        metrics[id] = fixture(); usage[id] = consumption();
+        for (const value of [metrics[id], usage[id]]) { value.scope = scope(id); value.jobs[0].project_id = id; }
+        usage[id].totals.reported_cost_usd = null;
+        if (mode !== "absent") usage[id].totals.unpriced_events = mode === "bad" ?
+          failure === "pooled overflow" ? Number.MAX_SAFE_INTEGER : failure : mode === "zero" ? 0 : id === "alpha" ? 2 : 3;
+        if (mode !== "bad" || failure === "pooled overflow") readConsumption(usage[id], id, selection, true);
+      }
+      h.requests.metrics.at(-1).resolve(metrics); h.requests.usage.at(-1).resolve(usage); await pending;
+    };
+    await complete("bad");
+    assert.equal(h.latest().status, "error", `invalid count: ${JSON.stringify(failure)}`);
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false, "no transient successful publication");
+    await complete("known"); assert.equal(h.latest().status, "ready");
+    assert.equal(h.latest().data.pooledUsage.totals.unpriced_events, 5);
+    h.advance(100);
+    await complete("bad"); assert.equal(h.latest().status, "error");
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null, "invalid replacement cannot renew freshness");
+    await complete("zero"); assert.equal(h.latest().status, "ready");
+    assert.equal(h.latest().data.pooledUsage.totals.unpriced_events, 0, "known zero stays measured zero");
+    await complete("absent"); assert.equal(h.latest().status, "ready");
+    assert.equal("unpriced_events" in h.latest().data.usage.alpha.totals, false);
+    assert.equal("unpriced_events" in h.latest().data.pooledUsage.totals, false, "absence stays unknown, not zero");
+    h.owner.dispose();
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();

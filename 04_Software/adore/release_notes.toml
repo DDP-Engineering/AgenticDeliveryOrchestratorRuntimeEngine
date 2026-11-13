@@ -18,7 +18,7 @@ version = "Unreleased"
 [[release.entry]]
 category = "fixed"
 topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
-text = { en = "Reports stay visible during updates; invalid Quality data or costs offer Retry, not false values.", fr = "Rapports conservés à l’actualisation ; Qualité refuse données et coûts invalides, avec Réessayer.", de = "Berichte bleiben bei Updates sichtbar; ungültige Qualitätsdaten oder Kosten erlauben Wiederholen.", ro = "Rapoartele rămân vizibile; datele sau costurile invalide din Calitate permit reîncercarea." }
+text = { en = "Reports stay visible during updates; invalid counts, Quality data or costs offer Retry.", fr = "Rapports conservés à l’actualisation ; décomptes, données de Qualité et coûts invalides : Réessayer.", de = "Berichte bleiben bei Updates sichtbar; ungültige Zähler, Qualitätsdaten oder Kosten: Wiederholen.", ro = "Rapoartele rămân vizibile; numerele, datele de calitate sau costurile invalide permit reîncercarea." }
 
 [[release.entry]]
 category = "fixed"

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -703,6 +705,32 @@ rebuilt and independently fingerprint-audited. These are build results, not fina
 strict proof or independent approval. Fresh round-6 reviews, full strict proof/report
 and task closure remain the next validate stage; this session stops at build advance.
 
+### Round-6 review correction under RULING-001
+
+The returned build corrects the recorded unpriced-event count publication gap.
+Present optional Admin counts validate as nonnegative safe integers in raw amounts
+and pooled totals before ready or successful-time publication. Malformed/null,
+negative, fractional and unsafe counts and pooled overflow fail closed. Absent
+counts stay unknown, valid zero stays measured zero, and Dev financial redaction
+remains strict. The correction reuses the existing validator and failure path;
+there is no new API, storage format, control, polling change or dependency.
+
+Two helper tests cover every amount/role boundary and initial/replacement/recovery
+publication, including individually valid project counts whose pooled sum is unsafe.
+Thirteen new Usage browser cases cover global all-project, global selected and
+project-hub scopes with explicit error/Retry, withheld report/exports/time, no
+pageerror and valid known/zero/absent recovery. Focused proof passes 78 helper/help
+contracts and 124 integrated reporting/Statistics/session/operation Chromium cases,
+including existing four-locale/two-theme continuity regressions. Documentation,
+scoped requirement/spec/knowledge evidence, CHANGELOG and the existing four-locale
+Statistics note are current. Help already describes invalid-evidence refusal and
+unknown versus measured zero; no workflow or labels changed. Production assets
+are rebuilt and all 132 input/7 output hashes match independently.
+
+These are build results, not final strict proof or independent approval. Fresh
+round-7 reviews under RULING-001, full strict proof/report and task closure belong
+to the next validate session. This session stops at build advance.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -953,6 +981,15 @@ and task closure remain the next validate stage; this session stops at build adv
 - 2026-11-13 validate: Round 6 independent read-only reviews completed successfully (both reviewer processes exit 0). Specification compliance CHANGES_REQUIRED and implementation quality CHANGES_REQUIRED, medium severity, independently reproduced the same unpriced-event count validation/publication defect. Reports: /tmp/task77-review6/spec.log and quality.log; independent production reproductions /tmp/task77-round6-count-repro.mjs and /tmp/task77-round6-quality-unpriced.mjs. Each reviewer ran 47 focused Statistics/polling/request tests successfully; neither used Playwright, changed repository artifacts, accessed forge, or treated deferred strict proof as a defect. Parent agrees with both findings; round-6 verdict recorded by CLI. review.max_fix_cycles=5 is exhausted, so no additional fix or backward routing attempted. ADORE_QUESTIONS.md asks for an explicit policy/scope decision before any additional bounded repair/review cycle. Current acceptance requirements/specifications remain unchanged; validation checklist and final proof/report remain incomplete. Candidate unchanged; only journal and decision handoff added in this session. Final git diff --check passed. Pause blocked at validate; do not advance or represent task as complete.
 - 2026-11-13 validate: Validation resumption after user authorization: branch matches journal and entry worktree is clean. Current statistics.ts amounts/readConsumption/coordinated pooled validation still omit optional unpriced_events; metrics.ts:120 sums it unchecked and App.tsx:1408,1460 formats it. The round-6 defect remains source-confirmed against REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9; no new reproduction or implementation test was run in this routing session. Record the user exception as rounds 7-9, preserving round-6 history, installed policy/payload and all existing contracts. ADORE_QUESTIONS.md is absent in this fresh checkout; the clarification is settled by the user ruling, not a new blocking question. Return to build only for the recorded raw/pooled unpriced-count validation and initial/replacement/recovery regressions, including malformed/negative/fractional/unsafe and pooled-overflow rejection, withheld report/CSV/success time, valid zero/absent controls and recovery. Fresh independent reviews and final strict proof/report remain mandatory after correction; no product, requirement, policy or payload edit, publication or full-proof claim in this session.
 - 2026-11-13 validate: returned to build - User RULING-001 authorizes three additional review rounds (7-9). Round-6 unpriced_events validation defect remains present: validate optional raw counts and pooled sums as nonnegative safe integers before publication, add initial/replacement/recovery rejection and valid zero/absent controls, then obtain fresh reviews.
+- 2026-11-13 build: Round-6 correction build bounds under RULING-001: 45 minutes, at most 22 ticket-scoped changed paths and 12 focused verification commands. Correct only optional raw/pooled unpriced-event count validation before Statistics publication, with malformed/negative/fractional/unsafe/overflow initial-replacement-recovery proof and absent/zero controls. Preserve anchor, review history and current contracts; update scoped docs/traceability/notes and rebuild assets. Fresh Node 22.23.4, locked node_modules/.venv, image Chromium path and machine identity verified; no dependency/backend/schema/payload/publication changes.
+- 2026-11-13 build: red: cd 04_Software/web && node --test tests/statistics.test.mjs exit 1 (22 pass/2 new failures): raw optional invalid unpriced counts are accepted and reporting publishes ready/time for -1. npm run build:e2e/typecheck exit 0; playwright reportingRefresh --grep 'global Usage rejects invalid unpriced negative' exit 1: malformed counts stay rendered without error/Retry. Added all amount/role helper boundaries and raw/pooled initial-replacement-recovery coverage before implementation, including safe absent/zero controls (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9). Preserve original task anchor.
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/request.test.mjs tests/errors.test.mjs tests/help.test.mjs exit 0 (78/78); npm run build:e2e/typecheck exit 0 and latest typecheck plus playwright reportingRefresh --grep 'invalid unpriced' exit 0 (13/13). amounts() now validates present raw and pooled unpriced counts as nonnegative safe integers before publication/time; absent remains unknown and Dev financial redaction stays strict. Initial/replacement failures withhold report/exports/time without pageerror, then recover with known/zero/absent controls. Earlier browser recovery failures were new-fixture label/order assumptions, corrected to actual Unpriced usage events and alpha identity rather than response-array order; no product or oracle weakened (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9).
+- 2026-11-13 build: green: latest focused Node statistics/metrics/polling/request/errors/help suite exit 0 (78/78); integrated playwright e2e/reportingRefresh.spec.ts e2e/statistics.spec.ts e2e/sessionRefresh.spec.ts e2e/operationRefresh.spec.ts exit 0 (124/124 offline Chromium cases). All 13 new unpriced-count negatives/recovery cases pass with existing cadence/coherence/continuity, denied-session and post-result boundaries and four-locale/two-theme regressions intact. No original oracle weakened; final strict suite and independent round-7 reviews remain validate-stage work.
+- 2026-11-13 build: release-notes: updated (existing Statistics fixed entry now includes invalid counts alongside Quality data/costs in en/fr/de/ro; no new category entry. check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-13 build: help: none (unpriced-count validation enforces the existing invalid-evidence/error/Retry and unknown-versus-measured-zero clauses; all four Statistics locales inspected. No new labels, controls, steps, cadence or workflow; help outline/link/parser contracts pass).
+- 2026-11-13 build: Round-6 correction build audit under RULING-001: npm run build, release-note checker, git diff --check and independent SHA-256/traceability audits exit 0. All 132 frontend inputs/7 outputs match; all 42 requirements remain active with existing affected paths/test links. Evolution exit 0 reviewed all 236 post-anchor paths (41 added/183 modified/12 removed), preserving inherited target content and original anchor. This session changes 17/22 scoped paths: one validator, helper/browser tests, three requirement verifications, reporting spec/component/user/knowledge docs, merged localized note/CHANGELOG, journal and four regenerated asset paths. No dependency/backend/schema/payload/publication changes. Recorded finding corrected with focused proof; fresh independent round-7 reviews and full strict proof/report/closure remain required in validate.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 177 warnings, 28 notes. Inherited target categories remain: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend tests/inherited sources; 5 outside-layout paths are untouched target config/release archives. Six secret flags retain inherited journal/Users fake credential wording, three target fixture-key literals and unavailable generated-JS scan; no new secret introduced. DEVIATION build: generated minified-JS added-lines scan is unavailable - accepted with reviewed-source rebuild and all stamped hashes matching, not a detected secret or final strict proof. Existing large-chunk warning retained without unrelated splitting/dependencies. No unresolved recorded correction remains in focused proof; independent approval/full suite not claimed.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
@@ -961,13 +998,13 @@ and task closure remain the next validate stage; this session stops at build adv
 
 ## State
 
-status: waiting
-reported: build - paused
-next: Correct only the recorded unpriced-event count validation/publication finding with focused helper/browser proof, scoped documentation/traceability and rebuilt assets; return to validate for independent round-7 reviews under RULING-001.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Recorded user-authorized three-round review-bound exception in RULING-001 and preserved the existing round-6 findings/history; no product or policy/payload edits.
-evidence: Current statistics.ts, metrics.ts and App.tsx inspected: raw/pooled unpriced_events remains unchecked; git diff --check exit 0. No implementation tests or final strict proof run in this routing session.
-issues: Known round-6 acceptance failure remains until build correction. Independent round-7 review and final strict proof/report/closure remain required; no CI, live or deployed acceptance run.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected optional raw/pooled unpriced-event validation before Statistics publication; added helper/browser rejection and recovery proof, scoped docs/traceability and four-locale notes; rebuilt static assets.
+evidence: 78/78 focused helpers/help and 124/124 offline Chromium cases pass; typecheck, isolated/production builds, release-note check and diff check exit 0; all 132 input/7 output hashes and 42 active requirement links verified.
+issues: Independent round-7 reviews under RULING-001 and final strict proof/report/closure remain validate work. Advisory check: 0 errors, 177 explained inherited/heuristic warnings, 28 notes; generated-JS scan and bundle-size limitations logged. No CI/live/deployed acceptance run.
 spec_compliance:
 implementation_quality:
 review_round: 6

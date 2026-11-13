@@ -60,6 +60,13 @@ money remains unavailable rather than measured zero; valid zero and weighted
 means retain their meaning. Helper and global/selected/project-hub Quality browser
 negatives cover initial/replacement refusal, no report/exports/time/pageerror and
 valid weighted/zero/unknown recovery.
+Optional Admin unpriced-event counts must be nonnegative safe integers at every
+raw amount boundary and in pooled totals. Present null, malformed types, negative,
+fractional or unsafe counts and pooled sum overflow fail before any ready or
+successful-time publication. Absent counts remain unknown, not measured zero;
+valid zero stays zero and financial fields remain forbidden to Devs. Helper and
+global/global-selected/project-hub Usage browser cases cover initial/replacement
+withholding, no report/exports/time/pageerror and valid known/zero/absent recovery.
 Each project in a global response maps to the current
 immutable identity, not just a reusable name. The response project set equals the
 captured authorized set. Corresponding metrics/usage canonical scopes agree on

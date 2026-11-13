@@ -299,6 +299,51 @@ for (const scope of ["global", "selected", "project"] as const) for (const failu
   });
 }
 
+for (const scope of ["global", "selected", "project"] as const) for (const failure of ["negative", "text", "fractional", "unsafe", "pooled overflow"] as const) {
+  if (scope !== "global" && failure === "pooled overflow") continue;
+  test(`Statistics ${scope} Usage rejects invalid unpriced ${failure} before publication and recovers`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const id = await alpha(page);
+    let corrupt = true, absent = false, pooledCount = 0;
+    await page.route(/\/api\/v1\/(?:projects\/[^/]+\/)?usage\?/, async route => {
+      const body = await (await route.fetch()).json();
+      const entries = (scope === "global" ? Object.entries(body) : [["alpha", body]]) as Array<[string, { totals: Record<string, unknown> }]>;
+      if (scope === "global") expect(entries.length).toBeGreaterThan(1);
+      pooledCount = (entries.length - 1) * 2;
+      entries.forEach(([name, entry]) => {
+        if (absent) delete entry.totals.unpriced_events;
+        else entry.totals.unpriced_events = corrupt ? failure === "negative" ? -1 : failure === "text" ? "not-a-count" :
+          failure === "fractional" ? 0.5 : failure === "unsafe" ? Number.MAX_SAFE_INTEGER + 1 : Number.MAX_SAFE_INTEGER : name === "alpha" ? 0 : 2;
+      });
+      await route.fulfill({ json: body });
+    });
+    await page.goto(scope === "global" ? "/metrics?tab=usage" : scope === "selected" ? `/metrics?project=${id}&tab=usage` : `/projects/${id}/statistics?tab=usage`);
+    await expect(page.getByRole("tab", { name: "Usage", exact: true })).toHaveAttribute("aria-selected", "true");
+    for (let round = 0; round < 2; round++) {
+      await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.locator("#metrics-tab-panel .usage-totals, #metrics-tab-panel table")).toHaveCount(0);
+      await expect(page.locator(".metrics-export")).toHaveCount(0);
+      expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+      corrupt = false; absent = round === 1;
+      await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+      const chip = page.locator(".usage-totals > div").filter({ has: page.getByText("Unpriced usage events", { exact: true }) });
+      await expect(chip.locator("dd")).toHaveText(absent ? "—" : scope === "global" ? new Intl.NumberFormat("en").format(pooledCount) : "0");
+      if (scope === "global") {
+        const table = page.locator("#metrics-tab-panel table").filter({ has: page.getByRole("columnheader", { name: "Unpriced usage events", exact: true }) });
+        await expect(table.locator("tbody tr").filter({ hasText: /^alpha/ }).locator("td").last()).toHaveText(absent ? "—" : "0");
+      }
+      expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+      if (round === 0) {
+        await page.getByText("Export CSV", { exact: true }).click();
+        corrupt = true;
+        await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+      }
+    }
+  });
+}
+
 for (const failure of ["application", "media", "foreign", "scope"] as const) test(`Statistics ${failure} refresh refuses both report members and exports`, async ({ page }) => {
   const id = await alpha(page);
   await page.goto(`/projects/${id}/statistics`);
