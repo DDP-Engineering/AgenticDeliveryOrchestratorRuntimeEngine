@@ -9,7 +9,7 @@ id = "REQ-UX-b0b59a64"
 
 title = "Show validated empty informational results"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a validated current-context informational web read succeeds with no matching records, the interface shall show the view's explicit empty or no-match result rather than loading, failure or fabricated zero-valued evidence.
@@ -19,7 +19,7 @@ verification = "Offline browser: return a validated empty Statistics, jobs or au
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/audit.spec.ts", "04_Software/web/e2e/shell.spec.ts"]
 
 
 spec = ""

@@ -115,7 +115,12 @@ cancels the old proposal without removing its committed report, then requests bo
 members in a fresh generation, never pinning pre-result inputs. Late old values or
 errors cannot publish. `tests/statistics.test.mjs` and the operation refresh browser
 suite prove full-member cancellation, retained History/Jobs/report nodes and CSV
-disclosure, including independent completion. Administration worker/storage
+disclosure, including independent completion. Integrated held-detail cases require
+both post-result list and detail generations before reenabling commands, and prove
+that an external result cannot release a concurrently pending job command's read
+barrier. Removed Overview/Summary/Jobs identities lose their selector/actions;
+archived Jobs retain readable detail with disabled operational controls.
+Administration worker/storage
 owners keep 5s/30s cadence, 30s bounds and strict error/unavailable/unknown semantics;
 successful pending reads retain values, while failed/invalid reads do not retain a
 healthy status. Readiness validates ready/worker/activity, storage validates its
@@ -123,7 +128,12 @@ numeric, boolean and volume fields before display. `e2e/accessRefresh.spec.ts`
 proves these seams, including changed/archived review authority, post-write failure,
 deadline/late completion, cancellation, hidden pause, pending-to-running continuity
 and clean/dirty Settings after App results, including an unrelated result racing
-held own-Save validation. Authenticated denial/session uses the shared boundary above.
+held own-Save validation. `e2e/settingsRefresh.spec.ts` also holds unrelated App
+results through an impact confirmation, credential and price drafts, owned price
+post-write validation and a pending ChatGPT sign-in. The sign-in keeps its pasted
+address and serialized 1s status read, expires after 900 seconds (also while hidden)
+and stops polling after expiry. No forge/model/credential operation is executed by
+these route fixtures. Authenticated denial/session uses the shared boundary above.
 
 ## Ticket live scope and response ownership
 
@@ -258,6 +268,14 @@ The four-locale feedback wraps using shared theme tokens.
 both completion orders, pins/source times, promotion, partial failure/recovery,
 malformed/foreign/missing maps, independently valid but canonically different
 intervals, empty masks, deadline and invalidated/disposed completions.
+`e2e/reportingRefresh.spec.ts` exercises both global and selected-project members
+through initial and post-success 30s deadlines, late refusal and retry; selected
+15s metrics-only updates preserve usage/full-report times, 30s reads advance the
+proper times, hidden intervals start nothing and visible return coalesces. HTTP
+application failures (even a server-supplied network-error code), wrong media,
+foreign identity and mismatched scope withhold both report members and exports.
+Deadline fixtures drain actual supporting session/directory IO before virtual
+jumps, without stubbing authorization or relaxing the resource deadline.
 
 ## Direct Jobs presentation
 

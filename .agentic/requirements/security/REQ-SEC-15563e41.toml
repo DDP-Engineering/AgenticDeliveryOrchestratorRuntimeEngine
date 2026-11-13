@@ -9,7 +9,7 @@ id = "REQ-SEC-15563e41"
 
 title = "Remove evidence after authentication or access loss"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When sign-out, account or role change, session expiry, required password change or revoked project access invalidates a web view's authorization, the interface shall immediately withhold the no-longer-authorized evidence and actions upon detecting that transition, including snapshots retained during refresh.
@@ -19,7 +19,7 @@ verification = "Offline browser: hold privileged reads across sign-out/sign-in a
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/request.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
-linked_tests = ["04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/tests/request.test.mjs"]
+linked_tests = ["04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/tests/request.test.mjs", "04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/factoryPassword.spec.ts", "04_Software/web/e2e/operationRefresh.spec.ts"]
 
 
 spec = ""

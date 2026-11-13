@@ -9,7 +9,7 @@ id = "REQ-NFR-86b6abde"
 
 title = "Preserve web refresh cadence"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While eligible web polling is active, the interface shall preserve the existing nominal resource cadences of 15 seconds for selected metrics, jobs/detail, project metadata, clean Settings, Access, audit and applicable session notice, 30 seconds for usage/global metrics/storage, 5 seconds for worker status, 2 seconds for pending operations and 1 second only for finite pending ChatGPT sign-in.
@@ -17,9 +17,9 @@ While eligible web polling is active, the interface shall preserve the existing 
 
 verification = "Offline fake-clock/browser: count eligible requests around the declared interval boundaries, including selected/global Statistics and operation/sign-in completion; assert no cadence inflation, global polling removal, perpetual completed-operation/sign-in polling or added ticket reads; slow in-flight work remains coalesced rather than causing a burst."
 
-affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/ChatGptSignIn.tsx"]
 
-linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/tests/polling.test.mjs"]
+linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/tests/polling.test.mjs", "04_Software/web/e2e/reportingRefresh.spec.ts", "04_Software/web/e2e/settingsRefresh.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts", "04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts", "04_Software/web/e2e/executor-config.spec.ts"]
 
 
 spec = ""

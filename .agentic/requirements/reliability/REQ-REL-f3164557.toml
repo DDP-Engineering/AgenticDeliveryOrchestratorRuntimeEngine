@@ -9,7 +9,7 @@ id = "REQ-REL-f3164557"
 
 title = "Require explicit reload after paging snapshot conflict"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a server-paged jobs reread rejects the selected paging snapshot, the interface shall withhold the conflicting page, totals and dependent detail/actions behind explicit source-change feedback requiring the existing operator reload from page zero.
@@ -19,7 +19,7 @@ verification = "Offline browser: select a nonfirst Jobs/History page and hold a 
 
 affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/jobs.spec.ts"]
 
 
 spec = ""

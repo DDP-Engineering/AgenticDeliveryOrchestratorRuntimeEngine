@@ -7,10 +7,10 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # REQ-DATA-d535499a — Publish coherent Statistics refresh generations
 
-Status: **draft**. This specifies proposed reporting publication behavior, not
-an assertion that the current implementation provides it. It supplements the
-response-binding amendment in [Statistics presentation](statistics-presentation.md).
-It creates no API, persisted schema, migration or source-level hook contract.
+Status: **active**. This describes the coordinated reporting publication
+implemented by `App.tsx` and `statistics.ts`. It supplements the response-binding
+contract in [Statistics presentation](statistics-presentation.md). It creates no
+API, persisted schema, migration or backend atomic-snapshot contract.
 
 ## Evidence and boundary
 
@@ -18,10 +18,10 @@ It creates no API, persisted schema, migration or source-level hook contract.
   reports mounted, validate every response, keep metrics and usage scope-consistent,
   reject unrelated refresh generations, preserve cadence and distinguish transport
   failure from invalid or unauthorized evidence.
-- OBSERVED (`04_Software/web/src/App.tsx`, reporting keys and independent readers):
+- OBSERVED (`04_Software/web/src/App.tsx`, reporting owner and due-mask schedule):
   selected metrics runs at 15 seconds; usage and global metrics run at 30 seconds.
-  Current readiness compares canonical scope fields but independently publishes
-  resource state and clears the report on every loading transition.
+  One context-bound proposal validates and publishes the complete report, keeping
+  the committed report mounted while same-context revalidation is pending.
 - OBSERVED (`04_Software/web/src/statistics.ts`, `readStatistics`,
   `readConsumption`; `web/e2e/statistics.spec.ts` scope and corruption journeys):
   validators and canonical server scope already exist. There is no shared backend
@@ -91,8 +91,9 @@ an unbounded sequence of generations.
    remains a required recovery dependency, so an unrelated metrics-only success
    cannot clear a usage failure or renew the whole-report freshness claim.
 
-This protocol allows resource-local implementation or a narrow shared reader;
-it does not select React hook structure or a wholesale fetching framework.
+`createReportingRefresh` implements this protocol through one bounded owned read
+and explicit proposal masks; App supplies validated scope mapping and the existing
+visibility schedule. No fetching framework or persistent browser cache is used.
 
 ## Reporting state transitions
 
@@ -135,15 +136,18 @@ advance its time or clear its failure. Failed, partial, cancelled and ignored
 reads cannot advance success times. An unchanged successful revalidation may
 advance its genuine completion time without a loading announcement.
 
-Design must choose concise localized placement for input versus complete-report
-freshness without suggesting all sources were reread at the latest metrics-only
-completion. No interval increase or new reporting-scope format is authorized.
+The shared localized Refresh feedback shows Last refreshed for the complete
+report, plus labeled Metrics updated and Usage updated source times. Progress and
+successful times are outside live regions; a newly failed stale state is announced
+once. No interval increase or new reporting-scope format is used.
 
-## Acceptance seeds
+## Offline verification
 
-All tests are offline and assert visible behavior and bounded request counts.
-Existing `web/e2e/statistics.spec.ts` analytical fixtures and fake-clock/held-route
-patterns supply the base; inspection is not a claim those tests were executed.
+`web/tests/statistics.test.mjs` proves proposal staging, pins, promotion, failure
+recovery, canonical scope, deadlines and invalidation. Browser fixtures in
+`web/e2e/statistics.spec.ts`, `reportingRefresh.spec.ts`, `operationRefresh.spec.ts`
+and `sessionRefresh.spec.ts` assert visible behavior and bounded request counts.
+The task journal records the commands and observed outcomes. Coverage includes:
 
 - Parameterize all four tabs across Admin global all-project comparison, global
   one-project filter and Project Statistics. Hold metrics, then usage separately,
@@ -170,7 +174,7 @@ patterns supply the base; inspection is not a claim those tests were executed.
   then recover automatically and manually. Initial transport failure has no
   retained report. Duplicate Refresh/visibility/timer triggers do not fan out.
 
-## Assumptions and remaining design decisions
+## Boundaries
 
 - STATED: server analytical definitions, financial redaction, authorized scope,
   storage and CSV contracts remain unchanged. No backend atomic snapshot is
@@ -178,9 +182,8 @@ patterns supply the base; inspection is not a claim those tests were executed.
 - INFERRED: pinned validated inputs are necessary to reconcile complete display
   coherence with the explicitly preserved unequal periodic cadences; tests must
   distinguish deliberate carried input from opportunistically mixed generations.
-- UNKNOWN until design: exact grouping/coalescing implementation, finite deadline
-  numbers outside existing bounded reads, and localized feedback placement and
-  announcement mechanism. These are implementation decisions within the above
-  observable contract, not blocking user questions or permission to weaken it.
-- UNKNOWN: integration state of executor-output conflict handling on other
-  branches. This reporting spec neither requires nor replaces that implementation.
+- OBSERVED: proposals have one 30-second deadline, including any pin promotion.
+  Refresh triggers join active work; observed operation results instead cancel
+  pre-result proposals and require both members from a new generation.
+- This reporting contract does not alter executor-output provenance, revision
+  binding, conflict handling or its explicit read lifecycle.

@@ -13,8 +13,7 @@ STATED: live #15 eight criteria; current #14 scoped-metrics.md remains authorita
 
 Scope selection: Admin all authorized projects or one project; Dev one authorized project. Inclusive From/Through calendar days, an explicit All-time action, IANA zone and day/week/month grouping. Existing URL project/tab compatibility remains; selected date/zone/group serialize in the statistics URL and survive reload/Back. The server computes the canonical [from,to) interval (including DST 23/25-hour days); the browser never calculates date attribution and does not display the interval or boundary explanations.
 
-Response binding — draft amendment for coordinated revalidation (not implemented
-by this specification-stage edit): each Statistics read captures principal/role,
+Response binding — coordinated revalidation: each Statistics read captures principal/role,
 authorized immutable project set, calendar/zone/group and selected context. A true
 context change immediately hides the preceding context's data and export anchors.
 An initial pending read shows loading. A same-context pending read retains the

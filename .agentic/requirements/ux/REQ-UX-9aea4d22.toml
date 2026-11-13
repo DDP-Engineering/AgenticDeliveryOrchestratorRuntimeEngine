@@ -19,7 +19,7 @@ verification = "Chromium protects a settings draft from delayed responses, resum
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/polling.ts"]
 
-linked_tests = ["04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts"]
+linked_tests = ["04_Software/web/e2e/settings.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts", "04_Software/web/e2e/settingsRefresh.spec.ts"]
 
 
 spec = ""

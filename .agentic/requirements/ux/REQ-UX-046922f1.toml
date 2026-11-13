@@ -9,7 +9,7 @@ id = "REQ-UX-046922f1"
 
 title = "Preserve same-context view controls"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While the authorized context and underlying items remain valid through automatic, explicit or operation-completion web revalidation, the interface shall preserve selected tabs, applied and draft filters, sort, page size and valid page, open job, expanded sections and export disclosure.

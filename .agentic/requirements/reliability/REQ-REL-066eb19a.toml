@@ -9,7 +9,7 @@ id = "REQ-REL-066eb19a"
 
 title = "Withhold incomplete job refresh results"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If a jobs web read reports incomplete evidence outside the Overview API's validated unreadable-project isolation contract, the interface shall withhold affected rows, totals and dependent detail/actions with explicit incomplete-evidence feedback and the existing reload transition.
@@ -19,7 +19,7 @@ verification = "Offline browser: load complete Jobs/History/detail, then return 
 
 affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts"]
 
 
 spec = ""

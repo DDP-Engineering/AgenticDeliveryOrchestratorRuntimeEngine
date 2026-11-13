@@ -9,7 +9,7 @@ id = "REQ-DATA-d535499a"
 
 title = "Publish coherent Statistics refresh generations"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When Statistics publishes an initial or refreshed report globally or for one project, the interface shall publish metrics and usage only as a fully validated replacement from one coordinated reporting generation with matching authorized immutable project scope, period, timezone and granularity.
@@ -19,7 +19,7 @@ verification = "Offline browser: exercise all four Statistics tabs in all-projec
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/polling.ts"]
 
-linked_tests = ["04_Software/web/tests/statistics.test.mjs", "04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/operationRefresh.spec.ts"]
+linked_tests = ["04_Software/web/tests/statistics.test.mjs", "04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/operationRefresh.spec.ts", "04_Software/web/e2e/reportingRefresh.spec.ts"]
 
 
 spec = "specs/REQ-DATA-d535499a.md"

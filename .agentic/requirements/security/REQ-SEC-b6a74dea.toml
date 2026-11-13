@@ -9,7 +9,7 @@ id = "REQ-SEC-b6a74dea"
 
 title = "Keep retained informational evidence separate from action authority"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While a web snapshot is retained after informational refresh failure, the interface shall treat it as non-authoritative for enabling, confirming or submitting privileged or operational mutations that depend on that evidence.
@@ -19,7 +19,7 @@ verification = "Offline browser: retain a failed-refresh job detail that formerl
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
-linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts"]
+linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/operationRefresh.spec.ts"]
 
 
 spec = ""

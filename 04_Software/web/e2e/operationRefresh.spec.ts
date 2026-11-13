@@ -37,6 +37,13 @@ for (const view of ["Statistics", "History", "Jobs"] as const) test(`App result 
   if (view === "Jobs") await page.getByRole("tab", { name: "Jobs", exact: true }).last().click();
   const surface = page.locator(view === "Statistics" ? ".statistics-evidence" : view === "History" ? ".audit-evidence" : ".action-jobs-table");
   await expect(surface).toBeVisible();
+  if (view === "History") {
+    // The audit panel exists during its first read; visibility alone is not a
+    // validated baseline, and visible-return correctly joins in-flight work.
+    await expect(page.locator(".audit-evidence .refresh-feedback time")).toHaveCount(1);
+    await expect(page.locator(".jobs-list-refresh .refresh-feedback time")).toHaveCount(1);
+  }
+  await expect(page.locator('.refresh-feedback[data-refreshing="true"]')).toHaveCount(0);
   const node = await surface.elementHandle();
   if (view === "Statistics") await page.getByText("Export CSV", { exact: true }).click();
   const patterns = view === "Statistics" ? ["**/api/v1/projects/*/metrics?*", "**/api/v1/projects/*/usage?*"] :
@@ -67,6 +74,55 @@ for (const view of ["Statistics", "History", "Jobs"] as const) test(`App result 
     await expect(surface).toBeVisible();
     expect(await node!.evaluate(element => element.isConnected)).toBe(true);
   } finally { operation.resolve(); evidence.resolve(); }
+});
+
+for (const ownCommand of [false, true]) test(`App result preserves open job detail and ${ownCommand ? "its pending command barrier" : "requires both post-result authority reads"}`, async ({ page }) => {
+  const external = deferred(), command = deferred(), detailRead = deferred();
+  const id = (await directory(page)).find(project => project.name === "alpha").id;
+  let observed = 0, commandReads = 0, lists = 0, details = 0, writes = 0;
+  for (const action of ["pause", "resume"]) await page.route(`**/operations/${action}`, route => route.fulfill({ json: { id: 7785, status: "pending" } }));
+  await page.route("**/operations/7785", async route => { observed++; await external.promise; await route.fulfill({ json: { id: 7785, status: "succeeded" } }).catch(() => {}); });
+  await page.route("**/operations/7786", async route => { commandReads++; await command.promise; await route.fulfill({ json: { id: 7786, status: "succeeded" } }).catch(() => {}); });
+  await page.route("**/operations/cancel", route => { writes++; return route.fulfill({ json: { id: 7786, status: "pending" } }); });
+  await page.goto(`/projects/${id}`); await monitoring(page).click(); await expect.poll(() => observed).toBe(1);
+  await page.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await page.getByRole("tab", { name: "Jobs", exact: true }).last().click();
+  await page.getByRole("combobox", { name: "Rows per page", exact: true }).selectOption("all");
+  await page.locator('.action-jobs-table a[href*="ux-working"]').click();
+  const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+  await expect(cancel).toBeEnabled();
+  const node = await detail.elementHandle();
+  await detail.locator("details").first().locator(":scope > summary").click();
+  await page.route("**/api/v1/jobs-page?*", async route => { lists++; const response = await route.fetch(); await route.fulfill({ response }).catch(() => {}); });
+  await page.route("**/api/v1/jobs/*/ux-working", async route => { details++; const response = await route.fetch(); await detailRead.promise; await route.fulfill({ response }).catch(() => {}); });
+  try {
+    if (ownCommand) {
+      page.once("dialog", dialog => dialog.accept()); await cancel.click();
+      await expect.poll(() => commandReads).toBe(1);
+    }
+    const metadata = page.waitForResponse(response => response.url().endsWith("/api/v1/projects"));
+    external.resolve(); await (await metadata).finished();
+    await expect(page.locator("div.notice").filter({ hasText: "#7785" })).toContainText("succeeded");
+    if (ownCommand) {
+      expect({ lists, details }).toEqual({ lists: 0, details: 0 });
+      await expect(cancel).toBeDisabled();
+      await revalidateVisiblePage(page);
+      expect({ lists, details }).toEqual({ lists: 0, details: 0 });
+      command.resolve();
+      await expect(page.locator(".command-result")).toContainText("#7786");
+    }
+    await expect.poll(() => lists).toBe(1); await expect.poll(() => details).toBe(1);
+    await expect(page.locator(".jobs-list-refresh .refresh-feedback")).toHaveAttribute("data-refreshing", "false");
+    // A valid list alone cannot authorize commands while detail is pre-result.
+    await expect(cancel).toBeDisabled();
+    await cancel.evaluate((button: HTMLButtonElement) => button.click());
+    expect(writes).toBe(ownCommand ? 1 : 0);
+    expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+    await expect(detail.locator("details").first()).toHaveAttribute("open", "");
+    detailRead.resolve();
+    await expect(cancel).toBeEnabled();
+    expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+  } finally { external.resolve(); command.resolve(); detailRead.resolve(); }
 });
 
 for (const action of ["monitoring", "archive", "delete"] as const) test(`App held ${action} submission cannot publish across project navigation`, async ({ page }) => {
@@ -135,9 +191,42 @@ for (const transition of ["archived", "removed", "failed"] as const) test(`App $
   } finally { held.resolve(); }
 });
 
+for (const view of ["overview", "summary", "jobs"] as const) test(`Live removed project leaves no ${view} detail or orphaned selector authority`, async ({ page }) => {
+  const items = await directory(page), alpha = items.find(project => project.name === "alpha");
+  await page.goto(view === "overview" ? `/overview?project=${alpha.id}` : view === "summary" ? `/projects/${alpha.id}` : `/jobs?project=${alpha.id}&run=ux-working`);
+  const surface = page.locator(view === "jobs" ? ".detail-panel" : ".overview-jobs-table").first();
+  await expect(surface).toBeVisible();
+  await page.route("**/api/v1/projects", route => route.fulfill({ json: items.filter(project => project.id !== alpha.id) }));
+  await revalidateVisiblePage(page);
+  if (view === "summary") {
+    await expect(page.getByRole("heading", { name: "Projects", exact: true })).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText("The project was not found");
+  }
+  await expect(page.locator(".detail-panel")).toHaveCount(0);
+  await expect(page.locator(`select option[value="${alpha.id}"]`)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
+  await expect(monitoring(page)).toHaveCount(0);
+});
+
+test("Live archived project retains job detail while revoking operational controls", async ({ page }) => {
+  const items = await directory(page), alpha = items.find(project => project.name === "alpha");
+  await page.goto(`/jobs?project=${alpha.id}&run=ux-working`);
+  const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+  await expect(cancel).toBeEnabled(); const node = await detail.elementHandle();
+  alpha.archived = true;
+  await page.route("**/api/v1/projects", route => route.fulfill({ json: items }));
+  await revalidateVisiblePage(page);
+  await expect(cancel).toBeDisabled();
+  expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+  let writes = 0;
+  page.on("request", request => { if (request.method() === "POST" && request.url().includes("/operations/")) writes++; });
+  await cancel.evaluate((button: HTMLButtonElement) => button.click()); expect(writes).toBe(0);
+});
+
 test("App archive success notice is scoped and can be explicitly dismissed", async ({ page }) => {
-  await page.clock.install({ time: new Date("2026-11-13T12:00:00Z") });
-  await page.clock.pauseAt(new Date("2026-11-13T12:00:01Z"));
+  const now = Date.now();
+  await page.clock.install({ time: new Date(now) });
+  await page.clock.pauseAt(new Date(now + 1000));
   const items = await directory(page), alpha = items.find(project => project.name === "alpha");
   await page.goto(`/projects/${alpha.id}`);
   await expect(monitoring(page)).toBeVisible();

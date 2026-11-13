@@ -9,7 +9,7 @@ id = "REQ-UX-0bd9d921"
 
 title = "Transition explicitly when a displayed identity disappears"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a validated web refresh establishes that a displayed project, account, job or row no longer exists in the selected context, the interface shall use an explicit unavailable, removed-item or existing safe navigation transition rather than retaining the vanished identity as current or substituting a different identity beneath its heading.
@@ -19,7 +19,7 @@ verification = "Offline browser: remove a selected project/job/account or an exp
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/AccountActionDialog.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 
-linked_tests = ["04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/operationRefresh.spec.ts"]
+linked_tests = ["04_Software/web/e2e/ticketRefresh.spec.ts", "04_Software/web/e2e/operationRefresh.spec.ts", "04_Software/web/e2e/usersRefresh.spec.ts", "04_Software/web/e2e/audit.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts"]
 
 
 spec = ""

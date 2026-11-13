@@ -9,7 +9,7 @@ id = "REQ-FUNC-fbf7b13f"
 
 title = "Keep forge ticket and comment reads on demand"
 
-status = "draft"
+status = "active"
 
 requirement = """
 When a global or project Tickets workspace is displayed, the interface shall fetch forge tickets and comments only on their explicit read actions, independently of automatic project metadata and queued-operation status revalidation.

@@ -6,11 +6,11 @@
 schema = 1
 id = "REQ-UX-257ab3f0"
 title = "Show initial and changed-context dashboard loading"
-status = "draft"
+status = "active"
 requirement = "While a dashboard data context has no successfully validated snapshot and its initial or changed-context read is pending, the interface shall show scoped loading feedback without previous-context evidence, totals or exports."
 verification = "Offline Chromium: hold the first Statistics/jobs/audit/Users read and a read after switching account, project, run, period, timezone, granularity, filter or paging context; assert scoped loading and no old evidence or numeric placeholders; a held same-context reread instead retains its existing validated snapshot."
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx"]
-linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/reportingRefresh.spec.ts", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/audit.spec.ts", "04_Software/web/e2e/usersRefresh.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts"]
 priority = "high"
 created = 2026-10-05
 updated = 2026-11-13

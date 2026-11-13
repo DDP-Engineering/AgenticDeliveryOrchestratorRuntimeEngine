@@ -66,8 +66,11 @@ Statistics retains content/export while pending; only positively typed transport
 deadline failures retain a marked stale report. Closed failures hide it. Shared
 four-locale RefreshFeedback exposes non-live progress and full/member successful
 times plus failure status/retry. CSV reads current server data, not the retained
-screen. Helper and offline Statistics browser tests cover the seam; Users
-integration and full cross-view authorization acceptance remain separate.
+screen. Helper and offline Statistics browser tests cover the seam;
+`e2e/reportingRefresh.spec.ts` additionally proves global/project initial and
+post-success member deadlines, late refusal, hidden/visible coalescing, unchanged
+15s/30s cadence, carried member/full times and closed HTTP/media/identity/scope
+failures. Users uses the separate strict owner below.
 
 `JobWorkspace` owns bounded list/Overview-pair, detail and lifetime-consumption
 reads through createReadController (30s deadlines; 15s list/detail and 30s usage
@@ -84,7 +87,11 @@ remain mounted; saved timeline-position keys replace reversed display indexes.
 Output provenance/validator/state_revision invalidation remain unchanged.
 `web/e2e/jobRefresh.spec.ts` proves three list scopes, reading continuity, stale/
 closed failures, deadlines/recovery, hidden/visible joins and cancellation, output
-binding and four-locale/two-theme narrow retry. Job command submission cancels
+binding and four-locale/two-theme narrow retry. Integrated App result cases in
+`e2e/operationRefresh.spec.ts` require both new list and detail before commands and
+preserve a concurrent own-command read barrier. The same suite proves removed
+Overview/Summary/Jobs selectors/actions disappear, while archived Jobs retain
+readable detail with disabled commands. Job command submission cancels
 pre-write list/detail/consumption work while retaining presentation, then blocks
 rereads until the observed queued result (or submission failure). Post-result
 reads use existing owners, not a remount; list/detail validated generations must
@@ -119,8 +126,8 @@ and require validated post-write authority. Reset checks the current identity,
 role and disabled state; creation rechecks selected project availability. Stable
 account editor keys and semantic review preconditions preserve unchanged reviews
 but latch relevant changes invalid until reviewed again. `web/e2e/usersRefresh.spec.ts`
-and `web/e2e/users.spec.ts` prove this seam; cross-view denial/operation ownership
-remains separate.
+and `web/e2e/users.spec.ts` prove this seam; cross-view denial uses the shared
+session boundary above.
 
 ProjectAccess uses a strict 30s owned read and unchanged 15s visible cadence;
 principal/project keys no longer contain refresh counters. Pending reads retain
@@ -144,7 +151,10 @@ uses strict 30s owned worker/storage reads at 5s/30s cadence, validating ready/w
 activity and storage fields; pending values remain, failed health does not.
 `web/e2e/accessRefresh.spec.ts` and existing Settings/issue37/shell journeys prove
 these seams. Shared session/denial uses the request boundary above; remaining cross-view
-acceptance is separate from this focused evidence.
+operation proof is also in `e2e/settingsRefresh.spec.ts`: impact review,
+credential/price drafts and owned price validation survive unrelated results;
+pending ChatGPT sign-in keeps its pasted address and serialized status read,
+expires at 900 seconds while hidden and stops polling afterward.
 
 TicketWorkspace's operation tracker uses a strict 30s owned read with unchanged 2s
 visible cadence. Session CSRF, project ID/name set, origin project and operation ID
@@ -895,7 +905,9 @@ for Add and Import project. Primary buttons take their text colour from the
   passed, failed, timed out, explicit unverified and unavailable evidence.
 - REQ-UX-b105b854 / REQ-UX-46c09118 / REQ-UX-a8c7ea48: missing/nontext/unknown
   workflow, malformed direct detail or forbidden direct stages reject browser
-  reads; list error/incomplete/source-change and detail failure hide stale panels.
+  reads; list error/incomplete/source-change and closed detail failure hide panels.
+  Typed informational transport/deadline failures retain only marked old snapshots
+  with success time and retry, never command authority.
 - REQ-UX-c77f7335 / REQ-UX-558518e7: four-locale Jobs/Settings help and inline
   guidance explain direct evidence and build/validate limits with general fallback.
 

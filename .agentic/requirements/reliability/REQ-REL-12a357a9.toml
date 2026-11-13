@@ -9,7 +9,7 @@ id = "REQ-REL-12a357a9"
 
 title = "Keep authority-bearing reads fail closed"
 
-status = "draft"
+status = "active"
 
 requirement = """
 If an authority-bearing Users, Access, configuration, approval or operational-action read fails, the web interface shall withhold affected authority-bearing evidence and dependent mutation controls behind explicit error or unavailable feedback rather than reuse previous data as current authority.
@@ -19,7 +19,7 @@ verification = "Offline browser: fail initial, manual and post-mutation Users/Ac
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/errors.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/AccountActionDialog.tsx"]
 
-linked_tests = ["04_Software/web/e2e/usersRefresh.spec.ts", "04_Software/web/e2e/users.spec.ts", "04_Software/web/tests/polling.test.mjs", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts"]
+linked_tests = ["04_Software/web/e2e/usersRefresh.spec.ts", "04_Software/web/e2e/users.spec.ts", "04_Software/web/tests/polling.test.mjs", "04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/accessRefresh.spec.ts", "04_Software/web/e2e/settings-save.spec.ts", "04_Software/web/e2e/sessionRefresh.spec.ts", "04_Software/web/e2e/shell.spec.ts"]
 
 
 spec = ""

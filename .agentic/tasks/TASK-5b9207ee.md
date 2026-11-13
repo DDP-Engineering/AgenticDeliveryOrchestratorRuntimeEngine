@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [x] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -523,6 +525,35 @@ The 42 atomic coverage rows above are the exhaustive ID → D1–D8 decision →
 
 Diagrams: [diagram_TASK-5b9207ee.md](diagram_TASK-5b9207ee.md)
 
+## Build completion and verification routing
+
+All 42 linked requirements are active with existing source paths and nonempty
+focused test links. The coverage rows above retain the specification-stage draft
+labels as historical design input; current status is in each requirement record.
+The two reporting specs now describe the implemented protocol rather than a draft
+proposal. No requirement was retired or weakened.
+
+| Acceptance seam | Implemented proof entry points |
+|---|---|
+| All Statistics tabs/scopes, independent completion, export/pager/sort/focus and tuple identity | `e2e/statistics.spec.ts`, `tests/statistics.test.mjs` |
+| Initial/post-success deadlines, honest carried source/full times, hidden-return/coalescing and closed application/media/identity/scope errors | `e2e/reportingRefresh.spec.ts`, `tests/polling.test.mjs`, `tests/request.test.mjs` |
+| Jobs/History/list/detail/consumption, output/timeline reading continuity, stale/action separation, paging integrity and operation generations | `e2e/jobRefresh.spec.ts`, `e2e/jobs.spec.ts`, `tests/jobs.test.mjs` |
+| Audit/manual Users continuity, strict authority failures and valid/invalid reviews | `e2e/audit.spec.ts`, `e2e/usersRefresh.spec.ts`, `e2e/users.spec.ts`, `e2e/accessRefresh.spec.ts` |
+| External result cancels old report/history/jobs reads, both new list/detail required, own-command barrier survives; removed/archive selectors and actions | `e2e/operationRefresh.spec.ts` |
+| Settings clean-only/draft/revision/candidate guards, impact confirmation, credentials/prices, owned post-write reads and finite sign-in | `e2e/settings.spec.ts`, `e2e/settings-save.spec.ts`, `e2e/settingsRefresh.spec.ts`, `e2e/executor-config.spec.ts` |
+| Ticket explicit reads/reviews/body retention, bounded trackers, no forge polling | `e2e/ticketRefresh.spec.ts`, `e2e/tickets.spec.ts` |
+| Immediate sign-out/denial/account/grant/password transitions and old-response refusal | `e2e/sessionRefresh.spec.ts`, `e2e/factoryPassword.spec.ts`, `tests/request.test.mjs` |
+| Smooth Overview/Summary/directory, System status, notifications, shell/header/locales/themes | `e2e/jobs.spec.ts`, `e2e/dashboard.spec.ts`, `e2e/accessRefresh.spec.ts`, `e2e/shell.spec.ts` |
+
+The Log is the command/outcome authority. Final build proof includes 77 helper
+successes and a 50-case focused browser success after correcting all three fixture
+assumptions found in the preceding 246-case run (243 passed). That earlier run is
+not represented as a green complete suite. Full repository strict proof and
+independent reviews belong to validate, not this stage. Development StrictMode
+replay and the native sign-out AbortSignal deadline have not been separately
+browser-forced; shared request ownership/deadline and production account-transition
+boundaries are covered. No deployed visual/live forge/model acceptance is claimed.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -667,19 +698,29 @@ Diagrams: [diagram_TASK-5b9207ee.md](diagram_TASK-5b9207ee.md)
 - 2026-11-13 build: Increment audit: evolution --task TASK-5b9207ee exit 0 reviewed all 68 post-anchor product/test/doc paths against D1-D8, including preserved foundations. This increment changes 28/28 paths: App project submission/notice/live-review gates and removed-project route; Jobs/audit/reporting post-result cancellation/generations; reporting helper and new twelve-case operationRefresh suite; exact archive response fixtures in jobs/dashboard with original oracles; six scoped requirement links; component/user/knowledge docs; four Interface help locales; changelog/merged notes; four rebuilt static paths. All 127 frontend input and 7 output SHA-256 hashes independently match; git diff --check exit 0. No backend/dependency/schema/AEGIS payload changes. Cross-view contracts stay draft until remaining acceptance/traceability is complete.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 57 warnings, 28 notes. Same 35 inherited findings remain outside scope; twenty frontend-test-as-source heuristics have real linked_tests, and the Users password literal is intentionally fake offline data. DEVIATION build: generated minified JS added-lines secret scan remains unavailable - accepted only for this bounded increment because reviewed-source rebuild and all stamped hashes match; no final strict proof claimed. Existing large-chunk warning retained without dependency/splitting expansion.
 - 2026-11-13 build: Bounded build handoff at 28/28 paths: App monitoring/archive/restore/delete submissions now serialize and capture current principal/project view plus ID/name/archive/pickup state, cancel on changed/failed authority or navigation, and ignore obsolete success/error/notice callbacks. Archive validates expected response identity/state; operation notice/tracking renders only in its origin project; delete reviews preserve unchanged name draft/focus but latch changed authority invalid until dismiss/reopen. Selected-project removal uses explicit unavailable-directory transition, never another Summary. External App results cancel pre-result Jobs/audit/reporting attempts without remounting; Jobs requires new list/detail generations and preserves its own pending-command barrier; reporting rereads both members through new revalidate API. Twelve new browser cases plus one helper and 170-case combined regression pass; explicit notice dismissal is separately frozen-clock proven. Mandatory remaining: complete reporting browser initial/post-success deadlines, hidden-return/coalescing, pinned-source times and failure matrix; Settings unrelated-operation pending-review/credential/sign-in/price races and finite sign-in expiry; final live removed/archive/grant/action inventory across remaining Jobs/Overview/selector boundaries and full acceptance audit. Specifically external App tests prove Jobs list/usage and History list/audit plus coherent-report cancellation, but held external-result detail/action barrier and concurrent own-job operation barrier deserve direct integrated proof. Finish requirement activation/links/spec-current-state reconciliation and final localized docs/assets/build audit before advance. Dev StrictMode replay and native AbortSignal sign-out deadline are implemented but not separately browser-exercised. Preserve executor-output revision/provenance/manual reads and direct evidence. Build unfinished; no validate/publication/merge/full-ticket claim.
+- 2026-11-13 build: Build continuation bounds: 45 minutes, at most 26 ticket-scoped changed paths and 12 focused verification commands. Prioritize remaining reporting deadline/hidden-return/pinned-source/failure browser boundaries and Settings/sign-in operation races; preserve existing anchor and full-build obligations, pause unfinished work on this task. Fresh locked Node dependencies, machine identity and image Chromium are present; no dependency/backend/schema changes planned.
+- 2026-11-13 build: green regression: npm run build:e2e && npx playwright test e2e/reportingRefresh.spec.ts exit 0 (10/10); npm run typecheck plus operationRefresh open-detail/live-identity subsets exit 0 (2/2 and 4/4); settingsRefresh exit 0 (5/5 after correcting existing Discard label and exact price fixture fields). Tests prove global/project metrics/usage initial/post-success 30s expiry, late refusal, hidden-return/coalescing, selected 15s carried usage/full times and global 30s cadence, closed application/media/foreign/scope failures; Settings impact/credential/price/sign-in drafts, owned price validation and 900s pending expiry; external App result detail/list authority plus concurrent own-command barrier, and removed/archive Overview/selector/Jobs behavior. No implementation edit needed for these already-implemented remaining acceptance seams. A proposed language-change sign-in test was removed before product edits: language control exists only on My account, which unmounts this panel, so its assumed same-panel stimulus was invalid. No product red claimed for fixture/selector mistakes.
+- 2026-11-13 build: Build bounds adjusted to at most 60 ticket-scoped paths solely to complete the required 42-contract activation/link audit, two current-state reporting specs and component/knowledge proof references alongside the three focused browser files. Product source/dependency behavior is unchanged in this increment; retain the 45-minute and 12-verification-command limits. Proceed to complete traceability before deciding build-stage completion.
+- 2026-11-13 build: Focused integrated regression: 77 helper tests and TypeScript checks exit 0; 246-journey browser command exits 1 with 243/246 passing. Three fixture assumptions need correction without product changes: History panel visibility preceded its first validated reads (visible return must join them); frozen noon archive test treated genuinely later readiness evidence from earlier files as future/corrupt; shell old-detail test waited for response despite required cancellation. Wait for real History baseline, freeze at actual current time and assert requestfailed before releasing obsolete detail; retain every DOM/data/snapshot/focus and frozen explicit-dismissal oracle. No green or full-stage claim until corrected focused proof.
+- 2026-11-13 build: green: cd 04_Software/web && npm run typecheck && npx playwright test e2e/operationRefresh.spec.ts e2e/reportingRefresh.spec.ts e2e/settingsRefresh.spec.ts e2e/shell.spec.ts exit 0 (50/50, all new 21 acceptance cases and all three corrected earlier failures). Earlier focused helper command passes 77/77. The preceding 246-case run passed 243 but is not claimed green; History now waits for validated baseline before interception, frozen notice time uses actual current time and old-detail navigation asserts cancellation. No production source or oracle weakened. All 42 task contracts are active with nonempty real test links/existing source paths, covering the completed inventory through this and preserved prior build proof; reporting specs reconciled to current implementation. Full suite/strict proof and independent reviews remain validate work.
+- 2026-11-13 build: release-notes: none (this final increment adds acceptance/traceability proof only; prior same-change four-locale Statistics/Jobs/Users/Tickets/Interface/Navigation notes remain current and check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exits 0).
+- 2026-11-13 build: help: none (no new visible behavior/copy in this final proof increment; prior same-change en/fr/de/ro Interface/Statistics/Jobs/Administration/Settings/Tickets updates remain accurate and help contracts pass).
+- 2026-11-13 build: Final build audit: evolution exit 0 reviewed all 70 post-anchor paths (13 added/55 modified/2 removed) against D1-D8, including preserved code, proof, localized help/notes and old/new static assets. Current increment changes 45/60 scoped paths including 36 requirement activations/link updates, two reconciled specs, component/knowledge proof and four browser files; no new product/dependency/backend/schema/payload change. All 127 static input and 7 output SHA-256 hashes independently match, so test/docs-only edits require no bundle rebuild. git diff --check and release-note check exit 0. No pending implementation work remains from the build handoffs; strict suite and independent review belong to the next stage.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 59 warnings, 28 notes. 35 inherited findings (2 ticket-ref/17 stale-path/14 journal-header/2 unticked legacy deliver) remain outside scope. Twenty-two uncovered-source heuristics classify frontend helper/browser tests as product source; actual linked_tests now exist on all 42 task requirements, so do not put tests into affected_paths to silence them. Two password-literal warnings are reviewed false positives: usersRefresh uses a deliberately fake offline password, and minified JS matches localized UI labels (password:Password/Mot de passe/Passwort/Parola and reveal/reset/change labels), not credentials. Independent static fingerprints match. This refines the earlier unavailable-minified-scan description without rewriting its history. Existing large-chunk build warning remains; no dependency/splitting expansion. No warning identifies an unresolved product defect; full strict proof/independent review is intentionally not claimed at build.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: Complete remaining reporting and Settings/sign-in race inventory, external-result detail/action barrier proof and requirement activation before advancing build.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: App live project submission/notice/delete-review ownership; explicit removed-project transition; post-result Jobs/audit/reporting read generations; twelve browser cases and helper, localized docs/help/notes and rebuilt assets.
-evidence: 57 helper tests and 170 combined browser journeys pass; final 24 App/dashboard journeys and production rebuild pass; release notes, 127 input/7 output hashes and diff checks pass; advisory 0 errors/57 warnings.
-issues: Build incomplete: remaining reporting/Settings/sign-in/inventory proof and requirement activation; external-result detail/own-command interaction, dev replay and forced sign-out deadline not separately exercised. No strict validation claimed.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Completed remaining reporting/Settings/sign-in and external-result/live-identity acceptance; activated all 42 contracts, reconciled reporting specs and component knowledge; preserved current localized docs and verified static assets.
+evidence: 77 helper tests and TypeScript pass; final 50 focused browser cases pass after three fixture corrections; release-note check, 127 input/7 output SHA-256 hashes and diff checks pass; advisory 0 errors.
+issues: Validate must run full strict suite and independent reviews. Earlier 246-case run had three now-corrected fixture failures; no complete green suite claimed. Advisory warnings are inherited/heuristic/false-positive findings; dev replay/native sign-out deadline not separately browser-forced.
 spec_compliance:
 implementation_quality:
 review_round:

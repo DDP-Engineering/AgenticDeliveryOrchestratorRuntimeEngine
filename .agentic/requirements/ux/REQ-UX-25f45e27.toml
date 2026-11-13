@@ -9,7 +9,7 @@ id = "REQ-UX-25f45e27"
 
 title = "Offer non-destructive informational Refresh and retry"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While global/project Statistics, Jobs, project job History, job detail or consumption is displayed, the interface shall offer a localized Refresh/retry control invoking the same non-destructive, coalesced current-context read path as automatic revalidation rather than remounting the view.
@@ -19,7 +19,7 @@ verification = "Offline browser: activate Refresh/retry on each named informatio
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx"]
 
-linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/statistics.spec.ts"]
+linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/statistics.spec.ts", "04_Software/web/e2e/reportingRefresh.spec.ts"]
 
 
 spec = ""

@@ -9,7 +9,7 @@ id = "REQ-REL-30db8e42"
 
 title = "Isolate reporting readiness from irrelevant scope reads"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While Statistics displays a selected project, the interface shall determine that report's readiness only from reads required for that authorized project scope, independently of unrelated all-project metrics or usage reads.

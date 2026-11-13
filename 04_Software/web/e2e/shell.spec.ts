@@ -219,13 +219,14 @@ test("pending job details cannot refill another project's view", async ({ page }
   const observed = new Promise<void>(resolve => { started = resolve; });
   await page.route("**/api/v1/jobs/*/historical-job", async route => {
     const response = await route.fetch();
-    started(); await pending; await route.fulfill({ response });
+    started(); await pending; await route.fulfill({ response }).catch(() => {});
   });
   await page.goto("/jobs?project=alpha&run=historical-job");
   await observed;
+  const cancelled = page.waitForEvent("requestfailed", request => request.url().includes("/historical-job"));
   await page.locator("#jobs-project").selectOption(projects.find((item: { name: string }) => item.name === "beta").id);
-  const completed = page.waitForResponse(response => response.url().includes("/historical-job"));
-  release(); await completed;
+  await cancelled;
+  release();
   await expect(page.locator("#jobs-project option:checked")).toHaveText("beta");
   await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
   await expect(page.locator(".detail-panel")).toHaveCount(0);
