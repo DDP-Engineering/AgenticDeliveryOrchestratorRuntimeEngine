@@ -67,6 +67,10 @@ Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500
 
 Eingereihte Vorgänge werden bei sichtbarem Tab alle 2 Sekunden geprüft, mit jeweils einer Statusabfrage und einer Lesegrenze von 30 Sekunden. Verborgene Tabs pausieren die Prüfungen; beim Zurückkehren erfolgt eine erneute Prüfung. Schlägt sie fehl oder ist das Ergebnis ungültig, bleibt der Abschluss unbekannt. Ein beobachtetes Ergebnis aktualisiert gemeinsame Projektinformationen, ohne Forge-Tickets oder Kommentare neu zu lesen oder offene Inhalte zu schließen. Drücken Sie **Tickets lesen** für einen neuen Stand aus dem Repository.
 
+Unveränderte Projektaktualisierungen erhalten offene Inhalte und gültige Start-/Stoppbestätigungen. Ändern sich Projektidentität, Zugriff oder Archivstatus, lässt sich die alte Bestätigung auch nach Wiederherstellung nicht absenden. Drücken Sie **Tickets lesen** und prüfen Sie erneut. Inhalte entfernter Projekte bleiben bis zu einer neuen ausdrücklichen Abfrage verborgen. Beim Verlassen des Kontexts werden Browseranfragen abgebrochen und veraltete Aktionsergebnisse ignoriert; ein bereits vom Server angenommener Befehl wird dadurch nicht rückgängig gemacht.
+
+Ticket- und Kommentarabfragen haben eine Grenze von 30 Sekunden und wiederholen Forge-Abfragen nie automatisch. Nutzen Sie nach einem Fehler **Tickets lesen** für die Liste oder schließen und öffnen Sie **Details** für Kommentare. Erneutes Öffnen während einer laufenden Kommentarabfrage nutzt dieselbe Abfrage.
+
 ## Beschreibungen und Kommentare lesen {#reading-bodies}
 
 **Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**

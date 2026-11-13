@@ -67,6 +67,10 @@ Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela cha
 
 Les opérations en file sont vérifiées toutes les 2 secondes lorsque cet onglet est visible, avec une seule lecture d’état à la fois et une limite de 30 secondes. Les onglets masqués suspendent ces contrôles ; le retour en effectue un. Si un contrôle échoue ou renvoie un résultat invalide, la fin reste inconnue. Un résultat observé actualise les informations partagées du projet sans relire les tickets ou commentaires de la forge ni fermer les contenus ouverts. Appuyez sur **Lire les tickets** pour une nouvelle lecture du dépôt.
 
+Les mises à jour inchangées du projet conservent les contenus ouverts et les confirmations Démarrer/Arrêter valides. Si l’identité, l’accès ou l’archivage change, l’ancienne confirmation ne peut plus être envoyée, même après restauration. Appuyez sur **Lire les tickets** et vérifiez à nouveau. Les contenus des projets retirés restent masqués jusqu’à une nouvelle lecture explicite. Quitter le contexte annule les requêtes du navigateur et ignore les résultats obsolètes ; cela n’annule pas une commande déjà acceptée par le serveur.
+
+Les lectures de tickets et commentaires sont limitées à 30 secondes et ne réessaient jamais automatiquement la forge. Après une erreur, utilisez **Lire les tickets** pour la liste, ou fermez puis rouvrez **Détails** pour les commentaires. Rouvrir des commentaires en cours de lecture partage cette lecture.
+
 ## Lire descriptions et commentaires {#reading-bodies}
 
 **Détails** ouvre par défaut descriptions et commentaires en Markdown **Rendu**. Titres, emphase, code, listes imbriquées, tâches en lecture seule, citations, tableaux et liens sont mis en forme ; une description vide conserve **Aucune description.**

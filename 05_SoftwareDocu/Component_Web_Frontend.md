@@ -76,6 +76,35 @@ deadline/late completion, cancellation, hidden pause, pending-to-running continu
 and clean/dirty Settings after App results, including an unrelated result racing
 held own-Save validation. Shared authenticated denial/session remains a separate seam.
 
+## Ticket live scope and response ownership
+
+`TicketWorkspace` receives App's principal/role/grant key and current authorized
+projects. A per-project authority epoch binds principal/CSRF, immutable ID, profile
+name and archive state. Equivalent metadata leaves owners, bodies, reviews, paging
+and focus intact; unrelated project changes do not restart an operation. Rendering
+uses current project metadata rather than the project object captured by a forge
+read. Removed/renamed identities are synchronously withheld and permanently pruned;
+a restored identity cannot resurrect its old body. Archive alone can retain readable
+bodies, but invalidates command/review authority until an explicit successful read.
+Start/Retry/Stop recheck current row, project and authority at submission. An unchanged
+review remains valid; changed authority latches it invalid with localized correction
+feedback, even after restore. Read tickets obtains a fresh action snapshot; it never
+runs automatically in response to metadata, operation or visibility updates.
+
+Explicit ticket/comment reads use strict 30s read owners with cancellation on context
+exit and finite slot release. A synchronous batch guard coalesces duplicate reads;
+opening a still-loading comment again joins it. A new explicit list read supersedes
+older comments. Writes are not retried or given a client deadline; context exit aborts
+the browser request and ignores its result without claiming the server rolled back.
+Only a live result may publish notices/queued state or notify metadata. Operation
+tracking binds the originating project authority, not the full project array. Errors
+and success feedback cannot appear under another principal/project. Shared detected
+HTTP-denial/session invalidation remains a separate App transport responsibility.
+`e2e/ticketRefresh.spec.ts` proves unchanged/changed reviews, removed identities,
+late read/write refusal, explicit deadline/recovery, request counts, no forge polling
+and keyboard-accessible four-locale/two-theme narrow feedback; existing ticket tests
+cover paging, Markdown/source, preferences and real Start/Stop controls.
+
 ## Owned informational read primitive
 
 `polling.ts::createReadController<T>` provides a framework-independent, memory-only

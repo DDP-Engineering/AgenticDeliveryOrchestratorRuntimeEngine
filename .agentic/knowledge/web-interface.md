@@ -120,8 +120,21 @@ and immediate Start/Retry/synchronous Stop results notify App's metadata owner,
 which cancels older metadata before reading again; no forge read or view remount.
 `web/e2e/ticketRefresh.spec.ts` proves both scopes, body/focus retention, counts,
 hidden/visible, deadline/late-result/cancellation and invalid identity recovery.
-Live ticket review/action authority and shared denial/session invalidation remain
-separate seams; the tracker does not authorize mutations.
+Ticket list/comment reads are also strict 30s owned explicit actions, cancelled on
+scope exit with late callbacks ignored. Duplicate list reads and reopening pending
+comments coalesce; new explicit lists supersede old comments. App supplies the
+principal/role/grant key. Per-project epochs bind that key/CSRF, ID/name/archive;
+rows render live project metadata, while removed identities are withheld and pruned
+so restoring them cannot resurrect old bodies. Unchanged metadata retains review,
+body/focus/pager state. Changed authority latches Start/Stop review invalid and
+commands require a fresh explicit ticket snapshot, including after archive/restore.
+Start/Retry/Stop recheck current row/project authority, serialize submissions and
+ignore obsolete response/error/notices/metadata notifications. Aborting an obsolete
+browser write never claims server rollback. Operation ownership uses its own project
+epoch, not unrelated project membership. The ticket refresh suite covers these
+boundaries, explicit deadlines/recovery and four-locale/two-theme narrow correction.
+Shared detected denial/session invalidation remains an App transport seam; the
+operation tracker itself does not authorize mutations.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 

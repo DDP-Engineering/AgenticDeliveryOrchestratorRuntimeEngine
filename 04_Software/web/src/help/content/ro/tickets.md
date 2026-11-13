@@ -67,6 +67,10 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 
 Operațiile din coadă sunt verificate la fiecare 2 secunde cât timp fila este vizibilă, cu o singură citire de stare simultană și o limită de 30 de secunde. Filele ascunse suspendă verificările; revenirea face o reverificare. Dacă verificarea eșuează sau rezultatul este invalid, finalizarea rămâne necunoscută. Un rezultat observat actualizează informațiile comune ale proiectului fără a reciti tichetele sau comentariile de pe forge și fără a închide conținutul deschis. Apăsați **Citește tichetele** pentru o nouă citire din repository.
 
+Actualizările neschimbate ale proiectului păstrează conținutul deschis și confirmările valide Pornește/Oprește. Dacă identitatea, accesul sau arhivarea proiectului se schimbă, vechea confirmare nu mai poate fi trimisă, nici după restaurare. Apăsați **Citește tichetele** și revizuiți din nou. Conținutul proiectelor eliminate rămâne ascuns până la o nouă citire explicită. Părăsirea contextului anulează cererile browserului și ignoră rezultatele acțiunilor vechi; nu anulează o comandă deja acceptată de server.
+
+Citirile tichetelor și comentariilor au o limită de 30 de secunde și nu reîncearcă automat accesul la forge. După o eroare, folosiți **Citește tichetele** pentru listă sau închideți și redeschideți **Detalii** pentru comentarii. Redeschiderea comentariilor în timpul citirii folosește aceeași cerere.
+
 ## Citirea descrierilor și comentariilor {#reading-bodies}
 
 **Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**

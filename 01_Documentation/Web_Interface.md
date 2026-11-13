@@ -130,6 +130,15 @@ project reads without closing Access reviews or clean Settings groups. Dirty
 settings and valid confirmations remain guarded. A successful Settings Save
 validates saved values before editing resumes and retains open groups.
 
+Tickets retain open bodies and unchanged Start/Stop confirmations through project
+updates. If project identity, access or archive status changes, the old confirmation
+cannot submit, even after the project is restored. Use **Read tickets** and review
+again; removed projects' bodies do not reappear without a new explicit read. Ticket
+and comment reads end after 30 seconds with an error, never an automatic forge retry.
+Retry a list with **Read tickets**, or close/reopen **Details** for failed comments.
+Leaving the context cancels browser reads and ignores obsolete action responses;
+this does not undo a command already accepted by the server.
+
 Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One worker handles projects and operations in turn; authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.

@@ -8,7 +8,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, describeError } from "./errors";
 import { messages, type Locale } from "./i18n";
 import { safeEvidenceLink } from "./jobModel";
-import { createReadController, startVisiblePolling } from "./polling";
+import { createReadController, startVisiblePolling, type ReadController } from "./polling";
 import { keptLabels, outcomeText } from "./operationReason";
 import { jobCopy } from "./jobCopy";
 import { fill, ticketCopy, operationResultText } from "./ticketCopy";
@@ -30,12 +30,12 @@ type Comment = { author: string; created_at: string; body: string };
 type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
 type StopResult = { cancel_operation_id: number | null; ready_label: "removed" | "absent" | "failed"; ready_label_error: string | null };
 /** A notice follows one queued operation; `labels` are those its Start added to the ticket. */
-type Notice = { projectId: string; lines: string[]; operation?: Operation; labels?: string[] };
+type Notice = { projectId: string; authority: number; lines: string[]; operation?: Operation; labels?: string[] };
 type CommentState = { state: "loading" } | { state: "ready"; comments: Comment[] } | { state: "error"; error: unknown };
 type Project = { id: string; name: string; display_name?: string; archived: boolean };
 type Props = {
   /** One project in the hub or for a selected scope; every authorized project for All projects. */
-  projects: Project[]; showProject?: boolean; locale: Locale; csrf: string; request: Request;
+  projects: Project[]; principal: string; showProject?: boolean; locale: Locale; csrf: string; request: Request;
   bodyMode: TicketBodyMode; modeBusy: boolean; onBodyMode: (mode: TicketBodyMode) => void;
   /** Notify the metadata owner after an observed result; never reread forge bodies. */
   onOperationComplete: (projectId: string) => void;
@@ -43,6 +43,9 @@ type Props = {
 /** One ticket row keeps its owning project and that project's label policy. */
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
 type StartRequest = { row: Row; addsReady: boolean; needsPriority: boolean };
+/** One principal/project authority owns read and response lifetimes. */
+type ProjectOwner = { binding: string; epoch: number; reads: Set<ReadController>; writes: Set<AbortController> };
+type TicketSnapshot = { project: Project; list: TicketList; principal: string; authority: number };
 
 const FINISHED = ["done", "failed", "cancelled", "handed-off", "handoff-pending"];
 const REASONS = ["epic", "not_open", "missing_ready_label", "held", "excluded", "has_job", "missing_priority_label", "missing_acceptance_criteria"];
@@ -72,7 +75,7 @@ function readTicketList(value: unknown): TicketList {
 }
 
 /** Mark the tickets Start could prepare as blocked once the server reports stopped pickup. */
-function withPickupPaused(items: Array<{ project: Project; list: TicketList }>, projectId: string) {
+function withPickupPaused<T extends { project: Project; list: TicketList }>(items: T[], projectId: string) {
   return items.map(item => item.project.id !== projectId ? item : { ...item, list: { ...item.list, tickets: item.list.tickets.map(ticket =>
     ticket.can_start ? { ...ticket, can_start: false, blocked_by: PICKUP_PAUSED, adds_ready_label: false, needs_priority: false } : ticket) } });
 }
@@ -107,12 +110,13 @@ function readStop(value: unknown): StopResult {
 }
 
 /** Tickets sub-tab: reads open forge tickets only on request and starts or stops one at a time. */
-export function TicketWorkspace({ projects, showProject = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode, onOperationComplete }: Props) {
+export function TicketWorkspace({ projects, principal, showProject = false, locale, csrf, request, bodyMode, modeBusy, onBodyMode, onOperationComplete }: Props) {
   const copy = ticketCopy[locale];
   const t = messages[locale];
-  const [lists, setLists] = useState<Array<{ project: Project; list: TicketList }> | null>(null);
+  const [lists, setLists] = useState<TicketSnapshot[] | null>(null);
   const [reading, setReading] = useState(false);
-  const [readErrors, setReadErrors] = useState<Array<{ project: Project; error: unknown }>>([]);
+  const [scopeRemoved, setScopeRemoved] = useState(false);
+  const [readErrors, setReadErrors] = useState<Array<{ project: Project; error: unknown; principal: string }>>([]);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [comments, setComments] = useState<Record<string, CommentState>>({});
   const [confirm, setConfirm] = useState<Row | null>(null);
@@ -124,11 +128,73 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   // Tickets started since the last read stay unavailable for Start until the next read.
   const [queued, setQueued] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [noticeValue, setNotice] = useState<Notice | null>(null);
   const [commandStatusError, setCommandStatusError] = useState(false);
-  const [actionError, setActionError] = useState<{ error: unknown; project: Project } | null>(null);
+  const [actionError, setActionError] = useState<{ error: unknown; project: Project; authority: number } | null>(null);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const owners = useRef(new Map<string, ProjectOwner>());
+  const epoch = useRef(0);
+  const readBatch = useRef(0);
+  const readingNow = useRef(false);
+  const writing = useRef<ProjectOwner | null>(null);
+  const commentReads = useRef(new Set<string>());
+  const [reviewEpoch, setReviewEpoch] = useState<number | null>(null);
+  const live = useRef({ projects, principal, csrf });
+  live.current = { projects, principal, csrf };
+  const binding = (project: Project) => JSON.stringify([live.current.principal, live.current.csrf, project.id, project.name, project.archived]);
+  const currentOwner = (projectId: string) => {
+    const project = live.current.projects.find(item => item.id === projectId), owner = owners.current.get(projectId);
+    return project && owner?.binding === binding(project) ? owner : null;
+  };
+  const valid = (projectId: string, owner: ProjectOwner) => mounted.current && currentOwner(projectId) === owner;
+  const visibleLists = (lists ?? []).filter(item => item.principal === principal && projects.some(project => project.id === item.project.id && project.name === item.project.name));
+  const notice = noticeValue && currentOwner(noticeValue.projectId)?.epoch === noticeValue.authority ? noticeValue : null;
+  const scope = JSON.stringify([principal, csrf, projects.map(project => [project.id, project.name, project.archived]).sort()]);
+  useLayoutEffect(() => {
+    for (const [id, owner] of owners.current) {
+      if (currentOwner(id) === owner) continue;
+      owner.reads.forEach(reader => reader.dispose()); owner.writes.forEach(controller => controller.abort());
+      owners.current.delete(id);
+      if (writing.current === owner) { writing.current = null; setBusy(false); }
+    }
+    projects.forEach(project => {
+      if (!owners.current.has(project.id)) owners.current.set(project.id, { binding: binding(project), epoch: ++epoch.current, reads: new Set(), writes: new Set() });
+    });
+    // Permanently prune removed identities. Archive alone retains readable bodies
+    // but its changed authority cannot restore a previously invalidated review.
+    if (lists?.some(item => item.principal !== principal || !projects.some(project => project.id === item.project.id && project.name === item.project.name))) setScopeRemoved(true);
+    setLists(items => items && items.filter(item => item.principal === principal && projects.some(project => project.id === item.project.id && project.name === item.project.name)));
+    setReadErrors(items => items.filter(item => item.principal === principal && projects.some(project => project.id === item.project.id && project.name === item.project.name)));
+    setComments(items => Object.fromEntries(Object.entries(items).filter(([key]) => projects.some(project => key.startsWith(`${project.id}:`)))));
+    if (starting && currentOwner(starting.row.project.id)?.epoch !== reviewEpoch || confirm && currentOwner(confirm.project.id)?.epoch !== reviewEpoch) setReviewEpoch(null);
+  }, [scope]);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false; readBatch.current++;
+      owners.current.forEach(owner => { owner.reads.forEach(reader => reader.dispose()); owner.writes.forEach(controller => controller.abort()); });
+      owners.current.clear();
+    };
+  }, []);
+  /** Explicit reads are finite and cancellable, never automatically scheduled. */
+  const readOwned = async <T,>(project: Project, owner: ProjectOwner, path: string, validate: (value: unknown) => T): Promise<T> => {
+    let result: T | undefined, failure: unknown = invalid(), succeeded = false;
+    const reader = createReadController<T>({ key: `${owner.binding}:${path}`, deadlineMs: 30000,
+      read: async signal => validate(await request(path, "GET", undefined, undefined, signal)),
+      publish: snapshot => {
+        if (snapshot.refreshing) return;
+        if (snapshot.status === "ready") { result = snapshot.data!; succeeded = true; }
+        if (snapshot.status === "error") failure = snapshot.error;
+      },
+    });
+    owner.reads.add(reader);
+    try {
+      await reader.refresh();
+      if (!valid(project.id, owner)) throw new DOMException("Superseded", "AbortError");
+      if (!succeeded) throw failure;
+      return result!;
+    } finally { owner.reads.delete(reader); reader.dispose(); }
+  };
   const operationPending = !!notice?.operation && ["pending", "running"].includes(notice.operation.status);
   const base = (project: Project) => `/projects/${encodeURIComponent(project.id)}`;
   const projectName = (project: Project) => project.display_name || project.name;
@@ -140,56 +206,84 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   };
 
   const read = async () => {
-    if (reading) return;
-    setReading(true); setReadErrors([]); setStarting(null); setConfirm(null);
-    const results = await Promise.allSettled(projects.map(async project => ({ project, list: readTicketList(await request(`${base(project)}/tickets`)) })));
-    if (mounted.current) {
-      setLists(results.flatMap(result => result.status === "fulfilled" ? [result.value] : []));
-      setReadErrors(results.flatMap((result, index) => result.status === "rejected" ? [{ project: projects[index], error: result.reason }] : []));
-      setComments({}); setExpanded([]); setQueued([]); setOffset(0); setReading(false);
+    if (readingNow.current) return;
+    readingNow.current = true;
+    const batch = ++readBatch.current;
+    owners.current.forEach(owner => owner.reads.forEach(reader => reader.dispose()));
+    commentReads.current.clear();
+    const captured = projects.flatMap(project => { const owner = currentOwner(project.id); return owner ? [{ project, owner }] : []; });
+    setReading(true); setScopeRemoved(false); setReadErrors([]); setStarting(null); setConfirm(null);
+    const results = await Promise.allSettled(captured.map(async ({ project, owner }) => ({ project, principal, authority: owner.epoch, list: await readOwned(project, owner, `${base(project)}/tickets`, readTicketList) })));
+    if (mounted.current && batch === readBatch.current) {
+      setLists(results.flatMap((result, index) => result.status === "fulfilled" && valid(captured[index].project.id, captured[index].owner) ? [result.value] : []));
+      setReadErrors(results.flatMap((result, index) => result.status === "rejected" && valid(captured[index].project.id, captured[index].owner) ? [{ project: captured[index].project, error: result.reason, principal }] : []));
+      setComments({}); setExpanded([]); setQueued([]); setOffset(0); setReading(false); readingNow.current = false;
     }
   };
-  const rows: Row[] = (lists ?? []).flatMap(({ project, list }) => list.tickets.map(ticket => ({ key: `${project.id}:${ticket.iid}`, project, list, ticket })));
-  const latestRead = (lists ?? []).map(item => item.list.read_at).sort().at(-1);
+  const rows: Row[] = visibleLists.flatMap(({ project: captured, list }) => {
+    const project = projects.find(project => project.id === captured.id)!;
+    return list.tickets.map(ticket => ({ key: `${project.id}:${ticket.iid}`, project, list, ticket }));
+  });
+  const latestRead = visibleLists.map(item => item.list.read_at).sort().at(-1);
   const pages = size === "all" ? 1 : Math.max(1, Math.ceil(rows.length / size));
   const first = size === "all" ? 0 : Math.min(offset, (pages - 1) * size);
   const shown = size === "all" ? rows : rows.slice(first, first + size);
   // A confirmation belongs to a visible row; another page closes it.
   useEffect(() => { setStarting(null); setConfirm(null); }, [first, size]);
 
+  const liveRow = (row: Row) => rows.some(item => item.key === row.key && item.ticket === row.ticket);
+  const canAct = (row: Row) => liveRow(row) && visibleLists.some(item => item.list === row.list && item.authority === currentOwner(row.project.id)?.epoch) && !live.current.projects.find(project => project.id === row.project.id)?.archived;
+  const reviewValid = (row: Row) => canAct(row) && currentOwner(row.project.id)?.epoch === reviewEpoch;
   const toggle = async (row: Row) => {
+    const owner = currentOwner(row.project.id), batch = readBatch.current;
+    if (!owner || !liveRow(row)) return;
     if (expanded.includes(row.key)) { setExpanded(items => items.filter(item => item !== row.key)); return; }
     setExpanded(items => [...items, row.key]);
-    if (comments[row.key]?.state === "ready") return;
+    if (comments[row.key]?.state === "ready" || commentReads.current.has(row.key)) return;
+    commentReads.current.add(row.key);
     setComments(items => ({ ...items, [row.key]: { state: "loading" } }));
     try {
-      const value = readComments(await request(`${base(row.project)}/tickets/${row.ticket.iid}/comments`), row.ticket.iid);
-      if (mounted.current) setComments(items => ({ ...items, [row.key]: { state: "ready", comments: value } }));
-    } catch (cause) { if (mounted.current) setComments(items => ({ ...items, [row.key]: { state: "error", error: cause } })); }
+      const value = await readOwned(row.project, owner, `${base(row.project)}/tickets/${row.ticket.iid}/comments`, value => readComments(value, row.ticket.iid));
+      if (valid(row.project.id, owner) && batch === readBatch.current) setComments(items => ({ ...items, [row.key]: { state: "ready", comments: value } }));
+    } catch (cause) { if (valid(row.project.id, owner) && batch === readBatch.current) setComments(items => ({ ...items, [row.key]: { state: "error", error: cause } })); }
+    finally { commentReads.current.delete(row.key); }
   };
 
+  /** A write is not retried or timed out here; abort only ends obsolete UI ownership. */
+  const beginWrite = (row: Row) => {
+    if (writing.current || operationPending || !canAct(row) || readingNow.current) return null;
+    const owner = currentOwner(row.project.id)!;
+    const controller = new AbortController(); owner.writes.add(controller); writing.current = owner;
+    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null);
+    return { owner, controller };
+  };
+  const finishWrite = ({ owner, controller }: { owner: ProjectOwner; controller: AbortController }) => {
+    owner.writes.delete(controller);
+    if (writing.current === owner) { writing.current = null; if (mounted.current) setBusy(false); }
+  };
   // Start adds missing ready/priority labels server-side; a label change is confirmed first.
   const start = async (row: Row, chosen = "") => {
-    const iid = row.ticket.iid;
-    if (busy || operationPending || row.project.archived) return;
-    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null); setStarting(null);
+    if (!row.ticket.can_start || (starting?.row.key === row.key && !reviewValid(row)) || (chosen && !row.list.priority_labels.includes(chosen))) return;
+    const write = beginWrite(row); if (!write) return;
+    const { owner, controller } = write, iid = row.ticket.iid;
+    setStarting(null);
     try {
-      const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), ...(chosen ? { priority: chosen } : {}) }, csrf));
+      const result = readStart(await request(`${base(row.project)}/tickets/${iid}/start`, "POST", { idempotency_key: crypto.randomUUID(), ...(chosen ? { priority: chosen } : {}) }, csrf, controller.signal));
       const lines = [...(result.labels_added.length ? [fill(copy.labelsAdded, { labels: result.labels_added.join(", ") })] : []), named(row, fill(copy.startQueued, { iid, id: result.operation_id })), copy.startEffect];
-      if (mounted.current) {
-        setNotice({ projectId: row.project.id, lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added });
+      if (valid(row.project.id, owner)) {
+        setNotice({ projectId: row.project.id, authority: owner.epoch, lines, operation: { id: result.operation_id, status: result.status }, labels: result.labels_added });
         setQueued(items => [...items, row.key]);
         if (!["pending", "running"].includes(result.status)) onOperationComplete(row.project.id);
       }
     } catch (cause) {
-      if (!mounted.current) return;
-      setActionError({ error: cause, project: row.project });
+      if (!valid(row.project.id, owner)) return;
+      setActionError({ error: cause, project: row.project, authority: owner.epoch });
       if (pickupPaused(cause)) setLists(items => items && withPickupPaused(items, row.project.id));
-    }
-    finally { if (mounted.current) setBusy(false); }
+    } finally { finishWrite(write); }
   };
   const requestStart = (row: Row) => {
-    setConfirm(null);
+    if (!canAct(row) || !row.ticket.can_start || writing.current || operationPending) return;
+    setConfirm(null); setReviewEpoch(currentOwner(row.project.id)!.epoch);
     if (!row.ticket.adds_ready_label && !row.ticket.needs_priority) { void start(row); return; }
     setPriority(row.list.priority_labels.at(-1) ?? "");
     setStarting({ row, addsReady: row.ticket.adds_ready_label, needsPriority: row.ticket.needs_priority });
@@ -197,41 +291,43 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
 
   const retry = async (row: Row) => {
     const { ticket } = row;
-    if (busy || operationPending || row.project.archived || !ticket.job) return;
-    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null);
+    if (ticket.job?.lifecycle !== "failed") return;
+    const write = beginWrite(row); if (!write) return;
+    const { owner, controller } = write;
     try {
-      const operation = readOperation(await request(`${base(row.project)}/operations/retry`, "POST", { run_id: ticket.job.run_id, idempotency_key: crypto.randomUUID() }, csrf));
-      if (mounted.current) {
-        setNotice({ projectId: row.project.id, lines: [named(row, fill(copy.retryQueued, { iid: ticket.iid, id: operation.id }))], operation });
+      const operation = readOperation(await request(`${base(row.project)}/operations/retry`, "POST", { run_id: ticket.job.run_id, idempotency_key: crypto.randomUUID() }, csrf, controller.signal));
+      if (valid(row.project.id, owner)) {
+        setNotice({ projectId: row.project.id, authority: owner.epoch, lines: [named(row, fill(copy.retryQueued, { iid: ticket.iid, id: operation.id }))], operation });
         setQueued(items => [...items, row.key]);
         if (!["pending", "running"].includes(operation.status)) onOperationComplete(row.project.id);
       }
-    } catch (cause) { if (mounted.current) setActionError({ error: cause, project: row.project }); }
-    finally { if (mounted.current) setBusy(false); }
+    } catch (cause) { if (valid(row.project.id, owner)) setActionError({ error: cause, project: row.project, authority: owner.epoch }); }
+    finally { finishWrite(write); }
   };
 
   const stop = async (row: Row) => {
-    const iid = row.ticket.iid;
-    if (busy || operationPending || row.project.archived) return;
-    setBusy(true); setCommandStatusError(false); setActionError(null); setNotice(null); setConfirm(null); setStarting(null);
+    if (!reviewValid(row) || !stoppable(row)) return;
+    const write = beginWrite(row); if (!write) return;
+    const { owner, controller } = write, iid = row.ticket.iid;
+    setConfirm(null); setStarting(null);
     try {
-      const result = readStop(await request(`${base(row.project)}/tickets/${iid}/stop`, "POST", { idempotency_key: crypto.randomUUID(), confirmed: true }, csrf));
+      const result = readStop(await request(`${base(row.project)}/tickets/${iid}/stop`, "POST", { idempotency_key: crypto.randomUUID(), confirmed: true }, csrf, controller.signal));
       const label = result.ready_label === "removed" ? copy.labelRemoved : result.ready_label === "absent" ? copy.labelAbsent :
         fill(copy.labelFailed, { reason: describeError(locale, new ApiError(result.ready_label_error || "unexpected_response")) });
       const cancel = result.cancel_operation_id ? fill(copy.cancelQueued, { iid, id: result.cancel_operation_id }) : fill(copy.noCancel, { iid });
-      if (mounted.current) {
-        setNotice({ projectId: row.project.id, lines: [named(row, cancel), label], operation: result.cancel_operation_id ? { id: result.cancel_operation_id, status: "pending" } : undefined });
+      if (valid(row.project.id, owner)) {
+        setNotice({ projectId: row.project.id, authority: owner.epoch, lines: [named(row, cancel), label], operation: result.cancel_operation_id ? { id: result.cancel_operation_id, status: "pending" } : undefined });
         if (!result.cancel_operation_id) onOperationComplete(row.project.id);
       }
-    } catch (cause) { if (mounted.current) setActionError({ error: cause, project: row.project }); }
-    finally { if (mounted.current) setBusy(false); }
+    } catch (cause) { if (valid(row.project.id, owner)) setActionError({ error: cause, project: row.project, authority: owner.epoch }); }
+    finally { finishWrite(write); }
   };
 
   // One bounded owner follows pending -> running without restarting or queuing
   // ticks. A failed status read is unknown completion, never a successful result.
   const operation = notice?.operation;
   const operationKey = operation && operationPending && notice && projects.some(project => project.id === notice.projectId)
-    ? JSON.stringify([csrf, projects.map(project => [project.id, project.name]).sort(), notice.projectId, operation.id]) : "";
+    ? JSON.stringify([principal, csrf, notice.authority, notice.projectId, operation.id]) : "";
   const liveOperation = useRef({ key: operationKey, request, onOperationComplete });
   liveOperation.current = { key: operationKey, request, onOperationComplete };
   useLayoutEffect(() => {
@@ -261,7 +357,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
   const status = ({ ticket, list }: Row) => ticket.job ? fill(copy.job, { lifecycle: ticket.job.lifecycle }) :
     ticket.blocked_by === PICKUP_PAUSED ? copy.pickup_paused :
     ticket.reason === null ? copy.startable : fill(copy[(ticket.blocked_by ?? ticket.reason) as keyof typeof copy] as string, { label: list.ready_label });
-  const pausedLists = (lists ?? []).filter(({ list }) => list.tickets.some(ticket => ticket.blocked_by === PICKUP_PAUSED));
+  const pausedLists = visibleLists.filter(({ list }) => list.tickets.some(ticket => ticket.blocked_by === PICKUP_PAUSED));
   const failure = notice?.operation && ["failed", "uncertain"].includes(notice.operation.status) ? notice.operation : null;
   const stoppable = ({ ticket, list }: Row) => !!ticket.job && !FINISHED.includes(ticket.job.lifecycle) || ticket.labels.includes(list.ready_label);
   const columns = showProject ? 6 : 5;
@@ -276,8 +372,10 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
         {latestRead && <span className="muted">{fill(copy.lastRead, { time: when(latestRead) })}</span>}
         <HelpLink topic={CONTEXT_TOPICS.tickets} locale={locale} />
       </div>
-      {readErrors.map(({ project, error }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{describeError(locale, error)}</p>)}
-      {actionError !== null && <p className="alert" role="alert">{showProject ? `${projectName(actionError.project)}: ` : ""}{pickupPaused(actionError.error) ? copy.pickupStopped : describeError(locale, actionError.error)}</p>}
+      {scopeRemoved && <p className="notice" role="status">{describeError(locale, new ApiError("project_not_found"))}</p>}
+      {readErrors.filter(item => item.principal === principal && projects.some(project => project.id === item.project.id && project.name === item.project.name)).map(({ project, error }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{describeError(locale, error)}</p>)}
+      {actionError !== null && currentOwner(actionError.project.id)?.epoch === actionError.authority && <p className="alert" role="alert">{showProject ? `${projectName(actionError.project)}: ` : ""}{pickupPaused(actionError.error) ? copy.pickupStopped : describeError(locale, actionError.error)}</p>}
+      {!starting && !confirm && visibleLists.filter(item => item.authority !== currentOwner(item.project.id)?.epoch).map(({ project }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.reviewChanged}</p>)}
       {pausedLists.map(({ project }) => <p className="notice ticket-pickup-stopped" role="status" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.pickupStopped}</p>)}
       {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}
         {notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{(notice.operation.reason ? outcomeText(locale, notice.operation) : operationResultText(notice.operation.result || "", locale)) ? ` · ${(notice.operation.reason ? outcomeText(locale, notice.operation) : operationResultText(notice.operation.result || "", locale))}` : ""}</p>}
@@ -289,7 +387,7 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
 
       {!lists && !reading && readErrors.length === 0 && <p className="muted">{copy.notRead}</p>}
       {lists && lists.length > 0 && rows.length === 0 && <p className="muted">{copy.none}</p>}
-      {(lists ?? []).filter(item => item.list.truncated).map(({ project }) => <p className="muted" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.truncated}</p>)}
+      {visibleLists.filter(item => item.list.truncated).map(({ project }) => <p className="muted" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.truncated}</p>)}
       {rows.length > 0 && <div className="table-scroll"><table className="ticket-table">
         <thead><tr><th>{copy.number}</th>{showProject && <th>{copy.project}</th>}<th>{copy.title}</th><th>{copy.labels}</th><th>{copy.status}</th><th>{copy.actions}</th></tr></thead>
         <tbody>{shown.map(row => {
@@ -307,9 +405,9 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
               <td>{status(row)}</td>
               <td><div className="button-row ticket-actions">
                 {ticket.job?.lifecycle === "failed"
-                  ? <button className="primary" type="button" disabled={busy || operationPending || project.archived || queued.includes(row.key)} onClick={() => void retry(row)}>{copy.retry}</button>
-                  : <button className="primary" type="button" disabled={busy || operationPending || project.archived || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
-                <button className="ghost" type="button" disabled={busy || operationPending || project.archived || !stoppable(row)} onClick={() => { setStarting(null); setConfirm(row); }}>{copy.stop}</button>
+                  ? <button className="primary" type="button" disabled={busy || operationPending || reading || !canAct(row) || queued.includes(row.key)} onClick={() => void retry(row)}>{copy.retry}</button>
+                  : <button className="primary" type="button" disabled={busy || operationPending || reading || !canAct(row) || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
+                <button className="ghost" type="button" disabled={busy || operationPending || reading || !canAct(row) || !stoppable(row)} onClick={() => { if (!canAct(row)) return; setReviewEpoch(currentOwner(row.project.id)!.epoch); setStarting(null); setConfirm(row); }}>{copy.stop}</button>
                 <button className="ghost" type="button" aria-expanded={open} aria-controls={detailId} onClick={() => void toggle(row)}>{open ? copy.hide : copy.details}</button>
               </div></td>
             </tr>
@@ -317,11 +415,13 @@ export function TicketWorkspace({ projects, showProject = false, locale, csrf, r
             {starting?.row.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-start-confirm" role="alertdialog" aria-label={copy.startTicket}>
               <p>{named(row, fill(copy.startConfirm, { iid: ticket.iid, labels: [...(starting.addsReady ? [row.list.ready_label] : []), ...(starting.needsPriority && priority ? [priority] : [])].join(", ") }))}</p>
               {starting.needsPriority && <label>{copy.priority}<select aria-label={copy.priority} value={priority} onChange={event => setPriority(event.target.value)}>{row.list.priority_labels.map(label => <option key={label} value={label}>{label}</option>)}</select></label>}
-              <div className="button-row"><button className="primary" type="button" disabled={busy || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
+              {!reviewValid(row) && <p className="alert" role="alert">{copy.reviewChanged}</p>}
+              <div className="button-row"><button className="primary" type="button" disabled={busy || operationPending || !reviewValid(row) || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
             </div></td></tr>}
             {confirm?.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
               <p>{named(row, fill(copy.stopConfirm, { iid: ticket.iid, label: row.list.ready_label }))}</p>
-              <div className="button-row"><button className="danger" type="button" disabled={busy || operationPending} onClick={() => void stop(row)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
+              {!reviewValid(row) && <p className="alert" role="alert">{copy.reviewChanged}</p>}
+              <div className="button-row"><button className="danger" type="button" disabled={busy || operationPending || !reviewValid(row)} onClick={() => void stop(row)}>{copy.stopTicket}</button><button className="ghost" type="button" onClick={() => setConfirm(null)}>{copy.keepRunning}</button></div>
             </div></td></tr>}
             {open && <tr className="ticket-detail-row"><td colSpan={columns}><div className="ticket-detail" id={detailId}>
               <div className="ticket-body-heading">

@@ -67,6 +67,10 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 
 Queued operations are checked every 2 seconds while this tab is visible, with one status read at a time and a 30-second read limit. Hidden tabs pause checks; returning performs one recheck. If a check fails or its result is invalid, completion remains unknown. An observed result updates shared project information without rereading forge tickets or comments or closing open bodies. Press **Read tickets** for a new repository snapshot.
 
+Unchanged project updates keep open bodies and valid Start/Stop confirmations. If project identity, access or archive status changes, the old review cannot submit, even after restore. Press **Read tickets** and review again. Removed projects' bodies stay hidden until a new explicit read. Leaving the context cancels browser requests and ignores obsolete action results; it does not undo a command already accepted by the server.
+
+Ticket and comment reads have a 30-second limit and never retry the forge automatically. After an error, press **Read tickets** for the list, or close and reopen **Details** for comments. Reopening comments while their read is pending shares that read.
+
 ## Reading descriptions and comments {#reading-bodies}
 
 **Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**

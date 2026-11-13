@@ -46,7 +46,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Bound/coalesce ticket operation status reads without changing their cadence;
   cancel obsolete reads and leave failed/invalid status explicitly unknown.
   Observed results revalidate shared project metadata without rereading forge
-  tickets/comments or interrupting open bodies and controls.
+  tickets/comments or interrupting open bodies and controls. Preserve unchanged
+  ticket confirmations, invalidate changed project authority until an explicit
+  reread, and prune removed identities. Bound/cancel explicit list/comment reads
+  and ignore obsolete action responses without claiming server rollback.
 
 - Preserve Project Access reviews/focus and Settings groups through background and
   observed monitoring results. Cancel old grant reads before writes and require

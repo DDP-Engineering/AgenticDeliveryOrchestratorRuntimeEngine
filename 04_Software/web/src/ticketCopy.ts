@@ -31,6 +31,7 @@ const en = {
   pickup_paused: "Monitoring paused",
   pickupStopped: "Monitoring is paused for this project, so Start is unavailable. An administrator activates monitoring in the project Summary.",
   labelsKept: "The ticket keeps the labels {labels}: ADORE picks it up when its pickup rules allow, and Stop removes them.",
+  reviewChanged: "Project authority changed. Read tickets again and review the action.",
   operation: { pending: "queued", running: "running", succeeded: "finished", failed: "failed", uncertain: "outcome uncertain" },
 };
 
@@ -60,6 +61,7 @@ const ro: TicketCopy = {
   pickup_paused: "Monitorizare în pauză",
   pickupStopped: "Monitorizarea este în pauză pentru acest proiect, deci Pornește nu este disponibil. Un administrator activează monitorizarea din Rezumatul proiectului.",
   labelsKept: "Tichetul păstrează etichetele {labels}: ADORE îl preia când regulile de preluare o permit, iar Oprește le elimină.",
+  reviewChanged: "Drepturile proiectului s-au schimbat. Recitiți tichetele și revizuiți acțiunea.",
   operation: { pending: "în coadă", running: "în curs", succeeded: "finalizată", failed: "eșuată", uncertain: "rezultat incert" },
 };
 
@@ -87,6 +89,7 @@ const fr: TicketCopy = {
   pickup_paused: "Surveillance en pause",
   pickupStopped: "La surveillance est en pause pour ce projet : Démarrer est indisponible. Un administrateur active la surveillance dans le Résumé du projet.",
   labelsKept: "Le ticket garde les étiquettes {labels} : ADORE le prend en charge quand ses règles de sélection le permettent, et Arrêter les retire.",
+  reviewChanged: "Les droits du projet ont changé. Relisez les tickets et vérifiez l’action.",
   operation: { pending: "en file", running: "en cours", succeeded: "terminée", failed: "échouée", uncertain: "résultat incertain" },
 };
 
@@ -114,6 +117,7 @@ const de: TicketCopy = {
   pickup_paused: "Überwachung pausiert",
   pickupStopped: "Die Überwachung ist für dieses Projekt pausiert, daher ist Starten nicht verfügbar. Ein Administrator aktiviert die Überwachung in der Projekt-Zusammenfassung.",
   labelsKept: "Das Ticket behält die Labels {labels}: ADORE übernimmt es, sobald seine Auswahlregeln es erlauben, und Stoppen entfernt sie.",
+  reviewChanged: "Die Projektberechtigung hat sich geändert. Tickets erneut lesen und Aktion prüfen.",
   operation: { pending: "eingereiht", running: "läuft", succeeded: "abgeschlossen", failed: "fehlgeschlagen", uncertain: "Ergebnis unsicher" },
 };
 
