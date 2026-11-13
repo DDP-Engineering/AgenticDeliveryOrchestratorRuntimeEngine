@@ -8,6 +8,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { revalidateVisiblePage, trackScopeReads } from "./polling";
 import { discardSettings, settingsImpact, settingsSave } from "./settings-actions";
 import { chatgptCopy } from "../src/chatgptCopy";
+import { settingsSaveCopy } from "../src/settingsSave";
+import { userCopy } from "../src/userCopy";
 
 const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; };
 async function hide(page: Page) {
@@ -87,6 +89,117 @@ for (const kind of ["impact review", "credential draft", "price draft"] as const
       await settingsImpact(page).getByRole("button", { name: "Keep editing", exact: true }).click();
       await discardSettings(page);
     }
+  } finally { held.resolve(); }
+});
+
+for (const change of ["rename", "archive", "pickup"] as const) test(`Settings ${change} invalidates confirmation permanently until a fresh review`, async ({ page }) => {
+  const items = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = items.find((item: { name: string }) => item.name === "alpha"), original = { ...alpha };
+  await page.route("**/api/v1/projects", route => route.fulfill({ json: items }));
+  await page.goto(`/projects/${alpha.id}/configuration`);
+  await expect(page.locator("#project-settings")).toBeVisible();
+  await page.locator('details[data-setting-purpose="implementation"] > summary').click();
+  const row = page.locator('[id="setting-budgets.max_iterations"]');
+  await row.getByRole("button", { name: /^Edit / }).click();
+  await row.getByRole("spinbutton").fill("123");
+  await settingsSave(page).click();
+  const dialog = settingsImpact(page), confirm = dialog.getByRole("button", { name: "Save changes", exact: true });
+  await expect(dialog).toBeVisible(); await expect(confirm).toBeEnabled();
+  let writes = 0;
+  await page.route("**/config/pending", route => { if (route.request().method() !== "GET") writes++; return route.continue(); });
+  await page.route("**/config/apply", route => { writes++; return route.continue(); });
+  const refresh = async () => {
+    const response = page.waitForResponse(value => value.url().endsWith("/api/v1/projects"));
+    await revalidateVisiblePage(page); await (await response).finished();
+  };
+  // Successful identical metadata preserves the reviewed continuation and DOM.
+  const node = await confirm.elementHandle(); await confirm.focus();
+  await refresh(); await expect(confirm).toBeEnabled();
+  expect(await node!.evaluate(element => element === document.activeElement)).toBe(true);
+  if (change === "rename") alpha.name = "renamed-alpha";
+  else if (change === "archive") alpha.archived = true;
+  else alpha.paused = !alpha.paused;
+  await refresh();
+  await expect(dialog).toBeVisible(); await expect(confirm).toBeDisabled();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  Object.assign(alpha, original); await refresh();
+  await expect(confirm).toBeDisabled();
+  // Dispatching a synthetic activation also cannot resume the invalid continuation.
+  await confirm.dispatchEvent("click"); expect(writes).toBe(0);
+  await dialog.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(row.getByRole("spinbutton")).toHaveValue("123");
+  await settingsSave(page).click(); await expect(settingsImpact(page)).toBeVisible();
+  await expect(settingsImpact(page).getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
+  await settingsImpact(page).getByRole("button", { name: "Keep editing", exact: true }).click();
+  await discardSettings(page); expect(writes).toBe(0);
+});
+
+for (const locale of ["en", "fr", "de", "ro"] as const) for (const theme of ["light", "dark"] as const) test(`Settings invalid confirmation stays accessible in ${locale} ${theme} at 390px`, async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const me = await (await page.request.get("/api/v1/me")).json();
+  await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: locale, theme } });
+  const items = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = items.find((item: { name: string }) => item.name === "alpha");
+  await page.route("**/api/v1/projects", route => route.fulfill({ json: items }));
+  await page.goto(`/projects/${alpha.id}/configuration`);
+  await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await page.locator('details[data-setting-purpose="implementation"] > summary').click();
+  const row = page.locator('[id="setting-budgets.max_iterations"]');
+  await row.getByRole("button").click(); await row.getByRole("spinbutton").fill("123");
+  await settingsSave(page, locale).click(); await expect(settingsImpact(page)).toBeVisible();
+  alpha.archived = true;
+  const refreshed = page.waitForResponse(response => response.url().endsWith("/api/v1/projects"));
+  await revalidateVisiblePage(page); await (await refreshed).finished();
+  const dialog = settingsImpact(page), copy = settingsSaveCopy[locale];
+  await expect(dialog.getByRole("alert")).toHaveText(userCopy[locale].reviewChanged);
+  await expect(dialog.getByRole("button", { name: copy.confirm, exact: true })).toBeDisabled();
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const correct = dialog.getByRole("button", { name: copy.cancel, exact: true });
+  await correct.focus(); await page.keyboard.press("Enter");
+  await expect(dialog).toHaveCount(0); await expect(row.getByRole("spinbutton")).toHaveValue("123");
+  await discardSettings(page, locale);
+});
+
+for (const boundary of ["preview", "pending"] as const) test(`Settings changed authority during held ${boundary} cannot reach the next write`, async ({ page }) => {
+  const items = await (await page.request.get("/api/v1/projects")).json();
+  const alpha = items.find((item: { name: string }) => item.name === "alpha"), original = { ...alpha };
+  await page.route("**/api/v1/projects", route => route.fulfill({ json: items }));
+  const held = deferred(); let preview: unknown, reached = 0, pendingWrites = 0, applyWrites = 0;
+  await page.route("**/config/preview", async route => {
+    preview = await (await route.fetch()).json();
+    if (boundary === "preview") { reached++; await held.promise; }
+    await route.fulfill({ json: preview }).catch(() => {});
+  });
+  await page.route("**/config/pending", async route => {
+    if (route.request().method() === "GET") return route.continue();
+    pendingWrites++; reached++; await held.promise;
+    await route.fulfill({ json: preview }).catch(() => {});
+  });
+  await page.route("**/config/apply", route => { applyWrites++; return route.fulfill({ status: 409, json: { detail: { code: "stale_config_revision" } } }); });
+  try {
+    await page.goto(`/projects/${alpha.id}/configuration`);
+    await expect(page.locator("#project-settings")).toBeVisible();
+    await page.locator('details[data-setting-purpose="implementation"] > summary').click();
+    const row = page.locator('[id="setting-budgets.max_iterations"]');
+    await row.getByRole("button", { name: /^Edit / }).click();
+    await row.getByRole("spinbutton").fill("123"); await settingsSave(page).click();
+    if (boundary === "pending") {
+      await expect(settingsImpact(page)).toBeVisible();
+      await settingsImpact(page).getByRole("button", { name: "Save changes", exact: true }).click();
+    }
+    await expect.poll(() => reached).toBe(1);
+    const refresh = async () => {
+      const response = page.waitForResponse(value => value.url().endsWith("/api/v1/projects"));
+      await revalidateVisiblePage(page); await (await response).finished();
+    };
+    alpha.archived = true; await refresh(); Object.assign(alpha, original); await refresh();
+    held.resolve();
+    await expect(settingsSave(page)).toBeEnabled();
+    await expect(settingsImpact(page)).toHaveCount(0);
+    await expect(row.getByRole("spinbutton")).toHaveValue("123");
+    expect(pendingWrites).toBe(boundary === "pending" ? 1 : 0); expect(applyWrites).toBe(0);
+    await discardSettings(page);
   } finally { held.resolve(); }
 });
 

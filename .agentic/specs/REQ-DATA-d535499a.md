@@ -44,8 +44,15 @@ financial projection. Each project in a global response maps to the current
 immutable identity, not just a reusable name. The response project set equals the
 captured authorized set. Corresponding metrics/usage canonical scopes agree on
 project IDs, mode, interval, from, to, timezone, granularity and interval seconds.
-All members validate before any replacement becomes visible. The configured
-scope and role also bind CSV links; server authorization remains authoritative.
+Across all projects, these same canonical fields agree excluding project IDs,
+whose exact membership is validated separately. Both pooled metrics and pooled
+usage are computed within owned validation and stored in the committed report;
+rendering does not perform potentially throwing aggregate work. Individually valid
+members with inconsistent cross-project intervals or overflowing pooled amounts
+fail closed with error/Retry, no report/exports or new success time, and no render
+exception. All members and pooled results validate before any replacement becomes
+visible. The configured scope and role also bind CSV links; server authorization
+remains authoritative.
 
 A principal/role/grant, project identity or reporting-query change invalidates
 the old context before rendering under new controls. A previous context's report

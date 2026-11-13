@@ -41,6 +41,7 @@ Choose **Installed on the server** to use ADORE-managed Pi under the current OS 
 Rules that apply:
 
 - **Discard changes** clears all unsaved edits. Cancelling the confirmation keeps them without creating a saved candidate.
+- A detected project rename, archive or monitoring-state change disables the old confirmation, even if the old state returns. Choose **Keep editing**, check the current project and **Save** again for a fresh review. Your draft remains; unchanged updates keep a valid confirmation.
 - Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs. Discard your changes to reload the saved settings before editing again. Concurrent administrators get a conflict.
 - The server checks the complete configuration and saves all edits together. A budget-only reviewed save also allows jobs waiting for clarification, with no active conductor or unfinished operation. Other settings require finished jobs. A failed save retains your inputs and any prepared candidate for retry.
 - Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.

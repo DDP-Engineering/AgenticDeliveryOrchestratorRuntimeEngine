@@ -44,6 +44,16 @@ but cancels the proposal and requests both post-result members anew. Helper/brow
 proof is tests/statistics.test.mjs and e2e/operationRefresh.spec.ts; existing
 jobs/dashboard lifecycle fixtures now model actual archive identity responses.
 
+Settings Save captures semantic live principal/project/action binding alongside
+config generations. Changed/failed project metadata, name/archive/pickup changes
+or navigation latch its authority invalid through preview, confirmation and pending
+waits; restoring old values cannot revive that continuation. Confirmation retains
+reviewed identity/draft with localized correction and disabled submission until
+Keep editing then fresh Save. Checks before pending/apply prevent further writes;
+browser cancellation does not undo an accepted server write. Unchanged metadata
+preserves review/focus. Proof: e2e/settingsRefresh.spec.ts authority and held-read
+cases, alongside existing settings/settings-save reviewed-success controls.
+
 App's project metadata reader is a strict, 30-second bounded owner keyed by
 principal/session, role, assigned IDs and Overview fallback eligibility. Equivalent
 session-notice reads and initial publication do not recreate it; 15-second ticks,
@@ -57,8 +67,12 @@ App's Statistics reader uses `statistics.ts::createReportingRefresh`, keyed by
 principal/role, authorized immutable ID/name map, selected/all-project scope and
 reporting query, not tab/export/table state. Global name responses map to captured
 IDs; selected contexts request only selected endpoints. The owner validates exact
-metrics/usage maps under one 30-second deadline, compares canonical scopes and
-publishes one complete report. Explicit masks pin not-due baseline inputs with
+metrics/usage maps under one 30-second deadline, compares canonical reporting
+fields across every project and both maps (project identities validate separately),
+and computes pooled metrics/usage within owned validation before publishing them
+on the complete report. App renders those stored aggregates without recomputing.
+Cross-project interval mismatch or pooled failure clears report/exports/success
+time with error/Retry; two-project helper/browser negatives also assert no pageerror. Explicit masks pin not-due baseline inputs with
 original times; full/due triggers promote pins without duplicate reads. Selected
 metrics keeps 15s cadence, usage/global metrics 30s, with full visible/manual reads.
 Failed proposals discard staged values and require requested dependencies on recovery.

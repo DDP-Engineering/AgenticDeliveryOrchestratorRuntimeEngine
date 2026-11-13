@@ -211,14 +211,32 @@ an injected deadline clock for overlap, success time, transport recovery,
 fail-closed failures, ignored aborts, invalidation and disposal; `errors.test.mjs`
 checks positive error classification and localized guidance.
 
+## Settings confirmation authority
+
+Each Save captures the current principal/project view and semantic project
+ID/name/archive/pickup binding in addition to existing config-request/revision
+guards. Changed or failed metadata, navigation or loss of editable authority
+latches that Save invalid, including while preview or pending writes are awaited.
+Confirmation keeps its reviewed project label and draft visible with localized
+correction feedback and disabled submission; reverting metadata cannot revive it.
+Keep editing and a fresh Save obtain a new review. The continuation checks the
+binding again before preparing or applying a candidate. Identical metadata and
+unrelated results preserve the valid confirmation, focused node and draft.
+`e2e/settingsRefresh.spec.ts` covers rename/archive/pickup and restoration, held
+preview/pending boundaries, zero subsequent writes and unchanged-review controls.
+
 ## Coordinated Statistics refresh
 
 `statistics.ts::createReportingRefresh` coordinates one context's immutable-ID
 metrics/usage maps through `createReadController` with one 30-second proposal
 bound. Transports return exactly the captured project ID set; complete existing
 metrics/usage validators enforce the copied selection and role before staging.
-Matching canonical scope fields are checked between corresponding map members
-before a single replacement publication. App uses this owner for both global and
+Matching canonical scope fields (excluding each member's separately validated
+project identity) are checked across every project and both resource maps before
+publication. Metrics and usage pooled results are computed inside that same owned
+validation boundary and stored on the report; rendering never repeats aggregate
+work. Cross-project interval disagreement or aggregate failure withholds the report,
+exports and success time with explicit error/Retry, rather than throwing in render. App uses this owner for both global and
 project Statistics. Its render key captures the session principal/role, authorized
 immutable ID/name mapping, selected/all-project mode and reporting query; tab,
 export disclosure, sort and pagination do not recreate the reader. Global responses

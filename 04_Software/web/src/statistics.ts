@@ -125,6 +125,8 @@ export type ReportingMask = { metrics?: boolean; usage?: boolean };
 export type ReportingReport = {
   metrics: Record<string, Metrics>;
   usage: Record<string, Usage>;
+  pooledMetrics: Metrics;
+  pooledUsage: Usage;
   metricsAt: number;
   usageAt: number;
   fullReportAt: number;
@@ -186,9 +188,11 @@ export function createReportingRefresh(options: {
     if (JSON.stringify(Object.keys(map).sort()) !== JSON.stringify(ids)) invalid();
     return Object.fromEntries(ids.map(id => [id, readConsumption(map[id], id, selection, options.admin)]));
   };
+  // Identity is validated by each map member; every project shares these
+  // canonical reporting boundaries, not merely its own metrics/usage pair.
   const canonical = (value: Metrics | Usage) => {
     const row = value.scope;
-    return JSON.stringify([row?.project_ids, row?.mode, row?.interval, row?.from, row?.to,
+    return JSON.stringify([row?.mode, row?.interval, row?.from, row?.to,
       row?.timezone, row?.granularity, row?.interval_seconds]);
   };
   const owner = createReadController<ReportingReport>({
@@ -206,10 +210,18 @@ export function createReportingRefresh(options: {
       const check = () => {
         if (!live() || current.requested.metrics && !current.done.metrics || current.requested.usage && !current.done.usage) return;
         if (!current.metrics || !current.usage) return;
-        for (const id of ids) if (canonical(current.metrics[id]) !== canonical(current.usage[id])) { fail(new RangeError("Mismatched reporting scopes")); return; }
-        settled = true; signal.removeEventListener("abort", aborted);
-        resolve({ metrics: current.metrics, usage: current.usage, metricsAt: current.metricsAt,
-          usageAt: current.usageAt, fullReportAt: current.requested.metrics && current.requested.usage ? now() : current.fullReportAt });
+        try {
+          const scopes = ids.flatMap(id => [canonical(current.metrics![id]), canonical(current.usage![id])]);
+          if (scopes.some(value => value !== scopes[0])) throw new RangeError("Mismatched reporting scopes");
+          // Pool inside the owned validation boundary: even individually valid
+          // finite amounts can overflow together. Rendering must not discover
+          // an aggregate error after ready data/success time has been published.
+          const pooledMetrics = aggregateMetrics(Object.values(current.metrics), selection.timezone, selection.from, selection.through);
+          const pooledUsage = aggregateUsage(Object.values(current.usage));
+          settled = true; signal.removeEventListener("abort", aborted);
+          resolve({ metrics: current.metrics, usage: current.usage, pooledMetrics, pooledUsage, metricsAt: current.metricsAt,
+            usageAt: current.usageAt, fullReportAt: current.requested.metrics && current.requested.usage ? now() : current.fullReportAt });
+        } catch (error) { fail(error); }
       };
       current.start = () => {
         if (!live()) return;

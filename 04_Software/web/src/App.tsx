@@ -5,7 +5,6 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
-import { aggregateMetrics, aggregateUsage } from "./metrics";
 import { sortUsageRows, type UsageSortKey } from "./usageSort";
 import { PasswordField } from "./PasswordField";
 import { messages, type Locale, type MessageKey } from "./i18n";
@@ -199,9 +198,10 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   const [settingsStale, setSettingsStale] = useState(false);
   const [settingsConfirmation, setSettingsConfirmation] = useState<{
     candidate: PendingConfig; edits: SettingEdit[]; project: string; config: Config;
-    resolve: (accepted: boolean) => void;
+    binding: string; label: string; invalid: boolean; resolve: (accepted: boolean) => void;
   } | null>(null);
   const settingsConfirmationResolve = useRef<((accepted: boolean) => void) | null>(null);
+  const settingsSaveAuthority = useRef<{ binding: string; valid: boolean } | null>(null);
   useEffect(() => () => {
     settingsConfirmationResolve.current?.(false);
     settingsConfirmationResolve.current = null;
@@ -408,6 +408,15 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   const actionContext = projectViewKey && projectsState === "ready" && selectedProject
     ? JSON.stringify([projectViewKey, projectActionBinding(selectedProject)]) : "";
   const liveActionContext = useRef(actionContext); liveActionContext.current = actionContext;
+  useLayoutEffect(() => {
+    const authority = settingsSaveAuthority.current;
+    if (authority && (!settingsVisible || !isAdmin || authority.binding !== actionContext || selectedProject?.archived)) {
+      // Latch for this entire Save, including preview/pending/apply waits. An
+      // archive/restore or rename/revert cannot revive an earlier confirmation.
+      authority.valid = false;
+      setSettingsConfirmation(current => current && !current.invalid ? { ...current, invalid: true } : current);
+    }
+  }, [actionContext, settingsVisible, isAdmin, selectedProject?.archived]);
   const operationView = projectViewKey && projectsState === "ready" && selectedProject && selected === operationProject &&
     operationOrigin.current === JSON.stringify([projectsPrincipal, selectedProject.id, selectedProject.name]) ? operation : null;
   const projectActionBusy = operationSubmitting || !!operationView && ["pending", "running"].includes(operationView.status);
@@ -469,9 +478,9 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   const allUsage = allProjectScope ? report?.usage ?? null : null;
   const globalRows = Object.entries(report?.metrics ?? {});
   const scopedUsageRows = Object.entries(report?.usage ?? {});
-  const metrics = !report ? null : allProjectScope ? aggregateMetrics(Object.values(report.metrics), metricTimezone, metricFrom, metricTo) : report.metrics[selected];
+  const metrics = !report ? null : allProjectScope ? report.pooledMetrics : report.metrics[selected];
   const metricsEmpty = metrics != null && !((metrics.totals.runs || 0) > 0);
-  const usage = !report ? null : allProjectScope ? aggregateUsage(Object.values(report.usage)) : report.usage[selected];
+  const usage = !report ? null : allProjectScope ? report.pooledUsage : report.usage[selected];
   const formatNumber = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale).format(value);
   const formatPercent = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(value);
   const formatMoney = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(value);
@@ -1147,10 +1156,13 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   };
 
   const saveSettings = async (edits: SettingEdit[], base: string): Promise<boolean> => {
-    if (!projectConfig || !selected || configMutation.current || pendingReadFailed || !pendingReady
-      || projectConfig.revision !== base) return false;
+    if (!projectConfig || !selected || !isAdmin || !settingsVisible || !actionContext || selectedProject?.archived
+      || configMutation.current || pendingReadFailed || !pendingReady || projectConfig.revision !== base) return false;
     const target = selected, generation = viewGeneration.current, revision = configRequest.current, scope = configView.current;
-    const current = () => generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
+    const authority = { binding: actionContext, valid: true };
+    settingsSaveAuthority.current = authority;
+    const current = () => authority.valid && authority.binding === liveActionContext.current && settingsPoll.current.visible
+      && generation === viewGeneration.current && revision === configRequest.current && scope === configView.current;
     const rows = settingRows(projectConfig.config, projectConfig.settings || []);
     let writeAttempted = false, pendingReadAttempted = false;
     configMutation.current = true; setConfigBusy(true); setError("");
@@ -1161,7 +1173,8 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
         setConfigBusy(false);
         const accepted = await new Promise<boolean>(resolve => {
           settingsConfirmationResolve.current = resolve;
-          setSettingsConfirmation({candidate:value,edits:changes,project:target,config:projectConfig,resolve});
+          setSettingsConfirmation({candidate:value,edits:changes,project:target,config:projectConfig,
+            binding:authority.binding,label:selectedProject?.display_name || selectedProject?.name || target,invalid:false,resolve});
         });
         settingsConfirmationResolve.current = null;setSettingsConfirmation(null);
         if (!accepted || !current()) return false;
@@ -1180,6 +1193,7 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
           preview = proposed;
           if (!await confirm(proposed,edits)) return false;
         }
+        if (!current()) return false;
         writeAttempted = true;
         const prepared = await request<unknown>(`/projects/${encodeURIComponent(target)}/config/pending`, "POST", body, session?.csrf);
         if (!validPendingConfig(prepared) || !prepared || prepared.base_revision !== base
@@ -1222,7 +1236,10 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
         if (cause instanceof ApiError && cause.code === "stale_config_revision") setSettingsStale(true);
       }
       return false;
-    } finally { configMutation.current = false; setConfigBusy(false); }
+    } finally {
+      if (settingsSaveAuthority.current === authority) settingsSaveAuthority.current = null;
+      configMutation.current = false; setConfigBusy(false);
+    }
   };
 
   const discardPendingConfig = async () => {
@@ -1604,7 +1621,7 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
                   </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
-            {settingsConfirmation && settingsConfirmation.project === selected && <SettingsImpactDialog config={settingsConfirmation.config} candidate={settingsConfirmation.candidate} edits={settingsConfirmation.edits} project={selectedProject?.display_name || selected} paused={selectedProject?.paused === true} locale={locale} onDecision={accepted => settingsConfirmation.resolve(accepted)} />}
+            {settingsConfirmation && settingsConfirmation.project === selected && <SettingsImpactDialog config={settingsConfirmation.config} candidate={settingsConfirmation.candidate} edits={settingsConfirmation.edits} project={settingsConfirmation.label} paused={selectedProject?.paused === true} valid={!settingsConfirmation.invalid && settingsConfirmation.binding === actionContext && !selectedProject?.archived && isAdmin} locale={locale} onDecision={accepted => settingsConfirmation.resolve(accepted)} />}
             {pendingReadFailed && <div className="alert"><p>{settingsCopy[locale].readFailed}</p></div>}
             </>}
           </SettingsList>}
@@ -1800,9 +1817,9 @@ function ProjectAccess({ request, project, ready, refresh, csrf, locale, t, onEr
   </section>;
 }
 
-function SettingsImpactDialog({config, candidate, edits, project, paused, locale, onDecision}: {
+function SettingsImpactDialog({config, candidate, edits, project, paused, valid, locale, onDecision}: {
   config: Config; candidate: PendingConfig; edits: SettingEdit[]; project: string;
-  paused: boolean; locale: Locale; onDecision: (accepted: boolean) => void;
+  paused: boolean; valid: boolean; locale: Locale; onDecision: (accepted: boolean) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null), cancelButton = useRef<HTMLButtonElement>(null);
   const copy = settingsSaveCopy[locale];
@@ -1837,9 +1854,10 @@ function SettingsImpactDialog({config, candidate, edits, project, paused, locale
       && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>}
     <p className="muted">{copy.future}</p>
     {candidate.execution_plan && <details><summary>{settingsCopy[locale].details}</summary><ExecutionPlanReview plan={candidate.execution_plan} locale={locale} /></details>}
+    {!valid && <p role="alert" className="alert">{userCopy[locale].reviewChanged}</p>}
     {candidate.restart_required && !paused && <p role="alert" className="alert">{copy.pause}</p>}
     <div className="button-row"><button ref={cancelButton} type="button" className="ghost" onClick={()=>onDecision(false)}>{copy.cancel}</button>
-      <button type="button" className="primary" disabled={candidate.restart_required && !paused} onClick={()=>onDecision(true)}>{copy.confirm}</button></div>
+      <button type="button" className="primary" disabled={!valid || candidate.restart_required && !paused} onClick={()=>{ if (valid && (!candidate.restart_required || paused)) onDecision(true); }}>{copy.confirm}</button></div>
   </dialog>;
 }
 

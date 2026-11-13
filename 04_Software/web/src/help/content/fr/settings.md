@@ -41,6 +41,7 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 Règles applicables :
 
 - **Annuler les modifications** efface toutes les modifications non enregistrées. Annuler la confirmation les conserve sans créer de candidat enregistré.
+- Un changement détecté du nom, de l’archivage ou de la surveillance du projet désactive l’ancienne confirmation, même si l’état initial revient. Choisissez **Continuer la modification**, vérifiez le projet actuel puis **Enregistrer** pour une nouvelle vérification. Le brouillon reste ; une actualisation identique conserve une confirmation valide.
 - L’enregistrement est lié à la configuration modifiée. Une révision périmée bloque l’enregistrement et conserve vos saisies . Abandonnez vos modifications pour recharger les paramètres enregistrés avant de recommencer. Les modifications concurrentes provoquent un conflit.
 - Le serveur vérifie toute la configuration et enregistre les changements ensemble. Un enregistrement révisé des seuls budgets permet aussi les tâches en attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres exigent des tâches terminées. Un échec conserve vos saisies et le candidat préparé.
 - Les changements d’identité ou d’environnement exigent aussi la surveillance en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la pause n’interrompt pas une tâche.

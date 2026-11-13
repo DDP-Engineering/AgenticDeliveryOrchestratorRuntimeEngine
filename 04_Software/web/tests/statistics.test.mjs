@@ -216,6 +216,48 @@ test("matching request selections still require matching server canonical interv
   assert.equal(h.latest().completedAt, null);
 });
 
+/** Global pairs may each validate while disagreeing with the other project. */
+test("global reporting validates common canonical scope and pooled evidence before publication", async () => {
+  const intervalSelection = { ...selection, from: "2026-10-25", through: "2026-10-25" };
+  for (const failure of ["interval", "metrics aggregate", "usage aggregate"]) {
+    const h = reporting({ projectIds: ["alpha", "beta"], selection: intervalSelection, admin: true });
+    const values = (bad = false) => {
+      const metrics = {}, usage = {};
+      for (const id of ["alpha", "beta"]) {
+        metrics[id] = fixture(); usage[id] = consumption();
+        const hour = bad && failure === "interval" && id === "beta" ? "01" : "00";
+        const from = `2026-10-25T${hour}:00:00Z`, to = `2026-10-26T${hour}:00:00Z`;
+        for (const value of [metrics[id], usage[id]]) {
+          value.scope = { ...scope(id), mode: "interval", from, to, interval_seconds: 86400 };
+          value.jobs[0].project_id = id;
+        }
+        Object.assign(metrics[id].period, { from, to });
+        if (bad && failure === "metrics aggregate") metrics[id].totals.cost_usd = 1e308;
+        if (bad && failure === "usage aggregate") usage[id].totals.reported_cost_usd = 1e308;
+        readStatistics(metrics[id], id, intervalSelection, true);
+        readConsumption(usage[id], id, intervalSelection, true);
+      }
+      return { metrics, usage };
+    };
+    const complete = async bad => {
+      const pending = h.owner.refresh(); await flush();
+      const value = values(bad);
+      h.requests.metrics.at(-1).resolve(value.metrics); h.requests.usage.at(-1).resolve(value.usage);
+      await pending;
+    };
+    await complete(false);
+    assert.equal(h.latest().status, "ready", "matching multi-project control publishes");
+    h.advance(100);
+    await complete(true);
+    assert.equal(h.latest().status, "error", failure);
+    assert.equal(h.latest().data, null);
+    assert.equal(h.latest().completedAt, null, "invalid replacement cannot record success");
+    await complete(false);
+    assert.equal(h.latest().status, "ready", "explicit valid recovery publishes");
+    h.owner.dispose();
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();

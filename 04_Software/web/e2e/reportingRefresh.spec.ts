@@ -122,6 +122,45 @@ for (const scope of ["global", "project"] as const) test(`Statistics ${scope} ca
   } finally { held.resolve(); }
 });
 
+for (const failure of ["canonical interval", "metrics aggregate", "usage aggregate"] as const) test(`Statistics global ${failure} fails closed before rendering and recovers`, async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  let corrupt = false;
+  await page.route(/\/api\/v1\/(?:metrics|usage)\?/, async route => {
+    const body = await (await route.fetch()).json();
+    const entries = Object.values(body) as Array<{ scope: { from: string; to: string }; period?: { from: string; to: string }; totals: Record<string, number> }>;
+    expect(entries.length).toBeGreaterThan(1);
+    if (corrupt) {
+      if (failure === "canonical interval") {
+        const value = entries[1];
+        value.scope.from = new Date(Date.parse(value.scope.from) + 3600000).toISOString();
+        value.scope.to = new Date(Date.parse(value.scope.to) + 3600000).toISOString();
+        if (value.period) Object.assign(value.period, { from: value.scope.from, to: value.scope.to });
+      } else if (route.request().url().includes(failure === "metrics aggregate" ? "/metrics?" : "/usage?")) {
+        for (const value of entries) value.totals[failure === "metrics aggregate" ? "cost_usd" : "reported_cost_usd"] = 1e308;
+      }
+    }
+    await route.fulfill({ json: body });
+  });
+  await page.goto("/metrics?from=2026-10-25&through=2026-10-25");
+  await expect(page.locator(".statistics-evidence")).toBeVisible();
+  expect((await times(page)).length).toBe(3);
+  await page.getByText("Export CSV", { exact: true }).click();
+  corrupt = true;
+  await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator(".statistics-evidence")).toHaveCount(0);
+  await expect(page.locator(".metrics-export")).toHaveCount(0);
+  expect(await times(page)).toEqual([]);
+  expect(errors).toEqual([]);
+  corrupt = false;
+  await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.locator(".statistics-evidence")).toBeVisible();
+  expect((await times(page)).length).toBe(3);
+  expect(errors).toEqual([]);
+});
+
 for (const failure of ["application", "media", "foreign", "scope"] as const) test(`Statistics ${failure} refresh refuses both report members and exports`, async ({ page }) => {
   const id = await alpha(page);
   await page.goto(`/projects/${id}/statistics`);

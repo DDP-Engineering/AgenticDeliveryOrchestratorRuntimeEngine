@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -552,6 +554,31 @@ replay and the native sign-out AbortSignal deadline have not been separately
 browser-forced; shared request ownership/deadline and production account-transition
 boundaries are covered. No deployed visual/live forge/model acceptance is claimed.
 
+### Round-1 review corrections
+
+The returned build corrects both recorded high-severity findings. Reporting now
+validates common canonical fields across every project and both members, computes
+pooled metrics/usage inside owned validation and stores those results before ready
+publication. Render performs no aggregate computation. Two-project interval and
+metrics/usage overflow negatives prove error/Retry, no report/exports/success time
+or pageerror, followed by valid recovery (`tests/statistics.test.mjs` and
+`e2e/reportingRefresh.spec.ts`).
+
+Settings Save captures live semantic principal/project/action authority and latches
+its invalidation through preview, confirmation and pending waits. Rename, archive
+and pickup transitions, including restored old values, require Keep editing and a
+fresh Save/review; no invalid continuation prepares/applies a subsequent candidate.
+Unchanged reviews/drafts/focus persist. `e2e/settingsRefresh.spec.ts` proves these
+boundaries plus correction feedback/keyboard use at 390px in four locales and both
+themes. Component/user documentation, four-locale Settings help, existing release
+notes, current reporting spec/traceability and production assets are updated.
+
+Focused review-fix proof: 64 helpers/help contracts, 125 integrated browser cases
+and a subsequent 31-case reporting/Settings run including the added eight locale/
+theme cases pass. These are focused build results, not a complete strict suite or
+independent approval. Return for round-2 reviews, reconciliation, final strict
+proof/report and task closure in validate; this session does not begin that stage.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -711,19 +738,29 @@ boundaries are covered. No deployed visual/live forge/model acceptance is claime
 - 2026-11-13 validate: Focused validation reproduction: node /tmp/task77-review/reporting-repro.mjs exit 1 (expected failing contract assertion). Reused the existing statistics.test.mjs licensed fixture definitions to build alpha/beta metrics and usage: identical requested UTC calendar day, valid matching metrics/usage within each project, alpha canonical interval 00:00-00:00 and beta 01:00-01:00. Individual production validators accepted both. createReportingRefresh published ready; aggregateMetrics then threw RangeError: Inconsistent server metric scope. Assertion expecting closed error failed. This is a current-candidate trust-boundary defect, not an environment failure or completed proof. No product/test files edited.
 - 2026-11-13 validate: Specification reviewer also found high-severity Settings review authority gap, confirmed by current-source inspection: App.tsx:1152-1168 saveSettings.current checks only session/view/config request generations, while SettingsImpactDialog:1803-1842 receives no name/archive authority binding and disables Confirm only for restart_required with unpaused pickup. Detected /projects rename/archive does not invalidate that continuation, and archive/restore can revive it without new review. Existing settingsRefresh.spec.ts proves unchanged/unrelated review preservation, not changed live authority. Required correction: capture semantic project review preconditions, latch invalidation, expose disabled correction feedback, recheck before pending/apply writes; add archive/rename/restore negatives with zero writes from an invalid review plus unchanged preservation control (REQ-SEC-6d0b0125, D6). Browser reproduction of this second finding was not run; it is independently reviewed and source-confirmed, not claimed as a test outcome. Reconciliation and final strict proof/report remain unfinished and must follow corrections and fresh approvals.
 - 2026-11-13 validate: returned to build - Round-1 independent reviews require two corrections: fail closed before publishing cross-project reporting interval/aggregate mismatches, and latch Settings confirmation invalid when live project name/archive/action authority changes. Add the named negative behavioral tests, preserve unchanged-review continuity, rerun focused proof, then return for round-2 reviews and final strict validation.
+- 2026-11-13 build: Review-fix build bounds: 45 minutes, at most 22 ticket-scoped changed paths and 12 focused verification commands. Fix only round-1 cross-project reporting/aggregate validation and Settings live-review authority findings, preserving existing anchor and unchanged-review continuity; add red/green boundary proof, update scoped documentation/traceability and regenerate static assets before returning to validate.
+- 2026-11-13 build: red: node --test tests/statistics.test.mjs exit 1 (15 pass, new two-project scope/pooled-validation case fails: invalid interval publishes ready); npm run build:e2e && playwright reportingRefresh/settingsRefresh --grep 'global .* fails closed|invalidates confirmation' exit 1 (6/6). Global canonical mismatch and finite individual amounts with overflowing metrics/usage aggregates fail to expose Retry; Settings rename/archive/pickup leaves Confirm enabled. Fixtures use matching per-project metrics/usage, real validators and unchanged-review preservation controls (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9, REQ-SEC-6d0b0125).
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/settingsSave.test.mjs && npm run build:e2e && playwright reportingRefresh/settingsRefresh --grep 'global .* fails closed|invalidates confirmation' exit 0 (51 helpers, 6 browser cases, UI/E2E typecheck and isolated build). Reporting now checks canonical fields across every project/member and computes stored pooled results within owned validation before publication; render performs no aggregate work. Settings Save captures live project/principal/action binding, latches invalidation through metadata changes/reverts, disables confirmation with existing four-locale correction copy, preserves drafts/unchanged focus and checks authority before pending/apply.
+- 2026-11-13 build: green: npm run typecheck && playwright e2e/reportingRefresh.spec.ts e2e/settingsRefresh.spec.ts e2e/settings-save.spec.ts e2e/settings.spec.ts e2e/statistics.spec.ts e2e/operationRefresh.spec.ts exit 0 (125/125 offline Chromium journeys). Includes new held-preview and held-pending archive/restore boundaries: an obsolete preview cannot create a pending candidate, and an already accepted pending request cannot proceed to apply. All existing unchanged-review/draft/sign-in/price, report scope/cadence/deadline/state and post-result regressions in this selection pass; no old oracle weakened. Full strict validation and fresh independent approvals remain next-stage work.
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/settingsSave.test.mjs tests/help.test.mjs && npm run build exit 0 (64 helpers/help contracts; production build/stamp). Subsequent npm run build:e2e && playwright e2e/reportingRefresh.spec.ts e2e/settingsRefresh.spec.ts exit 0 (31/31), including eight added four-locale/light-dark/390px invalid-confirmation feedback, overflow and keyboard-correction cases. Existing 125-case integrated regression remains green; no source edit since it.
+- 2026-11-13 build: release-notes: updated (merged reporting safe error recovery into Statistics and latched changed confirmation into Navigation in en/fr/de/ro; preserved category limits and corrected length-check findings; check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-13 build: help: updated (Settings en/fr/de/ro explains detected rename/archive/monitoring invalidation, non-revival after restore and Keep editing/fresh Save while preserving drafts and unchanged valid confirmations; locale/structure/link helpers pass).
+- 2026-11-13 build: Review-fix build audit: evolution exit 0 reviewed all 70 post-anchor added/modified/removed paths against D1-D8, including the preserved candidate; this session changes exactly 22/22 scoped paths for two recorded findings, tests, two requirement links/verification, reporting spec, component/user/knowledge documentation, four help locales, changelog/merged notes and four rebuilt static paths. Existing anchor retained. All 42 requirements remain active with existing affected paths/test links; all 127 input and 7 output hashes independently match; release-note check and git diff --check exit 0. No backend/dependency/stored-schema/payload changes or publication. Both round-1 findings are corrected with focused negative/recovery and unchanged-review proof; round-2 independent approvals/final strict suite remain validate work.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 60 warnings, 28 notes. Preserve 35 inherited ticket-ref/stale-path/journal-header/legacy-deliver findings out of scope; 22 uncovered-source heuristics are frontend test paths with actual requirement links. Journal password-literal warning is test/session prose with no credential introduced; Users literal is intentionally fake offline data. DEVIATION build: generated minified JS added-lines secret scan is unavailable - accepted for this candidate because the bundle was rebuilt from reviewed source and every stamped hash matches; no final strict proof claimed. Existing large-chunk build warning retained without dependency/splitting expansion. No unresolved product defect identified in this focused correction; full suite and enabled fresh reviews intentionally not run in build.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: Round-1 independent reviews require two corrections: fail closed before publishing cross-project reporting interval/aggregate mismatches, and latch Settings confirmation invalid when live project name/archive/action authority changes. Add the named negative behavioral tests, preserve unchanged-review continuity, rerun focused proof, then return for round-2 reviews and final strict validation.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Recorded both independent review findings and confirmed the reporting defect with a focused failing reproduction; product candidate preserved unchanged.
-evidence: node /tmp/task77-review/reporting-repro.mjs exit 1: invalid global scope published ready then aggregateMetrics threw; git diff --check exit 0. Settings authority finding confirmed by source inspection, not browser execution.
-issues: Two high-severity implementation defects remain. Final strict suite and report intentionally not run before corrections; task is not validated or closed.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected both round-1 review findings: validate common cross-project reporting scope and pooled results before publication; latch Settings Save/review authority invalid across changed/restored metadata and held reads. Updated tests, docs/help/notes/traceability and production assets.
+evidence: 64 helpers/help tests, 125 integrated browser cases and final 31 reporting/Settings browser cases pass; production build, 134 recorded hashes, release-note check, traceability audit and diff check pass; advisory check has 0 errors.
+issues: Final strict suite, reconciliation and round-2 independent approvals remain validate-stage work. Advisory inherited/heuristic/false-positive warnings and unscanned minified added lines are explained in Log; no live acceptance claimed.
 spec_compliance:
 implementation_quality:
 review_round: 1

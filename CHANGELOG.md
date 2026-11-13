@@ -43,6 +43,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Validate common reporting boundaries across all projects and pooled Statistics
+  before publication; invalid aggregates show error/Retry, never a rendering crash
+  or false success time. Latch Settings confirmations invalid after detected project
+  rename/archive/monitoring changes, including reverts and in-flight preview/pending
+  responses; keep unchanged reviews and drafts, and require a fresh review to save.
+
 - Bind monitoring, archive, restore and delete callbacks/notices to current project
   authority; cancel obsolete browser submissions without claiming server rollback.
   Preserve unchanged delete drafts but invalidate changed reviews; removed projects

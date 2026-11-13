@@ -41,6 +41,7 @@ Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unte
 Es gelten folgende Regeln:
 
 - **Änderungen verwerfen** entfernt alle ungespeicherten Eingaben. Das Abbrechen der Bestätigung behält sie ohne einen gespeicherten Kandidaten.
+- Eine erkannte Änderung von Projektname, Archivierung oder Überwachung sperrt die alte Bestätigung, auch wenn der alte Zustand zurückkehrt. Wählen Sie **Weiter bearbeiten**, prüfen Sie das aktuelle Projekt und wählen Sie erneut **Speichern** für eine neue Prüfung. Der Entwurf bleibt; unveränderte Updates erhalten eine gültige Bestätigung.
 - Speichern ist an die bearbeitete Konfiguration gebunden. Eine veraltete Revision sperrt das Speichern und behält die Eingaben. Verwerfen Sie Ihre Änderungen, um die gespeicherten Einstellungen vor dem Bearbeiten neu zu laden. Gleichzeitige Änderungen führen zu einem Konflikt.
 - Der Server prüft die gesamte Konfiguration und speichert alles gemeinsam. Geprüfte reine Budgetänderungen erlauben auch wartende Rückfragen, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen erfordern beendete Jobs. Ein Fehler behält Eingaben und vorbereitete Kandidaten.
 - Identitäts- und Laufzeitänderungen erfordern zusätzlich pausierte Überwachung. Wählen Sie **Überwachung pausieren** in Übersicht und lassen Sie aktive Arbeit enden; die Pause unterbricht keinen Auftrag.

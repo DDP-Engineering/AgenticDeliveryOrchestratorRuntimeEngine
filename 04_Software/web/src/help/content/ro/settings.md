@@ -41,6 +41,7 @@ Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent
 Reguli aplicabile:
 
 - **Renunță la modificări** elimină toate editările nesalvate. Anularea confirmării le păstrează fără să creeze un candidat salvat.
+- O schimbare detectată a numelui, arhivării sau monitorizării proiectului dezactivează confirmarea veche, chiar dacă starea inițială revine. Alege **Continuă editarea**, verifică proiectul curent și apasă din nou **Salvează** pentru o nouă revizuire. Ciorna rămâne; actualizările identice păstrează confirmarea validă.
 - Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse. Renunțați la modificări pentru a reîncărca setările salvate înainte de a edita din nou. Modificările simultane produc un conflict.
 - Serverul verifică întreaga configurație și salvează toate modificările împreună. Salvarea revizuită doar a bugetelor permite și joburi în așteptarea clarificărilor, fără conductor activ sau operații neterminate. Alte setări cer joburi încheiate. O eroare păstrează datele introduse și candidatul pregătit.
 - Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.

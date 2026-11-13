@@ -156,7 +156,11 @@ while its project context is visible, sharing one bounded read. A read failure o
 resumes observation of an unresolved command. Its actual result triggers fresh
 project reads without closing Access reviews or clean Settings groups. Dirty
 settings and valid confirmations remain guarded. A successful Settings Save
-validates saved values before editing resumes and retains open groups.
+validates saved values before editing resumes and retains open groups. A detected
+project rename, archive or monitoring-state change invalidates an open Settings
+confirmation, even if that state later returns. Choose **Keep editing**, check the
+current project and **Save** again for a fresh review; your inputs remain. An
+unchanged metadata update does not close or invalidate the confirmation.
 
 Tickets retain open bodies and unchanged Start/Stop confirmations through project
 updates. If project identity, access or archive status changes, the old confirmation
@@ -1149,6 +1153,9 @@ times. It is informational, not current authoritative evidence. Retry or the nex
 successful complete read clears the notice. CSV downloads read current server
 data, not necessarily the retained screen. Initial, malformed, unauthorized,
 scope-mismatched and other application failures hide the affected report and exports.
+All projects must share the same server reporting boundaries. An inconsistent
+project interval or invalid pooled result also shows error/Retry without a new
+successful-update time; it cannot replace the page with a rendering failure.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal
