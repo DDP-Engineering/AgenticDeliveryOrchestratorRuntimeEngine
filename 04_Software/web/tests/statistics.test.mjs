@@ -313,6 +313,36 @@ test("known combined token overflow fails validation for single-project consumpt
   }
 });
 
+/** Quality must never discover malformed run rows after the owner has committed. */
+test("reporting validates run collections and review counts before publishing success", async () => {
+  const validRuns = [{ review_rounds: 0 }, { review_rounds: 2 }];
+  const valid = fixture(); valid.runs = validRuns;
+  assert.equal(readStatistics(valid, "alpha", selection, false).runs, validRuns);
+  for (const runs of [undefined, null, {}, [null], [[]], [{}], [{ review_rounds: "2" }],
+    [{ review_rounds: null }], [{ review_rounds: -1 }], [{ review_rounds: 0.5 }],
+    [{ review_rounds: Number.MAX_SAFE_INTEGER + 1 }],
+    [{ review_rounds: Number.MAX_SAFE_INTEGER }, { review_rounds: 1 }]]) {
+    const h = reporting();
+    const complete = async rows => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = memberValue("metrics", 1); metrics.alpha.runs = rows;
+      h.requests.metrics.at(-1).resolve(metrics);
+      h.requests.usage.at(-1).resolve(memberValue("usage", 1));
+      await pending;
+    };
+    await complete(runs);
+    assert.equal(h.latest().status, "error");
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false);
+    await complete(validRuns); assert.equal(h.latest().status, "ready");
+    h.advance(100);
+    await complete(runs); assert.equal(h.latest().status, "error");
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete([]); assert.equal(h.latest().status, "ready", "empty run collection is valid");
+    h.owner.dispose();
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();

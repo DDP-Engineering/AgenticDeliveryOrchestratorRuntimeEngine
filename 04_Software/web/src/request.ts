@@ -11,8 +11,13 @@ export type Request = <T>(path: string, method?: string, body?: unknown, csrf?: 
 /** HTTP denial is distinct from a server string claiming a transport failure. */
 class RequestDenied extends ApiError {}
 
-/** JSON transport; successful bodies still need the resource's own validator. */
-export const rawRequest: Request = async <T>(path: string, method = "GET", body?: unknown, csrf?: string, signal?: AbortSignal): Promise<T> => {
+/**
+ * JSON transport; successful bodies still need the resource's own validator.
+ * An authenticated owner can handle denial at headers without awaiting a body.
+ * Unauthenticated/raw callers retain detailed error-body codes (notably login).
+ */
+export const rawRequest = async <T>(path: string, method = "GET", body?: unknown, csrf?: string, signal?: AbortSignal,
+  onDeniedStatus?: (code: string) => boolean): Promise<T> => {
   let response: Response;
   try {
     response = await fetch(`/api/v1${path}`, {
@@ -26,6 +31,14 @@ export const rawRequest: Request = async <T>(path: string, method = "GET", body?
   }
   signal?.throwIfAborted();
   if (!response.ok) {
+    const denied = response.status === 401 || response.status === 403;
+    // Status is sufficient authority evidence. A body can stall or be corrupt;
+    // it must not turn a received denial into a later informational deadline.
+    const denialCode = response.status === 401 ? "authentication_required" : "request_rejected";
+    if (denied && onDeniedStatus?.(denialCode)) {
+      void response.body?.cancel().catch(() => {});
+      throw new RequestDenied(denialCode);
+    }
     const payload = await response.json().catch(() => ({}));
     signal?.throwIfAborted();
     const detail = payload?.detail;
@@ -50,17 +63,27 @@ export const rawRequest: Request = async <T>(path: string, method = "GET", body?
  * and prices. Disposal aborts all browser work and refuses late callbacks/new
  * requests. It does not claim to roll back accepted server mutations.
  */
-export function createRequestScope(onDenied: (code: string) => void, transport: Request = rawRequest) {
+export function createRequestScope(onDenied: (code: string) => void, transport: typeof rawRequest = rawRequest) {
   const lifetime = new AbortController();
   let authenticated = false;
   const request: Request = async <T>(path: string, method?: string, body?: unknown, csrf?: string, signal?: AbortSignal): Promise<T> => {
     const owned = signal ? AbortSignal.any([lifetime.signal, signal]) : lifetime.signal;
     owned.throwIfAborted();
+    let deniedAtHeaders = false;
     try {
-      const value = await transport<T>(path, method, body, csrf, owned);
+      const value = await transport<T>(path, method, body, csrf, owned, code => {
+        if (!authenticated || owned.aborted) return false;
+        deniedAtHeaders = true;
+        lifetime.abort();
+        onDenied(code);
+        return true;
+      });
       owned.throwIfAborted();
       return value;
     } catch (cause) {
+      // This attempt's received denial is a closed HTTP failure, not a transport
+      // abort. Other disposed/obsolete attempts still cannot deliver callbacks.
+      if (deniedAtHeaders && cause instanceof RequestDenied) throw cause;
       owned.throwIfAborted();
       if (authenticated && cause instanceof RequestDenied) {
         lifetime.abort();

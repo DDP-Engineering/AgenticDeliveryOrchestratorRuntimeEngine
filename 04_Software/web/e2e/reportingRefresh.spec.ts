@@ -168,6 +168,45 @@ for (const failure of ["canonical interval", "metrics aggregate", "usage aggrega
   expect(errors).toEqual([]);
 });
 
+for (const failure of ["collection", "null row", "review count", "review total"] as const) test(`Statistics global Quality rejects malformed run ${failure} before publication and recovers`, async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  let corrupt = true;
+  await page.route(/\/api\/v1\/metrics\?/, async route => {
+    const body = await (await route.fetch()).json();
+    if (corrupt) {
+      const value = Object.values(body)[0] as { runs: unknown };
+      value.runs = failure === "collection" ? {} : failure === "null row" ? [null] :
+        failure === "review count" ? [{ review_rounds: "2" }] :
+          [{ review_rounds: Number.MAX_SAFE_INTEGER }, { review_rounds: 1 }];
+    }
+    await route.fulfill({ json: body });
+  });
+  await page.goto("/metrics?tab=quality");
+  await expect(page.getByRole("tab", { name: "Quality", exact: true })).toHaveAttribute("aria-selected", "true");
+  const closed = async () => {
+    await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toHaveCount(0);
+    await expect(page.locator("#metrics-tab-panel table")).toHaveCount(0);
+    await expect(page.locator(".metrics-export")).toHaveCount(0);
+    expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+  };
+  for (let round = 0; round < 2; round++) {
+    await closed();
+    corrupt = false;
+    await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Review rounds", exact: true })).toBeVisible();
+    expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+    if (round === 0) {
+      await page.getByText("Export CSV", { exact: true }).click();
+      corrupt = true;
+      await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+    }
+  }
+});
+
 for (const failure of ["application", "media", "foreign", "scope"] as const) test(`Statistics ${failure} refresh refuses both report members and exports`, async ({ page }) => {
   const id = await alpha(page);
   await page.goto(`/projects/${id}/statistics`);

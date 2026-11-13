@@ -18,7 +18,7 @@ version = "Unreleased"
 [[release.entry]]
 category = "fixed"
 topic = { en = "Statistics", fr = "Statistiques", de = "Statistiken", ro = "Statistici" }
-text = { en = "Reports keep tables and export menus during updates, with Refresh, source times and safe retry.", fr = "Rapports, tableaux et exports conservés ; actualisation, heures des sources et réessai sûr.", de = "Berichte, Tabellen und Exportmenüs bleiben; Aktualisieren, Quellzeiten und sicher wiederholen.", ro = "Rapoartele păstrează tabelele și exportul la actualizare, cu orele surselor și reîncercare sigură." }
+text = { en = "Reports stay visible during updates; invalid evidence offers Retry instead of breaking the view.", fr = "Rapports conservés à l’actualisation ; données invalides refusées sans plantage, avec Réessayer.", de = "Berichte bleiben bei Updates sichtbar; ungültige Daten erlauben Wiederholen statt eines Absturzes.", ro = "Rapoartele rămân vizibile la actualizare; dovezile invalide permit reîncercarea, fără blocare." }
 
 [[release.entry]]
 category = "fixed"
@@ -38,7 +38,7 @@ text = { en = "Manual refresh keeps drafts and valid reviews; changed access req
 [[release.entry]]
 category = "fixed"
 topic = { en = "Interface", fr = "Interface", de = "Oberfläche", ro = "Interfață" }
-text = { en = "Updates keep host checks, forms and valid reviews; sign-out or lost access hides private data.", fr = "Contrôles, formulaires et revues conservés ; déconnexion ou accès perdu masque les données privées.", de = "Updates erhalten Prüfungen und Formulare; Abmeldung oder Rechteverlust blendet private Daten aus.", ro = "Actualizările păstrează verificările și formularele; deconectarea ascunde datele private." }
+text = { en = "Updates keep checks and forms; denied access hides private data without waiting for a full reply.", fr = "Contrôles et formulaires conservés ; un refus d’accès masque les données privées sans attendre.", de = "Updates erhalten Prüfungen und Formulare; Zugriffsverweigerung blendet private Daten sofort aus.", ro = "Actualizările păstrează formularele; accesul refuzat ascunde imediat datele private, fără așteptare." }
 
 [[release.entry]]
 category = "fixed"

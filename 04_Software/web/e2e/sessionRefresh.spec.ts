@@ -82,6 +82,37 @@ for (const code of ["authentication_required", "admin_required", "password_chang
   });
 }
 
+for (const status of [401, 403]) test(`received HTTP ${status} headers hide Users before a stalled denial body completes`, async ({ page }) => {
+  await page.goto("/admin/users");
+  await expect(page.locator(".user-row").first()).toBeVisible();
+  const held = deferred();
+  await page.route("**/api/v1/me", async route => { await held.promise; await route.fulfill({ status: 401, json: { detail: { code: "authentication_required" } } }).catch(() => {}); });
+  // Route fulfillment buffers bodies. A real Response stream in the browser
+  // instead separates received status from an intentionally unfinished body.
+  await page.evaluate(status => {
+    const original = window.fetch.bind(window);
+    let body: ReadableStreamDefaultController<Uint8Array>;
+    Object.assign(window, { finishDeniedBody: () => {
+      try { body.enqueue(new TextEncoder().encode('{"detail":{"code":"admin_required"}}')); body.close(); } catch { /* scope may cancel the body */ }
+    } });
+    window.fetch = async (input, init) => {
+      if (String(input) === "/api/v1/users") return new Response(new ReadableStream<Uint8Array>({ start(controller) { body = controller; } }), {
+        status, headers: { "Content-Type": "application/json" },
+      });
+      return original(input, init);
+    };
+  }, status);
+  try {
+    await page.locator(".topbar").getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(page.locator(".user-row")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add user", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Primary navigation", exact: true })).toHaveCount(0);
+    await page.evaluate(() => (window as unknown as { finishDeniedBody(): void }).finishDeniedBody());
+    await expect(page.locator(".user-row")).toHaveCount(0);
+  } finally { held.resolve(); }
+  await expect(page.locator('input[name="username"]')).toBeVisible();
+});
+
 test("Settings price denial uses the same session boundary as owned page reads", async ({ page }) => {
   const projects = await (await page.request.get("/api/v1/projects")).json();
   const alpha = projects.find((item: { name: string }) => item.name === "alpha").id;

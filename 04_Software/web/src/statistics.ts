@@ -99,6 +99,11 @@ export function readStatistics(value: unknown, project: string, selection: Repor
     tokenPair(day);
     for (const [key, value] of Object.entries(day)) if (key !== "date") key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   }
+  // Global Quality reads review_rounds from every run. Refuse malformed rows
+  // and unsafe derived counts before the owner can publish ready or freshness.
+  if (!Array.isArray(row.runs)) invalid();
+  let reviewRounds = 0;
+  for (const item of row.runs as unknown[]) reviewRounds = count(reviewRounds + count(object(item).review_rounds));
   const result = row as unknown as Metrics;
   const pooled = aggregateMetrics([result], selection.timezone, selection.from, selection.through);
   for (const source of [object(row.duration), object(period.duration)]) {

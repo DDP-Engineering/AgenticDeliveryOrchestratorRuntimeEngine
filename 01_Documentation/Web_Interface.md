@@ -114,7 +114,8 @@ clearly marked informational-stale policy; completion alone is not new authority
 **Sign out** immediately hides private views and cancels their browser requests.
 The sign-out request finishes before another sign-in is offered, with a 30-second
 browser limit. Cancelling browser requests does not undo commands accepted by the
-server. Detected authentication or access denial also removes the previous view:
+server. Detected authentication or access denial also removes the previous view
+as soon as its response status arrives, even if the explanatory response is delayed:
 a changed session is checked again, a required password change opens its form,
 and an unchanged denied session requires explicit sign-in rather than repeated
 background retries. Missing project/job responses still use their scoped unavailable
@@ -1152,6 +1153,8 @@ successful-update time; it cannot replace the page with a rendering failure.
 Token directions and known combined totals must be exact safe integers, including
 pooled reports and job consumption. Out-of-range evidence is refused, not rounded
 or displayed as current; an unknown direction still makes its combined total unknown.
+Malformed job evidence or invalid review-round counts in a report likewise show
+error/Retry without a successful-update time, rather than breaking the Quality tab.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal

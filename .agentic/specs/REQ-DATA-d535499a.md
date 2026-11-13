@@ -40,7 +40,9 @@ IANA timezone and day/week/month granularity. The selected category and export
 menu are view state, not a reason to discard an otherwise valid report.
 
 Validation covers the existing required metrics/usage structures and role-specific
-financial projection. Each project in a global response maps to the current
+financial projection. Metrics run collections must be arrays of object rows with
+nonnegative safe-integer review-round counts and a safe per-project derived total;
+malformed run evidence fails before publication, not inside global Quality rendering. Each project in a global response maps to the current
 immutable identity, not just a reusable name. The response project set equals the
 captured authorized set. Corresponding metrics/usage canonical scopes agree on
 project IDs, mode, interval, from, to, timezone, granularity and interval seconds.
@@ -120,7 +122,7 @@ security responses are separately governed in the task's requirement coverage.
 | Retry pending after transport failure | Keep that stale indication until the failed dependency and complete required replacement succeed. |
 | Initial failure or failure after a context switch | Explicit failure without old numeric evidence or false zero. |
 | Malformed JSON/media type/fields, foreign identity, canonical mismatch or typed corruption/integrity refusal | Withhold affected report and dependent exports; not a transport-stale fallback. |
-| Current authorization/session loss | Immediately withhold affected protected data and actions once detected. |
+| Current authorization/session loss | Immediately withhold affected protected data and actions once detected, including at received HTTP 401/403 status before any explanatory body. |
 | Typed nontransport or unclassified failure | Fail closed; do not guess that an HTTP 5xx or arbitrary exception is transient. |
 | Context switch, navigation or unmount during read | Invalidate/cancel ownership; old success and old error cannot publish. |
 

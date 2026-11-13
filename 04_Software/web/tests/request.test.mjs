@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequestScope, rawRequest } from "../src/request.ts";
 import { ApiError, ReadTransportError } from "../src/errors.ts";
+import { createReadController } from "../src/polling.ts";
 
 const response = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -44,12 +45,22 @@ test("HTTP denial ends one authenticated scope and cancels sibling work once", a
     return response({ detail: { code: "admin_required" } }, 403);
   });
   let denials = 0;
-  const scope = createRequestScope(code => { assert.equal(code, "admin_required"); denials++; });
+  const scope = createRequestScope(code => { assert.equal(code, "request_rejected"); denials++; });
   scope.activate(); void scope.request("/held");
   await assert.rejects(scope.request("/users"), ApiError);
   assert.equal(signal.aborted, true);
   await assert.rejects(scope.request("/users"), { name: "AbortError" });
   assert.equal(denials, 1);
+});
+
+test("raw and login denial retain useful payload codes without revoking an unauthenticated scope", async t => {
+  t.mock.method(globalThis, "fetch", async () => response({ detail: { code: "invalid_credentials", message: "Sign-in refused" } }, 401));
+  const scope = createRequestScope(() => assert.fail("login does not own an authenticated principal"));
+  for (const request of [rawRequest, scope.request]) {
+    await assert.rejects(request("/session", "POST"), error => error instanceof ApiError &&
+      error.code === "invalid_credentials" && error.detail === "Sign-in refused");
+  }
+  assert.equal(scope.disposed(), false);
 });
 
 test("login denial is local, untyped HTTP denial is closed and 404 stays resource-local", async t => {
@@ -65,6 +76,38 @@ test("login denial is local, untyped HTTP denial is closed and 404 stays resourc
   status = 403;
   await assert.rejects(scope.request("/users"), ApiError);
   assert.equal(denials, 1);
+});
+
+/** Status is already authority evidence even when the explanatory body never arrives. */
+for (const status of [401, 403]) test(`HTTP ${status} headers immediately revoke scope despite a stalled body and later deadline`, async t => {
+  let calls = 0, body;
+  const mock = t.mock.method(globalThis, "fetch", async () => ++calls === 1 ? response({ protected: true }) :
+    new Response(new ReadableStream({ start(controller) { body = controller; } }), {
+      status, headers: { "Content-Type": "application/json" },
+    }));
+  const flush = async () => { for (let n = 0; n < 25; n++) await Promise.resolve(); };
+  let denied = 0, snapshot;
+  const scope = createRequestScope(() => { denied++; }); scope.activate();
+  const timers = new Map();
+  const owner = createReadController({ key: "admin/report", deadlineMs: 30000, policy: "informational",
+    read: signal => scope.request("/metrics", "GET", undefined, undefined, signal), publish: value => { snapshot = value; },
+    env: { now: () => 1000, setTimeout: fn => { const id = {}; timers.set(id, fn); return id; }, clearTimeout: id => timers.delete(id) },
+  });
+  try {
+    await owner.refresh(); assert.equal(snapshot.status, "ready");
+    const pending = owner.refresh(); await flush();
+    assert.equal(denied, 1, "deny at headers, before body or deadline");
+    assert.equal(scope.disposed(), true);
+    await pending;
+    assert.equal(snapshot.status, "error"); assert.equal(snapshot.data, null); assert.equal(snapshot.completedAt, null);
+    for (const fn of [...timers.values()]) fn(); await flush();
+    // A cancelled stream need not accept late bytes. Either way, old evidence cannot revive.
+    try { body.enqueue(new TextEncoder().encode('{"detail":{"code":"admin_required"}}')); body.close(); } catch {}
+    await flush();
+    assert.equal(snapshot.data, null); assert.equal(snapshot.status, "error"); assert.equal(denied, 1);
+    await assert.rejects(scope.request("/users"), { name: "AbortError" });
+    assert.equal(mock.mock.callCount(), 2);
+  } finally { owner.dispose(); scope.dispose(); }
 });
 
 test("only fetch transport failure is transient; JSON, media and HTTP evidence are not", async t => {

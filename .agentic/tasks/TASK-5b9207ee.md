@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -632,6 +634,30 @@ in the preceding integrated run, and no subsequent product behavior edit occurre
 This is focused build proof, not a green full suite or independent approval.
 Fresh round-3 reviews, complete strict proof/report and closure remain validate work.
 
+### Round-3 review corrections
+
+The returned build corrects both recorded validation-boundary defects. Statistics
+validates the run array, object rows, nonnegative safe-integer review-round counts
+and their per-project derived total before any successful report publication.
+Malformed initial and replacement global Quality reads now show error/Retry with
+no report, exports, successful time or pageerror; valid retry recovers.
+
+Authenticated requests recognize HTTP 401/403 at received headers, invalidate the
+scope and remove prior views immediately, without awaiting the explanatory body.
+401 uses authentication-required feedback; 403 uses safe generic rejection and the
+existing session correction path. Raw/login callers retain detailed error-body
+codes. Denied bodies are discarded and cannot delay revocation until a read
+deadline or resurrect an old scope. Helper and real browser Response-stream tests
+prove both statuses, immediate action/evidence removal and late-body refusal.
+
+Focused proof passes 73 helper/help contracts and 131 integrated offline Chromium
+cases across reporting, sessions, Statistics, Jobs, Tickets, Settings, Users and
+Access. Production assets are rebuilt; 132 input and 7 output hashes match. Scoped
+requirements/specification, component/user/knowledge documentation, CHANGELOG and
+existing four-locale release entries are current. No new controls, labels or help
+workflow are introduced. These are build results only: fresh round-4 independent
+reviews, full strict proof/report and closure remain the next validate stage.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -839,19 +865,29 @@ Fresh round-3 reviews, complete strict proof/report and closure remain validate 
 - 2026-11-13 validate: Validate round 3 QUALITY changes_required (high): request.ts rawRequest awaits response.json before classifying HTTP 401/403. With an activated request scope and a successful informational read, return a real Response with denial headers and a held ReadableStream body, then fire the owned read deadline: prior protected snapshot becomes stale, onDenied is never called and scope stays active. Finishing the denial JSON body afterward is suppressed by abort checks and never invalidates that scope. Parent independently reproduced both 401 and 403 using production helpers. This violates immediate authorization withholding in REQ-DATA-d535499a. Classify/invalidate authorization at received status without awaiting body; preserve useful code handling without allowing body/deadline suppression. Add held-body 401/403 regressions proving immediate scope disposal/withholding and no late resurrection. Existing request/session tests cover only completed denials, not held bodies. Disposable reproduction: /tmp/task77-review3/denial-repro.mjs; review: /tmp/task77-review3/quality.log.
 - 2026-11-13 validate: Validate round 3 evidence: independent reviewers each ran polling/request/statistics helper contracts (40 passed, zero failed); parent confirmed both defect reproductions with exit 0 assertions that demonstrate the unsafe behavior, not acceptance proof. Release-notes check since bafae7e55bbcfda18451ee621368204af9dd864b passed; git diff --check passed; independent BUILD_FINGERPRINT SHA-256 audit matched all 132 inputs and 7 outputs. Advisory check reported 0 errors, 178 warnings and 28 notes (including inherited stale/removed target paths, heuristic source/fixture/secret hits, delivery archives and incomplete review). These are not a green final proof. Final strict/full proof and report deliberately not run because both independent reviews reject this candidate. Both findings route to build; no correction or publication in this validate session. Next validate requires fresh round-4 reviews and strict proof after corrections.
 - 2026-11-13 validate: returned to build - Round-3 independent spec and quality reviews both changes_required: malformed Statistics runs publish ready then crash global Quality; received HTTP 401/403 can be suppressed by a stalled body and read deadline, retaining protected data. Both independently reproduced; detailed corrections and missing regressions in Log.
+- 2026-11-13 build: Round-3 correction build bounds: 45 minutes, at most 24 ticket-scoped paths and 12 focused verification commands. Correct only malformed Statistics run publication and received HTTP-denial/body timing; preserve anchor/review round, add red-green helper/global Quality proof, update scoped documentation/traceability and rebuild assets. Node 22.23.4, locked node_modules/.venv, image Chromium path and nonempty machine identity verified; no dependency/backend/schema/payload or publication changes.
+- 2026-11-13 build: red: cd 04_Software/web && node --test tests/statistics.test.mjs tests/request.test.mjs exit 1 (23 pass/3 fail). New malformed-run owner test publishes ready instead of error; both held-body 401/403 tests observe zero denial callbacks after headers, before any deadline. Tests require closed initial/replacement evidence, no success time, immediate scope disposal and no late resurrection (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9, REQ-SEC-15563e41). Original anchor retained.
+- 2026-11-13 build: red: npm run build:e2e exit 0; playwright reportingRefresh --grep 'Quality rejects malformed run collection' exit 1: received malformed runs removes Quality by render failure instead of explicit Retry. New helper/browser tests are in place before implementation. HTTP correction will invalidate authenticated scopes from status alone (401 authentication_required, 403 generic request_rejected); raw/login error-body code handling remains intact, and 403 session correction still determines changed role/password state. Waiting for a detailed denial body cannot be an authorization dependency.
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/request.test.mjs tests/polling.test.mjs exit 0 (44 helpers); npm run build:e2e/typecheck exit 0; latest npm run typecheck && playwright reportingRefresh/sessionRefresh exit 0 (38/38). Run arrays/object rows, safe integer review counts and derived per-project review total now validate before ready/freshness. HTTP 401/403 headers revoke authenticated scope immediately, discard body and fail closed; raw/login detailed codes remain tested. Browser Response streams prove immediate Users/action removal and no late restoration. Earlier 32/36 run failed only four new recovery selectors incorrectly assuming Summary's statistics-evidence wrapper exists in Quality; corrected to actual Quality heading/table plus no-pageerror/no-time/no-export oracles, no product change.
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/request.test.mjs tests/errors.test.mjs tests/help.test.mjs exit 0 (73/73). Integrated offline Chromium reportingRefresh/sessionRefresh/statistics/jobRefresh/ticketRefresh/settingsRefresh/usersRefresh/accessRefresh exits 0 (131/131). Both recorded corrections pass with existing scope/cadence/deadline/authority/view-state and four-locale/two-theme regressions intact; no prior behavioral oracle weakened. Full strict proof and round-4 independent review remain validate-stage work.
+- 2026-11-13 build: release-notes: updated (merged invalid-report safe retry and immediate denied-access removal into existing Statistics/Interface fixed entries in en/fr/de/ro; category limits retained, check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-13 build: help: none (both corrections enforce the already documented invalid-evidence and immediate access-loss boundaries; no new labels, steps, controls, cadence or workflow. Existing four-locale Interface/Statistics help remains accurate and all help contracts pass).
+- 2026-11-13 build: Round-3 build audit: npm run build, release-note check, git diff --check and independent SHA-256/traceability audit exit 0. All 132 frontend inputs and 7 outputs match; all 42 requirements remain active with existing source/test paths. Evolution exit 0 reviewed 235 post-anchor paths (41 added/182 modified/12 removed), preserving target integration and original anchor; this session changes 21/24 scoped paths for two recorded corrections, six added browser cases, helper negatives, four requirement verifications, current spec/docs/knowledge, merged localized notes/changelog and four regenerated static paths. No new dependency/backend/schema/payload or publication change. Full strict proof and fresh round-4 independent reviews intentionally remain validate work.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 177 warnings, 28 manual-verification notes. Same inherited target findings: 2 ticket-ref, 37 stale-path, 16 missing-linked-test, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend tests and inherited target sources, 5 outside-layout paths are untouched target config/release archives. Six secret flags are reviewed inherited journal/Users fake credential language, three target private-key fixtures (fixture/fixture-private), and unavailable generated-JS scan. DEVIATION build: generated minified-JS added-lines scan remains unavailable - accepted with reviewed-source rebuild and every stamped hash matching, not a detected secret or final strict proof. Existing large-chunk warning retained without unrelated splitting/dependency changes. No unresolved correction identified in focused proof; independent approval/full suite not claimed.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: Correct only the two recorded validation-boundary defects, add focused regressions, then return to validate for fresh round-4 independent reviews and final strict proof.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md, 04_Software/web/src/statistics.ts, 04_Software/web/src/request.ts, .agentic/specs/REQ-DATA-d535499a.md
-changed: Validate-only knowledge/environment reconciliation and durable round-3 findings; no product or test corrections.
-evidence: Each reviewer reports 40 passing helper tests; parent reproduces malformed runs and held-body 401/403 defects; release-notes, 132-input/7-output asset hashes and whitespace checks pass. No final strict proof.
-issues: High: invalid runs can publish successful Statistics and crash Quality. High: known HTTP denial is delayed/lost behind response-body parsing and deadline, leaving scope active and protected snapshot stale. Both require build corrections before validation can pass.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected malformed Statistics run publication and immediate HTTP-denial handling; added helper/Quality/held-body browser regressions, updated scoped documentation/traceability and localized notes, rebuilt static assets.
+evidence: 73 helper/help tests and 131 integrated offline Chromium cases pass; TypeScript/production build, release-note check, whitespace and independent 132-input/7-output asset audit exit 0.
+issues: No unresolved finding from this build correction. Fresh round-4 independent reviews and final strict/full proof/report remain validate work; inherited advisory findings and bundle-size warning are logged.
 spec_compliance:
 implementation_quality:
 review_round: 3

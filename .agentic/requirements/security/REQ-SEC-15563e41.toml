@@ -15,7 +15,7 @@ requirement = """
 When sign-out, account or role change, session expiry, required password change or revoked project access invalidates a web view's authorization, the interface shall immediately withhold the no-longer-authorized evidence and actions upon detecting that transition, including snapshots retained during refresh.
 """
 
-verification = "Offline browser: hold privileged reads across sign-out/sign-in as another role and across Dev grant revocation, then release old successes; assert private data, money, exports and actions are absent under the new account/scope; exercise factory-session expiry/password-change transitions and confirm only authorized replacement data can appear."
+verification = "Offline browser: hold privileged reads across sign-out/sign-in as another role and across Dev grant revocation, then release old successes; assert private data, money, exports and actions are absent under the new account/scope; exercise factory-session expiry/password-change transitions and confirm only authorized replacement data can appear. Held-body HTTP 401/403 helpers and browser Response streams prove immediate header-time scope disposal/evidence removal, closed failure before the read deadline and no late resurrection; raw/login detailed error codes remain available."
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/request.ts", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
 

@@ -14,8 +14,12 @@ preview/download keeps its separate text-fetch lifecycle in RawConfiguration. It
 work and late success/denial after disposal, and preserves transport-only stale
 classification. Resource validators still own successful JSON. A real security
 transition replaces AppView, not ordinary polling: detected authenticated HTTP
-401/403 cancels the scope and removes all private data/reviews/old callbacks.
-Authentication/CSRF loss returns to sign-in. Other denials check `/me`; only changed
+401/403 cancels the scope and removes all private data/reviews/old callbacks at
+received headers, without awaiting a denial body. Authenticated 401 uses
+`authentication_required`; authenticated 403 uses generic `request_rejected`
+and the existing `/me` correction. The body is discarded; raw/login callers retain
+detailed error codes. Held-body helper/browser tests prove immediate removal,
+closed evidence before deadline and no late resurrection. Authentication loss returns to sign-in. Other denials check `/me`; only changed
 principal or required-password evidence may establish a correction automatically.
 An unchanged denied principal needs explicit sign-in, avoiding denial loops. HTTP
 404 stays resource-local. Sign-out removes the view immediately, then awaits its
@@ -74,6 +78,10 @@ and computes pooled metrics/usage within owned validation before publishing them
 on the complete report. App renders those stored aggregates without recomputing.
 Cross-project interval mismatch or pooled failure clears report/exports/success
 time with error/Retry; two-project helper/browser negatives also assert no pageerror.
+Metrics run collections are arrays of object rows; review-round counts and their
+per-project derived total validate as nonnegative safe integers before publication.
+Malformed collections/rows/counts fail closed in global Quality without report,
+exports, successful times or pageerror; helper/browser tests prove valid recovery.
 Raw and pooled token directions/cache counts and known combined input/output totals
 validate as safe integers before publication, including period/total/day and job
 consumption evidence. Missing directions keep totals unknown; known overflow fails

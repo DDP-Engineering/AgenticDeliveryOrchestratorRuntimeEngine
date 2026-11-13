@@ -44,9 +44,13 @@ late successes/errors even if a transport ignores abort. It never implies server
 mutation rollback. Sign-out's separate DELETE uses raw JSON transport after disposal.
 
 App retains one `AppView` instance for ordinary updates. A detected authenticated
-HTTP 401/403 disposes its request scope and replaces that instance, removing all old
-private snapshots, reviews, callbacks and action authority. Authentication/CSRF loss
-returns to sign-in. Other denials permit a validated `/me` correction only if the
+HTTP 401/403 disposes its request scope at received headers and replaces that instance,
+removing all old private snapshots, reviews, callbacks and action authority without
+awaiting the explanatory body. Authenticated 401 uses `authentication_required`;
+403 uses safe generic `request_rejected` and the existing session correction below.
+The discarded body cannot defer revocation until a read deadline or restore authority
+when it later completes. Unauthenticated login and raw callers still decode detailed
+error codes. Authentication loss returns to sign-in. Other denials permit a validated `/me` correction only if the
 principal actually changed or a password change is required; unchanged identity
 stops at explicit sign-in, preventing an automatic denial loop. Missing-resource
 404 stays resource-local and is not guessed to mean whole-account loss.
@@ -241,8 +245,13 @@ validation boundary and stored on the report; rendering never repeats aggregate
 work. Validation checks safe-integer token directions and known input-plus-output
 totals for raw and pooled period/total/day evidence, usage/cache buckets and job
 amounts before publication. A missing direction keeps the combined total unknown;
-known overflow is invalid, not an unknown or approximate number. Cross-project
-interval disagreement or aggregate failure withholds the report,
+known overflow is invalid, not an unknown or approximate number. Metrics `runs`
+must be an array of object rows with nonnegative safe-integer `review_rounds`;
+the derived per-project review-round total must also be safe. Global Quality therefore
+never discovers malformed run evidence after successful publication. Helper and
+Quality browser negatives cover invalid collections/rows/counts, initial and
+post-success failure, absent exports/times, no pageerror and valid recovery.
+Cross-project interval disagreement or aggregate failure withholds the report,
 exports and success time with explicit error/Retry, rather than throwing in render. App uses this owner for both global and
 project Statistics. Its render key captures the session principal/role, authorized
 immutable ID/name mapping, selected/all-project mode and reporting query; tab,

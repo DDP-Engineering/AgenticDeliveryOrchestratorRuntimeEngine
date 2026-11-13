@@ -21,7 +21,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   unrelated all-project reads; automatic cadence is unchanged.
 - Validate common reporting boundaries and pooled Statistics before publication,
   including safe-integer token directions and combined totals in reports and job
-  consumption. Invalid aggregates show error/Retry, not a crash or false success time.
+  consumption. Validate run rows, review-round counts and their derived total before
+  Quality renders. Invalid evidence shows error/Retry, not a crash or false success time.
 - Keep Jobs/History rows, pages, open details, consumption and manual executor output
   through same-context reads and command results. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;
@@ -50,7 +51,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   monitoring pause/resume invalidates old Start reviews even after revert, while
   independent Stop and a fresh eligible manual Start remain valid while paused.
 - Remove private views and cancel browser requests immediately on sign-out or detected
-  authentication/access loss. Recheck changed sessions or require explicit sign-in
+  authentication/access loss, acting on HTTP denial headers even when the body stalls.
+  Recheck changed sessions or require explicit sign-in
   without denial loops; coalesce applicable factory-session checks and reject corrupt
   transitions. Coalesce bounded project metadata reads without letting an older
   response replace a newer host-check result.
