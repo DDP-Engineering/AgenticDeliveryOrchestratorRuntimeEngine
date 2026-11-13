@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -1036,6 +1034,12 @@ is preserved in append-only Log rather than falsifying its counter.
 - 2026-11-13 build: Round-7 correction build audit under RULING-001: npm run build, release-note checker, git diff --check and independent SHA-256/traceability audits exit 0. All 132 frontend inputs/7 outputs match; all 42 requirements remain active with existing affected paths/test links. Evolution exit 0 reviewed all 236 post-anchor paths (41 added/183 modified/12 removed), preserving inherited target content and original anchor. This session changes 22/22 scoped paths: shared validator and pooling, helper/browser proof, three requirement verifications, spec/component/user/knowledge docs, four-locale Statistics help, merged localized note/CHANGELOG, journal and four regenerated asset paths. Both recorded findings corrected with focused proof; no backend/dependency/schema/payload/publication changes. Fresh independent round-8 reviews and full strict proof/report/closure remain required in validate; authorized review history stays in Log because installed CLI rejects rounds above 6.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 177 warnings, 28 notes. Inherited categories remain: 2 ticket-ref, 37 stale-paths, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend tests/inherited sources; 5 outside-layout paths are untouched target config/release archives. Six secret flags retain inherited journal/Users fake credential wording, three target fixture-key literals and unavailable generated-JS scan; this correction introduces no secret. DEVIATION build: generated minified-JS added-lines scan remains unavailable - accepted with reviewed-source rebuild and all stamped hashes matching, not a detected secret or final strict proof. Existing Vite large-chunk warning retained without unrelated splitting/dependencies. No unresolved recorded correction remains in focused proof; independent approval/full suite not claimed.
 - 2026-11-13 build: completed; next validate
+- 2026-11-13 validate: Validate round-8 bounds under RULING-001: 45-minute session, at most 12 scoped artifact edits and 8 focused checks before final proof. Obtain fresh independent read-only specification and quality reviews, inspect current candidate and 42 contracts, reconcile knowledge/context/inspection, then strict proof/report only if approved. Route concrete defects back to build and stop at that boundary; no publication, child journals or payload edits.
+- 2026-11-13 validate: Validate round 8 independent read-only specification review: changes_required. statistics.ts:25-28 checks only bound presence; mutually matching metrics/usage for 2026-09-01 through 2026-09-02 are accepted under selected 2026-10-25 UTC. Coordinator publishes ready and advances completedAt/fullReportAt from 1000 to 2000; App date controls/CSV retain the requested October period. Existing interval tests reject disagreement between members/projects, not agreement on the wrong requested interval. Violates REQ-UX-9f1ec9fa, REQ-DATA-d535499a, REQ-SEC-7ee58549 and REQ-UX-cbca5fd9. Require captured calendar-bound validation respecting server timezone/DST semantics, initial/replacement helper/browser negatives, withheld report/exports/time and valid DST/one-sided/recovery controls. Independent reviewer ran 51 focused helper cases, all passed; no repository edits or full proof.
+- 2026-11-13 validate: Validate round 8 independent read-only quality review: changes_required. statistics.ts:67-68 validates only present totals fields; removing required totals.runs passes. metrics.ts:61-64 pools missing runs as zero; App.tsx:484,1467,1486 treats selected missing count as empty Quality/Trends despite populated jobs. Replacement publishes ready and advances completedAt/fullReportAt from 1000 to 2000. Violates REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9. Require required total-count presence validation plus initial/replacement helper/browser negatives, withheld report/exports/time and valid recovery, preserving intentionally optional evidence. Independent reviewer ran 51 focused helper cases, all passed; no repository edits or full proof.
+- 2026-11-13 validate: Round-8 inspection/evidence: independently executed node /tmp/task77-r8-period-repro.mjs and node /tmp/task77-round8-quality-missing-count.mjs, both exit 0 because their assertions demonstrate the two defects, NOT successful contract proof. Production coordinator accepted September scope for October selection with fresh time 2000, and missing totals.runs became pooled zero with fresh time 2000 and one retained job; valid recovery controls passed. Inspected actual existing tests before identifying gaps. Also verified all 42 requirement records active with existing affected paths, release notes checker exit 0, git diff --check clean, and production fingerprint 132 inputs/7 outputs matching. Reviewed current component/project/environment knowledge and source/docs; no candidate edits made. Final strict proof/report deliberately not run because independent reviews require build correction; this is not an approved validation.
+- 2026-11-13 validate: DEVIATION validate: installed verdict CLI rejects --round 8 ('review round must be 1 through 6') despite RULING-001 authorizing rounds 7-9 - preserve both independent round-8 changes_required verdicts and findings in append-only Log, consistent with round 7, without falsifying round 6, editing CLI-owned State or modifying installed policy/payload. This recording limitation waives neither defect nor fresh review; return to build under the explicit user exception.
+- 2026-11-13 validate: returned to build - Round-8 independent specification and quality changes_required under RULING-001, independently reproduced: mutually matching wrong-period responses publish fresh under another selected calendar query; missing required totals.runs publishes fresh and pools to false zero. Correct captured calendar-bound validation preserving timezone/DST/one-sided semantics and required total-count presence; add initial/replacement helper/browser withholding/error/Retry/recovery coverage. CLI rejects authorized round 8, so both verdicts are preserved in Log. No corrections performed in validate; stop at this return boundary.
 
 ## Rulings
 
@@ -1044,10 +1048,10 @@ is preserved in append-only Log rather than falsifying its counter.
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+status: waiting
+reported: build - paused
+next: continue build: Round-8 independent specification and quality changes_required under RULING-001, independently reproduced: mutually matching wrong-period responses publish fresh under another selected calendar query; missing required totals.runs publishes fresh and pools to false zero. Correct captured calendar-bound validation preserving timezone/DST/one-sided semantics and required total-count presence; add initial/replacement helper/browser withholding/error/Retry/recovery coverage. CLI rejects authorized round 8, so both verdicts are preserved in Log. No corrections performed in validate; stop at this return boundary.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
 changed: Corrected both round-7 reporting findings: validate all pooled numeric families before freshness and preserve mixed unknown unpriced counts; updated scoped tests/docs/help/notes and rebuilt assets.
 evidence: 80 helper/help tests and 134 integrated offline Chromium cases pass; typecheck/production build, release-note checker, whitespace and 132-input/7-output SHA-256 audits pass; advisory check has 0 errors.
 issues: Fresh independent round-8 reviews under RULING-001 and final strict proof/report/closure remain validate work. Installed verdict CLI cannot encode rounds above 6; actual review history is in Log. Inherited advisory/large-chunk/generated-scan warnings documented. No CI/live/deployed acceptance run.
