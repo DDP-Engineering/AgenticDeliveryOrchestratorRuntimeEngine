@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -911,19 +909,23 @@ to the next validate session; this build does not claim that approval or full pr
 - 2026-11-13 build: Round-4 build audit: npm run build, release-note check, git diff --check and independent SHA-256/traceability audit exit 0. All 132 frontend inputs and 7 outputs match; all 42 task requirements remain active with existing source/test links. Evolution exit 0 reviewed 235 post-anchor paths (41 added/182 modified/12 removed), preserving inherited target integration and original anchor. This session changes 17/22 scoped paths: one validator, helper and browser tests, three requirement verifications, spec/component/user/knowledge docs, merged four-locale release entry/CHANGELOG, journal and regenerated JS/index/stamp. No backend/dependency/schema/payload or publication changes. Full strict proof and fresh independent round-5 review remain validate work.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exits 0: 0 errors, 177 warnings, 28 notes. Remaining warning groups match the inherited target findings already explained in the integration and round-3 logs: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend browser fixtures and inherited sources; 5 outside-layout paths are untouched target config/release archives. Six secret flags remain inherited journal/Users fake credential wording, three target private-key fixture literals, and unavailable generated-JS scan; no new literal secret introduced. DEVIATION build: generated minified-JS added-lines scan is unavailable - accepted with reviewed-source rebuild and matching input/output hashes, not a detected secret or final strict proof. Existing Vite large-chunk warning retained without unrelated splitting/dependencies. No unresolved round-4 correction remains in focused proof; independent approval/full suite not claimed.
 - 2026-11-13 build: completed; next validate
+- 2026-11-13 validate: Validate round-5 bounds: 45-minute session, at most 12 ticket-scoped artifact edits and 8 focused checks before final proof; independent read-only specification/quality reviewer sessions, no child journals or publication. Review integrated candidate and all 42 contracts, reconcile knowledge/context/inspection first; strict proof follows fresh approval only. Route implementation defects according to installed review policy and stop at stage boundary.
+- 2026-11-13 validate: Round-5 independent specification and quality reviews both CHANGES_REQUIRED: statistics.ts:105-111 validates Quality counters/rates but not quality.cost_efficiency, and createReportingRefresh at :253-255 validates pooled tokens but not pooled efficiency. Current aggregateMetrics at metrics.ts:48-53 performs unchecked jobs_with_evidence weighting; App.tsx:1417-1418 eagerly formats the raw selected or pooled values in costChips. Both reviewers reproduced malformed monetary strings and negative amounts publishing ready/completedAt and displaying NaN/negative money, plus finite 1e308 with evidence count 2 yielding pooled Infinity while still ready. Specification reviewer also demonstrated a JSON object monetary value {toString:null} publishing ready and throwing TypeError in the exact currency formatter. Parent independently reran both licensed disposable production-API scripts (node /tmp/task77-round5-efficiency-repro.mjs and node /tmp/task77-review5-cost-repro.mjs, both exit 0 asserting the unsafe current behavior). Browser crash consequence is source/formatter-confirmed, not browser-reproduced. Violates REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9. Required build correction: validate present efficiency collection/entry structure, safe nonnegative evidence counts and nullable finite nonnegative monetary values, then validate derived pooled efficiency before any successful publication. Cover malformed collections/entries/counts/money and weighted overflow with helper plus global/selected initial/replacement/recovery browser regressions: explicit error/Retry, no report/CSV/success time/pageerror; preserve valid unknown/zero/weighted controls and existing cadence/continuity. Existing statistics/metrics helpers and reportingRefresh/statistics browser tests were inspected: valid weighted costs are covered, malformed efficiency/weighted overflow is not. Review evidence paths are ephemeral /tmp/task77-review5/spec.log and quality.log; this Log is the durable finding.
+- 2026-11-13 validate: Round-5 reconciliation/evidence: read whole task journal, all 42 active linked contracts, both reporting specs, web-interface knowledge, project/environment context and ticket-specific diff against integrated target fb14e06; inherited target backend/release/delivery content remains separate from ticket scope. All 42 task contracts have existing source/test paths; no contract weakened and no explicit Manual:/Inspection: verification clause found in task requirements. Existing knowledge/context describe owned read/coherent reporting/authority boundaries; no artifact edit can resolve the reproduced validation defect. Release-note check since bafae7e55bbcfda18451ee621368204af9dd864b and git diff --check exit 0. Independent SHA-256 audit matches all 132 frontend inputs and 7 outputs. Both independent reviewers ran focused statistics/polling/request helpers (45 passed, zero failed each); these green helpers do not cover or waive the reproduced defect. Final strict/full proof and report deliberately not run: correct-first/prove-last requires return to build. Only executor-owned journal changed in this session; no product patch, payload edit, commit, push, forge access or publication. Round-6 fresh independent reviews and final proof/report remain after correction, within installed six-round bound.
+- 2026-11-13 validate: returned to build - Round-5 spec/quality changes required: Quality cost-efficiency structures, monetary values and weighted pooled results bypass validation, publish ready/time and can render NaN/Infinity or throw. Reject before publication and add initial/replacement/recovery negative proof.
 
 ## Rulings
 
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Corrected round-4 Statistics optional revision validation before publication; added helper and both selected-scope Quality regressions, updated scoped docs/requirements/four-locale notes and rebuilt production assets.
-evidence: 74 helper/help tests and 88 integrated offline Chromium cases pass; typecheck, production build, release-note check, diff whitespace, 42-contract path audit and 132-input/7-output SHA-256 audit exit 0. Advisory check: 0 errors, inherited warnings documented.
-issues: Fresh independent round-5 reviews and full strict repository proof/report remain for validate; no full-suite, deployed visual or live service acceptance claimed. Inherited target advisory findings and Vite chunk-size warning remain documented.
+status: waiting
+reported: build - paused
+next: continue build: Round-5 spec/quality changes required: Quality cost-efficiency structures, monetary values and weighted pooled results bypass validation, publish ready/time and can render NaN/Infinity or throw. Reject before publication and add initial/replacement/recovery negative proof.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Recorded independently reproduced cost-efficiency validation gap; no candidate product files changed.
+evidence: Two independent reviews changes_required; each ran 45 passing helpers. Parent reproduced invalid ready publication/formatter failure with two Node scripts (exit 0 demonstrating defect); release-note, whitespace and 132-input/7-output hash audits pass.
+issues: Validation unfinished: malformed/overflowing Quality efficiency must fail closed before ready publication. Final strict/full proof and report not run; fresh round-6 reviews required after build correction.
 spec_compliance:
 implementation_quality:
-review_round: 4
+review_round: 5
