@@ -208,461 +208,461 @@ Bestätigen Sie anschließend mit **Host-Voraussetzungen prüfen** und **KI-Verb
 ## Systempakete {#system-packages}
 
 Administratoren können **Systempaketinstallation durch den Agenten erlauben** unter **Einstellungen → Agent und Modell** prüfen. Die Berechtigung ist standardmäßig aus und nur für Container verfügbar. Pi installiert dann direkt mit \`sudo -n\`, liest die Ergebnisse und reagiert innerhalb der Auftragslimits. **Internetzugang für den Agenten** bleibt eine eigene Wahl; bei Aus benötigen externe Paketquellen einen erlaubten Host. Nutzen Sie ein Image mit sudo, pausieren Sie die Überwachung und warten Sie auf das Ende aktiver Arbeit, bevor Sie anwenden und einen neuen Auftrag starten. Pakete bleiben im Container und ändern das Image nicht.
-`,Az=`# Glossar\r
-\r
-Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.\r
-\r
-Diese Begriffe werden in der ADORE-Weboberfläche und in diesen Hilfethemen verwendet.\r
-\r
-## Begriffe {#terms}\r
-\r
-| Begriff | Bedeutung |\r
-|---|---|\r
-| Auftrag | Ein Repository-Ticket, das in einer isolierten Umgebung bearbeitet und geprüft wird. |\r
-| Eingerichtetes Projekt | Ein vorhandenes Repository auf dem ADORE-Host mit Zugriff für sein Team. |\r
-| Überwachung | Die Einstellung eines Projekts für die Aufnahme neuer Tickets, angezeigt als **Aktiv** oder **Pausiert**. Administratoren ändern sie mit **Überwachung pausieren** und **Überwachung aktivieren** auf dem Reiter Zusammenfassung des Projekts. |\r
-| Übernahme gestoppt | ADORE übernimmt keine neuen Tickets für dieses Projekt. Ein aktiver Auftrag wird dadurch nicht angehalten. Es ist der Zustand, den die Überwachung als **Pausiert** anzeigt. |\r
-| Ticket | Ein Ticket in der Forge. ADORE nimmt es auf, wenn es das Bereitschaftslabel des Projekts und ein Prioritätslabel trägt, nicht angehalten oder ausgeschlossen ist und Akzeptanzkriterien hat, falls das Projekt sie verlangt. |\r
-| Coding-Agent / Executor | Das KI-Kommandozeilenwerkzeug, das die Arbeit für einen Auftrag in einer isolierten Umgebung erledigt: Pi, der einzige Coding-Agent, den ADORE startet. Es hat keine Forge-Zugangsdaten und committet, überträgt, öffnet oder führt nie zusammen. |\r
-| Modell | Die Modell-ID beim gewählten Anbieter, z. B. gpt-5.4 für OpenAI. Sie wird mit dem Anbieter unter Einstellungen → Agent und Modell festgelegt, und Schätzpreise gehören zu einem Paar aus Executor und Modell. |\r
-| AEGIS | Der im Repository installierte Workflow, der eine Änderung rahmt, spezifiziert, entwirft, umsetzt und validiert. ADORE steuert ihn Phase für Phase (Rahmen, Spezifikation, Entwurf, Umsetzung, Validierung) und veröffentlicht das freigegebene Ergebnis; eine kleine Änderung kann Spezifikation und Entwurf überspringen. |\r
-| Direkter Workflow | Ein Repository ohne AEGIS wird direkt vom Agenten bearbeitet. Der Agent führt seine Prüfungen durch; ADORE beobachtet den Fortschritt und fordert menschliche Freigabe an. |\r
-| Kandidat | Das validierte Ergebnis eines Auftrags, das ADORE zur Freigabe vorstellt, gekennzeichnet durch einen Fingerabdruck und den Ziel-Commit. Die Freigabe gilt für genau diesen Kandidaten und verfällt, wenn sich der Kandidat oder sein Zielbranch ändert. |\r
-| Wartet auf Klärung | Der Agent benötigt eine Antwort. Beantworten Sie seine Frage im Repository-Ticket. |\r
-| Wartet auf Freigabe | Das geprüfte Ergebnis wartet auf die menschliche Freigabe zur Veröffentlichung. Die Freigabe erfolgt auf der Forge für den aktuellen Kandidaten. |\r
-| Entwurf MR/PR | Der Merge- oder Pull-Request nach Validierung und gegebenenfalls Freigabe. Menschen prüfen ihn. |\r
-| Menschliche Prüfung | Ein MR/PR steht zur menschlichen Prüfung bereit. Das Zusammenführen bleibt eine menschliche Entscheidung. |\r
-| Überarbeitungsrunde | Ein weiterer Agentendurchgang nach Änderungswunsch oder CI-Fehler. Jede Runde wiederholt die Validierung und folgt der Freigaberegel. |\r
-| Forge | Die Hosting-Plattform, auf der Tickets, Labels, Freigaben und MR/PRs liegen: GitHub, GitLab oder Gitea. |\r
-\r
-> ADORE hat keine Merge-Operation. Das Zusammenführen ist immer die Entscheidung eines Menschen in der Forge.\r
-`,jz=`# Rundgang durch die Oberfläche
+`,Az=`# Glossar
 
-Die Oberfläche hat eine dunkle Seitenleiste zum Wechseln zwischen den Seiten und eine obere Leiste, die die aktuelle Seite nennt und häufige Aktionen anbietet. Diese Seite beschreibt die Seiten, die Schaltflächen in der Kopfzeile, die Projektzentrale und die Statuslabels.
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
 
-## Navigation {#navigation}
+Diese Begriffe werden in der ADORE-Weboberfläche und in diesen Hilfethemen verwendet.
 
-| Seite | Was Sie dort tun |
+## Begriffe {#terms}
+
+| Begriff | Bedeutung |
 |---|---|
-| Übersicht | **Handlungsbedarf** und **Aktive Aufträge** für die Projekte sehen, auf die Sie Zugriff haben. **Details** öffnet einen Auftrag unter Aufträge. |
-| [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Neues Projekt registrieren** oder **Originalkonfiguration importieren**. |
-| [Aufträge](/jobs) | Einen **Jobbereich** wählen und dann im Unterreiter **Tickets** Forge-Tickets lesen und starten oder im Unterreiter **Aufträge** Aufträge suchen und ihre Details öffnen. |
-| [Statistiken](/metrics) | Nutzung, Qualität und Trends für einen Berichtszeitraum lesen. Siehe [Statistiken und Kosten](/help/statistics). |
-| Verwaltung | Nur für Administratoren. Sie öffnet drei Seiten: [Systemstatus](/admin/status), [Benutzer](/admin/users) und [Änderungsverlauf](/admin/audit). Siehe [Verwaltung](/help/administration). |
-| [Mein Konto](/account) | Sprache und Design wählen und das Passwort ändern. |
+| Auftrag | Ein Repository-Ticket, das in einer isolierten Umgebung bearbeitet und geprüft wird. |
+| Eingerichtetes Projekt | Ein vorhandenes Repository auf dem ADORE-Host mit Zugriff für sein Team. |
+| Überwachung | Die Einstellung eines Projekts für die Aufnahme neuer Tickets, angezeigt als **Aktiv** oder **Pausiert**. Administratoren ändern sie mit **Überwachung pausieren** und **Überwachung aktivieren** auf dem Reiter Zusammenfassung des Projekts. |
+| Übernahme gestoppt | ADORE übernimmt keine neuen Tickets für dieses Projekt. Ein aktiver Auftrag wird dadurch nicht angehalten. Es ist der Zustand, den die Überwachung als **Pausiert** anzeigt. |
+| Ticket | Ein Ticket in der Forge. ADORE nimmt es auf, wenn es das Bereitschaftslabel des Projekts und ein Prioritätslabel trägt, nicht angehalten oder ausgeschlossen ist und Akzeptanzkriterien hat, falls das Projekt sie verlangt. |
+| Coding-Agent / Executor | Das KI-Kommandozeilenwerkzeug, das die Arbeit für einen Auftrag in einer isolierten Umgebung erledigt: Pi, der einzige Coding-Agent, den ADORE startet. Es hat keine Forge-Zugangsdaten und committet, überträgt, öffnet oder führt nie zusammen. |
+| Modell | Die Modell-ID beim gewählten Anbieter, z. B. gpt-5.4 für OpenAI. Sie wird mit dem Anbieter unter Einstellungen → Agent und Modell festgelegt, und Schätzpreise gehören zu einem Paar aus Executor und Modell. |
+| AEGIS | Der im Repository installierte Workflow, der eine Änderung rahmt, spezifiziert, entwirft, umsetzt und validiert. ADORE steuert ihn Phase für Phase (Rahmen, Spezifikation, Entwurf, Umsetzung, Validierung) und veröffentlicht das freigegebene Ergebnis; eine kleine Änderung kann Spezifikation und Entwurf überspringen. |
+| Direkter Workflow | Ein Repository ohne AEGIS wird direkt vom Agenten bearbeitet. Der Agent führt seine Prüfungen durch; ADORE beobachtet den Fortschritt und fordert menschliche Freigabe an. |
+| Kandidat | Das validierte Ergebnis eines Auftrags, das ADORE zur Freigabe vorstellt, gekennzeichnet durch einen Fingerabdruck und den Ziel-Commit. Die Freigabe gilt für genau diesen Kandidaten und verfällt, wenn sich der Kandidat oder sein Zielbranch ändert. |
+| Wartet auf Klärung | Der Agent benötigt eine Antwort. Beantworten Sie seine Frage im Repository-Ticket. |
+| Wartet auf Freigabe | Das geprüfte Ergebnis wartet auf die menschliche Freigabe zur Veröffentlichung. Die Freigabe erfolgt auf der Forge für den aktuellen Kandidaten. |
+| Entwurf MR/PR | Der Merge- oder Pull-Request nach Validierung und gegebenenfalls Freigabe. Menschen prüfen ihn. |
+| Menschliche Prüfung | Ein MR/PR steht zur menschlichen Prüfung bereit. Das Zusammenführen bleibt eine menschliche Entscheidung. |
+| Überarbeitungsrunde | Ein weiterer Agentendurchgang nach Änderungswunsch oder CI-Fehler. Jede Runde wiederholt die Validierung und folgt der Freigaberegel. |
+| Forge | Die Hosting-Plattform, auf der Tickets, Labels, Freigaben und MR/PRs liegen: GitHub, GitLab oder Gitea. |
 
-Die Seitenleiste zeigt außerdem Ihren Namen und Ihre Rolle sowie **Abmelden**. Auf einem schmalen Bildschirm öffnet **Menü** die Navigation, und die Auswahl einer Seite schließt sie wieder.
+> ADORE hat keine Merge-Operation. Das Zusammenführen ist immer die Entscheidung eines Menschen in der Forge.
+`,jz=`# Rundgang durch die Oberfläche\r
+\r
+Die Oberfläche hat eine dunkle Seitenleiste zum Wechseln zwischen den Seiten und eine obere Leiste, die die aktuelle Seite nennt und häufige Aktionen anbietet. Diese Seite beschreibt die Seiten, die Schaltflächen in der Kopfzeile, die Projektzentrale und die Statuslabels.\r
+\r
+## Navigation {#navigation}\r
+\r
+| Seite | Was Sie dort tun |\r
+|---|---|\r
+| Übersicht | **Handlungsbedarf** und **Aktive Aufträge** für die Projekte sehen, auf die Sie Zugriff haben. **Details** öffnet einen Auftrag unter Aufträge. |\r
+| [Projekte](/projects) | Eingerichtete Projekte mit Repository, Forge, Überwachungsstatus, Anzahl der Aufträge und letzter Aktivität durchsuchen. Ein Projekt öffnen, um seine Zentrale zu erreichen. Administratoren sehen außerdem **Neues Projekt registrieren** oder **Originalkonfiguration importieren**. |\r
+| [Aufträge](/jobs) | Einen **Jobbereich** wählen und dann im Unterreiter **Tickets** Forge-Tickets lesen und starten oder im Unterreiter **Aufträge** Aufträge suchen und ihre Details öffnen. |\r
+| [Statistiken](/metrics) | Nutzung, Qualität und Trends für einen Berichtszeitraum lesen. Siehe [Statistiken und Kosten](/help/statistics). |\r
+| Verwaltung | Nur für Administratoren. Sie öffnet drei Seiten: [Systemstatus](/admin/status), [Benutzer](/admin/users) und [Änderungsverlauf](/admin/audit). Siehe [Verwaltung](/help/administration). |\r
+| [Mein Konto](/account) | Sprache und Design wählen und das Passwort ändern. |\r
+\r
+Die Seitenleiste zeigt außerdem Ihren Namen und Ihre Rolle sowie **Abmelden**. Auf einem schmalen Bildschirm öffnet **Menü** die Navigation, und die Auswahl einer Seite schließt sie wieder.\r
+\r
+Ein Dev sieht nur die Projekte, die ein Administrator zugewiesen hat, und hat keinen Eintrag Verwaltung. Jede Seite hat eine eigene Adresse, daher behalten Lesezeichen, Zurück, Vorwärts und Neuladen Ihre Position bei.\r
+\r
+## Kopfzeile {#header}\r
+\r
+Die obere Leiste zeigt den Seitentitel und diese Bedienelemente.\r
+\r
+- **Projekt**: eine Auswahl, nur auf der Übersicht. Sie beschränkt **Handlungsbedarf** und **Aktive Aufträge** auf ein Projekt; Standard sind alle Projekte, auf die Sie Zugriff haben. Aufträge hat eine eigene Auswahl **Jobbereich**, und Statistiken hat in der Zeile des Berichtszeitraums eine Auswahl **Projekt**.\r
+- **Aktualisieren** und **Zuletzt aktualisiert** stehen im Kopfbereich der Seite Benutzer.\r
+- **Über ADORE**: die ADORE-Version mit **Neuigkeiten** (Versionshinweise je Version, die neueste zuerst, gruppiert nach Neu, Verbessert und Behoben), **Lizenz** und **Hinweise zu Drittanbietern**.\r
+- **So funktioniert ADORE**: öffnet dieses Hilfezentrum.\r
+\r
+Unter Aufträge steht die Bereichsauswahl auf breiten Bildschirmen rechts neben **Tickets** und **Aufträge**. Auf schmalen Bildschirmen steht sie unter den Reitern.\r
+\r
+## Projektzentrale {#project-hub}\r
+\r
+Wenn Sie ein Projekt unter Projekte öffnen, sehen Sie seinen Namen und den Repository-Pfad über diesen Reitern.\r
+\r
+| Reiter | Was er enthält |\r
+|---|---|\r
+| Zusammenfassung | Containertyp, Überwachung, Umgebungsprüfung, Auftragszahlen sowie kompakte Tabellen für Handlungsbedarf und aktive Aufträge. Administratoren erhalten außerdem **Überwachung pausieren** oder **Überwachung aktivieren**, **Projekt archivieren** oder **Projekt wiederherstellen**, **Host-Voraussetzungen prüfen** und **Repository-Zugang**. |\r
+| Einstellungen | Effektive Einstellungen, gemeinsames Speichern für Administratoren und Export mit gespeicherten Executor-Image-Definitionen. Entwickler lesen ohne Geheimnisse. Siehe [Projekteinstellungen](/help/settings). |\r
+| Aufträge | Die Unterreiter Tickets und Aufträge für dieses Projekt, ohne Projektauswahl. |\r
+| Statistiken | Derselbe Berichtszeitraum, dieselben Reiter und Exporte wie auf der Seite Statistiken, nur für dieses Projekt. |\r
+| Verlauf | Aufgezeichnete Änderungen am Projekt und seine abgeschlossenen Aufträge. |\r
+| Zugriff | Nur für Administratoren: den Zugriff eines Entwicklers gewähren oder entziehen. |\r
+\r
+Pausierte Überwachung verhindert, dass neue Tickets aufgenommen werden; bereits gestartete Aufträge laufen weiter.\r
+\r
+## Statuslabels und Badges {#statuses}\r
+\r
+Badges tragen neben der Farbe auch ein Symbol, und Auftragslisten zeigen die aktuelle Phase neben dem Status.\r
+\r
+| Auftragsstatus | Bedeutung |\r
+|---|---|\r
+| In Arbeit | ADORE steuert eine Phase. |\r
+| Veröffentlichung | ADORE veröffentlicht den validierten Kandidaten nach der Projektregel. |\r
+| Wartet auf Klärung | Der Agent braucht eine Antwort im Repository-Ticket. |\r
+| Wartet auf Freigabe | Ein Mensch muss den Kandidaten in der Forge freigeben. |\r
+| Menschliche Prüfung | Ein MR/PR-Entwurf ist offen; Menschen entscheiden über das Zusammenführen. |\r
+| Übergabe läuft | Eine Übergabe an einen Menschen wartet auf einen sicheren Zeitpunkt. |\r
+| Übergeben | Ein Mensch hat übernommen; die automatische Arbeit ist beendet. |\r
+| Abgeschlossen | Der Auftrag ist beendet. Das allein zeigt nicht, dass jemand zusammengeführt hat. Kompakte Listen nennen ihn Fertig. |\r
+| Fehlgeschlagen | Der Auftrag wurde mit erhaltenen Nachweisen gestoppt; ein berechtigter Benutzer kann ihn mit **Wiederholen** erneut anstoßen. |\r
+| Abgebrochen | Der Auftrag wurde abgebrochen. |\r
+| Veraltet | Der Auftrag ist als veraltet markiert; prüfen Sie sein gespeichertes Ergebnis. |\r
+\r
+Unter Aufträge beschränkt **Status** die Liste auf **Aktive Aufträge**, **Wartend**, **Menschliche Prüfung** oder **Beendete Jobs**. Das Überwachungs-Badge eines Projekts lautet **Aktiv** oder **Pausiert**, ein archiviertes Projekt zeigt **Archiviert**. Die Umgebungsprüfung lautet **Geprüft**, **Teilweise geprüft**, **Prüfung fehlgeschlagen**, **Prüfung veraltet** oder **Ungeprüft**; Ungeprüft bedeutet, dass kein aktueller Nachweis vorliegt, nicht dass eine Prüfung fehlgeschlagen ist.\r
+\r
+Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befehl als eingereiht, laufend, abgeschlossen, fehlgeschlagen oder ungewiss. Prüfen Sie einen ungewissen Befehl, bevor Sie ihn erneut senden. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.\r
+\r
+## Automatische Aktualisierung, Sprache und Design {#preferences}\r
+\r
+Übersicht, Projekte, Aufträge, Einstellungen, Zugriff und Verlauf eines Projekts sowie der Änderungsverlauf laden ihre Daten alle 15 Sekunden neu, solange der Browser-Tab sichtbar ist. Die Einstellungen pausieren bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen. Statistiken und Systemstatus aktualisieren sich ebenfalls automatisch. Beim Wechsel zurück zum Tab werden die Aktualisierungen fortgesetzt. Nach einem Fehler bleiben die betroffenen Daten bis zur nächsten erfolgreichen Aktualisierung ausgeblendet.\r
+\r
+Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.\r
+\r
+Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto.\r
+\r
+Geben Sie beim Ändern das neue Passwort zweimal ein. Die Schaltflächen zeigen oder verbergen jede Eingabe. Mindestens 8 Zeichen sind erforderlich.\r
+`,_z=`# Lebenszyklus eines Auftrags
 
-Ein Dev sieht nur die Projekte, die ein Administrator zugewiesen hat, und hat keinen Eintrag Verwaltung. Jede Seite hat eine eigene Adresse, daher behalten Lesezeichen, Zurück, Vorwärts und Neuladen Ihre Position bei.
+Ein Auftrag ist die Arbeit, die ADORE für ein Ticket leistet, von der Aufnahme bis zur zusammengeführten Änderung. Dieser Artikel zeigt seine Phasen und wo Sie mitwirken. Labels und Eignung stehen unter [Tickets für die automatische Aufnahme](/help/tickets).
 
-## Kopfzeile {#header}
 
-Die obere Leiste zeigt den Seitentitel und diese Bedienelemente.
+Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverzeichnis einschließlich unveröffentlichter Arbeit zu entfernen; Ressourcen können bleiben. Status und Nachweise bleiben. Löschen ist eine separate Aktion.
 
-- **Projekt**: eine Auswahl, nur auf der Übersicht. Sie beschränkt **Handlungsbedarf** und **Aktive Aufträge** auf ein Projekt; Standard sind alle Projekte, auf die Sie Zugriff haben. Aufträge hat eine eigene Auswahl **Jobbereich**, und Statistiken hat in der Zeile des Berichtszeitraums eine Auswahl **Projekt**.
-- **Aktualisieren** und **Zuletzt aktualisiert** stehen im Kopfbereich der Seite Benutzer.
-- **Über ADORE**: die ADORE-Version mit **Neuigkeiten** (Versionshinweise je Version, die neueste zuerst, gruppiert nach Neu, Verbessert und Behoben), **Lizenz** und **Hinweise zu Drittanbietern**.
-- **So funktioniert ADORE**: öffnet dieses Hilfezentrum.
+Öffnen Sie **Jobaktionen** neben der aktuellen Phase für **Wiederholen**, **Abbrechen** oder den bestätigten Neustart, soweit verfügbar. Nur für diesen Job zulässige Befehle werden angezeigt.
 
-Unter Aufträge steht die Bereichsauswahl auf breiten Bildschirmen rechts neben **Tickets** und **Aufträge**. Auf schmalen Bildschirmen steht sie unter den Reitern.
+## Phasen {#stages}
 
-## Projektzentrale {#project-hub}
+ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.
 
-Wenn Sie ein Projekt unter Projekte öffnen, sehen Sie seinen Namen und den Repository-Pfad über diesen Reitern.
-
-| Reiter | Was er enthält |
+| Phase | Was geschieht |
 |---|---|
-| Zusammenfassung | Containertyp, Überwachung, Umgebungsprüfung, Auftragszahlen sowie kompakte Tabellen für Handlungsbedarf und aktive Aufträge. Administratoren erhalten außerdem **Überwachung pausieren** oder **Überwachung aktivieren**, **Projekt archivieren** oder **Projekt wiederherstellen**, **Host-Voraussetzungen prüfen** und **Repository-Zugang**. |
-| Einstellungen | Effektive Einstellungen, gemeinsames Speichern für Administratoren und Export mit gespeicherten Executor-Image-Definitionen. Entwickler lesen ohne Geheimnisse. Siehe [Projekteinstellungen](/help/settings). |
-| Aufträge | Die Unterreiter Tickets und Aufträge für dieses Projekt, ohne Projektauswahl. |
-| Statistiken | Derselbe Berichtszeitraum, dieselben Reiter und Exporte wie auf der Seite Statistiken, nur für dieses Projekt. |
-| Verlauf | Aufgezeichnete Änderungen am Projekt und seine abgeschlossenen Aufträge. |
-| Zugriff | Nur für Administratoren: den Zugriff eines Entwicklers gewähren oder entziehen. |
+| Rahmen | Der Umfang wird abgestimmt, und der Executor hält fest, ob der Auftrag den vollen oder den schnellen Pfad nimmt. |
+| Spezifikation | Die Anforderung wird geschrieben. |
+| Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |
+| Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |
+| Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
 
-Pausierte Überwachung verhindert, dass neue Tickets aufgenommen werden; bereits gestartete Aufträge laufen weiter.
+Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
-## Statuslabels und Badges {#statuses}
+## Direkte Jobs {#direct-evidence}
 
-Badges tragen neben der Farbe auch ein Symbol, und Auftragslisten zeigen die aktuelle Phase neben dem Status.
+Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (\`build\`), **Validierung** (\`validate\`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.
 
-| Auftragsstatus | Bedeutung |
+**Letzter gespeicherter Versuch** zeigt den letzten gespeicherten Agentenstart. Andernfalls erscheint **Versuch nicht verfügbar**. Tests und Prüfungen meldet der Agent; ADORE führt sie nicht zusätzlich aus.
+
+Direkte **Implementierung** nutzt \`build\` aus \`workflow.stage_timeout_overrides\`, sonst \`budgets.per_gate_timeout_seconds\`. **Validierung** (\`validate\`) speichert den Kandidaten zur Freigabe ohne separaten Testbefehl.
+
+## Klärung {#clarification}
+
+Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt \`agent-clarify\`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**. Wählen Sie **Frage lesen**, um **Frage des Agenten** zu öffnen, dann **Im Ticket antworten**, wenn ein gespeicherter Ort vorliegt.
+
+Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann \`agent-answered\`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.
+
+## Freigabe {#approval}
+
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
+
+Wenn der Agent seinen Workflow beendet, speichert ADORE den Kandidaten, entfernt das alte Freigabelabel und fordert eine neue menschliche Freigabe an. Prüfungen im Journal wurden vom Agenten gemeldet.
+
+Prüfen Sie ihn und setzen Sie dann \`agent-approved\` erneut; nur ein frisches Setzen zählt. Die Freigabe ist an diesen Kandidaten und den Commit des Zielbranches gebunden. Ändert sich eines von beiden, ist die Freigabe ungültig, und ADORE integriert, validiert und fragt erneut. Dieses Warten hat keinen Timer. Die Auftragsdetails bieten **Kandidat auf der Forge prüfen**.
+
+Ist die Option deaktiviert, prüft ADORE den validierten Kandidaten und das Ziel und veröffentlicht ohne Label. ADORE führt nie zusammen.
+
+## Veröffentlichung und Prüfung {#review}
+
+Nach Validierung und gegebenenfalls Freigabe überträgt ADORE den Branch und öffnet den MR/PR gegen den Zielbranch, fordert bei den Konten unter **Review anfordern von** ein Review an und setzt \`agent-mr\`. **PR/MR-Status bei Veröffentlichung** wählt Entwurf (Standard) oder Bereit zur Prüfung. Der Auftrag zeigt **Veröffentlichung** und dann **Menschliche Prüfung**. ADORE führt nie zusammen. Nachdem ein Mensch zusammengeführt hat, setzt ADORE \`agent-done\`, der Auftrag zeigt **Abgeschlossen**, und standardmäßig wird der Remote-Branch entfernt. Ein ohne Merge geschlossener MR/PR lässt den Auftrag fehlschlagen.
+
+Um Änderungen anzufordern, setzt ein Reviewer \`agent-revise\` am MR/PR. ADORE entfernt das Label, startet neue Arbeit auf demselben Branch (eine neue Aufgabe bei AEGIS) und wiederholt Validierung und frische Freigabe, bevor es überträgt. **Maximale Überarbeitungsrunden** (standardmäßig 5) begrenzt das. Eine Anfrage über das Limit hinaus lässt den Auftrag fehlschlagen.
+
+Schlagen CI-Prüfungen am MR/PR fehl, entscheidet **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen**: Automatisch reparieren (Standard) startet eine Überarbeitung, Nur benachrichtigen postet einen Kommentar, und Ignorieren überspringt den CI-Status. Automatische Reparaturen teilen sich das Überarbeitungsbudget; ist es aufgebraucht, postet ADORE einen Hinweis, und der Auftrag bleibt in der Prüfung.
+
+## Fehler und Wiederherstellung {#failures}
+
+Schlägt eine Phase fehl, hält ADORE einen Störungskommentar am Ticket aktuell, mit Phase, Versuch, Fehlercode, Nachweisen und nächster Aktion; hat der Agent beendet, ohne die Phase voranzubringen, zeigen die Nachweise auch seine letzten Fehlerausgabezeilen. Nach dem letzten Versuch postet es einen abschließenden Kommentar, setzt \`agent-failed\`, stoppt den Container, behält den Worktree und gibt den Platz frei. Weitere Ursachen sind eine abgelaufene Antwortzeit, ein gelöschtes Quellticket und ein überschrittenes Limit wie Kosten oder geänderte Dateien. Das Schließen des Quelltickets, während ein Auftrag wartet, bricht ihn ab.
+
+Unter Aufträge zeigt ein fehlgeschlagener Auftrag **Fehlgeschlagen**, und seine Details erklären, dass Wiederherstellungsnachweise erhalten bleiben. **Wiederholen** bittet den Worker, den Auftrag wiederherzustellen; es umgeht weder Validierung noch erforderliche Freigabe. In der Ticketansicht ersetzt Wiederholen das Starten. Das Entfernen von \`agent-failed\` löst keine Wiederholung aus. **Abbrechen** erscheint bei unbeendeten Aufträgen und bittet den Worker, zu stoppen und aufzuräumen. Beendete Aufträge können nicht abgebrochen werden. Administratoren und zugewiesene Entwickler können beides nutzen. Ein eingereihter Befehl zeigt seinen Fortschritt, etwa Befehl eingereiht oder Befehl abgeschlossen. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.
+
+Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut und akzeptiert ein aktualisiertes Programm oder eine geänderte geerbte Umgebung auf demselben Computer und Konto. Aufgabe, Worktree, Branch, Verlauf und kumulative Grenzen bleiben erhalten. Die automatische Überwachung tut dies nicht. Geänderte Ausführungseinstellungen oder beschädigte Wiederherstellungsnachweise müssen korrigiert werden. Scheitert der Neustart, zeigt der Vorgang den gespeicherten Grund: fehlendes Programm, ungültige Version, Befehlsfehler oder Zeitüberschreitung. Diese Versionsprüfung sendet keine Modellanfrage; verwenden Sie dafür **KI-Verbindung testen**.
+
+Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.
+
+## Verwerfen und neu starten {#restart}
+
+Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.
+
+Wiederholen behebt keine geänderte Ausführungsart oder feste Einstellungen; die Jobdetails erklären dies und bieten die bestätigte Aktion an. Stellen Sie gespeicherte Einstellungen wieder her, um Arbeit zu behalten. Wiederholen kann veränderliche native Umgebungswerte weiterhin neu prüfen, auch Prozessorvariablen nach einer VM-Größenänderung.
+
+Fremde Ressourcen, andere Rechner oder Konten, beschädigte Eigentumsnachweise und geänderte Remote-Branches blockieren die Wiederherstellung. Eine Teilbereinigung behält restliche Nachweise ohne neuen Auftrag. Bei Änderungen nach der Bestätigung aktualisieren und prüfen Sie die Details erneut. Eine CLI-Sperre kann dem Web-Worker gehören: Überwachung in der Projektübersicht pausieren und das Ende des begrenzten Auftrags abwarten. Keine aktive Sperrdatei löschen.
+
+Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint hinterlassen, behält ADORE ihn und nutzt eine neue Generation. Ein geänderter bekannter Checkpoint blockiert weiterhin die Wiederherstellung. Höchstens drei alternative Namen werden geprüft; die Repository-Regeln müssen einen freien Namen erlauben. Andernfalls stoppt die Wiederherstellung vor der Bereinigung. Das Ergebnis nennt einen behaltenen alten Branch.
+
+## Aufträge verfolgen {#following-jobs}
+
+Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** eines Projekts und dann den Unterreiter **Aufträge**. Die Tabelle hat diese Spalten:
+
+| Spalte | Inhalt |
 |---|---|
-| In Arbeit | ADORE steuert eine Phase. |
-| Veröffentlichung | ADORE veröffentlicht den validierten Kandidaten nach der Projektregel. |
-| Wartet auf Klärung | Der Agent braucht eine Antwort im Repository-Ticket. |
-| Wartet auf Freigabe | Ein Mensch muss den Kandidaten in der Forge freigeben. |
-| Menschliche Prüfung | Ein MR/PR-Entwurf ist offen; Menschen entscheiden über das Zusammenführen. |
-| Übergabe läuft | Eine Übergabe an einen Menschen wartet auf einen sicheren Zeitpunkt. |
-| Übergeben | Ein Mensch hat übernommen; die automatische Arbeit ist beendet. |
-| Abgeschlossen | Der Auftrag ist beendet. Das allein zeigt nicht, dass jemand zusammengeführt hat. Kompakte Listen nennen ihn Fertig. |
-| Fehlgeschlagen | Der Auftrag wurde mit erhaltenen Nachweisen gestoppt; ein berechtigter Benutzer kann ihn mit **Wiederholen** erneut anstoßen. |
-| Abgebrochen | Der Auftrag wurde abgebrochen. |
-| Veraltet | Der Auftrag ist als veraltet markiert; prüfen Sie sein gespeichertes Ergebnis. |
+| Ticket | Nummer und Titel; öffnet die Auftragsdetails. |
+| Projekt | Das zugehörige Projekt. |
+| Status | Der Zustand, der gespeicherte Workflow, die aktuelle Phase und ein Link zum Ticket oder MR/PR, wenn ein Mensch handeln muss. |
+| Letzte Aktivität | Zeitpunkt des letzten gespeicherten Ereignisses. |
+| Verbrauch | Vom Auftrag verbrauchte Token. |
 
-Unter Aufträge beschränkt **Status** die Liste auf **Aktive Aufträge**, **Wartend**, **Menschliche Prüfung** oder **Beendete Jobs**. Das Überwachungs-Badge eines Projekts lautet **Aktiv** oder **Pausiert**, ein archiviertes Projekt zeigt **Archiviert**. Die Umgebungsprüfung lautet **Geprüft**, **Teilweise geprüft**, **Prüfung fehlgeschlagen**, **Prüfung veraltet** oder **Ungeprüft**; Ungeprüft bedeutet, dass kein aktueller Nachweis vorliegt, nicht dass eine Prüfung fehlgeschlagen ist.
+Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
 
-Nach **Starten**, **Wiederholen** oder **Abbrechen** meldet ein Hinweis den Befehl als eingereiht, laufend, abgeschlossen, fehlgeschlagen oder ungewiss. Prüfen Sie einen ungewissen Befehl, bevor Sie ihn erneut senden. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.
+Die Details ersetzen die Jobliste, solange sie geöffnet sind. Die kompakte Überschrift vereint Ticketnummer und Titel. **Was gerade geschieht** zeigt Status, Zuständigkeit und **Nächster Schritt**. Budgets und Verbrauch stehen auf breiten Bildschirmen daneben, auf schmalen darunter. **Aktivität** listet gespeicherte Ereignisse vom neuesten zum ältesten. **Frage des Agenten** enthält die aktive Rückfrage; andere Zustände zeigen **Nachweise und Artefakte**. **Technische Details** enthält Kennungen, Executor-Ausgabe und aufklappbare **Gespeicherte Originalereignisse**. **Schließen** kehrt zur Liste mit ihren Filtern zurück. Frühere Ereignisse werden nicht zu aktuellen Handlungsaufforderungen.
 
-## Automatische Aktualisierung, Sprache und Design {#preferences}
+## Jobbudgets {#budgets}
 
-Übersicht, Projekte, Aufträge, Einstellungen, Zugriff und Verlauf eines Projekts sowie der Änderungsverlauf laden ihre Daten alle 15 Sekunden neu, solange der Browser-Tab sichtbar ist. Die Einstellungen pausieren bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen. Statistiken und Systemstatus aktualisieren sich ebenfalls automatisch. Beim Wechsel zurück zum Tab werden die Aktualisierungen fortgesetzt. Nach einem Fehler bleiben die betroffenen Daten bis zur nächsten erfolgreichen Aktualisierung ausgeblendet.
+Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und \`adore init\`.
 
-Unter [Mein Konto](/account) enthält **Darstellung** die Auswahl **Sprache** (English, Français, Deutsch, Română) und **Design** (**System**, **Hell**, **Dunkel**). Jede Auswahl wird in Ihrem Konto gespeichert und folgt Ihnen in andere Browser; vor der Anmeldung merkt sich die Anmeldeseite die Auswahl im Browser. **Passwort ändern** erfordert Ihr aktuelles Passwort und ein neues mit mindestens 8 Zeichen.
+Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen, **Implementierung** öffnen, nur Budgets ändern, **Speichern** wählen und die genauen Werte bestätigen. Solche geprüften Budgetänderungen sind bei wartenden Rückfragen erlaubt, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen behalten die üblichen Ruhe- und Pausenprüfungen; Entwickler haben Lesezugriff.
 
-Das ursprüngliche Administratorkonto sieht eine Erinnerung, bis das Anfangskennwort geändert wurde. **Passwort ändern** in der Erinnerung öffnet Mein Konto.
+Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.
 
-Geben Sie beim Ändern das neue Passwort zweimal ein. Die Schaltflächen zeigen oder verbergen jede Eingabe. Mindestens 8 Zeichen sind erforderlich.
-`,_z=`# Lebenszyklus eines Auftrags\r
-\r
-Ein Auftrag ist die Arbeit, die ADORE für ein Ticket leistet, von der Aufnahme bis zur zusammengeführten Änderung. Dieser Artikel zeigt seine Phasen und wo Sie mitwirken. Labels und Eignung stehen unter [Tickets für die automatische Aufnahme](/help/tickets).\r
-\r
-\r
-Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverzeichnis einschließlich unveröffentlichter Arbeit zu entfernen; Ressourcen können bleiben. Status und Nachweise bleiben. Löschen ist eine separate Aktion.\r
-\r
-Öffnen Sie **Jobaktionen** neben der aktuellen Phase für **Wiederholen**, **Abbrechen** oder den bestätigten Neustart, soweit verfügbar. Nur für diesen Job zulässige Befehle werden angezeigt.\r
-\r
-## Phasen {#stages}\r
-\r
-ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.\r
-\r
-| Phase | Was geschieht |\r
-|---|---|\r
-| Rahmen | Der Umfang wird abgestimmt, und der Executor hält fest, ob der Auftrag den vollen oder den schnellen Pfad nimmt. |\r
-| Spezifikation | Die Anforderung wird geschrieben. |\r
-| Entwurf | Für nicht triviale Arbeit wird eine kurze Entwurfsnotiz geschrieben. |\r
-| Umsetzung | Der Agent implementiert das Ticket und wählt passende Prüfungen gemäß den Repository-Anweisungen. |\r
-| Validierung | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |\r
-\r
-Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).\r
-\r
-## Direkte Jobs {#direct-evidence}\r
-\r
-Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (\`build\`), **Validierung** (\`validate\`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.\r
-\r
-**Letzter gespeicherter Versuch** zeigt den letzten gespeicherten Agentenstart. Andernfalls erscheint **Versuch nicht verfügbar**. Tests und Prüfungen meldet der Agent; ADORE führt sie nicht zusätzlich aus.\r
-\r
-Direkte **Implementierung** nutzt \`build\` aus \`workflow.stage_timeout_overrides\`, sonst \`budgets.per_gate_timeout_seconds\`. **Validierung** (\`validate\`) speichert den Kandidaten zur Freigabe ohne separaten Testbefehl.\r
-\r
-## Klärung {#clarification}\r
-\r
-Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt \`agent-clarify\`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**. Wählen Sie **Frage lesen**, um **Frage des Agenten** zu öffnen, dann **Im Ticket antworten**, wenn ein gespeicherter Ort vorliegt.\r
-\r
-Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann \`agent-answered\`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.\r
-\r
-## Freigabe {#approval}\r
-\r
-Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.\r
-\r
-Wenn der Agent seinen Workflow beendet, speichert ADORE den Kandidaten, entfernt das alte Freigabelabel und fordert eine neue menschliche Freigabe an. Prüfungen im Journal wurden vom Agenten gemeldet.\r
-\r
-Prüfen Sie ihn und setzen Sie dann \`agent-approved\` erneut; nur ein frisches Setzen zählt. Die Freigabe ist an diesen Kandidaten und den Commit des Zielbranches gebunden. Ändert sich eines von beiden, ist die Freigabe ungültig, und ADORE integriert, validiert und fragt erneut. Dieses Warten hat keinen Timer. Die Auftragsdetails bieten **Kandidat auf der Forge prüfen**.\r
-\r
-Ist die Option deaktiviert, prüft ADORE den validierten Kandidaten und das Ziel und veröffentlicht ohne Label. ADORE führt nie zusammen.\r
-\r
-## Veröffentlichung und Prüfung {#review}\r
-\r
-Nach Validierung und gegebenenfalls Freigabe überträgt ADORE den Branch und öffnet den MR/PR gegen den Zielbranch, fordert bei den Konten unter **Review anfordern von** ein Review an und setzt \`agent-mr\`. **PR/MR-Status bei Veröffentlichung** wählt Entwurf (Standard) oder Bereit zur Prüfung. Der Auftrag zeigt **Veröffentlichung** und dann **Menschliche Prüfung**. ADORE führt nie zusammen. Nachdem ein Mensch zusammengeführt hat, setzt ADORE \`agent-done\`, der Auftrag zeigt **Abgeschlossen**, und standardmäßig wird der Remote-Branch entfernt. Ein ohne Merge geschlossener MR/PR lässt den Auftrag fehlschlagen.\r
-\r
-Um Änderungen anzufordern, setzt ein Reviewer \`agent-revise\` am MR/PR. ADORE entfernt das Label, startet neue Arbeit auf demselben Branch (eine neue Aufgabe bei AEGIS) und wiederholt Validierung und frische Freigabe, bevor es überträgt. **Maximale Überarbeitungsrunden** (standardmäßig 5) begrenzt das. Eine Anfrage über das Limit hinaus lässt den Auftrag fehlschlagen.\r
-\r
-Schlagen CI-Prüfungen am MR/PR fehl, entscheidet **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen**: Automatisch reparieren (Standard) startet eine Überarbeitung, Nur benachrichtigen postet einen Kommentar, und Ignorieren überspringt den CI-Status. Automatische Reparaturen teilen sich das Überarbeitungsbudget; ist es aufgebraucht, postet ADORE einen Hinweis, und der Auftrag bleibt in der Prüfung.\r
-\r
-## Fehler und Wiederherstellung {#failures}\r
-\r
-Schlägt eine Phase fehl, hält ADORE einen Störungskommentar am Ticket aktuell, mit Phase, Versuch, Fehlercode, Nachweisen und nächster Aktion; hat der Agent beendet, ohne die Phase voranzubringen, zeigen die Nachweise auch seine letzten Fehlerausgabezeilen. Nach dem letzten Versuch postet es einen abschließenden Kommentar, setzt \`agent-failed\`, stoppt den Container, behält den Worktree und gibt den Platz frei. Weitere Ursachen sind eine abgelaufene Antwortzeit, ein gelöschtes Quellticket und ein überschrittenes Limit wie Kosten oder geänderte Dateien. Das Schließen des Quelltickets, während ein Auftrag wartet, bricht ihn ab.\r
-\r
-Unter Aufträge zeigt ein fehlgeschlagener Auftrag **Fehlgeschlagen**, und seine Details erklären, dass Wiederherstellungsnachweise erhalten bleiben. **Wiederholen** bittet den Worker, den Auftrag wiederherzustellen; es umgeht weder Validierung noch erforderliche Freigabe. In der Ticketansicht ersetzt Wiederholen das Starten. Das Entfernen von \`agent-failed\` löst keine Wiederholung aus. **Abbrechen** erscheint bei unbeendeten Aufträgen und bittet den Worker, zu stoppen und aufzuräumen. Beendete Aufträge können nicht abgebrochen werden. Administratoren und zugewiesene Entwickler können beides nutzen. Ein eingereihter Befehl zeigt seinen Fortschritt, etwa Befehl eingereiht oder Befehl abgeschlossen. Ein fehlgeschlagener oder ungewisser Befehl nennt außerdem den Grund, wenn die Engine einen angibt, und zeigt die letzten Zeilen der Engine.\r
-\r
-Bei lokalen Aufträgen prüft **Wiederholen** den installierten Executor erneut und akzeptiert ein aktualisiertes Programm oder eine geänderte geerbte Umgebung auf demselben Computer und Konto. Aufgabe, Worktree, Branch, Verlauf und kumulative Grenzen bleiben erhalten. Die automatische Überwachung tut dies nicht. Geänderte Ausführungseinstellungen oder beschädigte Wiederherstellungsnachweise müssen korrigiert werden. Scheitert der Neustart, zeigt der Vorgang den gespeicherten Grund: fehlendes Programm, ungültige Version, Befehlsfehler oder Zeitüberschreitung. Diese Versionsprüfung sendet keine Modellanfrage; verwenden Sie dafür **KI-Verbindung testen**.\r
-\r
-Überschreitet ein Container-Befehl sein Zeitlimit, stoppt ADORE den Container vor dem nächsten Befehl. Der nächste zulässige Versuch startet denselben Container mit installierten Abhängigkeiten und Dateien; der Netzwerkzugriff bleibt unverändert. Lässt sich sicheres Stoppen oder Starten nicht bestätigen, schlägt der Auftrag fehl und bewahrt Nachweise zur Prüfung vor **Wiederholen**. Eine fehlgeschlagene Vorbereitung benötigt weiterhin ihre ausdrückliche Wiederherstellung.\r
-\r
-## Verwerfen und neu starten {#restart}\r
-\r
-Bei einem fehlgeschlagenen Auftrag löscht **Verwerfen und neu starten** den gespeicherten Zustand, die Arbeitskopie samt unveröffentlichter Arbeit und den unveränderten eigenen Remote-Branch. Lesen und bestätigen Sie die Warnung. ADORE prüft die Eigentümerschaft vor der Bereinigung und startet dasselbe offene Ticket mit aktuellen Einstellungen erst nach erfolgreicher Bereinigung. Eine pausierte Überwachung bleibt pausiert. Administratoren und zugewiesene Entwickler dürfen diese Aktion nutzen.\r
-\r
-Wiederholen behebt keine geänderte Ausführungsart oder feste Einstellungen; die Jobdetails erklären dies und bieten die bestätigte Aktion an. Stellen Sie gespeicherte Einstellungen wieder her, um Arbeit zu behalten. Wiederholen kann veränderliche native Umgebungswerte weiterhin neu prüfen, auch Prozessorvariablen nach einer VM-Größenänderung.\r
-\r
-Fremde Ressourcen, andere Rechner oder Konten, beschädigte Eigentumsnachweise und geänderte Remote-Branches blockieren die Wiederherstellung. Eine Teilbereinigung behält restliche Nachweise ohne neuen Auftrag. Bei Änderungen nach der Bestätigung aktualisieren und prüfen Sie die Details erneut. Eine CLI-Sperre kann dem Web-Worker gehören: Überwachung in der Projektübersicht pausieren und das Ende des begrenzten Auftrags abwarten. Keine aktive Sperrdatei löschen.\r
-\r
-Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint hinterlassen, behält ADORE ihn und nutzt eine neue Generation. Ein geänderter bekannter Checkpoint blockiert weiterhin die Wiederherstellung. Höchstens drei alternative Namen werden geprüft; die Repository-Regeln müssen einen freien Namen erlauben. Andernfalls stoppt die Wiederherstellung vor der Bereinigung. Das Ergebnis nennt einen behaltenen alten Branch.\r
-\r
-## Aufträge verfolgen {#following-jobs}\r
-\r
-Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** eines Projekts und dann den Unterreiter **Aufträge**. Die Tabelle hat diese Spalten:\r
-\r
-| Spalte | Inhalt |\r
-|---|---|\r
-| Ticket | Nummer und Titel; öffnet die Auftragsdetails. |\r
-| Projekt | Das zugehörige Projekt. |\r
-| Status | Der Zustand, der gespeicherte Workflow, die aktuelle Phase und ein Link zum Ticket oder MR/PR, wenn ein Mensch handeln muss. |\r
-| Letzte Aktivität | Zeitpunkt des letzten gespeicherten Ereignisses. |\r
-| Verbrauch | Vom Auftrag verbrauchte Token. |\r
-\r
-Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.\r
-\r
-Die Details ersetzen die Jobliste, solange sie geöffnet sind. Die kompakte Überschrift vereint Ticketnummer und Titel. **Was gerade geschieht** zeigt Status, Zuständigkeit und **Nächster Schritt**. Budgets und Verbrauch stehen auf breiten Bildschirmen daneben, auf schmalen darunter. **Aktivität** listet gespeicherte Ereignisse vom neuesten zum ältesten. **Frage des Agenten** enthält die aktive Rückfrage; andere Zustände zeigen **Nachweise und Artefakte**. **Technische Details** enthält Kennungen, Executor-Ausgabe und aufklappbare **Gespeicherte Originalereignisse**. **Schließen** kehrt zur Liste mit ihren Filtern zurück. Frühere Ereignisse werden nicht zu aktuellen Handlungsaufforderungen.\r
-\r
-## Jobbudgets {#budgets}\r
-\r
-Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und \`adore init\`.\r
-\r
-Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen, **Implementierung** öffnen, nur Budgets ändern, **Speichern** wählen und die genauen Werte bestätigen. Solche geprüften Budgetänderungen sind bei wartenden Rückfragen erlaubt, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen behalten die üblichen Ruhe- und Pausenprüfungen; Entwickler haben Lesezugriff.\r
-\r
-Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.\r
-\r
-Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.\r
-\r
-## Status und Executor-Nachweise {#operational-evidence}\r
-\r
-**In Arbeit** bedeutet, dass ADORE die gespeicherte Phase steuert; derzeit ist keine menschliche Aktion angefordert. **Klärung ausstehend** benötigt eine Antwort im Ticket. **Fehlgeschlagen** hält autonome Arbeit an und bewahrt Wiederherstellungsnachweise. Die Statuskarte zeigt Fehlversuche der aktuellen Phase auch bei laufendem Job.\r
-\r
-Fragen erscheinen unter **Frage des Agenten** als Markdown mit Listen, Tabellen und Code. Führende HTML-Kommentare fehlen in der lesbaren Ansicht; **Originalfrage und Nachweise** bewahrt die genaue Quelle. Sonstiges HTML bleibt Text, unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Breite Tabellen und Code scrollen innerhalb der Frage.\r
-\r
-Zeitleistenphasen stammen aus der gespeicherten Phase, dem Phasenkontext oder dem Übergangsziel des Ereignisses; andere Ereignisse bleiben unbekannt. Jobzeiten enthalten Sekunden. Ein Ereignis ist ein gespeicherter Nachweis, kein Live-Fortschritt.\r
-\r
-Unter **Technische Details** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.\r
-\r
-Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Klappen Sie **stdout** oder **stderr** bei vorhandenen Einträgen auf. Einen laufenden Start zeigt die Ansicht zusammen mit der letzten abgeschlossenen Ausgabe. Ändert sich das Journal beim Lesen, wählen Sie **Wiederholen**. Der letzte geprüfte Stand ist als möglicherweise veraltet gekennzeichnet.\r
-\r
-Ein Start ohne belegte Erfassung oder mit gelöschtem Snapshot ist ausdrücklich nicht verfügbar; rohe Archive werden nie ersatzweise gelesen. Beschädigte Nachweise werden abgelehnt. Bestehende Jobs können bis zu einem späteren Start ohne Ausgabe bleiben; diese Ansicht startet nichts.\r
-\r
-Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem Fehler. Jobnachweise und Wiederherstellung bleiben getrennt. Beschädigte Quellen erfordern weiterhin eine Untersuchung durch den Betreiber.\r
-`,Sz=`# Was ADORE leistet\r
-\r
-Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.\r
-\r
-ADORE macht aus einem vorbereiteten Ticket in Ihrer Code-Forge einen Entwurf für einen Merge Request oder Pull Request, den Menschen prüfen. Diese Seite erklärt den Ablauf und die beiden Rollen; die übrigen Themen behandeln jeweils einen Bildschirm.\r
-\r
-## Was ADORE leistet {#what-adore-does}\r
-\r
-ADORE beobachtet die Projekte, die ein Administrator eingerichtet hat. Ist ein Ticket in der Forge (GitHub, GitLab oder Gitea) zur Aufnahme vorbereitet, startet ADORE dafür einen **Auftrag**:\r
-\r
-- Es führt einen Coding-Agenten (den Executor) in einer isolierten Umgebung aus: mit eigenem Branch, eigenem Arbeitsordner und eigenem Container.\r
-- Der Agent folgt dem AEGIS-Workflow des Repositorys Phase für Phase: Rahmen, Spezifikation, Entwurf, Umsetzung und Validierung. Eine kleine Änderung kann einen Schnellpfad ohne Spezifikation und Entwurf nehmen.\r
-- ADORE beobachtet das vom Agenten gemeldete Ergebnis und bittet einen Menschen um Freigabe.\r
-- Nach der Freigabe veröffentlicht ADORE einen MR/PR-Entwurf, den Menschen prüfen. Ein Projekt kann stattdessen so eingestellt werden, dass ein fertiger MR/PR veröffentlicht wird.\r
-\r
-> ADORE führt nie einen Merge aus. Es gibt keine Merge-Operation; ob zusammengeführt wird, entscheidet ein Mensch in der Forge.\r
-\r
-Die Weboberfläche zeigt, was gerade läuft und was Aufmerksamkeit braucht. Sie erlaubt es außerdem, Tickets zu starten, Aufträge zu wiederholen oder abzubrechen und, als Administrator, Projekte und Konten einzurichten.\r
-\r
-Wenn sich der Auftragsstatus eines Projekts nicht lesen lässt, nennt **Handlungsbedarf** das betroffene Projekt. Auftragsdaten der anderen ausgewählten Projekte bleiben sichtbar.\r
-\r
-## Vom Ticket zum Merge {#flow}\r
-\r
-| Schritt | Angezeigter Status | Wer handelt | Was geschieht |\r
-|---|---|---|---|\r
-| 1. Vorbereiten | Noch kein Auftrag | Ein Mensch | Das Ticket erhält das Bereitschaftslabel und ein Prioritätslabel, oder Sie wählen **Starten** unter Aufträge → Tickets; fehlende Labels werden nach Ihrer Bestätigung ergänzt. |\r
-| 2. Arbeiten | In Arbeit | ADORE und der Coding-Agent | ADORE legt den Auftrag an und der Agent arbeitet die AEGIS-Phasen ab. |\r
-| 3. Klären | Wartet auf Klärung | Ein Mensch | Nur wenn der Agent eine Frage hat. Antworten Sie im Repository-Ticket und setzen Sie das Antwortlabel. |\r
-| 4. Validieren | In Arbeit | Coding-Agent | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |\r
-| 5. Freigeben | Wartet auf Freigabe | Ein Mensch | ADORE stellt den Kandidaten in der Forge vor. Ein Mensch setzt das Freigabelabel. Die Freigabe ist an genau diesen Kandidaten gebunden. |\r
-| 6. Veröffentlichen | Veröffentlichung | ADORE | ADORE überträgt den Branch und öffnet den MR/PR-Entwurf. |\r
-| 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitung wiederholt die Validierung und folgt der Freigaberegel. |\r
-| 8. Zusammenführen | Abgeschlossen | Ein Mensch | Ein Mensch führt in der Forge zusammen. ADORE tut das nicht. |\r
-\r
-Ändert sich der Kandidat oder sein Zielbranch nach der Freigabe, gilt die Freigabe nicht mehr und der Auftrag wird erneut validiert. Begriffe erklärt das [Glossar](/help/glossary).\r
-\r
-## Rollen {#roles}\r
-\r
-| Rolle | Sieht | Kann |\r
-|---|---|---|\r
-| Administrator (Admin) | Alle aktuellen und künftigen Projekte sowie Verwaltung und Kosten | Alles, was ein Dev kann, und zusätzlich Projekte einrichten, Projekteinstellungen über geprüfte Änderungen bearbeiten, die Überwachung pausieren oder aktivieren, Projekte archivieren oder wiederherstellen, Benutzer und Projektzugriff verwalten, die Audit-Aufbewahrung festlegen, den Änderungsverlauf lesen sowie Kosten sehen und festlegen |\r
-| Dev | Nur die Projekte, die ein Administrator zugewiesen hat | Tickets starten und stoppen, Aufträge wiederholen oder abbrechen, Statistiken zugewiesener Projekte lesen und Projekteinstellungen lesen (schreibgeschützt, ohne Geheimnisse und Finanzeinstellungen) |\r
-\r
-Ein Dev sieht nie Geldbeträge und kann die Verwaltungsseiten nicht öffnen. Ohne zugewiesenes Projekt bittet die Übersicht den Dev, bei einem Administrator Zugriff anzufordern. Sind keine Projekte vorhanden, kann ein Admin in der Übersicht **Neues Projekt registrieren** wählen.\r
-\r
-## Erste Schritte {#getting-started}\r
-\r
-1. Administratoren richten das Repository ein: [Repository hinzufügen](/help/projects).\r
-2. Modell für den Coding-Agenten Pi wählen: [Executor und Modelle](/help/executors).\r
-3. Tickets so vorbereiten, dass ADORE sie aufnehmen kann: [Tickets für die automatische Aufnahme](/help/tickets).\r
-4. Jeden Auftrag bis zum MR/PR-Entwurf verfolgen: [Lebenszyklus eines Auftrags](/help/jobs).\r
-\r
-Entwickler beginnen bei Schritt 3, sobald ein Administrator ihnen Zugriff auf ein Projekt gegeben hat.\r
-\r
-## Weitere Themen {#topics}\r
-\r
-- [Was ADORE leistet](/help/overview): diese Seite.\r
-- [Rundgang durch die Oberfläche](/help/interface): Seitenleiste, Kopfzeile, Projektzentrale und Statuslabels.\r
-- [Repository hinzufügen](/help/projects): ein Projekt einrichten.\r
-- [Projekteinstellungen](/help/settings): was jede Einstellungsgruppe steuert.\r
-- [Executor und Modelle](/help/executors): der Coding-Agent Pi, Modelle und Authentifizierung.\r
-- [Tickets für die automatische Aufnahme](/help/tickets): Labels und das Starten von Tickets.\r
-- [Lebenszyklus eines Auftrags](/help/jobs): Status, Wartezustände, Wiederholen und Abbrechen.\r
-- [Statistiken und Kosten](/help/statistics): Nutzung, Qualität, Trends und geschätzte Kosten.\r
-- [Verwaltung](/help/administration): Benutzer, Zugriff, Systemstatus und Änderungsverlauf.\r
-- [Glossar](/help/glossary): die in der Oberfläche verwendeten Begriffe.\r
-`,zz=`# Repository hinzufügen\r
-\r
-Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.\r
-\r
-Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets aufnehmen, einen Coding-Agenten darauf ansetzen und Entwürfe für Merge Requests oder Pull Requests zur menschlichen Prüfung veröffentlichen kann. Nur Administratoren fügen Projekte hinzu, und ADORE führt nie einen Merge aus.\r
-\r
-\r
-Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung.\r
-\r
-\r
-Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.\r
-\r
-## Bevor Sie beginnen {#before-you-start}\r
-\r
-Halten Sie Folgendes bereit:\r
-\r
-- Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.\r
-- Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.\r
-- Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).\r
-- Die Modell-ID für Pi und bei Containern einen laufenden Docker- oder Podman-Dienst. Das gemeinsame Standardimage wird beim Import automatisch vorbereitet; eigene Images müssen bereits in diesem Dienst vorhanden sein. Siehe [Executor und Modelle](/help/executors).\r
-\r
-## Neues Projekt registrieren {#add-project}\r
-\r
-Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.\r
-\r
-Wenn keine Projekte mehr vorhanden sind, bieten Übersicht und Projekte Administratoren **Neues Projekt registrieren** und **Rohkonfiguration importieren** an. Nach dem Löschen des letzten Projekts kehren Sie zu Projekte zurück, wo beide Aktionen verfügbar bleiben.\r
-\r
-| Schritt | Was abgefragt wird |\r
-|---|---|\r
-| Repository und Identität | **Repository-URL** und **Repository lesen**: ADORE füllt **Forge**, **Repository**, **Gitea tea login**, **Zielbranch** und die Projekt-ID zur Bestätigung aus und schlägt einen änderbaren **Lokaler Klonpfad** vor. **Weiter** bleibt deaktiviert, bis das Repository gelesen wurde. **Anzeigename** beginnt mit dem Repository-Namen; **Beschreibung** ist optional. |\r
-| Agent und Modell | Wählen Sie **Anbieter**, **Modell** und bei Bedarf den Endpunkt. Wählen Sie für einen Container Laufzeit und Image. Speichern Sie den Anbieterschlüssel nach der Erstellung unter Einstellungen. Unter **Auf dem Server installiert** erscheinen das aktuelle Systemkonto und der optionale **PATH für Projektwerkzeuge**. |\r
-| Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, optional **Prüfende (kommagetrennt)** und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |\r
-| Überprüfung | Beim Öffnen dieses Schritts werden Konfiguration, Serverordner, Git und Forge-Zugriff automatisch geprüft. **Umgebung erneut prüfen** wiederholt diese Prüfungen. **Workflow** zeigt separat den beobachteten Repository-Workflow, ohne die Registrierung zu sperren. Bei Ausführung auf dem Server zeigt **Pi auf dem Server** lokale Fehler wie inkompatible Node-Versionen. Bei Containerausführung werden die Engine und Pi im lokalen Image geprüft. Es wird nichts veröffentlicht. **Weiter** öffnet die Prüfung, sobald die Konfiguration gültig ist. |\r
-| Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte sowie eine eingeklappte Liste **Auf Standard belassene Einstellungen** mit dem Standardwert jeder weiteren Einstellung (nur lesbar; nach dem Erstellen in den Einstellungen änderbar). **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** klont zuerst das Repository (aus einer URL), prüft den Zielbranch und speichert dann das Projekt; sofern Sie **ADORE-Labels im Repository anlegen** nicht abwählen, legt es die fehlenden ADORE-Labels an und zeigt das Ergebnis; danach folgt **Projekt öffnen**. |\r
-\r
-Für die native lokale Ausführung wählen Sie **Ausführung → Auf dem Server installiert**. Spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.\r
-\r
-Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).\r
-\r
-**Automatischer Speicherort** behält den vorgeschlagenen Klonpfad bei. Wählen Sie **Eigener Speicherort** und **Ordner wählen…**, um Ordner auf dem ADORE-Rechner zu durchsuchen. Ein Klick wählt eine Zeile; Doppelklick oder Eingabe öffnet den Ordner. Nutzen Sie Zurück oder Übergeordneter Ordner und dann **Ordner auswählen**, um genau den bestehenden Ordner zu bestätigen. Ein neues Ziel geben Sie direkt im Klonpfad des Hauptformulars ein. Die Auswahl erstellt nichts; Links und Netzwerkpfade werden abgewiesen. **Abbrechen** erhält den Entwurf. Ein beim Laden eingegebener Ordnerpfad bleibt in der Adressleiste stehen.\r
-\r
-**Zielbranch** listet die Remote-Branches von GitHub, GitLab und Gitea auf, auch bei eigenen Instanzen. Der Standardbranch des Repositorys ist ausgewählt und mit **Standard** markiert. Wählen Sie bei Bedarf einen anderen Branch. **Repository lesen** aktualisiert die Liste und behält eine ausdrückliche Auswahl bei, solange der Branch existiert. Eine andere URL löscht die bisherigen Optionen. Ohne gemeldeten Standardbranch wählen Sie selbst; ohne Branches legen Sie zuerst einen im Repository an und lesen es erneut. Der Git-Zugriff des ADORE-Kontos wird verwendet; unbekannte Forge-Typen werden weiterhin manuell gewählt.\r
-\r
-## Repository-Workflows {#workflows}\r
-\r
-Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports bereitet ADORE fehlende gemeinsame Ausführungs- und Proxy-Images vor dem Speichern des Projekts vor. Die aktuelle Phase wird angezeigt; die erste Vorbereitung kann mehrere Minuten dauern und benötigt Internet auf dem Server. Weitere Importe verwenden die Images erneut. Nach einem Vorbereitungsfehler können Sie den Import ohne erneute Eingabe derselben Antworten wiederholen. Native Importe überspringen die Container-Vorbereitung. Eigene Images bleiben Aufgabe des Administrators.\r
-\r
-**AEGIS / Direkt**. Der Agent wählt und führt Prüfungen gemäß den Repository-Anweisungen aus. Mit AEGIS folgt er den gespeicherten Phasen, sonst implementiert er das Ticket direkt. ADORE beobachtet Fortschritt und Journal, speichert den Kandidaten und fordert menschliche Freigabe an. Es startet keine zusätzlichen Repository-Tests oder strikten AEGIS-Prüfungen.\r
-\r
-## Originalkonfiguration importieren {#import-project}\r
-\r
-Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei \`config.toml\`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.\r
-\r
-Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).\r
-\r
-\r
-Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:\r
-\r
-1. Wählen Sie **Repository-Zugang**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.\r
-2. Wählen Sie **Host-Voraussetzungen prüfen**. Die Details betreffen Git, das Repository-Befehlswerkzeug, die Repository-Anmeldung, die Container-Engine, Pi im Image, bei einem ChatGPT-Abonnement außerdem die ChatGPT-Anmeldung des Servers, bei ausgeschaltetem [Internetzugang](/help/executors#internet) das Netzwerk-Proxy-Image und den Websuche-Schlüssel, wenn Brave oder Tavily einen braucht. Für ein Projekt, das direkt auf dem Server läuft, ersetzt **Lokale Ausführung** die Zeilen zu Container-Engine und Image: Sie prüft kompatibles Node, das von ADORE verwaltete Pi und die Zugangsdaten des Anbieters. Die separate Zeile **Workflow** bestimmt den Workflow, ohne AEGIS auszuführen. Das ist kein vollständiger Auftrag und belegt keine Push-Berechtigung.\r
-3. Führen Sie **KI-Verbindung testen** in den Einstellungen aus, wie unter [Executor und Modelle](/help/executors#test-connection) beschrieben.\r
-4. Wählen Sie **Überwachung aktivieren**. Die Kachel Überwachung wechselt von Pausiert auf Aktiv, und ADORE beginnt, Tickets mit dem Bereitschaftslabel aufzunehmen. **Überwachung pausieren** stoppt neue Aufnahmen, unterbricht aber keinen laufenden Auftrag.\r
-\r
-## Archivieren, wiederherstellen und löschen {#lifecycle}\r
-\r
-Administratoren finden diese Schaltflächen auf dem Reiter Zusammenfassung.\r
-\r
-- **Projekt archivieren** funktioniert, nachdem Aufträge beendet und eingereihte Anfragen abgearbeitet sind. Es behält Einstellungen, Verlauf, Kennzahlen und Audit-Einträge und stoppt neue Arbeit. **Projekt wiederherstellen** bringt es zurück.\r
-- **Projekt löschen** erscheint nur bei archivierten Projekten und verlangt die Eingabe des Projektnamens. Es entfernt die ADORE-Einstellungen, den Auftragsverlauf, die Kennzahlen, die Container und die Worktrees des Projekts. Erhalten bleiben das Repository und seine Branches, Worktrees von an eine Person übergebenen Aufträgen, ein Auftragsstatus-Ordner außerhalb des ADORE-Verzeichnisses und der Audit-Verlauf. Das Löschen wird abgelehnt, solange Arbeit eingereiht oder nicht abgeschlossen ist. **Auch den lokalen Klon entfernen** (nicht angehakt) löscht zusätzlich den Klon, den ADORE in seinem Ordner \`repos\` angelegt hat; die Option erscheint nur für einen sauberen Klon des Repositorys dieses Projekts, den kein anderes Projekt nutzt und kein beim Löschen behaltener Worktree mehr braucht, sonst nennt der Dialog den Grund, warum der Klon bleibt.\r
-\r
-> Das Löschen kann nicht rückgängig gemacht werden. Um ein Projekt danach anzupassen, siehe [Projekteinstellungen](/help/settings).\r
-\r
-## Gitea-Anmeldung auf diesem Rechner {#gitea-sign-in}\r
-\r
-ADORE nutzt zuerst die gespeicherte Projektverbindung. Andernfalls verwendet es die tea-Konfiguration des aktuellen Kontos. Meldet tea eine fehlende Anmeldung, prüft ADORE die Windows- oder Linux-Standardpfade und wählt die konfigurierte Anmeldung, genau eine Standardanmeldung oder die einzige vorhandene Anmeldung. Mehrere Konten ohne eindeutige Auswahl erfordern eine ausdrückliche Verbindung.\r
-\r
-Die Erkennung beachtet \`XDG_CONFIG_HOME\`. Unter Windows prüft sie außerdem Local AppData, Roaming AppData und \`.config\` im Benutzerverzeichnis; unter Linux \`.config\` im Benutzerverzeichnis. Private Anwendungscaches werden nicht durchsucht und Zugangsdaten nicht zwischen Rechnern kopiert.\r
-\r
-1. Öffnen Sie die **Übersicht** des Projekts und wählen Sie **Repository-Zugang**.\r
-2. Geben Sie den Gitea-Ursprung bei Bedarf mit Port unter **Repository-Server** ein.\r
-3. Erstellen Sie dort ein Token für das Konto mit Lese-/Änderungsrechten für Tickets und Entwurfsreviews und tragen Sie es unter **Zugriffstoken** ein.\r
-4. Wählen Sie **Prüfen und verbinden**. Ein HTTP-Server erfordert die angezeigte Bestätigung. Ein Fehler erhält die gespeicherte Verbindung.\r
-5. Prüfen Sie die Host-Voraussetzungen erneut. Git-Zugangsdaten für clone/push werden getrennt eingerichtet.\r
-\r
-Richten Sie auf einem anderen Rechner dessen eigene CLI-Anmeldung ein oder nutzen Sie dieses Formular. Das Lieferarchiv enthält keine Benutzertokens.\r
-`,Ez=`# Projekteinstellungen\r
-\r
-Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE dafür anwendet: welche Tickets aufgenommen werden, welche Limits gelten, wie veröffentlicht wird und welcher Agent verwendet wird. Administratoren bearbeiten mehrere Einstellungen und speichern sie gemeinsam; Entwickler lesen sie.\r
-\r
-## Wo Sie die Einstellungen finden {#where}\r
-\r
-Öffnen Sie [Projekte](/projects), wählen Sie ein Projekt und dann den Reiter **Einstellungen**. Die Reiter sind Zusammenfassung, Einstellungen, Aufträge, Statistiken, Verlauf und, für Administratoren, Zugriff.\r
-\r
-Die gespeicherten Einstellungen werden alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist. Bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen pausiert die Aktualisierung. Auch bei der Eingabe eines Preises oder API-Schlüssels und bei der ChatGPT-Anmeldung pausiert die Aktualisierung.\r
-\r
-Administratoren können bearbeiten. Entwickler mit Zugriff auf das Projekt sehen **Schreibgeschützte Einstellungen**, ohne Schaltflächen zum Bearbeiten und ohne Geheimnisse oder Finanzeinstellungen. Jedes Projekt hat eigene Einstellungen; die globale Kapazität und die Audit-Aufbewahrung gehören zur Verwaltung.\r
-\r
-## Einstellungsgruppen {#groups}\r
-\r
-Jede Gruppe ist beim Öffnen der Einstellungen eingeklappt, und die Zahl neben ihrem Namen gibt die Anzahl ihrer Zeilen an.\r
-\r
-| Gruppe | Was sie steuert |\r
-|---|---|\r
-| Repository | Forge und Repository, Gitea-Login, **Zielbranch** (Basis neuer Aufträge und Ziel der PR/MRs), die Vorlage für den Namen des Auftrags-Branches mit optionaler Namensregel und einem Live-Beispiel sowie Anzeigename, Ressourcenname und Commit-Autor-E-Mail des Agenten. |\r
-| Tickets | **Label für aufnahmebereite Tickets**, **Label zum Ausschluss von der Aufnahme**, die eingeklappten **Statuslabels**, wie oft ADORE die Forge prüft, ob Tickets Akzeptanzkriterien oder ein Prioritätslabel brauchen, und den Standard-Aufgabentyp. Siehe [Tickets für die automatische Aufnahme](/help/tickets#labels). |\r
-| Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |\r
-| PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), **Menschliche Freigabe vor PR/MR verlangen** und das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |\r
-| Statistik | **Messwerte abgeschlossener Aufträge erfassen** und **Vom Agenten gemeldete Token erfassen**. **Statistik-Datenbankdatei** wird nur zur Information angezeigt. |\r
-| Agent und Modell | Anbieter, Modell, Authentifizierung und **KI-Verbindung testen** [Executor und Modelle](/help/executors). |\r
-| Technische Details | Schreibgeschützte Installationswerte wie der Auftragsstatus-Ordner, der lokale Repository-Pfad und die Arbeitsordner der Aufträge. Sie werden in der \`config.toml\` des Projekts auf dem Server geändert, und das Ändern eines Pfads verschiebt keine vorhandenen Daten. |\r
-\r
-## Werte und Hilfe {#values}\r
-\r
-Jede Zeile hat ein Label, eine stets sichtbare Beschreibung sowie die Angaben **Aktiver Wert** und **ADORE-Standard**. Die Beschreibung sagt, was die Einstellung steuert, welche Einheit oder welche Werte erlaubt sind und was eine Änderung bewirkt, oder dass sie reserviert und unbenutzt ist. Es gibt keine separate Hilfeschaltfläche.\r
-\r
-Ein Badge **Standard** bedeutet, dass die \`config.toml\` des Projekts den Wert nicht setzt, sodass der ADORE-Standard gilt. Beim Bearbeiten wird ein Wert nur für dieses Projekt geschrieben. Eine Zeile mit **Hier nicht änderbar** wird in der \`config.toml\` auf dem Server geändert. Eine Zeile mit **Nur bei pausierter Aufnahme ohne aktive Aufträge anwendbar** braucht die unten beschriebene zusätzliche Bedingung.\r
-\r
-Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).\r
-\r
-## Bearbeiten {#editing}\r
-\r
-Die Leiste **Speichern** und **Änderungen verwerfen** erscheint nur bei ungespeicherten oder wiederhergestellten Änderungen, beim Speichern oder bei einem zu behebenden Fehler. Nach erfolgreichem Speichern oder Verwerfen verschwindet sie. Einen Editor ohne Wertänderung zu öffnen zeigt die Leiste nicht.\r
-\r
-1. Wählen Sie **Bearbeiten** neben jedem zu ändernden Wert. Sie können mehrere Einstellungen in verschiedenen Gruppen bearbeiten.\r
-2. Verwenden Sie die einzige Schaltfläche **Speichern** oberhalb der Gruppen. Sie ist nur bei geänderten Werten und gültigen Eingaben aktiv.\r
-3. Bei wichtigen Änderungen zeigt **Wichtige Änderungen bestätigen** das Projekt, die geänderten Werte und Auswirkungen. Wählen Sie **Änderungen speichern** oder **Weiter bearbeiten**, um ohne Speichern zurückzukehren.\r
-\r
-Es gelten folgende Regeln:\r
-\r
-- **Änderungen verwerfen** entfernt alle ungespeicherten Eingaben. Das Abbrechen der Bestätigung behält sie ohne einen gespeicherten Kandidaten.\r
-- Speichern ist an die bearbeitete Konfiguration gebunden. Eine veraltete Revision sperrt das Speichern und behält die Eingaben. Verwerfen Sie Ihre Änderungen, um die gespeicherten Einstellungen vor dem Bearbeiten neu zu laden. Gleichzeitige Änderungen führen zu einem Konflikt.\r
-- Der Server prüft die gesamte Konfiguration und speichert alles gemeinsam. Geprüfte reine Budgetänderungen erlauben auch wartende Rückfragen, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen erfordern beendete Jobs. Ein Fehler behält Eingaben und vorbereitete Kandidaten.\r
-- Identitäts- und Laufzeitänderungen erfordern zusätzlich pausierte Überwachung. Wählen Sie **Überwachung pausieren** in Übersicht und lassen Sie aktive Arbeit enden; die Pause unterbricht keinen Auftrag.\r
-- Budgets gelten vor dem nächsten Versuch oder Fortsetzen bei erhaltenem Verbrauch und Fortschritt. Siehe [Jobbudgets](#budgets).\r
-\r
-Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.\r
-\r
-## Original-TOML {#toml}\r
-\r
-Neben Projekteinstellungen stehen Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren** zur Verfügung. Die Vorschau zeigt die exakt gespeicherte TOML in einem schließbaren Dialog. Ausstehende Änderungen, separate Umgebungsdateien, externe Zugangsdaten und laufende Auftragsdaten sind ausgeschlossen. Eine einzelne TOML kann Klartextwerte enthalten und muss vertraulich behandelt werden; der vollständige Build-Export verweigert eingebettete Zugangsdaten.\r
-\r
-Wählen Sie **Originalkonfiguration exportieren**, wählen Sie das Ziel und speichern Sie. Container-Projekte exportieren ein ZIP mit gespeicherter Konfiguration und vollständiger Image-Definition. Native Projekte speichern \`config.toml\`. Es gibt keinen Export-Einstellungsdialog. Ohne Zielauswahl gelten die normalen Download-Einstellungen des Browsers. Wählen Sie dieses ZIP direkt unter Projekte → Originalkonfiguration importieren, um Konfiguration und Rezepte gemeinsam mit automatischer Prüfung zu importieren.\r
-\r
-Administratoren verwalten Quellen separat unter **Technische Details → Image-Definition**. Wählen Sie eine Dockerfile oder ZIP unter **Definitionsdatei**; sie wird automatisch geprüft. **Rezept speichern** speichert sie, **Definition ändern** ersetzt sie. Fehlende lokale Basisdefinitionen werden ebenfalls hier ergänzt. Die Standard-Executor-Basis von ADORE ist automatisch enthalten.\r
-\r
-Definitionen werden je Image gespeichert und von Projekten mit diesem Image geteilt. Das Speichern baut kein Image, ändert keine Einstellungen und startet keine Aufträge neu. Das ZIP enthält alle deklarierten lokalen Basisquellen und eine Compose-Datei zum Bauen auf einem anderen Server. Image-Binärdateien und später vom Agenten installierte Pakete sind ausgeschlossen. Registries und Paketquellen müssen dort erreichbar sein.\r
-\r
-Bei beschädigten Rezeptdaten nennt der Dialog, was auf dem Server für einen Neuanfang zu löschen ist. Ein Zurücksetzen des Rezeptkatalogs entfernt gespeicherte Image-Definitionen aller Projekte; Konfigurationen, Zugangsdaten und Aufträge bleiben unverändert. ADORE löscht diese Daten niemals automatisch.\r
-\r
-## Systempakete des Agenten {#system-packages}\r
-\r
-**Systempaketinstallation durch den Agenten erlauben**\r
-\r
-Unter Einstellungen → Agent und Modell aktivieren Administratoren diese Berechtigung mit **Speichern** und bestätigen die Auswirkung. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.\r
-\r
-Netzwerkzugriff bleibt separat: open erlaubt erreichbare Quellen, allowlist-proxy erlaubte HTTP/HTTPS-Domains und none nur verfügbare lokale Quellen. Paketskripte haben administrative Rechte im Container; eingebundene Projektordner bleiben mit dem Server geteilt. Systempakete bleiben beim Fortsetzen desselben Containers erhalten; ein neuer Container erfordert erneute Prüfung und Installation.\r
-\r
-## Jobbudgets {#budgets}\r
-\r
-Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und \`adore init\`.\r
-\r
-Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen, **Implementierung** öffnen, nur Budgets ändern, **Speichern** wählen und die genauen Werte bestätigen. Solche geprüften Budgetänderungen sind bei wartenden Rückfragen erlaubt, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen behalten die üblichen Ruhe- und Pausenprüfungen; Entwickler haben Lesezugriff.\r
-\r
-Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.\r
-\r
-Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.\r
-\r
-\r
-**Implementierung** (\`build\`) nutzt \`workflow.stage_timeout_overrides\` oder \`budgets.per_gate_timeout_seconds\`. Bei AEGIS begrenzt **Validierung** (\`validate\`) ebenfalls die Agentensitzung. ADORE startet keine zusätzlichen Tests; der Agent wählt lokale und CI-Prüfungen gemäß den Repository-Anweisungen.\r
+Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
+
+## Status und Executor-Nachweise {#operational-evidence}
+
+**In Arbeit** bedeutet, dass ADORE die gespeicherte Phase steuert; derzeit ist keine menschliche Aktion angefordert. **Klärung ausstehend** benötigt eine Antwort im Ticket. **Fehlgeschlagen** hält autonome Arbeit an und bewahrt Wiederherstellungsnachweise. Die Statuskarte zeigt Fehlversuche der aktuellen Phase auch bei laufendem Job.
+
+Fragen erscheinen unter **Frage des Agenten** als Markdown mit Listen, Tabellen und Code. Führende HTML-Kommentare fehlen in der lesbaren Ansicht; **Originalfrage und Nachweise** bewahrt die genaue Quelle. Sonstiges HTML bleibt Text, unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Breite Tabellen und Code scrollen innerhalb der Frage.
+
+Zeitleistenphasen stammen aus der gespeicherten Phase, dem Phasenkontext oder dem Übergangsziel des Ereignisses; andere Ereignisse bleiben unbekannt. Jobzeiten enthalten Sekunden. Ein Ereignis ist ein gespeicherter Nachweis, kein Live-Fortschritt.
+
+Unter **Technische Details** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
+
+Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Klappen Sie **stdout** oder **stderr** bei vorhandenen Einträgen auf. Einen laufenden Start zeigt die Ansicht zusammen mit der letzten abgeschlossenen Ausgabe. Ändert sich das Journal beim Lesen, wählen Sie **Wiederholen**. Der letzte geprüfte Stand ist als möglicherweise veraltet gekennzeichnet.
+
+Ein Start ohne belegte Erfassung oder mit gelöschtem Snapshot ist ausdrücklich nicht verfügbar; rohe Archive werden nie ersatzweise gelesen. Beschädigte Nachweise werden abgelehnt. Bestehende Jobs können bis zu einem späteren Start ohne Ausgabe bleiben; diese Ansicht startet nichts.
+
+Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem Fehler. Jobnachweise und Wiederherstellung bleiben getrennt. Beschädigte Quellen erfordern weiterhin eine Untersuchung durch den Betreiber.
+`,Sz=`# Was ADORE leistet
+
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
+
+ADORE macht aus einem vorbereiteten Ticket in Ihrer Code-Forge einen Entwurf für einen Merge Request oder Pull Request, den Menschen prüfen. Diese Seite erklärt den Ablauf und die beiden Rollen; die übrigen Themen behandeln jeweils einen Bildschirm.
+
+## Was ADORE leistet {#what-adore-does}
+
+ADORE beobachtet die Projekte, die ein Administrator eingerichtet hat. Ist ein Ticket in der Forge (GitHub, GitLab oder Gitea) zur Aufnahme vorbereitet, startet ADORE dafür einen **Auftrag**:
+
+- Es führt einen Coding-Agenten (den Executor) in einer isolierten Umgebung aus: mit eigenem Branch, eigenem Arbeitsordner und eigenem Container.
+- Der Agent folgt dem AEGIS-Workflow des Repositorys Phase für Phase: Rahmen, Spezifikation, Entwurf, Umsetzung und Validierung. Eine kleine Änderung kann einen Schnellpfad ohne Spezifikation und Entwurf nehmen.
+- ADORE beobachtet das vom Agenten gemeldete Ergebnis und bittet einen Menschen um Freigabe.
+- Nach der Freigabe veröffentlicht ADORE einen MR/PR-Entwurf, den Menschen prüfen. Ein Projekt kann stattdessen so eingestellt werden, dass ein fertiger MR/PR veröffentlicht wird.
+
+> ADORE führt nie einen Merge aus. Es gibt keine Merge-Operation; ob zusammengeführt wird, entscheidet ein Mensch in der Forge.
+
+Die Weboberfläche zeigt, was gerade läuft und was Aufmerksamkeit braucht. Sie erlaubt es außerdem, Tickets zu starten, Aufträge zu wiederholen oder abzubrechen und, als Administrator, Projekte und Konten einzurichten.
+
+Wenn sich der Auftragsstatus eines Projekts nicht lesen lässt, nennt **Handlungsbedarf** das betroffene Projekt. Auftragsdaten der anderen ausgewählten Projekte bleiben sichtbar.
+
+## Vom Ticket zum Merge {#flow}
+
+| Schritt | Angezeigter Status | Wer handelt | Was geschieht |
+|---|---|---|---|
+| 1. Vorbereiten | Noch kein Auftrag | Ein Mensch | Das Ticket erhält das Bereitschaftslabel und ein Prioritätslabel, oder Sie wählen **Starten** unter Aufträge → Tickets; fehlende Labels werden nach Ihrer Bestätigung ergänzt. |
+| 2. Arbeiten | In Arbeit | ADORE und der Coding-Agent | ADORE legt den Auftrag an und der Agent arbeitet die AEGIS-Phasen ab. |
+| 3. Klären | Wartet auf Klärung | Ein Mensch | Nur wenn der Agent eine Frage hat. Antworten Sie im Repository-Ticket und setzen Sie das Antwortlabel. |
+| 4. Validieren | In Arbeit | Coding-Agent | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
+| 5. Freigeben | Wartet auf Freigabe | Ein Mensch | ADORE stellt den Kandidaten in der Forge vor. Ein Mensch setzt das Freigabelabel. Die Freigabe ist an genau diesen Kandidaten gebunden. |
+| 6. Veröffentlichen | Veröffentlichung | ADORE | ADORE überträgt den Branch und öffnet den MR/PR-Entwurf. |
+| 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitung wiederholt die Validierung und folgt der Freigaberegel. |
+| 8. Zusammenführen | Abgeschlossen | Ein Mensch | Ein Mensch führt in der Forge zusammen. ADORE tut das nicht. |
+
+Ändert sich der Kandidat oder sein Zielbranch nach der Freigabe, gilt die Freigabe nicht mehr und der Auftrag wird erneut validiert. Begriffe erklärt das [Glossar](/help/glossary).
+
+## Rollen {#roles}
+
+| Rolle | Sieht | Kann |
+|---|---|---|
+| Administrator (Admin) | Alle aktuellen und künftigen Projekte sowie Verwaltung und Kosten | Alles, was ein Dev kann, und zusätzlich Projekte einrichten, Projekteinstellungen über geprüfte Änderungen bearbeiten, die Überwachung pausieren oder aktivieren, Projekte archivieren oder wiederherstellen, Benutzer und Projektzugriff verwalten, die Audit-Aufbewahrung festlegen, den Änderungsverlauf lesen sowie Kosten sehen und festlegen |
+| Dev | Nur die Projekte, die ein Administrator zugewiesen hat | Tickets starten und stoppen, Aufträge wiederholen oder abbrechen, Statistiken zugewiesener Projekte lesen und Projekteinstellungen lesen (schreibgeschützt, ohne Geheimnisse und Finanzeinstellungen) |
+
+Ein Dev sieht nie Geldbeträge und kann die Verwaltungsseiten nicht öffnen. Ohne zugewiesenes Projekt bittet die Übersicht den Dev, bei einem Administrator Zugriff anzufordern. Sind keine Projekte vorhanden, kann ein Admin in der Übersicht **Neues Projekt registrieren** wählen.
+
+## Erste Schritte {#getting-started}
+
+1. Administratoren richten das Repository ein: [Repository hinzufügen](/help/projects).
+2. Modell für den Coding-Agenten Pi wählen: [Executor und Modelle](/help/executors).
+3. Tickets so vorbereiten, dass ADORE sie aufnehmen kann: [Tickets für die automatische Aufnahme](/help/tickets).
+4. Jeden Auftrag bis zum MR/PR-Entwurf verfolgen: [Lebenszyklus eines Auftrags](/help/jobs).
+
+Entwickler beginnen bei Schritt 3, sobald ein Administrator ihnen Zugriff auf ein Projekt gegeben hat.
+
+## Weitere Themen {#topics}
+
+- [Was ADORE leistet](/help/overview): diese Seite.
+- [Rundgang durch die Oberfläche](/help/interface): Seitenleiste, Kopfzeile, Projektzentrale und Statuslabels.
+- [Repository hinzufügen](/help/projects): ein Projekt einrichten.
+- [Projekteinstellungen](/help/settings): was jede Einstellungsgruppe steuert.
+- [Executor und Modelle](/help/executors): der Coding-Agent Pi, Modelle und Authentifizierung.
+- [Tickets für die automatische Aufnahme](/help/tickets): Labels und das Starten von Tickets.
+- [Lebenszyklus eines Auftrags](/help/jobs): Status, Wartezustände, Wiederholen und Abbrechen.
+- [Statistiken und Kosten](/help/statistics): Nutzung, Qualität, Trends und geschätzte Kosten.
+- [Verwaltung](/help/administration): Benutzer, Zugriff, Systemstatus und Änderungsverlauf.
+- [Glossar](/help/glossary): die in der Oberfläche verwendeten Begriffe.
+`,zz=`# Repository hinzufügen
+
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
+
+Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets aufnehmen, einen Coding-Agenten darauf ansetzen und Entwürfe für Merge Requests oder Pull Requests zur menschlichen Prüfung veröffentlichen kann. Nur Administratoren fügen Projekte hinzu, und ADORE führt nie einen Merge aus.
+
+
+Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung.
+
+
+Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.
+
+## Bevor Sie beginnen {#before-you-start}
+
+Halten Sie Folgendes bereit:
+
+- Die Repository-Adresse (https oder ssh), die das Konto des ADORE-Servers lesen kann. ADORE klont das Repository beim Erstellen des Projekts in einen eigenen Ordner.
+- Ein GitLab-, GitHub- oder Gitea-Konto, das Tickets lesen und aktualisieren und Review-Entwürfe erstellen darf.
+- Die Namen des Bereitschafts- und des Freigabelabels. Ein Mensch setzt das Bereitschaftslabel, damit ein Ticket aufgenommen werden kann; siehe [Tickets für die automatische Aufnahme](/help/tickets#labels).
+- Die Modell-ID für Pi und bei Containern einen laufenden Docker- oder Podman-Dienst. Das gemeinsame Standardimage wird beim Import automatisch vorbereitet; eigene Images müssen bereits in diesem Dienst vorhanden sein. Siehe [Executor und Modelle](/help/executors).
+
+## Neues Projekt registrieren {#add-project}
+
+Wählen Sie unter [Projekte](/projects) **Neues Projekt registrieren**. Der geführte Assistent beginnt mit Repository und Identität und besteht aus fünf Schritten; jede Änderung einer Angabe macht frühere Validierungen und Prüfungen ungültig.
+
+Wenn keine Projekte mehr vorhanden sind, bieten Übersicht und Projekte Administratoren **Neues Projekt registrieren** und **Rohkonfiguration importieren** an. Nach dem Löschen des letzten Projekts kehren Sie zu Projekte zurück, wo beide Aktionen verfügbar bleiben.
+
+| Schritt | Was abgefragt wird |
+|---|---|
+| Repository und Identität | **Repository-URL** und **Repository lesen**: ADORE füllt **Forge**, **Repository**, **Gitea tea login**, **Zielbranch** und die Projekt-ID zur Bestätigung aus und schlägt einen änderbaren **Lokaler Klonpfad** vor. **Weiter** bleibt deaktiviert, bis das Repository gelesen wurde. **Anzeigename** beginnt mit dem Repository-Namen; **Beschreibung** ist optional. |
+| Agent und Modell | Wählen Sie **Anbieter**, **Modell** und bei Bedarf den Endpunkt. Wählen Sie für einen Container Laufzeit und Image. Speichern Sie den Anbieterschlüssel nach der Erstellung unter Einstellungen. Unter **Auf dem Server installiert** erscheinen das aktuelle Systemkonto und der optionale **PATH für Projektwerkzeuge**. |
+| Eignung, Prüfer und Grenzen | **Bereitschaftslabel**, **Freigabelabel**, optional **Prüfende (kommagetrennt)** und vier Auftragslimits: Executor-Starts, aktive Sekunden, gemeldete Kosten in USD und geänderte Dateien. Ein Kostenlimit von 0 schaltet dieses Limit ab; es bedeutet nicht kostenlos. |
+| Überprüfung | Beim Öffnen dieses Schritts werden Konfiguration, Serverordner, Git und Forge-Zugriff automatisch geprüft. **Umgebung erneut prüfen** wiederholt diese Prüfungen. **Workflow** zeigt separat den beobachteten Repository-Workflow, ohne die Registrierung zu sperren. Bei Ausführung auf dem Server zeigt **Pi auf dem Server** lokale Fehler wie inkompatible Node-Versionen. Bei Containerausführung werden die Engine und Pi im lokalen Image geprüft. Es wird nichts veröffentlicht. **Weiter** öffnet die Prüfung, sobald die Konfiguration gültig ist. |
+| Prüfen und erstellen | Zeigt den exakten Kandidaten und die Serverorte sowie eine eingeklappte Liste **Auf Standard belassene Einstellungen** mit dem Standardwert jeder weiteren Einstellung (nur lesbar; nach dem Erstellen in den Einstellungen änderbar). **Ändern** führt zu einem Schritt zurück. **Mit gestoppter Aufnahme erstellen** klont zuerst das Repository (aus einer URL), prüft den Zielbranch und speichert dann das Projekt; sofern Sie **ADORE-Labels im Repository anlegen** nicht abwählen, legt es die fehlenden ADORE-Labels an und zeigt das Ergebnis; danach folgt **Projekt öffnen**. |
+
+Für die native lokale Ausführung wählen Sie **Ausführung → Auf dem Server installiert**. Spezialisierte Container-Setups verwenden die erweiterte Server-TOML-Methode weiter unten.
+
+Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).
+
+**Automatischer Speicherort** behält den vorgeschlagenen Klonpfad bei. Wählen Sie **Eigener Speicherort** und **Ordner wählen…**, um Ordner auf dem ADORE-Rechner zu durchsuchen. Ein Klick wählt eine Zeile; Doppelklick oder Eingabe öffnet den Ordner. Nutzen Sie Zurück oder Übergeordneter Ordner und dann **Ordner auswählen**, um genau den bestehenden Ordner zu bestätigen. Ein neues Ziel geben Sie direkt im Klonpfad des Hauptformulars ein. Die Auswahl erstellt nichts; Links und Netzwerkpfade werden abgewiesen. **Abbrechen** erhält den Entwurf. Ein beim Laden eingegebener Ordnerpfad bleibt in der Adressleiste stehen.
+
+**Zielbranch** listet die Remote-Branches von GitHub, GitLab und Gitea auf, auch bei eigenen Instanzen. Der Standardbranch des Repositorys ist ausgewählt und mit **Standard** markiert. Wählen Sie bei Bedarf einen anderen Branch. **Repository lesen** aktualisiert die Liste und behält eine ausdrückliche Auswahl bei, solange der Branch existiert. Eine andere URL löscht die bisherigen Optionen. Ohne gemeldeten Standardbranch wählen Sie selbst; ohne Branches legen Sie zuerst einen im Repository an und lesen es erneut. Der Git-Zugriff des ADORE-Kontos wird verwendet; unbekannte Forge-Typen werden weiterhin manuell gewählt.
+
+## Repository-Workflows {#workflows}
+
+Bei Bestätigung der geführten Registrierung oder eines Konfigurationsimports bereitet ADORE fehlende gemeinsame Ausführungs- und Proxy-Images vor dem Speichern des Projekts vor. Die aktuelle Phase wird angezeigt; die erste Vorbereitung kann mehrere Minuten dauern und benötigt Internet auf dem Server. Weitere Importe verwenden die Images erneut. Nach einem Vorbereitungsfehler können Sie den Import ohne erneute Eingabe derselben Antworten wiederholen. Native Importe überspringen die Container-Vorbereitung. Eigene Images bleiben Aufgabe des Administrators.
+
+**AEGIS / Direkt**. Der Agent wählt und führt Prüfungen gemäß den Repository-Anweisungen aus. Mit AEGIS folgt er den gespeicherten Phasen, sonst implementiert er das Ticket direkt. ADORE beobachtet Fortschritt und Journal, speichert den Kandidaten und fordert menschliche Freigabe an. Es startet keine zusätzlichen Repository-Tests oder strikten AEGIS-Prüfungen.
+
+## Originalkonfiguration importieren {#import-project}
+
+Wählen Sie unter [Projekte](/projects) **Originalkonfiguration importieren** und im Dialog eine exportierte ZIP oder UTF-8-Datei \`config.toml\`. ADORE prüft automatisch die Datei, Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse. Korrigieren Sie gemeldete Probleme in der Datei und wählen Sie sie erneut. Wählen Sie nach der Prüfung **Importieren**. Das neue Projekt startet mit pausierter Überwachung und übernimmt die Konfiguration bytegenau.
+
+Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-Definitionen werden zusammen importiert. ADORE prüft auch den Quellgraphen, die Image-Zuordnung und vorhandene Definitionen. Eine andere Definition mit demselben Root-Image-Namen wird abgelehnt. TOML-Dateien dürfen bis zu 512 KiB, ZIPs bis zu 18 MiB groß sein. Bauen Sie die Images separat auf dem Zielserver mit der enthaltenen Compose-Datei. Siehe [Einstellungen → Originalkonfiguration exportieren](/help/settings#toml).
+
+
+Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:
+
+1. Wählen Sie **Repository-Zugang**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.
+2. Wählen Sie **Host-Voraussetzungen prüfen**. Die Details betreffen Git, das Repository-Befehlswerkzeug, die Repository-Anmeldung, die Container-Engine, Pi im Image, bei einem ChatGPT-Abonnement außerdem die ChatGPT-Anmeldung des Servers, bei ausgeschaltetem [Internetzugang](/help/executors#internet) das Netzwerk-Proxy-Image und den Websuche-Schlüssel, wenn Brave oder Tavily einen braucht. Für ein Projekt, das direkt auf dem Server läuft, ersetzt **Lokale Ausführung** die Zeilen zu Container-Engine und Image: Sie prüft kompatibles Node, das von ADORE verwaltete Pi und die Zugangsdaten des Anbieters. Die separate Zeile **Workflow** bestimmt den Workflow, ohne AEGIS auszuführen. Das ist kein vollständiger Auftrag und belegt keine Push-Berechtigung.
+3. Führen Sie **KI-Verbindung testen** in den Einstellungen aus, wie unter [Executor und Modelle](/help/executors#test-connection) beschrieben.
+4. Wählen Sie **Überwachung aktivieren**. Die Kachel Überwachung wechselt von Pausiert auf Aktiv, und ADORE beginnt, Tickets mit dem Bereitschaftslabel aufzunehmen. **Überwachung pausieren** stoppt neue Aufnahmen, unterbricht aber keinen laufenden Auftrag.
+
+## Archivieren, wiederherstellen und löschen {#lifecycle}
+
+Administratoren finden diese Schaltflächen auf dem Reiter Zusammenfassung.
+
+- **Projekt archivieren** funktioniert, nachdem Aufträge beendet und eingereihte Anfragen abgearbeitet sind. Es behält Einstellungen, Verlauf, Kennzahlen und Audit-Einträge und stoppt neue Arbeit. **Projekt wiederherstellen** bringt es zurück.
+- **Projekt löschen** erscheint nur bei archivierten Projekten und verlangt die Eingabe des Projektnamens. Es entfernt die ADORE-Einstellungen, den Auftragsverlauf, die Kennzahlen, die Container und die Worktrees des Projekts. Erhalten bleiben das Repository und seine Branches, Worktrees von an eine Person übergebenen Aufträgen, ein Auftragsstatus-Ordner außerhalb des ADORE-Verzeichnisses und der Audit-Verlauf. Das Löschen wird abgelehnt, solange Arbeit eingereiht oder nicht abgeschlossen ist. **Auch den lokalen Klon entfernen** (nicht angehakt) löscht zusätzlich den Klon, den ADORE in seinem Ordner \`repos\` angelegt hat; die Option erscheint nur für einen sauberen Klon des Repositorys dieses Projekts, den kein anderes Projekt nutzt und kein beim Löschen behaltener Worktree mehr braucht, sonst nennt der Dialog den Grund, warum der Klon bleibt.
+
+> Das Löschen kann nicht rückgängig gemacht werden. Um ein Projekt danach anzupassen, siehe [Projekteinstellungen](/help/settings).
+
+## Gitea-Anmeldung auf diesem Rechner {#gitea-sign-in}
+
+ADORE nutzt zuerst die gespeicherte Projektverbindung. Andernfalls verwendet es die tea-Konfiguration des aktuellen Kontos. Meldet tea eine fehlende Anmeldung, prüft ADORE die Windows- oder Linux-Standardpfade und wählt die konfigurierte Anmeldung, genau eine Standardanmeldung oder die einzige vorhandene Anmeldung. Mehrere Konten ohne eindeutige Auswahl erfordern eine ausdrückliche Verbindung.
+
+Die Erkennung beachtet \`XDG_CONFIG_HOME\`. Unter Windows prüft sie außerdem Local AppData, Roaming AppData und \`.config\` im Benutzerverzeichnis; unter Linux \`.config\` im Benutzerverzeichnis. Private Anwendungscaches werden nicht durchsucht und Zugangsdaten nicht zwischen Rechnern kopiert.
+
+1. Öffnen Sie die **Übersicht** des Projekts und wählen Sie **Repository-Zugang**.
+2. Geben Sie den Gitea-Ursprung bei Bedarf mit Port unter **Repository-Server** ein.
+3. Erstellen Sie dort ein Token für das Konto mit Lese-/Änderungsrechten für Tickets und Entwurfsreviews und tragen Sie es unter **Zugriffstoken** ein.
+4. Wählen Sie **Prüfen und verbinden**. Ein HTTP-Server erfordert die angezeigte Bestätigung. Ein Fehler erhält die gespeicherte Verbindung.
+5. Prüfen Sie die Host-Voraussetzungen erneut. Git-Zugangsdaten für clone/push werden getrennt eingerichtet.
+
+Richten Sie auf einem anderen Rechner dessen eigene CLI-Anmeldung ein oder nutzen Sie dieses Formular. Das Lieferarchiv enthält keine Benutzertokens.
+`,Ez=`# Projekteinstellungen
+
+Der Reiter Einstellungen eines Projekts listet die Arbeitsregeln auf, die ADORE dafür anwendet: welche Tickets aufgenommen werden, welche Limits gelten, wie veröffentlicht wird und welcher Agent verwendet wird. Administratoren bearbeiten mehrere Einstellungen und speichern sie gemeinsam; Entwickler lesen sie.
+
+## Wo Sie die Einstellungen finden {#where}
+
+Öffnen Sie [Projekte](/projects), wählen Sie ein Projekt und dann den Reiter **Einstellungen**. Die Reiter sind Zusammenfassung, Einstellungen, Aufträge, Statistiken, Verlauf und, für Administratoren, Zugriff.
+
+Die gespeicherten Einstellungen werden alle 15 Sekunden aktualisiert, solange der Browser-Tab sichtbar ist. Bei ungespeicherten Änderungen sowie beim Speichern oder Verwerfen pausiert die Aktualisierung. Auch bei der Eingabe eines Preises oder API-Schlüssels und bei der ChatGPT-Anmeldung pausiert die Aktualisierung.
+
+Administratoren können bearbeiten. Entwickler mit Zugriff auf das Projekt sehen **Schreibgeschützte Einstellungen**, ohne Schaltflächen zum Bearbeiten und ohne Geheimnisse oder Finanzeinstellungen. Jedes Projekt hat eigene Einstellungen; die globale Kapazität und die Audit-Aufbewahrung gehören zur Verwaltung.
+
+## Einstellungsgruppen {#groups}
+
+Jede Gruppe ist beim Öffnen der Einstellungen eingeklappt, und die Zahl neben ihrem Namen gibt die Anzahl ihrer Zeilen an.
+
+| Gruppe | Was sie steuert |
+|---|---|
+| Repository | Forge und Repository, Gitea-Login, **Zielbranch** (Basis neuer Aufträge und Ziel der PR/MRs), die Vorlage für den Namen des Auftrags-Branches mit optionaler Namensregel und einem Live-Beispiel sowie Anzeigename, Ressourcenname und Commit-Autor-E-Mail des Agenten. |
+| Tickets | **Label für aufnahmebereite Tickets**, **Label zum Ausschluss von der Aufnahme**, die eingeklappten **Statuslabels**, wie oft ADORE die Forge prüft, ob Tickets Akzeptanzkriterien oder ein Prioritätslabel brauchen, und den Standard-Aufgabentyp. Siehe [Tickets für die automatische Aufnahme](/help/tickets#labels). |
+| Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
+| PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), **Menschliche Freigabe vor PR/MR verlangen** und das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |
+| Statistik | **Messwerte abgeschlossener Aufträge erfassen** und **Vom Agenten gemeldete Token erfassen**. **Statistik-Datenbankdatei** wird nur zur Information angezeigt. |
+| Agent und Modell | Anbieter, Modell, Authentifizierung und **KI-Verbindung testen** [Executor und Modelle](/help/executors). |
+| Technische Details | Schreibgeschützte Installationswerte wie der Auftragsstatus-Ordner, der lokale Repository-Pfad und die Arbeitsordner der Aufträge. Sie werden in der \`config.toml\` des Projekts auf dem Server geändert, und das Ändern eines Pfads verschiebt keine vorhandenen Daten. |
+
+## Werte und Hilfe {#values}
+
+Jede Zeile hat ein Label, eine stets sichtbare Beschreibung sowie die Angaben **Aktiver Wert** und **ADORE-Standard**. Die Beschreibung sagt, was die Einstellung steuert, welche Einheit oder welche Werte erlaubt sind und was eine Änderung bewirkt, oder dass sie reserviert und unbenutzt ist. Es gibt keine separate Hilfeschaltfläche.
+
+Ein Badge **Standard** bedeutet, dass die \`config.toml\` des Projekts den Wert nicht setzt, sodass der ADORE-Standard gilt. Beim Bearbeiten wird ein Wert nur für dieses Projekt geschrieben. Eine Zeile mit **Hier nicht änderbar** wird in der \`config.toml\` auf dem Server geändert. Eine Zeile mit **Nur bei pausierter Aufnahme ohne aktive Aufträge anwendbar** braucht die unten beschriebene zusätzliche Bedingung.
+
+Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).
+
+## Bearbeiten {#editing}
+
+Die Leiste **Speichern** und **Änderungen verwerfen** erscheint nur bei ungespeicherten oder wiederhergestellten Änderungen, beim Speichern oder bei einem zu behebenden Fehler. Nach erfolgreichem Speichern oder Verwerfen verschwindet sie. Einen Editor ohne Wertänderung zu öffnen zeigt die Leiste nicht.
+
+1. Wählen Sie **Bearbeiten** neben jedem zu ändernden Wert. Sie können mehrere Einstellungen in verschiedenen Gruppen bearbeiten.
+2. Verwenden Sie die einzige Schaltfläche **Speichern** oberhalb der Gruppen. Sie ist nur bei geänderten Werten und gültigen Eingaben aktiv.
+3. Bei wichtigen Änderungen zeigt **Wichtige Änderungen bestätigen** das Projekt, die geänderten Werte und Auswirkungen. Wählen Sie **Änderungen speichern** oder **Weiter bearbeiten**, um ohne Speichern zurückzukehren.
+
+Es gelten folgende Regeln:
+
+- **Änderungen verwerfen** entfernt alle ungespeicherten Eingaben. Das Abbrechen der Bestätigung behält sie ohne einen gespeicherten Kandidaten.
+- Speichern ist an die bearbeitete Konfiguration gebunden. Eine veraltete Revision sperrt das Speichern und behält die Eingaben. Verwerfen Sie Ihre Änderungen, um die gespeicherten Einstellungen vor dem Bearbeiten neu zu laden. Gleichzeitige Änderungen führen zu einem Konflikt.
+- Der Server prüft die gesamte Konfiguration und speichert alles gemeinsam. Geprüfte reine Budgetänderungen erlauben auch wartende Rückfragen, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen erfordern beendete Jobs. Ein Fehler behält Eingaben und vorbereitete Kandidaten.
+- Identitäts- und Laufzeitänderungen erfordern zusätzlich pausierte Überwachung. Wählen Sie **Überwachung pausieren** in Übersicht und lassen Sie aktive Arbeit enden; die Pause unterbricht keinen Auftrag.
+- Budgets gelten vor dem nächsten Versuch oder Fortsetzen bei erhaltenem Verbrauch und Fortschritt. Siehe [Jobbudgets](#budgets).
+
+Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
+
+## Original-TOML {#toml}
+
+Neben Projekteinstellungen stehen Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren** zur Verfügung. Die Vorschau zeigt die exakt gespeicherte TOML in einem schließbaren Dialog. Ausstehende Änderungen, separate Umgebungsdateien, externe Zugangsdaten und laufende Auftragsdaten sind ausgeschlossen. Eine einzelne TOML kann Klartextwerte enthalten und muss vertraulich behandelt werden; der vollständige Build-Export verweigert eingebettete Zugangsdaten.
+
+Wählen Sie **Originalkonfiguration exportieren**, wählen Sie das Ziel und speichern Sie. Container-Projekte exportieren ein ZIP mit gespeicherter Konfiguration und vollständiger Image-Definition. Native Projekte speichern \`config.toml\`. Es gibt keinen Export-Einstellungsdialog. Ohne Zielauswahl gelten die normalen Download-Einstellungen des Browsers. Wählen Sie dieses ZIP direkt unter Projekte → Originalkonfiguration importieren, um Konfiguration und Rezepte gemeinsam mit automatischer Prüfung zu importieren.
+
+Administratoren verwalten Quellen separat unter **Technische Details → Image-Definition**. Wählen Sie eine Dockerfile oder ZIP unter **Definitionsdatei**; sie wird automatisch geprüft. **Rezept speichern** speichert sie, **Definition ändern** ersetzt sie. Fehlende lokale Basisdefinitionen werden ebenfalls hier ergänzt. Die Standard-Executor-Basis von ADORE ist automatisch enthalten.
+
+Definitionen werden je Image gespeichert und von Projekten mit diesem Image geteilt. Das Speichern baut kein Image, ändert keine Einstellungen und startet keine Aufträge neu. Das ZIP enthält alle deklarierten lokalen Basisquellen und eine Compose-Datei zum Bauen auf einem anderen Server. Image-Binärdateien und später vom Agenten installierte Pakete sind ausgeschlossen. Registries und Paketquellen müssen dort erreichbar sein.
+
+Bei beschädigten Rezeptdaten nennt der Dialog, was auf dem Server für einen Neuanfang zu löschen ist. Ein Zurücksetzen des Rezeptkatalogs entfernt gespeicherte Image-Definitionen aller Projekte; Konfigurationen, Zugangsdaten und Aufträge bleiben unverändert. ADORE löscht diese Daten niemals automatisch.
+
+## Systempakete des Agenten {#system-packages}
+
+**Systempaketinstallation durch den Agenten erlauben**
+
+Unter Einstellungen → Agent und Modell aktivieren Administratoren diese Berechtigung mit **Speichern** und bestätigen die Auswirkung. Sie ist standardmäßig aus und für Container-Projekte verfügbar. Zuerst ein kompatibles Image mit sudo erstellen oder wählen, danach einen neuen Auftrag starten. Der Agent führt Paketbefehle direkt aus, prüft Fehler und passt seine Schritte innerhalb der Auftragsgrenzen an.
+
+Netzwerkzugriff bleibt separat: open erlaubt erreichbare Quellen, allowlist-proxy erlaubte HTTP/HTTPS-Domains und none nur verfügbare lokale Quellen. Paketskripte haben administrative Rechte im Container; eingebundene Projektordner bleiben mit dem Server geteilt. Systempakete bleiben beim Fortsetzen desselben Containers erhalten; ein neuer Container erfordert erneute Prüfung und Installation.
+
+## Jobbudgets {#budgets}
+
+Jobdetails zeigen **Executorstarts** (zum Beispiel 9 / 20) und **Aktive Arbeit (Sekunden)** neben den aktuellen Projektgrenzen, unabhängig von Tokenstatistiken. Ab 90 % erscheint ein Hinweis; bei Erreichen soll die Grenze vor dem Fortsetzen erhöht werden. Die Startvorgabe ist 20 bei Registrierung und \`adore init\`.
+
+Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen, **Implementierung** öffnen, nur Budgets ändern, **Speichern** wählen und die genauen Werte bestätigen. Solche geprüften Budgetänderungen sind bei wartenden Rückfragen erlaubt, ohne aktiven Conductor oder unfertigen Vorgang. Andere Einstellungen behalten die üblichen Ruhe- und Pausenprüfungen; Entwickler haben Lesezugriff.
+
+Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.
+
+Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
+
+
+**Implementierung** (\`build\`) nutzt \`workflow.stage_timeout_overrides\` oder \`budgets.per_gate_timeout_seconds\`. Bei AEGIS begrenzt **Validierung** (\`validate\`) ebenfalls die Agentensitzung. ADORE startet keine zusätzlichen Tests; der Agent wählt lokale und CI-Prüfungen gemäß den Repository-Anweisungen.
 `,Rz=`# Statistiken und Kosten
 
 Statistiken zeigt, wie viel Arbeit ADORE geleistet hat, was dabei verbraucht wurde und wie gut die Ergebnisse Bestand hatten. Kosten sehen nur Administratoren, und geschätzte Kosten sind keine Rechnungen.
@@ -726,92 +726,92 @@ Auf dem Reiter Qualität sehen Administratoren außerdem **Kosten je belegtem Au
 | Dev | Nur zugewiesene Projekte; kein **Alle Projekte** | Keine. Devs sehen Auftragszahlen, Token, Dauer und Qualitätskennzahlen, nie ein Finanzfeld. |
 
 Preise werden nur von Administratoren festgelegt und gesehen; die schreibgeschützten Einstellungen eines Dev enthalten keine Finanzeinstellungen.
-`,Dz=`# Tickets für die automatische Aufnahme\r
-\r
-ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, wenn sie die richtigen Labels tragen, und Sie können ein Ticket auch von Hand starten. Dieser Artikel behandelt Labels, Eignung und die Ticketansicht.\r
-\r
-\r
-Tickets mit dem konfigurierten Epic-Label werden nicht übernommen oder gestartet. Starten bleibt für geeignete Tickets bei pausierter Überwachung verfügbar.\r
-\r
-## So funktioniert die Aufnahme {#how-pickup-works}\r
-\r
-Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.\r
-\r
-Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.\r
-\r
-Vor der Aufnahme prüft ADORE AEGIS nur, wenn \`.agentic/aegis.py\` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).\r
-\r
-## Zuerst die Labels anlegen {#labels}\r
-\r
-GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Alle folgenden Labels müssen vor dem ersten Start im Forge-Repository existieren. ADORE legt fehlende Labels beim Hinzufügen eines Projekts an (**ADORE-Labels im Repository anlegen**, in Prüfen und erstellen standardmäßig aktiviert) oder wenn Sie in Einstellungen → Repository **Fehlende Labels anlegen** drücken; vorhandene Labels werden nie geändert oder gelöscht, und ADORE zeigt, was angelegt wurde, was schon existierte und was fehlschlug (etwa wenn das Forge-Konto des Servers keine Labels anlegen darf). Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.\r
-\r
-| Label | Zweck |\r
-|---|---|\r
-| \`agent-ready\` | Sie setzen es, um ein Ticket zur Aufnahme anzubieten. ADORE ersetzt es beim Start des Auftrags durch das Arbeitslabel. |\r
-| \`agent-working\` | ADORE setzt es, solange es arbeitet, veröffentlicht und auf Ihre Freigabe wartet. |\r
-| \`agent-clarify\` | ADORE setzt es, wenn es eine Frage gestellt hat und auf eine Antwort wartet. |\r
-| \`agent-answered\` | Sie setzen es, nachdem Sie auf eine Frage geantwortet haben. |\r
-| \`agent-mr\` | ADORE setzt es nach der Veröffentlichung des MR/PR, solange es auf die menschliche Prüfung wartet. |\r
-| \`agent-failed\` | ADORE setzt es, wenn ein Auftrag fehlschlägt. |\r
-| \`agent-done\` | ADORE setzt es, nachdem ein Mensch den MR/PR zusammengeführt hat. |\r
-| \`agent-approved\` | Sie setzen es am Ticket, um die Veröffentlichung des vorgestellten Kandidaten freizugeben. |\r
-| \`agent-revise\` | Ein Reviewer setzt es am MR/PR, um eine Überarbeitungsrunde anzufordern. |\r
-\r
-ADORE entfernt bei jeder Statusaktualisierung die Lebenszyklus-Labels, die es nicht setzt, daher müssen alle existieren. Ein von Hand gesetztes Statuslabel ändert den Auftrag nicht.\r
-\r
-## Wann ein Ticket geeignet ist {#eligible-tickets}\r
-\r
-Ein Ticket wird nur aufgenommen, wenn jede Regel erfüllt ist. Sie werden in dieser Reihenfolge geprüft:\r
-\r
-1. Das Ticket ist offen.\r
-2. Es hat das Bereitschaftslabel (\`agent-ready\`).\r
-3. Es hat nicht das Sperrlabel (\`agent-hold\`). Das Entfernen des Sperrlabels macht das Ticket wieder geeignet.\r
-4. Es hat nicht das Ausschlusslabel (\`no-agent\`, Einstellung **Label zum Ausschluss von der Aufnahme**). Es hat Vorrang vor dem Bereitschaftslabel. Das Entfernen stellt die Eignung wieder her; das Setzen stoppt keinen bereits gestarteten Auftrag.\r
-5. ADORE hat noch keinen Auftrag für das Ticket.\r
-6. Es hat ein Prioritätslabel: \`P1\`, \`P2\` oder \`P3\`. **Prioritätslabel am Ticket verlangen** ist standardmäßig aktiv.\r
-7. Ist **Akzeptanzkriterien im Ticket verlangen** aktiv, enthält die Beschreibung die Wörter acceptance criteria (beliebige Schreibweise) oder einen nicht abgehakten Aufgabenpunkt, \`- [ ]\`. Diese Prüfung ist standardmäßig aus.\r
-\r
-Optionale Labels formen den Auftrag: \`bug\` oder \`fix\` ergibt eine Fehlerbehebung, \`change\` eine Änderung und jedes andere Ticket eine Funktion. \`agent-quick\` ist nur ein Hinweis; der Executor entscheidet zwischen vollem und schnellem Pfad und hält den Grund fest.\r
-\r
-## Tickets prüfen und starten {#tickets-view}\r
-\r
-Öffnen Sie ein Projekt unter Projekte, wählen Sie seinen Reiter **Aufträge** und bleiben Sie im Unterreiter **Tickets**. Die globale Seite **Aufträge** in der Seitenleiste hat dieselben beiden Unterreiter und eine Auswahl **Jobbereich**. Bei **Alle Projekte** erhält die Tabelle eine Spalte Projekt, und jede Zeile wirkt auf ihr eigenes Projekt.\r
-\r
-Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:\r
-\r
-| Status | Bedeutung |\r
-|---|---|\r
-| Startbereit | Jede Regel ist erfüllt. |\r
-| Label ... fehlt | Das Bereitschaftslabel fehlt. |\r
-| Angehalten oder Von ADORE ausgeschlossen | Das Sperr- oder Ausschlusslabel ist vorhanden. |\r
-| Prioritätslabel fehlt | Kein Prioritätslabel. |\r
-| Akzeptanzkriterien fehlen | Erforderlicher Text nicht gefunden. |\r
-| Hat einen Auftrag oder Auftrag: ... | ADORE hat bereits einen Auftrag; der Auftragsstatus wird angezeigt. |\r
-| Nicht offen | Das Ticket ist geschlossen. |\r
-\r
-**Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.\r
-\r
-**Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.\r
-\r
-Auf dem Desktop bleiben Starten oder Wiederholen, Stoppen und Details oder Details ausblenden in einer Zeile, rechtsbündig wie die Überschrift Aktionen. Auf schmalen Bildschirmen können die Schaltflächen umbrechen, damit sie in die Seite passen.\r
-\r
-## Beschreibungen und Kommentare lesen {#reading-bodies}\r
-\r
-**Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**\r
-\r
-Mit **Inhaltsanzeige** rechts neben der Überschrift **Beschreibung**, mit Beschriftung und Auswahl in einer Zeile wählen Sie **Gerendert** oder **Markdown-Quelltext** für alle geöffneten Beschreibungen und Kommentare. Der Quelltext zeigt den exakten Text aus dem Repository, einschließlich Leerzeichen und Zeilenumbrüchen. Ihr Konto behält eine erfolgreich gespeicherte Auswahl über Projekte, Neuladen und Browser hinweg; ein anderer angemeldeter Browser liest sie beim nächsten Anmelden oder Neuladen. Schlägt das Speichern fehl, erscheint ein Fehler und der zuletzt gespeicherte Modus kehrt zurück; wählen Sie erneut, um es nochmals zu versuchen.\r
-\r
-HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, https- und mailto-Links sind anklickbar und öffnen sich separat. Bilder werden nie automatisch geladen: **Bild nicht geladen** und vorhandener Alternativtext erscheinen stattdessen. Breiter Code, Quelltext und Tabellen scrollen in eigenen, per Tastatur fokussierbaren Bereichen. Aufgaben-Kontrollkästchen ändern das Ticket nicht.\r
-\r
-## Checkliste für ein erstes Ticket {#checklist}\r
-\r
-1. Legen Sie alle neun Labels im Forge-Repository an.\r
-2. Für automatische Aufnahme muss die Überwachung Aktiv sein; für manuelles Starten darf sie Pausiert bleiben.\r
-3. Schreiben Sie einen klaren Titel und eine Beschreibung mit Akzeptanzkriterien.\r
-4. Setzen Sie ein Prioritätslabel und optional \`bug\`, \`fix\`, \`change\` oder \`agent-quick\`.\r
-5. Setzen Sie \`agent-ready\` zuletzt.\r
-6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.\r
-7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).\r
+`,Dz=`# Tickets für die automatische Aufnahme
+
+ADORE nimmt Tickets aus Ihrem Forge-Repository (GitHub, GitLab oder Gitea) auf, wenn sie die richtigen Labels tragen, und Sie können ein Ticket auch von Hand starten. Dieser Artikel behandelt Labels, Eignung und die Ticketansicht.
+
+
+Tickets mit dem konfigurierten Epic-Label werden nicht übernommen oder gestartet. Starten bleibt für geeignete Tickets bei pausierter Überwachung verfügbar.
+
+## So funktioniert die Aufnahme {#how-pickup-works}
+
+Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle und auf dem Reiter Zusammenfassung des Projekts als **Aktiv** oder **Pausiert** angezeigt wird. Solange die Überwachung Aktiv ist, prüft ADORE das Repository in regelmäßigen Abständen auf bereite Tickets (standardmäßig alle 60 Sekunden; siehe **Abfrageintervall (Sekunden)** unter [Projekteinstellungen](/help/settings)). Es nimmt zuerst das geeignete Ticket mit der höchsten Priorität (P1, dann P2, dann P3), danach mit der niedrigsten Nummer, und bearbeitet jeweils einen Auftrag.
+
+Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
+
+Vor der Aufnahme prüft ADORE AEGIS nur, wenn \`.agentic/aegis.py\` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
+
+## Zuerst die Labels anlegen {#labels}
+
+GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Alle folgenden Labels müssen vor dem ersten Start im Forge-Repository existieren. ADORE legt fehlende Labels beim Hinzufügen eines Projekts an (**ADORE-Labels im Repository anlegen**, in Prüfen und erstellen standardmäßig aktiviert) oder wenn Sie in Einstellungen → Repository **Fehlende Labels anlegen** drücken; vorhandene Labels werden nie geändert oder gelöscht, und ADORE zeigt, was angelegt wurde, was schon existierte und was fehlschlug (etwa wenn das Forge-Konto des Servers keine Labels anlegen darf). Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.
+
+| Label | Zweck |
+|---|---|
+| \`agent-ready\` | Sie setzen es, um ein Ticket zur Aufnahme anzubieten. ADORE ersetzt es beim Start des Auftrags durch das Arbeitslabel. |
+| \`agent-working\` | ADORE setzt es, solange es arbeitet, veröffentlicht und auf Ihre Freigabe wartet. |
+| \`agent-clarify\` | ADORE setzt es, wenn es eine Frage gestellt hat und auf eine Antwort wartet. |
+| \`agent-answered\` | Sie setzen es, nachdem Sie auf eine Frage geantwortet haben. |
+| \`agent-mr\` | ADORE setzt es nach der Veröffentlichung des MR/PR, solange es auf die menschliche Prüfung wartet. |
+| \`agent-failed\` | ADORE setzt es, wenn ein Auftrag fehlschlägt. |
+| \`agent-done\` | ADORE setzt es, nachdem ein Mensch den MR/PR zusammengeführt hat. |
+| \`agent-approved\` | Sie setzen es am Ticket, um die Veröffentlichung des vorgestellten Kandidaten freizugeben. |
+| \`agent-revise\` | Ein Reviewer setzt es am MR/PR, um eine Überarbeitungsrunde anzufordern. |
+
+ADORE entfernt bei jeder Statusaktualisierung die Lebenszyklus-Labels, die es nicht setzt, daher müssen alle existieren. Ein von Hand gesetztes Statuslabel ändert den Auftrag nicht.
+
+## Wann ein Ticket geeignet ist {#eligible-tickets}
+
+Ein Ticket wird nur aufgenommen, wenn jede Regel erfüllt ist. Sie werden in dieser Reihenfolge geprüft:
+
+1. Das Ticket ist offen.
+2. Es hat das Bereitschaftslabel (\`agent-ready\`).
+3. Es hat nicht das Sperrlabel (\`agent-hold\`). Das Entfernen des Sperrlabels macht das Ticket wieder geeignet.
+4. Es hat nicht das Ausschlusslabel (\`no-agent\`, Einstellung **Label zum Ausschluss von der Aufnahme**). Es hat Vorrang vor dem Bereitschaftslabel. Das Entfernen stellt die Eignung wieder her; das Setzen stoppt keinen bereits gestarteten Auftrag.
+5. ADORE hat noch keinen Auftrag für das Ticket.
+6. Es hat ein Prioritätslabel: \`P1\`, \`P2\` oder \`P3\`. **Prioritätslabel am Ticket verlangen** ist standardmäßig aktiv.
+7. Ist **Akzeptanzkriterien im Ticket verlangen** aktiv, enthält die Beschreibung die Wörter acceptance criteria (beliebige Schreibweise) oder einen nicht abgehakten Aufgabenpunkt, \`- [ ]\`. Diese Prüfung ist standardmäßig aus.
+
+Optionale Labels formen den Auftrag: \`bug\` oder \`fix\` ergibt eine Fehlerbehebung, \`change\` eine Änderung und jedes andere Ticket eine Funktion. \`agent-quick\` ist nur ein Hinweis; der Executor entscheidet zwischen vollem und schnellem Pfad und hält den Grund fest.
+
+## Tickets prüfen und starten {#tickets-view}
+
+Öffnen Sie ein Projekt unter Projekte, wählen Sie seinen Reiter **Aufträge** und bleiben Sie im Unterreiter **Tickets**. Die globale Seite **Aufträge** in der Seitenleiste hat dieselben beiden Unterreiter und eine Auswahl **Jobbereich**. Bei **Alle Projekte** erhält die Tabelle eine Spalte Projekt, und jede Zeile wirkt auf ihr eigenes Projekt.
+
+Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500 offene Tickets. Mehr als 10 Tickets werden seitenweise angezeigt: Wählen Sie 10, 25, 50 oder Alle unter **Zeilen pro Seite** und blättern Sie mit **Zurück** und **Weiter**; Seitennummer und Seitenzahl werden angezeigt. Jede Zeile zeigt die Nummer in einer schmalen Spalte neben Titel, Labels, Status und Aktionen. Der Status nennt, was ein Ticket blockiert:
+
+| Status | Bedeutung |
+|---|---|
+| Startbereit | Jede Regel ist erfüllt. |
+| Label ... fehlt | Das Bereitschaftslabel fehlt. |
+| Angehalten oder Von ADORE ausgeschlossen | Das Sperr- oder Ausschlusslabel ist vorhanden. |
+| Prioritätslabel fehlt | Kein Prioritätslabel. |
+| Akzeptanzkriterien fehlen | Erforderlicher Text nicht gefunden. |
+| Hat einen Auftrag oder Auftrag: ... | ADORE hat bereits einen Auftrag; der Auftragsstatus wird angezeigt. |
+| Nicht offen | Das Ticket ist geschlossen. |
+
+**Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.
+
+**Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.
+
+Auf dem Desktop bleiben Starten oder Wiederholen, Stoppen und Details oder Details ausblenden in einer Zeile, rechtsbündig wie die Überschrift Aktionen. Auf schmalen Bildschirmen können die Schaltflächen umbrechen, damit sie in die Seite passen.
+
+## Beschreibungen und Kommentare lesen {#reading-bodies}
+
+**Details** öffnet Beschreibungen und Kommentare standardmäßig als **Gerendert** dargestelltes Markdown. Überschriften, Hervorhebungen, Code, verschachtelte Listen, schreibgeschützte Aufgabenlisten, Zitate, Tabellen und Links werden formatiert; eine leere Beschreibung behält **Keine Beschreibung.**
+
+Mit **Inhaltsanzeige** rechts neben der Überschrift **Beschreibung**, mit Beschriftung und Auswahl in einer Zeile wählen Sie **Gerendert** oder **Markdown-Quelltext** für alle geöffneten Beschreibungen und Kommentare. Der Quelltext zeigt den exakten Text aus dem Repository, einschließlich Leerzeichen und Zeilenumbrüchen. Ihr Konto behält eine erfolgreich gespeicherte Auswahl über Projekte, Neuladen und Browser hinweg; ein anderer angemeldeter Browser liest sie beim nächsten Anmelden oder Neuladen. Schlägt das Speichern fehl, erscheint ein Fehler und der zuletzt gespeicherte Modus kehrt zurück; wählen Sie erneut, um es nochmals zu versuchen.
+
+HTML bleibt sichtbarer Text und wird nicht ausgeführt. Nur absolute http-, https- und mailto-Links sind anklickbar und öffnen sich separat. Bilder werden nie automatisch geladen: **Bild nicht geladen** und vorhandener Alternativtext erscheinen stattdessen. Breiter Code, Quelltext und Tabellen scrollen in eigenen, per Tastatur fokussierbaren Bereichen. Aufgaben-Kontrollkästchen ändern das Ticket nicht.
+
+## Checkliste für ein erstes Ticket {#checklist}
+
+1. Legen Sie alle neun Labels im Forge-Repository an.
+2. Für automatische Aufnahme muss die Überwachung Aktiv sein; für manuelles Starten darf sie Pausiert bleiben.
+3. Schreiben Sie einen klaren Titel und eine Beschreibung mit Akzeptanzkriterien.
+4. Setzen Sie ein Prioritätslabel und optional \`bug\`, \`fix\`, \`change\` oder \`agent-quick\`.
+5. Setzen Sie \`agent-ready\` zuletzt.
+6. Warten Sie auf die nächste Prüfung oder drücken Sie **Tickets lesen** und **Starten**.
+7. Verfolgen Sie den Auftrag unter [Lebenszyklus eines Auftrags](/help/jobs). Begriffe stehen im [Glossar](/help/glossary).
 `,Cz=`# Administration
 
 Administration covers user accounts, project access, system health and the record of changes. It is for administrators only: a Dev does not see the Administration menu, and a Dev who opens one of its addresses is taken to Overview.
@@ -999,461 +999,461 @@ Then confirm with **Check host prerequisites** and **Test AI connection**.
 ## System packages {#system-packages}
 
 An administrator can review **Allow agent system package installation** in **Settings → Agent and model**. It is off by default and available only for containers. Pi can then install packages directly with \`sudo -n\`, inspect the results and adapt within the job limits. **Internet access for the agent** remains a separate choice; when it is off, external package sources need an allowed host. Use a compatible image with sudo, pause monitoring and wait for idle jobs before applying, then start a fresh job. Installed packages stay in that container; they do not update the image.
-`,Tz=`# Glossary\r
-\r
-Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.\r
-\r
-These are the terms used across the ADORE web interface and in these help topics.\r
-\r
-## Terms {#terms}\r
-\r
-| Term | Meaning |\r
-|---|---|\r
-| Job | One repository issue being worked on and checked in an isolated environment. |\r
-| Enrolled project | An existing repository configured on the ADORE host, with access granted to its team. |\r
-| Monitoring | A project's setting for picking up new tickets, shown as **Active** or **Paused**. Administrators change it with **Pause monitoring** and **Activate monitoring** on the project's Summary tab. |\r
-| Pickup stopped | ADORE stops picking up new issues for this project. This does not pause an active job. It is the state Monitoring shows as **Paused**. |\r
-| Ticket | An issue on the forge. ADORE picks it up when it carries the project's ready label and a priority label, is not held or excluded, and has acceptance criteria if the project requires them. |\r
-| Coding agent / Executor | The AI command-line tool that does the work for a job in an isolated environment: Pi, the only coding agent ADORE runs. It has no forge credentials and never commits, pushes, opens or merges. |\r
-| Model | The model ID within the chosen provider, for example gpt-5.4 for OpenAI. It is set with the provider in Settings → Agent and model, and estimated prices belong to an executor and model pair. |\r
-| AEGIS | The workflow installed in the repository that frames, specifies, designs, builds and validates a change. ADORE conducts it one stage at a time (Frame, Specify, Design, Build, Validate) and publishes the approved result; a small change may skip Specify and Design. |\r
-| Direct workflow | A repository without AEGIS is implemented directly by the agent. The agent owns its checks; ADORE monitors progress and requests human approval. |\r
-| Candidate | The validated result of a job that ADORE presents for approval, identified by a fingerprint and the target commit. Approval applies to that exact candidate and lapses if the candidate or its target branch changes. |\r
-| Waiting for clarification | The agent needs an answer before continuing. Respond to its question in the repository issue. |\r
-| Waiting for approval | The result is validated and waiting for a person to authorize publication. Approval is recorded on the forge for the current candidate. |\r
-| Draft MR/PR | The merge or pull request ADORE opens after validation and any required approval. People review it. |\r
-| Human review | An MR/PR is available for human review. Merge remains a human decision. |\r
-| Revision round | Another agent pass after requested changes or failed CI. Each round repeats validation and follows the project approval policy. |\r
-| Forge | The hosting platform where tickets, labels, approvals and MR/PRs live: GitHub, GitLab or Gitea. |\r
-\r
-> ADORE has no merge operation. Merging is always a person's decision on the forge.\r
-`,Oz=`# Interface tour
+`,Tz=`# Glossary
 
-The interface has a dark sidebar for moving between pages and a top bar that names the current page and offers common actions. This page lists the pages, the header buttons, the project hub and the status labels.
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
 
-## Navigation {#navigation}
+These are the terms used across the ADORE web interface and in these help topics.
 
-| Page | What you do there |
+## Terms {#terms}
+
+| Term | Meaning |
 |---|---|
-| Overview | See **Needs attention** and **Active jobs** for the projects you can access. **Details** opens a job in Jobs. |
-| [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Enroll new project** or **Import raw configuration**. |
-| [Jobs](/jobs) | Pick a **Job scope**, then use the **Tickets** sub-tab to read forge tickets and start them, or the **Jobs** sub-tab to search jobs and open their details. |
-| [Statistics](/metrics) | Read usage, quality and trends for a reporting period. See [Statistics and costs](/help/statistics). |
-| Administration | Administrators only. It opens three pages: [System status](/admin/status), [Users](/admin/users) and [Change history](/admin/audit). See [Administration](/help/administration). |
-| [My account](/account) | Choose your language and theme and change your password. |
+| Job | One repository issue being worked on and checked in an isolated environment. |
+| Enrolled project | An existing repository configured on the ADORE host, with access granted to its team. |
+| Monitoring | A project's setting for picking up new tickets, shown as **Active** or **Paused**. Administrators change it with **Pause monitoring** and **Activate monitoring** on the project's Summary tab. |
+| Pickup stopped | ADORE stops picking up new issues for this project. This does not pause an active job. It is the state Monitoring shows as **Paused**. |
+| Ticket | An issue on the forge. ADORE picks it up when it carries the project's ready label and a priority label, is not held or excluded, and has acceptance criteria if the project requires them. |
+| Coding agent / Executor | The AI command-line tool that does the work for a job in an isolated environment: Pi, the only coding agent ADORE runs. It has no forge credentials and never commits, pushes, opens or merges. |
+| Model | The model ID within the chosen provider, for example gpt-5.4 for OpenAI. It is set with the provider in Settings → Agent and model, and estimated prices belong to an executor and model pair. |
+| AEGIS | The workflow installed in the repository that frames, specifies, designs, builds and validates a change. ADORE conducts it one stage at a time (Frame, Specify, Design, Build, Validate) and publishes the approved result; a small change may skip Specify and Design. |
+| Direct workflow | A repository without AEGIS is implemented directly by the agent. The agent owns its checks; ADORE monitors progress and requests human approval. |
+| Candidate | The validated result of a job that ADORE presents for approval, identified by a fingerprint and the target commit. Approval applies to that exact candidate and lapses if the candidate or its target branch changes. |
+| Waiting for clarification | The agent needs an answer before continuing. Respond to its question in the repository issue. |
+| Waiting for approval | The result is validated and waiting for a person to authorize publication. Approval is recorded on the forge for the current candidate. |
+| Draft MR/PR | The merge or pull request ADORE opens after validation and any required approval. People review it. |
+| Human review | An MR/PR is available for human review. Merge remains a human decision. |
+| Revision round | Another agent pass after requested changes or failed CI. Each round repeats validation and follows the project approval policy. |
+| Forge | The hosting platform where tickets, labels, approvals and MR/PRs live: GitHub, GitLab or Gitea. |
 
-The sidebar also shows your name and role, and **Sign out**. On a narrow screen, **Menu** opens the navigation and choosing a page closes it.
+> ADORE has no merge operation. Merging is always a person's decision on the forge.
+`,Oz=`# Interface tour\r
+\r
+The interface has a dark sidebar for moving between pages and a top bar that names the current page and offers common actions. This page lists the pages, the header buttons, the project hub and the status labels.\r
+\r
+## Navigation {#navigation}\r
+\r
+| Page | What you do there |\r
+|---|---|\r
+| Overview | See **Needs attention** and **Active jobs** for the projects you can access. **Details** opens a job in Jobs. |\r
+| [Projects](/projects) | Browse enrolled projects with their repository, forge, Monitoring state, job count and last activity. Open a project to reach its hub. Administrators also see **Enroll new project** or **Import raw configuration**. |\r
+| [Jobs](/jobs) | Pick a **Job scope**, then use the **Tickets** sub-tab to read forge tickets and start them, or the **Jobs** sub-tab to search jobs and open their details. |\r
+| [Statistics](/metrics) | Read usage, quality and trends for a reporting period. See [Statistics and costs](/help/statistics). |\r
+| Administration | Administrators only. It opens three pages: [System status](/admin/status), [Users](/admin/users) and [Change history](/admin/audit). See [Administration](/help/administration). |\r
+| [My account](/account) | Choose your language and theme and change your password. |\r
+\r
+The sidebar also shows your name and role, and **Sign out**. On a narrow screen, **Menu** opens the navigation and choosing a page closes it.\r
+\r
+A Dev sees only the projects an administrator assigned and has no Administration entry. Every page has its own address, so bookmarks, Back, Forward and reload keep your place.\r
+\r
+## Header {#header}\r
+\r
+The top bar shows the page title and these controls.\r
+\r
+- **Project**: a selector on Overview only. It narrows **Needs attention** and **Active jobs** to one project; the default is all projects you can access. Jobs has its own **Job scope** selector and Statistics has a **Project** selector in its reporting period row.\r
+- **Refresh** and the **Last refreshed** time appear in the header on Users.\r
+- **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.\r
+- **How ADORE works**: opens this help center.\r
+\r
+On Jobs, **Job scope** sits to the right of **Tickets** and **Jobs** on wide screens. On narrow screens it wraps below the tabs.\r
+\r
+## Project hub {#project-hub}\r
+\r
+Opening a project from Projects shows its name and repository path above these tabs.\r
+\r
+| Tab | What it holds |\r
+|---|---|\r
+| Summary | Container type, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |\r
+| Settings | Effective settings, one Save for administrators, and configuration export with retained executor image definitions. Developers read settings without secrets. See [Project settings](/help/settings). |\r
+| Jobs | The Tickets and Jobs sub-tabs for this project, without a project selector. |\r
+| Statistics | The same reporting period, tabs and exports as the Statistics page, for this project only. |\r
+| History | Recorded changes to the project and its finished jobs. |\r
+| Access | Administrators only: grant or remove a developer's access. |\r
+\r
+Paused Monitoring stops new tickets from being picked up; jobs that already started continue.\r
+\r
+## Status labels and badges {#statuses}\r
+\r
+Badges carry a symbol as well as colour, and job lists show the current stage beside the status.\r
+\r
+| Job status | Meaning |\r
+|---|---|\r
+| Working | ADORE is conducting a stage. |\r
+| Publishing | ADORE is publishing the validated candidate under the project policy. |\r
+| Waiting for clarification | The agent needs an answer in the repository issue. |\r
+| Waiting for approval | A person must approve the candidate on the forge. |\r
+| Human review | A draft MR/PR is open; people decide whether to merge. |\r
+| Handoff pending | A transfer to a person is waiting for a safe point. |\r
+| Handed off | A person took over; automatic work has ended. |\r
+| Completed | The job finished. This alone does not show that anyone merged. Compact lists call it Done. |\r
+| Failed | The job stopped with evidence kept; an authorized user can **Retry** it. |\r
+| Cancelled | The job was cancelled. |\r
+| Stale | The job is marked stale; inspect its saved outcome. |\r
+\r
+On Jobs, **Status** narrows the list to **Active jobs**, **Waiting**, **Human review** or **Finished jobs**. A project's Monitoring badge reads **Active** or **Paused**, and an archived project reads **Archived**. Environment verification reads **Verified**, **Partially verified**, **Verification failed**, **Stale verification** or **Unverified**; Unverified means there is no current evidence, not that a check failed.\r
+\r
+After **Start**, **Retry** or **Cancel**, a notice reports the command as queued, running, completed, failed or uncertain. Inspect an uncertain command before submitting it again. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.\r
+\r
+## Automatic updates, language and theme {#preferences}\r
+\r
+Overview, Projects, Jobs, project Settings, project Access, project History and Change history reload their data every 15 seconds while the browser tab is visible. Settings pauses while you have unsaved changes or a save or discard is in progress. Statistics and System status also refresh automatically. Background updates pause while the browser tab is hidden and resume when you return. If an update fails, the affected data stays hidden until the next successful update.\r
+\r
+In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.\r
+\r
+The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account.\r
+\r
+When changing your password, enter the new password twice. Use the buttons to show or hide each entry. The new password needs at least 8 characters.\r
+`,Nz=`# Job lifecycle
 
-A Dev sees only the projects an administrator assigned and has no Administration entry. Every page has its own address, so bookmarks, Back, Forward and reload keep your place.
+A job is the work ADORE does for one ticket, from pickup to a merged change. This article shows its stages and where you take part. Labels and eligibility are in [Tickets for automatic pickup](/help/tickets).
 
-## Header {#header}
 
-The top bar shows the page title and these controls.
+Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime and worktree, including unpublished work; resources can remain if cleanup fails. Job state and evidence remain. Deleting a job is a separate action.
 
-- **Project**: a selector on Overview only. It narrows **Needs attention** and **Active jobs** to one project; the default is all projects you can access. Jobs has its own **Job scope** selector and Statistics has a **Project** selector in its reporting period row.
-- **Refresh** and the **Last refreshed** time appear in the header on Users.
-- **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.
-- **How ADORE works**: opens this help center.
+Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.
 
-On Jobs, **Job scope** sits to the right of **Tickets** and **Jobs** on wide screens. On narrow screens it wraps below the tabs.
+## Stages {#stages}
 
-## Project hub {#project-hub}
+ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.
 
-Opening a project from Projects shows its name and repository path above these tabs.
-
-| Tab | What it holds |
+| Stage | What happens |
 |---|---|
-| Summary | Container type, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
-| Settings | Effective settings, one Save for administrators, and configuration export with retained executor image definitions. Developers read settings without secrets. See [Project settings](/help/settings). |
-| Jobs | The Tickets and Jobs sub-tabs for this project, without a project selector. |
-| Statistics | The same reporting period, tabs and exports as the Statistics page, for this project only. |
-| History | Recorded changes to the project and its finished jobs. |
-| Access | Administrators only: grant or remove a developer's access. |
+| Frame | Scope is agreed and the executor records whether the job takes the full or the quick path. |
+| Specify | The requirement is written. |
+| Design | A short design note is written for non-trivial work. |
+| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
+| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
-Paused Monitoring stops new tickets from being picked up; jobs that already started continue.
+The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
-## Status labels and badges {#statuses}
+## Direct jobs {#direct-evidence}
 
-Badges carry a symbol as well as colour, and job lists show the current stage beside the status.
+The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (\`build\`), **Validation** (\`validate\`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.
 
-| Job status | Meaning |
+**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.
+
+Direct **Implementation** uses the \`build\` override in \`workflow.stage_timeout_overrides\`, falling back to \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) records the candidate for approval without running a separate test command.
+
+## Clarification {#clarification}
+
+When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets \`agent-clarify\`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**. Choose **Read the question** to open **Agent question**, then **Answer on the ticket** when a saved location is available.
+
+Reply with a normal comment on the ticket, then add \`agent-answered\`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
+
+## Approval {#approval}
+
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
+When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.
+
+Review it, then add \`agent-approved\` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.
+
+When disabled, ADORE checks the validated candidate and target and publishes without waiting for a label. ADORE never merges.
+
+## Publication and review {#review}
+
+After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets \`agent-mr\`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets \`agent-done\`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
+
+To request changes, a reviewer adds \`agent-revise\` to the MR/PR. ADORE removes the label, starts new work on the same branch (a new task for AEGIS), and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
+
+If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Automatic repair (default) starts a revision, Notify only posts a comment, and Ignore skips CI status. Automatic repairs share the revision budget; once it is spent, ADORE posts a notice and the job stays in review.
+
+## Failure and recovery {#failures}
+
+When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action; when the agent exited without moving the stage on, the evidence also shows its last error-output lines. After the final attempt it posts a terminal comment, sets \`agent-failed\`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.
+
+In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or any required approval. In the Tickets view, Retry replaces Start. Removing \`agent-failed\` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
+
+For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.
+
+When a container command exceeds its time limit, ADORE stops that container before another command can run. The next allowed attempt resumes the same container with its installed dependencies and files; network access stays unchanged. If safe stopping or restarting cannot be confirmed, the job fails and keeps its evidence for inspection before **Retry**. A failed preparation still needs its existing explicit recovery.
+
+## Abandon and start again {#restart}
+
+For a failed job, **Abandon and start again** discards its saved state, worktree including unpublished work, and unchanged owned remote branch. Review the warning and confirm. ADORE verifies ownership before cleanup and starts the same open ticket with current settings only after cleanup succeeds. Monitoring stays paused if already paused. Administrators and assigned developers can use this action.
+
+Stable execution settings or backend drift cannot be fixed by Retry; Job details explains this and offers the confirmed action. Restore the saved settings to keep existing work. Native Retry can still revalidate volatile environment changes, including processor variables after resizing a VM.
+
+Foreign resources, another computer/account, corrupt ownership evidence or a changed remote branch block recovery. Partial cleanup keeps remaining evidence and starts no new job. If the job changes after confirmation, refresh its details and review again. A CLI lock may belong to the web worker: pause monitoring in Project Summary and wait for the current bounded job. Do not remove a live lock file.
+
+If an older deleted job left a branch without a recorded checkpoint, ADORE keeps that branch and uses a fresh generation. A known checkpoint that changed still blocks recovery. At most three alternative names are tried and repository naming rules must allow a free name; otherwise recovery stops before cleanup. The result explains when an older branch was kept.
+
+## Following jobs {#following-jobs}
+
+Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-tab. The table has these columns:
+
+| Column | Content |
 |---|---|
-| Working | ADORE is conducting a stage. |
-| Publishing | ADORE is publishing the validated candidate under the project policy. |
-| Waiting for clarification | The agent needs an answer in the repository issue. |
-| Waiting for approval | A person must approve the candidate on the forge. |
-| Human review | A draft MR/PR is open; people decide whether to merge. |
-| Handoff pending | A transfer to a person is waiting for a safe point. |
-| Handed off | A person took over; automatic work has ended. |
-| Completed | The job finished. This alone does not show that anyone merged. Compact lists call it Done. |
-| Failed | The job stopped with evidence kept; an authorized user can **Retry** it. |
-| Cancelled | The job was cancelled. |
-| Stale | The job is marked stale; inspect its saved outcome. |
+| Ticket | Number and title; opens the job detail. |
+| Project | The owning project. |
+| Status | The state, recorded Workflow, current Stage, and a link to the ticket or MR/PR when a person must act. |
+| Last activity | Time of the last saved event. |
+| Consumption | Tokens used by the job. |
 
-On Jobs, **Status** narrows the list to **Active jobs**, **Waiting**, **Human review** or **Finished jobs**. A project's Monitoring badge reads **Active** or **Paused**, and an archived project reads **Archived**. Environment verification reads **Verified**, **Partially verified**, **Verification failed**, **Stale verification** or **Unverified**; Unverified means there is no current evidence, not that a check failed.
+Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
 
-After **Start**, **Retry** or **Cancel**, a notice reports the command as queued, running, completed, failed or uncertain. Inspect an uncertain command before submitting it again. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
+The detail replaces the job list while open. Its compact heading combines the ticket number and title. **What is happening now** shows the state, who acts and **Next step**. Budgets and Consumption sit beside it on wide screens and below it on narrow screens. **Activity** lists saved events newest first. **Agent question** holds the active clarification; other states show **Evidence and artifacts**. **Technical details** holds identifiers, executor output and expandable **Original recorded events**. **Close** returns to the list with its filters. Old events do not become current action requests.
 
-## Automatic updates, language and theme {#preferences}
+## Job budgets {#budgets}
 
-Overview, Projects, Jobs, project Settings, project Access, project History and Change history reload their data every 15 seconds while the browser tab is visible. Settings pauses while you have unsaved changes or a save or discard is in progress. Statistics and System status also refresh automatically. Background updates pause while the browser tab is hidden and resume when you return. If an update fails, the affected data stays hidden until the next successful update.
+Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and \`adore init\`.
 
-In [My account](/account), **Appearance** holds **Language** (English, Français, Deutsch, Română) and **Theme** (**System**, **Light**, **Dark**). Each choice is saved to your account and follows you across browsers; before you sign in, the sign-in page remembers the choice in the browser. **Change password** needs your current password and a new one of at least 8 characters.
+Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.
 
-The initial administrator sees a reminder until the factory password is changed. Follow **Change password** in the reminder to open My account.
+Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.
 
-When changing your password, enter the new password twice. Use the buttons to show or hide each entry. The new password needs at least 8 characters.
-`,Nz=`# Job lifecycle\r
-\r
-A job is the work ADORE does for one ticket, from pickup to a merged change. This article shows its stages and where you take part. Labels and eligibility are in [Tickets for automatic pickup](/help/tickets).\r
-\r
-\r
-Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime and worktree, including unpublished work; resources can remain if cleanup fails. Job state and evidence remain. Deleting a job is a separate action.\r
-\r
-Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.\r
-\r
-## Stages {#stages}\r
-\r
-ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.\r
-\r
-| Stage | What happens |\r
-|---|---|\r
-| Frame | Scope is agreed and the executor records whether the job takes the full or the quick path. |\r
-| Specify | The requirement is written. |\r
-| Design | A short design note is written for non-trivial work. |\r
-| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |\r
-| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |\r
-\r
-The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).\r
-\r
-## Direct jobs {#direct-evidence}\r
-\r
-The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (\`build\`), **Validation** (\`validate\`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.\r
-\r
-**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.\r
-\r
-Direct **Implementation** uses the \`build\` override in \`workflow.stage_timeout_overrides\`, falling back to \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) records the candidate for approval without running a separate test command.\r
-\r
-## Clarification {#clarification}\r
-\r
-When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets \`agent-clarify\`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**. Choose **Read the question** to open **Agent question**, then **Answer on the ticket** when a saved location is available.\r
-\r
-Reply with a normal comment on the ticket, then add \`agent-answered\`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.\r
-\r
-## Approval {#approval}\r
-\r
-Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.\r
-\r
-When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.\r
-\r
-Review it, then add \`agent-approved\` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.\r
-\r
-When disabled, ADORE checks the validated candidate and target and publishes without waiting for a label. ADORE never merges.\r
-\r
-## Publication and review {#review}\r
-\r
-After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets \`agent-mr\`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets \`agent-done\`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.\r
-\r
-To request changes, a reviewer adds \`agent-revise\` to the MR/PR. ADORE removes the label, starts new work on the same branch (a new task for AEGIS), and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.\r
-\r
-If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Automatic repair (default) starts a revision, Notify only posts a comment, and Ignore skips CI status. Automatic repairs share the revision budget; once it is spent, ADORE posts a notice and the job stays in review.\r
-\r
-## Failure and recovery {#failures}\r
-\r
-When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action; when the agent exited without moving the stage on, the evidence also shows its last error-output lines. After the final attempt it posts a terminal comment, sets \`agent-failed\`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.\r
-\r
-In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or any required approval. In the Tickets view, Retry replaces Start. Removing \`agent-failed\` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.\r
-\r
-For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.\r
-\r
-When a container command exceeds its time limit, ADORE stops that container before another command can run. The next allowed attempt resumes the same container with its installed dependencies and files; network access stays unchanged. If safe stopping or restarting cannot be confirmed, the job fails and keeps its evidence for inspection before **Retry**. A failed preparation still needs its existing explicit recovery.\r
-\r
-## Abandon and start again {#restart}\r
-\r
-For a failed job, **Abandon and start again** discards its saved state, worktree including unpublished work, and unchanged owned remote branch. Review the warning and confirm. ADORE verifies ownership before cleanup and starts the same open ticket with current settings only after cleanup succeeds. Monitoring stays paused if already paused. Administrators and assigned developers can use this action.\r
-\r
-Stable execution settings or backend drift cannot be fixed by Retry; Job details explains this and offers the confirmed action. Restore the saved settings to keep existing work. Native Retry can still revalidate volatile environment changes, including processor variables after resizing a VM.\r
-\r
-Foreign resources, another computer/account, corrupt ownership evidence or a changed remote branch block recovery. Partial cleanup keeps remaining evidence and starts no new job. If the job changes after confirmation, refresh its details and review again. A CLI lock may belong to the web worker: pause monitoring in Project Summary and wait for the current bounded job. Do not remove a live lock file.\r
-\r
-If an older deleted job left a branch without a recorded checkpoint, ADORE keeps that branch and uses a fresh generation. A known checkpoint that changed still blocks recovery. At most three alternative names are tried and repository naming rules must allow a free name; otherwise recovery stops before cleanup. The result explains when an older branch was kept.\r
-\r
-## Following jobs {#following-jobs}\r
-\r
-Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-tab. The table has these columns:\r
-\r
-| Column | Content |\r
-|---|---|\r
-| Ticket | Number and title; opens the job detail. |\r
-| Project | The owning project. |\r
-| Status | The state, recorded Workflow, current Stage, and a link to the ticket or MR/PR when a person must act. |\r
-| Last activity | Time of the last saved event. |\r
-| Consumption | Tokens used by the job. |\r
-\r
-Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.\r
-\r
-The detail replaces the job list while open. Its compact heading combines the ticket number and title. **What is happening now** shows the state, who acts and **Next step**. Budgets and Consumption sit beside it on wide screens and below it on narrow screens. **Activity** lists saved events newest first. **Agent question** holds the active clarification; other states show **Evidence and artifacts**. **Technical details** holds identifiers, executor output and expandable **Original recorded events**. **Close** returns to the list with its filters. Old events do not become current action requests.\r
-\r
-## Job budgets {#budgets}\r
-\r
-Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and \`adore init\`.\r
-\r
-Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.\r
-\r
-Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.\r
-\r
-If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.\r
-\r
-## Status and executor evidence {#operational-evidence}\r
-\r
-**Working** means ADORE is conducting the saved stage; no human action is currently requested. **Waiting for clarification** needs an answer on the ticket. **Failed** stops autonomous work and keeps recovery evidence. The status card shows failed attempts in the current stage even while the job stays Working.\r
-\r
-Questions appear in **Agent question** as Markdown with lists, tables and code. Leading HTML comments are omitted in the readable view; **Original question and evidence** retains the exact source. Other HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.\r
-\r
-Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.\r
-\r
-Under **Technical details**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.\r
-\r
-The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.\r
-\r
-A launch without proven capture, or a deleted snapshot, is explicitly unavailable; raw archives are never used as a fallback. Corrupt evidence is refused. Existing jobs can remain unavailable until a later executor launch records evidence; this view never starts one.\r
-\r
-If **Consumption** cannot load, use **Refresh consumption** beside the error. Job evidence and recovery controls remain separate. A corrupt source still requires operator investigation.\r
-`,Lz=`# What ADORE does\r
-\r
-Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.\r
-\r
-ADORE turns a prepared ticket on your code forge into a draft merge request or pull request that people review. This page explains the flow and the two roles; the other topics cover each screen.\r
-\r
-## What ADORE does {#what-adore-does}\r
-\r
-ADORE watches the projects an administrator has enrolled. When a ticket on the forge (GitHub, GitLab or Gitea) is prepared for pickup, ADORE starts a **job** for it:\r
-\r
-- It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.\r
-- The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.\r
-- ADORE observes the result reported by the agent and asks a person to approve the candidate.\r
-- After approval, ADORE publishes a draft MR/PR for people to review. A project can be set to publish a ready MR/PR instead.\r
-\r
-> ADORE never merges. It has no merge operation; a person decides whether to merge on the forge.\r
-\r
-The web interface shows what is running and what needs attention. It also lets you start tickets, retry or cancel jobs, and, as an administrator, set up projects and accounts.\r
-\r
-If a project's job state cannot be read, **Needs attention** names that project. Job data from the other selected projects remains visible.\r
-\r
-## From ticket to merge {#flow}\r
-\r
-| Step | Status shown | Who acts | What happens |\r
-|---|---|---|---|\r
-| 1. Prepare | No job yet | A person | The ticket gets the ready label and a priority label, or you press **Start** in Jobs → Tickets, which adds missing labels after you confirm. |\r
-| 2. Work | Working | ADORE and the coding agent | ADORE creates the job and the agent works through the AEGIS stages. |\r
-| 3. Clarify | Waiting for clarification | A person | Only if the agent has a question. Answer in the repository issue and add the answered label. |\r
-| 4. Validate | Working | Coding agent | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |\r
-| 5. Approve | Waiting for approval | A person | ADORE presents the candidate on the forge. A person adds the approval label. Approval is bound to that exact candidate. |\r
-| 6. Publish | Publishing | ADORE | ADORE pushes the branch and opens the draft MR/PR. |\r
-| 7. Review | Human review | A person | People review. A requested revision repeats validation and follows the project approval policy. |\r
-| 8. Merge | Completed | A person | A person merges on the forge. ADORE does not. |\r
-\r
-If the candidate or its target branch changes after approval, the approval no longer applies and the job validates again. Terms are explained in the [glossary](/help/glossary).\r
-\r
-## Roles {#roles}\r
-\r
-| Role | Sees | Can do |\r
-|---|---|---|\r
-| Administrator (Admin) | All current and future projects, plus Administration and costs | Everything a Dev can do, and enroll projects, edit project settings through reviewed changes, pause or resume Monitoring, archive or restore projects, manage users and project access, set audit retention, read change history, and see and set costs |\r
-| Dev | Only the projects an administrator assigned | Start and stop tickets, retry or cancel jobs, read statistics for assigned projects, and read project settings (read-only, with secrets and financial settings omitted) |\r
-\r
-A Dev never sees monetary values and cannot open the Administration pages. When no project is assigned, Overview asks the Dev to request access from an administrator. If there are no projects, an Admin can select **Enroll new project** on Overview.\r
-\r
-## Getting started {#getting-started}\r
-\r
-1. Administrators enroll the repository: [Adding a repository](/help/projects).\r
-2. Choose the model the Pi coding agent uses: [Executors and models](/help/executors).\r
-3. Prepare tickets so ADORE can pick them up: [Tickets for automatic pickup](/help/tickets).\r
-4. Follow each job to its draft MR/PR: [Job lifecycle](/help/jobs).\r
-\r
-Developers start at step 3 once an administrator has given them access to a project.\r
-\r
-## Where to find more {#topics}\r
-\r
-- [What ADORE does](/help/overview): this page.\r
-- [Interface tour](/help/interface): sidebar, header, project hub and status labels.\r
-- [Adding a repository](/help/projects): enroll a project.\r
-- [Project settings](/help/settings): what each setting group controls.\r
-- [Executors and models](/help/executors): the Pi coding agent, models and authentication.\r
-- [Tickets for automatic pickup](/help/tickets): labels and starting tickets.\r
-- [Job lifecycle](/help/jobs): statuses, waiting states, retry and cancel.\r
-- [Statistics and costs](/help/statistics): usage, quality, trends and estimated costs.\r
-- [Administration](/help/administration): users, access, system status and change history.\r
-- [Glossary](/help/glossary): the terms used throughout the interface.\r
-`,Iz=`# Adding a repository\r
-\r
-Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.\r
-\r
-Add a repository as a project so ADORE can pick up its ready tickets, run a coding agent on them and publish draft merge or pull requests for people to review. Only administrators add projects, and ADORE never merges.\r
-\r
-\r
-A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again.\r
-\r
-\r
-A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.\r
-\r
-## Before you start {#before-you-start}\r
-\r
-Have these ready:\r
-\r
-- The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.\r
-- A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.\r
-- The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).\r
-- The model ID for Pi and, for containers, a running Docker or Podman service. The default shared image is prepared automatically on import; custom images must already exist on that service. See [Executors and models](/help/executors).\r
-\r
-## Enroll new project {#add-project}\r
-\r
-Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.\r
-\r
-When no projects remain, Overview and Projects offer **Enroll new project** and **Import raw configuration** to administrators. Deleting the last project returns you to Projects, where both actions remain available.\r
-\r
-| Step | What it asks |\r
-|---|---|\r
-| Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |\r
-| Agent and model | Choose **Provider**, **Model** and endpoint details, when needed. Select **Runs in**, the runtime and image for a container. Save the provider key in Settings after creation. For **Installed on the server**, only the current OS account and optional **Project tools PATH** are shown. |\r
-| Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |\r
-| Verification | Opening this step automatically checks the configuration, server folders, Git and forge access. **Recheck environment** repeats these checks. **Workflow** separately reports the observed repository workflow without blocking enrollment. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |\r
-| Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |\r
-\r
-For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.\r
-\r
-Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).\r
-\r
-**Automatic location** keeps the proposed clone path. Choose **Custom location** and **Choose folder…** to browse folders on the ADORE host. Click a row to select it; double-click or press Enter to open it. Use Back or Parent folder to navigate, then **Select folder** to confirm the exact existing folder. Enter a new destination directly in the main clone-path field. The selector creates nothing; links and network paths are refused. **Cancel** preserves the draft. A path typed while a folder list loads stays in the address bar.\r
-\r
-**Target branch** lists the remote branches for GitHub, GitLab and Gitea, including self-hosted repositories. The repository’s default branch is selected and marked **default**. Choose another branch if needed. **Read repository** refreshes the list and keeps an explicit selection while that branch still exists. Changing the URL clears the previous choices. If no default is reported, choose a branch yourself; if the repository has no branches, add one there and read it again. This uses the ADORE account’s Git access; unknown forge types still need manual selection.\r
-\r
-## Repository workflows {#workflows}\r
-\r
-When you confirm guided enrollment or a raw import, ADORE prepares missing shared executor and network-proxy images before saving the project. Progress shows the current stage; the first preparation may take several minutes and needs internet access on the server. Later imports reuse the images. After a preparation failure, retry the import without entering the same answers again. Native imports skip container preparation. Custom image definitions remain the administrator's responsibility.\r
-\r
-**AEGIS / Direct**. The agent discovers and runs checks according to the repository instructions. With AEGIS it follows the recorded stages; without AEGIS it implements the ticket directly. ADORE monitors progress and the task journal, records the candidate and requests human approval. It does not independently run repository tests or strict AEGIS checks.\r
-\r
-## Import raw configuration {#import-project}\r
-\r
-In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 \`config.toml\` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.\r
-\r
-Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).\r
-\r
-\r
-A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:\r
-\r
-1. Choose **Repository access**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.\r
-2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, Pi in the image, plus the server's ChatGPT sign-in for a ChatGPT subscription, the network proxy image while [internet access](/help/executors#internet) is Off and the web search key when Brave or Tavily needs one. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks compatible Node, ADORE-managed Pi and the selected provider credential. The separate **Workflow** row identifies the workflow without running AEGIS. This is not a full job and does not prove push permission.\r
-3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).\r
-4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.\r
-\r
-## Archive, restore and delete {#lifecycle}\r
-\r
-Administrators find these buttons on the Summary tab.\r
-\r
-- **Archive project** works after jobs finish and queued requests clear. It keeps settings, history, metrics and audit records and stops new work. **Restore project** brings it back.\r
-- **Delete project** appears only for archived projects and asks you to type the project name. It removes the project's ADORE settings, job history, metrics, containers and worktrees. It keeps the repository and its branches, worktrees of jobs handed to a person, a job-state folder outside ADORE home and the audit trail. Deletion is refused while work is queued or unfinished. **Also remove the local clone** (unticked) also deletes the clone ADORE made under its \`repos\` folder; it is offered only for a clean clone of this project's repository that no other project uses and no worktree kept by the deletion still needs, otherwise the dialog says why the clone stays.\r
-\r
-> Deletion cannot be undone. To adjust a project afterwards, see [Project settings](/help/settings).\r
-\r
-## Gitea sign-in on this computer {#gitea-sign-in}\r
-\r
-ADORE uses the saved project connection first. Otherwise it reuses the current account’s tea configuration. If tea reports a missing login, ADORE checks standard Windows or Linux configuration locations and selects the configured login, a single default, or the only available login. Multiple accounts without a clear selection require an explicit connection.\r
-\r
-Discovery respects \`XDG_CONFIG_HOME\`. On Windows it also checks the account’s Local AppData, Roaming AppData and home \`.config\` directories; on Linux it checks the home \`.config\` directory. It does not search private application caches or copy credentials between computers.\r
-\r
-1. Open the project’s **Summary** tab and choose **Repository access**.\r
-2. Enter the Gitea origin, including its port when needed, in **Repository server**.\r
-3. Create a token on that Gitea server for the account allowed to read/update issues and create draft reviews, and enter it in **Access token**.\r
-4. Choose **Verify and connect**. An HTTP server requires the displayed acknowledgement. A failed check preserves the saved connection.\r
-5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.\r
-\r
-On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.\r
-`,Mz=`# Project settings\r
-\r
-A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators edit several settings and save them together; developers read them.\r
-\r
-## Where to find Settings {#where}\r
-\r
-Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Statistics, History and, for administrators, Access.\r
-\r
-Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in.\r
-\r
-Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project has its own settings; global capacity and audit retention belong to Administration.\r
-\r
-## Setting groups {#groups}\r
-\r
-Every group is closed when you open Settings, and the number beside its name counts its rows.\r
-\r
-| Group | What it controls |\r
-|---|---|\r
-| Repository | Forge and repository, Gitea login, **Target branch** (base of new jobs and destination of PR/MRs), the job branch name template with an optional naming rule and a live example, and the agent's display name, resource name and commit author email. |\r
-| Tickets | **Ready for pickup label**, **Exclude from pickup label**, the folded **Status labels**, how often ADORE checks the forge, whether tickets need acceptance criteria or a priority label, and the default task type. See [Tickets for automatic pickup](/help/tickets#labels). |\r
-| Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |\r
-| PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), **Require human approval before PR/MR** and the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |\r
-| Statistics | **Record completed job measurements** and **Record agent-reported tokens**. **Statistics database file** is shown for information only. |\r
-| Agent and model | Provider, model, authentication and **Test AI connection** [Executors and models](/help/executors). |\r
-| Technical details | Read-only installation values such as the job state folder, the local repository path and the job working folders. They are changed in the project's \`config.toml\` on the server, and changing a path does not move existing data. |\r
-\r
-## Values and help {#values}\r
-\r
-Each row has a label, a description that is always visible, an **Active value** and an **ADORE default**. The description says what the setting controls, its unit or allowed values, and what changing it does, or that it is reserved and unused. There is no separate Help button.\r
-\r
-A **Default** badge means the project's \`config.toml\` does not set the value, so ADORE's default applies. Editing it writes a value for this project only. A row marked **Not editable here** is changed in \`config.toml\` on the server. A row marked **Apply only with pickup paused and no active jobs** needs the extra condition described below.\r
-\r
-Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).\r
-\r
-## Editing {#editing}\r
-\r
-The **Save** and **Discard changes** bar appears only for unsaved or recovered changes, while saving, or when an error needs recovery. It disappears after a successful save or discard. Opening an editor without changing its value does not show the bar.\r
-\r
-1. Choose **Edit** beside each value you want to change. You can edit several settings across groups.\r
-2. Use the single **Save** button above the groups. It is enabled only when values change and all open edits are valid.\r
-3. For important changes, **Confirm important changes** shows the project, changed values and effects. Choose **Save changes**, or **Keep editing** to return without saving.\r
-\r
-Rules that apply:\r
-\r
-- **Discard changes** clears all unsaved edits. Cancelling the confirmation keeps them without creating a saved candidate.\r
-- Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs. Discard your changes to reload the saved settings before editing again. Concurrent administrators get a conflict.\r
-- The server checks the complete configuration and saves all edits together. A budget-only reviewed save also allows jobs waiting for clarification, with no active conductor or unfinished operation. Other settings require finished jobs. A failed save retains your inputs and any prepared candidate for retry.\r
-- Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.\r
-- Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).\r
-\r
-Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.\r
-\r
-## Original TOML {#toml}\r
-\r
-Beside Project settings, administrators have **Preview raw configuration** and **Export raw configuration**. Preview shows the exact saved TOML in a closable dialog. Pending changes, separate environment files, external credentials and running job data are excluded. A standalone TOML can contain inline values, so handle it as a secret; complete build export refuses inline credentials.\r
-\r
-Choose **Export raw configuration**, select the destination and save. Container projects export one ZIP containing the saved configuration and the complete image definition. Native projects save \`config.toml\`. There is no export setup dialog. When the browser has no destination picker, its normal download preferences apply. Select the exported ZIP directly in Projects → Import raw configuration to import the configuration and recipes together, with automatic validation.\r
-\r
-Administrators manage sources separately under **Technical details → Image definition**. Select a Dockerfile or ZIP in **Definition file**; it is checked automatically. **Save recipe** retains it and **Change definition** replaces it. Missing local bases are added here too. ADORE's standard executor base is included automatically.\r
-\r
-Definitions are retained by image and shared by projects using that image. Saving a recipe does not rebuild an image, change settings or restart jobs. The ZIP includes all declared local-base sources and a Compose file for building on another server. Image binaries and packages installed later by an agent are excluded. Registry access and package sources must be available there.\r
-\r
-If a recipe is corrupt, the dialog names what to delete on the server to start fresh. Resetting the recipe catalog removes saved image definitions for all projects; configurations, credentials and jobs stay unchanged. ADORE never deletes this data automatically.\r
-\r
-## Agent system packages {#system-packages}\r
-\r
-**Allow agent system package installation**\r
-\r
-In Settings → Agent and model, administrators enable this permission with **Save** and confirm its effect. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.\r
-\r
-Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.\r
-\r
-## Job budgets {#budgets}\r
-\r
-Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and \`adore init\`.\r
-\r
-Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.\r
-\r
-Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.\r
-\r
-If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.\r
-\r
-\r
-**Implementation** (\`build\`) uses \`workflow.stage_timeout_overrides\` or the general \`budgets.per_gate_timeout_seconds\`. For AEGIS, **Validation** (\`validate\`) bounds the agent session too. ADORE does not run additional tests; the agent selects local and CI checks according to the repository instructions.\r
+If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
+
+## Status and executor evidence {#operational-evidence}
+
+**Working** means ADORE is conducting the saved stage; no human action is currently requested. **Waiting for clarification** needs an answer on the ticket. **Failed** stops autonomous work and keeps recovery evidence. The status card shows failed attempts in the current stage even while the job stays Working.
+
+Questions appear in **Agent question** as Markdown with lists, tables and code. Leading HTML comments are omitted in the readable view; **Original question and evidence** retains the exact source. Other HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
+
+Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.
+
+Under **Technical details**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+
+The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.
+
+A launch without proven capture, or a deleted snapshot, is explicitly unavailable; raw archives are never used as a fallback. Corrupt evidence is refused. Existing jobs can remain unavailable until a later executor launch records evidence; this view never starts one.
+
+If **Consumption** cannot load, use **Refresh consumption** beside the error. Job evidence and recovery controls remain separate. A corrupt source still requires operator investigation.
+`,Lz=`# What ADORE does
+
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
+ADORE turns a prepared ticket on your code forge into a draft merge request or pull request that people review. This page explains the flow and the two roles; the other topics cover each screen.
+
+## What ADORE does {#what-adore-does}
+
+ADORE watches the projects an administrator has enrolled. When a ticket on the forge (GitHub, GitLab or Gitea) is prepared for pickup, ADORE starts a **job** for it:
+
+- It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.
+- The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.
+- ADORE observes the result reported by the agent and asks a person to approve the candidate.
+- After approval, ADORE publishes a draft MR/PR for people to review. A project can be set to publish a ready MR/PR instead.
+
+> ADORE never merges. It has no merge operation; a person decides whether to merge on the forge.
+
+The web interface shows what is running and what needs attention. It also lets you start tickets, retry or cancel jobs, and, as an administrator, set up projects and accounts.
+
+If a project's job state cannot be read, **Needs attention** names that project. Job data from the other selected projects remains visible.
+
+## From ticket to merge {#flow}
+
+| Step | Status shown | Who acts | What happens |
+|---|---|---|---|
+| 1. Prepare | No job yet | A person | The ticket gets the ready label and a priority label, or you press **Start** in Jobs → Tickets, which adds missing labels after you confirm. |
+| 2. Work | Working | ADORE and the coding agent | ADORE creates the job and the agent works through the AEGIS stages. |
+| 3. Clarify | Waiting for clarification | A person | Only if the agent has a question. Answer in the repository issue and add the answered label. |
+| 4. Validate | Working | Coding agent | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
+| 5. Approve | Waiting for approval | A person | ADORE presents the candidate on the forge. A person adds the approval label. Approval is bound to that exact candidate. |
+| 6. Publish | Publishing | ADORE | ADORE pushes the branch and opens the draft MR/PR. |
+| 7. Review | Human review | A person | People review. A requested revision repeats validation and follows the project approval policy. |
+| 8. Merge | Completed | A person | A person merges on the forge. ADORE does not. |
+
+If the candidate or its target branch changes after approval, the approval no longer applies and the job validates again. Terms are explained in the [glossary](/help/glossary).
+
+## Roles {#roles}
+
+| Role | Sees | Can do |
+|---|---|---|
+| Administrator (Admin) | All current and future projects, plus Administration and costs | Everything a Dev can do, and enroll projects, edit project settings through reviewed changes, pause or resume Monitoring, archive or restore projects, manage users and project access, set audit retention, read change history, and see and set costs |
+| Dev | Only the projects an administrator assigned | Start and stop tickets, retry or cancel jobs, read statistics for assigned projects, and read project settings (read-only, with secrets and financial settings omitted) |
+
+A Dev never sees monetary values and cannot open the Administration pages. When no project is assigned, Overview asks the Dev to request access from an administrator. If there are no projects, an Admin can select **Enroll new project** on Overview.
+
+## Getting started {#getting-started}
+
+1. Administrators enroll the repository: [Adding a repository](/help/projects).
+2. Choose the model the Pi coding agent uses: [Executors and models](/help/executors).
+3. Prepare tickets so ADORE can pick them up: [Tickets for automatic pickup](/help/tickets).
+4. Follow each job to its draft MR/PR: [Job lifecycle](/help/jobs).
+
+Developers start at step 3 once an administrator has given them access to a project.
+
+## Where to find more {#topics}
+
+- [What ADORE does](/help/overview): this page.
+- [Interface tour](/help/interface): sidebar, header, project hub and status labels.
+- [Adding a repository](/help/projects): enroll a project.
+- [Project settings](/help/settings): what each setting group controls.
+- [Executors and models](/help/executors): the Pi coding agent, models and authentication.
+- [Tickets for automatic pickup](/help/tickets): labels and starting tickets.
+- [Job lifecycle](/help/jobs): statuses, waiting states, retry and cancel.
+- [Statistics and costs](/help/statistics): usage, quality, trends and estimated costs.
+- [Administration](/help/administration): users, access, system status and change history.
+- [Glossary](/help/glossary): the terms used throughout the interface.
+`,Iz=`# Adding a repository
+
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
+Add a repository as a project so ADORE can pick up its ready tickets, run a coding agent on them and publish draft merge or pull requests for people to review. Only administrators add projects, and ADORE never merges.
+
+
+A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again.
+
+
+A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.
+
+## Before you start {#before-you-start}
+
+Have these ready:
+
+- The repository address (https or ssh) that the ADORE server account can read. ADORE clones it into its own folder when you create the project.
+- A GitLab, GitHub or Gitea account that can read and update issues and create draft reviews.
+- The ready and approval label names. A person adds the ready label to make a ticket eligible; see [Tickets for automatic pickup](/help/tickets#labels).
+- The model ID for Pi and, for containers, a running Docker or Podman service. The default shared image is prepared automatically on import; custom images must already exist on that service. See [Executors and models](/help/executors).
+
+## Enroll new project {#add-project}
+
+Choose **Enroll new project** on [Projects](/projects). The guided wizard starts at Repository and identity and takes five steps, and changing any answer makes earlier validation and checks stale.
+
+When no projects remain, Overview and Projects offer **Enroll new project** and **Import raw configuration** to administrators. Deleting the last project returns you to Projects, where both actions remain available.
+
+| Step | What it asks |
+|---|---|
+| Repository and identity | **Repository URL** and **Read repository**: ADORE fills in **Forge**, **Repository**, **Gitea tea login**, **Target branch** and the project ID for you to confirm, and proposes a **Local clone path** you can change. **Continue** stays disabled until the repository has been read. **Display name** starts as the repository name; **Description** is optional. |
+| Agent and model | Choose **Provider**, **Model** and endpoint details, when needed. Select **Runs in**, the runtime and image for a container. Save the provider key in Settings after creation. For **Installed on the server**, only the current OS account and optional **Project tools PATH** are shown. |
+| Eligibility, reviewers and limits | **Ready label**, **Approval label**, optional **Reviewers (comma-separated)** and four job limits: executor launches, active seconds, reported cost in USD and changed files. A cost cap of 0 switches that cap off; it does not mean free. |
+| Verification | Opening this step automatically checks the configuration, server folders, Git and forge access. **Recheck environment** repeats these checks. **Workflow** separately reports the observed repository workflow without blocking enrollment. For server execution, **Pi on the server** reports native failures, including incompatible Node versions. Container execution checks the engine and Pi in the local image. Nothing is published. **Continue** opens the review once the setup is valid. |
+| Review and create | Shows the exact candidate and server locations, and a closed **Settings left at their defaults** list of every other setting with its default value (read-only; change them in Settings after creation). **Change** returns to a step. **Create project with pickup stopped** first clones the repository (from a URL), checks the target branch, then saves the project and, unless you untick **Create the ADORE labels in the repository**, creates the missing ADORE labels and lists the result; **Open project** follows. |
+
+For native local execution choose **Runs in → Installed on the server**. Specialized container setups use the advanced server TOML method below.
+
+Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).
+
+**Automatic location** keeps the proposed clone path. Choose **Custom location** and **Choose folder…** to browse folders on the ADORE host. Click a row to select it; double-click or press Enter to open it. Use Back or Parent folder to navigate, then **Select folder** to confirm the exact existing folder. Enter a new destination directly in the main clone-path field. The selector creates nothing; links and network paths are refused. **Cancel** preserves the draft. A path typed while a folder list loads stays in the address bar.
+
+**Target branch** lists the remote branches for GitHub, GitLab and Gitea, including self-hosted repositories. The repository’s default branch is selected and marked **default**. Choose another branch if needed. **Read repository** refreshes the list and keeps an explicit selection while that branch still exists. Changing the URL clears the previous choices. If no default is reported, choose a branch yourself; if the repository has no branches, add one there and read it again. This uses the ADORE account’s Git access; unknown forge types still need manual selection.
+
+## Repository workflows {#workflows}
+
+When you confirm guided enrollment or a raw import, ADORE prepares missing shared executor and network-proxy images before saving the project. Progress shows the current stage; the first preparation may take several minutes and needs internet access on the server. Later imports reuse the images. After a preparation failure, retry the import without entering the same answers again. Native imports skip container preparation. Custom image definitions remain the administrator's responsibility.
+
+**AEGIS / Direct**. The agent discovers and runs checks according to the repository instructions. With AEGIS it follows the recorded stages; without AEGIS it implements the ticket directly. ADORE monitors progress and the task journal, records the candidate and requests human approval. It does not independently run repository tests or strict AEGIS checks.
+
+## Import raw configuration {#import-project}
+
+In [Projects](/projects), choose **Import raw configuration** and select an exported ZIP or UTF-8 \`config.toml\` in the dialog. ADORE automatically checks the file, server paths, state-folder ownership and inline secrets. Correct reported issues in the file and select it again. Choose **Import** when validation succeeds. The new project starts with monitoring paused and retains the exact configuration bytes.
+
+Select a complete exported ZIP directly; its configuration and image definitions are imported together. ADORE also checks the source graph, image correspondence and existing definitions. A different definition already using the root image name is refused. TOML files may be up to 512 KiB and ZIPs up to 18 MiB. Use the included Compose file to build images separately on the destination server. See [Settings → Export raw configuration](/help/settings#toml).
+
+
+A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
+
+1. Choose **Repository access**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
+2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, Pi in the image, plus the server's ChatGPT sign-in for a ChatGPT subscription, the network proxy image while [internet access](/help/executors#internet) is Off and the web search key when Brave or Tavily needs one. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks compatible Node, ADORE-managed Pi and the selected provider credential. The separate **Workflow** row identifies the workflow without running AEGIS. This is not a full job and does not prove push permission.
+3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).
+4. Choose **Activate monitoring**. The Monitoring tile changes from Paused to Active and ADORE starts picking up tickets that carry the ready label. **Pause monitoring** stops new pickups but does not interrupt a running job.
+
+## Archive, restore and delete {#lifecycle}
+
+Administrators find these buttons on the Summary tab.
+
+- **Archive project** works after jobs finish and queued requests clear. It keeps settings, history, metrics and audit records and stops new work. **Restore project** brings it back.
+- **Delete project** appears only for archived projects and asks you to type the project name. It removes the project's ADORE settings, job history, metrics, containers and worktrees. It keeps the repository and its branches, worktrees of jobs handed to a person, a job-state folder outside ADORE home and the audit trail. Deletion is refused while work is queued or unfinished. **Also remove the local clone** (unticked) also deletes the clone ADORE made under its \`repos\` folder; it is offered only for a clean clone of this project's repository that no other project uses and no worktree kept by the deletion still needs, otherwise the dialog says why the clone stays.
+
+> Deletion cannot be undone. To adjust a project afterwards, see [Project settings](/help/settings).
+
+## Gitea sign-in on this computer {#gitea-sign-in}
+
+ADORE uses the saved project connection first. Otherwise it reuses the current account’s tea configuration. If tea reports a missing login, ADORE checks standard Windows or Linux configuration locations and selects the configured login, a single default, or the only available login. Multiple accounts without a clear selection require an explicit connection.
+
+Discovery respects \`XDG_CONFIG_HOME\`. On Windows it also checks the account’s Local AppData, Roaming AppData and home \`.config\` directories; on Linux it checks the home \`.config\` directory. It does not search private application caches or copy credentials between computers.
+
+1. Open the project’s **Summary** tab and choose **Repository access**.
+2. Enter the Gitea origin, including its port when needed, in **Repository server**.
+3. Create a token on that Gitea server for the account allowed to read/update issues and create draft reviews, and enter it in **Access token**.
+4. Choose **Verify and connect**. An HTTP server requires the displayed acknowledgement. A failed check preserves the saved connection.
+5. Choose **Check host prerequisites** again. Git clone/push credentials are configured separately.
+
+On another computer, prepare that computer’s own CLI sign-in or use this connection form. The delivery archive contains no user tokens.
+`,Mz=`# Project settings
+
+A project's Settings tab lists the working rules ADORE applies to it: which tickets it picks up, its limits, how it publishes and which agent it uses. Administrators edit several settings and save them together; developers read them.
+
+## Where to find Settings {#where}
+
+Open [Projects](/projects), choose a project and select the **Settings** tab. The tabs are Summary, Settings, Jobs, Statistics, History and, for administrators, Access.
+
+Saved settings refresh every 15 seconds while the browser tab is visible. Updates pause while you have unsaved settings or while a save or discard is in progress. The refresh also pauses while you enter a price or API key, or complete ChatGPT sign-in.
+
+Administrators can edit. Developers with access to the project see **Read-only settings**, without Edit buttons and without secrets or financial settings. Each project has its own settings; global capacity and audit retention belong to Administration.
+
+## Setting groups {#groups}
+
+Every group is closed when you open Settings, and the number beside its name counts its rows.
+
+| Group | What it controls |
+|---|---|
+| Repository | Forge and repository, Gitea login, **Target branch** (base of new jobs and destination of PR/MRs), the job branch name template with an optional naming rule and a live example, and the agent's display name, resource name and commit author email. |
+| Tickets | **Ready for pickup label**, **Exclude from pickup label**, the folded **Status labels**, how often ADORE checks the forge, whether tickets need acceptance criteria or a priority label, and the default task type. See [Tickets for automatic pickup](/help/tickets#labels). |
+| Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
+| PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), **Require human approval before PR/MR** and the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |
+| Statistics | **Record completed job measurements** and **Record agent-reported tokens**. **Statistics database file** is shown for information only. |
+| Agent and model | Provider, model, authentication and **Test AI connection** [Executors and models](/help/executors). |
+| Technical details | Read-only installation values such as the job state folder, the local repository path and the job working folders. They are changed in the project's \`config.toml\` on the server, and changing a path does not move existing data. |
+
+## Values and help {#values}
+
+Each row has a label, a description that is always visible, an **Active value** and an **ADORE default**. The description says what the setting controls, its unit or allowed values, and what changing it does, or that it is reserved and unused. There is no separate Help button.
+
+A **Default** badge means the project's \`config.toml\` does not set the value, so ADORE's default applies. Editing it writes a value for this project only. A row marked **Not editable here** is changed in \`config.toml\` on the server. A row marked **Apply only with pickup paused and no active jobs** needs the extra condition described below.
+
+Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).
+
+## Editing {#editing}
+
+The **Save** and **Discard changes** bar appears only for unsaved or recovered changes, while saving, or when an error needs recovery. It disappears after a successful save or discard. Opening an editor without changing its value does not show the bar.
+
+1. Choose **Edit** beside each value you want to change. You can edit several settings across groups.
+2. Use the single **Save** button above the groups. It is enabled only when values change and all open edits are valid.
+3. For important changes, **Confirm important changes** shows the project, changed values and effects. Choose **Save changes**, or **Keep editing** to return without saving.
+
+Rules that apply:
+
+- **Discard changes** clears all unsaved edits. Cancelling the confirmation keeps them without creating a saved candidate.
+- Saving is bound to the configuration you edited. A stale revision stops saving and retains your inputs. Discard your changes to reload the saved settings before editing again. Concurrent administrators get a conflict.
+- The server checks the complete configuration and saves all edits together. A budget-only reviewed save also allows jobs waiting for clarification, with no active conductor or unfinished operation. Other settings require finished jobs. A failed save retains your inputs and any prepared candidate for retry.
+- Identity and runtime changes also need monitoring paused. Choose **Pause monitoring** on Summary and let active work finish; pausing does not interrupt a running job.
+- Budget limits apply before the next attempt or resume, preserving consumed work and progress. See [Job budgets](#budgets).
+
+Navigation and browser reload ask before discarding unsaved settings edits. Brief Windows file locks are retried automatically; if saving still fails, check file access and retry **Save**.
+
+## Original TOML {#toml}
+
+Beside Project settings, administrators have **Preview raw configuration** and **Export raw configuration**. Preview shows the exact saved TOML in a closable dialog. Pending changes, separate environment files, external credentials and running job data are excluded. A standalone TOML can contain inline values, so handle it as a secret; complete build export refuses inline credentials.
+
+Choose **Export raw configuration**, select the destination and save. Container projects export one ZIP containing the saved configuration and the complete image definition. Native projects save \`config.toml\`. There is no export setup dialog. When the browser has no destination picker, its normal download preferences apply. Select the exported ZIP directly in Projects → Import raw configuration to import the configuration and recipes together, with automatic validation.
+
+Administrators manage sources separately under **Technical details → Image definition**. Select a Dockerfile or ZIP in **Definition file**; it is checked automatically. **Save recipe** retains it and **Change definition** replaces it. Missing local bases are added here too. ADORE's standard executor base is included automatically.
+
+Definitions are retained by image and shared by projects using that image. Saving a recipe does not rebuild an image, change settings or restart jobs. The ZIP includes all declared local-base sources and a Compose file for building on another server. Image binaries and packages installed later by an agent are excluded. Registry access and package sources must be available there.
+
+If a recipe is corrupt, the dialog names what to delete on the server to start fresh. Resetting the recipe catalog removes saved image definitions for all projects; configurations, credentials and jobs stay unchanged. ADORE never deletes this data automatically.
+
+## Agent system packages {#system-packages}
+
+**Allow agent system package installation**
+
+In Settings → Agent and model, administrators enable this permission with **Save** and confirm its effect. It is off by default and available for container projects. Rebuild or select a compatible image with sudo first, then start a fresh job. The agent runs package commands directly, reads failures and adapts within job limits.
+
+Network access remains separate: open permits reachable sources, allowlist-proxy permits allowed HTTP/HTTPS domains, and none permits only available local sources. Package scripts have administrative rights inside the container; mounted project folders remain shared with the server. Installed system packages remain when the same container resumes; a fresh container requires reassessment and installation.
+
+## Job budgets {#budgets}
+
+Job details shows **Executor launches** (for example 9 / 20) and **Active work (seconds)** beside the current project limits, independently of token statistics. At 90% it warns that a limit is near; at the limit it asks you to raise it before resuming. The default launch limit is 20 in both enrollment and \`adore init\`.
+
+Administrators can follow **Adjust budgets in project Settings**, open **Implementation**, edit only budgets, choose **Save** and confirm the exact values. A reviewed budget-only save is allowed while jobs wait for clarification, with no running conductor or unfinished operation. Other settings keep their usual idle and pause checks; developers have read-only settings.
+
+Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.
+
+If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
+
+
+**Implementation** (\`build\`) uses \`workflow.stage_timeout_overrides\` or the general \`budgets.per_gate_timeout_seconds\`. For AEGIS, **Validation** (\`validate\`) bounds the agent session too. ADORE does not run additional tests; the agent selects local and CI checks according to the repository instructions.
 `,qz=`# Statistics and costs
 
 Statistics shows how much work ADORE did, what it consumed and how well the results held up. Costs are shown only to administrators, and estimated costs are not invoices.
@@ -1517,92 +1517,92 @@ On the Quality tab, administrators also see **Cost per job with evidence**, per 
 | Dev | Assigned projects only; no **All projects** | None. Devs see job counts, tokens, elapsed time and quality figures, never a financial field. |
 
 Prices are set and visible only to administrators; a Dev's read-only Settings omit financial settings.
-`,Uz=`# Tickets for automatic pickup\r
-\r
-ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.\r
-\r
-\r
-Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.\r
-\r
-## How pickup works {#how-pickup-works}\r
-\r
-Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.\r
-\r
-An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.\r
-\r
-Before pickup, ADORE probes AEGIS only when \`.agentic/aegis.py\` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).\r
-\r
-## Create the labels first {#labels}\r
-\r
-GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. All labels below must exist in the forge repository before the first run. ADORE creates the missing ones when you add a project (**Create the ADORE labels in the repository**, ticked by default in Review and create) or when you press **Create missing labels** in Settings → Repository; it never changes or deletes existing labels, and lists what it created, what already existed and what failed (for example when the server's forge account may not create labels). The names are defaults; rename one only together with its project setting.\r
-\r
-| Label | Purpose |\r
-|---|---|\r
-| \`agent-ready\` | You add it to offer a ticket for pickup. ADORE replaces it with the working label when the job starts. |\r
-| \`agent-working\` | ADORE sets it while it works, publishes and waits for your approval. |\r
-| \`agent-clarify\` | ADORE sets it when it has asked a question and waits for an answer. |\r
-| \`agent-answered\` | You add it after replying to a question. |\r
-| \`agent-mr\` | ADORE sets it after publishing the MR/PR, while it waits for human review. |\r
-| \`agent-failed\` | ADORE sets it when a job fails. |\r
-| \`agent-done\` | ADORE sets it after a person has merged the MR/PR. |\r
-| \`agent-approved\` | You add it on the ticket to approve publishing the presented candidate. |\r
-| \`agent-revise\` | A reviewer adds it on the MR/PR to request a revision round. |\r
-\r
-ADORE removes the lifecycle labels it is not applying on every status update, so all must exist. Adding a status label by hand does not change the job.\r
-\r
-## What makes a ticket eligible {#eligible-tickets}\r
-\r
-A ticket is picked up only when every rule holds. They are checked in this order:\r
-\r
-1. The ticket is open.\r
-2. It has the ready label (\`agent-ready\`).\r
-3. It does not have the hold label (\`agent-hold\`). Removing the hold label makes the ticket eligible again.\r
-4. It does not have the exclusion label (\`no-agent\`, setting **Exclude from pickup label**). It wins over the ready label. Removing it restores eligibility; adding it does not stop a job already started.\r
-5. ADORE has no job for the ticket yet.\r
-6. It has a priority label: \`P1\`, \`P2\` or \`P3\`. **Require ticket priority label** is on by default.\r
-7. If **Require ticket acceptance criteria** is on, the description contains the words acceptance criteria (any case) or an unchecked task item, \`- [ ]\`. This check is off by default.\r
-\r
-Optional labels shape the job: \`bug\` or \`fix\` makes a fix task, \`change\` a change task, and any other ticket a feature task. \`agent-quick\` is only a hint; the executor decides between the full and quick path and records why.\r
-\r
-## Reviewing and starting tickets {#tickets-view}\r
-\r
-Open a project from Projects, choose its **Jobs** tab and stay on the **Tickets** sub-tab. The global **Jobs** page in the sidebar has the same two sub-tabs and a **Job scope** selector. With **All projects**, the table gains a Project column and each row acts on its own project.\r
-\r
-Nothing is read until you press **Read tickets**. It loads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:\r
-\r
-| Status | Meaning |\r
-|---|---|\r
-| Ready to start | Every rule holds. |\r
-| Missing label ... | The ready label is absent. |\r
-| On hold or Excluded from ADORE | The hold or exclusion label is present. |\r
-| Missing priority label | No priority label. |\r
-| Missing acceptance criteria | Required text not found. |\r
-| Has a job or Job: ... | ADORE already has a job; the job state is shown. |\r
-| Not open | The ticket is closed. |\r
-\r
-**Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.\r
-\r
-**Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.\r
-\r
-On desktop, Start or Retry, Stop and Details or Hide details stay on one row, aligned to the right with the Actions heading. On narrow screens, the buttons can wrap to keep them within the page.\r
-\r
-## Reading descriptions and comments {#reading-bodies}\r
-\r
-**Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**\r
-\r
-Use **Body display** on the right of the **Description** heading, with its label and selector on one line to choose **Rendered** or **Markdown source** for all open descriptions and comments. Source shows the exact text received from the repository, including spaces and line breaks. Your account retains a successfully saved choice across projects, reloads and browsers; another signed-in browser reads it on its next sign-in or reload. If saving fails, an error appears and the last saved mode returns; choose again to retry.\r
-\r
-HTML stays visible as text, not executable content. Only absolute http, https and mailto links are clickable and open separately. Images never load automatically: **Image not loaded** and any alternative text appear instead. Wide code, source and tables scroll within their own regions, which you can focus with the keyboard. Task checkboxes cannot change the ticket.\r
-\r
-## Checklist for a first ticket {#checklist}\r
-\r
-1. Create all nine labels in the forge repository.\r
-2. For automatic pickup, check that Monitoring is Active; for manual Start, it may stay Paused.\r
-3. Write a clear title and a description with acceptance criteria.\r
-4. Add a priority label, and optionally \`bug\`, \`fix\`, \`change\` or \`agent-quick\`.\r
-5. Add \`agent-ready\` last.\r
-6. Wait for the next check, or press **Read tickets** and **Start**.\r
-7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).\r
+`,Uz=`# Tickets for automatic pickup
+
+ADORE picks up tickets from your forge repository (GitHub, GitLab or Gitea) when they carry the right labels, and you can also start one by hand. This article covers labels, eligibility and the Tickets view.
+
+
+Tickets with the configured epic type label are not picked up or started. Manual Start remains available for eligible tickets while Monitoring is Paused.
+
+## How pickup works {#how-pickup-works}
+
+Each project has a **Monitoring** state, shown as **Active** or **Paused** in the Projects table and on the project's Summary tab. While monitoring is Active, ADORE checks the repository for ready tickets at a regular interval (60 seconds by default; see **Ticket check interval (seconds)** in [Project settings](/help/settings)). It takes the eligible ticket with the highest priority first (P1, then P2, then P3), then the lowest number, and advances one job at a time.
+
+An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
+
+Before pickup, ADORE probes AEGIS only when \`.agentic/aegis.py\` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).
+
+## Create the labels first {#labels}
+
+GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. All labels below must exist in the forge repository before the first run. ADORE creates the missing ones when you add a project (**Create the ADORE labels in the repository**, ticked by default in Review and create) or when you press **Create missing labels** in Settings → Repository; it never changes or deletes existing labels, and lists what it created, what already existed and what failed (for example when the server's forge account may not create labels). The names are defaults; rename one only together with its project setting.
+
+| Label | Purpose |
+|---|---|
+| \`agent-ready\` | You add it to offer a ticket for pickup. ADORE replaces it with the working label when the job starts. |
+| \`agent-working\` | ADORE sets it while it works, publishes and waits for your approval. |
+| \`agent-clarify\` | ADORE sets it when it has asked a question and waits for an answer. |
+| \`agent-answered\` | You add it after replying to a question. |
+| \`agent-mr\` | ADORE sets it after publishing the MR/PR, while it waits for human review. |
+| \`agent-failed\` | ADORE sets it when a job fails. |
+| \`agent-done\` | ADORE sets it after a person has merged the MR/PR. |
+| \`agent-approved\` | You add it on the ticket to approve publishing the presented candidate. |
+| \`agent-revise\` | A reviewer adds it on the MR/PR to request a revision round. |
+
+ADORE removes the lifecycle labels it is not applying on every status update, so all must exist. Adding a status label by hand does not change the job.
+
+## What makes a ticket eligible {#eligible-tickets}
+
+A ticket is picked up only when every rule holds. They are checked in this order:
+
+1. The ticket is open.
+2. It has the ready label (\`agent-ready\`).
+3. It does not have the hold label (\`agent-hold\`). Removing the hold label makes the ticket eligible again.
+4. It does not have the exclusion label (\`no-agent\`, setting **Exclude from pickup label**). It wins over the ready label. Removing it restores eligibility; adding it does not stop a job already started.
+5. ADORE has no job for the ticket yet.
+6. It has a priority label: \`P1\`, \`P2\` or \`P3\`. **Require ticket priority label** is on by default.
+7. If **Require ticket acceptance criteria** is on, the description contains the words acceptance criteria (any case) or an unchecked task item, \`- [ ]\`. This check is off by default.
+
+Optional labels shape the job: \`bug\` or \`fix\` makes a fix task, \`change\` a change task, and any other ticket a feature task. \`agent-quick\` is only a hint; the executor decides between the full and quick path and records why.
+
+## Reviewing and starting tickets {#tickets-view}
+
+Open a project from Projects, choose its **Jobs** tab and stay on the **Tickets** sub-tab. The global **Jobs** page in the sidebar has the same two sub-tabs and a **Job scope** selector. With **All projects**, the table gains a Project column and each row acts on its own project.
+
+Nothing is read until you press **Read tickets**. It loads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:
+
+| Status | Meaning |
+|---|---|
+| Ready to start | Every rule holds. |
+| Missing label ... | The ready label is absent. |
+| On hold or Excluded from ADORE | The hold or exclusion label is present. |
+| Missing priority label | No priority label. |
+| Missing acceptance criteria | Required text not found. |
+| Has a job or Job: ... | ADORE already has a job; the job state is shown. |
+| Not open | The ticket is closed. |
+
+**Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.
+
+**Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
+
+On desktop, Start or Retry, Stop and Details or Hide details stay on one row, aligned to the right with the Actions heading. On narrow screens, the buttons can wrap to keep them within the page.
+
+## Reading descriptions and comments {#reading-bodies}
+
+**Details** opens descriptions and comments as **Rendered** Markdown by default. Headings, emphasis, code, nested lists, read-only task lists, quotes, tables and links are formatted for reading; an empty description keeps **No description.**
+
+Use **Body display** on the right of the **Description** heading, with its label and selector on one line to choose **Rendered** or **Markdown source** for all open descriptions and comments. Source shows the exact text received from the repository, including spaces and line breaks. Your account retains a successfully saved choice across projects, reloads and browsers; another signed-in browser reads it on its next sign-in or reload. If saving fails, an error appears and the last saved mode returns; choose again to retry.
+
+HTML stays visible as text, not executable content. Only absolute http, https and mailto links are clickable and open separately. Images never load automatically: **Image not loaded** and any alternative text appear instead. Wide code, source and tables scroll within their own regions, which you can focus with the keyboard. Task checkboxes cannot change the ticket.
+
+## Checklist for a first ticket {#checklist}
+
+1. Create all nine labels in the forge repository.
+2. For automatic pickup, check that Monitoring is Active; for manual Start, it may stay Paused.
+3. Write a clear title and a description with acceptance criteria.
+4. Add a priority label, and optionally \`bug\`, \`fix\`, \`change\` or \`agent-quick\`.
+5. Add \`agent-ready\` last.
+6. Wait for the next check, or press **Read tickets** and **Start**.
+7. Follow the job in [Job lifecycle](/help/jobs). Terms are in the [Glossary](/help/glossary).
 `,Vz=`# Administration
 
 L’Administration couvre les comptes utilisateurs, l’accès aux projets, la santé du système et l’historique des changements. Elle est réservée aux administrateurs : un Dev ne voit pas le menu Administration, et un Dev qui ouvre l’une de ses adresses est redirigé vers la Vue d’ensemble.
@@ -1790,461 +1790,461 @@ Confirmez ensuite avec **Vérifier les prérequis de l’hôte** et **Tester la 
 ## Paquets système {#system-packages}
 
 Un administrateur peut préparer **Autoriser l’installation de paquets système par l’agent** dans **Paramètres → Agent et modèle**. Désactivé par défaut, ce droit concerne seulement les conteneurs. Pi peut installer directement avec \`sudo -n\`, lire les résultats et s’adapter dans les limites de la tâche. **Accès Internet de l’agent** reste distinct ; désactivé, les sources externes exigent un hôte autorisé. Utilisez une image avec sudo, suspendez la surveillance et attendez la fin du travail actif avant d’appliquer, puis lancez une nouvelle tâche. Les paquets restent dans ce conteneur et ne modifient pas l’image.
-`,Hz=`# Glossaire\r
-\r
-L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.\r
-\r
-Voici les termes utilisés dans l’interface web d’ADORE et dans ces rubriques d’aide.\r
-\r
-## Termes {#terms}\r
-\r
-| Terme | Signification |\r
-|---|---|\r
-| Tâche | Un ticket du dépôt traité et vérifié dans un environnement isolé. |\r
-| Projet inscrit | Un dépôt existant configuré sur l’hôte ADORE, accessible à son équipe. |\r
-| Surveillance | Le réglage d’un projet pour la prise en charge de nouveaux tickets, affiché comme **Active** ou **En pause**. Les administrateurs le modifient avec **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. |\r
-| Prise en charge arrêtée | ADORE ne prend plus de nouveaux tickets pour ce projet. Cela ne suspend pas une tâche active. C’est l’état que la Surveillance affiche comme **En pause**. |\r
-| Ticket | Un ticket de la forge. ADORE le prend en charge lorsqu’il porte l’étiquette de disponibilité du projet et une étiquette de priorité, n’est ni bloqué ni exclu, et comporte des critères d’acceptation si le projet l’exige. |\r
-| Agent de programmation / Exécuteur | L’outil d’IA en ligne de commande qui effectue le travail d’une tâche dans un environnement isolé : Pi, le seul agent de programmation lancé par ADORE. Il n’a aucun identifiant de forge et ne commit, ne pousse, n’ouvre ni ne fusionne jamais. |\r
-| Modèle | L’ID du modèle chez le fournisseur choisi, par exemple gpt-5.4 pour OpenAI. Il se définit avec le fournisseur dans Paramètres → Agent et modèle, et les tarifs estimatifs appartiennent à un couple exécuteur et modèle. |\r
-| AEGIS | Le workflow installé dans le dépôt qui cadre, spécifie, conçoit, développe et valide une modification. ADORE le conduit une étape à la fois (Cadrage, Spécification, Conception, Développement, Validation) et publie le résultat approuvé ; une petite modification peut omettre la Spécification et la Conception. |\r
-| Workflow direct | Un dépôt sans AEGIS est traité directement par l’agent. L’agent mène ses contrôles ; ADORE observe le progrès et demande une approbation humaine. |\r
-| Candidat | Le résultat validé d’une tâche qu’ADORE présente pour approbation, identifié par une empreinte et le commit cible. L’approbation s’applique à ce candidat exact et devient caduque si le candidat ou sa branche cible change. |\r
-| En attente de clarification | L’agent attend une réponse pour continuer. Répondez à sa question dans le ticket du dépôt. |\r
-| En attente d'approbation | Le résultat est validé et attend une autorisation humaine de publication. L’approbation est enregistrée sur la forge pour le candidat actuel. |\r
-| MR/PR brouillon | La demande de fusion ou de tirage ouverte après validation et approbation si requise. Les personnes la relisent. |\r
-| Revue humaine | Une MR/PR est disponible pour revue humaine. La fusion reste une décision humaine. |\r
-| Tour de révision | Un nouveau passage de l’agent après une demande ou un échec CI. Chaque tour répète la validation et suit la politique d’approbation du projet. |\r
-| Forge | La plateforme d’hébergement où se trouvent les tickets, étiquettes, approbations et MR/PR : GitHub, GitLab ou Gitea. |\r
-\r
-> ADORE n’a aucune opération de fusion. La fusion est toujours une décision humaine sur la forge.\r
-`,Gz=`# Visite de l’interface
+`,Hz=`# Glossaire
 
-L’interface comprend une barre latérale sombre pour passer d’une page à l’autre et une barre supérieure qui nomme la page courante et propose les actions courantes. Cette page décrit les pages, les boutons de l’en-tête, le hub du projet et les libellés d’état.
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
 
-## Navigation {#navigation}
+Voici les termes utilisés dans l’interface web d’ADORE et dans ces rubriques d’aide.
 
-| Page | Ce que vous y faites |
+## Termes {#terms}
+
+| Terme | Signification |
 |---|---|
-| Vue d'ensemble | Consulter **À traiter** et **Tâches actives** pour les projets auxquels vous avez accès. **Détails** ouvre une tâche dans Tâches. |
-| [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Inscrire un nouveau projet** ou **Importer la configuration brute**. |
-| [Tâches](/jobs) | Choisir un **Périmètre des travaux**, puis utiliser le sous-onglet **Tickets** pour lire les tickets de la forge et les démarrer, ou le sous-onglet **Tâches** pour rechercher des tâches et ouvrir leurs détails. |
-| [Statistiques](/metrics) | Consulter l’utilisation, la qualité et les tendances sur une période de rapport. Voir [Statistiques et coûts](/help/statistics). |
-| Administration | Réservée aux administrateurs. Elle ouvre trois pages : [État du système](/admin/status), [Utilisateurs](/admin/users) et [Historique des changements](/admin/audit). Voir [Administration](/help/administration). |
-| [Mon compte](/account) | Choisir votre langue et votre thème, et changer votre mot de passe. |
+| Tâche | Un ticket du dépôt traité et vérifié dans un environnement isolé. |
+| Projet inscrit | Un dépôt existant configuré sur l’hôte ADORE, accessible à son équipe. |
+| Surveillance | Le réglage d’un projet pour la prise en charge de nouveaux tickets, affiché comme **Active** ou **En pause**. Les administrateurs le modifient avec **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. |
+| Prise en charge arrêtée | ADORE ne prend plus de nouveaux tickets pour ce projet. Cela ne suspend pas une tâche active. C’est l’état que la Surveillance affiche comme **En pause**. |
+| Ticket | Un ticket de la forge. ADORE le prend en charge lorsqu’il porte l’étiquette de disponibilité du projet et une étiquette de priorité, n’est ni bloqué ni exclu, et comporte des critères d’acceptation si le projet l’exige. |
+| Agent de programmation / Exécuteur | L’outil d’IA en ligne de commande qui effectue le travail d’une tâche dans un environnement isolé : Pi, le seul agent de programmation lancé par ADORE. Il n’a aucun identifiant de forge et ne commit, ne pousse, n’ouvre ni ne fusionne jamais. |
+| Modèle | L’ID du modèle chez le fournisseur choisi, par exemple gpt-5.4 pour OpenAI. Il se définit avec le fournisseur dans Paramètres → Agent et modèle, et les tarifs estimatifs appartiennent à un couple exécuteur et modèle. |
+| AEGIS | Le workflow installé dans le dépôt qui cadre, spécifie, conçoit, développe et valide une modification. ADORE le conduit une étape à la fois (Cadrage, Spécification, Conception, Développement, Validation) et publie le résultat approuvé ; une petite modification peut omettre la Spécification et la Conception. |
+| Workflow direct | Un dépôt sans AEGIS est traité directement par l’agent. L’agent mène ses contrôles ; ADORE observe le progrès et demande une approbation humaine. |
+| Candidat | Le résultat validé d’une tâche qu’ADORE présente pour approbation, identifié par une empreinte et le commit cible. L’approbation s’applique à ce candidat exact et devient caduque si le candidat ou sa branche cible change. |
+| En attente de clarification | L’agent attend une réponse pour continuer. Répondez à sa question dans le ticket du dépôt. |
+| En attente d'approbation | Le résultat est validé et attend une autorisation humaine de publication. L’approbation est enregistrée sur la forge pour le candidat actuel. |
+| MR/PR brouillon | La demande de fusion ou de tirage ouverte après validation et approbation si requise. Les personnes la relisent. |
+| Revue humaine | Une MR/PR est disponible pour revue humaine. La fusion reste une décision humaine. |
+| Tour de révision | Un nouveau passage de l’agent après une demande ou un échec CI. Chaque tour répète la validation et suit la politique d’approbation du projet. |
+| Forge | La plateforme d’hébergement où se trouvent les tickets, étiquettes, approbations et MR/PR : GitHub, GitLab ou Gitea. |
 
-La barre latérale affiche aussi votre nom et votre rôle, ainsi que **Se déconnecter**. Sur un écran étroit, **Menu** ouvre la navigation et le choix d’une page la referme.
+> ADORE n’a aucune opération de fusion. La fusion est toujours une décision humaine sur la forge.
+`,Gz=`# Visite de l’interface\r
+\r
+L’interface comprend une barre latérale sombre pour passer d’une page à l’autre et une barre supérieure qui nomme la page courante et propose les actions courantes. Cette page décrit les pages, les boutons de l’en-tête, le hub du projet et les libellés d’état.\r
+\r
+## Navigation {#navigation}\r
+\r
+| Page | Ce que vous y faites |\r
+|---|---|\r
+| Vue d'ensemble | Consulter **À traiter** et **Tâches actives** pour les projets auxquels vous avez accès. **Détails** ouvre une tâche dans Tâches. |\r
+| [Projets](/projects) | Parcourir les projets inscrits avec leur dépôt, leur forge, l’état de la surveillance, le nombre de tâches et la dernière activité. Ouvrez un projet pour accéder à son hub. Les administrateurs voient aussi **Inscrire un nouveau projet** ou **Importer la configuration brute**. |\r
+| [Tâches](/jobs) | Choisir un **Périmètre des travaux**, puis utiliser le sous-onglet **Tickets** pour lire les tickets de la forge et les démarrer, ou le sous-onglet **Tâches** pour rechercher des tâches et ouvrir leurs détails. |\r
+| [Statistiques](/metrics) | Consulter l’utilisation, la qualité et les tendances sur une période de rapport. Voir [Statistiques et coûts](/help/statistics). |\r
+| Administration | Réservée aux administrateurs. Elle ouvre trois pages : [État du système](/admin/status), [Utilisateurs](/admin/users) et [Historique des changements](/admin/audit). Voir [Administration](/help/administration). |\r
+| [Mon compte](/account) | Choisir votre langue et votre thème, et changer votre mot de passe. |\r
+\r
+La barre latérale affiche aussi votre nom et votre rôle, ainsi que **Se déconnecter**. Sur un écran étroit, **Menu** ouvre la navigation et le choix d’une page la referme.\r
+\r
+Un Dev ne voit que les projets attribués par un administrateur et n’a pas d’entrée Administration. Chaque page a sa propre adresse : les favoris, Précédent, Suivant et le rechargement conservent donc votre position.\r
+\r
+## En-tête {#header}\r
+\r
+La barre supérieure affiche le titre de la page et ces commandes.\r
+\r
+- **Projet** : un sélecteur, uniquement sur la Vue d’ensemble. Il limite **À traiter** et **Tâches actives** à un projet ; par défaut, ce sont tous les projets accessibles. Tâches a son propre sélecteur **Périmètre des travaux** et Statistiques a un sélecteur **Projet** dans sa ligne de période de rapport.\r
+- **Actualiser** et l’heure **Actualisé le** figurent dans l’en-tête sur Utilisateurs.\r
+- **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.\r
+- **Comment fonctionne ADORE** : ouvre ce centre d’aide.\r
+\r
+Dans Tâches, le sélecteur de périmètre se trouve à droite de **Tickets** et **Tâches** sur grand écran. Sur petit écran, il passe sous les onglets.\r
+\r
+## Hub du projet {#project-hub}\r
+\r
+L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son dépôt au-dessus de ces onglets.\r
+\r
+| Onglet | Ce qu’il contient |\r
+|---|---|\r
+| Résumé | Type de conteneur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |\r
+| Paramètres | Paramètres effectifs, enregistrement groupé pour les administrateurs et export avec les définitions d’image conservées. Les développeurs lisent sans secrets. Voir [Paramètres du projet](/help/settings). |\r
+| Tâches | Les sous-onglets Tickets et Tâches de ce projet, sans sélecteur de projet. |\r
+| Statistiques | La même période de rapport, les mêmes onglets et les mêmes exports que la page Statistiques, pour ce projet seulement. |\r
+| Historique | Les changements enregistrés du projet et ses tâches terminées. |\r
+| Accès | Réservé aux administrateurs : donner ou retirer l’accès d’un développeur. |\r
+\r
+Une surveillance en pause empêche la prise en charge de nouveaux tickets ; les tâches déjà démarrées continuent.\r
+\r
+## Libellés d’état et badges {#statuses}\r
+\r
+Les badges portent un symbole en plus de la couleur, et les listes de tâches affichent l’étape courante à côté de l’état.\r
+\r
+| État de la tâche | Signification |\r
+|---|---|\r
+| En cours | ADORE conduit une étape. |\r
+| Publication | ADORE publie le candidat validé selon la politique du projet. |\r
+| En attente de clarification | L’agent attend une réponse dans le ticket du dépôt. |\r
+| En attente d'approbation | Une personne doit approuver le candidat sur la forge. |\r
+| Revue humaine | Une MR/PR en brouillon est ouverte ; des personnes décident de fusionner ou non. |\r
+| Transfert en cours | Un transfert à une personne attend un point sûr. |\r
+| Transféré | Une personne a pris le relais ; le travail automatique est terminé. |\r
+| Terminé | La tâche est finie. Cela ne prouve pas à lui seul que quelqu’un a fusionné. Les listes compactes l’appellent Terminée. |\r
+| Échouées | La tâche s’est arrêtée en conservant les preuves ; un utilisateur autorisé peut la **Réessayer**. |\r
+| Annulée | La tâche a été annulée. |\r
+| Périmé | La tâche est marquée comme périmée ; consultez son résultat enregistré. |\r
+\r
+Dans Tâches, **État** limite la liste à **Tâches actives**, **En attente**, **Revue humaine** ou **Travaux terminés**. Le badge de surveillance d’un projet indique **Active** ou **En pause**, et un projet archivé indique **Archivé**. La vérification de l’environnement indique **Vérifié**, **Partiellement vérifié**, **Vérification échouée**, **Vérification périmée** ou **Non vérifié** ; Non vérifié signifie qu’il n’y a aucune preuve à jour, pas qu’un contrôle a échoué.\r
+\r
+Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la commande est en file, en cours, terminée, échouée ou incertaine. Examinez une commande incertaine avant de la soumettre de nouveau. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.\r
+\r
+## Mises à jour automatiques, langue et thème {#preferences}\r
+\r
+Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet, ainsi que l’Historique des changements, rechargent leurs données toutes les 15 secondes quand l’onglet du navigateur est visible. Les Paramètres suspendent l’actualisation pendant une modification non enregistrée, un enregistrement ou un abandon. Statistiques et État du système s’actualisent aussi automatiquement. Les mises à jour reprennent au retour dans l’onglet. Si une mise à jour échoue, les données concernées restent masquées jusqu’à la prochaine réussite.\r
+\r
+Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.\r
+\r
+L’administrateur initial voit un rappel jusqu’au changement du mot de passe initial. Choisissez **Changer le mot de passe** dans le rappel pour ouvrir Mon compte.\r
+\r
+Pour changer votre mot de passe, saisissez deux fois le nouveau. Les boutons affichent ou masquent chaque saisie. Il faut au moins 8 caractères.\r
+`,Fz=`# Cycle de vie d’une tâche
 
-Un Dev ne voit que les projets attribués par un administrateur et n’a pas d’entrée Administration. Chaque page a sa propre adresse : les favoris, Précédent, Suivant et le rechargement conservent donc votre position.
+Une tâche est le travail qu’ADORE effectue pour un ticket, de la prise en charge à une modification fusionnée. Cet article présente ses étapes et les moments où vous intervenez. Les étiquettes et l’éligibilité sont décrites dans [Tickets et prise en charge automatique](/help/tickets).
 
-## En-tête {#header}
 
-La barre supérieure affiche le titre de la page et ces commandes.
+Confirmez **Annuler**. Le nettoyage tente de supprimer l’environnement et le dossier de travail, y compris les changements non publiés ; des ressources peuvent rester. L’état et les preuves restent. Supprimer une tâche est distinct.
 
-- **Projet** : un sélecteur, uniquement sur la Vue d’ensemble. Il limite **À traiter** et **Tâches actives** à un projet ; par défaut, ce sont tous les projets accessibles. Tâches a son propre sélecteur **Périmètre des travaux** et Statistiques a un sélecteur **Projet** dans sa ligne de période de rapport.
-- **Actualiser** et l’heure **Actualisé le** figurent dans l’en-tête sur Utilisateurs.
-- **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.
-- **Comment fonctionne ADORE** : ouvre ce centre d’aide.
+Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**, **Annuler** ou la reprise confirmée dans un nouveau travail si disponible. Seules les commandes autorisées pour ce travail sont affichées.
 
-Dans Tâches, le sélecteur de périmètre se trouve à droite de **Tickets** et **Tâches** sur grand écran. Sur petit écran, il passe sous les onglets.
+## Étapes {#stages}
 
-## Hub du projet {#project-hub}
+ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.
 
-L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son dépôt au-dessus de ces onglets.
-
-| Onglet | Ce qu’il contient |
+| Étape | Ce qui se passe |
 |---|---|
-| Résumé | Type de conteneur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |
-| Paramètres | Paramètres effectifs, enregistrement groupé pour les administrateurs et export avec les définitions d’image conservées. Les développeurs lisent sans secrets. Voir [Paramètres du projet](/help/settings). |
-| Tâches | Les sous-onglets Tickets et Tâches de ce projet, sans sélecteur de projet. |
-| Statistiques | La même période de rapport, les mêmes onglets et les mêmes exports que la page Statistiques, pour ce projet seulement. |
-| Historique | Les changements enregistrés du projet et ses tâches terminées. |
-| Accès | Réservé aux administrateurs : donner ou retirer l’accès d’un développeur. |
+| Cadrage | Le périmètre est convenu et l’exécuteur consigne si la tâche suit le chemin complet ou le chemin rapide. |
+| Spécification | L’exigence est rédigée. |
+| Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
+| Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
+| Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 
-Une surveillance en pause empêche la prise en charge de nouveaux tickets ; les tâches déjà démarrées continuent.
+Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
 
-## Libellés d’état et badges {#statuses}
+## Travaux directs {#direct-evidence}
 
-Les badges portent un symbole en plus de la couleur, et les listes de tâches affichent l’étape courante à côté de l’état.
+La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (\`build\`), **Validation** (\`validate\`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.
 
-| État de la tâche | Signification |
+**Dernière tentative enregistrée** indique le dernier lancement enregistré de l’agent. Sinon, **Tentative indisponible** apparaît. Les tests et contrôles sont rapportés par l’agent ; ADORE ne les exécute pas indépendamment.
+
+**Implémentation** directe utilise la limite \`build\` dans \`workflow.stage_timeout_overrides\`, sinon \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) enregistre le candidat pour approbation sans commande de test séparée.
+
+## Clarification {#clarification}
+
+Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose \`agent-clarify\`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**. Choisissez **Lire la question** pour ouvrir **Question de l’agent**, puis **Répondre sur le ticket** si un emplacement enregistré est disponible.
+
+Répondez par un commentaire normal sur le ticket, puis ajoutez \`agent-answered\`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.
+
+## Approbation {#approval}
+
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
+Quand l’agent termine son workflow, ADORE enregistre le candidat, retire l’ancienne étiquette d’approbation et demande une nouvelle approbation humaine. Les contrôles du journal sont rapportés par l’agent.
+
+Examinez-le, puis ajoutez de nouveau \`agent-approved\` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.
+
+Si cette option est désactivée, ADORE vérifie le candidat validé et la cible puis publie sans attendre d’étiquette. ADORE ne fusionne jamais.
+
+## Publication et revue {#review}
+
+Après validation et approbation si requise, ADORE pousse la branche et ouvre la MR/PR vers la branche cible, demande une revue aux comptes indiqués dans **Demander une revue à**, et pose \`agent-mr\`. **État de la PR/MR à la publication** choisit Brouillon (par défaut) ou Prête pour revue. La tâche affiche **Publication** puis **Revue humaine**. ADORE ne fusionne jamais. Après la fusion par une personne, ADORE pose \`agent-done\`, la tâche affiche **Terminé**, et par défaut la branche distante est supprimée. Une MR/PR fermée sans fusion fait échouer la tâche.
+
+Pour demander des modifications, un relecteur ajoute \`agent-revise\` sur la MR/PR. ADORE retire l’étiquette, démarre un nouveau travail sur la même branche (une nouvelle tâche pour AEGIS), puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.
+
+Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des vérifications CI de la PR/MR** décide : Réparation automatique (par défaut) démarre une révision, Notifier uniquement publie un commentaire, et Ignorer ignore l’état de la CI. Les réparations automatiques partagent le budget de révisions ; une fois celui-ci épuisé, ADORE publie un avis et la tâche reste en revue.
+
+## Échec et reprise {#failures}
+
+Lorsqu’une étape échoue, ADORE tient à jour un commentaire d’incident unique sur le ticket avec l’étape, la tentative, le code d’erreur, les preuves et la prochaine action ; si l’agent s’est arrêté sans faire avancer l’étape, les preuves montrent aussi ses dernières lignes de sortie d’erreur. Après la dernière tentative, il publie un commentaire final, pose \`agent-failed\`, arrête le conteneur, conserve le worktree et libère l’emplacement. Les autres causes sont un délai de réponse expiré, un ticket source supprimé et une limite dépassée comme le coût ou le nombre de fichiers modifiés. Fermer le ticket source pendant qu’une tâche attend l’annule.
+
+Dans Tâches, une tâche échouée affiche **Échouées**, et son détail explique que les preuves de reprise sont conservées. **Réessayer** demande au worker de récupérer la tâche ; cela ne contourne ni la validation ni l’approbation requise. Dans la vue Tickets, Relancer remplace Démarrer. Retirer \`agent-failed\` ne relance rien. **Annuler** apparaît pour les tâches inachevées et demande au worker de s’arrêter et de nettoyer. Les tâches terminées ne peuvent pas être annulées. Les administrateurs et les développeurs attribués peuvent utiliser les deux. Une commande en file affiche sa progression, par exemple Commande en file ou Commande terminée. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.
+
+Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et accepte un exécutable mis à jour ou un environnement hérité modifié sur le même ordinateur et compte. La tâche, le worktree, la branche, l’historique et les limites cumulées sont conservés. La surveillance automatique ne le fait pas. Les paramètres d’exécution modifiés ou les preuves de récupération corrompues doivent être corrigés. Si le redémarrage échoue, la commande indique l’échec et sa cause enregistrée : exécutable absent, version invalide, échec de commande ou délai dépassé. Ce contrôle de version n’envoie aucune requête au modèle ; utilisez **Tester la connexion IA** pour cela.
+
+Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.
+
+## Abandonner et recommencer {#restart}
+
+Pour une tâche échouée, **Abandonner et recommencer** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.
+
+Réessayer ne corrige pas les changements de mode ou de paramètres stables ; les détails l’expliquent et proposent l’action confirmée. Restaurez les paramètres enregistrés pour conserver le travail. Réessayer peut toujours revalider les changements volatils de l’environnement natif, dont les variables processeur après redimensionnement d’une VM.
+
+Les ressources étrangères, un autre ordinateur ou compte, les preuves corrompues ou une branche distante modifiée bloquent la récupération. Un nettoyage partiel conserve les preuves restantes sans nouvelle tâche. Si la tâche change après confirmation, actualisez ses détails et vérifiez à nouveau. Le verrou CLI peut appartenir au worker web : mettez la surveillance en pause dans le Résumé du projet et attendez la fin de la tâche bornée. Ne supprimez pas un verrou actif.
+
+Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregistré, ADORE la conserve et utilise une nouvelle génération. Un checkpoint connu modifié bloque toujours la récupération. Trois autres noms au maximum sont essayés et les règles du dépôt doivent autoriser un nom libre ; sinon la récupération s’arrête avant le nettoyage. Le résultat indique quand une ancienne branche est conservée.
+
+## Suivre les tâches {#following-jobs}
+
+Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un projet, puis le sous-onglet **Tâches**. Le tableau a ces colonnes :
+
+| Colonne | Contenu |
 |---|---|
-| En cours | ADORE conduit une étape. |
-| Publication | ADORE publie le candidat validé selon la politique du projet. |
-| En attente de clarification | L’agent attend une réponse dans le ticket du dépôt. |
-| En attente d'approbation | Une personne doit approuver le candidat sur la forge. |
-| Revue humaine | Une MR/PR en brouillon est ouverte ; des personnes décident de fusionner ou non. |
-| Transfert en cours | Un transfert à une personne attend un point sûr. |
-| Transféré | Une personne a pris le relais ; le travail automatique est terminé. |
-| Terminé | La tâche est finie. Cela ne prouve pas à lui seul que quelqu’un a fusionné. Les listes compactes l’appellent Terminée. |
-| Échouées | La tâche s’est arrêtée en conservant les preuves ; un utilisateur autorisé peut la **Réessayer**. |
-| Annulée | La tâche a été annulée. |
-| Périmé | La tâche est marquée comme périmée ; consultez son résultat enregistré. |
+| Ticket | Numéro et titre ; ouvre le détail de la tâche. |
+| Projet | Le projet propriétaire. |
+| État | L’état, le Workflow enregistré, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |
+| Dernière activité | Heure du dernier événement enregistré. |
+| Consommation | Jetons utilisés par la tâche. |
 
-Dans Tâches, **État** limite la liste à **Tâches actives**, **En attente**, **Revue humaine** ou **Travaux terminés**. Le badge de surveillance d’un projet indique **Active** ou **En pause**, et un projet archivé indique **Archivé**. La vérification de l’environnement indique **Vérifié**, **Partiellement vérifié**, **Vérification échouée**, **Vérification périmée** ou **Non vérifié** ; Non vérifié signifie qu’il n’y a aucune preuve à jour, pas qu’un contrôle a échoué.
+Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
 
-Après **Démarrer**, **Réessayer** ou **Annuler**, un message indique si la commande est en file, en cours, terminée, échouée ou incertaine. Examinez une commande incertaine avant de la soumettre de nouveau. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.
+Le détail remplace la liste tant qu’il est ouvert. Son titre compact réunit le numéro et le titre du ticket. **Que se passe-t-il maintenant** indique l’état, qui intervient et la **Prochaine action**. Budgets et Consommation sont à côté sur grand écran et en dessous sur écran étroit. **Activité** liste les événements enregistrés du plus récent au plus ancien. **Question de l’agent** contient la clarification active ; les autres états affichent **Preuves et artefacts**. **Détails techniques** contient identifiants, sortie de l’exécuteur et **Événements originaux enregistrés** à déplier. **Fermer** revient à la liste avec ses filtres. Les événements passés ne deviennent pas des demandes actuelles.
 
-## Mises à jour automatiques, langue et thème {#preferences}
+## Budgets du travail {#budgets}
 
-Vue d’ensemble, Projets, Tâches, Paramètres, Accès et Historique du projet, ainsi que l’Historique des changements, rechargent leurs données toutes les 15 secondes quand l’onglet du navigateur est visible. Les Paramètres suspendent l’actualisation pendant une modification non enregistrée, un enregistrement ou un abandon. Statistiques et État du système s’actualisent aussi automatiquement. Les mises à jour reprennent au retour dans l’onglet. Si une mise à jour échoue, les données concernées restent masquées jusqu’à la prochaine réussite.
+Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et \`adore init\`.
 
-Dans [Mon compte](/account), **Apparence** contient **Langue** (English, Français, Deutsch, Română) et **Thème** (**Système**, **Clair**, **Sombre**). Chaque choix est enregistré dans votre compte et vous suit d’un navigateur à l’autre ; avant la connexion, la page de connexion mémorise le choix dans le navigateur. **Changer le mot de passe** demande votre mot de passe actuel et un nouveau mot de passe d’au moins 8 caractères.
+Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du projet**, ouvrir **Implémentation**, modifier uniquement les budgets, choisir **Enregistrer** et confirmer les valeurs exactes. Cet enregistrement révisé est permis pendant une attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres gardent leurs contrôles habituels ; les développeurs restent en lecture seule.
 
-L’administrateur initial voit un rappel jusqu’au changement du mot de passe initial. Choisissez **Changer le mot de passe** dans le rappel pour ouvrir Mon compte.
+Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.
 
-Pour changer votre mot de passe, saisissez deux fois le nouveau. Les boutons affichent ou masquent chaque saisie. Il faut au moins 8 caractères.
-`,Fz=`# Cycle de vie d’une tâche\r
-\r
-Une tâche est le travail qu’ADORE effectue pour un ticket, de la prise en charge à une modification fusionnée. Cet article présente ses étapes et les moments où vous intervenez. Les étiquettes et l’éligibilité sont décrites dans [Tickets et prise en charge automatique](/help/tickets).\r
-\r
-\r
-Confirmez **Annuler**. Le nettoyage tente de supprimer l’environnement et le dossier de travail, y compris les changements non publiés ; des ressources peuvent rester. L’état et les preuves restent. Supprimer une tâche est distinct.\r
-\r
-Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**, **Annuler** ou la reprise confirmée dans un nouveau travail si disponible. Seules les commandes autorisées pour ce travail sont affichées.\r
-\r
-## Étapes {#stages}\r
-\r
-ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.\r
-\r
-| Étape | Ce qui se passe |\r
-|---|---|\r
-| Cadrage | Le périmètre est convenu et l’exécuteur consigne si la tâche suit le chemin complet ou le chemin rapide. |\r
-| Spécification | L’exigence est rédigée. |\r
-| Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |\r
-| Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |\r
-| Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |\r
-\r
-Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).\r
-\r
-## Travaux directs {#direct-evidence}\r
-\r
-La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (\`build\`), **Validation** (\`validate\`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.\r
-\r
-**Dernière tentative enregistrée** indique le dernier lancement enregistré de l’agent. Sinon, **Tentative indisponible** apparaît. Les tests et contrôles sont rapportés par l’agent ; ADORE ne les exécute pas indépendamment.\r
-\r
-**Implémentation** directe utilise la limite \`build\` dans \`workflow.stage_timeout_overrides\`, sinon \`budgets.per_gate_timeout_seconds\`. **Validation** (\`validate\`) enregistre le candidat pour approbation sans commande de test séparée.\r
-\r
-## Clarification {#clarification}\r
-\r
-Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose \`agent-clarify\`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**. Choisissez **Lire la question** pour ouvrir **Question de l’agent**, puis **Répondre sur le ticket** si un emplacement enregistré est disponible.\r
-\r
-Répondez par un commentaire normal sur le ticket, puis ajoutez \`agent-answered\`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.\r
-\r
-## Approbation {#approval}\r
-\r
-L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.\r
-\r
-Quand l’agent termine son workflow, ADORE enregistre le candidat, retire l’ancienne étiquette d’approbation et demande une nouvelle approbation humaine. Les contrôles du journal sont rapportés par l’agent.\r
-\r
-Examinez-le, puis ajoutez de nouveau \`agent-approved\` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.\r
-\r
-Si cette option est désactivée, ADORE vérifie le candidat validé et la cible puis publie sans attendre d’étiquette. ADORE ne fusionne jamais.\r
-\r
-## Publication et revue {#review}\r
-\r
-Après validation et approbation si requise, ADORE pousse la branche et ouvre la MR/PR vers la branche cible, demande une revue aux comptes indiqués dans **Demander une revue à**, et pose \`agent-mr\`. **État de la PR/MR à la publication** choisit Brouillon (par défaut) ou Prête pour revue. La tâche affiche **Publication** puis **Revue humaine**. ADORE ne fusionne jamais. Après la fusion par une personne, ADORE pose \`agent-done\`, la tâche affiche **Terminé**, et par défaut la branche distante est supprimée. Une MR/PR fermée sans fusion fait échouer la tâche.\r
-\r
-Pour demander des modifications, un relecteur ajoute \`agent-revise\` sur la MR/PR. ADORE retire l’étiquette, démarre un nouveau travail sur la même branche (une nouvelle tâche pour AEGIS), puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.\r
-\r
-Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des vérifications CI de la PR/MR** décide : Réparation automatique (par défaut) démarre une révision, Notifier uniquement publie un commentaire, et Ignorer ignore l’état de la CI. Les réparations automatiques partagent le budget de révisions ; une fois celui-ci épuisé, ADORE publie un avis et la tâche reste en revue.\r
-\r
-## Échec et reprise {#failures}\r
-\r
-Lorsqu’une étape échoue, ADORE tient à jour un commentaire d’incident unique sur le ticket avec l’étape, la tentative, le code d’erreur, les preuves et la prochaine action ; si l’agent s’est arrêté sans faire avancer l’étape, les preuves montrent aussi ses dernières lignes de sortie d’erreur. Après la dernière tentative, il publie un commentaire final, pose \`agent-failed\`, arrête le conteneur, conserve le worktree et libère l’emplacement. Les autres causes sont un délai de réponse expiré, un ticket source supprimé et une limite dépassée comme le coût ou le nombre de fichiers modifiés. Fermer le ticket source pendant qu’une tâche attend l’annule.\r
-\r
-Dans Tâches, une tâche échouée affiche **Échouées**, et son détail explique que les preuves de reprise sont conservées. **Réessayer** demande au worker de récupérer la tâche ; cela ne contourne ni la validation ni l’approbation requise. Dans la vue Tickets, Relancer remplace Démarrer. Retirer \`agent-failed\` ne relance rien. **Annuler** apparaît pour les tâches inachevées et demande au worker de s’arrêter et de nettoyer. Les tâches terminées ne peuvent pas être annulées. Les administrateurs et les développeurs attribués peuvent utiliser les deux. Une commande en file affiche sa progression, par exemple Commande en file ou Commande terminée. Une commande échouée ou incertaine indique aussi pourquoi, quand le moteur nomme une raison, et affiche les dernières lignes du moteur.\r
-\r
-Pour les tâches locales, **Relancer** revérifie l’exécuteur installé et accepte un exécutable mis à jour ou un environnement hérité modifié sur le même ordinateur et compte. La tâche, le worktree, la branche, l’historique et les limites cumulées sont conservés. La surveillance automatique ne le fait pas. Les paramètres d’exécution modifiés ou les preuves de récupération corrompues doivent être corrigés. Si le redémarrage échoue, la commande indique l’échec et sa cause enregistrée : exécutable absent, version invalide, échec de commande ou délai dépassé. Ce contrôle de version n’envoie aucune requête au modèle ; utilisez **Tester la connexion IA** pour cela.\r
-\r
-Lorsqu’une commande en conteneur dépasse sa limite, ADORE arrête ce conteneur avant toute autre commande. La prochaine tentative autorisée reprend le même conteneur avec ses dépendances et fichiers ; l’accès réseau reste inchangé. Si l’arrêt ou le redémarrage sûr ne peut être confirmé, la tâche échoue et conserve ses preuves à examiner avant de **Relancer**. Une préparation échouée conserve sa procédure de reprise explicite.\r
-\r
-## Abandonner et recommencer {#restart}\r
-\r
-Pour une tâche échouée, **Abandonner et recommencer** supprime son état enregistré, sa copie de travail avec le travail non publié et sa branche distante propre inchangée. Lisez l’avertissement et confirmez. ADORE vérifie la propriété avant le nettoyage et démarre le même ticket ouvert avec les paramètres actuels seulement après un nettoyage réussi. La surveillance reste en pause si elle l’était. Les administrateurs et développeurs affectés peuvent utiliser cette action.\r
-\r
-Réessayer ne corrige pas les changements de mode ou de paramètres stables ; les détails l’expliquent et proposent l’action confirmée. Restaurez les paramètres enregistrés pour conserver le travail. Réessayer peut toujours revalider les changements volatils de l’environnement natif, dont les variables processeur après redimensionnement d’une VM.\r
-\r
-Les ressources étrangères, un autre ordinateur ou compte, les preuves corrompues ou une branche distante modifiée bloquent la récupération. Un nettoyage partiel conserve les preuves restantes sans nouvelle tâche. Si la tâche change après confirmation, actualisez ses détails et vérifiez à nouveau. Le verrou CLI peut appartenir au worker web : mettez la surveillance en pause dans le Résumé du projet et attendez la fin de la tâche bornée. Ne supprimez pas un verrou actif.\r
-\r
-Si une ancienne tâche supprimée a laissé une branche sans checkpoint enregistré, ADORE la conserve et utilise une nouvelle génération. Un checkpoint connu modifié bloque toujours la récupération. Trois autres noms au maximum sont essayés et les règles du dépôt doivent autoriser un nom libre ; sinon la récupération s’arrête avant le nettoyage. Le résultat indique quand une ancienne branche est conservée.\r
-\r
-## Suivre les tâches {#following-jobs}\r
-\r
-Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un projet, puis le sous-onglet **Tâches**. Le tableau a ces colonnes :\r
-\r
-| Colonne | Contenu |\r
-|---|---|\r
-| Ticket | Numéro et titre ; ouvre le détail de la tâche. |\r
-| Projet | Le projet propriétaire. |\r
-| État | L’état, le Workflow enregistré, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |\r
-| Dernière activité | Heure du dernier événement enregistré. |\r
-| Consommation | Jetons utilisés par la tâche. |\r
-\r
-Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.\r
-\r
-Le détail remplace la liste tant qu’il est ouvert. Son titre compact réunit le numéro et le titre du ticket. **Que se passe-t-il maintenant** indique l’état, qui intervient et la **Prochaine action**. Budgets et Consommation sont à côté sur grand écran et en dessous sur écran étroit. **Activité** liste les événements enregistrés du plus récent au plus ancien. **Question de l’agent** contient la clarification active ; les autres états affichent **Preuves et artefacts**. **Détails techniques** contient identifiants, sortie de l’exécuteur et **Événements originaux enregistrés** à déplier. **Fermer** revient à la liste avec ses filtres. Les événements passés ne deviennent pas des demandes actuelles.\r
-\r
-## Budgets du travail {#budgets}\r
-\r
-Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et \`adore init\`.\r
-\r
-Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du projet**, ouvrir **Implémentation**, modifier uniquement les budgets, choisir **Enregistrer** et confirmer les valeurs exactes. Cet enregistrement révisé est permis pendant une attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres gardent leurs contrôles habituels ; les développeurs restent en lecture seule.\r
-\r
-Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.\r
-\r
-Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.\r
-\r
-## État et preuves de l’exécuteur {#operational-evidence}\r
-\r
-**En cours** signifie qu’ADORE conduit l’étape enregistrée ; aucune action humaine n’est demandée. **En attente de clarification** nécessite une réponse sur le ticket. **Échoué** arrête le travail autonome et conserve les preuves de récupération. La carte affiche les tentatives échouées de l’étape courante même si le travail reste En cours.\r
-\r
-Les questions apparaissent dans **Question de l’agent** en Markdown avec listes, tableaux et code. Les commentaires HTML initiaux sont omis de la vue lisible ; **Question originale et preuves** conserve la source exacte. Le reste du HTML reste littéral, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les tableaux larges et le code défilent dans la question.\r
-\r
-Les étapes de la chronologie viennent de l’étape, du contexte d’étape ou de la destination de transition enregistrés dans chaque événement ; les événements sans rapport restent inconnus. Les heures incluent les secondes. Un événement est une preuve enregistrée, pas une progression en direct.\r
-\r
-Dans **Détails techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.\r
-\r
-Le résumé affiche la tentative, son heure, le résultat et le code de sortie. Dépliez **stdout** ou **stderr** si des données sont présentes. Si un lancement est en cours, le panneau le signale et conserve la dernière sortie terminée. Si le journal change pendant la lecture, choisissez **Réessayer**. La dernière sortie vérifiée est signalée comme potentiellement périmée.\r
-\r
-Un lancement sans capture prouvée ou un instantané supprimé est explicitement indisponible ; aucune archive brute ne sert de repli. Les preuves corrompues sont refusées. Un travail existant peut rester sans sortie jusqu’à un lancement ultérieur ; cette vue n’en démarre aucun.\r
-\r
-Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** près de l’erreur. Preuves et récupération restent séparées. Une source corrompue nécessite toujours l’intervention de l’opérateur.\r
-`,Kz=`# Ce que fait ADORE\r
-\r
-L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.\r
-\r
-ADORE transforme un ticket préparé sur votre forge de code en une demande de fusion (MR) ou de tirage (PR) en brouillon que des personnes relisent. Cette page explique le flux et les deux rôles ; les autres sujets détaillent chaque écran.\r
-\r
-## Ce que fait ADORE {#what-adore-does}\r
-\r
-ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticket de la forge (GitHub, GitLab ou Gitea) est préparé pour la prise en charge, ADORE démarre une **tâche** pour ce ticket :\r
-\r
-- Il exécute un agent de programmation (l’exécuteur) dans un environnement isolé : une branche dédiée, un dossier de travail et un conteneur.\r
-- L’agent suit le workflow AEGIS du dépôt, une étape à la fois : Cadrage, Spécification, Conception, Développement et Validation. Une petite modification peut suivre un chemin rapide sans Spécification ni Conception.\r
-- ADORE observe le résultat rapporté par l’agent et demande à une personne d’approuver le candidat.\r
-- Après l’approbation, ADORE publie une MR/PR en brouillon que des personnes relisent. Un projet peut être configuré pour publier à la place une MR/PR prête pour la revue.\r
-\r
-> ADORE ne fusionne jamais. Il n’a aucune opération de fusion ; c’est une personne qui décide de fusionner ou non sur la forge.\r
-\r
-L’interface web montre ce qui s’exécute et ce qui demande de l’attention. Elle permet aussi de démarrer des tickets, de relancer ou d’annuler des tâches et, pour un administrateur, de configurer les projets et les comptes.\r
-\r
-Si l’état des tâches d’un projet est illisible, **À traiter** nomme le projet concerné. Les données des tâches des autres projets sélectionnés restent visibles.\r
-\r
-## Du ticket à la fusion {#flow}\r
-\r
-| Étape | État affiché | Qui agit | Ce qui se passe |\r
-|---|---|---|---|\r
-| 1. Préparer | Pas encore de tâche | Une personne | Le ticket reçoit l’étiquette de disponibilité et une étiquette de priorité, ou vous appuyez sur **Démarrer** dans Tâches → Tickets, ce qui ajoute les étiquettes manquantes après votre confirmation. |\r
-| 2. Travailler | En cours | ADORE et l’agent de programmation | ADORE crée la tâche et l’agent parcourt les étapes AEGIS. |\r
-| 3. Clarifier | En attente de clarification | Une personne | Seulement si l’agent a une question. Répondez dans le ticket du dépôt et ajoutez l’étiquette de réponse. |\r
-| 4. Valider | En cours | Agent de programmation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |\r
-| 5. Approuver | En attente d'approbation | Une personne | ADORE présente le candidat sur la forge. Une personne ajoute l’étiquette d’approbation. L’approbation est liée à ce candidat précis. |\r
-| 6. Publier | Publication | ADORE | ADORE pousse la branche et ouvre la MR/PR en brouillon. |\r
-| 7. Relire | Revue humaine | Une personne | Les personnes relisent. Une révision répète la validation et suit la politique d’approbation du projet. |\r
-| 8. Fusionner | Terminé | Une personne | Une personne fusionne sur la forge. ADORE ne le fait pas. |\r
-\r
-Si le candidat ou sa branche cible change après l’approbation, celle-ci ne s’applique plus et la tâche est de nouveau validée. Les termes sont expliqués dans le [glossaire](/help/glossary).\r
-\r
-## Rôles {#roles}\r
-\r
-| Rôle | Voit | Peut faire |\r
-|---|---|---|\r
-| Administrateur (Admin) | Tous les projets actuels et futurs, ainsi que l’Administration et les coûts | Tout ce qu’un Dev peut faire, et inscrire des projets, modifier les paramètres d’un projet par des changements vérifiés, suspendre ou reprendre la surveillance, archiver ou restaurer des projets, gérer les utilisateurs et l’accès aux projets, définir la conservation de l’audit, lire l’historique des changements, et voir et définir les coûts |\r
-| Dev | Uniquement les projets attribués par un administrateur | Démarrer et arrêter des tickets, relancer ou annuler des tâches, lire les statistiques des projets attribués et lire les paramètres d’un projet (en lecture seule, sans secrets ni paramètres financiers) |\r
-\r
-Un Dev ne voit jamais de valeurs monétaires et ne peut pas ouvrir les pages d’Administration. Sans projet attribué, la Vue d’ensemble invite le Dev à demander l’accès à un administrateur. S’il n’y a aucun projet, un Admin peut choisir **Inscrire un nouveau projet** dans la Vue d’ensemble.\r
-\r
-## Premiers pas {#getting-started}\r
-\r
-1. Les administrateurs inscrivent le dépôt : [Ajouter un dépôt](/help/projects).\r
-2. Choisissez le modèle utilisé par l’agent de programmation Pi : [Exécuteurs et modèles](/help/executors).\r
-3. Préparez les tickets pour qu’ADORE puisse les prendre en charge : [Tickets et prise en charge automatique](/help/tickets).\r
-4. Suivez chaque tâche jusqu’à sa MR/PR en brouillon : [Cycle de vie d’une tâche](/help/jobs).\r
-\r
-Les développeurs commencent à l’étape 3 dès qu’un administrateur leur a donné accès à un projet.\r
-\r
-## Pour aller plus loin {#topics}\r
-\r
-- [Ce que fait ADORE](/help/overview) : cette page.\r
-- [Visite de l’interface](/help/interface) : barre latérale, en-tête, hub du projet et libellés d’état.\r
-- [Ajouter un dépôt](/help/projects) : inscrire un projet.\r
-- [Paramètres du projet](/help/settings) : ce que contrôle chaque groupe de paramètres.\r
-- [Exécuteurs et modèles](/help/executors) : l’agent de programmation Pi, les modèles et l’authentification.\r
-- [Tickets et prise en charge automatique](/help/tickets) : étiquettes et démarrage des tickets.\r
-- [Cycle de vie d’une tâche](/help/jobs) : états, attentes, relance et annulation.\r
-- [Statistiques et coûts](/help/statistics) : utilisation, qualité, tendances et coûts estimés.\r
-- [Administration](/help/administration) : utilisateurs, accès, état du système et historique des changements.\r
-- [Glossaire](/help/glossary) : les termes utilisés dans l’interface.\r
-`,Zz=`# Ajouter un dépôt\r
-\r
-L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.\r
-\r
-Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.\r
-\r
-\r
-Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le.\r
-\r
-\r
-Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.\r
-\r
-## Avant de commencer {#before-you-start}\r
-\r
-Préparez ces éléments :\r
-\r
-- L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.\r
-- Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.\r
-- Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).\r
-- L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).\r
-\r
-## Inscrire un nouveau projet {#add-project}\r
-\r
-Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.\r
-\r
-Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.\r
-\r
-| Étape | Ce qui est demandé |\r
-|---|---|\r
-| Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |\r
-| Agent et modèle | Choisissez le **Fournisseur**, le **Modèle** et, si nécessaire, le point de terminaison. Pour un conteneur, choisissez le moteur et l’image. Enregistrez la clé du fournisseur dans Paramètres après la création. Pour **Installé sur le serveur**, seuls le compte système actuel et le **PATH des outils du projet** facultatif s’affichent. |\r
-| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |\r
-| Vérification | L’ouverture de cette étape contrôle automatiquement la configuration, les dossiers du serveur, Git et l’accès à la forge. **Revérifier l'environnement** relance ces contrôles. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |\r
-| Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |\r
-\r
-Pour l’exécution locale native, choisissez **Exécution → Installé sur le serveur**. Les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.\r
-\r
-Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).\r
-\r
-**Emplacement automatique** conserve le chemin proposé pour le clone. Choisissez **Emplacement personnalisé** puis **Choisir un dossier…** pour parcourir les dossiers de l’hôte ADORE. Un clic sélectionne une ligne ; un double-clic ou Entrée ouvre le dossier. Utilisez Retour ou Dossier parent, puis **Sélectionner le dossier** pour confirmer exactement le dossier existant. Saisissez une nouvelle destination dans le champ du clone du formulaire principal. Le sélecteur ne crée rien ; liens et chemins réseau sont refusés. **Annuler** conserve le brouillon. Un chemin saisi pendant le chargement des dossiers reste dans la barre d’adresse.\r
-\r
-**Branche cible** liste les branches distantes de GitHub, GitLab et Gitea, y compris les instances privées. La branche par défaut du dépôt est sélectionnée et marquée **par défaut**. Choisissez une autre branche si nécessaire. **Lire le dépôt** actualise la liste et conserve un choix explicite tant que la branche existe. Changer l’URL efface les anciens choix. Sans branche par défaut, choisissez-en une ; sans branches, ajoutez-en une au dépôt et relisez-le. L’accès Git du compte ADORE est utilisé ; un type de forge inconnu reste à sélectionner manuellement.\r
-\r
-## Workflows du dépôt {#workflows}\r
-\r
-À la confirmation d’une inscription guidée ou d’un import de configuration, ADORE prépare les images communes d’exécution et de proxy manquantes avant d’enregistrer le projet. La progression indique l’étape actuelle ; la première préparation peut prendre plusieurs minutes et nécessite Internet sur le serveur. Les imports suivants réutilisent les images. En cas d’échec, réessayez l’import sans ressaisir les mêmes réponses. Les imports natifs ignorent cette préparation. Les images personnalisées restent à la charge de l’administrateur.\r
-\r
-**AEGIS / Direct**. L’agent découvre et exécute les contrôles selon les instructions du dépôt. Avec AEGIS, il suit les étapes enregistrées ; sinon il implémente directement le ticket. ADORE observe le progrès et le journal, enregistre le candidat et demande une approbation humaine. Il ne relance pas les tests du dépôt ni les contrôles AEGIS stricts.\r
-\r
-## Importer la configuration brute {#import-project}\r
-\r
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 \`config.toml\` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.\r
-\r
-Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).\r
-\r
-\r
-Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :\r
-\r
-1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.\r
-2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. La ligne **Workflow** identifie séparément le workflow sans exécuter AEGIS. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.\r
-3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).\r
-4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.\r
-\r
-## Archiver, restaurer et supprimer {#lifecycle}\r
-\r
-Les administrateurs trouvent ces boutons dans l’onglet Résumé.\r
-\r
-- **Archiver le projet** fonctionne une fois les tâches terminées et les demandes en file traitées. Il conserve les paramètres, l’historique, les statistiques et les enregistrements d’audit, et arrête tout nouveau travail. **Restaurer le projet** le ramène.\r
-- **Supprimer le projet** n’apparaît que pour les projets archivés et demande de saisir le nom du projet. Il supprime les paramètres ADORE du projet, l’historique des tâches, les statistiques, les conteneurs et les worktrees. Il conserve le dépôt et ses branches, les worktrees des tâches confiées à une personne, un dossier d’état de tâche situé hors du répertoire ADORE et la piste d’audit. La suppression est refusée tant que du travail est en file ou inachevé. **Supprimer aussi le clone local** (décoché) supprime aussi le clone créé par ADORE dans son dossier \`repos\` ; l’option n’apparaît que pour un clone propre du dépôt de ce projet qu’aucun autre projet n’utilise et dont aucun worktree conservé par la suppression n’a encore besoin, sinon la fenêtre indique pourquoi le clone est conservé.\r
-\r
-> La suppression est irréversible. Pour ajuster un projet ensuite, voir [Paramètres du projet](/help/settings).\r
-\r
-## Connexion Gitea sur cet ordinateur {#gitea-sign-in}\r
-\r
-ADORE utilise d’abord la connexion enregistrée du projet. Sinon, il réutilise la configuration tea du compte courant. Si tea signale un compte absent, ADORE vérifie les emplacements standard Windows ou Linux et choisit le compte configuré, un unique compte par défaut ou le seul compte disponible. Plusieurs comptes sans sélection claire exigent une connexion explicite.\r
-\r
-La détection respecte \`XDG_CONFIG_HOME\`. Sous Windows, elle vérifie aussi Local AppData, Roaming AppData et le répertoire personnel \`.config\` ; sous Linux, le répertoire personnel \`.config\`. Elle ne parcourt pas les caches privés des applications et ne copie pas les identifiants entre ordinateurs.\r
-\r
-1. Ouvrez l’onglet **Résumé** du projet et choisissez **Accès au dépôt**.\r
-2. Indiquez l’origine Gitea, avec son port si nécessaire, dans **Serveur du dépôt**.\r
-3. Créez sur ce serveur un jeton pour le compte autorisé à lire/modifier les tickets et créer des demandes de revue en brouillon, puis saisissez-le dans **Jeton d’accès**.\r
-4. Choisissez **Vérifier et connecter**. Un serveur HTTP exige la confirmation affichée. Un échec préserve la connexion enregistrée.\r
-5. Contrôlez à nouveau les prérequis de l’hôte. Les identifiants Git clone/push sont configurés séparément.\r
-\r
-Sur un autre ordinateur, préparez sa propre connexion CLI ou utilisez ce formulaire. L’archive de livraison ne contient aucun jeton utilisateur.\r
-`,Wz=`# Paramètres du projet\r
-\r
-L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’ADORE lui applique : quels tickets il prend en charge, ses limites, la façon dont il publie et l’agent qu’il utilise. Les administrateurs modifient plusieurs paramètres et les enregistrent ensemble ; les développeurs les lisent.\r
-\r
-## Où trouver les Paramètres {#where}\r
-\r
-Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Statistiques, Historique et, pour les administrateurs, Accès.\r
-\r
-Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT.\r
-\r
-Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet a ses propres paramètres ; la capacité globale et la conservation de l’audit relèvent de l’Administration.\r
-\r
-## Groupes de paramètres {#groups}\r
-\r
-Chaque groupe est fermé à l’ouverture des Paramètres, et le nombre à côté de son nom compte ses lignes.\r
-\r
-| Groupe | Ce qu’il contrôle |\r
-|---|---|\r
-| Dépôt | Forge et dépôt, connexion Gitea, **Branche cible** (base des nouvelles tâches et destination des PR/MR), le modèle de nom de branche des tâches avec une règle de nommage facultative et un exemple en direct, ainsi que le nom affiché de l’agent, son nom de ressource et l’adresse e-mail de l’auteur des commits. |\r
-| Tickets | **Étiquette de disponibilité pour la prise en charge**, **Étiquette d’exclusion de la prise en charge**, les **Étiquettes de statut** repliées, la fréquence à laquelle ADORE interroge la forge, la nécessité ou non de critères d’acceptation ou d’une étiquette de priorité, et le type de tâche par défaut. Voir [Tickets et prise en charge automatique](/help/tickets#labels). |\r
-| Implémentation | Limites par tâche : **Limite de tâches actives**, **Nombre maximal de lancements de l’exécuteur par tâche**, **Limite de temps de travail actif (secondes)**, **Plafond de coût de la tâche (USD)**, **Nombre maximal de fichiers modifiés par tâche** et **Limite de temps par tentative d’étape (secondes)**. Il contient aussi **Clarifications**, **Reprise après erreur**, **Limites de temps avancées par étape**, **Publier les commits de progression** et l’étiquette du chemin rapide. |\r
-| PR/MR et revue | **Demander une revue à**, **État de la PR/MR à la publication** (Brouillon ou Prête pour revue), **Exiger une approbation humaine avant PR/MR** et l’étiquette d’approbation, **Supprimer la branche après la fusion humaine**, les tours de révision et **Action en cas d’échec des vérifications CI de la PR/MR** (Réparation automatique, Notifier uniquement ou Ignorer). |\r
-| Statistiques | **Enregistrer les mesures des tâches terminées** et **Enregistrer les jetons déclarés par l’agent**. **Fichier de la base de statistiques** est affiché à titre d’information seulement. |\r
-| Agent et modèle | Fournisseur, modèle, authentification et **Tester la connexion IA** [Exécuteurs et modèles](/help/executors). |\r
-| Détails techniques | Valeurs d’installation en lecture seule, comme le dossier d’état des tâches, le chemin du dépôt local et les dossiers de travail des tâches. Elles se modifient dans le \`config.toml\` du projet sur le serveur, et changer un chemin ne déplace pas les données existantes. |\r
-\r
-## Valeurs et aide {#values}\r
-\r
-Chaque ligne a un libellé, une description toujours visible, une **Valeur active** et une **Valeur par défaut d'ADORE**. La description indique ce que contrôle le paramètre, son unité ou ses valeurs admises, et l’effet d’une modification, ou précise qu’il est réservé et inutilisé. Il n’y a pas de bouton d’aide séparé.\r
-\r
-Un badge **Par défaut** signifie que le \`config.toml\` du projet ne définit pas la valeur : le défaut d’ADORE s’applique. La modifier écrit une valeur pour ce projet seulement. Une ligne marquée **Non modifiable ici** se change dans le \`config.toml\` sur le serveur. Une ligne marquée **À appliquer seulement avec la sélection suspendue et sans tâche active** exige la condition supplémentaire décrite ci-dessous.\r
-\r
-Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).\r
-\r
-## Modification {#editing}\r
-\r
-La barre **Enregistrer** et **Annuler les modifications** apparaît seulement pour des changements non enregistrés ou récupérés, pendant l’enregistrement ou en cas d’erreur à résoudre. Elle disparaît après enregistrement ou abandon réussi. Ouvrir un éditeur sans changer la valeur ne l’affiche pas.\r
-\r
-1. Choisissez **Modifier** à côté de chaque valeur à changer. Vous pouvez modifier plusieurs paramètres dans différents groupes.\r
-2. Utilisez le bouton unique **Enregistrer** au-dessus des groupes. Il est actif seulement si des valeurs changent et si toutes les modifications sont valides.\r
-3. Pour les changements importants, **Confirmer les modifications importantes** affiche le projet, les valeurs modifiées et les effets. Choisissez **Enregistrer les modifications**, ou **Continuer la modification** pour revenir sans enregistrer.\r
-\r
-Règles applicables :\r
-\r
-- **Annuler les modifications** efface toutes les modifications non enregistrées. Annuler la confirmation les conserve sans créer de candidat enregistré.\r
-- L’enregistrement est lié à la configuration modifiée. Une révision périmée bloque l’enregistrement et conserve vos saisies . Abandonnez vos modifications pour recharger les paramètres enregistrés avant de recommencer. Les modifications concurrentes provoquent un conflit.\r
-- Le serveur vérifie toute la configuration et enregistre les changements ensemble. Un enregistrement révisé des seuls budgets permet aussi les tâches en attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres exigent des tâches terminées. Un échec conserve vos saisies et le candidat préparé.\r
-- Les changements d’identité ou d’environnement exigent aussi la surveillance en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la pause n’interrompt pas une tâche.\r
-- Les budgets s’appliquent avant la prochaine tentative ou reprise, en conservant consommation et progression. Voir [Budgets du travail](#budgets).\r
-\r
-La navigation et le rechargement de la page demandent confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.\r
-\r
-## TOML d’origine {#toml}\r
-\r
-À côté de Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu affiche le TOML enregistré exact dans un dialogue refermable. Les modifications en attente, fichiers d’environnement séparés, identifiants externes et données des tâches en cours sont exclus. Un TOML seul peut contenir des valeurs en clair : traitez-le comme un secret ; l’export de build complet refuse les identifiants en clair.\r
-\r
-Choisissez **Exporter la configuration brute**, sélectionnez la destination et enregistrez. Les projets en conteneur exportent un ZIP avec la configuration enregistrée et la définition complète de l’image. Les projets natifs enregistrent \`config.toml\`. Aucun dialogue de réglage de l’export ne s’ouvre. Sans sélecteur de destination, les préférences habituelles de téléchargement du navigateur s’appliquent. Sélectionnez directement ce ZIP dans Projets → Importer la configuration brute pour importer la configuration et les recettes ensemble, avec validation automatique.\r
-\r
-Les administrateurs gèrent les sources séparément dans **Détails techniques → Définition de l’image**. Sélectionnez un Dockerfile ou ZIP dans **Fichier de définition** ; il est vérifié automatiquement. **Enregistrer la recette** le conserve et **Changer la définition** le remplace. Ajoutez aussi ici les bases locales manquantes. La base standard de l’exécuteur ADORE est incluse automatiquement.\r
-\r
-Les définitions sont conservées par image et partagées entre les projets qui l’utilisent. Enregistrer une recette ne reconstruit pas l’image, ne change pas les paramètres et ne redémarre pas les tâches. Le ZIP contient toutes les sources déclarées des bases locales et un fichier Compose pour construire sur un autre serveur. Les images binaires et paquets ajoutés ensuite par l’agent sont exclus. Les registres et sources de paquets doivent y être accessibles.\r
-\r
-Si une recette est corrompue, la fenêtre indique quoi supprimer sur le serveur pour recommencer. Réinitialiser le catalogue supprime les définitions d’image enregistrées pour tous les projets ; configurations, identifiants et tâches restent inchangés. ADORE ne supprime jamais ces données automatiquement.\r
-\r
-## Paquets système de l’agent {#system-packages}\r
-\r
-**Autoriser l’installation de paquets système par l’agent**\r
-\r
-Dans Paramètres → Agent et modèle, les administrateurs activent cette permission avec **Enregistrer** et confirment son effet. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.\r
-\r
-L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.\r
-\r
-## Budgets du travail {#budgets}\r
-\r
-Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et \`adore init\`.\r
-\r
-Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du projet**, ouvrir **Implémentation**, modifier uniquement les budgets, choisir **Enregistrer** et confirmer les valeurs exactes. Cet enregistrement révisé est permis pendant une attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres gardent leurs contrôles habituels ; les développeurs restent en lecture seule.\r
-\r
-Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.\r
-\r
-Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.\r
-\r
-\r
-**Implémentation** (\`build\`) utilise \`workflow.stage_timeout_overrides\` ou \`budgets.per_gate_timeout_seconds\`. Avec AEGIS, **Validation** (\`validate\`) limite aussi la session de l’agent. ADORE ne lance aucun test supplémentaire ; l’agent choisit les contrôles locaux et CI selon les instructions du dépôt.\r
+Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.
+
+## État et preuves de l’exécuteur {#operational-evidence}
+
+**En cours** signifie qu’ADORE conduit l’étape enregistrée ; aucune action humaine n’est demandée. **En attente de clarification** nécessite une réponse sur le ticket. **Échoué** arrête le travail autonome et conserve les preuves de récupération. La carte affiche les tentatives échouées de l’étape courante même si le travail reste En cours.
+
+Les questions apparaissent dans **Question de l’agent** en Markdown avec listes, tableaux et code. Les commentaires HTML initiaux sont omis de la vue lisible ; **Question originale et preuves** conserve la source exacte. Le reste du HTML reste littéral, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les tableaux larges et le code défilent dans la question.
+
+Les étapes de la chronologie viennent de l’étape, du contexte d’étape ou de la destination de transition enregistrés dans chaque événement ; les événements sans rapport restent inconnus. Les heures incluent les secondes. Un événement est une preuve enregistrée, pas une progression en direct.
+
+Dans **Détails techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
+
+Le résumé affiche la tentative, son heure, le résultat et le code de sortie. Dépliez **stdout** ou **stderr** si des données sont présentes. Si un lancement est en cours, le panneau le signale et conserve la dernière sortie terminée. Si le journal change pendant la lecture, choisissez **Réessayer**. La dernière sortie vérifiée est signalée comme potentiellement périmée.
+
+Un lancement sans capture prouvée ou un instantané supprimé est explicitement indisponible ; aucune archive brute ne sert de repli. Les preuves corrompues sont refusées. Un travail existant peut rester sans sortie jusqu’à un lancement ultérieur ; cette vue n’en démarre aucun.
+
+Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** près de l’erreur. Preuves et récupération restent séparées. Une source corrompue nécessite toujours l’intervention de l’opérateur.
+`,Kz=`# Ce que fait ADORE
+
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
+ADORE transforme un ticket préparé sur votre forge de code en une demande de fusion (MR) ou de tirage (PR) en brouillon que des personnes relisent. Cette page explique le flux et les deux rôles ; les autres sujets détaillent chaque écran.
+
+## Ce que fait ADORE {#what-adore-does}
+
+ADORE surveille les projets qu’un administrateur a inscrits. Lorsqu’un ticket de la forge (GitHub, GitLab ou Gitea) est préparé pour la prise en charge, ADORE démarre une **tâche** pour ce ticket :
+
+- Il exécute un agent de programmation (l’exécuteur) dans un environnement isolé : une branche dédiée, un dossier de travail et un conteneur.
+- L’agent suit le workflow AEGIS du dépôt, une étape à la fois : Cadrage, Spécification, Conception, Développement et Validation. Une petite modification peut suivre un chemin rapide sans Spécification ni Conception.
+- ADORE observe le résultat rapporté par l’agent et demande à une personne d’approuver le candidat.
+- Après l’approbation, ADORE publie une MR/PR en brouillon que des personnes relisent. Un projet peut être configuré pour publier à la place une MR/PR prête pour la revue.
+
+> ADORE ne fusionne jamais. Il n’a aucune opération de fusion ; c’est une personne qui décide de fusionner ou non sur la forge.
+
+L’interface web montre ce qui s’exécute et ce qui demande de l’attention. Elle permet aussi de démarrer des tickets, de relancer ou d’annuler des tâches et, pour un administrateur, de configurer les projets et les comptes.
+
+Si l’état des tâches d’un projet est illisible, **À traiter** nomme le projet concerné. Les données des tâches des autres projets sélectionnés restent visibles.
+
+## Du ticket à la fusion {#flow}
+
+| Étape | État affiché | Qui agit | Ce qui se passe |
+|---|---|---|---|
+| 1. Préparer | Pas encore de tâche | Une personne | Le ticket reçoit l’étiquette de disponibilité et une étiquette de priorité, ou vous appuyez sur **Démarrer** dans Tâches → Tickets, ce qui ajoute les étiquettes manquantes après votre confirmation. |
+| 2. Travailler | En cours | ADORE et l’agent de programmation | ADORE crée la tâche et l’agent parcourt les étapes AEGIS. |
+| 3. Clarifier | En attente de clarification | Une personne | Seulement si l’agent a une question. Répondez dans le ticket du dépôt et ajoutez l’étiquette de réponse. |
+| 4. Valider | En cours | Agent de programmation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
+| 5. Approuver | En attente d'approbation | Une personne | ADORE présente le candidat sur la forge. Une personne ajoute l’étiquette d’approbation. L’approbation est liée à ce candidat précis. |
+| 6. Publier | Publication | ADORE | ADORE pousse la branche et ouvre la MR/PR en brouillon. |
+| 7. Relire | Revue humaine | Une personne | Les personnes relisent. Une révision répète la validation et suit la politique d’approbation du projet. |
+| 8. Fusionner | Terminé | Une personne | Une personne fusionne sur la forge. ADORE ne le fait pas. |
+
+Si le candidat ou sa branche cible change après l’approbation, celle-ci ne s’applique plus et la tâche est de nouveau validée. Les termes sont expliqués dans le [glossaire](/help/glossary).
+
+## Rôles {#roles}
+
+| Rôle | Voit | Peut faire |
+|---|---|---|
+| Administrateur (Admin) | Tous les projets actuels et futurs, ainsi que l’Administration et les coûts | Tout ce qu’un Dev peut faire, et inscrire des projets, modifier les paramètres d’un projet par des changements vérifiés, suspendre ou reprendre la surveillance, archiver ou restaurer des projets, gérer les utilisateurs et l’accès aux projets, définir la conservation de l’audit, lire l’historique des changements, et voir et définir les coûts |
+| Dev | Uniquement les projets attribués par un administrateur | Démarrer et arrêter des tickets, relancer ou annuler des tâches, lire les statistiques des projets attribués et lire les paramètres d’un projet (en lecture seule, sans secrets ni paramètres financiers) |
+
+Un Dev ne voit jamais de valeurs monétaires et ne peut pas ouvrir les pages d’Administration. Sans projet attribué, la Vue d’ensemble invite le Dev à demander l’accès à un administrateur. S’il n’y a aucun projet, un Admin peut choisir **Inscrire un nouveau projet** dans la Vue d’ensemble.
+
+## Premiers pas {#getting-started}
+
+1. Les administrateurs inscrivent le dépôt : [Ajouter un dépôt](/help/projects).
+2. Choisissez le modèle utilisé par l’agent de programmation Pi : [Exécuteurs et modèles](/help/executors).
+3. Préparez les tickets pour qu’ADORE puisse les prendre en charge : [Tickets et prise en charge automatique](/help/tickets).
+4. Suivez chaque tâche jusqu’à sa MR/PR en brouillon : [Cycle de vie d’une tâche](/help/jobs).
+
+Les développeurs commencent à l’étape 3 dès qu’un administrateur leur a donné accès à un projet.
+
+## Pour aller plus loin {#topics}
+
+- [Ce que fait ADORE](/help/overview) : cette page.
+- [Visite de l’interface](/help/interface) : barre latérale, en-tête, hub du projet et libellés d’état.
+- [Ajouter un dépôt](/help/projects) : inscrire un projet.
+- [Paramètres du projet](/help/settings) : ce que contrôle chaque groupe de paramètres.
+- [Exécuteurs et modèles](/help/executors) : l’agent de programmation Pi, les modèles et l’authentification.
+- [Tickets et prise en charge automatique](/help/tickets) : étiquettes et démarrage des tickets.
+- [Cycle de vie d’une tâche](/help/jobs) : états, attentes, relance et annulation.
+- [Statistiques et coûts](/help/statistics) : utilisation, qualité, tendances et coûts estimés.
+- [Administration](/help/administration) : utilisateurs, accès, état du système et historique des changements.
+- [Glossaire](/help/glossary) : les termes utilisés dans l’interface.
+`,Zz=`# Ajouter un dépôt
+
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
+Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
+
+
+Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le.
+
+
+Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.
+
+## Avant de commencer {#before-you-start}
+
+Préparez ces éléments :
+
+- L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.
+- Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
+- Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
+- L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).
+
+## Inscrire un nouveau projet {#add-project}
+
+Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
+
+Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.
+
+| Étape | Ce qui est demandé |
+|---|---|
+| Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |
+| Agent et modèle | Choisissez le **Fournisseur**, le **Modèle** et, si nécessaire, le point de terminaison. Pour un conteneur, choisissez le moteur et l’image. Enregistrez la clé du fournisseur dans Paramètres après la création. Pour **Installé sur le serveur**, seuls le compte système actuel et le **PATH des outils du projet** facultatif s’affichent. |
+| Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
+| Vérification | L’ouverture de cette étape contrôle automatiquement la configuration, les dossiers du serveur, Git et l’accès à la forge. **Revérifier l'environnement** relance ces contrôles. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |
+| Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |
+
+Pour l’exécution locale native, choisissez **Exécution → Installé sur le serveur**. Les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
+
+Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).
+
+**Emplacement automatique** conserve le chemin proposé pour le clone. Choisissez **Emplacement personnalisé** puis **Choisir un dossier…** pour parcourir les dossiers de l’hôte ADORE. Un clic sélectionne une ligne ; un double-clic ou Entrée ouvre le dossier. Utilisez Retour ou Dossier parent, puis **Sélectionner le dossier** pour confirmer exactement le dossier existant. Saisissez une nouvelle destination dans le champ du clone du formulaire principal. Le sélecteur ne crée rien ; liens et chemins réseau sont refusés. **Annuler** conserve le brouillon. Un chemin saisi pendant le chargement des dossiers reste dans la barre d’adresse.
+
+**Branche cible** liste les branches distantes de GitHub, GitLab et Gitea, y compris les instances privées. La branche par défaut du dépôt est sélectionnée et marquée **par défaut**. Choisissez une autre branche si nécessaire. **Lire le dépôt** actualise la liste et conserve un choix explicite tant que la branche existe. Changer l’URL efface les anciens choix. Sans branche par défaut, choisissez-en une ; sans branches, ajoutez-en une au dépôt et relisez-le. L’accès Git du compte ADORE est utilisé ; un type de forge inconnu reste à sélectionner manuellement.
+
+## Workflows du dépôt {#workflows}
+
+À la confirmation d’une inscription guidée ou d’un import de configuration, ADORE prépare les images communes d’exécution et de proxy manquantes avant d’enregistrer le projet. La progression indique l’étape actuelle ; la première préparation peut prendre plusieurs minutes et nécessite Internet sur le serveur. Les imports suivants réutilisent les images. En cas d’échec, réessayez l’import sans ressaisir les mêmes réponses. Les imports natifs ignorent cette préparation. Les images personnalisées restent à la charge de l’administrateur.
+
+**AEGIS / Direct**. L’agent découvre et exécute les contrôles selon les instructions du dépôt. Avec AEGIS, il suit les étapes enregistrées ; sinon il implémente directement le ticket. ADORE observe le progrès et le journal, enregistre le candidat et demande une approbation humaine. Il ne relance pas les tests du dépôt ni les contrôles AEGIS stricts.
+
+## Importer la configuration brute {#import-project}
+
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 \`config.toml\` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
+
+Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
+
+
+Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :
+
+1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
+2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. La ligne **Workflow** identifie séparément le workflow sans exécuter AEGIS. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
+3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).
+4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.
+
+## Archiver, restaurer et supprimer {#lifecycle}
+
+Les administrateurs trouvent ces boutons dans l’onglet Résumé.
+
+- **Archiver le projet** fonctionne une fois les tâches terminées et les demandes en file traitées. Il conserve les paramètres, l’historique, les statistiques et les enregistrements d’audit, et arrête tout nouveau travail. **Restaurer le projet** le ramène.
+- **Supprimer le projet** n’apparaît que pour les projets archivés et demande de saisir le nom du projet. Il supprime les paramètres ADORE du projet, l’historique des tâches, les statistiques, les conteneurs et les worktrees. Il conserve le dépôt et ses branches, les worktrees des tâches confiées à une personne, un dossier d’état de tâche situé hors du répertoire ADORE et la piste d’audit. La suppression est refusée tant que du travail est en file ou inachevé. **Supprimer aussi le clone local** (décoché) supprime aussi le clone créé par ADORE dans son dossier \`repos\` ; l’option n’apparaît que pour un clone propre du dépôt de ce projet qu’aucun autre projet n’utilise et dont aucun worktree conservé par la suppression n’a encore besoin, sinon la fenêtre indique pourquoi le clone est conservé.
+
+> La suppression est irréversible. Pour ajuster un projet ensuite, voir [Paramètres du projet](/help/settings).
+
+## Connexion Gitea sur cet ordinateur {#gitea-sign-in}
+
+ADORE utilise d’abord la connexion enregistrée du projet. Sinon, il réutilise la configuration tea du compte courant. Si tea signale un compte absent, ADORE vérifie les emplacements standard Windows ou Linux et choisit le compte configuré, un unique compte par défaut ou le seul compte disponible. Plusieurs comptes sans sélection claire exigent une connexion explicite.
+
+La détection respecte \`XDG_CONFIG_HOME\`. Sous Windows, elle vérifie aussi Local AppData, Roaming AppData et le répertoire personnel \`.config\` ; sous Linux, le répertoire personnel \`.config\`. Elle ne parcourt pas les caches privés des applications et ne copie pas les identifiants entre ordinateurs.
+
+1. Ouvrez l’onglet **Résumé** du projet et choisissez **Accès au dépôt**.
+2. Indiquez l’origine Gitea, avec son port si nécessaire, dans **Serveur du dépôt**.
+3. Créez sur ce serveur un jeton pour le compte autorisé à lire/modifier les tickets et créer des demandes de revue en brouillon, puis saisissez-le dans **Jeton d’accès**.
+4. Choisissez **Vérifier et connecter**. Un serveur HTTP exige la confirmation affichée. Un échec préserve la connexion enregistrée.
+5. Contrôlez à nouveau les prérequis de l’hôte. Les identifiants Git clone/push sont configurés séparément.
+
+Sur un autre ordinateur, préparez sa propre connexion CLI ou utilisez ce formulaire. L’archive de livraison ne contient aucun jeton utilisateur.
+`,Wz=`# Paramètres du projet
+
+L’onglet Paramètres d’un projet liste les règles de fonctionnement qu’ADORE lui applique : quels tickets il prend en charge, ses limites, la façon dont il publie et l’agent qu’il utilise. Les administrateurs modifient plusieurs paramètres et les enregistrent ensemble ; les développeurs les lisent.
+
+## Où trouver les Paramètres {#where}
+
+Ouvrez [Projets](/projects), choisissez un projet et sélectionnez l’onglet **Paramètres**. Les onglets sont Résumé, Paramètres, Tâches, Statistiques, Historique et, pour les administrateurs, Accès.
+
+Les paramètres enregistrés s’actualisent toutes les 15 secondes quand l’onglet du navigateur est visible. L’actualisation se met en pause en cas de modification non enregistrée, d’enregistrement ou d’abandon en cours. L’actualisation se met aussi en pause pendant la saisie d’un tarif ou d’une clé API et pendant la connexion ChatGPT.
+
+Les administrateurs peuvent modifier. Les développeurs qui ont accès au projet voient **Paramètres en lecture seule**, sans boutons Modifier et sans secrets ni paramètres financiers. Chaque projet a ses propres paramètres ; la capacité globale et la conservation de l’audit relèvent de l’Administration.
+
+## Groupes de paramètres {#groups}
+
+Chaque groupe est fermé à l’ouverture des Paramètres, et le nombre à côté de son nom compte ses lignes.
+
+| Groupe | Ce qu’il contrôle |
+|---|---|
+| Dépôt | Forge et dépôt, connexion Gitea, **Branche cible** (base des nouvelles tâches et destination des PR/MR), le modèle de nom de branche des tâches avec une règle de nommage facultative et un exemple en direct, ainsi que le nom affiché de l’agent, son nom de ressource et l’adresse e-mail de l’auteur des commits. |
+| Tickets | **Étiquette de disponibilité pour la prise en charge**, **Étiquette d’exclusion de la prise en charge**, les **Étiquettes de statut** repliées, la fréquence à laquelle ADORE interroge la forge, la nécessité ou non de critères d’acceptation ou d’une étiquette de priorité, et le type de tâche par défaut. Voir [Tickets et prise en charge automatique](/help/tickets#labels). |
+| Implémentation | Limites par tâche : **Limite de tâches actives**, **Nombre maximal de lancements de l’exécuteur par tâche**, **Limite de temps de travail actif (secondes)**, **Plafond de coût de la tâche (USD)**, **Nombre maximal de fichiers modifiés par tâche** et **Limite de temps par tentative d’étape (secondes)**. Il contient aussi **Clarifications**, **Reprise après erreur**, **Limites de temps avancées par étape**, **Publier les commits de progression** et l’étiquette du chemin rapide. |
+| PR/MR et revue | **Demander une revue à**, **État de la PR/MR à la publication** (Brouillon ou Prête pour revue), **Exiger une approbation humaine avant PR/MR** et l’étiquette d’approbation, **Supprimer la branche après la fusion humaine**, les tours de révision et **Action en cas d’échec des vérifications CI de la PR/MR** (Réparation automatique, Notifier uniquement ou Ignorer). |
+| Statistiques | **Enregistrer les mesures des tâches terminées** et **Enregistrer les jetons déclarés par l’agent**. **Fichier de la base de statistiques** est affiché à titre d’information seulement. |
+| Agent et modèle | Fournisseur, modèle, authentification et **Tester la connexion IA** [Exécuteurs et modèles](/help/executors). |
+| Détails techniques | Valeurs d’installation en lecture seule, comme le dossier d’état des tâches, le chemin du dépôt local et les dossiers de travail des tâches. Elles se modifient dans le \`config.toml\` du projet sur le serveur, et changer un chemin ne déplace pas les données existantes. |
+
+## Valeurs et aide {#values}
+
+Chaque ligne a un libellé, une description toujours visible, une **Valeur active** et une **Valeur par défaut d'ADORE**. La description indique ce que contrôle le paramètre, son unité ou ses valeurs admises, et l’effet d’une modification, ou précise qu’il est réservé et inutilisé. Il n’y a pas de bouton d’aide séparé.
+
+Un badge **Par défaut** signifie que le \`config.toml\` du projet ne définit pas la valeur : le défaut d’ADORE s’applique. La modifier écrit une valeur pour ce projet seulement. Une ligne marquée **Non modifiable ici** se change dans le \`config.toml\` sur le serveur. Une ligne marquée **À appliquer seulement avec la sélection suspendue et sans tâche active** exige la condition supplémentaire décrite ci-dessous.
+
+Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sous le compte système actuel. Le **PATH des outils du projet** facultatif sélectionne leurs dossiers. Voir [Installer Pi sur le serveur](/help/executors#installed-executors).
+
+## Modification {#editing}
+
+La barre **Enregistrer** et **Annuler les modifications** apparaît seulement pour des changements non enregistrés ou récupérés, pendant l’enregistrement ou en cas d’erreur à résoudre. Elle disparaît après enregistrement ou abandon réussi. Ouvrir un éditeur sans changer la valeur ne l’affiche pas.
+
+1. Choisissez **Modifier** à côté de chaque valeur à changer. Vous pouvez modifier plusieurs paramètres dans différents groupes.
+2. Utilisez le bouton unique **Enregistrer** au-dessus des groupes. Il est actif seulement si des valeurs changent et si toutes les modifications sont valides.
+3. Pour les changements importants, **Confirmer les modifications importantes** affiche le projet, les valeurs modifiées et les effets. Choisissez **Enregistrer les modifications**, ou **Continuer la modification** pour revenir sans enregistrer.
+
+Règles applicables :
+
+- **Annuler les modifications** efface toutes les modifications non enregistrées. Annuler la confirmation les conserve sans créer de candidat enregistré.
+- L’enregistrement est lié à la configuration modifiée. Une révision périmée bloque l’enregistrement et conserve vos saisies . Abandonnez vos modifications pour recharger les paramètres enregistrés avant de recommencer. Les modifications concurrentes provoquent un conflit.
+- Le serveur vérifie toute la configuration et enregistre les changements ensemble. Un enregistrement révisé des seuls budgets permet aussi les tâches en attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres exigent des tâches terminées. Un échec conserve vos saisies et le candidat préparé.
+- Les changements d’identité ou d’environnement exigent aussi la surveillance en pause. Choisissez **Suspendre la surveillance** dans Résumé et laissez le travail actif se terminer ; la pause n’interrompt pas une tâche.
+- Les budgets s’appliquent avant la prochaine tentative ou reprise, en conservant consommation et progression. Voir [Budgets du travail](#budgets).
+
+La navigation et le rechargement de la page demandent confirmation avant d’abandonner les modifications. Les brefs blocages de fichier Windows sont réessayés automatiquement ; si l’enregistrement échoue, vérifiez l’accès au fichier et réessayez **Enregistrer**.
+
+## TOML d’origine {#toml}
+
+À côté de Paramètres du projet, les administrateurs disposent de **Voir la configuration brute** et **Exporter la configuration brute**. L’aperçu affiche le TOML enregistré exact dans un dialogue refermable. Les modifications en attente, fichiers d’environnement séparés, identifiants externes et données des tâches en cours sont exclus. Un TOML seul peut contenir des valeurs en clair : traitez-le comme un secret ; l’export de build complet refuse les identifiants en clair.
+
+Choisissez **Exporter la configuration brute**, sélectionnez la destination et enregistrez. Les projets en conteneur exportent un ZIP avec la configuration enregistrée et la définition complète de l’image. Les projets natifs enregistrent \`config.toml\`. Aucun dialogue de réglage de l’export ne s’ouvre. Sans sélecteur de destination, les préférences habituelles de téléchargement du navigateur s’appliquent. Sélectionnez directement ce ZIP dans Projets → Importer la configuration brute pour importer la configuration et les recettes ensemble, avec validation automatique.
+
+Les administrateurs gèrent les sources séparément dans **Détails techniques → Définition de l’image**. Sélectionnez un Dockerfile ou ZIP dans **Fichier de définition** ; il est vérifié automatiquement. **Enregistrer la recette** le conserve et **Changer la définition** le remplace. Ajoutez aussi ici les bases locales manquantes. La base standard de l’exécuteur ADORE est incluse automatiquement.
+
+Les définitions sont conservées par image et partagées entre les projets qui l’utilisent. Enregistrer une recette ne reconstruit pas l’image, ne change pas les paramètres et ne redémarre pas les tâches. Le ZIP contient toutes les sources déclarées des bases locales et un fichier Compose pour construire sur un autre serveur. Les images binaires et paquets ajoutés ensuite par l’agent sont exclus. Les registres et sources de paquets doivent y être accessibles.
+
+Si une recette est corrompue, la fenêtre indique quoi supprimer sur le serveur pour recommencer. Réinitialiser le catalogue supprime les définitions d’image enregistrées pour tous les projets ; configurations, identifiants et tâches restent inchangés. ADORE ne supprime jamais ces données automatiquement.
+
+## Paquets système de l’agent {#system-packages}
+
+**Autoriser l’installation de paquets système par l’agent**
+
+Dans Paramètres → Agent et modèle, les administrateurs activent cette permission avec **Enregistrer** et confirment son effet. Désactivée par défaut, elle concerne les projets en conteneur. Reconstruisez ou choisissez une image compatible avec sudo, puis lancez une nouvelle tâche. L’agent exécute directement les commandes, analyse les échecs et s’adapte dans les limites de la tâche.
+
+L’accès réseau reste distinct : open autorise les sources accessibles, allowlist-proxy les domaines HTTP/HTTPS permis, et none uniquement les sources locales disponibles. Les scripts de paquets ont des droits administratifs dans le conteneur ; les dossiers montés restent partagés avec le serveur. Les paquets système restent dans le même conteneur à la reprise ; un nouveau conteneur exige une nouvelle évaluation et installation.
+
+## Budgets du travail {#budgets}
+
+Le détail affiche **Lancements de l’exécuteur** (par exemple 9 / 20) et **Travail actif (secondes)** avec les limites actuelles du projet, indépendamment des statistiques de jetons. À 90 %, il signale une limite proche ; à la limite, il demande de l’augmenter avant la reprise. La limite initiale est 20 dans l’inscription et \`adore init\`.
+
+Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du projet**, ouvrir **Implémentation**, modifier uniquement les budgets, choisir **Enregistrer** et confirmer les valeurs exactes. Cet enregistrement révisé est permis pendant une attente de clarification, sans conducteur actif ni opération inachevée. Les autres paramètres gardent leurs contrôles habituels ; les développeurs restent en lecture seule.
+
+Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.
+
+Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.
+
+
+**Implémentation** (\`build\`) utilise \`workflow.stage_timeout_overrides\` ou \`budgets.per_gate_timeout_seconds\`. Avec AEGIS, **Validation** (\`validate\`) limite aussi la session de l’agent. ADORE ne lance aucun test supplémentaire ; l’agent choisit les contrôles locaux et CI selon les instructions du dépôt.
 `,Jz=`# Statistiques et coûts
 
 Statistiques montre le travail effectué par ADORE, ce qu’il a consommé et la solidité des résultats. Les coûts ne sont montrés qu’aux administrateurs, et les coûts estimés ne sont pas des factures.
@@ -2308,307 +2308,307 @@ Dans l’onglet Qualité, les administrateurs voient aussi **Coût par tâche do
 | Dev | Projets attribués uniquement ; pas de **Tous les projets** | Aucune. Les Dev voient le nombre de tâches, les jetons, la durée écoulée et les indicateurs de qualité, jamais un champ financier. |
 
 Les tarifs ne sont définis et visibles que par les administrateurs ; les Paramètres en lecture seule d’un Dev omettent les paramètres financiers.
-`,Qz=`# Tickets et prise en charge automatique\r
-\r
-ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab ou Gitea) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.\r
-\r
-\r
-Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.\r
-\r
-## Comment fonctionne la prise en charge {#how-pickup-works}\r
-\r
-Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.\r
-\r
-Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.\r
-\r
-Avant la prise en charge, ADORE ne vérifie AEGIS que si \`.agentic/aegis.py\` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).\r
-\r
-## Créer d’abord les étiquettes {#labels}\r
-\r
-GitHub et Gitea rejettent un nom d’étiquette inconnu : une étiquette manquante fait donc échouer les mises à jour d’état. Toutes les étiquettes ci-dessous doivent exister dans le dépôt de la forge avant la première exécution. ADORE crée celles qui manquent à l’ajout d’un projet (**Créer les étiquettes ADORE dans le dépôt**, cochée par défaut dans Révision et création) ou quand vous appuyez sur **Créer les étiquettes manquantes** dans Paramètres → Dépôt ; il ne modifie ni ne supprime jamais les étiquettes existantes et indique ce qu’il a créé, ce qui existait déjà et ce qui a échoué (par exemple si le compte forge du serveur ne peut pas créer d’étiquettes). Les noms sont des valeurs par défaut ; ne renommez une étiquette qu’avec son paramètre de projet.\r
-\r
-| Étiquette | Rôle |\r
-|---|---|\r
-| \`agent-ready\` | Vous l’ajoutez pour proposer un ticket à la prise en charge. ADORE la remplace par l’étiquette de travail au démarrage de la tâche. |\r
-| \`agent-working\` | ADORE la pose pendant qu’il travaille, publie et attend votre approbation. |\r
-| \`agent-clarify\` | ADORE la pose lorsqu’il a posé une question et attend une réponse. |\r
-| \`agent-answered\` | Vous l’ajoutez après avoir répondu à une question. |\r
-| \`agent-mr\` | ADORE la pose après avoir publié la MR/PR, pendant qu’il attend la revue humaine. |\r
-| \`agent-failed\` | ADORE la pose lorsqu’une tâche échoue. |\r
-| \`agent-done\` | ADORE la pose après qu’une personne a fusionné la MR/PR. |\r
-| \`agent-approved\` | Vous l’ajoutez sur le ticket pour approuver la publication du candidat présenté. |\r
-| \`agent-revise\` | Un relecteur l’ajoute sur la MR/PR pour demander un tour de révision. |\r
-\r
-À chaque mise à jour d’état, ADORE retire les étiquettes de cycle de vie qu’il n’applique pas ; toutes doivent donc exister. Ajouter à la main une étiquette d’état ne modifie pas la tâche.\r
-\r
-## Ce qui rend un ticket éligible {#eligible-tickets}\r
-\r
-Un ticket n’est pris en charge que si toutes les règles sont satisfaites. Elles sont vérifiées dans cet ordre :\r
-\r
-1. Le ticket est ouvert.\r
-2. Il porte l’étiquette de disponibilité (\`agent-ready\`).\r
-3. Il ne porte pas l’étiquette de blocage (\`agent-hold\`). Retirer l’étiquette de blocage rend de nouveau le ticket éligible.\r
-4. Il ne porte pas l’étiquette d’exclusion (\`no-agent\`, paramètre **Étiquette d’exclusion de la prise en charge**). Elle l’emporte sur l’étiquette de disponibilité. La retirer rétablit l’éligibilité ; l’ajouter n’arrête pas une tâche déjà démarrée.\r
-5. ADORE n’a pas encore de tâche pour ce ticket.\r
-6. Il porte une étiquette de priorité : \`P1\`, \`P2\` ou \`P3\`. **Exiger une étiquette de priorité sur le ticket** est activé par défaut.\r
-7. Si **Exiger des critères d’acceptation sur le ticket** est activé, la description contient les mots acceptance criteria (sans distinction de casse) ou un élément de tâche non coché, \`- [ ]\`. Cette vérification est désactivée par défaut.\r
-\r
-Des étiquettes facultatives orientent la tâche : \`bug\` ou \`fix\` donne une tâche de correction, \`change\` une tâche de modification, et tout autre ticket une tâche de fonctionnalité. \`agent-quick\` n’est qu’une indication ; l’exécuteur choisit entre le chemin complet et le chemin rapide et en consigne la raison.\r
-\r
-## Examiner et démarrer les tickets {#tickets-view}\r
-\r
-Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes deux sous-onglets et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.\r
-\r
-Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :\r
-\r
-| État | Signification |\r
-|---|---|\r
-| Prêt à démarrer | Toutes les règles sont satisfaites. |\r
-| Étiquette ... manquante | L’étiquette de disponibilité est absente. |\r
-| En attente ou Exclu d’ADORE | L’étiquette de blocage ou d’exclusion est présente. |\r
-| Étiquette de priorité manquante | Aucune étiquette de priorité. |\r
-| Critères d’acceptation manquants | Le texte requis est introuvable. |\r
-| A une tâche ou Tâche : ... | ADORE a déjà une tâche ; son état est affiché. |\r
-| Non ouvert | Le ticket est fermé. |\r
-\r
-**Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.\r
-\r
-**Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.\r
-\r
-Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne, alignés à droite avec l’en-tête Actions. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.\r
-\r
-## Lire descriptions et commentaires {#reading-bodies}\r
-\r
-**Détails** ouvre par défaut descriptions et commentaires en Markdown **Rendu**. Titres, emphase, code, listes imbriquées, tâches en lecture seule, citations, tableaux et liens sont mis en forme ; une description vide conserve **Aucune description.**\r
-\r
-Utilisez **Affichage du contenu** à droite du titre **Description**, avec le libellé et le sélecteur sur une ligne pour choisir **Rendu** ou **Source Markdown** pour toutes les descriptions et tous les commentaires ouverts. La source montre le texte exact reçu du dépôt, espaces et sauts de ligne compris. Votre compte conserve un choix enregistré entre projets, rechargements et navigateurs ; un autre navigateur connecté le lit à sa prochaine connexion ou au rechargement. Si l’enregistrement échoue, une erreur apparaît et le dernier mode enregistré revient ; choisissez à nouveau pour réessayer.\r
-\r
-Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens absolus http, https et mailto sont cliquables et s’ouvrent séparément. Les images ne se chargent jamais automatiquement : **Image non chargée** et le texte alternatif éventuel les remplacent. Code, source et tableaux larges défilent dans leurs propres zones, accessibles au clavier. Les cases de tâches ne modifient pas le ticket.\r
-\r
-## Liste de contrôle pour un premier ticket {#checklist}\r
-\r
-1. Créez les neuf étiquettes dans le dépôt de la forge.\r
-2. Pour la prise en charge automatique, vérifiez la surveillance Active ; pour Démarrer manuellement, elle peut rester En pause.\r
-3. Rédigez un titre clair et une description avec des critères d’acceptation.\r
-4. Ajoutez une étiquette de priorité et, si vous le souhaitez, \`bug\`, \`fix\`, \`change\` ou \`agent-quick\`.\r
-5. Ajoutez \`agent-ready\` en dernier.\r
-6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.\r
-7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).\r
-`,Yz=`# Administrare\r
-\r
-Administrarea acoperă conturile de utilizator, accesul la proiecte, starea sistemului și evidența modificărilor. Este doar pentru administratori: un Dev nu vede meniul Administrare, iar un Dev care deschide una dintre adresele lui este dus la Prezentare generală.\r
-\r
-> Tot ce se află pe această pagină cere rolul de Administrator.\r
-\r
-\r
-Un semnal recent arată că lucrătorul este disponibil. **Ocupat** înseamnă că execută o comandă sau verifică un proiect; **Activitate necunoscută** înseamnă că dovada lipsește. Un singur lucrător tratează proiectele și comenzile pe rând. Un semnal de anulare autorizat poate ajunge mai devreme la o lucrare activă.\r
-\r
-## Utilizatori {#users}\r
-\r
-Sub **Administrare**, deschideți [Utilizatori](/admin/users). Pagina are un panou **Adaugă utilizator** și o listă **Utilizatori**.\r
-\r
-Pentru a crea un cont:\r
-\r
-1. Alegeți **Adaugă utilizator** deasupra listei pentru a deschide formularul de creare. Introduceți **Utilizator** și **Parolă** (cel puțin 8 caractere), apoi introduceți aceeași valoare în **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund fiecare câmp. Alegeți **Continuă la acces**. După **Corectează identitatea**, completați din nou confirmarea. Parola este omisă din revizuire.\r
-2. Alegeți **Rol** și, pentru un Dev, proiectele. **Admin** acordă toate proiectele curente și viitoare, administrarea sistemului și costurile. **Dev** acordă doar proiectele bifate, fiecare listat cu numele, forge-ul și calea repository-ului. Pentru a crea un Dev fără niciun proiect, bifați intenționat **Creează Dev fără acces la proiecte**.\r
-3. Alegeți **Revizuiește contul**, verificați identitatea și accesul exact, apoi alegeți **Creează contul revizuit**. **Corectează identitatea** și **Corectează accesul** vă readuc înapoi fără a crea nimic.\r
-\r
-Contul și accesul lui se creează împreună sau deloc. Un nume de utilizator duplicat sau un proiect schimbat între timp respinge cererea; corectați și revizuiți din nou.\r
-\r
-În lista **Utilizatori**, fiecare cont oferă aceste acțiuni.\r
-\r
-- **Proiecte atribuite** (conturi Dev): bifați sau debifați proiecte, alegeți **Salvează**, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. **Corectează accesul** anulează revizuirea.\r
-- **Dezactivează** sau **Activează**: un cont dezactivat nu se poate autentifica, iar sesiunile lui se încheie. Nu vă puteți dezactiva propriul cont, iar ultimul administrator activ nu poate fi dezactivat.\r
-- **Resetează parola**: alegeți acțiunea din rândul contului. Verificați numele contului, introduceți o **Parola nouă** de cel puțin 8 caractere și completați **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund valorile. Alegeți **Salvează** când parolele coincid sau **Închide** pentru a renunța la datele introduse. Salvarea închide sesiunile contului și cere o parolă nouă la următoarea autentificare. Nu există recuperare prin e-mail.\r
-\r
-## Accesul la proiecte {#project-access}\r
-\r
-Fila **Acces** a unui proiect listează fiecare cont de dezvoltator cu **Are acces** sau **Fără acces**. Alegeți **Acordă acces** sau **Retrage accesul** lângă un dezvoltator, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. Modificarea nu afectează celelalte proiecte ale dezvoltatorului și este înregistrată în Istoricul modificărilor. Lista de acces se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă.\r
-\r
-Un dezvoltator cu acces vede proiectul și îi poate porni, reîncerca sau anula lucrările. Administratorii au întotdeauna acces.\r
-\r
-## Starea sistemului {#system-status}\r
-\r
-Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actualizează singură.\r
-\r
-- **Lucrătorul de control** afișează **Pregătit** în repaus, **Ocupat** în lucru, **Activitate necunoscută** fără dovadă, **Indisponibil**, **Verificarea stării a eșuat** sau **Se verifică…**. Un semnal recent nu confirmă accesul la forge, executori sau modele.\r
-- **Stocare** afișează **Spațiu disponibil**, **Spațiu pe disc redus** sau **Verificarea stocării a eșuat**. Măsoară spațiul liber pe disc pentru baza de date de conturi ADORE și pentru dosarul de stare al lucrărilor fiecărui proiect, grupat pe volum fizic. Un singur disc partajat primește o singură linie; mai multe discuri primesc un tabel **Volum**, **Liber** și **Stare**. Sub 1 GiB liber se consideră redus, iar o măsurătoare eșuată nu este afișată niciodată ca spațiu liber.\r
-- **Păstrarea auditului** stabilește cât timp se păstrează istoricul modificărilor. Limitele curente (sau **Nelimitat**) apar deasupra formularului. Setați **Păstrează (zile)** (zile întregi, de la 0 la 36500) și **Limită date audit (MiB)** (de la 0 la 1024, fracții permise) și alegeți **Salvează**. Zero sau gol înseamnă nelimitat. Cele două limite se aplică independent, iar cele mai vechi evenimente sunt eliminate primele. Notificarea de după salvare raportează câte evenimente au fost șterse. Limita de dimensiune numără textul de audit stocat, nu fișierul bazei de date de pe disc. Lucrările, jurnalele de execuție și conturile se păstrează.\r
-\r
-## Istoricul modificărilor {#change-history}\r
-\r
-Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În Istoricul modificărilor global, **Actualizează** reîncarcă imediat lista.\r
-\r
-Istoricul identifică tichetele și lucrările separat de numerele operațiilor. O operație eșuată apare ca **Eșuat**, iar una refuzată ca **Respins**. Ștergerile din CLI au autorul CLI și rămân vizibile după eliminarea lucrării. O ștergere întreruptă rămâne **Incert** până la confirmarea rezultatului.\r
-\r
-Filtre:\r
-\r
-- **ID autor**: numărul afișat lângă numele unui cont.\r
-- **Proiect**: orice proiect sau **Toate proiectele**.\r
-- **Tip modificare**: codul exact al acțiunii.\r
-- **De la (UTC)** include momentul indicat; **Până la (UTC, exclusiv)** nu îl include.\r
-\r
-Alegeți **Aplică filtre**; aceasta revine la prima pagină. Pagina raportează câte evenimente s-au potrivit, iar **Rânduri pe pagină** oferă 10, 25, 50 sau Toate, cu **Anterior** și **Următor**.\r
-\r
-Fiecare rând afișează **Cine**, **Ce**, **Când** și **Rezultat**: **Pregătit**, **Aplicat**, **Eliminat**, **Respins** sau **Incert**. Pregătit înseamnă că un candidat a fost pregătit, nu aplicat. **Incert** înseamnă că gazda nu a putut confirma finalizarea; inspectați resursa reală înainte de a recupera. **Dovadă** deschide un rând sub eveniment cu **Înainte**, **După / candidat**, **Operație**, precum și **Revizie de bază** și **Revizie candidat** când sunt înregistrate. **Valoarea anterioară nu a fost înregistrată** înseamnă necunoscut, nu gol. Parolele și valorile de mediu nu sunt afișate niciodată.\r
-\r
-Istoricul modificărilor se păstrează nelimitat, cu excepția cazului în care setați limite în [Starea sistemului](#system-status). Nu există descărcare sau export al istoricului modificărilor. Un Dev vede modificările operaționale doar pentru proiectele atribuite; evenimentele de cont, acces, preț și politică rămân la administratori.\r
-`,$z=`# Executori și modele\r
-\r
-Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de programare Pi și modelul AI pe care îl folosește. Administratorii aleg modelul în Setările unui proiect.\r
-\r
-\r
-**Efort de raționament** oferă nivelurile acceptate de model în catalogul Pi inclus. Implicit Pi lasă alegerea în seama Pi. Modelele nelistate și endpointurile proprii nu pot pretinde niveluri neconfirmate. Alegerea se aplică lucrărilor și testului conexiunii AI.\r
-\r
-## Ce este un executor {#what}\r
-\r
-Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. ADORE folosește Pi din imagine pentru lucrările în container și instalarea Pi administrată de ADORE pentru lucrările pe server.\r
-\r
-## Alegerea furnizorului și a modelului {#agent-and-model}\r
-\r
-Deschideți **Setări → Agent și model**. Editați împreună **Furnizor**, **Model** și, pentru un endpoint, **URL de bază al endpointului** și **Tip API al endpointului** ca o singură modificare revizuită.\r
-\r
-- **Furnizor**: unul dintre furnizorii Pi cu cheie API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral și alții), **Abonament ChatGPT** sau **Endpoint compatibil OpenAI**.\r
-- **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu \`gpt-5.4\`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.\r
-- **Abonament ChatGPT**: Pi folosește contul ChatGPT Plus sau Pro cu care este autentificat acest server ADORE, vezi [Autentificare cu ChatGPT](#chatgpt). Lista conține modelele servite de un abonament ChatGPT, de exemplu \`gpt-5.6-luna\`.\r
-\r
-**Salvează** scrie împreună setările editate după confirmarea efectelor importante; vezi [Setările proiectului](/help/settings#editing) pentru pauza monitorizării. ADORE pornește un proces Pi nou la fiecare etapă și îl oprește la expirarea timpului sau la anulare.\r
-\r
-## Endpoint compatibil OpenAI {#endpoint}\r
-\r
-Pentru un model servit în propria rețea, de exemplu LM Studio, Ollama sau vLLM, alegeți **Endpoint compatibil OpenAI** și completați:\r
-\r
-- **Adresa de bază a endpointului**: adresa așa cum o vede Pi. Pentru **Container**, adresa este cea văzută din container; pentru o lucrare locală, este cea văzută de server.\r
-- **Tipul API al endpointului**: \`openai-completions\` pentru LM Studio, Ollama și vLLM; sunt acceptate și \`openai-responses\`, \`anthropic-messages\` și \`google-generative-ai\`.\r
-- **Model**: ID-ul modelului servit de endpoint.\r
-\r
-Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu [accesul la internet](#internet) dezactivat, ADORE permite singur adresa endpointului. Un endpoint este disponibil atât în container, cât și pe server.\r
-\r
-## Autentificare {#credentials}\r
-\r
-Deschideți **Autentificare** în același grup.\r
-\r
-- **Cheia API a furnizorului.** Panoul numește variabila de care are nevoie furnizorul configurat, de exemplu OPENAI_API_KEY pentru OpenAI sau ANTHROPIC_API_KEY pentru Anthropic. Introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o păstrează privat în depozitul de credențiale al proiectului pe server, niciodată în fișierul de configurare, o transmite lui Pi doar ca acea variabilă și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Schimbarea unei chei cere monitorizarea oprită, un proiect inactiv și nicio propunere în așteptare și nu testează cheia.\r
-- **Proiecte pe server.** Salvați **Cheia API a furnizorului** dacă este necesară. ADORE ignoră autentificarea Pi personală. Folosiți [autentificarea ChatGPT](#chatgpt) comună pentru abonament pe Windows sau Linux, inclusiv WSL2.\r
-- **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE poartă eticheta **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.\r
-- **Cheia de căutare web.** Cu accesul la internet activat și căutarea web Brave sau Tavily, panoul listează și BRAVE_API_KEY sau TAVILY_API_KEY, salvată la fel, și pentru un abonament ChatGPT.\r
-- **Variabile de autentificare suplimentare.** Doar nume (**Adaugă o variabilă de autentificare**) ale unor secrete suplimentare primite de Pi pe lângă cheia furnizorului; majoritatea proiectelor nu au nevoie de ele.\r
-\r
-Valorile credențialelor nu apar niciodată în fișierul de configurare, în revizuiri, în înregistrările de audit, în jurnale sau în exporturi.\r
-\r
-## Autentificare cu ChatGPT {#chatgpt}\r
-\r
-Un singur cont ChatGPT Plus sau Pro servește toate proiectele de pe acest server ADORE al căror furnizor este **Abonament ChatGPT**. Administratorii se autentifică în **Autentificare** a unui astfel de proiect; ADORE rulează autentificarea OpenAI a lui Pi, deci serverul nu are nevoie de browser.\r
-\r
-Pe serverul nativ, Pi poate primi direct redirecționarea browserului, iar ADORE afișează automat finalizarea. Dacă rămâne în așteptare, folosiți pașii manuali de redirecționare de mai jos.\r
-\r
-1. Alegeți **Autentificare cu ChatGPT**.\r
-2. Deschideți **Deschide pagina de autentificare ChatGPT** pe calculatorul dumneavoastră și autentificați-vă cu contul ChatGPT. Linkul este valabil 15 minute.\r
-3. Browserul afișează apoi o pagină de eroare la \`127.0.0.1:1455\`. Este normal: copiați adresa completă din bara de adrese.\r
-4. Lipiți-o în **Adresa de redirecționare** și alegeți **Finalizează autentificarea**.\r
-\r
-Starea este **Autentificat**, **Neautentificat** sau **Autentifică-te din nou**. **Autentifică-te din nou** înseamnă că OpenAI nu mai acceptă autentificarea salvată; lucrările eșuează până când un administrator se autentifică din nou. O adresă de la un link mai vechi este refuzată, iar autentificarea așteaptă în continuare; **Anulează** o încheie. Când OpenAI refuză contul, de exemplu pentru că abonamentul lui nu poate fi partajat, autentificarea se încheie cu acest motiv. **Deconectează ChatGPT** șterge autentificarea salvată.\r
-\r
-Autentificarea rămâne într-un dosar privat pe serverul ADORE. Înaintea fiecărei etape, ADORE obține din ea un token de acces nou, valabil aproximativ o oră, și transmite lui Pi doar acest token; autentificarea însăși nu intră niciodată în containerul lucrării. Proiectele ChatGPT rulează în containere sau nativ pe Windows/Linux, inclusiv WSL2. Autentificarea nativă folosește Pi administrat de ADORE fără Docker; containerele folosesc imaginea curentă a executorului ADORE. Limitele etapelor sunt de cel mult 3000 de secunde în ambele medii. Doar administratorii văd sau modifică autentificarea; înregistrările de audit numesc acțiunea, niciodată un token sau o adresă.\r
-\r
-> ADORE este gratuit astăzi. Oferirea lui ca serviciu găzduit sau plătit cu autentificare ChatGPT ar necesita mai întâi formularul de interes al OpenAI.\r
-\r
-## Testarea conexiunii AI {#test-connection}\r
-\r
-Administratorii aleg **Testează conexiunea AI** la **Conexiune AI**. Testul pornește Pi o dată într-un container temporar, sau într-un dosar temporar pentru Pi instalat pe server, îi cere să ruleze o comandă shell și apoi să răspundă cu un text fix și poate genera costuri la furnizor. Proiectul trebuie să fie inactiv, cu setări salvate valide și fără propunere în așteptare; pentru un proiect în container, imaginea configurată trebuie să existe pe server.\r
-\r
-Rezultatul este **Model AI conectat** doar dacă comanda shell a rulat și răspunsul a sosit. Altfel, **Conexiunea AI nu a putut fi verificată** vine cu îndrumări proprii pentru: nicio credențială salvată, nicio autentificare ChatGPT, un abonament ChatGPT care nu poate fi partajat, o limită de utilizare ChatGPT atinsă, o cheie respinsă de furnizor, un furnizor sau endpoint la care Pi nu a putut ajunge, un model necunoscut furnizorului sau endpointului, o limită de rată, altă eroare a furnizorului, depășirea timpului, o imagine sau un Pi lipsă, ori o comandă shell pe care Pi nu a putut-o rula. Nu pornește nicio lucrare. Rezultatul salvat este legat de furnizorul, modelul, setările și credențialele actuale și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.\r
-\r
-## Acces la internet pentru agent {#internet}\r
-\r
-**Acces la internet pentru agent** din Setări → Agent și model decide ce poate accesa containerul unei lucrări. Implicit este **Dezactivat**.\r
-\r
-- **Dezactivat**: containerul ajunge doar la furnizorul modelului. ADORE permite singur adresele furnizorului, pentru un endpoint compatibil OpenAI adresa acestuia, printr-un proxy de rețea separat pentru fiecare lucrare. Căutarea web, citirea paginilor și descărcările precum \`curl\`, \`npm install\` sau \`pip install\` eșuează, iar Pi este anunțat.\r
-- **Activat**: containerul are rețea deschisă. Pi poate căuta pe web, citi pagini și descărca biblioteci cu \`curl\`, \`npm\` sau \`pip\`.\r
-\r
-**Căutare web** alege serviciul de căutare cât timp accesul este activat: **Exa (fără cheie)**, implicit, **Brave (necesită cheie)**, **Tavily (necesită cheie)** sau **Niciuna** (fără căutare web sau citirea paginilor). Pentru Brave sau Tavily, salvați BRAVE_API_KEY sau TAVILY_API_KEY la **Autentificare**.\r
-\r
-> Cu accesul la internet activat, o pagină web rău intenționată ar putea încerca să facă agentul să trimită cheia API sau tokenul ChatGPT. Preferă chei limitate și de scurtă durată.\r
-\r
-Folosește **Salvează** pentru ambele setări și confirmă efectele importante. Cu accesul la internet dezactivat, imaginea proxyului trebuie să existe pe serverul ADORE; **Verifică cerințele gazdei** o raportează, la fel și cheia de căutare când este necesară. Pentru un proiect instalat pe server, comutatorul apare ca **Neaplicat**: Pi ajunge oriunde ajunge serverul.\r
-\r
-## Unde rulează lucrările {#where-jobs-run}\r
-\r
-| | Container | Execuție locală nativă |\r
-|---|---|---|\r
-| Rulează în | Un container Docker sau Podman temporar pe serverul ADORE | Chiar serverul ADORE, sub contul de sistem de operare al serviciului, într-un worktree dedicat |\r
-| Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |\r
-| Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia furnizorului sau un token temporar din autentificarea ChatGPT a serverului |\r
-| Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi administrat de ADORE cu setări și extensii proprii |\r
-| Izolare | Container; cu accesul la internet dezactivat ajunge doar la furnizorul modelului | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |\r
-| Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |\r
-\r
-**Instalat pe server** rulează Pi sub contul de sistem al serviciului ADORE. **PATH pentru uneltele proiectului** stabilește unde caută Pi uneltele. Un câmp gol folosește PATH-ul contului serviciului. Comanda de lansare este fixă.\r
-\r
-**Verifică cerințele gazdei** omite motorul de containere și verifică Node, instalarea Pi administrată și credențialele furnizorului ales.\r
-\r
-## Instalarea Pi pe server {#installed-executors}\r
-\r
-Rulați \`adore pi install\` și \`adore pi verify\` pe serverul ADORE sub contul serviciului. Folosiți Node 22.23.4 sau ulterior din seria 22.x, cu npm. Dacă Node nu este în PATH-ul serviciului, setați \`ADORE_NODE\` la calea sa absolută.\r
-\r
-Rulați din nou \`adore pi install\` când o versiune ADORE cere altă versiune Pi. Nu este nevoie de Pi global; setările și extensiile personale sunt ignorate.\r
-\r
-Windows folosește unealta PowerShell; în Linux administratorul serverului configurează o rădăcină cgroup v2 delegată. Pi nu cere permisiuni. Folosiți un cont de sistem dedicat.\r
-\r
-## Imaginea proiectului {#project-image}\r
-\r
-Pentru un proiect cu container, Setări → Agent și model afișează **Executorul rulează într-un container**, **Imagine utilizată** și o secțiune **Instrucțiuni pentru pregătirea mediului**. Interfața web nu definește și nu construiește imaginea, iar adăugarea unui Dockerfile în repository nu pornește nicio construire. Administratorul o pregătește pe server:\r
-\r
-1. Creați \`executor/Dockerfile\` în repository, pornind de la imaginea de bază ADORE, fără credențiale. Imaginea de bază conține deja Python, sh și Pi la versiunea fixată.\r
-2. Construiți-o cu Docker sau Podman de pe server și verificați versiunile uneltelor.\r
-3. Selectați imaginea în interfața web, așa cum este descris mai jos, sau, cu monitorizarea în pauză și fără lucrări active, setați \`execution.backend\`, \`container.image\` și \`container.required_tool_checks\` în \`config.toml\` al proiectului (administratorii văd calea lui în secțiunea de instrucțiuni), apoi validați profilul.\r
-\r
-\`\`\`\r
-FROM adore-executor-base:1.0.0\r
-USER root\r
-# RUN ... install the project's system tools\r
-USER adore\r
-\`\`\`\r
-\r
-Pentru a folosi imaginea, alegeți **Motor de containere** (Docker sau Podman) și **Imagine executor** la pasul 2 al înrolării sau modificați aceleași rânduri în Setări. Imaginea este un câmp liber cu sugestii citite din imaginile de pe serverul ADORE pentru acel motor (doar administratori); apare un aviz când imaginea introdusă nu este pe server și altul când lista nu poate fi citită.\r
-\r
-În Setări, editează **Motor de containere** ca să alegi Docker sau Podman detectat pe server, inclusiv în WSL pe Windows. Alege **Comandă manuală pentru container** ca să introduci propria comandă, apoi apasă **Salvează**. Verificarea cerințelor gazdei caută Pi în imaginea aleasă.\r
-\r
-Pentru o comandă WSL personalizată, puneți \`--\` sau \`--exec\` înaintea comenzii containerului. Opțiunile standard Docker și Podman sunt tratate automat.\r
-\r
-Apoi confirmați cu **Verifică cerințele gazdei** și **Testează conexiunea AI**.\r
-\r
-## Pachete de sistem {#system-packages}\r
-\r
-Un administrator poate revizui **Permite agentului instalarea pachetelor de sistem** în **Setări → Agent și model**. Implicit este oprită și este disponibilă doar pentru containere. Pi poate instala direct cu \`sudo -n\`, citi rezultatele și adapta pașii în limitele lucrării. **Acces la internet pentru agent** rămâne o alegere separată; când este oprit, sursele externe cer o gazdă permisă. Folosiți o imagine cu sudo, puneți monitorizarea în pauză și așteptați încheierea lucrului activ înainte de aplicare, apoi porniți o lucrare nouă. Pachetele rămân în acel container și nu modifică imaginea.\r
-`,Xz=`# Glosar\r
-\r
-Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.\r
-\r
-Aceștia sunt termenii folosiți în interfața web ADORE și în aceste subiecte de ajutor.\r
-\r
-## Termeni {#terms}\r
-\r
-| Termen | Semnificație |\r
-|---|---|\r
-| Lucrare | Un tichet din repository, lucrat și verificat într-un mediu izolat. |\r
-| Proiect înrolat | Un repository existent configurat pe gazda ADORE, cu acces acordat echipei sale. |\r
-| Monitorizare | Setarea unui proiect pentru preluarea tichetelor noi, afișată ca **Activă** sau **În pauză**. Administratorii o schimbă cu **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. |\r
-| Preluare oprită | ADORE nu mai preia tichete noi pentru acest proiect. Aceasta nu pune în pauză o lucrare activă. Este starea pe care Monitorizarea o afișează ca **În pauză**. |\r
-| Tichet | O sarcină (issue) de pe forge. ADORE o preia când poartă eticheta ready a proiectului și o etichetă de prioritate, nu este blocată sau exclusă și are criterii de acceptare, dacă proiectul le cere. |\r
-| Agent de programare / Executor | Instrumentul AI în linie de comandă care face munca pentru o lucrare într-un mediu izolat: Pi, singurul agent de programare pe care îl rulează ADORE. Nu are credențiale forge și nu face niciodată commit sau push și nu deschide ori integrează un MR/PR. |\r
-| Model | ID-ul modelului la furnizorul ales, de exemplu gpt-5.4 pentru OpenAI. Se setează împreună cu furnizorul în Setări → Agent și model, iar prețurile estimate aparțin unei perechi executor–model. |\r
-| AEGIS | Fluxul instalat în repository care încadrează, specifică, proiectează, construiește și validează o modificare. ADORE îl conduce o etapă pe rând (Încadrare, Specificare, Proiectare, Construire, Validare) și publică rezultatul aprobat; o modificare mică poate sări peste Specificare și Proiectare. |\r
-| Flux direct | Un repository fără AEGIS este implementat direct de agent. Agentul își conduce verificările; ADORE urmărește progresul și cere aprobarea umană. |\r
-| Candidat | Rezultatul validat al unei lucrări, pe care ADORE îl prezintă spre aprobare, identificat printr-o amprentă și commit-ul țintă. Aprobarea se aplică exact acelui candidat și expiră dacă se schimbă candidatul sau ramura sa țintă. |\r
-| Așteaptă clarificări | Agentul are nevoie de un răspuns pentru a continua. Răspundeți la întrebarea sa în tichetul din repository. |\r
-| Așteaptă aprobarea | Rezultatul este validat și așteaptă autorizarea publicării de către o persoană. Aprobarea se înregistrează pe forge pentru candidatul curent. |\r
-| MR/PR ciornă | Cererea MR/PR deschisă după validare și aprobarea necesară. Oamenii o revizuiesc. |\r
-| Revizie umană | Un MR/PR este disponibil pentru revizie umană. Integrarea rămâne o decizie umană. |\r
-| Rundă de revizie | O nouă trecere a agentului după modificări cerute sau erori CI. Fiecare rundă repetă validarea și respectă politica de aprobare. |\r
-| Forge | Platforma de găzduire unde se află tichetele, etichetele, aprobările și MR/PR-urile: GitHub, GitLab sau Gitea. |\r
-\r
-> ADORE nu are nicio operație de integrare. Integrarea este întotdeauna decizia unei persoane, pe forge.\r
+`,Qz=`# Tickets et prise en charge automatique
+
+ADORE prend en charge les tickets de votre dépôt sur la forge (GitHub, GitLab ou Gitea) lorsqu’ils portent les bonnes étiquettes, et vous pouvez aussi en démarrer un à la main. Cet article couvre les étiquettes, l’éligibilité et la vue Tickets.
+
+
+Les tickets portant le label de type épopée configuré ne sont ni sélectionnés ni démarrés. Démarrer reste disponible pour les tickets éligibles quand la surveillance est en pause.
+
+## Comment fonctionne la prise en charge {#how-pickup-works}
+
+Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En pause** dans le tableau Projets et dans l’onglet Résumé du projet. Tant que la surveillance est Active, ADORE interroge le dépôt à intervalle régulier pour trouver des tickets prêts (60 secondes par défaut ; voir **Intervalle de scrutation (secondes)** dans [Paramètres du projet](/help/settings)). Il prend en premier le ticket éligible de plus haute priorité (P1, puis P2, puis P3), puis le plus petit numéro, et fait avancer une tâche à la fois.
+
+Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
+
+Avant la prise en charge, ADORE ne vérifie AEGIS que si \`.agentic/aegis.py\` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).
+
+## Créer d’abord les étiquettes {#labels}
+
+GitHub et Gitea rejettent un nom d’étiquette inconnu : une étiquette manquante fait donc échouer les mises à jour d’état. Toutes les étiquettes ci-dessous doivent exister dans le dépôt de la forge avant la première exécution. ADORE crée celles qui manquent à l’ajout d’un projet (**Créer les étiquettes ADORE dans le dépôt**, cochée par défaut dans Révision et création) ou quand vous appuyez sur **Créer les étiquettes manquantes** dans Paramètres → Dépôt ; il ne modifie ni ne supprime jamais les étiquettes existantes et indique ce qu’il a créé, ce qui existait déjà et ce qui a échoué (par exemple si le compte forge du serveur ne peut pas créer d’étiquettes). Les noms sont des valeurs par défaut ; ne renommez une étiquette qu’avec son paramètre de projet.
+
+| Étiquette | Rôle |
+|---|---|
+| \`agent-ready\` | Vous l’ajoutez pour proposer un ticket à la prise en charge. ADORE la remplace par l’étiquette de travail au démarrage de la tâche. |
+| \`agent-working\` | ADORE la pose pendant qu’il travaille, publie et attend votre approbation. |
+| \`agent-clarify\` | ADORE la pose lorsqu’il a posé une question et attend une réponse. |
+| \`agent-answered\` | Vous l’ajoutez après avoir répondu à une question. |
+| \`agent-mr\` | ADORE la pose après avoir publié la MR/PR, pendant qu’il attend la revue humaine. |
+| \`agent-failed\` | ADORE la pose lorsqu’une tâche échoue. |
+| \`agent-done\` | ADORE la pose après qu’une personne a fusionné la MR/PR. |
+| \`agent-approved\` | Vous l’ajoutez sur le ticket pour approuver la publication du candidat présenté. |
+| \`agent-revise\` | Un relecteur l’ajoute sur la MR/PR pour demander un tour de révision. |
+
+À chaque mise à jour d’état, ADORE retire les étiquettes de cycle de vie qu’il n’applique pas ; toutes doivent donc exister. Ajouter à la main une étiquette d’état ne modifie pas la tâche.
+
+## Ce qui rend un ticket éligible {#eligible-tickets}
+
+Un ticket n’est pris en charge que si toutes les règles sont satisfaites. Elles sont vérifiées dans cet ordre :
+
+1. Le ticket est ouvert.
+2. Il porte l’étiquette de disponibilité (\`agent-ready\`).
+3. Il ne porte pas l’étiquette de blocage (\`agent-hold\`). Retirer l’étiquette de blocage rend de nouveau le ticket éligible.
+4. Il ne porte pas l’étiquette d’exclusion (\`no-agent\`, paramètre **Étiquette d’exclusion de la prise en charge**). Elle l’emporte sur l’étiquette de disponibilité. La retirer rétablit l’éligibilité ; l’ajouter n’arrête pas une tâche déjà démarrée.
+5. ADORE n’a pas encore de tâche pour ce ticket.
+6. Il porte une étiquette de priorité : \`P1\`, \`P2\` ou \`P3\`. **Exiger une étiquette de priorité sur le ticket** est activé par défaut.
+7. Si **Exiger des critères d’acceptation sur le ticket** est activé, la description contient les mots acceptance criteria (sans distinction de casse) ou un élément de tâche non coché, \`- [ ]\`. Cette vérification est désactivée par défaut.
+
+Des étiquettes facultatives orientent la tâche : \`bug\` ou \`fix\` donne une tâche de correction, \`change\` une tâche de modification, et tout autre ticket une tâche de fonctionnalité. \`agent-quick\` n’est qu’une indication ; l’exécuteur choisit entre le chemin complet et le chemin rapide et en consigne la raison.
+
+## Examiner et démarrer les tickets {#tickets-view}
+
+Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes deux sous-onglets et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.
+
+Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
+
+| État | Signification |
+|---|---|
+| Prêt à démarrer | Toutes les règles sont satisfaites. |
+| Étiquette ... manquante | L’étiquette de disponibilité est absente. |
+| En attente ou Exclu d’ADORE | L’étiquette de blocage ou d’exclusion est présente. |
+| Étiquette de priorité manquante | Aucune étiquette de priorité. |
+| Critères d’acceptation manquants | Le texte requis est introuvable. |
+| A une tâche ou Tâche : ... | ADORE a déjà une tâche ; son état est affiché. |
+| Non ouvert | Le ticket est fermé. |
+
+**Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.
+
+**Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.
+
+Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne, alignés à droite avec l’en-tête Actions. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.
+
+## Lire descriptions et commentaires {#reading-bodies}
+
+**Détails** ouvre par défaut descriptions et commentaires en Markdown **Rendu**. Titres, emphase, code, listes imbriquées, tâches en lecture seule, citations, tableaux et liens sont mis en forme ; une description vide conserve **Aucune description.**
+
+Utilisez **Affichage du contenu** à droite du titre **Description**, avec le libellé et le sélecteur sur une ligne pour choisir **Rendu** ou **Source Markdown** pour toutes les descriptions et tous les commentaires ouverts. La source montre le texte exact reçu du dépôt, espaces et sauts de ligne compris. Votre compte conserve un choix enregistré entre projets, rechargements et navigateurs ; un autre navigateur connecté le lit à sa prochaine connexion ou au rechargement. Si l’enregistrement échoue, une erreur apparaît et le dernier mode enregistré revient ; choisissez à nouveau pour réessayer.
+
+Le HTML reste du texte visible, jamais du contenu exécutable. Seuls les liens absolus http, https et mailto sont cliquables et s’ouvrent séparément. Les images ne se chargent jamais automatiquement : **Image non chargée** et le texte alternatif éventuel les remplacent. Code, source et tableaux larges défilent dans leurs propres zones, accessibles au clavier. Les cases de tâches ne modifient pas le ticket.
+
+## Liste de contrôle pour un premier ticket {#checklist}
+
+1. Créez les neuf étiquettes dans le dépôt de la forge.
+2. Pour la prise en charge automatique, vérifiez la surveillance Active ; pour Démarrer manuellement, elle peut rester En pause.
+3. Rédigez un titre clair et une description avec des critères d’acceptation.
+4. Ajoutez une étiquette de priorité et, si vous le souhaitez, \`bug\`, \`fix\`, \`change\` ou \`agent-quick\`.
+5. Ajoutez \`agent-ready\` en dernier.
+6. Attendez la prochaine vérification, ou appuyez sur **Lire les tickets** puis **Démarrer**.
+7. Suivez la tâche dans [Cycle de vie d’une tâche](/help/jobs). Les termes sont dans le [Glossaire](/help/glossary).
+`,Yz=`# Administrare
+
+Administrarea acoperă conturile de utilizator, accesul la proiecte, starea sistemului și evidența modificărilor. Este doar pentru administratori: un Dev nu vede meniul Administrare, iar un Dev care deschide una dintre adresele lui este dus la Prezentare generală.
+
+> Tot ce se află pe această pagină cere rolul de Administrator.
+
+
+Un semnal recent arată că lucrătorul este disponibil. **Ocupat** înseamnă că execută o comandă sau verifică un proiect; **Activitate necunoscută** înseamnă că dovada lipsește. Un singur lucrător tratează proiectele și comenzile pe rând. Un semnal de anulare autorizat poate ajunge mai devreme la o lucrare activă.
+
+## Utilizatori {#users}
+
+Sub **Administrare**, deschideți [Utilizatori](/admin/users). Pagina are un panou **Adaugă utilizator** și o listă **Utilizatori**.
+
+Pentru a crea un cont:
+
+1. Alegeți **Adaugă utilizator** deasupra listei pentru a deschide formularul de creare. Introduceți **Utilizator** și **Parolă** (cel puțin 8 caractere), apoi introduceți aceeași valoare în **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund fiecare câmp. Alegeți **Continuă la acces**. După **Corectează identitatea**, completați din nou confirmarea. Parola este omisă din revizuire.
+2. Alegeți **Rol** și, pentru un Dev, proiectele. **Admin** acordă toate proiectele curente și viitoare, administrarea sistemului și costurile. **Dev** acordă doar proiectele bifate, fiecare listat cu numele, forge-ul și calea repository-ului. Pentru a crea un Dev fără niciun proiect, bifați intenționat **Creează Dev fără acces la proiecte**.
+3. Alegeți **Revizuiește contul**, verificați identitatea și accesul exact, apoi alegeți **Creează contul revizuit**. **Corectează identitatea** și **Corectează accesul** vă readuc înapoi fără a crea nimic.
+
+Contul și accesul lui se creează împreună sau deloc. Un nume de utilizator duplicat sau un proiect schimbat între timp respinge cererea; corectați și revizuiți din nou.
+
+În lista **Utilizatori**, fiecare cont oferă aceste acțiuni.
+
+- **Proiecte atribuite** (conturi Dev): bifați sau debifați proiecte, alegeți **Salvează**, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. **Corectează accesul** anulează revizuirea.
+- **Dezactivează** sau **Activează**: un cont dezactivat nu se poate autentifica, iar sesiunile lui se încheie. Nu vă puteți dezactiva propriul cont, iar ultimul administrator activ nu poate fi dezactivat.
+- **Resetează parola**: alegeți acțiunea din rândul contului. Verificați numele contului, introduceți o **Parola nouă** de cel puțin 8 caractere și completați **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund valorile. Alegeți **Salvează** când parolele coincid sau **Închide** pentru a renunța la datele introduse. Salvarea închide sesiunile contului și cere o parolă nouă la următoarea autentificare. Nu există recuperare prin e-mail.
+
+## Accesul la proiecte {#project-access}
+
+Fila **Acces** a unui proiect listează fiecare cont de dezvoltator cu **Are acces** sau **Fără acces**. Alegeți **Acordă acces** sau **Retrage accesul** lângă un dezvoltator, comparați **Înainte** și **După**, apoi alegeți **Aplică accesul revizuit**. Modificarea nu afectează celelalte proiecte ale dezvoltatorului și este înregistrată în Istoricul modificărilor. Lista de acces se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă.
+
+Un dezvoltator cu acces vede proiectul și îi poate porni, reîncerca sau anula lucrările. Administratorii au întotdeauna acces.
+
+## Starea sistemului {#system-status}
+
+Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actualizează singură.
+
+- **Lucrătorul de control** afișează **Pregătit** în repaus, **Ocupat** în lucru, **Activitate necunoscută** fără dovadă, **Indisponibil**, **Verificarea stării a eșuat** sau **Se verifică…**. Un semnal recent nu confirmă accesul la forge, executori sau modele.
+- **Stocare** afișează **Spațiu disponibil**, **Spațiu pe disc redus** sau **Verificarea stocării a eșuat**. Măsoară spațiul liber pe disc pentru baza de date de conturi ADORE și pentru dosarul de stare al lucrărilor fiecărui proiect, grupat pe volum fizic. Un singur disc partajat primește o singură linie; mai multe discuri primesc un tabel **Volum**, **Liber** și **Stare**. Sub 1 GiB liber se consideră redus, iar o măsurătoare eșuată nu este afișată niciodată ca spațiu liber.
+- **Păstrarea auditului** stabilește cât timp se păstrează istoricul modificărilor. Limitele curente (sau **Nelimitat**) apar deasupra formularului. Setați **Păstrează (zile)** (zile întregi, de la 0 la 36500) și **Limită date audit (MiB)** (de la 0 la 1024, fracții permise) și alegeți **Salvează**. Zero sau gol înseamnă nelimitat. Cele două limite se aplică independent, iar cele mai vechi evenimente sunt eliminate primele. Notificarea de după salvare raportează câte evenimente au fost șterse. Limita de dimensiune numără textul de audit stocat, nu fișierul bazei de date de pe disc. Lucrările, jurnalele de execuție și conturile se păstrează.
+
+## Istoricul modificărilor {#change-history}
+
+Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În Istoricul modificărilor global, **Actualizează** reîncarcă imediat lista.
+
+Istoricul identifică tichetele și lucrările separat de numerele operațiilor. O operație eșuată apare ca **Eșuat**, iar una refuzată ca **Respins**. Ștergerile din CLI au autorul CLI și rămân vizibile după eliminarea lucrării. O ștergere întreruptă rămâne **Incert** până la confirmarea rezultatului.
+
+Filtre:
+
+- **ID autor**: numărul afișat lângă numele unui cont.
+- **Proiect**: orice proiect sau **Toate proiectele**.
+- **Tip modificare**: codul exact al acțiunii.
+- **De la (UTC)** include momentul indicat; **Până la (UTC, exclusiv)** nu îl include.
+
+Alegeți **Aplică filtre**; aceasta revine la prima pagină. Pagina raportează câte evenimente s-au potrivit, iar **Rânduri pe pagină** oferă 10, 25, 50 sau Toate, cu **Anterior** și **Următor**.
+
+Fiecare rând afișează **Cine**, **Ce**, **Când** și **Rezultat**: **Pregătit**, **Aplicat**, **Eliminat**, **Respins** sau **Incert**. Pregătit înseamnă că un candidat a fost pregătit, nu aplicat. **Incert** înseamnă că gazda nu a putut confirma finalizarea; inspectați resursa reală înainte de a recupera. **Dovadă** deschide un rând sub eveniment cu **Înainte**, **După / candidat**, **Operație**, precum și **Revizie de bază** și **Revizie candidat** când sunt înregistrate. **Valoarea anterioară nu a fost înregistrată** înseamnă necunoscut, nu gol. Parolele și valorile de mediu nu sunt afișate niciodată.
+
+Istoricul modificărilor se păstrează nelimitat, cu excepția cazului în care setați limite în [Starea sistemului](#system-status). Nu există descărcare sau export al istoricului modificărilor. Un Dev vede modificările operaționale doar pentru proiectele atribuite; evenimentele de cont, acces, preț și politică rămân la administratori.
+`,$z=`# Executori și modele
+
+Un executor este ceea ce ADORE lansează pentru fiecare lucrare: agentul de programare Pi și modelul AI pe care îl folosește. Administratorii aleg modelul în Setările unui proiect.
+
+
+**Efort de raționament** oferă nivelurile acceptate de model în catalogul Pi inclus. Implicit Pi lasă alegerea în seama Pi. Modelele nelistate și endpointurile proprii nu pot pretinde niveluri neconfirmate. Alegerea se aplică lucrărilor și testului conexiunii AI.
+
+## Ce este un executor {#what}
+
+Pentru fiecare lucrare, ADORE pornește Pi, singurul său agent de codare, într-o copie de lucru izolată, iar Pi parcurge etapele AEGIS ale repository-ului cu furnizorul și modelul configurate. ADORE folosește Pi din imagine pentru lucrările în container și instalarea Pi administrată de ADORE pentru lucrările pe server.
+
+## Alegerea furnizorului și a modelului {#agent-and-model}
+
+Deschideți **Setări → Agent și model**. Editați împreună **Furnizor**, **Model** și, pentru un endpoint, **URL de bază al endpointului** și **Tip API al endpointului** ca o singură modificare revizuită.
+
+- **Furnizor**: unul dintre furnizorii Pi cu cheie API (OpenAI, Anthropic, Google Gemini, OpenRouter, Mistral și alții), **Abonament ChatGPT** sau **Endpoint compatibil OpenAI**.
+- **Model**: alegeți din lista Pi pentru acel furnizor sau scrieți orice ID de model acceptat de furnizor, de exemplu \`gpt-5.4\`. Lista vine cu versiunea Pi livrată de ADORE și se citește fără acces la internet. Nu există un model implicit universal.
+- **Abonament ChatGPT**: Pi folosește contul ChatGPT Plus sau Pro cu care este autentificat acest server ADORE, vezi [Autentificare cu ChatGPT](#chatgpt). Lista conține modelele servite de un abonament ChatGPT, de exemplu \`gpt-5.6-luna\`.
+
+**Salvează** scrie împreună setările editate după confirmarea efectelor importante; vezi [Setările proiectului](/help/settings#editing) pentru pauza monitorizării. ADORE pornește un proces Pi nou la fiecare etapă și îl oprește la expirarea timpului sau la anulare.
+
+## Endpoint compatibil OpenAI {#endpoint}
+
+Pentru un model servit în propria rețea, de exemplu LM Studio, Ollama sau vLLM, alegeți **Endpoint compatibil OpenAI** și completați:
+
+- **Adresa de bază a endpointului**: adresa așa cum o vede Pi. Pentru **Container**, adresa este cea văzută din container; pentru o lucrare locală, este cea văzută de server.
+- **Tipul API al endpointului**: \`openai-completions\` pentru LM Studio, Ollama și vLLM; sunt acceptate și \`openai-responses\`, \`anthropic-messages\` și \`google-generative-ai\`.
+- **Model**: ID-ul modelului servit de endpoint.
+
+Cheia endpointului este opțională: salvați-o la Autentificare ca ADORE_ENDPOINT_API_KEY. ADORE descrie endpointul lui Pi pentru fiecare lucrare; adresa nu conține niciodată nume de utilizator, parolă sau interogare. Cu [accesul la internet](#internet) dezactivat, ADORE permite singur adresa endpointului. Un endpoint este disponibil atât în container, cât și pe server.
+
+## Autentificare {#credentials}
+
+Deschideți **Autentificare** în același grup.
+
+- **Cheia API a furnizorului.** Panoul numește variabila de care are nevoie furnizorul configurat, de exemplu OPENAI_API_KEY pentru OpenAI sau ANTHROPIC_API_KEY pentru Anthropic. Introduceți **Cheie API** și alegeți **Salvează cheia API**. ADORE o păstrează privat în depozitul de credențiale al proiectului pe server, niciodată în fișierul de configurare, o transmite lui Pi doar ca acea variabilă și nu o mai afișează niciodată; **Deconectează cheia API a proiectului** o elimină. Schimbarea unei chei cere monitorizarea oprită, un proiect inactiv și nicio propunere în așteptare și nu testează cheia.
+- **Proiecte pe server.** Salvați **Cheia API a furnizorului** dacă este necesară. ADORE ignoră autentificarea Pi personală. Folosiți [autentificarea ChatGPT](#chatgpt) comună pentru abonament pe Windows sau Linux, inclusiv WSL2.
+- **Valori gestionate de mediu.** O variabilă deja setată în mediul serverului ADORE poartă eticheta **Setată pe serverul ADORE; administrată extern**. Interfața web nu o poate suprascrie.
+- **Cheia de căutare web.** Cu accesul la internet activat și căutarea web Brave sau Tavily, panoul listează și BRAVE_API_KEY sau TAVILY_API_KEY, salvată la fel, și pentru un abonament ChatGPT.
+- **Variabile de autentificare suplimentare.** Doar nume (**Adaugă o variabilă de autentificare**) ale unor secrete suplimentare primite de Pi pe lângă cheia furnizorului; majoritatea proiectelor nu au nevoie de ele.
+
+Valorile credențialelor nu apar niciodată în fișierul de configurare, în revizuiri, în înregistrările de audit, în jurnale sau în exporturi.
+
+## Autentificare cu ChatGPT {#chatgpt}
+
+Un singur cont ChatGPT Plus sau Pro servește toate proiectele de pe acest server ADORE al căror furnizor este **Abonament ChatGPT**. Administratorii se autentifică în **Autentificare** a unui astfel de proiect; ADORE rulează autentificarea OpenAI a lui Pi, deci serverul nu are nevoie de browser.
+
+Pe serverul nativ, Pi poate primi direct redirecționarea browserului, iar ADORE afișează automat finalizarea. Dacă rămâne în așteptare, folosiți pașii manuali de redirecționare de mai jos.
+
+1. Alegeți **Autentificare cu ChatGPT**.
+2. Deschideți **Deschide pagina de autentificare ChatGPT** pe calculatorul dumneavoastră și autentificați-vă cu contul ChatGPT. Linkul este valabil 15 minute.
+3. Browserul afișează apoi o pagină de eroare la \`127.0.0.1:1455\`. Este normal: copiați adresa completă din bara de adrese.
+4. Lipiți-o în **Adresa de redirecționare** și alegeți **Finalizează autentificarea**.
+
+Starea este **Autentificat**, **Neautentificat** sau **Autentifică-te din nou**. **Autentifică-te din nou** înseamnă că OpenAI nu mai acceptă autentificarea salvată; lucrările eșuează până când un administrator se autentifică din nou. O adresă de la un link mai vechi este refuzată, iar autentificarea așteaptă în continuare; **Anulează** o încheie. Când OpenAI refuză contul, de exemplu pentru că abonamentul lui nu poate fi partajat, autentificarea se încheie cu acest motiv. **Deconectează ChatGPT** șterge autentificarea salvată.
+
+Autentificarea rămâne într-un dosar privat pe serverul ADORE. Înaintea fiecărei etape, ADORE obține din ea un token de acces nou, valabil aproximativ o oră, și transmite lui Pi doar acest token; autentificarea însăși nu intră niciodată în containerul lucrării. Proiectele ChatGPT rulează în containere sau nativ pe Windows/Linux, inclusiv WSL2. Autentificarea nativă folosește Pi administrat de ADORE fără Docker; containerele folosesc imaginea curentă a executorului ADORE. Limitele etapelor sunt de cel mult 3000 de secunde în ambele medii. Doar administratorii văd sau modifică autentificarea; înregistrările de audit numesc acțiunea, niciodată un token sau o adresă.
+
+> ADORE este gratuit astăzi. Oferirea lui ca serviciu găzduit sau plătit cu autentificare ChatGPT ar necesita mai întâi formularul de interes al OpenAI.
+
+## Testarea conexiunii AI {#test-connection}
+
+Administratorii aleg **Testează conexiunea AI** la **Conexiune AI**. Testul pornește Pi o dată într-un container temporar, sau într-un dosar temporar pentru Pi instalat pe server, îi cere să ruleze o comandă shell și apoi să răspundă cu un text fix și poate genera costuri la furnizor. Proiectul trebuie să fie inactiv, cu setări salvate valide și fără propunere în așteptare; pentru un proiect în container, imaginea configurată trebuie să existe pe server.
+
+Rezultatul este **Model AI conectat** doar dacă comanda shell a rulat și răspunsul a sosit. Altfel, **Conexiunea AI nu a putut fi verificată** vine cu îndrumări proprii pentru: nicio credențială salvată, nicio autentificare ChatGPT, un abonament ChatGPT care nu poate fi partajat, o limită de utilizare ChatGPT atinsă, o cheie respinsă de furnizor, un furnizor sau endpoint la care Pi nu a putut ajunge, un model necunoscut furnizorului sau endpointului, o limită de rată, altă eroare a furnizorului, depășirea timpului, o imagine sau un Pi lipsă, ori o comandă shell pe care Pi nu a putut-o rula. Nu pornește nicio lucrare. Rezultatul salvat este legat de furnizorul, modelul, setările și credențialele actuale și apare în verificările gazdei din Rezumat. Dezvoltatorii îl văd, dar nu pot rula testul.
+
+## Acces la internet pentru agent {#internet}
+
+**Acces la internet pentru agent** din Setări → Agent și model decide ce poate accesa containerul unei lucrări. Implicit este **Dezactivat**.
+
+- **Dezactivat**: containerul ajunge doar la furnizorul modelului. ADORE permite singur adresele furnizorului, pentru un endpoint compatibil OpenAI adresa acestuia, printr-un proxy de rețea separat pentru fiecare lucrare. Căutarea web, citirea paginilor și descărcările precum \`curl\`, \`npm install\` sau \`pip install\` eșuează, iar Pi este anunțat.
+- **Activat**: containerul are rețea deschisă. Pi poate căuta pe web, citi pagini și descărca biblioteci cu \`curl\`, \`npm\` sau \`pip\`.
+
+**Căutare web** alege serviciul de căutare cât timp accesul este activat: **Exa (fără cheie)**, implicit, **Brave (necesită cheie)**, **Tavily (necesită cheie)** sau **Niciuna** (fără căutare web sau citirea paginilor). Pentru Brave sau Tavily, salvați BRAVE_API_KEY sau TAVILY_API_KEY la **Autentificare**.
+
+> Cu accesul la internet activat, o pagină web rău intenționată ar putea încerca să facă agentul să trimită cheia API sau tokenul ChatGPT. Preferă chei limitate și de scurtă durată.
+
+Folosește **Salvează** pentru ambele setări și confirmă efectele importante. Cu accesul la internet dezactivat, imaginea proxyului trebuie să existe pe serverul ADORE; **Verifică cerințele gazdei** o raportează, la fel și cheia de căutare când este necesară. Pentru un proiect instalat pe server, comutatorul apare ca **Neaplicat**: Pi ajunge oriunde ajunge serverul.
+
+## Unde rulează lucrările {#where-jobs-run}
+
+| | Container | Execuție locală nativă |
+|---|---|---|
+| Rulează în | Un container Docker sau Podman temporar pe serverul ADORE | Chiar serverul ADORE, sub contul de sistem de operare al serviciului, într-un worktree dedicat |
+| Mediu | O imagine de proiect pregătită de administrator | Unelte, versiuni și biblioteci pe care le instalați singuri pe acel server |
+| Autentificare | Cheia API a furnizorului sau, pentru un abonament ChatGPT, un token de acces de scurtă durată din autentificarea ChatGPT a serverului | Cheia furnizorului sau un token temporar din autentificarea ChatGPT a serverului |
+| Setările agentului | Pi inclus în imagine, cu setări stabilite de ADORE; setările și abilitățile Pi personale nu sunt citite | Pi administrat de ADORE cu setări și extensii proprii |
+| Izolare | Container; cu accesul la internet dezactivat ajunge doar la furnizorul modelului | Doar worktree-ul; comenzile pot ajunge oriunde poate ajunge contul, deci folosiți un cont dedicat cu privilegii minime |
+| Alegere | **Rulează în** → **Container**, implicit, la pasul 2 al înrolării sau în Setări → Agent și model | **Rulează în** → **Instalat pe server**, sau în profilul serverului ori prin înrolare TOML |
+
+**Instalat pe server** rulează Pi sub contul de sistem al serviciului ADORE. **PATH pentru uneltele proiectului** stabilește unde caută Pi uneltele. Un câmp gol folosește PATH-ul contului serviciului. Comanda de lansare este fixă.
+
+**Verifică cerințele gazdei** omite motorul de containere și verifică Node, instalarea Pi administrată și credențialele furnizorului ales.
+
+## Instalarea Pi pe server {#installed-executors}
+
+Rulați \`adore pi install\` și \`adore pi verify\` pe serverul ADORE sub contul serviciului. Folosiți Node 22.23.4 sau ulterior din seria 22.x, cu npm. Dacă Node nu este în PATH-ul serviciului, setați \`ADORE_NODE\` la calea sa absolută.
+
+Rulați din nou \`adore pi install\` când o versiune ADORE cere altă versiune Pi. Nu este nevoie de Pi global; setările și extensiile personale sunt ignorate.
+
+Windows folosește unealta PowerShell; în Linux administratorul serverului configurează o rădăcină cgroup v2 delegată. Pi nu cere permisiuni. Folosiți un cont de sistem dedicat.
+
+## Imaginea proiectului {#project-image}
+
+Pentru un proiect cu container, Setări → Agent și model afișează **Executorul rulează într-un container**, **Imagine utilizată** și o secțiune **Instrucțiuni pentru pregătirea mediului**. Interfața web nu definește și nu construiește imaginea, iar adăugarea unui Dockerfile în repository nu pornește nicio construire. Administratorul o pregătește pe server:
+
+1. Creați \`executor/Dockerfile\` în repository, pornind de la imaginea de bază ADORE, fără credențiale. Imaginea de bază conține deja Python, sh și Pi la versiunea fixată.
+2. Construiți-o cu Docker sau Podman de pe server și verificați versiunile uneltelor.
+3. Selectați imaginea în interfața web, așa cum este descris mai jos, sau, cu monitorizarea în pauză și fără lucrări active, setați \`execution.backend\`, \`container.image\` și \`container.required_tool_checks\` în \`config.toml\` al proiectului (administratorii văd calea lui în secțiunea de instrucțiuni), apoi validați profilul.
+
+\`\`\`
+FROM adore-executor-base:1.0.0
+USER root
+# RUN ... install the project's system tools
+USER adore
+\`\`\`
+
+Pentru a folosi imaginea, alegeți **Motor de containere** (Docker sau Podman) și **Imagine executor** la pasul 2 al înrolării sau modificați aceleași rânduri în Setări. Imaginea este un câmp liber cu sugestii citite din imaginile de pe serverul ADORE pentru acel motor (doar administratori); apare un aviz când imaginea introdusă nu este pe server și altul când lista nu poate fi citită.
+
+În Setări, editează **Motor de containere** ca să alegi Docker sau Podman detectat pe server, inclusiv în WSL pe Windows. Alege **Comandă manuală pentru container** ca să introduci propria comandă, apoi apasă **Salvează**. Verificarea cerințelor gazdei caută Pi în imaginea aleasă.
+
+Pentru o comandă WSL personalizată, puneți \`--\` sau \`--exec\` înaintea comenzii containerului. Opțiunile standard Docker și Podman sunt tratate automat.
+
+Apoi confirmați cu **Verifică cerințele gazdei** și **Testează conexiunea AI**.
+
+## Pachete de sistem {#system-packages}
+
+Un administrator poate revizui **Permite agentului instalarea pachetelor de sistem** în **Setări → Agent și model**. Implicit este oprită și este disponibilă doar pentru containere. Pi poate instala direct cu \`sudo -n\`, citi rezultatele și adapta pașii în limitele lucrării. **Acces la internet pentru agent** rămâne o alegere separată; când este oprit, sursele externe cer o gazdă permisă. Folosiți o imagine cu sudo, puneți monitorizarea în pauză și așteptați încheierea lucrului activ înainte de aplicare, apoi porniți o lucrare nouă. Pachetele rămân în acel container și nu modifică imaginea.
+`,Xz=`# Glosar
+
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
+Aceștia sunt termenii folosiți în interfața web ADORE și în aceste subiecte de ajutor.
+
+## Termeni {#terms}
+
+| Termen | Semnificație |
+|---|---|
+| Lucrare | Un tichet din repository, lucrat și verificat într-un mediu izolat. |
+| Proiect înrolat | Un repository existent configurat pe gazda ADORE, cu acces acordat echipei sale. |
+| Monitorizare | Setarea unui proiect pentru preluarea tichetelor noi, afișată ca **Activă** sau **În pauză**. Administratorii o schimbă cu **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. |
+| Preluare oprită | ADORE nu mai preia tichete noi pentru acest proiect. Aceasta nu pune în pauză o lucrare activă. Este starea pe care Monitorizarea o afișează ca **În pauză**. |
+| Tichet | O sarcină (issue) de pe forge. ADORE o preia când poartă eticheta ready a proiectului și o etichetă de prioritate, nu este blocată sau exclusă și are criterii de acceptare, dacă proiectul le cere. |
+| Agent de programare / Executor | Instrumentul AI în linie de comandă care face munca pentru o lucrare într-un mediu izolat: Pi, singurul agent de programare pe care îl rulează ADORE. Nu are credențiale forge și nu face niciodată commit sau push și nu deschide ori integrează un MR/PR. |
+| Model | ID-ul modelului la furnizorul ales, de exemplu gpt-5.4 pentru OpenAI. Se setează împreună cu furnizorul în Setări → Agent și model, iar prețurile estimate aparțin unei perechi executor–model. |
+| AEGIS | Fluxul instalat în repository care încadrează, specifică, proiectează, construiește și validează o modificare. ADORE îl conduce o etapă pe rând (Încadrare, Specificare, Proiectare, Construire, Validare) și publică rezultatul aprobat; o modificare mică poate sări peste Specificare și Proiectare. |
+| Flux direct | Un repository fără AEGIS este implementat direct de agent. Agentul își conduce verificările; ADORE urmărește progresul și cere aprobarea umană. |
+| Candidat | Rezultatul validat al unei lucrări, pe care ADORE îl prezintă spre aprobare, identificat printr-o amprentă și commit-ul țintă. Aprobarea se aplică exact acelui candidat și expiră dacă se schimbă candidatul sau ramura sa țintă. |
+| Așteaptă clarificări | Agentul are nevoie de un răspuns pentru a continua. Răspundeți la întrebarea sa în tichetul din repository. |
+| Așteaptă aprobarea | Rezultatul este validat și așteaptă autorizarea publicării de către o persoană. Aprobarea se înregistrează pe forge pentru candidatul curent. |
+| MR/PR ciornă | Cererea MR/PR deschisă după validare și aprobarea necesară. Oamenii o revizuiesc. |
+| Revizie umană | Un MR/PR este disponibil pentru revizie umană. Integrarea rămâne o decizie umană. |
+| Rundă de revizie | O nouă trecere a agentului după modificări cerute sau erori CI. Fiecare rundă repetă validarea și respectă politica de aprobare. |
+| Forge | Platforma de găzduire unde se află tichetele, etichetele, aprobările și MR/PR-urile: GitHub, GitLab sau Gitea. |
+
+> ADORE nu are nicio operație de integrare. Integrarea este întotdeauna decizia unei persoane, pe forge.
 `,eE=`# Prezentarea interfeței\r
 \r
 Interfața are o bară laterală întunecată pentru navigarea între pagini și o bară de sus care numește pagina curentă și oferă acțiunile uzuale. Această pagină enumeră paginile, butoanele din antet, pagina proiectului și etichetele de stare.\r
@@ -2685,506 +2685,506 @@ Prezentare generală, Proiecte, Lucrări, Setări, Acces și Istoric ale proiect
 Administratorul inițial vede un memento până la schimbarea parolei inițiale. Alegeți **Schimbă parola** din memento pentru a deschide Contul meu.\r
 \r
 La schimbarea parolei, introduceți parola nouă de două ori. Butoanele afișează sau ascund fiecare câmp. Parola nouă trebuie să aibă cel puțin 8 caractere.\r
-`,tE=`# Ciclul de viață al lucrării\r
-\r
-O lucrare este munca pe care o face ADORE pentru un tichet, de la preluare până la o modificare integrată. Acest articol arată etapele ei și unde participați dumneavoastră. Etichetele și eligibilitatea sunt în [Tichete pentru preluare automată](/help/tickets).\r
-\r
-\r
-Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directorul de lucru, inclusiv modificările nepublicate; pot rămâne resurse. Starea și dovezile rămân. Ștergerea este separată.\r
-\r
-Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.\r
-\r
-## Etape {#stages}\r
-\r
-ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.\r
-\r
-| Etapă | Ce se întâmplă |\r
-|---|---|\r
-| Încadrare | Se stabilește domeniul, iar executorul înregistrează dacă lucrarea urmează calea completă sau cea rapidă. |\r
-| Specificare | Se scrie cerința. |\r
-| Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |\r
-| Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |\r
-| Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |\r
-\r
-Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).\r
-\r
-## Joburi directe {#direct-evidence}\r
-\r
-Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (\`build\`), **Validare** (\`validate\`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.\r
-\r
-**Ultima încercare înregistrată** arată ultima lansare înregistrată a agentului. Fără una, apare **Încercare indisponibilă**. Agentul raportează testele și verificările; ADORE nu le execută independent.\r
-\r
-**Implementare** directă folosește limita \`build\` din \`workflow.stage_timeout_overrides\`, cu revenire la \`budgets.per_gate_timeout_seconds\`. **Validare** (\`validate\`) înregistrează candidatul pentru aprobare fără o comandă de test separată.\r
-\r
-## Clarificare {#clarification}\r
-\r
-Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează \`agent-clarify\`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**. Alege **Citește întrebarea** pentru a deschide **Întrebarea agentului**, apoi **Răspunde pe tichet** când există un loc înregistrat.\r
-\r
-Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați \`agent-answered\`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.\r
-\r
-## Aprobare {#approval}\r
-\r
-Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.\r
-\r
-Când agentul încheie fluxul, ADORE înregistrează candidatul, elimină eticheta veche de aprobare și cere o nouă aprobare umană. Verificările din jurnal sunt raportate de agent.\r
-\r
-Revizuiți-l, apoi adăugați din nou \`agent-approved\`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.\r
-\r
-Când opțiunea este dezactivată, ADORE verifică candidatul validat și ținta, apoi publică fără a aștepta eticheta. ADORE nu face merge.\r
-\r
-## Publicare și revizuire {#review}\r
-\r
-După validare și aprobarea necesară, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează \`agent-mr\`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează \`agent-done\`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.\r
-\r
-Pentru a cere modificări, un recenzor adaugă \`agent-revise\` pe MR/PR. ADORE elimină eticheta, pornește lucru nou pe aceeași ramură (un task nou pentru AEGIS) și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.\r
-\r
-Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările CI ale PR/MR eșuează**: Reparare automată (implicit) pornește o revizie, Doar notificare postează un comentariu, iar Ignoră sare peste starea CI. Reparările automate consumă același buget de revizii; după epuizare, ADORE postează o notificare, iar lucrarea rămâne în revizuire.\r
-\r
-## Eșec și recuperare {#failures}\r
-\r
-Când o etapă eșuează, ADORE ține la zi un singur comentariu de incident pe tichet, cu etapa, încercarea, codul erorii, dovezile și următoarea acțiune; dacă agentul s-a oprit fără să avanseze etapa, dovezile arată și ultimele lui linii de ieșire de eroare. După ultima încercare postează un comentariu final, setează \`agent-failed\`, oprește containerul, păstrează worktree-ul și eliberează locul. Alte cauze sunt un timp de răspuns expirat, un tichet sursă șters și o limită depășită, precum costul sau fișierele modificate. Închiderea tichetului sursă cât timp o lucrare așteaptă o anulează.\r
-\r
-În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea cerută. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea \`agent-failed\` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.\r
-\r
-Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă actualizarea executabilului sau a mediului moștenit pe același calculator și cont. Păstrează sarcina, worktree-ul, ramura, istoricul și limitele cumulative. Monitorizarea automată nu face această revalidare. Setările de execuție schimbate sau dovezile de recuperare corupte trebuie corectate. Dacă repornirea eșuează, comanda apare eșuată cu motivul salvat: executabil lipsă, versiune invalidă, comandă eșuată sau expirarea timpului. Verificarea versiunii nu trimite cereri modelului; folosește **Testează conexiunea IA** pentru aceasta.\r
-\r
-Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.\r
-\r
-## Renunță și pornește din nou {#restart}\r
-\r
-Pentru un job eșuat, **Renunță și pornește din nou** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.\r
-\r
-Reîncercarea nu poate corecta mediul de execuție sau setările stabile schimbate; detaliile jobului explică situația și oferă acțiunea confirmată. Restabilește setările salvate pentru a păstra lucrul existent. Reîncercarea poate revalida schimbările volatile ale mediului nativ, inclusiv variabilele procesorului după redimensionarea unui VM.\r
-\r
-Resursele străine, alt calculator sau cont, dovezile de proprietate corupte ori un branch remote modificat blochează recuperarea. Curățarea parțială păstrează dovezile rămase fără un job nou. Dacă jobul se schimbă după confirmare, reîncarcă detaliile și verifică din nou. Lockul CLI poate aparține workerului web: pune monitorizarea în pauză din Rezumatul proiectului și așteaptă încheierea jobului limitat. Nu șterge un lock activ.\r
-\r
-Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, ADORE îl păstrează și folosește o generație nouă. Un checkpoint cunoscut modificat blochează în continuare recuperarea. Sunt încercate cel mult trei nume alternative, iar regulile depozitului trebuie să permită un nume liber; altfel recuperarea se oprește înainte de curățare. Rezultatul explică păstrarea unui branch vechi.\r
-\r
-## Urmărirea lucrărilor {#following-jobs}\r
-\r
-Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, apoi sub-fila **Lucrări**. Tabelul are aceste coloane:\r
-\r
-| Coloană | Conținut |\r
-|---|---|\r
-| Tichet | Numărul și titlul; deschide detaliile lucrării. |\r
-| Proiect | Proiectul căruia îi aparține. |\r
-| Stare | Starea, Flux de lucru înregistrat, Etapa curentă și un link către tichet sau MR/PR când o persoană trebuie să acționeze. |\r
-| Ultima activitate | Momentul ultimului eveniment salvat. |\r
-| Consum | Tokenurile folosite de lucrare. |\r
-\r
-Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.\r
-\r
-Detaliile înlocuiesc lista cât timp sunt deschise. Antetul compact reunește numărul și numele tichetului. **Ce se întâmplă acum** arată starea, cine acționează și **Pasul următor**. Bugetele și Consumul sunt alături pe ecrane late și dedesubt pe ecrane înguste. **Activitate** listează evenimentele salvate de la cel mai recent. **Întrebarea agentului** conține clarificarea activă; celelalte stări arată **Dovezi și artefacte**. **Detalii tehnice** conține identificatori, ieșirea executorului și **Evenimentele originale înregistrate**, care pot fi extinse. **Închide** revine la listă cu filtrele păstrate. Evenimentele trecute nu devin cereri curente de acțiune.\r
-\r
-## Bugetele jobului {#budgets}\r
-\r
-Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și \`adore init\`.\r
-\r
-Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.\r
-\r
-Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.\r
-\r
-Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.\r
-\r
-## Stare și dovezi ale executorului {#operational-evidence}\r
-\r
-**În lucru** înseamnă că ADORE conduce etapa salvată; momentan nu se cere intervenția unui om. **Așteaptă clarificare** necesită un răspuns pe tichet. **Eșuat** oprește lucrul autonom și păstrează dovezile de recuperare. Cardul afișează încercările eșuate ale etapei curente chiar când jobul rămâne În lucru.\r
-\r
-Întrebările apar în **Întrebarea agentului** ca Markdown cu liste, tabele și cod. Comentariile HTML de la început sunt omise din vizualizarea lizibilă; **Întrebarea originală și dovezile** păstrează sursa exactă. Restul HTML rămâne text, linkurile nesigure sunt inactive și imaginile nu se încarcă automat. Tabelele late și codul se derulează în interiorul întrebării.\r
-\r
-Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.\r
-\r
-În **Detalii tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.\r
-\r
-Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.\r
-\r
-O lansare fără captură dovedită sau cu snapshotul șters este explicit indisponibilă; arhivele brute nu sunt citite ca alternativă. Dovezile corupte sunt refuzate. Joburile existente pot rămâne fără ieșire până la o lansare ulterioară; această vizualizare nu pornește niciuna.\r
-\r
-Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă eroare. Dovezile și recuperarea rămân separate. O sursă coruptă necesită în continuare investigarea operatorului.\r
-`,nE=`# Ce face ADORE\r
-\r
-Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.\r
-\r
-ADORE transformă un tichet pregătit de pe forge-ul de cod într-un MR/PR ciornă (merge request sau pull request) pe care oamenii îl revizuiesc. Această pagină explică fluxul și cele două roluri; celelalte subiecte acoperă fiecare ecran.\r
-\r
-## Ce face ADORE {#what-adore-does}\r
-\r
-ADORE urmărește proiectele înrolate de un administrator. Când un tichet de pe forge (GitHub, GitLab sau Gitea) este pregătit pentru preluare, ADORE pornește pentru el o **lucrare**:\r
-\r
-- Rulează un agent de programare (executorul) într-un mediu izolat: o ramură dedicată, un folder de lucru și un container.\r
-- Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire și Validare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.\r
-- ADORE urmărește rezultatul raportat de agent și cere unei persoane să aprobe candidatul.\r
-- După aprobare, ADORE publică un MR/PR ciornă pe care oamenii îl revizuiesc. Un proiect poate fi setat să publice în schimb un MR/PR pregătit pentru review.\r
-\r
-> ADORE nu integrează niciodată modificările. Nu are nicio operație de integrare (merge); decizia de a integra aparține unei persoane, pe forge.\r
-\r
-Interfața web arată ce rulează și ce necesită atenție. Vă permite, de asemenea, să porniți tichete, să reîncercați sau să anulați lucrări și, ca administrator, să configurați proiecte și conturi.\r
-\r
-Dacă starea lucrărilor unui proiect nu poate fi citită, secțiunea **Necesită intervenție** indică proiectul afectat. Datele lucrărilor din celelalte proiecte selectate rămân vizibile.\r
-\r
-## De la tichet la integrare {#flow}\r
-\r
-| Pas | Starea afișată | Cine acționează | Ce se întâmplă |\r
-|---|---|---|---|\r
-| 1. Pregătire | Încă nicio lucrare | O persoană | Tichetul primește eticheta ready și o etichetă de prioritate, sau apăsați **Pornește** în Lucrări → Tichete, ceea ce adaugă etichetele lipsă după confirmarea dumneavoastră. |\r
-| 2. Lucru | În lucru | ADORE și agentul de programare | ADORE creează lucrarea, iar agentul parcurge etapele AEGIS. |\r
-| 3. Clarificare | Așteaptă clarificări | O persoană | Doar dacă agentul are o întrebare. Răspundeți în tichetul din repository și adăugați eticheta de răspuns. |\r
-| 4. Validare | În lucru | Agentul de programare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |\r
-| 5. Aprobare | Așteaptă aprobarea | O persoană | ADORE prezintă candidatul pe forge. O persoană adaugă eticheta de aprobare. Aprobarea este legată de exact acel candidat. |\r
-| 6. Publicare | Publicare | ADORE | ADORE trimite ramura (push) și deschide MR/PR-ul ciornă. |\r
-| 7. Revizuire | Revizie umană | O persoană | Oamenii revizuiesc. O revizie repetă validarea și respectă politica de aprobare a proiectului. |\r
-| 8. Integrare | Finalizat | O persoană | O persoană integrează pe forge. ADORE nu o face. |\r
-\r
-Dacă după aprobare se schimbă candidatul sau ramura sa țintă, aprobarea nu se mai aplică, iar lucrarea se validează din nou. Termenii sunt explicați în [glosar](/help/glossary).\r
-\r
-## Roluri {#roles}\r
-\r
-| Rol | Ce vede | Ce poate face |\r
-|---|---|---|\r
-| Administrator (Admin) | Toate proiectele curente și viitoare, plus Administrare și costurile | Tot ce poate face un Dev, precum și: înrolează proiecte, modifică setările proiectelor prin modificări revizuite, pune în pauză sau reia monitorizarea, arhivează sau restaurează proiecte, gestionează utilizatorii și accesul la proiecte, setează păstrarea auditului, citește istoricul modificărilor și vede și setează costurile |\r
-| Dev | Doar proiectele atribuite de un administrator | Pornește și oprește tichete, reîncearcă sau anulează lucrări, citește statisticile proiectelor atribuite și citește setările proiectului (doar pentru citire, fără secrete și fără setări financiare) |\r
-\r
-Un Dev nu vede niciodată valori monetare și nu poate deschide paginile de Administrare. Dacă nu are proiecte atribuite, Prezentarea generală îi indică să ceară acces unui administrator. Dacă nu există proiecte, un Admin poate alege **Înrolează un proiect nou** din Prezentare generală.\r
-\r
-## Primii pași {#getting-started}\r
-\r
-1. Administratorii înrolează repository-ul: [Adăugarea unui repository](/help/projects).\r
-2. Alegeți modelul folosit de agentul de programare Pi: [Executori și modele](/help/executors).\r
-3. Pregătiți tichetele pentru ca ADORE să le poată prelua: [Tichete pentru preluare automată](/help/tickets).\r
-4. Urmăriți fiecare lucrare până la MR/PR-ul ciornă: [Ciclul de viață al lucrării](/help/jobs).\r
-\r
-Dezvoltatorii încep de la pasul 3, după ce un administrator le-a dat acces la un proiect.\r
-\r
-## Unde găsiți mai multe informații {#topics}\r
-\r
-- [Ce face ADORE](/help/overview): această pagină.\r
-- [Prezentarea interfeței](/help/interface): bara laterală, antetul, pagina proiectului și etichetele de stare.\r
-- [Adăugarea unui repository](/help/projects): înrolarea unui proiect.\r
-- [Setările proiectului](/help/settings): ce controlează fiecare grup de setări.\r
-- [Executori și modele](/help/executors): agentul de programare Pi, modele și autentificare.\r
-- [Tichete pentru preluare automată](/help/tickets): etichete și pornirea tichetelor.\r
-- [Ciclul de viață al lucrării](/help/jobs): stări, stări de așteptare, reîncercare și anulare.\r
-- [Statistici și costuri](/help/statistics): utilizare, calitate, tendințe și costuri estimate.\r
-- [Administrare](/help/administration): utilizatori, acces, starea sistemului și istoricul modificărilor.\r
-- [Glosar](/help/glossary): termenii folosiți în interfață.\r
-`,iE=`# Adăugarea unui repository\r
-\r
-Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.\r
-\r
-Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.\r
-\r
-\r
-O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou.\r
-\r
-\r
-O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.\r
-\r
-## Înainte de a începe {#before-you-start}\r
-\r
-Pregătiți următoarele:\r
-\r
-- Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.\r
-- Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.\r
-- Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).\r
-- ID-ul modelului pentru Pi și, pentru containere, un serviciu Docker sau Podman pornit. Imaginea comună implicită se pregătește automat la import; imaginile personalizate trebuie să existe deja în acel serviciu. Vezi [Executori și modele](/help/executors).\r
-\r
-## Înrolarea unui proiect nou {#add-project}\r
-\r
-Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.\r
-\r
-Când nu mai există proiecte, Prezentare și Proiecte oferă administratorilor **Înrolează un proiect nou** și **Importă configurația brută**. Ștergerea ultimului proiect vă readuce la Proiecte, unde ambele acțiuni rămân disponibile.\r
-\r
-| Pas | Ce cere |\r
-|---|---|\r
-| Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |\r
-| Agent și model | Alegeți **Furnizor**, **Model** și detaliile endpointului, dacă este necesar. Pentru container, alegeți runtime-ul și imaginea. Salvați cheia furnizorului în Setări după creare. Pentru **Instalat pe server** apar contul curent al sistemului și opțional **PATH pentru uneltele proiectului**. |\r
-| Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |\r
-| Verificare | Deschiderea acestui pas verifică automat configurarea, folderele serverului, Git și accesul la forge. **Reverifică mediul** repetă aceste verificări. **Workflow** arată separat fluxul observat al repository-ului, fără să blocheze înrolarea. Pentru execuția nativă, **Pi pe server** afișează erorile locale, inclusiv versiunile Node incompatibile. Pentru execuția în container, se verifică motorul și Pi din imaginea locală. Nu se publică nimic. **Continuă** deschide revizuirea după ce configurarea este validă. |\r
-| Revizuire și creare | Afișează candidatul exact și locațiile de pe server, plus o listă restrânsă **Setări lăsate la valorile implicite** cu valoarea implicită a fiecărei alte setări (doar citire; le schimbați în Setări după creare). **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică ramura țintă, apoi salvează proiectul și, dacă nu debifați **Creează etichetele ADORE în repository**, creează etichetele ADORE lipsă și arată rezultatul; urmează **Deschide proiectul**. |\r
-\r
-Pentru execuția locală nativă alegeți **Rulează în → Instalat pe server**. Configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.\r
-\r
-Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).\r
-\r
-**Locație automată** păstrează calea propusă pentru clonă. Alege **Locație personalizată** și **Alege folderul…** pentru a răsfoi folderele gazdei ADORE. Un clic selectează rândul; dublu-clic sau Enter deschide folderul. Folosește Înapoi sau Folderul părinte, apoi **Selectează folderul** pentru a confirma exact folderul existent. Introdu o destinație nouă direct în câmpul căii clonei din formularul principal. Selectorul nu creează nimic; legăturile și căile de rețea sunt refuzate. **Anulează** păstrează schița. Calea tastată în timpul încărcării listei rămâne în bara de adrese.\r
-\r
-**Ramură țintă** listează ramurile remote pentru GitHub, GitLab și Gitea, inclusiv instanțe proprii. Ramura implicită a repository-ului este selectată și marcată **implicită**. Alegeți altă ramură dacă este nevoie. **Citește repository-ul** actualizează lista și păstrează o selecție explicită dacă ramura mai există. Schimbarea URL-ului șterge opțiunile anterioare. Dacă nu este raportată o ramură implicită, alegeți una; dacă repository-ul nu are ramuri, adăugați una acolo și recitiți-l. Se folosește accesul Git al contului ADORE; tipul forge necunoscut se selectează în continuare manual.\r
-\r
-## Fluxurile repository-ului {#workflows}\r
-\r
-La confirmarea înrolării ghidate sau a unui import de configurație, ADORE pregătește imaginile comune de execuție și de proxy care lipsesc, înainte să salveze proiectul. Progresul arată etapa curentă; prima pregătire poate dura câteva minute și necesită internet pe server. Importurile următoare reutilizează imaginile. După un eșec al pregătirii, reîncercați importul fără să introduceți din nou aceleași răspunsuri. Importurile native omit pregătirea containerelor. Definițiile imaginilor personalizate rămân în responsabilitatea administratorului.\r
-\r
-**AEGIS / Direct**. Agentul descoperă și rulează verificările conform instrucțiunilor repository-ului. Cu AEGIS urmează etapele înregistrate; fără AEGIS implementează direct tichetul. ADORE urmărește progresul și jurnalul, înregistrează candidatul și cere aprobarea umană. Nu rulează separat testele repository-ului sau verificări AEGIS stricte.\r
-\r
-## Importă configurația brută {#import-project}\r
-\r
-În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 \`config.toml\`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.\r
-\r
-Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).\r
-\r
-\r
-Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:\r
-\r
-1. Alegeți **Acces la repository**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.\r
-2. Alegeți **Verifică cerințele gazdei**. Detaliile acoperă Git, instrumentul de linie de comandă al repository-ului, autentificarea în repository, motorul de containere, Pi din imagine, plus autentificarea ChatGPT a serverului pentru un abonament ChatGPT, imaginea proxyului de rețea când [accesul la internet](/help/executors#internet) este dezactivat și cheia de căutare web când Brave sau Tavily are nevoie de una. Pentru un proiect care rulează direct pe server, **Execuție locală** înlocuiește rândurile pentru motorul de containere și imagine: verifică versiunea compatibilă de Node, Pi administrat de ADORE și credențialele furnizorului. Rândul separat **Workflow** identifică fluxul fără să execute AEGIS. Aceasta nu este o lucrare completă și nu dovedește permisiunea de push.\r
-3. Rulați **Testează conexiunea AI** în Setări, așa cum este descris în [Executori și modele](/help/executors#test-connection).\r
-4. Alegeți **Activează monitorizarea**. Cardul Monitorizare trece din În pauză în Activă, iar ADORE începe să preia tichetele care poartă eticheta ready. **Pune monitorizarea în pauză** oprește preluările noi, dar nu întrerupe o lucrare în curs.\r
-\r
-## Arhivare, restaurare și ștergere {#lifecycle}\r
-\r
-Administratorii găsesc aceste butoane în fila Rezumat.\r
-\r
-- **Arhivează proiectul** funcționează după încheierea lucrărilor și golirea cererilor din coadă. Păstrează setările, istoricul, metricile și înregistrările de audit și oprește lucrul nou. **Restaurează proiectul** îl readuce.\r
-- **Șterge proiectul** apare doar pentru proiectele arhivate și vă cere să tastați numele proiectului. Elimină setările ADORE ale proiectului, istoricul lucrărilor, metricile, containerele și worktree-urile. Păstrează repository-ul și ramurile sale, worktree-urile lucrărilor predate unei persoane, un dosar de stare al lucrărilor din afara directorului ADORE și jurnalul de audit. Ștergerea este refuzată cât timp există lucru în coadă sau neterminat. **Elimină și clona locală** (nebifat) șterge și clona făcută de ADORE în dosarul său \`repos\`; opțiunea apare doar pentru o clonă curată a repository-ului acestui proiect, pe care nu o folosește alt proiect și de care nu mai are nevoie niciun worktree păstrat la ștergere, altfel fereastra spune de ce se păstrează clona.\r
-\r
-> Ștergerea nu poate fi anulată. Pentru a ajusta un proiect după aceea, vezi [Setările proiectului](/help/settings).\r
-\r
-## Autentificare Gitea pe acest calculator {#gitea-sign-in}\r
-\r
-ADORE folosește mai întâi conexiunea salvată a proiectului. Altfel reutilizează configurația tea a contului curent. Dacă tea raportează un login lipsă, ADORE verifică locațiile standard Windows sau Linux și selectează loginul configurat, un singur login implicit sau singurul login disponibil. Mai multe conturi fără o selecție clară necesită o conexiune explicită.\r
-\r
-Detectarea respectă \`XDG_CONFIG_HOME\`. Pe Windows verifică și directoarele Local AppData, Roaming AppData și \`.config\` din home-ul contului; pe Linux verifică directorul \`.config\` din home. Nu caută în cache-urile private ale aplicațiilor și nu copiază credențiale între calculatoare.\r
-\r
-1. Deschide fila **Rezumat** a proiectului și alege **Acces la repository**.\r
-2. Completează **Serverul depozitului** cu adresa de bază Gitea, inclusiv portul dacă este necesar.\r
-3. Creează pe serverul Gitea un token pentru contul cu drept de citire/actualizare a tichetelor și creare de cereri de revizuire în draft și introdu-l în **Token de acces**.\r
-4. Apasă **Verifică și conectează**. Un server HTTP necesită confirmarea afișată. O verificare eșuată păstrează conexiunea salvată.\r
-5. Verifică din nou cerințele gazdei. Credențialele Git pentru clone/push se configurează separat.\r
-\r
-Pe alt calculator, pregătește autentificarea CLI locală sau folosește acest formular de conectare. Arhiva de livrare nu conține tokenurile utilizatorilor.\r
-`,rE=`# Setările proiectului\r
-\r
-Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii modifică mai multe setări și le salvează împreună; dezvoltatorii le citesc.\r
-\r
-## Unde găsiți Setările {#where}\r
-\r
-Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Statistici, Istoric și, pentru administratori, Acces.\r
-\r
-Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT.\r
-\r
-Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Fiecare proiect are propriile setări; capacitatea globală și păstrarea auditului aparțin Administrării.\r
-\r
-## Grupuri de setări {#groups}\r
-\r
-Fiecare grup este închis când deschideți Setări, iar numărul de lângă numele lui numără rândurile sale.\r
-\r
-| Grup | Ce controlează |\r
-|---|---|\r
-| Repository | Forge-ul și repository-ul, login-ul Gitea, **Ramura de integrare** (baza lucrărilor noi și destinația PR/MR-urilor), șablonul numelui ramurii lucrării, cu o regulă opțională de denumire și un exemplu în timp real, precum și numele afișat al agentului, numele resursei și e-mailul autorului commit-urilor. |\r
-| Tichete | **Eticheta pentru preluare**, **Eticheta de excludere de la preluare**, **Etichete de stare** (pliate), cât de des verifică ADORE forge-ul, dacă tichetele cer criterii de acceptare sau o etichetă de prioritate și tipul implicit de sarcină. Vezi [Tichete pentru preluare automată](/help/tickets#labels). |\r
-| Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |\r
-| PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), **Cere aprobare umană înainte de PR/MR** și eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |\r
-| Statistici | **Înregistrează măsurătorile lucrărilor finalizate** și **Înregistrează tokenurile raportate de agent**. **Fișierul bazei de date pentru statistici** este afișat doar cu titlu informativ. |\r
-| Agent și model | Furnizorul, modelul, autentificarea și **Testează conexiunea AI** [Executori și modele](/help/executors). |\r
-| Detalii tehnice | Valori de instalare doar pentru citire, precum dosarul de stare al lucrărilor, calea repository-ului local și folderele de lucru ale lucrărilor. Se modifică în \`config.toml\` al proiectului, pe server, iar schimbarea unei căi nu mută datele existente. |\r
-\r
-## Valori și ajutor {#values}\r
-\r
-Fiecare rând are o etichetă, o descriere mereu vizibilă, o **Valoare activă** și o **Valoarea implicită ADORE**. Descrierea spune ce controlează setarea, unitatea sau valorile permise și ce efect are modificarea, sau că este rezervată și nefolosită. Nu există un buton de ajutor separat.\r
-\r
-O insignă **Implicit** înseamnă că \`config.toml\` al proiectului nu setează valoarea, deci se aplică valoarea implicită ADORE. Modificarea ei scrie o valoare doar pentru acest proiect. Un rând marcat **Nu se poate modifica aici** se modifică în \`config.toml\` pe server. Un rând marcat **Se aplică doar cu preluarea în pauză și fără lucrări active** are nevoie de condiția suplimentară descrisă mai jos.\r
-\r
-Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).\r
-\r
-## Editare {#editing}\r
-\r
-Bara **Salvează** și **Renunță la modificări** apare doar pentru modificări nesalvate sau recuperate, în timpul salvării ori când o eroare cere recuperare. Dispare după salvare sau renunțare reușită. Deschiderea unui editor fără schimbarea valorii nu afișează bara.\r
-\r
-1. Alege **Editează** lângă fiecare valoare de modificat. Poți edita mai multe setări din grupuri diferite.\r
-2. Folosește unicul buton **Salvează** deasupra grupurilor. Se activează doar când există valori schimbate și toate modificările sunt valide.\r
-3. Pentru schimbări importante, **Confirmă modificările importante** arată proiectul, valorile schimbate și efectele. Alege **Salvează modificările**, sau **Continuă editarea** pentru a reveni fără salvare.\r
-\r
-Reguli aplicabile:\r
-\r
-- **Renunță la modificări** elimină toate editările nesalvate. Anularea confirmării le păstrează fără să creeze un candidat salvat.\r
-- Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse. Renunțați la modificări pentru a reîncărca setările salvate înainte de a edita din nou. Modificările simultane produc un conflict.\r
-- Serverul verifică întreaga configurație și salvează toate modificările împreună. Salvarea revizuită doar a bugetelor permite și joburi în așteptarea clarificărilor, fără conductor activ sau operații neterminate. Alte setări cer joburi încheiate. O eroare păstrează datele introduse și candidatul pregătit.\r
-- Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.\r
-- Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).\r
-\r
-Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.\r
-\r
-## TOML original {#toml}\r
-\r
-Lângă Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea arată TOML-ul salvat exact, într-un dialog care poate fi închis. Sunt excluse modificările în așteptare, fișierele de mediu separate, credențialele externe și datele joburilor în curs. Un TOML simplu poate conține valori în clar și trebuie tratat ca secret; exportul complet de construire refuză credențialele în clar.\r
-\r
-Apasă **Exportă configurația brută**, alege destinația și salvează. Proiectele în container exportă un ZIP cu configurația salvată și definiția completă a imaginii. Proiectele native salvează \`config.toml\`. Nu există un panou de configurare a exportului. Dacă browserul nu oferă alegerea destinației, se aplică preferințele sale obișnuite de descărcare. Selectează direct ZIP-ul exportat în Proiecte → Importă configurația brută pentru a importa configurația și rețetele împreună, cu validare automată.\r
-\r
-Administratorii gestionează sursele separat în **Detalii tehnice → Definiția imaginii**. Alege un Dockerfile sau ZIP în **Fișier de definiție**; fișierul este verificat automat. **Salvează rețeta** îl păstrează, iar **Schimbă definiția** îl înlocuiește. Tot aici se adaugă bazele locale lipsă. Baza standard a executorului ADORE este inclusă automat.\r
-\r
-Definițiile sunt păstrate pe imagine și sunt comune proiectelor care o folosesc. Salvarea unei rețete nu construiește imaginea, nu schimbă setările și nu repornește joburi. ZIP-ul include toate sursele declarate pentru bazele locale și un fișier Compose pentru construire pe alt server. Sunt excluse imaginile binare și pachetele instalate ulterior de agent. Registrele și sursele de pachete trebuie să fie accesibile acolo.\r
-\r
-Dacă o rețetă este coruptă, dialogul indică ce trebuie șters pe server pentru a începe din nou. Resetarea catalogului elimină definițiile de imagine salvate pentru toate proiectele; configurațiile, autentificările și joburile rămân neschimbate. ADORE nu șterge niciodată automat aceste date.\r
-\r
-## Pachetele de sistem ale agentului {#system-packages}\r
-\r
-**Permite agentului instalarea pachetelor de sistem**\r
-\r
-În Setări → Agent și model, administratorii activează permisiunea cu **Salvează** și confirmă efectul. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.\r
-\r
-Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.\r
-\r
-## Bugetele jobului {#budgets}\r
-\r
-Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și \`adore init\`.\r
-\r
-Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.\r
-\r
-Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.\r
-\r
-Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.\r
-\r
-\r
-**Implementare** (\`build\`) folosește \`workflow.stage_timeout_overrides\` sau limita generală \`budgets.per_gate_timeout_seconds\`. Pentru AEGIS, **Validare** (\`validate\`) limitează tot sesiunea agentului. ADORE nu rulează teste suplimentare; agentul alege verificările locale și CI conform instrucțiunilor repository-ului.\r
-`,aE=`# Statistici și costuri\r
-\r
-Statistici arată cât a lucrat ADORE, ce a consumat și cât de bine au rezistat rezultatele. Costurile sunt afișate doar administratorilor, iar costurile estimate nu sunt facturi.\r
-\r
-## Perioada raportării și exportul {#period}\r
-\r
-Deschideți **Statistici** din bara laterală pentru a vedea toate proiectele la care aveți acces sau deschideți fila **Statistici** a unui proiect pentru a-l vedea doar pe acela. Ambele folosesc aceeași structură: un rând **Perioada raportării** deasupra a patru file.\r
-\r
-| Control | Ce face |\r
-|---|---|\r
-| Proiect | Doar pagina Statistici. Administratorii încep cu **Toate proiectele**; un Dev alege dintre proiectele atribuite. Fila proiectului nu are selector. |\r
-| De la și Până la | Prima și ultima zi incluse. **Până la** include întreaga zi respectivă. |\r
-| Grupare după | Intervale de **Zi**, **Săptămână** sau **Lună**, folosite de fila Tendințe și de exporturi. |\r
-| Tot istoricul | Șterge ambele date. Lăsarea ambelor date goale înseamnă tot istoricul. |\r
-| Exportă CSV | Deschide un meniu de descărcări pentru proiectul, datele și gruparea curente. |\r
-\r
-Datele și intervalele folosesc UTC, dacă adresa paginii nu poartă alt fus orar. Datele se aplică fiecărei file și fiecărui export. Schimbarea proiectului păstrează perioada și fila în care vă aflați.\r
-\r
-Meniul **Exportă CSV** oferă **Indicatorii proiectului**, **Utilizarea proiectului** și **Consumul jobului** pentru un singur proiect, sau **Indicatorii tuturor proiectelor**, **Utilizarea tuturor proiectelor** și **Consumul jobului** pentru **Toate proiectele**. Apare după încărcarea datelor. Dacă o cerere eșuează, pagina afișează **Datele nu au putut fi încărcate** și reține totalurile și exporturile.\r
-\r
-O liniuță înseamnă că valoarea este necunoscută. Sub o valoare, **Zero măsurat** înseamnă că ADORE a observat zero, **Indisponibil** înseamnă că nu s-a înregistrat nimic, iar **Parțial · subtotal cunoscut** înseamnă că cifra acoperă doar utilizarea care a raportat tokenuri.\r
-\r
-## Cele patru file {#tabs}\r
-\r
-### Rezumat {#tab-summary}\r
-\r
-Carduri pentru **Joburi începute**, **Joburi terminate**, **Joburi eșuate**, **Tokenuri de intrare**, **Tokenuri de ieșire** și **Total tokeni cunoscuți**. Terminate numără fiecare lucrare încheiată, indiferent de rezultat. Totalul cere ca ambele direcții de tokenuri să fie cunoscute. Administratorii văd și cardurile **Cost raportat** și **Cost estimat**. Cu **Toate proiectele**, un tabel **Compararea proiectelor** listează lucrările începute, terminate și eșuate și durata medie pe proiect, cu repository-ul sub numele fiecărui proiect.\r
-\r
-### Utilizare {#tab-usage}\r
-\r
-**Utilizare după executor și model** începe cu totaluri compacte: evenimente de utilizare, tokenuri de intrare și de ieșire, cache citit și cache scris, precum și durata lucrărilor (**Lucrări măsurate**, **Durata medie**, **Durata mediană**). Tabelul de dedesubt listează utilizarea după dată, executor și model; faceți clic pe un antet de coloană pentru a sorta. Cu **Toate proiectele** urmează un tabel pe proiecte. Administratorii văd și coloanele de cost.\r
-\r
-### Calitate {#tab-quality}\r
-\r
-**Calitatea livrării** afișează **Refaceri cerute la revizie**, **Validare reușită din prima**, **Îmbinare fără refacere la revizie**, **Revizii încă deschise**, **Eșecuri de etapă** și **Reîncercări de operator**. Fiecare rată arată numărătorul și numitorul. **Revizii încă deschise** reflectă starea curentă și ignoră perioada. Dedesubt sunt **Revizii MR/PR cerute de om** și **Reparații de pipeline**, cu un tabel zilnic al zilelor active. Cu **Toate proiectele**, un tabel pe proiecte adaugă rundele de revizie.\r
-\r
-### Tendințe {#tab-trends}\r
-\r
-Acoperirea utilizării apare ca valoare compactă. Un tabel are un rând pe interval (zi, săptămână sau lună) cu lucrările începute, terminate și eșuate ca bare proporționale, plus tokenurile de intrare și de ieșire și, pentru administratori, costul raportat și estimat.\r
-\r
-Dacă domeniul nu are încă lucrări, Calitate și Tendințe spun asta și vă trimit la Lucrări → Tichete pentru a porni una.\r
-\r
-## Costuri raportate și estimate {#costs}\r
-\r
-Două cifre de cost sunt ținute separat, iar niciuna nu este o factură.\r
-\r
-- **Cost raportat** este ceea ce a raportat executorul, luat ca dovadă observată. Dacă nu a raportat nimic, valoarea afișează **Indisponibil**.\r
-- **Cost estimat** este numărul de tokenuri înregistrat înmulțit cu prețurile setate de administratori. Este o estimare, nu o factură și nu un plafon de cheltuieli.\r
-\r
-Administratorii înregistrează prețurile în **Setări → Agent și model** al unui proiect, sub **Prețuri estimative**: alegeți **Valabil de la**, apoi introduceți **USD intrare / 1 mil. tokenuri** și **USD ieșire / 1 mil. tokenuri** și **Salvează**. Un preț se aplică lui Pi și modelului lui configurat, deci setați mai întâi modelul. Fiecare eveniment de utilizare este evaluat după executor, model și ziua în care a fost consumat. Evenimentele fără preț potrivit sunt numărate ca **Utilizări fără preț** în totalurile Utilizării.\r
-\r
-> Un preț introdus cu o dată de intrare în vigoare anterioară poate schimba estimările din trecut. Exportați un CSV dacă aveți nevoie de o cifră la un anumit moment.\r
-\r
-În fila Calitate, administratorii văd și **Cost per lucrare cu dovezi**, per lucrare finalizată și per lucrare integrată de o persoană, fiecare cu numărul de lucrări din spatele lui.\r
-\r
-## Cine vede valorile monetare {#visibility}\r
-\r
-| Rol | Proiecte | Bani |\r
-|---|---|---|\r
-| Administrator | **Toate proiectele** sau orice proiect individual | Cost raportat, Cost estimat, Utilizări fără preț, cost per lucrare, cost pe revizie, coloanele de cost și câmpurile financiare din exporturile CSV |\r
-| Dev | Doar proiectele atribuite; fără **Toate proiectele** | Niciuna. Dev-ii văd numărul de lucrări, tokenurile, durata și cifrele de calitate, niciodată un câmp financiar. |\r
-\r
-Prețurile sunt setate și vizibile doar administratorilor; Setările doar pentru citire ale unui Dev omit setările financiare.\r
-`,sE=`# Tichete pentru preluare automată\r
-\r
-ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab sau Gitea) când poartă etichetele potrivite, iar dumneavoastră puteți porni și manual unul. Acest articol acoperă etichetele, eligibilitatea și vizualizarea Tichete.\r
-\r
-\r
-Tichetele cu eticheta configurată pentru epic nu sunt preluate sau pornite. Pornirea manuală rămâne disponibilă pentru tichetele eligibile când monitorizarea este în pauză.\r
-\r
-## Cum funcționează preluarea {#how-pickup-works}\r
-\r
-Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.\r
-\r
-Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.\r
-\r
-Înaintea preluării, ADORE verifică AEGIS numai dacă există \`.agentic/aegis.py\`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).\r
-\r
-## Creați mai întâi etichetele {#labels}\r
-\r
-GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Toate etichetele de mai jos trebuie să existe în repository-ul de pe forge înainte de prima rulare. ADORE le creează pe cele lipsă la adăugarea unui proiect (**Creează etichetele ADORE în repository**, bifată implicit în Revizuire și creare) sau când apăsați **Creează etichetele lipsă** în Setări → Repository; nu modifică și nu șterge niciodată etichetele existente și arată ce a creat, ce exista deja și ce a eșuat (de exemplu când contul de forge al serverului nu poate crea etichete). Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.\r
-\r
-| Etichetă | Scop |\r
-|---|---|\r
-| \`agent-ready\` | O adăugați dumneavoastră pentru a oferi un tichet spre preluare. ADORE o înlocuiește cu eticheta de lucru când lucrarea pornește. |\r
-| \`agent-working\` | O setează ADORE cât timp lucrează, publică și așteaptă aprobarea dumneavoastră. |\r
-| \`agent-clarify\` | O setează ADORE când a pus o întrebare și așteaptă un răspuns. |\r
-| \`agent-answered\` | O adăugați dumneavoastră după ce ați răspuns la o întrebare. |\r
-| \`agent-mr\` | O setează ADORE după publicarea MR/PR-ului, cât timp așteaptă revizuirea umană. |\r
-| \`agent-failed\` | O setează ADORE când o lucrare eșuează. |\r
-| \`agent-done\` | O setează ADORE după ce o persoană a integrat MR/PR-ul. |\r
-| \`agent-approved\` | O adăugați dumneavoastră pe tichet pentru a aproba publicarea candidatului prezentat. |\r
-| \`agent-revise\` | Un recenzor o adaugă pe MR/PR pentru a cere o rundă de revizie. |\r
-\r
-ADORE elimină la fiecare actualizare de stare etichetele de ciclu de viață pe care nu le aplică, așa că toate trebuie să existe. Adăugarea manuală a unei etichete de stare nu schimbă lucrarea.\r
-\r
-## Ce face un tichet eligibil {#eligible-tickets}\r
-\r
-Un tichet este preluat doar când toate regulile sunt îndeplinite. Ele sunt verificate în această ordine:\r
-\r
-1. Tichetul este deschis.\r
-2. Are eticheta ready (\`agent-ready\`).\r
-3. Nu are eticheta de blocare (\`agent-hold\`). Eliminarea etichetei de blocare face tichetul din nou eligibil.\r
-4. Nu are eticheta de excludere (\`no-agent\`, setarea **Eticheta de excludere de la preluare**). Ea are prioritate față de eticheta ready. Eliminarea ei restabilește eligibilitatea; adăugarea ei nu oprește o lucrare deja pornită.\r
-5. ADORE nu are încă nicio lucrare pentru tichet.\r
-6. Are o etichetă de prioritate: \`P1\`, \`P2\` sau \`P3\`. **Cere etichetă de prioritate pentru tichet** este activată implicit.\r
-7. Dacă **Cere criterii de acceptare pentru tichet** este activată, descrierea conține cuvintele acceptance criteria (indiferent de majuscule) sau un element de sarcină nebifat, \`- [ ]\`. Această verificare este dezactivată implicit.\r
-\r
-Etichetele opționale modelează lucrarea: \`bug\` sau \`fix\` produce o sarcină de corecție, \`change\` o sarcină de modificare, iar orice alt tichet o sarcină de funcționalitate. \`agent-quick\` este doar o sugestie; executorul alege între calea completă și cea rapidă și înregistrează motivul.\r
-\r
-## Revizuirea și pornirea tichetelor {#tickets-view}\r
-\r
-Deschideți un proiect din Proiecte, alegeți fila **Lucrări** și rămâneți pe sub-fila **Tichete**. Pagina globală **Lucrări** din bara laterală are aceleași două sub-file și un selector **Domeniul joburilor**. Cu **Toate proiectele**, tabelul primește o coloană Proiect, iar fiecare rând acționează asupra propriului proiect.\r
-\r
-Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:\r
-\r
-| Stare | Semnificație |\r
-|---|---|\r
-| Gata de pornire | Toate regulile sunt îndeplinite. |\r
-| Lipsește eticheta ... | Eticheta ready lipsește. |\r
-| În așteptare sau Exclus din ADORE | Este prezentă eticheta de blocare sau de excludere. |\r
-| Lipsește eticheta de prioritate | Nu există etichetă de prioritate. |\r
-| Lipsesc criteriile de acceptare | Textul cerut nu a fost găsit. |\r
-| Are o lucrare sau Lucrare: ... | ADORE are deja o lucrare; se afișează starea ei. |\r
-| Nu este deschis | Tichetul este închis. |\r
-\r
-**Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.\r
-\r
-**Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.\r
-\r
-Pe desktop, Pornește sau Reia, Oprește și Detalii sau Ascunde detaliile rămân pe același rând, aliniate la dreapta împreună cu antetul Acțiuni. Pe ecrane înguste, butoanele pot trece pe rândul următor pentru a rămâne în pagină.\r
-\r
-## Citirea descrierilor și comentariilor {#reading-bodies}\r
-\r
-**Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**\r
-\r
-Folosiți **Afișarea conținutului** în dreapta titlului **Descriere**, cu eticheta și selectorul pe aceeași linie pentru a alege **Randat** sau **Sursă Markdown** pentru toate descrierile și comentariile deschise. Sursa arată textul exact primit din repository, inclusiv spațiile și liniile noi. Contul păstrează alegerea salvată între proiecte, reîncărcări și browsere; alt browser autentificat o citește la următoarea autentificare sau reîncărcare. Dacă salvarea eșuează, apare o eroare și revine ultimul mod salvat; alegeți din nou pentru a reîncerca.\r
-\r
-HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute http, https și mailto sunt accesibile și se deschid separat. Imaginile nu se încarcă automat: apar **Imagine neîncărcată** și textul alternativ, dacă există. Codul, sursa și tabelele late derulează în zone proprii, accesibile cu tastatura. Bifele sarcinilor nu pot modifica tichetul.\r
-\r
-## Listă de verificare pentru primul tichet {#checklist}\r
-\r
-1. Creați toate cele nouă etichete în repository-ul de pe forge.\r
-2. Pentru preluare automată, verifică Monitorizarea Activă; pentru Pornește manual, poate rămâne În pauză.\r
-3. Scrieți un titlu clar și o descriere cu criterii de acceptare.\r
-4. Adăugați o etichetă de prioritate și, opțional, \`bug\`, \`fix\`, \`change\` sau \`agent-quick\`.\r
-5. Adăugați \`agent-ready\` ultima.\r
-6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.\r
-7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).\r
+`,tE=`# Ciclul de viață al lucrării
+
+O lucrare este munca pe care o face ADORE pentru un tichet, de la preluare până la o modificare integrată. Acest articol arată etapele ei și unde participați dumneavoastră. Etichetele și eligibilitatea sunt în [Tichete pentru preluare automată](/help/tickets).
+
+
+Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directorul de lucru, inclusiv modificările nepublicate; pot rămâne resurse. Starea și dovezile rămân. Ștergerea este separată.
+
+Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.
+
+## Etape {#stages}
+
+ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.
+
+| Etapă | Ce se întâmplă |
+|---|---|
+| Încadrare | Se stabilește domeniul, iar executorul înregistrează dacă lucrarea urmează calea completă sau cea rapidă. |
+| Specificare | Se scrie cerința. |
+| Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |
+| Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |
+| Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
+
+Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
+
+## Joburi directe {#direct-evidence}
+
+Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (\`build\`), **Validare** (\`validate\`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.
+
+**Ultima încercare înregistrată** arată ultima lansare înregistrată a agentului. Fără una, apare **Încercare indisponibilă**. Agentul raportează testele și verificările; ADORE nu le execută independent.
+
+**Implementare** directă folosește limita \`build\` din \`workflow.stage_timeout_overrides\`, cu revenire la \`budgets.per_gate_timeout_seconds\`. **Validare** (\`validate\`) înregistrează candidatul pentru aprobare fără o comandă de test separată.
+
+## Clarificare {#clarification}
+
+Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează \`agent-clarify\`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**. Alege **Citește întrebarea** pentru a deschide **Întrebarea agentului**, apoi **Răspunde pe tichet** când există un loc înregistrat.
+
+Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați \`agent-answered\`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
+
+## Aprobare {#approval}
+
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
+Când agentul încheie fluxul, ADORE înregistrează candidatul, elimină eticheta veche de aprobare și cere o nouă aprobare umană. Verificările din jurnal sunt raportate de agent.
+
+Revizuiți-l, apoi adăugați din nou \`agent-approved\`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.
+
+Când opțiunea este dezactivată, ADORE verifică candidatul validat și ținta, apoi publică fără a aștepta eticheta. ADORE nu face merge.
+
+## Publicare și revizuire {#review}
+
+După validare și aprobarea necesară, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează \`agent-mr\`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează \`agent-done\`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.
+
+Pentru a cere modificări, un recenzor adaugă \`agent-revise\` pe MR/PR. ADORE elimină eticheta, pornește lucru nou pe aceeași ramură (un task nou pentru AEGIS) și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.
+
+Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările CI ale PR/MR eșuează**: Reparare automată (implicit) pornește o revizie, Doar notificare postează un comentariu, iar Ignoră sare peste starea CI. Reparările automate consumă același buget de revizii; după epuizare, ADORE postează o notificare, iar lucrarea rămâne în revizuire.
+
+## Eșec și recuperare {#failures}
+
+Când o etapă eșuează, ADORE ține la zi un singur comentariu de incident pe tichet, cu etapa, încercarea, codul erorii, dovezile și următoarea acțiune; dacă agentul s-a oprit fără să avanseze etapa, dovezile arată și ultimele lui linii de ieșire de eroare. După ultima încercare postează un comentariu final, setează \`agent-failed\`, oprește containerul, păstrează worktree-ul și eliberează locul. Alte cauze sunt un timp de răspuns expirat, un tichet sursă șters și o limită depășită, precum costul sau fișierele modificate. Închiderea tichetului sursă cât timp o lucrare așteaptă o anulează.
+
+În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea cerută. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea \`agent-failed\` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.
+
+Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă actualizarea executabilului sau a mediului moștenit pe același calculator și cont. Păstrează sarcina, worktree-ul, ramura, istoricul și limitele cumulative. Monitorizarea automată nu face această revalidare. Setările de execuție schimbate sau dovezile de recuperare corupte trebuie corectate. Dacă repornirea eșuează, comanda apare eșuată cu motivul salvat: executabil lipsă, versiune invalidă, comandă eșuată sau expirarea timpului. Verificarea versiunii nu trimite cereri modelului; folosește **Testează conexiunea IA** pentru aceasta.
+
+Când o comandă în container depășește limita de timp, ADORE oprește containerul înaintea altei comenzi. Următoarea încercare permisă reia același container, cu dependențele și fișierele instalate; accesul la rețea rămâne neschimbat. Dacă oprirea sau repornirea sigură nu poate fi confirmată, lucrarea eșuează și păstrează dovezile pentru verificare înainte de **Reia**. Pregătirea eșuată păstrează procedura sa explicită de recuperare.
+
+## Renunță și pornește din nou {#restart}
+
+Pentru un job eșuat, **Renunță și pornește din nou** șterge starea salvată, worktree-ul cu lucrul nepublicat și branchul remote propriu nemodificat. Citește avertismentul și confirmă. ADORE verifică proprietatea înainte de curățare și pornește același tichet deschis cu setările curente doar după curățarea completă. Monitorizarea rămâne în pauză dacă era oprită. Administratorii și dezvoltatorii alocați pot folosi acțiunea.
+
+Reîncercarea nu poate corecta mediul de execuție sau setările stabile schimbate; detaliile jobului explică situația și oferă acțiunea confirmată. Restabilește setările salvate pentru a păstra lucrul existent. Reîncercarea poate revalida schimbările volatile ale mediului nativ, inclusiv variabilele procesorului după redimensionarea unui VM.
+
+Resursele străine, alt calculator sau cont, dovezile de proprietate corupte ori un branch remote modificat blochează recuperarea. Curățarea parțială păstrează dovezile rămase fără un job nou. Dacă jobul se schimbă după confirmare, reîncarcă detaliile și verifică din nou. Lockul CLI poate aparține workerului web: pune monitorizarea în pauză din Rezumatul proiectului și așteaptă încheierea jobului limitat. Nu șterge un lock activ.
+
+Dacă un job șters anterior a lăsat un branch fără checkpoint înregistrat, ADORE îl păstrează și folosește o generație nouă. Un checkpoint cunoscut modificat blochează în continuare recuperarea. Sunt încercate cel mult trei nume alternative, iar regulile depozitului trebuie să permită un nume liber; altfel recuperarea se oprește înainte de curățare. Rezultatul explică păstrarea unui branch vechi.
+
+## Urmărirea lucrărilor {#following-jobs}
+
+Folosiți **Lucrări** din bara laterală sau fila **Lucrări** a unui proiect, apoi sub-fila **Lucrări**. Tabelul are aceste coloane:
+
+| Coloană | Conținut |
+|---|---|
+| Tichet | Numărul și titlul; deschide detaliile lucrării. |
+| Proiect | Proiectul căruia îi aparține. |
+| Stare | Starea, Flux de lucru înregistrat, Etapa curentă și un link către tichet sau MR/PR când o persoană trebuie să acționeze. |
+| Ultima activitate | Momentul ultimului eveniment salvat. |
+| Consum | Tokenurile folosite de lucrare. |
+
+Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.
+
+Detaliile înlocuiesc lista cât timp sunt deschise. Antetul compact reunește numărul și numele tichetului. **Ce se întâmplă acum** arată starea, cine acționează și **Pasul următor**. Bugetele și Consumul sunt alături pe ecrane late și dedesubt pe ecrane înguste. **Activitate** listează evenimentele salvate de la cel mai recent. **Întrebarea agentului** conține clarificarea activă; celelalte stări arată **Dovezi și artefacte**. **Detalii tehnice** conține identificatori, ieșirea executorului și **Evenimentele originale înregistrate**, care pot fi extinse. **Închide** revine la listă cu filtrele păstrate. Evenimentele trecute nu devin cereri curente de acțiune.
+
+## Bugetele jobului {#budgets}
+
+Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și \`adore init\`.
+
+Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.
+
+Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
+
+Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
+
+## Stare și dovezi ale executorului {#operational-evidence}
+
+**În lucru** înseamnă că ADORE conduce etapa salvată; momentan nu se cere intervenția unui om. **Așteaptă clarificare** necesită un răspuns pe tichet. **Eșuat** oprește lucrul autonom și păstrează dovezile de recuperare. Cardul afișează încercările eșuate ale etapei curente chiar când jobul rămâne În lucru.
+
+Întrebările apar în **Întrebarea agentului** ca Markdown cu liste, tabele și cod. Comentariile HTML de la început sunt omise din vizualizarea lizibilă; **Întrebarea originală și dovezile** păstrează sursa exactă. Restul HTML rămâne text, linkurile nesigure sunt inactive și imaginile nu se încarcă automat. Tabelele late și codul se derulează în interiorul întrebării.
+
+Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.
+
+În **Detalii tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+
+Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.
+
+O lansare fără captură dovedită sau cu snapshotul șters este explicit indisponibilă; arhivele brute nu sunt citite ca alternativă. Dovezile corupte sunt refuzate. Joburile existente pot rămâne fără ieșire până la o lansare ulterioară; această vizualizare nu pornește niciuna.
+
+Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă eroare. Dovezile și recuperarea rămân separate. O sursă coruptă necesită în continuare investigarea operatorului.
+`,nE=`# Ce face ADORE
+
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
+ADORE transformă un tichet pregătit de pe forge-ul de cod într-un MR/PR ciornă (merge request sau pull request) pe care oamenii îl revizuiesc. Această pagină explică fluxul și cele două roluri; celelalte subiecte acoperă fiecare ecran.
+
+## Ce face ADORE {#what-adore-does}
+
+ADORE urmărește proiectele înrolate de un administrator. Când un tichet de pe forge (GitHub, GitLab sau Gitea) este pregătit pentru preluare, ADORE pornește pentru el o **lucrare**:
+
+- Rulează un agent de programare (executorul) într-un mediu izolat: o ramură dedicată, un folder de lucru și un container.
+- Agentul urmează fluxul AEGIS al repository-ului, o etapă pe rând: Încadrare, Specificare, Proiectare, Construire și Validare. O modificare mică poate urma o cale rapidă, fără Specificare și Proiectare.
+- ADORE urmărește rezultatul raportat de agent și cere unei persoane să aprobe candidatul.
+- După aprobare, ADORE publică un MR/PR ciornă pe care oamenii îl revizuiesc. Un proiect poate fi setat să publice în schimb un MR/PR pregătit pentru review.
+
+> ADORE nu integrează niciodată modificările. Nu are nicio operație de integrare (merge); decizia de a integra aparține unei persoane, pe forge.
+
+Interfața web arată ce rulează și ce necesită atenție. Vă permite, de asemenea, să porniți tichete, să reîncercați sau să anulați lucrări și, ca administrator, să configurați proiecte și conturi.
+
+Dacă starea lucrărilor unui proiect nu poate fi citită, secțiunea **Necesită intervenție** indică proiectul afectat. Datele lucrărilor din celelalte proiecte selectate rămân vizibile.
+
+## De la tichet la integrare {#flow}
+
+| Pas | Starea afișată | Cine acționează | Ce se întâmplă |
+|---|---|---|---|
+| 1. Pregătire | Încă nicio lucrare | O persoană | Tichetul primește eticheta ready și o etichetă de prioritate, sau apăsați **Pornește** în Lucrări → Tichete, ceea ce adaugă etichetele lipsă după confirmarea dumneavoastră. |
+| 2. Lucru | În lucru | ADORE și agentul de programare | ADORE creează lucrarea, iar agentul parcurge etapele AEGIS. |
+| 3. Clarificare | Așteaptă clarificări | O persoană | Doar dacă agentul are o întrebare. Răspundeți în tichetul din repository și adăugați eticheta de răspuns. |
+| 4. Validare | În lucru | Agentul de programare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
+| 5. Aprobare | Așteaptă aprobarea | O persoană | ADORE prezintă candidatul pe forge. O persoană adaugă eticheta de aprobare. Aprobarea este legată de exact acel candidat. |
+| 6. Publicare | Publicare | ADORE | ADORE trimite ramura (push) și deschide MR/PR-ul ciornă. |
+| 7. Revizuire | Revizie umană | O persoană | Oamenii revizuiesc. O revizie repetă validarea și respectă politica de aprobare a proiectului. |
+| 8. Integrare | Finalizat | O persoană | O persoană integrează pe forge. ADORE nu o face. |
+
+Dacă după aprobare se schimbă candidatul sau ramura sa țintă, aprobarea nu se mai aplică, iar lucrarea se validează din nou. Termenii sunt explicați în [glosar](/help/glossary).
+
+## Roluri {#roles}
+
+| Rol | Ce vede | Ce poate face |
+|---|---|---|
+| Administrator (Admin) | Toate proiectele curente și viitoare, plus Administrare și costurile | Tot ce poate face un Dev, precum și: înrolează proiecte, modifică setările proiectelor prin modificări revizuite, pune în pauză sau reia monitorizarea, arhivează sau restaurează proiecte, gestionează utilizatorii și accesul la proiecte, setează păstrarea auditului, citește istoricul modificărilor și vede și setează costurile |
+| Dev | Doar proiectele atribuite de un administrator | Pornește și oprește tichete, reîncearcă sau anulează lucrări, citește statisticile proiectelor atribuite și citește setările proiectului (doar pentru citire, fără secrete și fără setări financiare) |
+
+Un Dev nu vede niciodată valori monetare și nu poate deschide paginile de Administrare. Dacă nu are proiecte atribuite, Prezentarea generală îi indică să ceară acces unui administrator. Dacă nu există proiecte, un Admin poate alege **Înrolează un proiect nou** din Prezentare generală.
+
+## Primii pași {#getting-started}
+
+1. Administratorii înrolează repository-ul: [Adăugarea unui repository](/help/projects).
+2. Alegeți modelul folosit de agentul de programare Pi: [Executori și modele](/help/executors).
+3. Pregătiți tichetele pentru ca ADORE să le poată prelua: [Tichete pentru preluare automată](/help/tickets).
+4. Urmăriți fiecare lucrare până la MR/PR-ul ciornă: [Ciclul de viață al lucrării](/help/jobs).
+
+Dezvoltatorii încep de la pasul 3, după ce un administrator le-a dat acces la un proiect.
+
+## Unde găsiți mai multe informații {#topics}
+
+- [Ce face ADORE](/help/overview): această pagină.
+- [Prezentarea interfeței](/help/interface): bara laterală, antetul, pagina proiectului și etichetele de stare.
+- [Adăugarea unui repository](/help/projects): înrolarea unui proiect.
+- [Setările proiectului](/help/settings): ce controlează fiecare grup de setări.
+- [Executori și modele](/help/executors): agentul de programare Pi, modele și autentificare.
+- [Tichete pentru preluare automată](/help/tickets): etichete și pornirea tichetelor.
+- [Ciclul de viață al lucrării](/help/jobs): stări, stări de așteptare, reîncercare și anulare.
+- [Statistici și costuri](/help/statistics): utilizare, calitate, tendințe și costuri estimate.
+- [Administrare](/help/administration): utilizatori, acces, starea sistemului și istoricul modificărilor.
+- [Glosar](/help/glossary): termenii folosiți în interfață.
+`,iE=`# Adăugarea unui repository
+
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
+Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.
+
+
+O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou.
+
+
+O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.
+
+## Înainte de a începe {#before-you-start}
+
+Pregătiți următoarele:
+
+- Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.
+- Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.
+- Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).
+- ID-ul modelului pentru Pi și, pentru containere, un serviciu Docker sau Podman pornit. Imaginea comună implicită se pregătește automat la import; imaginile personalizate trebuie să existe deja în acel serviciu. Vezi [Executori și modele](/help/executors).
+
+## Înrolarea unui proiect nou {#add-project}
+
+Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.
+
+Când nu mai există proiecte, Prezentare și Proiecte oferă administratorilor **Înrolează un proiect nou** și **Importă configurația brută**. Ștergerea ultimului proiect vă readuce la Proiecte, unde ambele acțiuni rămân disponibile.
+
+| Pas | Ce cere |
+|---|---|
+| Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |
+| Agent și model | Alegeți **Furnizor**, **Model** și detaliile endpointului, dacă este necesar. Pentru container, alegeți runtime-ul și imaginea. Salvați cheia furnizorului în Setări după creare. Pentru **Instalat pe server** apar contul curent al sistemului și opțional **PATH pentru uneltele proiectului**. |
+| Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
+| Verificare | Deschiderea acestui pas verifică automat configurarea, folderele serverului, Git și accesul la forge. **Reverifică mediul** repetă aceste verificări. **Workflow** arată separat fluxul observat al repository-ului, fără să blocheze înrolarea. Pentru execuția nativă, **Pi pe server** afișează erorile locale, inclusiv versiunile Node incompatibile. Pentru execuția în container, se verifică motorul și Pi din imaginea locală. Nu se publică nimic. **Continuă** deschide revizuirea după ce configurarea este validă. |
+| Revizuire și creare | Afișează candidatul exact și locațiile de pe server, plus o listă restrânsă **Setări lăsate la valorile implicite** cu valoarea implicită a fiecărei alte setări (doar citire; le schimbați în Setări după creare). **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică ramura țintă, apoi salvează proiectul și, dacă nu debifați **Creează etichetele ADORE în repository**, creează etichetele ADORE lipsă și arată rezultatul; urmează **Deschide proiectul**. |
+
+Pentru execuția locală nativă alegeți **Rulează în → Instalat pe server**. Configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
+
+Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).
+
+**Locație automată** păstrează calea propusă pentru clonă. Alege **Locație personalizată** și **Alege folderul…** pentru a răsfoi folderele gazdei ADORE. Un clic selectează rândul; dublu-clic sau Enter deschide folderul. Folosește Înapoi sau Folderul părinte, apoi **Selectează folderul** pentru a confirma exact folderul existent. Introdu o destinație nouă direct în câmpul căii clonei din formularul principal. Selectorul nu creează nimic; legăturile și căile de rețea sunt refuzate. **Anulează** păstrează schița. Calea tastată în timpul încărcării listei rămâne în bara de adrese.
+
+**Ramură țintă** listează ramurile remote pentru GitHub, GitLab și Gitea, inclusiv instanțe proprii. Ramura implicită a repository-ului este selectată și marcată **implicită**. Alegeți altă ramură dacă este nevoie. **Citește repository-ul** actualizează lista și păstrează o selecție explicită dacă ramura mai există. Schimbarea URL-ului șterge opțiunile anterioare. Dacă nu este raportată o ramură implicită, alegeți una; dacă repository-ul nu are ramuri, adăugați una acolo și recitiți-l. Se folosește accesul Git al contului ADORE; tipul forge necunoscut se selectează în continuare manual.
+
+## Fluxurile repository-ului {#workflows}
+
+La confirmarea înrolării ghidate sau a unui import de configurație, ADORE pregătește imaginile comune de execuție și de proxy care lipsesc, înainte să salveze proiectul. Progresul arată etapa curentă; prima pregătire poate dura câteva minute și necesită internet pe server. Importurile următoare reutilizează imaginile. După un eșec al pregătirii, reîncercați importul fără să introduceți din nou aceleași răspunsuri. Importurile native omit pregătirea containerelor. Definițiile imaginilor personalizate rămân în responsabilitatea administratorului.
+
+**AEGIS / Direct**. Agentul descoperă și rulează verificările conform instrucțiunilor repository-ului. Cu AEGIS urmează etapele înregistrate; fără AEGIS implementează direct tichetul. ADORE urmărește progresul și jurnalul, înregistrează candidatul și cere aprobarea umană. Nu rulează separat testele repository-ului sau verificări AEGIS stricte.
+
+## Importă configurația brută {#import-project}
+
+În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 \`config.toml\`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.
+
+Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).
+
+
+Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:
+
+1. Alegeți **Acces la repository**. Introduceți adresa serverului forge și un token de acces creat pe forge, apoi **Verifică și conectează**. Aceasta confirmă contul și accesul de citire la repository. Tokenul rămâne pe server, niciodată în browser. Alternativ, autentificați instrumentul forge sub contul de serviciu ADORE.
+2. Alegeți **Verifică cerințele gazdei**. Detaliile acoperă Git, instrumentul de linie de comandă al repository-ului, autentificarea în repository, motorul de containere, Pi din imagine, plus autentificarea ChatGPT a serverului pentru un abonament ChatGPT, imaginea proxyului de rețea când [accesul la internet](/help/executors#internet) este dezactivat și cheia de căutare web când Brave sau Tavily are nevoie de una. Pentru un proiect care rulează direct pe server, **Execuție locală** înlocuiește rândurile pentru motorul de containere și imagine: verifică versiunea compatibilă de Node, Pi administrat de ADORE și credențialele furnizorului. Rândul separat **Workflow** identifică fluxul fără să execute AEGIS. Aceasta nu este o lucrare completă și nu dovedește permisiunea de push.
+3. Rulați **Testează conexiunea AI** în Setări, așa cum este descris în [Executori și modele](/help/executors#test-connection).
+4. Alegeți **Activează monitorizarea**. Cardul Monitorizare trece din În pauză în Activă, iar ADORE începe să preia tichetele care poartă eticheta ready. **Pune monitorizarea în pauză** oprește preluările noi, dar nu întrerupe o lucrare în curs.
+
+## Arhivare, restaurare și ștergere {#lifecycle}
+
+Administratorii găsesc aceste butoane în fila Rezumat.
+
+- **Arhivează proiectul** funcționează după încheierea lucrărilor și golirea cererilor din coadă. Păstrează setările, istoricul, metricile și înregistrările de audit și oprește lucrul nou. **Restaurează proiectul** îl readuce.
+- **Șterge proiectul** apare doar pentru proiectele arhivate și vă cere să tastați numele proiectului. Elimină setările ADORE ale proiectului, istoricul lucrărilor, metricile, containerele și worktree-urile. Păstrează repository-ul și ramurile sale, worktree-urile lucrărilor predate unei persoane, un dosar de stare al lucrărilor din afara directorului ADORE și jurnalul de audit. Ștergerea este refuzată cât timp există lucru în coadă sau neterminat. **Elimină și clona locală** (nebifat) șterge și clona făcută de ADORE în dosarul său \`repos\`; opțiunea apare doar pentru o clonă curată a repository-ului acestui proiect, pe care nu o folosește alt proiect și de care nu mai are nevoie niciun worktree păstrat la ștergere, altfel fereastra spune de ce se păstrează clona.
+
+> Ștergerea nu poate fi anulată. Pentru a ajusta un proiect după aceea, vezi [Setările proiectului](/help/settings).
+
+## Autentificare Gitea pe acest calculator {#gitea-sign-in}
+
+ADORE folosește mai întâi conexiunea salvată a proiectului. Altfel reutilizează configurația tea a contului curent. Dacă tea raportează un login lipsă, ADORE verifică locațiile standard Windows sau Linux și selectează loginul configurat, un singur login implicit sau singurul login disponibil. Mai multe conturi fără o selecție clară necesită o conexiune explicită.
+
+Detectarea respectă \`XDG_CONFIG_HOME\`. Pe Windows verifică și directoarele Local AppData, Roaming AppData și \`.config\` din home-ul contului; pe Linux verifică directorul \`.config\` din home. Nu caută în cache-urile private ale aplicațiilor și nu copiază credențiale între calculatoare.
+
+1. Deschide fila **Rezumat** a proiectului și alege **Acces la repository**.
+2. Completează **Serverul depozitului** cu adresa de bază Gitea, inclusiv portul dacă este necesar.
+3. Creează pe serverul Gitea un token pentru contul cu drept de citire/actualizare a tichetelor și creare de cereri de revizuire în draft și introdu-l în **Token de acces**.
+4. Apasă **Verifică și conectează**. Un server HTTP necesită confirmarea afișată. O verificare eșuată păstrează conexiunea salvată.
+5. Verifică din nou cerințele gazdei. Credențialele Git pentru clone/push se configurează separat.
+
+Pe alt calculator, pregătește autentificarea CLI locală sau folosește acest formular de conectare. Arhiva de livrare nu conține tokenurile utilizatorilor.
+`,rE=`# Setările proiectului
+
+Fila Setări a unui proiect listează regulile de lucru pe care ADORE le aplică: ce tichete preia, limitele, cum publică și ce agent folosește. Administratorii modifică mai multe setări și le salvează împreună; dezvoltatorii le citesc.
+
+## Unde găsiți Setările {#where}
+
+Deschideți [Proiecte](/projects), alegeți un proiect și selectați fila **Setări**. Filele sunt Rezumat, Setări, Lucrări, Statistici, Istoric și, pentru administratori, Acces.
+
+Setările salvate se actualizează la fiecare 15 secunde cât timp fila browserului este vizibilă. Actualizarea se oprește dacă aveți setări nesalvate sau dacă salvarea ori renunțarea la modificări este în curs. Actualizarea se oprește și când introduceți un tarif sau o cheie API ori când vă conectați la ChatGPT.
+
+Administratorii pot edita. Dezvoltatorii cu acces la proiect văd **Setări doar pentru citire**, fără butoane Modifică și fără secrete sau setări financiare. Fiecare proiect are propriile setări; capacitatea globală și păstrarea auditului aparțin Administrării.
+
+## Grupuri de setări {#groups}
+
+Fiecare grup este închis când deschideți Setări, iar numărul de lângă numele lui numără rândurile sale.
+
+| Grup | Ce controlează |
+|---|---|
+| Repository | Forge-ul și repository-ul, login-ul Gitea, **Ramura de integrare** (baza lucrărilor noi și destinația PR/MR-urilor), șablonul numelui ramurii lucrării, cu o regulă opțională de denumire și un exemplu în timp real, precum și numele afișat al agentului, numele resursei și e-mailul autorului commit-urilor. |
+| Tichete | **Eticheta pentru preluare**, **Eticheta de excludere de la preluare**, **Etichete de stare** (pliate), cât de des verifică ADORE forge-ul, dacă tichetele cer criterii de acceptare sau o etichetă de prioritate și tipul implicit de sarcină. Vezi [Tichete pentru preluare automată](/help/tickets#labels). |
+| Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
+| PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), **Cere aprobare umană înainte de PR/MR** și eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |
+| Statistici | **Înregistrează măsurătorile lucrărilor finalizate** și **Înregistrează tokenurile raportate de agent**. **Fișierul bazei de date pentru statistici** este afișat doar cu titlu informativ. |
+| Agent și model | Furnizorul, modelul, autentificarea și **Testează conexiunea AI** [Executori și modele](/help/executors). |
+| Detalii tehnice | Valori de instalare doar pentru citire, precum dosarul de stare al lucrărilor, calea repository-ului local și folderele de lucru ale lucrărilor. Se modifică în \`config.toml\` al proiectului, pe server, iar schimbarea unei căi nu mută datele existente. |
+
+## Valori și ajutor {#values}
+
+Fiecare rând are o etichetă, o descriere mereu vizibilă, o **Valoare activă** și o **Valoarea implicită ADORE**. Descrierea spune ce controlează setarea, unitatea sau valorile permise și ce efect are modificarea, sau că este rezervată și nefolosită. Nu există un buton de ajutor separat.
+
+O insignă **Implicit** înseamnă că \`config.toml\` al proiectului nu setează valoarea, deci se aplică valoarea implicită ADORE. Modificarea ei scrie o valoare doar pentru acest proiect. Un rând marcat **Nu se poate modifica aici** se modifică în \`config.toml\` pe server. Un rând marcat **Se aplică doar cu preluarea în pauză și fără lucrări active** are nevoie de condiția suplimentară descrisă mai jos.
+
+Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).
+
+## Editare {#editing}
+
+Bara **Salvează** și **Renunță la modificări** apare doar pentru modificări nesalvate sau recuperate, în timpul salvării ori când o eroare cere recuperare. Dispare după salvare sau renunțare reușită. Deschiderea unui editor fără schimbarea valorii nu afișează bara.
+
+1. Alege **Editează** lângă fiecare valoare de modificat. Poți edita mai multe setări din grupuri diferite.
+2. Folosește unicul buton **Salvează** deasupra grupurilor. Se activează doar când există valori schimbate și toate modificările sunt valide.
+3. Pentru schimbări importante, **Confirmă modificările importante** arată proiectul, valorile schimbate și efectele. Alege **Salvează modificările**, sau **Continuă editarea** pentru a reveni fără salvare.
+
+Reguli aplicabile:
+
+- **Renunță la modificări** elimină toate editările nesalvate. Anularea confirmării le păstrează fără să creeze un candidat salvat.
+- Salvarea este legată de configurația editată. O revizie depășită oprește salvarea și păstrează datele introduse. Renunțați la modificări pentru a reîncărca setările salvate înainte de a edita din nou. Modificările simultane produc un conflict.
+- Serverul verifică întreaga configurație și salvează toate modificările împreună. Salvarea revizuită doar a bugetelor permite și joburi în așteptarea clarificărilor, fără conductor activ sau operații neterminate. Alte setări cer joburi încheiate. O eroare păstrează datele introduse și candidatul pregătit.
+- Schimbările de identitate sau mediu cer și monitorizare în pauză. Alege **Pune monitorizarea în pauză** în Sumar și așteaptă terminarea lucrărilor active; pauza nu întrerupe un job.
+- Bugetele se aplică înaintea următoarei încercări sau reluări și păstrează consumul și progresul. Vezi [Bugetele jobului](#budgets).
+
+Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
+
+## TOML original {#toml}
+
+Lângă Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea arată TOML-ul salvat exact, într-un dialog care poate fi închis. Sunt excluse modificările în așteptare, fișierele de mediu separate, credențialele externe și datele joburilor în curs. Un TOML simplu poate conține valori în clar și trebuie tratat ca secret; exportul complet de construire refuză credențialele în clar.
+
+Apasă **Exportă configurația brută**, alege destinația și salvează. Proiectele în container exportă un ZIP cu configurația salvată și definiția completă a imaginii. Proiectele native salvează \`config.toml\`. Nu există un panou de configurare a exportului. Dacă browserul nu oferă alegerea destinației, se aplică preferințele sale obișnuite de descărcare. Selectează direct ZIP-ul exportat în Proiecte → Importă configurația brută pentru a importa configurația și rețetele împreună, cu validare automată.
+
+Administratorii gestionează sursele separat în **Detalii tehnice → Definiția imaginii**. Alege un Dockerfile sau ZIP în **Fișier de definiție**; fișierul este verificat automat. **Salvează rețeta** îl păstrează, iar **Schimbă definiția** îl înlocuiește. Tot aici se adaugă bazele locale lipsă. Baza standard a executorului ADORE este inclusă automat.
+
+Definițiile sunt păstrate pe imagine și sunt comune proiectelor care o folosesc. Salvarea unei rețete nu construiește imaginea, nu schimbă setările și nu repornește joburi. ZIP-ul include toate sursele declarate pentru bazele locale și un fișier Compose pentru construire pe alt server. Sunt excluse imaginile binare și pachetele instalate ulterior de agent. Registrele și sursele de pachete trebuie să fie accesibile acolo.
+
+Dacă o rețetă este coruptă, dialogul indică ce trebuie șters pe server pentru a începe din nou. Resetarea catalogului elimină definițiile de imagine salvate pentru toate proiectele; configurațiile, autentificările și joburile rămân neschimbate. ADORE nu șterge niciodată automat aceste date.
+
+## Pachetele de sistem ale agentului {#system-packages}
+
+**Permite agentului instalarea pachetelor de sistem**
+
+În Setări → Agent și model, administratorii activează permisiunea cu **Salvează** și confirmă efectul. Implicit este oprită și apare pentru proiecte în container. Reconstruiți sau alegeți întâi o imagine compatibilă cu sudo, apoi porniți o lucrare nouă. Agentul execută direct comenzile, citește erorile și adaptează pașii în limitele lucrării.
+
+Accesul la rețea rămâne separat: open permite sursele accesibile, allowlist-proxy domeniile HTTP/HTTPS permise, iar none numai sursele locale disponibile. Scripturile pachetelor au drepturi administrative în container; directoarele montate ale proiectului rămân partajate cu serverul. Pachetele de sistem se păstrează la reluarea aceluiași container; un container nou cere reevaluare și instalare.
+
+## Bugetele jobului {#budgets}
+
+Detaliile afișează **Lansări executor** (de exemplu 9 / 20) și **Lucru activ (secunde)** lângă limitele actuale ale proiectului, independent de statisticile de tokenuri. La 90% apare avertizarea de apropiere; la limită se cere majorarea înainte de reluare. Limita implicită este 20 în înrolare și \`adore init\`.
+
+Administratorii pot urma **Ajustează bugetele în Setările proiectului**, deschide **Implementare**, modifica doar bugete, alege **Salvează** și confirma valorile exacte. Salvarea revizuită numai a bugetelor este permisă când joburile așteaptă clarificări, fără conductor activ sau operații neterminate. Celelalte setări păstrează verificările obișnuite de repaus și pauză; dezvoltatorii au acces doar la citire.
+
+Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
+
+Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
+
+
+**Implementare** (\`build\`) folosește \`workflow.stage_timeout_overrides\` sau limita generală \`budgets.per_gate_timeout_seconds\`. Pentru AEGIS, **Validare** (\`validate\`) limitează tot sesiunea agentului. ADORE nu rulează teste suplimentare; agentul alege verificările locale și CI conform instrucțiunilor repository-ului.
+`,aE=`# Statistici și costuri
+
+Statistici arată cât a lucrat ADORE, ce a consumat și cât de bine au rezistat rezultatele. Costurile sunt afișate doar administratorilor, iar costurile estimate nu sunt facturi.
+
+## Perioada raportării și exportul {#period}
+
+Deschideți **Statistici** din bara laterală pentru a vedea toate proiectele la care aveți acces sau deschideți fila **Statistici** a unui proiect pentru a-l vedea doar pe acela. Ambele folosesc aceeași structură: un rând **Perioada raportării** deasupra a patru file.
+
+| Control | Ce face |
+|---|---|
+| Proiect | Doar pagina Statistici. Administratorii încep cu **Toate proiectele**; un Dev alege dintre proiectele atribuite. Fila proiectului nu are selector. |
+| De la și Până la | Prima și ultima zi incluse. **Până la** include întreaga zi respectivă. |
+| Grupare după | Intervale de **Zi**, **Săptămână** sau **Lună**, folosite de fila Tendințe și de exporturi. |
+| Tot istoricul | Șterge ambele date. Lăsarea ambelor date goale înseamnă tot istoricul. |
+| Exportă CSV | Deschide un meniu de descărcări pentru proiectul, datele și gruparea curente. |
+
+Datele și intervalele folosesc UTC, dacă adresa paginii nu poartă alt fus orar. Datele se aplică fiecărei file și fiecărui export. Schimbarea proiectului păstrează perioada și fila în care vă aflați.
+
+Meniul **Exportă CSV** oferă **Indicatorii proiectului**, **Utilizarea proiectului** și **Consumul jobului** pentru un singur proiect, sau **Indicatorii tuturor proiectelor**, **Utilizarea tuturor proiectelor** și **Consumul jobului** pentru **Toate proiectele**. Apare după încărcarea datelor. Dacă o cerere eșuează, pagina afișează **Datele nu au putut fi încărcate** și reține totalurile și exporturile.
+
+O liniuță înseamnă că valoarea este necunoscută. Sub o valoare, **Zero măsurat** înseamnă că ADORE a observat zero, **Indisponibil** înseamnă că nu s-a înregistrat nimic, iar **Parțial · subtotal cunoscut** înseamnă că cifra acoperă doar utilizarea care a raportat tokenuri.
+
+## Cele patru file {#tabs}
+
+### Rezumat {#tab-summary}
+
+Carduri pentru **Joburi începute**, **Joburi terminate**, **Joburi eșuate**, **Tokenuri de intrare**, **Tokenuri de ieșire** și **Total tokeni cunoscuți**. Terminate numără fiecare lucrare încheiată, indiferent de rezultat. Totalul cere ca ambele direcții de tokenuri să fie cunoscute. Administratorii văd și cardurile **Cost raportat** și **Cost estimat**. Cu **Toate proiectele**, un tabel **Compararea proiectelor** listează lucrările începute, terminate și eșuate și durata medie pe proiect, cu repository-ul sub numele fiecărui proiect.
+
+### Utilizare {#tab-usage}
+
+**Utilizare după executor și model** începe cu totaluri compacte: evenimente de utilizare, tokenuri de intrare și de ieșire, cache citit și cache scris, precum și durata lucrărilor (**Lucrări măsurate**, **Durata medie**, **Durata mediană**). Tabelul de dedesubt listează utilizarea după dată, executor și model; faceți clic pe un antet de coloană pentru a sorta. Cu **Toate proiectele** urmează un tabel pe proiecte. Administratorii văd și coloanele de cost.
+
+### Calitate {#tab-quality}
+
+**Calitatea livrării** afișează **Refaceri cerute la revizie**, **Validare reușită din prima**, **Îmbinare fără refacere la revizie**, **Revizii încă deschise**, **Eșecuri de etapă** și **Reîncercări de operator**. Fiecare rată arată numărătorul și numitorul. **Revizii încă deschise** reflectă starea curentă și ignoră perioada. Dedesubt sunt **Revizii MR/PR cerute de om** și **Reparații de pipeline**, cu un tabel zilnic al zilelor active. Cu **Toate proiectele**, un tabel pe proiecte adaugă rundele de revizie.
+
+### Tendințe {#tab-trends}
+
+Acoperirea utilizării apare ca valoare compactă. Un tabel are un rând pe interval (zi, săptămână sau lună) cu lucrările începute, terminate și eșuate ca bare proporționale, plus tokenurile de intrare și de ieșire și, pentru administratori, costul raportat și estimat.
+
+Dacă domeniul nu are încă lucrări, Calitate și Tendințe spun asta și vă trimit la Lucrări → Tichete pentru a porni una.
+
+## Costuri raportate și estimate {#costs}
+
+Două cifre de cost sunt ținute separat, iar niciuna nu este o factură.
+
+- **Cost raportat** este ceea ce a raportat executorul, luat ca dovadă observată. Dacă nu a raportat nimic, valoarea afișează **Indisponibil**.
+- **Cost estimat** este numărul de tokenuri înregistrat înmulțit cu prețurile setate de administratori. Este o estimare, nu o factură și nu un plafon de cheltuieli.
+
+Administratorii înregistrează prețurile în **Setări → Agent și model** al unui proiect, sub **Prețuri estimative**: alegeți **Valabil de la**, apoi introduceți **USD intrare / 1 mil. tokenuri** și **USD ieșire / 1 mil. tokenuri** și **Salvează**. Un preț se aplică lui Pi și modelului lui configurat, deci setați mai întâi modelul. Fiecare eveniment de utilizare este evaluat după executor, model și ziua în care a fost consumat. Evenimentele fără preț potrivit sunt numărate ca **Utilizări fără preț** în totalurile Utilizării.
+
+> Un preț introdus cu o dată de intrare în vigoare anterioară poate schimba estimările din trecut. Exportați un CSV dacă aveți nevoie de o cifră la un anumit moment.
+
+În fila Calitate, administratorii văd și **Cost per lucrare cu dovezi**, per lucrare finalizată și per lucrare integrată de o persoană, fiecare cu numărul de lucrări din spatele lui.
+
+## Cine vede valorile monetare {#visibility}
+
+| Rol | Proiecte | Bani |
+|---|---|---|
+| Administrator | **Toate proiectele** sau orice proiect individual | Cost raportat, Cost estimat, Utilizări fără preț, cost per lucrare, cost pe revizie, coloanele de cost și câmpurile financiare din exporturile CSV |
+| Dev | Doar proiectele atribuite; fără **Toate proiectele** | Niciuna. Dev-ii văd numărul de lucrări, tokenurile, durata și cifrele de calitate, niciodată un câmp financiar. |
+
+Prețurile sunt setate și vizibile doar administratorilor; Setările doar pentru citire ale unui Dev omit setările financiare.
+`,sE=`# Tichete pentru preluare automată
+
+ADORE preia tichete din repository-ul dumneavoastră de pe forge (GitHub, GitLab sau Gitea) când poartă etichetele potrivite, iar dumneavoastră puteți porni și manual unul. Acest articol acoperă etichetele, eligibilitatea și vizualizarea Tichete.
+
+
+Tichetele cu eticheta configurată pentru epic nu sunt preluate sau pornite. Pornirea manuală rămâne disponibilă pentru tichetele eligibile când monitorizarea este în pauză.
+
+## Cum funcționează preluarea {#how-pickup-works}
+
+Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În pauză** în tabelul Proiecte și în fila Rezumat a proiectului. Cât timp monitorizarea este Activă, ADORE verifică repository-ul pentru tichete pregătite la un interval regulat (60 de secunde implicit; vezi **Interval de verificare (secunde)** în [Setările proiectului](/help/settings)). Preia mai întâi tichetul eligibil cu cea mai mare prioritate (P1, apoi P2, apoi P3), apoi pe cel cu numărul cel mai mic, și avansează o lucrare pe rând.
+
+Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
+
+Înaintea preluării, ADORE verifică AEGIS numai dacă există \`.agentic/aegis.py\`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+
+## Creați mai întâi etichetele {#labels}
+
+GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Toate etichetele de mai jos trebuie să existe în repository-ul de pe forge înainte de prima rulare. ADORE le creează pe cele lipsă la adăugarea unui proiect (**Creează etichetele ADORE în repository**, bifată implicit în Revizuire și creare) sau când apăsați **Creează etichetele lipsă** în Setări → Repository; nu modifică și nu șterge niciodată etichetele existente și arată ce a creat, ce exista deja și ce a eșuat (de exemplu când contul de forge al serverului nu poate crea etichete). Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.
+
+| Etichetă | Scop |
+|---|---|
+| \`agent-ready\` | O adăugați dumneavoastră pentru a oferi un tichet spre preluare. ADORE o înlocuiește cu eticheta de lucru când lucrarea pornește. |
+| \`agent-working\` | O setează ADORE cât timp lucrează, publică și așteaptă aprobarea dumneavoastră. |
+| \`agent-clarify\` | O setează ADORE când a pus o întrebare și așteaptă un răspuns. |
+| \`agent-answered\` | O adăugați dumneavoastră după ce ați răspuns la o întrebare. |
+| \`agent-mr\` | O setează ADORE după publicarea MR/PR-ului, cât timp așteaptă revizuirea umană. |
+| \`agent-failed\` | O setează ADORE când o lucrare eșuează. |
+| \`agent-done\` | O setează ADORE după ce o persoană a integrat MR/PR-ul. |
+| \`agent-approved\` | O adăugați dumneavoastră pe tichet pentru a aproba publicarea candidatului prezentat. |
+| \`agent-revise\` | Un recenzor o adaugă pe MR/PR pentru a cere o rundă de revizie. |
+
+ADORE elimină la fiecare actualizare de stare etichetele de ciclu de viață pe care nu le aplică, așa că toate trebuie să existe. Adăugarea manuală a unei etichete de stare nu schimbă lucrarea.
+
+## Ce face un tichet eligibil {#eligible-tickets}
+
+Un tichet este preluat doar când toate regulile sunt îndeplinite. Ele sunt verificate în această ordine:
+
+1. Tichetul este deschis.
+2. Are eticheta ready (\`agent-ready\`).
+3. Nu are eticheta de blocare (\`agent-hold\`). Eliminarea etichetei de blocare face tichetul din nou eligibil.
+4. Nu are eticheta de excludere (\`no-agent\`, setarea **Eticheta de excludere de la preluare**). Ea are prioritate față de eticheta ready. Eliminarea ei restabilește eligibilitatea; adăugarea ei nu oprește o lucrare deja pornită.
+5. ADORE nu are încă nicio lucrare pentru tichet.
+6. Are o etichetă de prioritate: \`P1\`, \`P2\` sau \`P3\`. **Cere etichetă de prioritate pentru tichet** este activată implicit.
+7. Dacă **Cere criterii de acceptare pentru tichet** este activată, descrierea conține cuvintele acceptance criteria (indiferent de majuscule) sau un element de sarcină nebifat, \`- [ ]\`. Această verificare este dezactivată implicit.
+
+Etichetele opționale modelează lucrarea: \`bug\` sau \`fix\` produce o sarcină de corecție, \`change\` o sarcină de modificare, iar orice alt tichet o sarcină de funcționalitate. \`agent-quick\` este doar o sugestie; executorul alege între calea completă și cea rapidă și înregistrează motivul.
+
+## Revizuirea și pornirea tichetelor {#tickets-view}
+
+Deschideți un proiect din Proiecte, alegeți fila **Lucrări** și rămâneți pe sub-fila **Tichete**. Pagina globală **Lucrări** din bara laterală are aceleași două sub-file și un selector **Domeniul joburilor**. Cu **Toate proiectele**, tabelul primește o coloană Proiect, iar fiecare rând acționează asupra propriului proiect.
+
+Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă până la 500 de tichete deschise. Peste 10 tichete se afișează pe pagini: alegeți 10, 25, 50 sau Toate în **Rânduri pe pagină** și navigați cu **Înapoi** și **Înainte**; se afișează numărul paginii din numărul de pagini. Fiecare rând afișează numărul într-o coloană îngustă, alături de titlu, etichete, Stare și acțiuni. Starea numește ce blochează un tichet:
+
+| Stare | Semnificație |
+|---|---|
+| Gata de pornire | Toate regulile sunt îndeplinite. |
+| Lipsește eticheta ... | Eticheta ready lipsește. |
+| În așteptare sau Exclus din ADORE | Este prezentă eticheta de blocare sau de excludere. |
+| Lipsește eticheta de prioritate | Nu există etichetă de prioritate. |
+| Lipsesc criteriile de acceptare | Textul cerut nu a fost găsit. |
+| Are o lucrare sau Lucrare: ... | ADORE are deja o lucrare; se afișează starea ei. |
+| Nu este deschis | Tichetul este închis. |
+
+**Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.
+
+**Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.
+
+Pe desktop, Pornește sau Reia, Oprește și Detalii sau Ascunde detaliile rămân pe același rând, aliniate la dreapta împreună cu antetul Acțiuni. Pe ecrane înguste, butoanele pot trece pe rândul următor pentru a rămâne în pagină.
+
+## Citirea descrierilor și comentariilor {#reading-bodies}
+
+**Detalii** deschide implicit descrierile și comentariile în Markdown **Randat**. Titlurile, evidențierile, codul, listele imbricate, sarcinile doar pentru citire, citatele, tabelele și linkurile sunt formatate; o descriere goală păstrează **Fără descriere.**
+
+Folosiți **Afișarea conținutului** în dreapta titlului **Descriere**, cu eticheta și selectorul pe aceeași linie pentru a alege **Randat** sau **Sursă Markdown** pentru toate descrierile și comentariile deschise. Sursa arată textul exact primit din repository, inclusiv spațiile și liniile noi. Contul păstrează alegerea salvată între proiecte, reîncărcări și browsere; alt browser autentificat o citește la următoarea autentificare sau reîncărcare. Dacă salvarea eșuează, apare o eroare și revine ultimul mod salvat; alegeți din nou pentru a reîncerca.
+
+HTML-ul rămâne text vizibil, nu conținut executabil. Doar linkurile absolute http, https și mailto sunt accesibile și se deschid separat. Imaginile nu se încarcă automat: apar **Imagine neîncărcată** și textul alternativ, dacă există. Codul, sursa și tabelele late derulează în zone proprii, accesibile cu tastatura. Bifele sarcinilor nu pot modifica tichetul.
+
+## Listă de verificare pentru primul tichet {#checklist}
+
+1. Creați toate cele nouă etichete în repository-ul de pe forge.
+2. Pentru preluare automată, verifică Monitorizarea Activă; pentru Pornește manual, poate rămâne În pauză.
+3. Scrieți un titlu clar și o descriere cu criterii de acceptare.
+4. Adăugați o etichetă de prioritate și, opțional, \`bug\`, \`fix\`, \`change\` sau \`agent-quick\`.
+5. Adăugați \`agent-ready\` ultima.
+6. Așteptați următoarea verificare sau apăsați **Citește tichetele** și **Pornește**.
+7. Urmăriți lucrarea în [Ciclul de viață al lucrării](/help/jobs). Termenii sunt în [Glosar](/help/glossary).
 `,oE=/^(#{2,3}) (.+?) \{#([a-z0-9]+(?:-[a-z0-9]+)*)\}$/,lE=/\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/,uE=/^(#|- |\d+\. |\||> ?|```)/,cE=/^(?:\/(?!\/)[A-Za-z0-9/_.-]*(?:\?[A-Za-z0-9=&_.-]*)?)?(?:#[a-z0-9]+(?:-[a-z0-9]+)*)?$/;function to(t,i){const a=[];let s=t;for(;s;){const u=lE.exec(s),d=u?s.slice(0,u.index):s;if(d&&(/\*\*|`/.test(d)&&i.push(`unmatched bold or code marker in: ${t}`),a.push({type:"text",text:d})),!u)break;u[1]!==void 0?(/`|\]\(/.test(u[1])&&i.push(`bold text cannot contain code or links: ${u[0]}`),a.push({type:"strong",text:u[1]})):u[2]!==void 0?a.push({type:"code",text:u[2]}):u[4]&&cE.test(u[4])?a.push({type:"link",text:u[3],href:u[4]}):(i.push(`link target must be an in-app address: ${u[4]}`),a.push({type:"text",text:u[3]})),s=s.slice(u.index+u[0].length)}return a}const dE=t=>t.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(i=>i.trim());function pE(t){const i=t.replace(/\r\n?/g,`
 `).split(`
 `),a=[],s=[],u=new Set,d=/^# (.+)$/.exec(i[0]??"")?.[1].trim()??"";d||a.push("line 1 must be the title: # Title");let p=d?1:0,f=!1;i.forEach((g,b)=>{if(g.startsWith("```")){f=!f;return}f||(/<\/?[a-zA-Z][^>]*>/.test(g)&&a.push(`raw HTML is not supported (line ${b+1}): ${g}`),g.includes("![")&&a.push(`images are not supported (line ${b+1}): ${g}`))});const m=g=>{const b=[];for(;p<i.length&&g(i[p]);)b.push(i[p++]);return b};for(;p<i.length;){const g=i[p];if(!g.trim()){p+=1;continue}if(g.startsWith("```")){p+=1;const v=m(A=>!A.startsWith("```"));p>=i.length&&a.push("unterminated code block"),p+=1,s.push({type:"code",text:v.join(`
