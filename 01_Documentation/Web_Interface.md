@@ -1002,6 +1002,15 @@ page and open sections. Each informational resource has its own **Refresh** or
 are coalesced and end after 30 seconds; navigating or changing context cancels them.
 An unchanged response does not collapse details or reread manual executor output.
 
+Submitting a job command cancels older reads while keeping the view in place.
+List, detail and consumption rereads wait while that command is pending or running.
+After its observed result, those resources revalidate without closing sections or
+resetting the pager; commands remain unavailable until fresh list and detail evidence
+validates. An unreadable command status remains explicitly unknown, not successful.
+Worker and pending-operation reads share in-flight work, end after 30 seconds and
+retry on their normal visible cadence; changing run or leaving Jobs cancels their
+old ownership.
+
 After a connection/deadline failure, previously validated information may remain
 with a stale notice and its earlier completion time. Use **Retry** to revalidate;
 stale list/detail evidence cannot enable Retry/Cancel/Restart commands. A failed

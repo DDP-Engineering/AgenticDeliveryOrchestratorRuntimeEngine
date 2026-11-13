@@ -50,8 +50,19 @@ remain mounted; saved timeline-position keys replace reversed display indexes.
 Output provenance/validator/state_revision invalidation remain unchanged.
 `web/e2e/jobRefresh.spec.ts` proves three list scopes, reading continuity, stale/
 closed failures, deadlines/recovery, hidden/visible joins and cancellation, output
-binding and four-locale/two-theme narrow retry. App's authenticated-denial,
-operation generation and cross-view action/review ownership are separate seams.
+binding and four-locale/two-theme narrow retry. Job command submission cancels
+pre-write list/detail/consumption work while retaining presentation, then blocks
+rereads until the observed queued result (or submission failure). Post-result
+reads use existing owners, not a remount; list/detail validated generations must
+both match the current command generation before another command can submit.
+Strict worker/operation read owners have 30s bounds and preserve 5s/2s cadence,
+unknown/unavailable/error distinctions and hidden-tab pauses. Pending-to-running
+keeps one owner; completion stops it. Readiness validates status/worker/activity.
+Run/principal/scope changes gate operation evidence and cancel owned work, with
+fresh current-context reads; late completions cannot restore old authority. The
+Jobs refresh suite proves these boundaries including failed post-result detail,
+initial list deadline and same-project run navigation. App's authenticated-denial,
+App/Tickets operations and cross-view action/review ownership are separate seams.
 
 `AuditHistory.tsx` uses a query-bound informational `createReadController<Page>`
 with a 10s deadline and 15s visible cadence. Manual Refresh/retry in both scopes,

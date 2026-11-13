@@ -36,7 +36,8 @@ type Props = {
   principal: string;
 };
 type ReadState = "loading" | "ready" | "stale" | "error" | "incomplete" | "changed";
-type JobLists = { page: JobPage; activePage: JobPage | null };
+type JobLists = { page: JobPage; activePage: JobPage | null; generation: number };
+type JobEvidence = { job: Job; generation: number };
 /** Preserve the established explicit incomplete/source-change transitions. */
 const readState = (snapshot: ReadSnapshot<unknown> | null): ReadState => snapshot?.status === "error"
   ? snapshot.error instanceof IncompleteJobs ? "incomplete"
@@ -69,23 +70,28 @@ export function JobWorkspace(props: Props) {
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
   const [lists, setLists] = useState<ReadSnapshot<JobLists> | null>(null);
-  const [detailSnapshot, setDetailSnapshot] = useState<ReadSnapshot<Job> | null>(null);
+  const [detailSnapshot, setDetailSnapshot] = useState<ReadSnapshot<JobEvidence> | null>(null);
   const listOwner = useRef<ReadController | null>(null);
   const detailOwner = useRef<ReadController | null>(null);
   const usageOwner = useRef<ReadController | null>(null);
+  const workerOwner = useRef<ReadController | null>(null);
   const reader = useRef(request); reader.current = request;
-  const [operation, setOperation] = useState<Operation | null>(null);
+  const [operationSnapshot, setOperation] = useState<{ key: string; value: Operation } | null>(null);
   const [operationError, setOperationError] = useState<unknown>(null);
   const [commandStatusError, setCommandStatusError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
   const mounted = useRef(true);
   const commandGeneration = useRef(0);
+  // Presentation may survive a write, but no read or command may cross its authority boundary.
+  const commandBarrier = useRef(false);
   const [reload, setReload] = useState(0);
   const revision = useRef({ key: "", snapshot: "" });
   const [worker, setWorker] = useState("checking");
   const project = projects.find(item => item.id === scope);
   const ids = projects.map(item => item.id).sort().join(",");
+  const commandContext = JSON.stringify([props.principal, props.admin, scope, run || "", ids]);
+  const operation = operationSnapshot?.key === commandContext ? operationSnapshot.value : null;
   const { offset, ...selection } = filters;
   const baseKey = JSON.stringify([props.principal, props.admin, scope, mode, selection, ids]);
   const renderKey = JSON.stringify([baseKey, offset]);
@@ -98,8 +104,10 @@ export function JobWorkspace(props: Props) {
   const visible = currentList?.data?.page ?? null;
   const activePage = currentList?.data?.activePage ?? null;
   const unreadable = visible?.unreadable_projects ?? [];
-  const visibleDetail = ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? currentDetail?.data ?? null : null;
-  const canAct = currentList?.status === "ready" && currentDetail?.status === "ready" && !!project && !project.archived;
+  const visibleDetail = ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? currentDetail?.data?.job ?? null : null;
+  const canAct = !commandBarrier.current && currentList?.status === "ready" && currentDetail?.status === "ready" &&
+    currentList.data?.generation === commandGeneration.current && currentDetail.data?.generation === commandGeneration.current &&
+    !!project && !project.archived;
   const actionAuthority = useRef({ canAct, detail: visibleDetail, project });
   actionAuthority.current = { canAct, detail: visibleDetail, project };
   const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
@@ -120,7 +128,23 @@ export function JobWorkspace(props: Props) {
   const change = (key: keyof Filters, value: string | number) => setFilters(current => ({ ...current, [key]: value, offset: 0 }));
   const busy = submitting || operation !== null && ["pending", "running"].includes(operation.status);
 
+  /** End pre-write publication without dropping mounted evidence; request new authority only after the observed result. */
+  const cancelEvidenceReads = () => {
+    listOwner.current?.cancel(); detailOwner.current?.cancel(); usageOwner.current?.cancel();
+  };
+  const revalidateAfterCommand = () => {
+    commandBarrier.current = false;
+    cancelEvidenceReads();
+    void listOwner.current?.refresh(); void detailOwner.current?.refresh(); void usageOwner.current?.refresh();
+  };
+
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; commandGeneration.current += 1; }; }, []);
+  useEffect(() => {
+    commandGeneration.current += 1; commandBarrier.current = false;
+    cancelEvidenceReads();
+    setOperation(null); setOperationError(null); setCommandStatusError(false);
+    submitLock.current = false; setSubmitting(false);
+  }, [commandContext]);
   useEffect(() => {
     if (compactOverview || !consumptionProjects) return;
     const controller = createReadController<JobConsumption[]>({
@@ -135,11 +159,11 @@ export function JobWorkspace(props: Props) {
         return values.flatMap(value => value.jobs ?? []);
       },
     });
-    usageOwner.current = controller;
-    void controller.refresh(); const stop = startVisiblePolling(() => void controller.refresh(), 30000);
-    return () => { stop(); controller.dispose(); if (usageOwner.current === controller) usageOwner.current = null; };
+    const reread = () => commandBarrier.current ? Promise.resolve() : controller.refresh();
+    usageOwner.current = { ...controller, refresh: reread };
+    void reread(); const stop = startVisiblePolling(() => void reread(), 30000);
+    return () => { stop(); controller.dispose(); usageOwner.current = null; };
   }, [consumptionKey, reload]);
-  useEffect(() => { commandGeneration.current += 1; setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
 
   useEffect(() => {
     if (offset > 0 && revision.current.key !== baseKey) { setFilters(current => ({ ...current, offset: 0 })); return; }
@@ -152,6 +176,7 @@ export function JobWorkspace(props: Props) {
         setLists(value);
       },
       read: async signal => {
+        const generation = commandGeneration.current;
         const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
         if (scope) query.set("project_id", scope);
         if (compactOverview) { query.set("overview", "true"); query.set("attention", "true"); }
@@ -171,11 +196,11 @@ export function JobWorkspace(props: Props) {
           if ((result.unreadable_projects ?? []).slice().sort().join() !==
             (activeResult.unreadable_projects ?? []).slice().sort().join()) throw new ApiError("job_snapshot_changed");
         }
-        return { page: result, activePage: activeResult };
+        return { page: result, activePage: activeResult, generation };
       },
     });
     // A rejected continuation requires the explicit zero-page reload, not another tick.
-    const reread = () => blocked ? Promise.resolve() : controller.refresh();
+    const reread = () => blocked || commandBarrier.current ? Promise.resolve() : controller.refresh();
     listOwner.current = { ...controller, refresh: reread };
     void reread(); const stop = startVisiblePolling(() => void reread(), 15000);
     return () => { stop(); controller.dispose(); listOwner.current = null; };
@@ -183,60 +208,87 @@ export function JobWorkspace(props: Props) {
 
   useEffect(() => {
     if (!run || !scope || !ids.split(",").includes(scope)) return;
-    const controller = createReadController<Job>({
+    const controller = createReadController<JobEvidence>({
       key: detailKey, deadlineMs: 30000, policy: "informational", publish: setDetailSnapshot,
-      read: async signal => readJobDetail(await reader.current(`/jobs/${encodeURIComponent(scope)}/${encodeURIComponent(run)}`, "GET", undefined, undefined, signal), scope, run),
+      read: async signal => {
+        const generation = commandGeneration.current;
+        return { job: readJobDetail(await reader.current(`/jobs/${encodeURIComponent(scope)}/${encodeURIComponent(run)}`, "GET", undefined, undefined, signal), scope, run), generation };
+      },
     });
-    detailOwner.current = controller;
-    void controller.refresh(); const stop = startVisiblePolling(() => void controller.refresh(), 15000);
-    return () => { stop(); controller.dispose(); if (detailOwner.current === controller) detailOwner.current = null; };
+    const reread = () => commandBarrier.current ? Promise.resolve() : controller.refresh();
+    detailOwner.current = { ...controller, refresh: reread };
+    void reread(); const stop = startVisiblePolling(() => void reread(), 15000);
+    return () => { stop(); controller.dispose(); detailOwner.current = null; };
   }, [detailKey, reload]);
 
   // Parent operation/Refresh signals revalidate owners; they are not view identities.
   useEffect(() => {
     void listOwner.current?.refresh(); void detailOwner.current?.refresh(); void usageOwner.current?.refresh();
-  }, [refresh]);
+  }, [refresh, commandContext]);
 
   useEffect(() => {
-    let active = true;
-    const check = async () => {
-      try {
-        await request("/ready"); if (active) setWorker("ready");
-      } catch (cause) { if (active) setWorker(cause instanceof ApiError && cause.code === "worker_unavailable" ? "unavailable" : "error"); }
-    };
-    void check(); const stop = startVisiblePolling(() => void check(), 5000);
-    return () => { active = false; stop(); };
-  }, [refresh]);
+    const controller = createReadController<unknown>({
+      key: commandContext, deadlineMs: 30000,
+      read: async signal => {
+        const value = await reader.current<{ status: string; worker: string; activity: string }>("/ready", "GET", undefined, undefined, signal);
+        if (!value || value.status !== "ready" || value.worker !== "ready" || !["busy", "idle", "unknown"].includes(value.activity)) throw new ApiError("unexpected_response");
+        return value;
+      },
+      publish: value => {
+        if (value.refreshing) return;
+        if (value.status === "ready") setWorker("ready");
+        else if (value.status === "error") setWorker(value.error instanceof ApiError && value.error.code === "worker_unavailable" ? "unavailable" : "error");
+      },
+    });
+    workerOwner.current = controller;
+    void controller.refresh(); const stop = startVisiblePolling(() => void controller.refresh(), 5000);
+    return () => { stop(); controller.dispose(); workerOwner.current = null; };
+  }, [commandContext]);
+  useEffect(() => { void workerOwner.current?.refresh(); }, [refresh]);
 
+  const pendingOperationId = operation && ["pending", "running"].includes(operation.status) ? operation.id : null;
   useEffect(() => {
-    if (!operation || !["pending", "running"].includes(operation.status)) return;
-    let active = true;
-    const poll = async () => {
-      try {
-        const current = readOperation(await request(`/operations/${operation.id}`));
-        if (current.id !== operation.id) throw new ApiError("unexpected_response");
-        if (!active) return;
-        setOperation(current); setCommandStatusError(false);
-        if (!["pending", "running"].includes(current.status)) setReload(value => value + 1);
-      } catch { if (active) setCommandStatusError(true); }
-    };
-    void poll(); const stop = startVisiblePolling(() => void poll(), 2000);
-    return () => { active = false; stop(); };
-  }, [operation?.id, operation?.status]);
+    if (pendingOperationId === null) return;
+    const generation = commandGeneration.current;
+    const controller = createReadController<Operation>({
+      key: JSON.stringify([commandContext, pendingOperationId]), deadlineMs: 30000,
+      read: async signal => {
+        const current = readOperation(await reader.current(`/operations/${pendingOperationId}`, "GET", undefined, undefined, signal));
+        if (current.id !== pendingOperationId) throw new ApiError("unexpected_response");
+        return current;
+      },
+      publish: value => {
+        if (generation !== commandGeneration.current || value.refreshing) return;
+        if (value.status === "error") { setCommandStatusError(true); return; }
+        if (value.status !== "ready" || !value.data) return;
+        setOperation({ key: commandContext, value: value.data }); setCommandStatusError(false);
+        if (!["pending", "running"].includes(value.data.status)) revalidateAfterCommand();
+      },
+    });
+    void controller.refresh(); const stop = startVisiblePolling(() => void controller.refresh(), 2000);
+    return () => { stop(); controller.dispose(); };
+  }, [pendingOperationId, commandContext]);
 
   const command = async (action: "retry" | "cancel" | "restart", job: Job) => {
     const authority = actionAuthority.current;
     if (submitLock.current || busy || !authority.canAct || authority.detail !== job || !authority.project || authority.project.archived || !commandAllowed(job, action)) return;
     if (action === "cancel" && !window.confirm(copy.cancelConfirm)) return;
     if (action === "restart" && !window.confirm(recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)))) return;
-    submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
-    const generation = commandGeneration.current;
+    submitLock.current = true; commandBarrier.current = true;
+    const generation = ++commandGeneration.current;
+    cancelEvidenceReads();
+    setSubmitting(true); setOperationError(null); setCommandStatusError(false);
     try {
       const current = readOperation(await request(`/projects/${encodeURIComponent(scope)}/operations/${action}`, "POST",
         { run_id: job.run_id, idempotency_key: crypto.randomUUID(),
           ...(action === "restart" ? { confirmed: true, state_revision: job.state_revision } : action === "cancel" ? { confirmed: true } : {}) }, csrf));
-      if (mounted.current && generation === commandGeneration.current) setOperation(current);
-    } catch (cause) { if (mounted.current && generation === commandGeneration.current) setOperationError(cause); }
+      if (mounted.current && generation === commandGeneration.current) {
+        setOperation({ key: commandContext, value: current });
+        if (!["pending", "running"].includes(current.status)) revalidateAfterCommand();
+      }
+    } catch (cause) {
+      if (mounted.current && generation === commandGeneration.current) { setOperationError(cause); revalidateAfterCommand(); }
+    }
     finally { if (mounted.current && generation === commandGeneration.current) { submitLock.current = false; setSubmitting(false); } }
   };
   const feedback = (status: ReadState, cause: unknown) => status === "incomplete" || status === "changed" ?

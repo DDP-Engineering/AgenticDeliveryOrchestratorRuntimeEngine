@@ -388,8 +388,30 @@ Restart. Informational consumption alone is not action authority. Offline
 `e2e/jobRefresh.spec.ts` covers held and changed/unchanged reads in all three list
 scopes, failure classification, stale-action separation, deadline recovery,
 query/unmount cancellation, hidden/visible joins, output binding and narrow
-four-locale/two-theme keyboard retry. Cross-view authenticated-denial handling
-and post-mutation read invalidation remain App/operation-owner responsibilities.
+four-locale/two-theme keyboard retry.
+
+Job command submission increments an evidence generation, cancels pre-write
+list/detail/consumption work without clearing presentation, and blocks their
+periodic/manual readers until the queued result is observed. Terminal results
+(including failure/uncertainty), or submission failure, trigger fresh reads on the
+existing owners rather than incrementing a remount counter. List/detail snapshots
+carry their validated generation; commands require both to match the current
+generation, so a retained pre-write detail never becomes post-write authority.
+Run/principal/scope changes cancel command ownership and synchronously hide old
+operation evidence, then revalidate the current context. Existing continuation
+conflicts still require explicit zero-page reload.
+
+Job worker readiness and pending-operation readers also use strict 30-second
+owners, preserving 5s/2s visible cadence. Pending-to-running status does not
+recreate the polling owner; terminal status stops it. Readiness validates the
+ready/worker/activity domain before publication. Failed/expired operation reads
+keep completion explicitly unknown, while worker errors remain distinct from
+unavailable heartbeat; visible return retries without duplicate requests. Exit
+cancels owned reads/timers and late completions cannot publish. The Jobs refresh
+suite covers these boundaries, post-result failure/authority, preserved pager,
+detail/output/focus and same-project run navigation. Cross-view authenticated
+denial, App/Tickets operation ownership and Access/config revalidation remain
+separate responsibilities.
 
 Loading and failed requests have separate status/error panels. Numeric
 cards and data tables render after successful scoped responses. Statistics keeps

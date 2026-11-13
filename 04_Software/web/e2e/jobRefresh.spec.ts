@@ -78,13 +78,13 @@ for (const resource of ["list", "detail", "usage"]) {
   });
 }
 
-for (const resource of ["detail", "usage"]) {
+for (const resource of ["list", "detail", "usage"]) {
   test(`Jobs ${resource} deadline distinguishes initial failure and stale retry without accepting late evidence`, async ({ page }) => {
     await page.clock.install();
     const id = await alphaId(page);
     let hold = true;
     const releases: Array<() => void> = [];
-    const pattern = resource === "detail" ? "**/api/v1/jobs/*/ux-working" : "**/api/v1/projects/*/usage?*";
+    const pattern = resource === "list" ? "**/api/v1/jobs-page?*" : resource === "detail" ? "**/api/v1/jobs/*/ux-working" : "**/api/v1/projects/*/usage?*";
     await page.route(pattern, async route => {
       const response = await route.fetch();
       if (hold) await new Promise<void>(resolve => releases.push(resolve));
@@ -92,7 +92,7 @@ for (const resource of ["detail", "usage"]) {
     });
     try {
       await page.goto(`/jobs?project=${id}&run=ux-working`);
-      const feedback = page.locator(resource === "detail" ? ".jobs-detail-refresh .refresh-feedback" : ".jobs-consumption-refresh .refresh-feedback");
+      const feedback = page.locator(resource === "list" ? ".jobs-list-refresh .refresh-feedback" : resource === "detail" ? ".jobs-detail-refresh .refresh-feedback" : ".jobs-consumption-refresh .refresh-feedback");
       await expect.poll(() => releases.length).toBe(1);
       // Let this in-flight request expire without a coincident automatic retry.
       await page.evaluate(() => {
@@ -353,6 +353,220 @@ test("Jobs detail and consumption remain mounted with manual output through pare
     await expect(detail.getByRole("button", { name: "View latest executor output", exact: true })).toBeEnabled();
     expect(outputReads).toBe(1);
   } finally { releases.forEach(release => release()); }
+});
+
+for (const outcome of ["succeeded", "failed"]) {
+  test(`Jobs ${outcome} operation rereads after the write without losing detail or trusting pre-write evidence`, async ({ page }) => {
+    await page.clock.install();
+    const id = await alphaId(page);
+    let hold = false, afterResult = false, listReads = 0, detailReads = 0, usageReads = 0, outputReads = 0;
+    const releases: Array<() => void> = [];
+    for (const [pattern, kind] of [["**/api/v1/jobs-page?*", "list"], ["**/api/v1/jobs/*/ux-working", "detail"], ["**/api/v1/projects/*/usage?*", "usage"]]) {
+      await page.route(pattern, async route => {
+        if (kind === "list") listReads++; else if (kind === "detail") detailReads++; else usageReads++;
+        const response = await route.fetch(), value = await response.json();
+        if (kind === "detail" && afterResult) value.job.ticket_title = "Observed post-operation title";
+        if (hold) await new Promise<void>(resolve => releases.push(resolve));
+        await route.fulfill({ response, json: value }).catch(() => undefined);
+      });
+    }
+    await page.route("**/api/v1/jobs/*/ux-working/executor-output", route => {
+      outputReads++;
+      return route.fulfill({ json: { project_id: id, run_id: "ux-working", availability: "observed", exit_code: 0,
+        timed_out: false, stdout: "diagnostic: network", stderr: "" } });
+    });
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    await page.route("**/operations/cancel", route => route.fulfill({ json: { id: 7701, status: "pending" } }));
+    await page.route("**/operations/7701", async route => {
+      await pending; afterResult = true;
+      await route.fulfill({ json: { id: 7701, status: outcome } }).catch(() => undefined);
+    });
+    try {
+      await page.goto(`/jobs?project=${id}&run=ux-working`);
+      const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+      await expect(cancel).toBeEnabled();
+      const pager = page.locator(".job-workspace .table-pagination");
+      await pager.getByRole("combobox").selectOption("25");
+      await expect(page.locator(".jobs-list-refresh .refresh-feedback")).toHaveAttribute("data-refreshing", "false");
+      await detail.getByRole("button", { name: "View latest executor output", exact: true }).click();
+      await expect(detail.locator(".executor-output pre").first()).toContainText("diagnostic: network");
+      await detail.locator("details > summary").click();
+      const panel = await detail.elementHandle(), output = await detail.locator(".executor-output pre").first().elementHandle();
+      hold = true; await revalidateVisiblePage(page);
+      await expect.poll(() => releases.length).toBe(3);
+      const aborted: string[] = [];
+      page.on("requestfailed", request => { if (/jobs-page|\/jobs\/.*ux-working$|\/usage\?/.test(request.url())) aborted.push(request.url()); });
+      page.once("dialog", dialog => dialog.accept()); await cancel.click();
+      await expect.poll(() => aborted.length).toBe(3);
+      const before = [listReads, detailReads, usageReads];
+      await page.clock.fastForward(16000);
+      expect([listReads, detailReads, usageReads]).toEqual(before);
+      // Read controls cannot bypass the write/queued-operation boundary.
+      await page.locator(".jobs-detail-refresh").getByRole("button").click();
+      expect(detailReads).toBe(before[1]);
+      await detail.locator(".executor-output pre").first().focus();
+      finish();
+      await expect.poll(() => releases.length).toBe(6);
+      expect(await panel!.evaluate(node => node.isConnected)).toBe(true);
+      expect(await output!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
+      await expect(detail.locator("details")).toHaveAttribute("open", "");
+      await expect(cancel).toBeDisabled();
+      // The cancelled pre-write successes cannot restore authority or advance time.
+      releases.slice(0, 3).forEach(release => release());
+      await expect(cancel).toBeDisabled();
+      hold = false; releases.slice(3).forEach(release => release());
+      await expect(detail.locator(".panel-heading h2")).toHaveText("Observed post-operation title");
+      await expect(cancel).toBeEnabled();
+      expect(await output!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
+      expect(outputReads).toBe(1);
+      await expect(pager.getByRole("combobox")).toHaveValue("25");
+      await expect(page.locator(".command-result")).toContainText(`#7701`);
+      await expect(page.locator(".command-result")).toContainText(outcome === "succeeded" ? "Command completed" : "Command failed");
+    } finally { finish(); releases.forEach(release => release()); }
+  });
+}
+
+test("Jobs worker and operation reads coalesce, expire and cancel on navigation without late publication", async ({ page }) => {
+  await page.clock.install();
+  const id = await alphaId(page);
+  await page.goto(`/jobs?project=${id}&run=ux-working`);
+  const cancel = page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true });
+  await expect(cancel).toBeEnabled();
+  let workerReads = 0, operationReads = 0, hold = true;
+  const releases: Array<() => void> = [];
+  await page.route("**/api/v1/ready", async route => {
+    workerReads++;
+    if (hold) await new Promise<void>(resolve => releases.push(resolve));
+    await route.fulfill({ json: { status: "ready", worker: "ready", activity: "idle" } }).catch(() => undefined);
+  });
+  await page.route("**/operations/cancel", route => route.fulfill({ json: { id: 7702, status: "pending" } }));
+  await page.route("**/operations/7702", async route => {
+    operationReads++;
+    if (hold) await new Promise<void>(resolve => releases.push(resolve));
+    await route.fulfill({ json: { id: 7702, status: "succeeded" } }).catch(() => undefined);
+  });
+  try {
+    page.once("dialog", dialog => dialog.accept()); await cancel.click();
+    await expect.poll(() => operationReads).toBe(1);
+    await page.clock.fastForward(5000);
+    await expect.poll(() => workerReads).toBe(1);
+    await page.clock.fastForward(16000); await revalidateVisiblePage(page);
+    expect([workerReads, operationReads]).toEqual([1, 1]);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    const aborted: string[] = [];
+    page.on("requestfailed", request => { if (/\/ready$|\/operations\/7702$/.test(request.url())) aborted.push(request.url()); });
+    await page.clock.fastForward(30001);
+    await expect.poll(() => aborted.length).toBe(2);
+    await expect(page.locator(".command-result")).toContainText("Command status could not be read; completion is unknown.");
+    await expect(page.locator(".worker-evidence")).toBeVisible();
+    expect([workerReads, operationReads]).toEqual([1, 1]);
+    hold = false; await revalidateVisiblePage(page);
+    await expect(page.locator(".command-result")).toContainText("Command completed");
+    await expect(page.locator(".worker-evidence")).toHaveCount(0);
+    const done = operationReads;
+    releases.splice(0).forEach(release => release()); await page.clock.fastForward(6000);
+    expect(operationReads).toBe(done);
+    hold = true; await revalidateVisiblePage(page);
+    await expect.poll(() => releases.length).toBe(1);
+    const leaving = page.waitForEvent("requestfailed", request => request.url().endsWith("/ready"));
+    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
+    await leaving;
+    const exited = workerReads; releases.forEach(release => release()); await page.clock.fastForward(60000);
+    expect(workerReads).toBe(exited);
+  } finally { releases.forEach(release => release()); }
+});
+
+test("Jobs failed post-operation evidence never restores command authority from a retained pre-write detail", async ({ page }) => {
+  await page.clock.install();
+  const id = await alphaId(page);
+  await page.goto(`/jobs?project=${id}&run=ux-working`);
+  const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+  await expect(cancel).toBeEnabled();
+  await page.route("**/api/v1/jobs/*/ux-working", route => route.abort("failed"));
+  await page.route("**/operations/cancel", route => route.fulfill({ json: { id: 7703, status: "failed" } }));
+  page.once("dialog", dialog => dialog.accept()); await cancel.click();
+  const feedback = page.locator(".jobs-detail-refresh .refresh-feedback");
+  await expect(feedback.getByRole("status")).toContainText(messages.en.refreshStale);
+  await expect(detail).toBeVisible(); await expect(cancel).toBeDisabled();
+  await page.locator(".jobs-list-refresh").getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.locator(".jobs-list-refresh .refresh-feedback")).toHaveAttribute("data-refreshing", "false");
+  await expect(cancel).toBeDisabled();
+  await page.unroute("**/api/v1/jobs/*/ux-working");
+  await feedback.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(cancel).toBeEnabled();
+});
+
+test("Jobs running operation keeps one polling owner and cancels it when its view exits", async ({ page }) => {
+  await page.clock.install();
+  const id = await alphaId(page);
+  let reads = 0, release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/operations/cancel", route => route.fulfill({ json: { id: 7704, status: "pending" } }));
+  await page.route("**/operations/7704", async route => {
+    reads++;
+    if (reads > 1) await held;
+    await route.fulfill({ json: { id: 7704, status: reads === 1 ? "running" : "succeeded" } }).catch(() => undefined);
+  });
+  try {
+    await page.goto(`/jobs?project=${id}&run=ux-working`);
+    const cancel = page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeEnabled();
+    page.once("dialog", dialog => dialog.accept()); await cancel.click();
+    await expect(page.locator(".command-result")).toContainText("Command running");
+    expect(reads).toBe(1);
+    await page.clock.fastForward(2000); await expect.poll(() => reads).toBe(2);
+    await page.clock.fastForward(8000); expect(reads).toBe(2);
+    const aborted = page.waitForEvent("requestfailed", request => request.url().endsWith("/operations/7704"));
+    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
+    await aborted; release(); await page.clock.fastForward(60000);
+    expect(reads).toBe(2); await expect(page.locator(".command-result")).toHaveCount(0);
+  } finally { release(); }
+});
+
+test("Jobs run navigation cancels the old operation even inside the same project", async ({ page }) => {
+  await page.clock.install();
+  const id = await alphaId(page);
+  let reads = 0, release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/operations/cancel", route => route.fulfill({ json: { id: 7705, status: "pending" } }));
+  await page.route("**/operations/7705", async route => {
+    reads++; await held;
+    await route.fulfill({ json: { id: 7705, status: "succeeded" } }).catch(() => undefined);
+  });
+  try {
+    await page.goto(`/jobs?project=${id}&run=ux-working`);
+    const cancel = page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeEnabled();
+    page.once("dialog", dialog => dialog.accept()); await cancel.click();
+    await expect.poll(() => reads).toBe(1);
+    const aborted = page.waitForEvent("requestfailed", request => request.url().endsWith("/operations/7705"));
+    await page.locator('.action-jobs-table a[href*="ux-clarification"]').click();
+    await aborted;
+    await expect(page.locator(".detail-panel")).toContainText("Waiting for clarification");
+    await expect(page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true })).toBeEnabled();
+    release(); await page.clock.fastForward(6000);
+    await expect(page.locator(".command-result")).toHaveCount(0); expect(reads).toBe(1);
+  } finally { release(); }
+});
+
+test("Jobs worker refuses malformed successful readiness evidence and retains its unavailable distinction", async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/jobs?view=jobs");
+  await expect(page.locator(".action-jobs-table")).toBeVisible();
+  let invalid = true;
+  await page.route("**/api/v1/ready", route => invalid
+    ? route.fulfill({ json: { status: "ready", worker: false, activity: "idle" } })
+    : route.fulfill({ status: 503, json: { detail: { code: "worker_unavailable" } } }));
+  await revalidateVisiblePage(page);
+  await expect(page.locator(".worker-evidence")).toContainText("Worker status could not be read");
+  invalid = false; await revalidateVisiblePage(page);
+  await expect(page.locator(".worker-evidence")).toContainText("Worker unavailable or heartbeat stale");
+  await page.unroute("**/api/v1/ready"); await revalidateVisiblePage(page);
+  await expect(page.locator(".worker-evidence")).toHaveCount(0);
 });
 
 test("Jobs refresh feedback supports four locales, keyboard retry and both narrow themes", async ({ page }) => {

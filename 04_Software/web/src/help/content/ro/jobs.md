@@ -91,6 +91,8 @@ Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potriveș
 
 Listele și detaliile deschise se actualizează la 15 secunde cât timp pagina este vizibilă; Consumul la 30 de secunde. Citirile păstrează rândurile, sortarea, filtrele, mărimea și numărul paginii, secțiunile deschise și poziția de lectură. Folosește comenzile **Reîmprospătează** separate pentru joburi, detalii și Consum. **Ultima actualizare** indică încheierea validată, nu începutul cererii.
 
+Trimiterea unei comenzi păstrează pagina și detaliile deschise. Citirile listei, detaliilor și Consumului așteaptă cât timp comanda este în coadă sau în execuție. Rezultatul observat declanșează citiri noi fără resetarea vizualizării. Comenzile rămân indisponibile până la revalidarea listei și detaliilor. O stare de comandă ilizibilă înseamnă rezultat încă necunoscut, nu reușită.
+
 După o eroare de conexiune sau limita de citire de 30 de secunde, informațiile validate anterior pot rămâne cu un avertisment și **Reîncearcă**. O listă sau un detaliu învechit nu permite comenzi; eșecul consumului nu blochează acțiuni valide independent. Dovezile nevalide sau refuzate sunt ascunse. Un snapshot de paginare schimbat cere **Reîncarcă prima pagină**, fără resetare ascunsă. Actualizările părintelui nu recitesc ieșirea deschisă; o revizie nouă a dovezilor jobului îi elimină în continuare legătura.
 
 Detaliile afișează **Ce se întâmplă acum**, **Cine intervine**, **Unde** și **Ce urmează**, apoi Consum, o Cronologie (Dată, Eveniment, Etapă), linkurile **Dovezi și artefacte** și **Detalii tehnice**. Cronologia listează doar evenimentele salvate. O activitate veche, singură, nu arată că lucrul s-a oprit.

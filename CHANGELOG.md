@@ -52,6 +52,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   mounted during same-context background reads. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;
   stale job evidence cannot enable commands and invalid evidence remains hidden.
+  Preserve the view through job-operation results, cancel pre-write reads and require
+  validated post-result authority. Bound/coalesce worker and operation reads, retain
+  explicit unknown/error outcomes and cancel old ownership when changing runs.
 
 - Keep both change-evidence panels visible during manual and automatic rereads,
   preserving page, filter drafts, open evidence and focus. Add project Refresh,
