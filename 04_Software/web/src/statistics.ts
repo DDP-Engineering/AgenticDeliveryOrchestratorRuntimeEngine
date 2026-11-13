@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { aggregateMetrics, aggregateUsage, type Amounts, type JobConsumption, type Metrics, type Usage } from "./metrics.ts";
+import { createReadController, type ReadEnv, type ReadSnapshot } from "./polling.ts";
 
 export type ReportingSelection = { from: string; through: string; timezone: string; granularity: string };
 type ObjectValue = Record<string, unknown>;
@@ -113,6 +114,152 @@ export function readConsumption(value: unknown, project: string, selection: Repo
   const result = row as unknown as Usage;
   aggregateUsage([result]);
   return result;
+}
+
+export type ReportingMask = { metrics?: boolean; usage?: boolean };
+export type ReportingReport = {
+  metrics: Record<string, Metrics>;
+  usage: Record<string, Usage>;
+  metricsAt: number;
+  usageAt: number;
+  fullReportAt: number;
+};
+export type ReportingRefresh = {
+  refresh(mask?: ReportingMask): Promise<void>;
+  invalidate(): void;
+  dispose(): void;
+};
+
+/**
+ * Coordinate validated immutable-ID maps under one context, deadline and commit.
+ * Transports return maps for exactly projectIds; each member still passes the
+ * complete role/selection validator. A not-due member can only pin the committed
+ * baseline, retaining its own time. Due/full triggers promote pins in an active
+ * proposal without rereading already requested members or extending its deadline.
+ * Failed proposals discard all staged values and require their requested inputs
+ * on recovery. Callers own scheduling, synchronous context gates and CSV bindings.
+ */
+export function createReportingRefresh(options: {
+  key: string;
+  projectIds: readonly string[];
+  selection: ReportingSelection;
+  admin: boolean;
+  readMetrics(signal: AbortSignal): Promise<unknown>;
+  readUsage(signal: AbortSignal): Promise<unknown>;
+  publish(snapshot: ReadSnapshot<ReportingReport>): void;
+  env?: ReadEnv;
+}): ReportingRefresh {
+  const ids = [...options.projectIds].sort();
+  if (new Set(ids).size !== ids.length || ids.some(id => typeof id !== "string" || !id)) invalid();
+  const selection = { ...options.selection };
+  const now = options.env?.now ?? (() => Date.now());
+  type Mask = { metrics: boolean; usage: boolean };
+  type Proposal = {
+    requested: Mask;
+    started: Mask;
+    done: Mask;
+    metrics: Record<string, Metrics> | null;
+    usage: Record<string, Usage> | null;
+    metricsAt: number;
+    usageAt: number;
+    fullReportAt: number;
+    start?: () => void;
+  };
+  let committed: ReportingReport | null = null;
+  let proposal: Proposal | null = null;
+  let recovery: Mask = { metrics: false, usage: false };
+  let disposed = false;
+  const metricMap = (value: unknown) => {
+    const map = object(value);
+    if (JSON.stringify(Object.keys(map).sort()) !== JSON.stringify(ids)) invalid();
+    return Object.fromEntries(ids.map(id => [id, readStatistics(map[id], id, selection, options.admin)]));
+  };
+  const usageMap = (value: unknown) => {
+    const map = object(value);
+    if (JSON.stringify(Object.keys(map).sort()) !== JSON.stringify(ids)) invalid();
+    return Object.fromEntries(ids.map(id => [id, readConsumption(map[id], id, selection, options.admin)]));
+  };
+  const canonical = (value: Metrics | Usage) => {
+    const row = value.scope;
+    return JSON.stringify([row?.project_ids, row?.mode, row?.interval, row?.from, row?.to,
+      row?.timezone, row?.granularity, row?.interval_seconds]);
+  };
+  const owner = createReadController<ReportingReport>({
+    key: options.key, deadlineMs: 30000, policy: "informational", env: options.env,
+    read: signal => new Promise<ReportingReport>((resolve, reject) => {
+      const current = proposal!;
+      let settled = false;
+      const live = () => !settled && proposal === current && !signal.aborted;
+      const fail = (error: unknown) => {
+        if (settled) return;
+        settled = true; signal.removeEventListener("abort", aborted); reject(error);
+      };
+      const aborted = () => fail(signal.reason);
+      signal.addEventListener("abort", aborted, { once: true });
+      const check = () => {
+        if (!live() || current.requested.metrics && !current.done.metrics || current.requested.usage && !current.done.usage) return;
+        if (!current.metrics || !current.usage) return;
+        for (const id of ids) if (canonical(current.metrics[id]) !== canonical(current.usage[id])) { fail(new RangeError("Mismatched reporting scopes")); return; }
+        settled = true; signal.removeEventListener("abort", aborted);
+        resolve({ metrics: current.metrics, usage: current.usage, metricsAt: current.metricsAt,
+          usageAt: current.usageAt, fullReportAt: current.requested.metrics && current.requested.usage ? now() : current.fullReportAt });
+      };
+      current.start = () => {
+        if (!live()) return;
+        for (const member of ["metrics", "usage"] as const) {
+          if (!current.requested[member] || current.started[member]) continue;
+          current.started[member] = true;
+          // Promise wrapping also handles a synchronous transport/validator error.
+          void Promise.resolve().then(() => {
+            if (!live()) return;
+            return member === "metrics" ? options.readMetrics(signal) : options.readUsage(signal);
+          }).then(value => {
+            if (!live()) return;
+            if (member === "metrics") { current.metrics = metricMap(value); current.metricsAt = now(); }
+            else { current.usage = usageMap(value); current.usageAt = now(); }
+            current.done[member] = true;
+            check();
+          }).catch(error => { if (live()) fail(error); });
+        }
+        check();
+      };
+      current.start();
+    }),
+    publish: snapshot => {
+      if (!snapshot.refreshing) {
+        if (snapshot.status === "ready") {
+          committed = snapshot.data; recovery = { metrics: false, usage: false };
+        } else if (snapshot.status === "error" || snapshot.status === "stale") {
+          if (proposal) recovery = { ...proposal.requested };
+          committed = snapshot.data;
+        }
+        proposal = null;
+      }
+      options.publish(snapshot);
+    },
+  });
+  return {
+    refresh(mask = { metrics: true, usage: true }) {
+      if (disposed) return Promise.resolve();
+      const requested = { metrics: !committed || recovery.metrics || mask.metrics === true,
+        usage: !committed || recovery.usage || mask.usage === true };
+      if (!requested.metrics && !requested.usage && !proposal) return Promise.resolve();
+      if (proposal) {
+        proposal.requested.metrics ||= requested.metrics;
+        proposal.requested.usage ||= requested.usage;
+        proposal.start?.();
+      } else {
+        proposal = { requested, started: { metrics: false, usage: false }, done: { metrics: false, usage: false },
+          metrics: committed?.metrics ?? null, usage: committed?.usage ?? null, metricsAt: committed?.metricsAt ?? 0,
+          usageAt: committed?.usageAt ?? 0, fullReportAt: committed?.fullReportAt ?? 0 };
+      }
+      return owner.refresh();
+    },
+    invalidate() {
+      committed = null; proposal = null; recovery = { metrics: false, usage: false }; owner.invalidate();
+    },
+    dispose() { disposed = true; committed = null; proposal = null; owner.dispose(); },
+  };
 }
 
 /** A complete total needs both directions; known subtotals are presented separately. */

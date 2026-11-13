@@ -81,6 +81,33 @@ an injected deadline clock for overlap, success time, transport recovery,
 fail-closed failures, ignored aborts, invalidation and disposal; `errors.test.mjs`
 checks positive error classification and localized guidance.
 
+## Coordinated reporting primitive
+
+`statistics.ts::createReportingRefresh` coordinates one context's immutable-ID
+metrics/usage maps through `createReadController` with one 30-second proposal
+bound. Transports return exactly the captured project ID set; complete existing
+metrics/usage validators enforce the copied selection and role before staging.
+Matching canonical scope fields are checked between corresponding map members
+before a single replacement publication. The helper is not yet wired to App's
+Statistics readers; its tests prove the coordination seam, not UI continuity.
+
+`refresh()` requests both inputs. `refresh({metrics: true})` or the usage mask
+can pin a not-due member only from the committed baseline, retaining its original
+`metricsAt`/`usageAt`; `fullReportAt` advances only when both were requested and
+validated. A full/due trigger during a pending proposal promotes a pin without
+duplicate reads, a queued generation or extending the fixed deadline. Empty masks
+after a healthy commit do not publish or fabricate a completion time. Failures
+discard staged values, abort siblings and require the failed proposal's requested
+inputs on recovery. Strict failures clear the baseline; positively typed transport/
+deadline failures retain only the prior complete report as stale. Invalidation and
+disposal cancel both members, and late success/error cannot publish. No backend
+atomic instant, new API/storage format, scheduler or authorization is implied.
+
+`tests/statistics.test.mjs` uses validated fixtures and deferred member reads for
+both completion orders, pins/source times, promotion, partial failure/recovery,
+malformed/foreign/missing maps, independently valid but canonically different
+intervals, empty masks, deadline and invalidated/disposed completions.
+
 ## Direct Jobs presentation
 
 `jobModel.ts` requires saved `workflow: aegis | direct` on list and detail reads.
@@ -118,15 +145,25 @@ structure and navigation. The committed production bundle includes these inputs.
 
 ## Host-check response ordering
 
-After a validated explicit host-check result passes the current view/request
-identity guards, `App::checkProjectReadiness` increments `projectsRequest` before
-updating the verification fact. Every project-list read already in flight is
-therefore superseded: an older snapshot cannot replace the newly saved result.
-Subsequent polls receive a new request identity and can still update the list,
-including verification made stale by later configuration changes. No retry or
-backend probe policy changes. The held-snapshot/fresh-poll browser regression in
-`e2e/jobs.spec.ts` proves both sides of this ordering boundary; the real offline
-API journey retains its failed-verification assertion.
+App owns project metadata through a strict `createReadController`, keyed by
+principal/session, role, assigned IDs and whether Overview isolation is eligible.
+Equivalent Session objects and initial `projectsLoaded` publication do not recreate
+it. Initial, 15-second periodic, visible-return and explicit reads join one bounded
+30-second attempt. Existing content remains while a same-principal read is pending;
+completed failures withhold the directory/context and dependent views. A synchronous
+principal gate hides old items before effect cleanup. The read validates the full
+directory and uses the existing Overview-only corrupt-run fallback with the same
+abort signal. Cleanup stops the scheduler and disposes the owner.
+
+After a validated explicit host-check result passes current view/request guards,
+`App::checkProjectReadiness` invalidates the metadata owner before updating the
+verification fact. Every project-list read already in flight is cancelled and
+superseded: an older snapshot cannot replace the newly saved result. Later polls
+still update verification, including staleness after configuration changes. No
+backend probe policy changes. `e2e/jobs.spec.ts` proves initial/session/visibility
+coalescing, obsolete-request cancellation, old-result exclusion, fresh-poll
+publication and corrupt-refresh withholding/recovery; the real offline API journey
+retains its failed-verification assertion.
 
 ## Forge Markdown rendering primitive
 

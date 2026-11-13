@@ -85,7 +85,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Concurrent job deletion no longer interrupts project/run listings; corrupt state remains visible and unrelated read errors still propagate.
 
-- A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
+- Coalesce project metadata reads across initial loading, session reminders and
+  refresh triggers, with bounded cancellation. A late project-list response cannot
+  replace a newer host-check result; subsequent background polls still refresh verification.
 
 ### Changed
 

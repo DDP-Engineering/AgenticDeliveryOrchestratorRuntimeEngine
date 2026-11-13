@@ -908,6 +908,66 @@ test("host prerequisite explanation accepts the real offline API contract", asyn
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
 });
 
+test("project metadata rejects corrupt refresh evidence and recovers through its bounded read path", async ({ page }) => {
+  await signIn(page);
+  await page.clock.install();
+  await page.goto("/projects/alpha");
+  const fact = page.locator(".summary-fact").filter({ hasText: "Environment verification" });
+  await expect(fact).toBeVisible();
+  let corrupt = true;
+  await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
+    const response = await route.fetch();
+    const rows = await response.json();
+    if (corrupt) delete rows[0].validation;
+    await route.fulfill({ response, json: rows });
+  });
+  await revalidateVisiblePage(page);
+  await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
+  await expect(fact).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
+  corrupt = false;
+  await revalidateVisiblePage(page);
+  await expect(fact).toBeVisible();
+  await expect(page.getByText("Could not load data", { exact: true })).toHaveCount(0);
+});
+
+test("project metadata reads coalesce across initial load, session notice and visibility", async ({ page }) => {
+  await signIn(page);
+  await page.clock.install();
+  let reads = 0;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let hold = false;
+  await page.route(/\/api\/v1\/projects(\?.*)?$/, async route => {
+    reads += 1;
+    const response = await route.fetch();
+    if (hold) await gate;
+    await route.fulfill({ response });
+  });
+  await page.goto("/projects/alpha");
+  const fact = page.locator(".summary-fact").filter({ hasText: "Environment verification" });
+  await expect(fact).toBeVisible();
+  await page.clock.runFor(1000);
+  expect(reads).toBe(1);
+  hold = true;
+  await page.clock.runFor(15000);
+  await expect.poll(() => reads).toBe(2);
+  await expect(fact).toBeVisible();
+  // The factory-password session notice reads /me on the same 15s cadence.
+  // Repeated triggers must join, not recreate the metadata owner on Session identity.
+  await revalidateVisiblePage(page);
+  await page.clock.runFor(15000);
+  expect(reads).toBe(2);
+  await expect(fact).toBeVisible();
+  release();
+  await page.clock.runFor(1000);
+  await expect(fact).toBeVisible();
+  expect(reads).toBe(2);
+  hold = false;
+  await revalidateVisiblePage(page);
+  await expect.poll(() => reads).toBe(3);
+});
+
 test("host check result survives an older project snapshot but accepts a fresh poll", async ({ page }) => {
   await signIn(page); await page.goto("/projects/alpha");
   const fact = page.locator(".summary-fact").filter({ hasText: "Environment verification" });
@@ -930,11 +990,12 @@ test("host check result survives an older project snapshot but accepts a fresh p
   // Visibility resumes the real project poll; hold its older snapshot across the mutation.
   await revalidateVisiblePage(page);
   await captured;
+  // The mutation now cancels, rather than merely ignoring, the obsolete read.
+  const oldCancelled = page.waitForEvent("requestfailed", request => /\/api\/v1\/projects$/.test(request.url()));
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(fact).toContainText("Verification failed");
-  const oldResponse = page.waitForResponse(response => /\/api\/v1\/projects$/.test(response.url()));
+  await oldCancelled;
   release();
-  await (await oldResponse).finished();
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect(fact).toContainText("Verification failed");
   hold = false;

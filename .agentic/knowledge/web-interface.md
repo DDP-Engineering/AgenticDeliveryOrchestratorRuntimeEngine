@@ -10,6 +10,23 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 The web cancellation and ticket Stop endpoints require explicit confirmation. The interface describes attempted runtime/worktree cleanup and retained job evidence. Readiness reports worker activity separately from its heartbeat; one worker serializes commands and polls, while authorized cancel signals reach active work. Monitoring refreshes after actual results; admins can enroll from an empty Overview.
 
+App's project metadata reader is a strict, 30-second bounded owner keyed by
+principal/session, role, assigned IDs and Overview fallback eligibility. Equivalent
+session-notice reads and initial publication do not recreate it; 15-second ticks,
+visible returns and explicit triggers join in-flight work. A synchronous principal
+gate hides the previous directory. Completed failures withhold affected views.
+An explicit host-check result invalidates/cancels older directory work before
+publication; a later poll can still update verification. `web/e2e/jobs.spec.ts`
+proves request counts, cancellation/ordering and corrupt-refresh recovery.
+
+`statistics.ts::createReportingRefresh` is a coordination primitive, not yet App's
+Statistics reader. It validates exact immutable-ID metrics/usage maps, stages both
+under one 30-second deadline, compares canonical scopes and publishes one complete
+report. Explicit masks pin not-due baseline inputs with their original times;
+full/due triggers promote pins without duplicate reads. Failed proposals discard
+staged values and require their requested dependencies on recovery. Tests are in
+`web/tests/statistics.test.mjs`; UI continuity/coherence integration remains absent.
+
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
 Statistics browser fixtures restore the authenticated account's English/light

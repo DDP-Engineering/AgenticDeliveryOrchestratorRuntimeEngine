@@ -25,7 +25,7 @@ import { AuditHistory } from "./AuditHistory";
 import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
-import { startVisiblePolling } from "./polling";
+import { createReadController, startVisiblePolling, type ReadController } from "./polling";
 import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
 import { BATCH_KEY, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
 import { ExecutorEnvironment, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
@@ -142,7 +142,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page>("overview");
   const [viewRefresh, setViewRefresh] = useState(0);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const projectsPrincipal = JSON.stringify([session?.csrf, session?.user.id, session?.user.role, [...(session?.user.projects ?? [])].sort()]);
+  const [projectsScope, setProjectsScope] = useState("");
+  const [projectItems, setProjects] = useState<Project[]>([]);
+  // Gate synchronously: a changed principal must not render the previous directory
+  // during the render before its layout-effect cleanup can cancel owned reads.
+  const projects = projectsScope === projectsPrincipal ? projectItems : [];
   const [projectSortKey, setProjectSortKey] = useState<ProjectSortKey>("name");
   const [projectSortDescending, setProjectSortDescending] = useState(false);
   const [selected, setSelected] = useState("");
@@ -207,7 +212,8 @@ export default function App() {
   const [usersState, setUsersState] = useState<DataState>("loading");
   const [jobScope, setJobScope] = useState("");
   const [requestedRun, setRequestedRun] = useState("");
-  const [projectsState, setProjectsState] = useState<DataState>("loading");
+  const [projectDataState, setProjectsState] = useState<DataState>("loading");
+  const projectsState = projectsScope === projectsPrincipal ? projectDataState : "loading";
   const [selectedState, setSelectedState] = useState<ScopedState>({ key: "", state: "loading" });
   const [globalState, setGlobalState] = useState<ScopedState>({ key: "", state: "loading" });
   const [usageState, setUsageState] = useState<ScopedState>({ key: "", state: "loading" });
@@ -242,7 +248,8 @@ export default function App() {
   // Switching About views removes the pressed button; focus its counterpart so Escape and Tab keep working.
   const aboutSwitch = useRef<HTMLButtonElement>(null);
   const selectedMetricsRequest = useRef(0);
-  const projectsRequest = useRef(0);
+  const projectsReader = useRef<ReadController | null>(null);
+  const projectsHaveSnapshot = useRef(false);
   const globalMetricsRequest = useRef(0);
   const usageRequest = useRef(0);
   const configRequest = useRef(0);
@@ -506,41 +513,61 @@ export default function App() {
   };
 
   const overviewProjects = page === "overview" || page === "projectDetails" && projectTab === "overview";
-  const refreshProjects = useCallback(async () => {
-    const generation = viewGeneration.current;
-    const revision = ++projectsRequest.current;
-    if (!projectsLoaded) setProjectsState("loading");
-    try {
-      const items = await request<Project[]>("/projects").catch((cause: unknown) => {
-        if (!overviewProjects || !(cause instanceof ApiError) || cause.code !== "run_state_corrupt") throw cause;
-        return request<Project[]>("/projects?overview=true");
-      });
-      if (generation !== viewGeneration.current || revision !== projectsRequest.current) return;
-      if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
-        typeof item.repo !== "string" || typeof item.display_name !== "string" || !/^[a-f0-9]{32}$/.test(item.id) ||
-        typeof item.readiness !== "string" || typeof item.paused !== "boolean" || typeof item.archived !== "boolean" ||
-        !validProjectVerification(item.verification, item.id, item.verification_requirements) ||
-        !item.validation || typeof item.validation.structural_valid !== "boolean" ||
-        item.verification.checked_at != null && (typeof item.verification.checked_at !== "string" || !Number.isFinite(Date.parse(item.verification.checked_at))) ||
-        item.verification.revision != null && (typeof item.verification.revision !== "string" || !/^[a-f0-9]{64}$/.test(item.verification.revision)) ||
-        item.last_activity !== null && (typeof item.last_activity !== "string" || !Number.isFinite(Date.parse(item.last_activity))) ||
-        !Number.isSafeInteger(item.runs) || item.runs < 0) || new Set(items.map(item => item.id)).size !== items.length) throw new ApiError("unexpected_response");
-      setProjects(items);
-      setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
-      setProjectsLoaded(true); setProjectsState("ready");
-    } catch (cause) {
-      if (generation === viewGeneration.current && revision === projectsRequest.current) {
-        setProjectsState("error"); setError(cause);
-      }
-    }
-  }, [projectsLoaded, overviewProjects]);
+  // Equivalent /me objects (the factory-password notice) do not start new owners.
+  const projectsOwnerKey = session ? JSON.stringify([projectsPrincipal, overviewProjects]) : "";
+  const liveProjectsOwner = useRef(projectsOwnerKey);
+  liveProjectsOwner.current = projectsOwnerKey;
+  const refreshProjects = useCallback(() => projectsReader.current?.refresh() ?? Promise.resolve(), []);
 
-  useEffect(() => {
-    if (!session) return;
-    void refreshProjects();
-    const stopPolling = startVisiblePolling(() => refreshProjects(), 15000);
-    return () => stopPolling();
-  }, [session, refreshProjects]);
+  useLayoutEffect(() => {
+    if (!projectsOwnerKey) return;
+    const key = projectsOwnerKey;
+    const generation = viewGeneration.current;
+    if (projectsScope !== projectsPrincipal) {
+      projectsHaveSnapshot.current = false;
+      setProjects([]); setProjectsScope(projectsPrincipal);
+      setProjectsLoaded(false); setProjectsState("loading");
+    }
+    const reader = createReadController<Project[]>({
+      key, deadlineMs: 30000,
+      read: async signal => {
+        const items = await request<Project[]>("/projects", "GET", undefined, undefined, signal).catch((cause: unknown) => {
+          if (signal.aborted || !overviewProjects || !(cause instanceof ApiError) || cause.code !== "run_state_corrupt") throw cause;
+          return request<Project[]>("/projects?overview=true", "GET", undefined, undefined, signal);
+        });
+        if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== "string" || typeof item.name !== "string" ||
+          typeof item.repo !== "string" || typeof item.display_name !== "string" || !/^[a-f0-9]{32}$/.test(item.id) ||
+          typeof item.readiness !== "string" || typeof item.paused !== "boolean" || typeof item.archived !== "boolean" ||
+          !validProjectVerification(item.verification, item.id, item.verification_requirements) ||
+          !item.validation || typeof item.validation.structural_valid !== "boolean" ||
+          item.verification.checked_at != null && (typeof item.verification.checked_at !== "string" || !Number.isFinite(Date.parse(item.verification.checked_at))) ||
+          item.verification.revision != null && (typeof item.verification.revision !== "string" || !/^[a-f0-9]{64}$/.test(item.verification.revision)) ||
+          item.last_activity !== null && (typeof item.last_activity !== "string" || !Number.isFinite(Date.parse(item.last_activity))) ||
+          !Number.isSafeInteger(item.runs) || item.runs < 0) || new Set(items.map(item => item.id)).size !== items.length) throw new ApiError("unexpected_response");
+        return items;
+      },
+      publish: snapshot => {
+        if (key !== liveProjectsOwner.current || generation !== viewGeneration.current) return;
+        if (snapshot.status === "ready" && snapshot.data) {
+          const items = snapshot.data;
+          projectsHaveSnapshot.current = true;
+          setProjects(items);
+          setSelected(current => items.some(item => item.id === current) || routedProject.current ? current : (items[0]?.id || ""));
+          setProjectsLoaded(true); setProjectsState("ready");
+        } else if (snapshot.status === "error") {
+          projectsHaveSnapshot.current = false;
+          setProjectsState("error"); setError(snapshot.error);
+        } else if (!projectsHaveSnapshot.current) setProjectsState("loading");
+      },
+    });
+    projectsReader.current = reader;
+    void reader.refresh();
+    const stopPolling = startVisiblePolling(() => { void reader.refresh(); }, 15000);
+    return () => {
+      stopPolling(); reader.dispose();
+      if (projectsReader.current === reader) projectsReader.current = null;
+    };
+  }, [projectsOwnerKey]);
 
   useEffect(() => { setMetrics(null); setAllMetrics(null); }, [metricSuffix]);
 
@@ -879,7 +906,8 @@ export default function App() {
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
     setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setConfigState({ key: "", state: "loading" });
-    projectsRequest.current += 1;
+    projectsReader.current?.dispose(); projectsReader.current = null;
+    projectsHaveSnapshot.current = false;
     setProjectsState("loading"); setSelectedState({ key: "", state: "loading" }); setGlobalState({ key: "", state: "loading" });
     setUsageState({ key: "", state: "loading" }); setGlobalUsageState({ key: "", state: "loading" });
     setProjectsLoaded(false); setProjectTab("overview"); routedProject.current = null;
@@ -1120,7 +1148,7 @@ export default function App() {
       if (generation === viewGeneration.current && revision === readinessRequest.current) {
         // A project-list read already in flight may predate this saved check.
         // Supersede it before publishing the newer evidence; later polls still apply.
-        projectsRequest.current += 1;
+        projectsReader.current?.invalidate();
         setProjectReadiness(result);
         setProjects(items => items.map(item => item.id === selected ? { ...item, verification: { status: result.status, checked_at: result.checked_at, revision: result.revision } } : item));
       }

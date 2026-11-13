@@ -115,6 +115,15 @@ do not apply to direct jobs. Jobs and Settings help explains this in all four lo
 
 ## Interface and project settings details
 
+Project metadata updates every 15 seconds while the page is visible. An update
+already in progress is shared by further refresh triggers; the current project
+view stays visible while it waits. A completed failed or malformed metadata read
+withholds the affected project view until a valid reread succeeds. Returning to a
+visible tab requests one immediate update. A completed **Check host prerequisites**
+cancels any older metadata read so it cannot undo the check; later normal updates
+can still change the verification status. The initial-password session reminder
+does not cause duplicate project reads.
+
 Cancel and ticket Stop require confirmation. Cleanup attempts to remove the runtime and worktree, including unpublished work, and may retain resources on failure; job evidence stays. System status separates heartbeat from busy/idle/unknown activity. One worker handles projects and operations in turn; authorized cancellation signals can reach active work while commands wait. Monitoring refreshes from the actual operation result. Tickets bearing the configured epic label are not eligible, including manual Start; eligible tickets can still start with monitoring paused.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.

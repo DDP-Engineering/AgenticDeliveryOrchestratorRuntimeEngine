@@ -54,7 +54,7 @@ text = { en = "ChatGPT subscriptions now work natively on Windows and Linux, inc
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Keep sign-in and host checks. Show native Pi errors. Retry brief Windows file locks.", fr = "Connexion et contrôles conservés. Erreurs Pi natif visibles. Réessai si Windows verrouille.", de = "Anmeldung und Prüfungen bleiben erhalten. Native Pi-Fehler und Wiederholung bei Windows-Sperren.", ro = "Păstrează autentificarea și verificările. Arată erorile Pi. Reîncearcă blocările Windows." }
+text = { en = "Keep sign-in and host checks through background updates. Show Pi errors; retry brief file locks.", fr = "Connexion et contrôles conservés lors des actualisations. Erreurs Pi et réessai des verrous Windows.", de = "Anmeldung und Host-Prüfungen bleiben bei Updates erhalten. Pi-Fehler und Windows-Sperren behoben.", ro = "Păstrează autentificarea și verificările la actualizare. Erori Pi și reîncercare la blocări Windows." }
 
 [[release.entry]]
 category = "fixed"
