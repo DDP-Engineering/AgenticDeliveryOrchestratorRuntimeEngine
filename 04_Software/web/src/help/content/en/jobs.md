@@ -16,10 +16,18 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Frame | Scope is agreed and the executor records whether the job takes the full or the quick path. |
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
-| Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE records validation and follows the project approval policy. |
+| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
+| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
+
+## Direct jobs {#direct-evidence}
+
+The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (`build`), **Validation** (`validate`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.
+
+**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.
+
+Direct **Implementation** uses the `build` override in `workflow.stage_timeout_overrides`, falling back to `budgets.per_gate_timeout_seconds`. **Validation** (`validate`) records the candidate for approval without running a separate test command.
 
 ## Clarification {#clarification}
 
@@ -29,7 +37,9 @@ Reply with a normal comment on the ticket, then add `agent-answered`. Both are n
 
 ## Approval {#approval}
 
-With **Require human approval before PR/MR** enabled (default): ADORE removes `agent-approved`, posts the evidence on the ticket and waits. The job shows **Waiting for approval** and the ticket keeps `agent-working`. The evidence names the exact candidate and any deviations the executor recorded.
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
+When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.
 
 Review it, then add `agent-approved` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.
 
@@ -39,7 +49,7 @@ When disabled, ADORE checks the validated candidate and target and publishes wit
 
 After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets `agent-mr`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets `agent-done`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
 
-When a reviewer requests changes with `agent-revise`, ADORE starts a new task on the same branch and repeats validation and the configured approval policy. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
+To request changes, a reviewer adds `agent-revise` to the MR/PR. ADORE removes the label, starts new work on the same branch (a new task for AEGIS), and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
 
 If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Automatic repair (default) starts a revision, Notify only posts a comment, and Ignore skips CI status. Automatic repairs share the revision budget; once it is spent, ADORE posts a notice and the job stays in review.
 
@@ -71,7 +81,7 @@ Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-t
 |---|---|
 | Ticket | Number and title; opens the job detail. |
 | Project | The owning project. |
-| Status | The state, the current Stage, and a link to the ticket or MR/PR when a person must act. |
+| Status | The state, recorded Workflow, current Stage, and a link to the ticket or MR/PR when a person must act. |
 | Last activity | Time of the last saved event. |
 | Consumption | Tokens used by the job. |
 

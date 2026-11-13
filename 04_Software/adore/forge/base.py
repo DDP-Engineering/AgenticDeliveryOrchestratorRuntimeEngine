@@ -334,6 +334,15 @@ class Forge(ABC):
         @param[in]  labels Label names to remove.
         """
 
+    def update_merge_request_body(self, mr_iid: int, body: str) -> None:
+        """
+        @brief Replace an existing review's description without changing review settings.
+        @param[in] mr_iid MR/PR number bound to the run being published.
+        @param[in] body Current approved candidate description.
+        @exception ForgeError When the write fails or the adapter does not support it.
+        """
+        raise ForgeError("this forge cannot update an MR/PR description")
+
     @abstractmethod
     def open_merge_request(
         self,

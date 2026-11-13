@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-16f751b7"
+
+title = "Show the saved direct verification command"
+
+status = "active"
+
+requirement = """
+When a direct job has valid saved configured-verification evidence, its Jobs page shall show the redacted recorded command before its verification outcome.
+"""
+
+verification = "Supply known saved commands for passed, failed and timed-out direct detail fixtures and open Jobs; assert command text precedes the outcome, current configuration changes do not replace saved command text, and markup or shell operators render as inert text with credentials redacted by the API."
+
+affected_paths = ["04_Software/adore/web/jobs.py", "04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
+
+linked_tests = ["04_Software/tests/test_web_jobs.py", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = "specs/REQ-DATA-08ed925c.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

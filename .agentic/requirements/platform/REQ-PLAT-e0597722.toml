@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-PLAT-e0597722"
+title = "Include every prompt fragment in portable delivery"
+status = "active"
+requirement = "When the ADORE portable runtime package is assembled, it shall include every shipped adore/prompts/ resource with unchanged contents in the installed application."
+verification = "Inspection: trace 02_Tools/create_package.py from the locally built wheel through its installation into the bundled interpreter, confirming it uses that wheel unchanged and no subsequent filter removes prompt resources; use the complete wheel path/byte comparison as resource evidence for that route, or inspect every prompt path and byte in temporary portable media if a separate resource manifest or copy route exists; do not add or run deployment/setup-script tests."
+affected_paths = ["02_Tools/create_package.py", "04_Software/adore/prompts/", "04_Software/adore/prompts.py"]
+linked_tests = []
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

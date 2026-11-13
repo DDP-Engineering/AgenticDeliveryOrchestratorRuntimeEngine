@@ -11,6 +11,8 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
+Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).
+
 ## Créer d’abord les étiquettes {#labels}
 
 GitHub et Gitea rejettent un nom d’étiquette inconnu : une étiquette manquante fait donc échouer les mises à jour d’état. Toutes les étiquettes ci-dessous doivent exister dans le dépôt de la forge avant la première exécution. ADORE crée celles qui manquent à l’ajout d’un projet (**Créer les étiquettes ADORE dans le dépôt**, cochée par défaut dans Révision et création) ou quand vous appuyez sur **Créer les étiquettes manquantes** dans Paramètres → Dépôt ; il ne modifie ni ne supprime jamais les étiquettes existantes et indique ce qu’il a créé, ce qui existait déjà et ce qui a échoué (par exemple si le compte forge du serveur ne peut pas créer d’étiquettes). Les noms sont des valeurs par défaut ; ne renommez une étiquette qu’avec son paramètre de projet.

@@ -11,6 +11,8 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
+Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).
+
 ## Create the labels first {#labels}
 
 GitHub and Gitea reject an unknown label name, so a missing label makes status updates fail. All labels below must exist in the forge repository before the first run. ADORE creates the missing ones when you add a project (**Create the ADORE labels in the repository**, ticked by default in Review and create) or when you press **Create missing labels** in Settings → Repository; it never changes or deletes existing labels, and lists what it created, what already existed and what failed (for example when the server's forge account may not create labels). The names are defaults; rename one only together with its project setting.

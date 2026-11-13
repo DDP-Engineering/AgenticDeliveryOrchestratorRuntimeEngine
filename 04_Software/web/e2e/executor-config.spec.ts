@@ -111,7 +111,7 @@ test("current model evidence remains coherent in Summary and host check details"
  const config=await(await page.request.get(`/api/v1/projects/${id}/config`)).json();
  const result={project_id:id,revision:config.revision,checked_at:new Date().toISOString(),executor:"pi",model:config.config.executor.model,ready:true,reason:"ready"};
  await page.route("**/projects/*/config",route=>route.fulfill({json:{...config,model_connection:result}}));
- await page.route("**/readiness-check",route=>route.fulfill({json:{status:"verified",project_id:id,revision:config.revision,checked_at:new Date().toISOString(),context:"api-host",auth_bound:true,required_checks:["git","forge_cli","forge_auth","container_runtime","executor_cli","aegis_files","egress_proxy"],checks:{git:true,forge_cli:true,forge_auth:true,container_runtime:true,executor_cli:true,aegis_files:true,egress_proxy:true}}}));
+ await page.route("**/readiness-check",route=>route.fulfill({json:{workflow:"aegis",status:"verified",project_id:id,revision:config.revision,checked_at:new Date().toISOString(),context:"api-host",auth_bound:true,required_checks:["git","forge_cli","forge_auth","container_runtime","executor_cli","egress_proxy"],checks:{git:true,forge_cli:true,forge_auth:true,container_runtime:true,executor_cli:true,egress_proxy:true}}}));
  await page.goto(`/projects/${id}`);
  await expect(page.getByText("AI model connected",{exact:true})).toHaveCount(0);
  await page.getByRole("button",{name:"Check host prerequisites",exact:true}).click();
@@ -314,6 +314,11 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
   await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Provider API key",exact:true})).toHaveCount(0);
   await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["not-signed-in"]);
+  expect((await page.request.post("/__e2e__/enrollment?mode=failed",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
+  await panel.getByRole("button",{name:c.start,exact:true}).click();
+  await expect(panel.getByRole("alert")).toHaveText(errorMessages.en.container_runtime_unavailable);
+  await expect(panel.getByRole("link",{name:c.link,exact:true})).toHaveCount(0);
+  expect((await page.request.post("/__e2e__/enrollment?mode=partial",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
   await panel.getByRole("button",{name:c.start,exact:true}).click();
   const link=panel.getByRole("link",{name:c.link,exact:true});
   await expect(link).toHaveAttribute("href",/^https:\/\/auth\.openai\.com\//);
@@ -333,6 +338,7 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
  } finally {
   await page.request.delete("/api/v1/chatgpt-sign-in",{headers:{"X-CSRF-Token":(await(await page.request.get("/api/v1/session")).json()).csrf}}).catch(()=>undefined);
   expect((await fixture("openai")).ok()).toBe(true);
+  expect((await page.request.post("/__e2e__/enrollment?mode=failed",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
  }
 });
 

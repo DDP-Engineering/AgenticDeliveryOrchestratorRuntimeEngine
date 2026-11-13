@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-0a0267d2"
+title = "Refuse invalid verification text in reviewed settings"
+status = "active"
+requirement = "If a proposed reviewed-settings workflow.verify_command contains CR, LF or NUL, the web API shall reject preparation with 400 invalid_config and field-identifying feedback without changing the active configuration or replacing a pending candidate."
+verification = "Offline settings API tests propose LF, CR, CRLF, trailing line breaks and NUL through scalar and batch review, assert 400 invalid_config with command-field feedback, and compare active and pending bytes before and after; empty and equivalent valid single-line text are accepted controls."
+affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/implementation_settings.py", "04_Software/web/src/settings.ts"]
+linked_tests = ["04_Software/tests/test_web_config.py::test_verification_command_invalid_text_preserves_pending", "04_Software/tests/test_web_config.py::test_verification_command_review_and_apply_exact_text"]
+spec = ""
+priority = "high"
+rationale = "The settings review rejects invalid command text rather than converting it into a different command or treating it as a launch preset."
+created = 2026-11-12
+updated = 2026-11-12

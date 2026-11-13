@@ -15,6 +15,8 @@
 from __future__ import annotations
 
 # IMPORTS
+from dataclasses import fields
+import json
 from pathlib import Path
 import sqlite3
 
@@ -24,6 +26,7 @@ from adore.metrics import (
     aggregate,
     export_csv,
     is_terminal,
+    load_analytical_summaries,
     load_summaries,
     profile_stats,
     record_summary,
@@ -31,7 +34,7 @@ from adore.metrics import (
     summarize_run,
     unique_usage_events,
 )
-from adore.state import RunState, StateStore
+from adore.state import RunState, StateError, StateStore
 import pytest
 
 from tests.usage_events import versioned_usage
@@ -107,6 +110,62 @@ def test_summarize_run_computes_the_catalog(tmp_path: Path) -> None:
     assert summary.span_seconds == 7200         # 10:00 -> 12:00
     assert summary.files_changed == 3
     assert summary.clarification_rounds == 2 and summary.review_rounds == 1
+
+
+@pytest.mark.parametrize("workflow", ["aegis", "direct"])
+def test_summary_serializes_recorded_workflow(tmp_path: Path, workflow: str) -> None:
+    """@brief Workflow survives summaries and exports without inventing a strict pass."""
+    store = StateStore(tmp_path / "state")
+    run = RunState(run_id="workflow-1", ticket_iid=1, workflow=workflow,
+                   stage="done", lifecycle="done",
+                   validation_evidence={"verification": "not configured"})
+    store.save(run)
+    summary = summarize_run(store, run.run_id)
+    assert getattr(summary, "workflow", None) == workflow
+    assert summary.governance_outcome == ""
+    db, mirror = tmp_path / "metrics.db", tmp_path / "runs.jsonl"
+    record_summary(db, summary, mirror)
+    assert load_summaries(db)[0].workflow == workflow
+    assert load_analytical_summaries(db)[0].workflow == workflow
+    assert json.loads(mirror.read_text(encoding="utf-8"))["workflow"] == workflow
+    assert "workflow" in export_csv([summary]).splitlines()[0]
+    output = render_html([summary], tmp_path / "report.html").read_text(encoding="utf-8")
+    assert "<th>workflow</th>" in output and f"<td>{workflow}</td>" in output
+    data = run.to_dict()
+    data["workflow"] = "unknown"
+    path = store.run_dir(run.run_id) / "state.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(StateError, match="unknown workflow"):
+        summarize_run(store, run.run_id)
+
+
+@pytest.mark.parametrize("loader", [load_summaries, load_analytical_summaries])
+@pytest.mark.parametrize("workflow", ["unknown", "", None, 1])
+def test_summary_unknown_workflow_is_refused(tmp_path: Path, loader, workflow: object) -> None:
+    """@brief Corrupt summary workflow cannot be inferred from task or governance data."""
+    db = tmp_path / "metrics.db"
+    record_summary(db, RunSummary(run_id="workflow-1"))
+    assert "workflow" in {item.name for item in fields(RunSummary)}
+    with sqlite3.connect(db) as connection:
+        connection.execute("UPDATE run_summaries SET workflow = ?", (workflow,))
+    before = db.read_bytes()
+    with pytest.raises(MetricsError):
+        loader(db)
+    assert db.read_bytes() == before
+
+
+@pytest.mark.parametrize("loader", [load_summaries, load_analytical_summaries])
+def test_summary_missing_workflow_column_is_refused(tmp_path: Path, loader) -> None:
+    """@brief A previous table shape is refused unchanged rather than extended."""
+    db = tmp_path / "metrics.db"
+    record_summary(db, RunSummary(run_id="workflow-1"))
+    assert "workflow" in {item.name for item in fields(RunSummary)}
+    with sqlite3.connect(db) as connection:
+        connection.execute("ALTER TABLE run_summaries DROP COLUMN workflow")
+    before = db.read_bytes()
+    with pytest.raises(MetricsError):
+        loader(db)
+    assert db.read_bytes() == before
 
 
 def test_versioned_usage_replay_counts_once_and_conflict_fails(tmp_path: Path) -> None:

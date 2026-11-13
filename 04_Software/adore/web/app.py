@@ -116,6 +116,7 @@ from adore.util import (
     strict_json_loads,
 )
 from adore.web import analytics
+from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
     CONNECTION_KEYS,
@@ -134,7 +135,11 @@ from adore.web.executor_settings import (
     save_model_evidence,
     update_credential,
 )
-from adore.web.implementation_settings import COLLECTION_KEYS, set_collection, valid_collection
+from adore.web.implementation_settings import (
+    COLLECTION_KEYS,
+    set_collection,
+    valid_collection,
+)
 from adore.web.jobs import JobReadError, read_job_budget, read_jobs, read_overview_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
 from adore.web.repository_source import (
@@ -737,7 +742,6 @@ def _required_readiness_checks(config) -> set[str]:
         "forge_auth",
         "container_runtime",
         "executor_cli",
-        "aegis_files",
     }
     if config.executor.provider == CHATGPT:
         required.add("executor_sign_in")
@@ -756,7 +760,28 @@ def _readiness_auth_bound(profiles: ProfileStore, name: str, config) -> bool:
         raise _error(503, exc.code) from exc
 
 
-def _valid_readiness_checks(checks: object, config, *, pending_clone: bool = False) -> bool:
+def _workflow_observation(config) -> str:
+    """@brief Describe file presence without running or modifying repository code.
+
+    @param[in] config Configuration containing the selected clone path.
+    @return AEGIS, Direct or explicitly not-inspected for an unavailable clone.
+    @exception HTTPException File inspection failed rather than proving absence.
+    """
+    try:
+        clone = Path(config.worktree.repo_path)
+        if not clone.is_dir():
+            return "not-inspected"
+        return "aegis" if (clone / ".agentic" / "aegis.py").is_file() else "direct"
+    except OSError as exc:
+        raise _error(503, "readiness_probe_failed") from exc
+
+
+def _valid_workflow(value: object) -> bool:
+    """@brief Validate the closed descriptive workflow domain at evidence boundaries."""
+    return isinstance(value, str) and value in {"aegis", "direct", "not-inspected"}
+
+
+def _valid_readiness_checks(checks: object, config) -> bool:
     """@brief Fail closed on malformed probe results before any evidence publication."""
     if not isinstance(checks, dict) or set(checks) != _required_readiness_checks(config):
         return False
@@ -764,9 +789,6 @@ def _valid_readiness_checks(checks: object, config, *, pending_clone: bool = Fal
         type(value) is bool
         or key == "container_runtime"
         and value is None
-        or key == "aegis_files"
-        and pending_clone
-        and value == "not-checked"
         for key, value in checks.items()
     )
 
@@ -790,12 +812,14 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             "host",
             "binding",
             "auth_bound",
+            "workflow",
         }
         if (
             not isinstance(value, dict)
             or set(value) != keys
             or type(value["schema"]) is not int
-            or value["schema"] != 2
+            or value["schema"] != 3
+            or not _valid_workflow(value["workflow"])
             or value["project_id"] != profile.project_id
             or not isinstance(value["revision"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", value["revision"])
@@ -822,7 +846,6 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             "forge_auth",
             "container_runtime",
             "executor_cli",
-            "aegis_files",
         }
         # Optional checks: the server's ChatGPT sign-in, the egress proxy
         # image (internet off) and the web search key (internet on).
@@ -840,8 +863,6 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             if type(result) is not bool and not (
                 key == "container_runtime"
                 and result is None
-                or key == "aegis_files"
-                and result == "not-checked"
             ):
                 raise ValueError("invalid readiness check value")
     except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
@@ -912,6 +933,17 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
+def _container_probe(runner: CommandRunner, argv: list[str]) -> bool:
+    """@brief Check bounded container prerequisites without exposing command output."""
+    try:
+        result = runner(argv, timeout=8)
+    except (OSError, TimeoutError):
+        return False
+    return (isinstance(result, CommandResult) and type(result.exit_code) is int
+            and result.exit_code == 0 and type(result.timed_out) is bool
+            and not result.timed_out)
+
+
 def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None,
                  chatgpt_dir: Path | None = None, *, external_auth: bool = True) -> dict:
     """@brief Run bounded redacted prerequisites for an explicit config snapshot.
@@ -922,7 +954,7 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
     @param[in] external_auth Discover external auth; False when project_runner owns credentials.
     @param[in] chatgpt_dir The server's ChatGPT credential directory; a ChatGPT
                project gets the check `executor_sign_in`, read from its files.
-    @return Typed prerequisite checks and redacted model evidence.
+    @return Typed prerequisites, separate read-only workflow and optional native diagnostics.
     @exception HTTPException A prerequisite command fails to produce usable evidence.
     """
     deadline = monotonic() + 30
@@ -1015,8 +1047,6 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
         auth = doctor.auth_status(config.platform.kind, bounded_runner, external_auth=False)
-        runtimes = (doctor.detect_runtimes(bounded_runner)
-                    if config.execution.backend == "container" else None)
     except (OSError, UnicodeError, TypeError, ValueError,
             KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
@@ -1025,17 +1055,18 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
 
         executor_probe = probe_local_executor(config, env_file, chatgpt_dir=chatgpt_dir)
         executor = executor_probe["ready"]
-        aegis_root = Path(config.worktree.repo_path) / ".agentic"
-        return {"local_probe": executor_probe, "checks": {"git": git.present and not git.detail,
+        return {"workflow": _workflow_observation(config),
+                "local_probe": executor_probe, "checks": {"git": git.present and not git.detail,
                             "forge_cli": forge.present and not forge.detail,
                             "forge_auth": auth.authenticated,
                             "container_runtime": True, "executor_cli": executor,
-                            "aegis_files": (aegis_root / "aegis.py").is_file()
-                            and (aegis_root / "aegis.toml").is_file(),
                             **({"executor_sign_in": chatgpt.status(
                                 chatgpt_dir or chatgpt.credential_dir()) == "signed-in"}
                                if config.executor.provider == CHATGPT else {}),
                             **_internet_checks(config, bounded_runner, env_file)}}
+    prefix = doctor.inventory_runtime_argv(config.container.runtime.strip())
+    runtime_ready = bool(prefix and _container_probe(bounded_runner, [*prefix, "info"]))
+    executor = False
     try:
         image_runtime = ContainerManager(
             config.container.runtime, config.container.image,
@@ -1044,34 +1075,27 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
             egress=egress_policy(config),
             selinux_relabel=config.container.selinux_relabel,
         )
-        executor = bounded_runner([
+        executor = runtime_ready and _container_probe(bounded_runner, [
             *image_runtime.runtime_argv, "run", "--rm", "--pull=never",
             "--network", "none", "--entrypoint", "python",
             config.container.image, "-c",
             "import shutil,sys; sys.exit(0 if shutil.which(sys.argv[1]) else 1)",
             EXECUTOR_NAME,
-        ], timeout=8).ok
+        ])
     except (IsolationError, OSError, TimeoutError, ValueError):
         executor = False
-    runtime_name = config.container.runtime.strip()
-    runtime = (runtimes.docker if runtime_name == "docker" else
-               runtimes.podman if runtime_name == "podman" else None)
-    aegis_root = Path(config.worktree.repo_path) / ".agentic"
     checks = {
         "git": git.present and not git.detail,
         "forge_cli": forge.present and not forge.detail,
         "forge_auth": auth.authenticated,
-        "container_runtime": (runtime.present and not runtime.detail
-                              if runtime is not None else None),
+        "container_runtime": runtime_ready,
         "executor_cli": executor,
-        "aegis_files": ((aegis_root / "aegis.py").is_file()
-                        and (aegis_root / "aegis.toml").is_file()),
     }
     if config.executor.provider == CHATGPT:
         checks["executor_sign_in"] = (
             chatgpt.status(chatgpt_dir or chatgpt.credential_dir()) == "signed-in")
     checks.update(_internet_checks(config, bounded_runner, env_file))
-    return {"checks": checks}
+    return {"workflow": _workflow_observation(config), "checks": checks}
 
 
 def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, WizardSetup | None]:
@@ -1211,6 +1235,7 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
         preview["revision"] = sha256(json.dumps(snapshot, sort_keys=True,
                                                ensure_ascii=False).encode("utf-8")).hexdigest()
         preview["config_revision"] = sha256(candidate.document.encode("utf-8")).hexdigest()
+        preview["workflow"] = _workflow_observation(config)
         preview["defaults"] = _preview_defaults(candidate.document)
         # Normalize the Windows spelling for display only; preserve POSIX path case and identity.
         def shown_path(value: str) -> str:
@@ -1413,7 +1438,7 @@ def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) ->
     @param[in]  runner Injectable command boundary.
     @param[in]  home ADORE home; parent folders are created only under its repos folder.
     @return     The fresh clone (the caller removes it if publication fails), or None.
-    @exception  HTTPException The clone failed, lacks AEGIS or lacks the target branch (removed).
+    @exception  HTTPException The clone failed or lacks the target branch (removed).
     """
     if not _pending_clone(body):
         return None
@@ -1434,11 +1459,7 @@ def _materialize_clone(body: ProjectInput, runner: CommandRunner, home: Path) ->
         force_rmtree(dest)
         raise _clone_rejection(502, "repository_clone_failed", "clone_url",
                                "Check that the server account can read the repository.")
-    aegis = dest / ".agentic"
     try:
-        if not ((aegis / "aegis.py").is_file() and (aegis / "aegis.toml").is_file()):
-            raise _clone_rejection(409, "repository_aegis_missing", "clone_url",
-                                   "Install AEGIS in the repository before enrolling it.")
         if not branch_exists(dest, body.target_branch, runner):
             raise _clone_rejection(409, "repository_branch_missing", "target_branch",
                                    "Choose a branch that exists in the repository.")
@@ -1605,7 +1626,8 @@ def _publish_paused_locked(
                 _write_pending_config(
                     directory / "readiness.json",
                     {
-                        "schema": 2,
+                        "schema": 3,
+                        "workflow": readiness["workflow"],
                         "project_id": item.project_id,
                         "host": readiness["host"],
                         "binding": readiness["binding"], "auth_bound": readiness["auth_bound"],
@@ -2049,12 +2071,13 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
                        "", value["key"], value["value"])), value["key"]))
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
-        if ((value["key"] in COLLECTION_KEYS or value["key"] in {CONNECTION_KEY, BATCH_KEY})
+        if ((value["key"] in COLLECTION_KEYS
+                or value["key"] in {CONNECTION_KEY, BATCH_KEY})
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
                     active_text, value["key"], value["value"]))):
-            raise ValueError("collection candidate changed unrelated settings")
+            raise ValueError("candidate changed unrelated settings")
         public["proposed_value"] = proposed
         public["value"] = (json.dumps(proposed, ensure_ascii=False, separators=(",", ":"))
                            if isinstance(proposed, (list, dict)) else
@@ -2066,7 +2089,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
             if (candidate.get("container", {}).get("required_tool_checks", [])
                     != active.get("container", {}).get("required_tool_checks", [])):
                 raise ValueError("image candidate lost its tool-check review binding")
-    except (KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
+    except (HTTPException, KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
         raise _error(503, "pending_config_corrupt") from exc
     return public
 
@@ -2124,7 +2147,7 @@ def _editable_setting_key(key: str) -> bool:
     @return     True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
-               "workflow.aegis_python"}:
+               "workflow.aegis_python", "workflow.verify_command"}:
         return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds",
                CONNECTION_KEY, BATCH_KEY}:
@@ -2750,17 +2773,20 @@ def _run_view(run) -> dict:
 # PUBLIC API
 def create_app(home: str | Path | None = None,
                *, probe_runner: CommandRunner = run_command,
+               environment_runner: CommandRunner | None = None,
                chatgpt_popen: Callable[..., subprocess.Popen] = subprocess.Popen) -> FastAPI:
     """
     @brief Construct the optional web service for a profile home.
     @param[in] home ADORE_HOME override used by tests and deployment.
     @param[in] probe_runner Injectable runner for explicit readiness probes.
+    @param[in] environment_runner Optional separate boundary for shared image preparation.
     @param[in] chatgpt_popen Process factory of the ChatGPT sign-in helper.
     @return Configured FastAPI application.
     """
     profiles = ProfileStore(home)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
+    environment = EnvironmentPreparation(profiles.home, environment_runner or probe_runner)
     enrollment_evidence: dict[str, tuple[int, str, str, float, dict]] = {}
     enrollment_lock = Lock()
 
@@ -2837,7 +2863,9 @@ def create_app(home: str | Path | None = None,
                        "/api/v1/projects/setup-check",
                        "/api/v1/projects/setup-create", "/api/v1/projects/transfer-source",
                        "/api/v1/projects/transfer-preview", "/api/v1/projects/transfer-check",
-                       "/api/v1/projects/transfer-create"}
+                       "/api/v1/projects/transfer-create", "/api/v1/projects/setup-environment",
+                       "/api/v1/projects/import-environment",
+                       "/api/v1/projects/transfer-environment"}
         if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
             detail["issues"] = issues
         return JSONResponse(status_code=422, content={"detail": detail})
@@ -3424,7 +3452,7 @@ def create_app(home: str | Path | None = None,
     def preview_project_setup(
         body: ProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
     ) -> dict:
-        """@brief Validate setup locally without commands or profile publication."""
+        """@brief Preview exact setup and separate direct-only file hints, without probes."""
         preview, _candidate = _prepare_project(profiles, body)
         web.audit(
             _user["id"],
@@ -3537,13 +3565,11 @@ def create_app(home: str | Path | None = None,
             or auth_bound != _readiness_auth_bound(profiles, body.target.name, config)
         ):
             raise _error(409, "stale_config_revision")
-        if not isinstance(evidence, dict):
+        if not isinstance(evidence, dict) or not _valid_workflow(evidence.get("workflow")):
             raise _error(503, "readiness_probe_failed")
         checks = evidence.get("checks")
         if not _valid_readiness_checks(checks, config):
             raise _error(503, "readiness_probe_failed")
-        if _pending_clone(body.target):
-            checks["aegis_files"] = "not-checked"  # The clone is made at creation.
         status = (
             "failed"
             if any(value is False for value in checks.values())
@@ -3559,6 +3585,7 @@ def create_app(home: str | Path | None = None,
             {
                 "checked_at": checked_at,
                 "checks": dict(checks),
+                "workflow": evidence["workflow"],
                 "host": host,
                 "binding": binding,
                 "auth_bound": auth_bound,
@@ -3575,6 +3602,31 @@ def create_app(home: str | Path | None = None,
             "required_checks": sorted(checks),
             "auth_bound": auth_bound,
         }
+
+    def prepare_environment(config, user: dict, name: str) -> dict:
+        """Start shared preparation only after the enrollment's exact review passes."""
+        try:
+            job = environment.start(config)
+        except EnvironmentError as exc:
+            raise _error(503, exc.code) from exc
+        web.audit(user["id"], "environment-preparation-started", name)
+        return job
+
+    @app.get("/api/v1/environment-preparations/{job_id}")
+    def read_environment_preparation(job_id: str,
+                                     _user: Annotated[dict, Depends(administrator)]) -> dict:
+        """Expose only bounded, value-free progress to server administrators."""
+        job = environment.read(job_id)
+        if job is None:
+            raise _error(404, "environment_preparation_expired")
+        return job
+
+    @app.post("/api/v1/projects/transfer-environment", status_code=202)
+    def prepare_transfer_environment(body: ReviewedTransferInput, request: Request,
+                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, candidate = reviewed_transfer(body, request)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        return prepare_environment(config, user, body.target.name)
 
     @app.post("/api/v1/projects/transfer-create")
     def create_transfer(
@@ -3645,6 +3697,13 @@ def create_app(home: str | Path | None = None,
             raise _error(409, "stale_config_revision")
         return preview, candidate
 
+    @app.post("/api/v1/projects/setup-environment", status_code=202)
+    def prepare_setup_environment(body: ReviewedProjectInput,
+                                  user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, candidate = reviewed_setup(body)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        return prepare_environment(config, user, body.name)
+
     @app.post("/api/v1/projects/setup-check")
     def check_project_setup(
         body: ReviewedProjectInput, _user: Annotated[dict, Depends(admin_mutation)]
@@ -3669,13 +3728,11 @@ def create_app(home: str | Path | None = None,
             or auth_bound != _readiness_auth_bound(profiles, body.name, config)
         ):
             raise _error(409, "stale_config_revision")
-        if not isinstance(evidence, dict):
+        if not isinstance(evidence, dict) or not _valid_workflow(evidence.get("workflow")):
             raise _error(503, "readiness_probe_failed")
         checks = evidence.get("checks")
         if not _valid_readiness_checks(checks, config):
             raise _error(503, "readiness_probe_failed")
-        if _pending_clone(body):
-            checks["aegis_files"] = "not-checked"  # The clone is made at creation.
         status = (
             "failed"
             if any(value is False for value in checks.values())
@@ -3691,6 +3748,7 @@ def create_app(home: str | Path | None = None,
             {
                 "checked_at": checked_at,
                 "checks": dict(checks),
+                "workflow": evidence["workflow"],
                 "host": host,
                 "binding": binding,
                 "auth_bound": auth_bound,
@@ -3761,6 +3819,27 @@ def create_app(home: str | Path | None = None,
         )
         return preview
 
+    @app.post("/api/v1/projects/import-environment", status_code=202)
+    def prepare_import_environment(body: ProjectImportInput,
+                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, config = _reviewed_import(profiles, body)
+        return prepare_environment(config, user, body.name)
+
+    @app.post("/api/v1/projects/import/bundle-environment", status_code=202)
+    def prepare_bundle_environment(body: ProjectBundleImportInput,
+                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """Prepare the execution environment bound to the reviewed complete ZIP."""
+        try:
+            preview, native, _bundle, _revisions = _inspect_bundle_import(
+                profiles, body, probe_runner)
+            if (not re.fullmatch(r"[0-9a-f]{64}", body.revision)
+                    or not secrets.compare_digest(body.revision, preview["revision"])):
+                raise _error(409, "stale_import_preview")
+            _native_preview, config = _reviewed_import(profiles, native)
+            return prepare_environment(config, user, native.name)
+        except RecipeError as exc:
+            raise recipe_failure(exc) from exc
+
     @app.post("/api/v1/projects/import/bundle-preview")
     def preview_project_bundle(body: ProjectBundlePreviewInput,
                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
@@ -3813,13 +3892,22 @@ def create_app(home: str | Path | None = None,
         @exception HTTPException Invalid/stale input or unusable probe fails closed.
         """
         preview, config = _reviewed_import(profiles, body)
+        auth_bound = _readiness_auth_bound(profiles, body.name, config)
         evidence = _probe_setup(config, probe_runner, chatgpt_dir=chatgpt_dir)
         _reviewed_import(profiles, body)
+        if auth_bound != _readiness_auth_bound(profiles, body.name, config):
+            raise _error(409, "stale_config_revision")
+        if (not isinstance(evidence, dict)
+                or not _valid_workflow(evidence.get("workflow"))
+                or not _valid_readiness_checks(evidence.get("checks"), config)):
+            raise _error(503, "readiness_probe_failed")
         checks = evidence["checks"]
         status = ("failed" if any(value is False for value in checks.values()) else
-                  "partial" if any(type(value) is not bool for value in checks.values())
+                  "partial" if not auth_bound or any(type(value) is not bool
+                                                     for value in checks.values())
                   else "verified")
         return {**evidence, "status": status, "revision": preview["revision"],
+                "required_checks": sorted(checks), "auth_bound": auth_bound,
                 "config_revision": preview["config_revision"], "context": "api-host",
                 "checked_at": datetime.now(UTC).isoformat()}
 
@@ -4038,6 +4126,15 @@ def create_app(home: str | Path | None = None,
             config.container.uv_cache_volume, config.container.npm_cache_volume,
             probe_runner, run_args=config.container.run_args,
             selinux_relabel=config.container.selinux_relabel)
+        if manager is not None:
+            for command, code in (
+                ([*manager.runtime_argv, "info"], "container_runtime_unavailable"),
+                ([*manager.runtime_argv, "image", "inspect", manager.image],
+                 "executor_image_unavailable"),
+            ):
+                if not _container_probe(probe_runner, command):
+                    web.audit(user["id"], "chatgpt-sign-in-failed", item.name, detail=code)
+                    raise _error(503, code)
         manager = chatgpt.helper_for(config, manager, runner=probe_runner)
         with chatgpt_lock:
             previous = chatgpt_pending["session"]
@@ -4188,12 +4285,13 @@ def create_app(home: str | Path | None = None,
                 )
             except RepositoryAuthError as exc:
                 raise _error(503, exc.code) from exc
-            if not isinstance(evidence, dict) or not _valid_readiness_checks(
-                evidence.get("checks"), config
-            ):
+            if (not isinstance(evidence, dict)
+                    or not _valid_workflow(evidence.get("workflow"))
+                    or not _valid_readiness_checks(evidence.get("checks"), config)):
                 raise _error(503, "readiness_probe_failed")
             value = {
-                "schema": 2,
+                "schema": 3,
+                "workflow": evidence["workflow"],
                 "project_id": item.project_id,
                 "revision": revision,
                 "host": host,
@@ -4954,7 +5052,7 @@ def create_app(home: str | Path | None = None,
         descending = (order or ("desc" if sort == "activity" else "asc")) == "desc"
         matched = sort_jobs(matched, sort, descending)
         page_limit = len(matched) if limit == "all" else int(limit)
-        visible = [{key: value for key, value in row.items() if key != "timeline"}
+        visible = [{key: value for key, value in row.items() if key not in {"timeline", "direct"}}
                    for row in matched[offset:offset + page_limit]]
         return {"items": visible, "total": len(matched),
                 "counts": counts, "groups": groups, "limit": page_limit, "offset": offset,

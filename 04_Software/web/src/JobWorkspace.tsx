@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, describeError } from "./errors";
 import type { Locale, MessageKey } from "./i18n";
 import { operationResultText } from "./ticketCopy";
-import { jobCopy } from "./jobCopy";
+import { jobCopy, directCopy, workflowStageLabel } from "./jobCopy";
 import { JobDetails } from "./JobDetails";
 import { commandAllowed, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
@@ -42,7 +42,6 @@ const lifecycleKeys: Record<string, MessageKey> = {
   "awaiting-approval": "awaitingApprovalStatus", "in-review": "inReviewStatus", "handoff-pending": "handoffPendingStatus",
   "handed-off": "handedOffStatus", done: "done", failed: "failed", cancelled: "cancelled",
 };
-const stageKeys: Record<string, MessageKey> = { frame: "frameStage", specify: "specifyStage", design: "designStage", build: "buildStage", validate: "validateStage", done: "done", publishing: "publishingStatus" };
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
 const normalizeFailure = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError("unexpected_response");
 const readOperation = (value: unknown): Operation => {
@@ -57,6 +56,8 @@ const readOperation = (value: unknown): Operation => {
 export function JobWorkspace(props: Props) {
   const { mode, locale, projects, scope, run, csrf, request, t, refresh, onOpen, onClose, fixedScope } = props;
   const copy = jobCopy[locale];
+  const directText = directCopy[locale];
+  const workflowText = (job: Job) => job.workflow === "direct" ? directText.direct : "AEGIS";
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
   const [page, setPage] = useState<JobPage | null>(null);
@@ -87,7 +88,7 @@ export function JobWorkspace(props: Props) {
   const [loadedDetailKey, setLoadedDetailKey] = useState("");
   const visible = dataKey === renderKey && state === "ready" ? page : null;
   const unreadable = visible?.unreadable_projects ?? [];
-  const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && state !== "changed" ? detail : null;
+  const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? detail : null;
   const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
   const consumptionKey = JSON.stringify([consumptionProjects, ids, renderKey, detailKey]);
   const [consumption, setConsumption] = useState<{ key: string; state: "loading" | "ready" | "error"; jobs: JobConsumption[] }>({ key: "", state: "loading", jobs: [] });
@@ -243,7 +244,7 @@ export function JobWorkspace(props: Props) {
   const table = (rows: Job[]) => <div className="table-scroll"><table className="action-jobs-table"><thead><tr>{heading("ticket", t("ticket"))}{heading("project", t("project"))}{heading("status", t("status"))}{heading("activity", t("lastActivity"))}<th>{copy.consumption}</th></tr></thead><tbody>{rows.map(job => <tr key={`${job.project_id}/${job.run_id}`}>
     <td><a className="strong" href={jobHref(job)} onClick={event => open(event, job)}>#{job.ticket_iid} · {job.ticket_title || copy.titleUnknown}</a></td>
     <td>{job.project_display_name}{job.project_archived && <small className="field-hint">{t("archived")}</small>}</td>
-    <td><StatusBadge code={job.lifecycle}>{job.lifecycle === "done" ? copy.completed : job.lifecycle === "stale" ? copy.staleJob : label(job.lifecycle, lifecycleKeys, t)}</StatusBadge><small className="field-hint">{t("stage")}: {label(job.stage, stageKeys, t)}</small>{job.waiting.next_action && job.waiting.evidence_url && <a href={job.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(job)} ↗</a>}</td>
+    <td><StatusBadge code={job.lifecycle}>{job.lifecycle === "done" ? copy.completed : job.lifecycle === "stale" ? copy.staleJob : label(job.lifecycle, lifecycleKeys, t)}</StatusBadge><small className="field-hint">{t("stage")}: {workflowStageLabel(job.stage, job.workflow, t)}</small><small className="field-hint">{directText.workflow}: {workflowText(job)}</small>{job.waiting.next_action && job.waiting.evidence_url && <a href={job.waiting.evidence_url} target="_blank" rel="noreferrer">{actionText(job)} ↗</a>}</td>
     <td><time dateTime={job.last_activity_at || undefined}>{date(job.last_activity_at)}</time></td><td>{consumptionView(job)}</td>
   </tr>)}</tbody></table></div>;
   const compactTable = (rows: Job[]) => <div className="table-scroll"><table className="overview-jobs-table"><thead><tr><th>{t("jobTerm")}</th><th>{t("status")}</th><th>{copy.details}</th></tr></thead><tbody>{rows.map(job => <tr key={`${job.project_id}/${job.run_id}`}>
@@ -265,11 +266,12 @@ export function JobWorkspace(props: Props) {
     {run && state === "changed" && feedback("changed", failure)}
     {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy}
       onClose={onClose} onCommand={(action, job) => void command(action, job)}
-      stageLabel={label(visibleDetail.stage, stageKeys, t)} stageName={stage => label(stage, stageKeys, t)}
+      stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
+      directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}
       consumption={consumptionView(visibleDetail, true)}
       output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />}
-      timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} date={date} t={t} unknown={copy.unknown} />} />}
+      timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} workflow={visibleDetail.workflow} date={date} t={t} unknown={copy.unknown} />} />}
     {!run && <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
@@ -286,14 +288,23 @@ export function JobWorkspace(props: Props) {
 }
 
 
+/** Direct jobs display agent attempts; no independent test execution is configured. */
+function DirectEvidenceView({evidence, locale}: {evidence: NonNullable<Job["direct"]>; locale: Locale}) {
+  const copy = directCopy[locale];
+  return <section className="direct-evidence" aria-label={copy.title}>
+    <h3>{copy.title}</h3>
+    <p>{evidence.attempt === null ? copy.attemptUnavailable : `${copy.attempt}: ${evidence.attempt}`}</p>
+  </section>;
+}
+
 /** Page actual events in reverse saved order without inferring progress. */
-function ObservedTimeline({ events, date, t, unknown }: { events: NonNullable<Job["timeline"]>; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
+function ObservedTimeline({ events, workflow, date, t, unknown }: { events: NonNullable<Job["timeline"]>; workflow: Job["workflow"]; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
   const [size, setSize] = useState<number | "all">(10);
   const [offset, setOffset] = useState(0);
   const rows = events.slice().reverse();
   const start = size === "all" ? 0 : Math.min(offset, Math.max(0, Math.ceil(rows.length / size) - 1) * size);
   const shown = size === "all" ? rows : rows.slice(start, start + size);
-  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? label(event.stage, stageKeys, t) : unknown}</td></tr>)}</tbody></table></div>
+  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? workflowStageLabel(event.stage, workflow, t) : unknown}</td></tr>)}</tbody></table></div>
     {rows.length > 10 && <div className="table-pagination timeline-pagination"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t("all")}</option></select></label><span>{start + 1}–{start + shown.length} / {rows.length}</span><div className="button-row"><button className="ghost" disabled={!start || size === "all"} onClick={() => setOffset(start - Number(size))}>{t("previous")}</button><button className="ghost" disabled={size === "all" || start + shown.length >= rows.length} onClick={() => setOffset(start + Number(size))}>{t("next")}</button></div></div>}
   </>;
 }
@@ -333,7 +344,7 @@ function ExecutorOutputView({job, locale, request, t}: {job:Job;locale:Locale;re
       <p className="executor-output-summary">
         <strong>{output.timed_out ? copy.timedOut : output.exit_code===0 ? copy.outputSucceeded : copy.outputUnsuccessful}</strong>
         <span>{t("attempts")}: {output.attempt}</span>
-        {output.stage && <span>{t("stage")}: {label(output.stage,stageKeys,t)}</span>}
+        {output.stage && <span>{t("stage")}: {workflowStageLabel(output.stage,job.workflow,t)}</span>}
         <time dateTime={output.recorded_at}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"medium"}).format(new Date(output.recorded_at))}</time>
         <span>{copy.exitCode}: {output.exit_code}</span>
       </p>

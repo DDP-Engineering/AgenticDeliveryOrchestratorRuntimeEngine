@@ -11,6 +11,8 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
+Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+
 ## Creați mai întâi etichetele {#labels}
 
 GitHub și Gitea resping un nume de etichetă necunoscut, așa că o etichetă lipsă face ca actualizările de stare să eșueze. Toate etichetele de mai jos trebuie să existe în repository-ul de pe forge înainte de prima rulare. ADORE le creează pe cele lipsă la adăugarea unui proiect (**Creează etichetele ADORE în repository**, bifată implicit în Revizuire și creare) sau când apăsați **Creează etichetele lipsă** în Setări → Repository; nu modifică și nu șterge niciodată etichetele existente și arată ce a creat, ce exista deja și ce a eșuat (de exemplu când contul de forge al serverului nu poate crea etichete). Numele sunt cele implicite; redenumiți una doar împreună cu setarea ei din proiect.

@@ -1,5 +1,7 @@
 # Glossary
 
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
 These are the terms used across the ADORE web interface and in these help topics.
 
 ## Terms {#terms}
@@ -13,8 +15,9 @@ These are the terms used across the ADORE web interface and in these help topics
 | Ticket | An issue on the forge. ADORE picks it up when it carries the project's ready label and a priority label, is not held or excluded, and has acceptance criteria if the project requires them. |
 | Coding agent / Executor | The AI command-line tool that does the work for a job in an isolated environment: Pi, the only coding agent ADORE runs. It has no forge credentials and never commits, pushes, opens or merges. |
 | Model | The model ID within the chosen provider, for example gpt-5.4 for OpenAI. It is set with the provider in Settings → Agent and model, and estimated prices belong to an executor and model pair. |
-| AEGIS | The workflow installed in the repository that frames, specifies, designs, builds and validates a change. ADORE conducts it one stage at a time (Frame, Specify, Design, Build, Validate) and publishes the validated result under the project policy; a small change may skip Specify and Design. |
-| Candidate | The validated result identified by a fingerprint and target commit. If approval is required, it applies to this exact candidate. |
+| AEGIS | The workflow installed in the repository that frames, specifies, designs, builds and validates a change. ADORE conducts it one stage at a time (Frame, Specify, Design, Build, Validate) and publishes the approved result; a small change may skip Specify and Design. |
+| Direct workflow | A repository without AEGIS is implemented directly by the agent. The agent owns its checks; ADORE monitors progress and requests human approval. |
+| Candidate | The validated result of a job that ADORE presents for approval, identified by a fingerprint and the target commit. Approval applies to that exact candidate and lapses if the candidate or its target branch changes. |
 | Waiting for clarification | The agent needs an answer before continuing. Respond to its question in the repository issue. |
 | Waiting for approval | The result is validated and waiting for a person to authorize publication. Approval is recorded on the forge for the current candidate. |
 | Draft MR/PR | The merge or pull request ADORE opens after validation and any required approval. People review it. |

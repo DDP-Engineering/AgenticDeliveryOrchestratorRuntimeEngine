@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-eaed1b77"
+title = "Describe optional direct verification in localized release notes"
+status = "active"
+requirement = "When reading the Unreleased What's new notes, users shall find a plain-language entry about optional direct verification and bounded fixes with topic and text in English, French, German and Romanian under the existing release-note contract."
+verification = "Automated release-note validation loads the updated Unreleased entry and checks the existing category, four-locale topic/text and 100-character limits; compare the entry's meaning in all locales to the implemented verification/fix workflow, and use existing negative locale/length/format tests as the contract boundary controls."
+affected_paths = ["04_Software/adore/release_notes.toml", "CHANGELOG.md"]
+linked_tests = ["04_Software/tests/test_release_notes.py"]
+spec = ""
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

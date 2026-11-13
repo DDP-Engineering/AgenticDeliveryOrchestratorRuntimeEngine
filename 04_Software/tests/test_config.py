@@ -10,6 +10,7 @@
 """
 @file test_config.py
 @brief Tests for typed config loading, derived names, and validation.
+@details Offline load/serialize controls and invalid human-authored configuration.
 """
 
 from __future__ import annotations
@@ -847,3 +848,15 @@ def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_pa
         assert issues == []
     else:
         assert any("max_cost_usd" in issue for issue in issues)
+
+
+@pytest.mark.parametrize("legacy", ['"npm test"', 'true', '["old"]'])
+def test_removed_direct_check_is_ignored_without_rewriting_profile(tmp_path, legacy):
+    text = MINIMAL_VALID + '\n[workflow]\nverify_command = ' + legacy + '\n'
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
+    config = load_config(path)
+    assert not hasattr(config.workflow, "verify_command")
+    assert "verify_command" not in config.to_dict()["workflow"]
+    assert not any("verify_command" in issue for issue in validate_config(config))
+    assert path.read_text(encoding="utf-8") == text

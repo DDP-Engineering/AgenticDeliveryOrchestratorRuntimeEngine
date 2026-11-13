@@ -1,5 +1,7 @@
 # Ajouter un dépôt
 
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
 Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
 
 
@@ -13,22 +15,23 @@ Une connexion CLI externe réussie reste partielle car elle peut changer hors d�
 Préparez ces éléments :
 
 - L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.
-- AEGIS installé dans le dépôt (`.agentic/aegis.py` et `.agentic/aegis.toml`). ADORE l’utilise tel quel et ne le modifie jamais. Ses commandes de test s’exécutent dans le conteneur Linux ; écrivez-les donc pour le conteneur.
 - Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
 - Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
-- L’identifiant du modèle de l’agent de programmation Pi et, pour un projet en conteneur, une image sur le serveur construite à partir de l’image de base d’ADORE, qui contient Pi. Voir [Exécuteurs et modèles](/help/executors).
+- L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).
 
 ## Inscrire un nouveau projet {#add-project}
 
 Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
+
+Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.
 
 | Étape | Ce qui est demandé |
 |---|---|
 | Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |
 | Agent et modèle | Choisissez le **Fournisseur**, le **Modèle** et, si nécessaire, le point de terminaison. Pour un conteneur, choisissez le moteur et l’image. Enregistrez la clé du fournisseur dans Paramètres après la création. Pour **Installé sur le serveur**, seuls le compte système actuel et le **PATH des outils du projet** facultatif s’affichent. |
 | Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
-| Vérification | **Valider la configuration** contrôle la structure et les dossiers du serveur. **Vérifier l'environnement** teste Git, l’accès à la forge et les fichiers AEGIS. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |
-| Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie AEGIS et la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |
+| Vérification | L’ouverture de cette étape contrôle automatiquement la configuration, les dossiers du serveur, Git et l’accès à la forge. **Revérifier l'environnement** relance ces contrôles. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |
+| Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |
 
 Pour l’exécution locale native, choisissez **Exécution → Installé sur le serveur**. Les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
 
@@ -37,6 +40,12 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 **Emplacement automatique** conserve le chemin proposé pour le clone. Choisissez **Emplacement personnalisé** puis **Choisir un dossier…** pour parcourir les dossiers de l’hôte ADORE. Un clic sélectionne une ligne ; un double-clic ou Entrée ouvre le dossier. Utilisez Retour ou Dossier parent, puis **Sélectionner le dossier** pour confirmer exactement le dossier existant. Saisissez une nouvelle destination dans le champ du clone du formulaire principal. Le sélecteur ne crée rien ; liens et chemins réseau sont refusés. **Annuler** conserve le brouillon. Un chemin saisi pendant le chargement des dossiers reste dans la barre d’adresse.
 
 **Branche cible** liste les branches distantes de GitHub, GitLab et Gitea, y compris les instances privées. La branche par défaut du dépôt est sélectionnée et marquée **par défaut**. Choisissez une autre branche si nécessaire. **Lire le dépôt** actualise la liste et conserve un choix explicite tant que la branche existe. Changer l’URL efface les anciens choix. Sans branche par défaut, choisissez-en une ; sans branches, ajoutez-en une au dépôt et relisez-le. L’accès Git du compte ADORE est utilisé ; un type de forge inconnu reste à sélectionner manuellement.
+
+## Workflows du dépôt {#workflows}
+
+À la confirmation d’une inscription guidée ou d’un import de configuration, ADORE prépare les images communes d’exécution et de proxy manquantes avant d’enregistrer le projet. La progression indique l’étape actuelle ; la première préparation peut prendre plusieurs minutes et nécessite Internet sur le serveur. Les imports suivants réutilisent les images. En cas d’échec, réessayez l’import sans ressaisir les mêmes réponses. Les imports natifs ignorent cette préparation. Les images personnalisées restent à la charge de l’administrateur.
+
+**AEGIS / Direct**. L’agent découvre et exécute les contrôles selon les instructions du dépôt. Avec AEGIS, il suit les étapes enregistrées ; sinon il implémente directement le ticket. ADORE observe le progrès et le journal, enregistre le candidat et demande une approbation humaine. Il ne relance pas les tests du dépôt ni les contrôles AEGIS stricts.
 
 ## Importer la configuration brute {#import-project}
 
@@ -48,7 +57,7 @@ Sélectionnez directement le ZIP exporté complet : la configuration et les déf
 Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :
 
 1. Choisissez **Accès au dépôt**. Saisissez l’adresse du serveur de la forge et un jeton d’accès créé sur la forge, puis **Vérifier et connecter**. Cela confirme le compte et l’accès en lecture au dépôt. Le jeton reste sur le serveur, jamais dans le navigateur. Vous pouvez aussi connecter l’outil de la forge sous le compte de service d’ADORE.
-2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image et les fichiers AEGIS, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
+2. Choisissez **Vérifier les prérequis de l’hôte**. Le détail couvre Git, l’outil de commande du dépôt, la connexion au dépôt, le moteur de conteneur, Pi dans l’image, ainsi que la connexion ChatGPT du serveur pour un abonnement ChatGPT, l’image du proxy réseau quand l’[accès Internet](/help/executors#internet) est désactivé et la clé de recherche web quand Brave ou Tavily en demande une. Pour un projet exécuté directement sur le serveur, **Exécution locale** remplace les lignes du moteur de conteneur et de l’image : elle vérifie la version compatible de Node, Pi géré par ADORE et les identifiants du fournisseur. La ligne **Workflow** identifie séparément le workflow sans exécuter AEGIS. Ce n’est pas une tâche complète et cela ne prouve pas l’autorisation de poussée.
 3. Lancez **Tester la connexion IA** dans Paramètres, comme décrit dans [Exécuteurs et modèles](/help/executors#test-connection).
 4. Choisissez **Activer la surveillance**. La tuile Surveillance passe de En pause à Active et ADORE commence à prendre en charge les tickets qui portent l’étiquette de disponibilité. **Suspendre la surveillance** arrête les nouvelles prises en charge mais n’interrompt pas une tâche en cours.
 

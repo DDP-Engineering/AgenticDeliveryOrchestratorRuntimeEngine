@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-c72044c0"
+title = "Account for direct executor errors"
+status = "active"
+requirement = "If a direct Pi attempt reports an execution or settle error without a blocking question, the conductor shall account for it through the existing bounded stage-failure policy with preserved cause and stage."
+verification = "Offline direct attempts inject nonzero exit and settle error independently, observe one counted build failure and a fresh retry below the configured limit, then terminal failed state at the limit; a successful changed attempt remains the control and no erroneous attempt receives approval."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_errors_use_bounded_build_failure_accounting", "04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication"]
+spec = ""
+priority = "high"
+rationale = "Direct work retains the existing deterministic failure accounting."
+created = 2026-11-12
+updated = 2026-11-12

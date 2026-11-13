@@ -39,6 +39,40 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Keep Provider, Model and other single-line Settings controls at normal height.
 - Retain verified executor output through live read conflicts and summarize completed launches.
 
+### Added
+
+- Web imports automatically prepare missing shared executor and network-proxy
+  images, show progress, share concurrent preparation and support retry before
+  saving a project. Existing images are reused, including through WSL.
+
+- Jobs identifies AEGIS and Direct workflows and shows recorded agent attempts.
+- Enroll repositories with or without AEGIS. ChatGPT subscriptions use server
+  sign-in without an API-key selector; container choices include detected WSL runtimes.
+- ADORE observes the agent's AEGIS journal and direct summaries, binds candidates
+  to human approval and publishes approved changes. Repository checks belong to
+  the agent; ADORE no longer runs strict AEGIS checks or standalone test commands.
+
+
+### Fixed
+
+- Restore enrollment and raw import actions after deleting the last project,
+  and simplify the delete confirmation while keeping the exact-name instruction.
+
+- Simplify enrollment helper text and credential spacing; automatically check setup
+  and server access on entering Verification, with one manual recheck action.
+
+- Check the configured container daemon, including WSL, during readiness and report
+  unavailable services or executor images before starting ChatGPT sign-in.
+
+- Read rewritten Direct summaries reliably on Windows, retaining file replacement
+  and modification checks.
+- Keep Direct Jobs readable across publication reset/retry history, while refusing
+  invalid execution stages.
+- Make tests independent of host shells, default encodings, newline
+  conversion and symlink privileges; give large parameter cases bounded test IDs.
+
+- Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
+
 - Keep healthy projects visible in Overview when another project's job state cannot be read.
 
 - Narrow the ticket number column to leave more room for the other columns.
@@ -83,6 +117,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Delete the run-state directories under each configured `store_root/runs/` before starting this build.
+
+- Delete each configured statistics database before starting this build; summaries now record workflow.
+
+- Store agent prompts as shipped Markdown files in `adore/prompts/`, preserving the text sent to Pi.
 - Use the executor's completed AEGIS validation for candidate approval, eliminating the duplicate strict run by ADORE.
 
 - Offer detected Docker and Podman commands in project Settings, including Windows WSL, with manual entry and WSL image suggestions.
@@ -91,7 +130,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Refresh project Settings, Access, History and global Change history automatically. Settings pauses while edits are unsaved. Project History uses automatic updates in place of its Refresh buttons.
 
-- Delete each project profile’s `readiness.json` before starting this build.
+- Delete each project profile’s `readiness.json` before starting this build; workflow observations are now separate from prerequisite checks.
 
 - Ticket details place Body display and its selector together on the right of the description heading; action buttons wrap without splitting words when details open.
 

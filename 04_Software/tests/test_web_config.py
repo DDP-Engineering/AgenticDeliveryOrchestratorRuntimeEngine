@@ -32,7 +32,7 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
     path = profiles.config_path("alpha")
-    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(encoding="utf-8")
     text = text.replace('store_root = ".adore"',
                         f'store_root = "{(tmp_path / "state").as_posix()}"')
     if multiline:
@@ -60,7 +60,7 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
         assert result.status_code == 200, result.text
     expected = tomllib.loads(original.decode())
     expected["delivery"]["reviewers"] = ["alice", "bob.smith"]
-    assert tomllib.loads(path.read_text()) == expected
+    assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
     assert b"\r\n" in path.read_bytes()
 
 
@@ -170,7 +170,7 @@ def test_reviewer_pending_list_rejects_forged_value(tmp_path, claimed):
                                       "revision": revision})
         assert candidate.status_code == 200
         pending = profiles.profile_dir("alpha") / "pending_config.json"
-        record = json.loads(pending.read_text())
+        record = json.loads(pending.read_text(encoding="utf-8"))
         record["value"] = claimed
         pending.write_text(json.dumps(record), encoding="utf-8")
         response = client.get("/api/v1/projects/alpha/config/pending")

@@ -819,6 +819,10 @@ def load_config(path: str | Path) -> Config:
     """
     with Path(path).open("rb") as handle:
         raw = tomllib.load(handle)
+    # Older profiles may retain the removed independent-check setting. Ignore it
+    # without rewriting the file or exposing it in the effective configuration.
+    if isinstance(raw.get("workflow"), dict):
+        raw["workflow"].pop("verify_command", None)
     config = Config(
         agent=_build_section(AgentConfig, raw.get("agent")),
         platform=_build_section(PlatformConfig, raw.get("platform")),

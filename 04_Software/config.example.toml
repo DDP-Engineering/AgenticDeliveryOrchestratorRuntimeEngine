@@ -306,11 +306,12 @@ branch_template = "{slug}/{run_id}"
 # Example (GitLab):  branch_rule = '^(feature|bugfix|release|hotfix)\/.*$'
 branch_rule = ""
 
-# ----- AEGIS workflow ------------------------------------------------------------
-# How a ticket becomes an AEGIS task journal (AEGIS 0.15.0+, schema 1). ADORE creates the task after
-# creating the task branch; the frame executor chooses and justifies its path.
-# All of them are optional - the defaults below are what ADORE uses when the
-# section is absent.
+# ----- Workflow ------------------------------------------------------------------
+# A present supported AEGIS payload selects stage-by-stage journals: ADORE
+# creates the task after its branch; the frame executor chooses its path.
+# Without AEGIS, the agent implements the ticket directly and chooses its checks.
+# A broken/unsupported present payload is refused, never a direct fallback.
+# These settings are optional; absent values use the defaults below.
 [workflow]
 # Run kind for a ticket that carries none of the labels below.
 # One of: feature, fix, change. ("adoption" runs are interactive and are not
@@ -323,6 +324,11 @@ kind_labels = { bug = "fix", fix = "fix", change = "change" }
 quick_label = "agent-quick"
 # Python executable used for `python .agentic/aegis.py ...`.
 aegis_python = "python"
+# Direct only: one shell command line from the worktree root. Container: sh -c;
+# local: platform shell with service-account permissions, not a host sandbox.
+# Validate timeout below (else per_gate_timeout_seconds) bounds the command.
+# Failures/timeouts consume max_stage_failures; fresh Pi sessions get evidence.
+# Approval and MR/PR show the sanitized command/result. AEGIS ignores this key.
 # Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
 # stages that legitimately need more room than intake does. Keys are the AEGIS
 # stages that launch an executor: frame, specify, design, build, validate;

@@ -50,13 +50,25 @@ Every numeric `usage` event carries the versioned identity
 event ID is refused. `metrics.unique_usage_events` deduplicates identical replay
 for terminal summaries and web daily/attributed views, and raises `MetricsError`
 on malformed or conflicting input.
+Summaries carry validated recorded workflow (`aegis` or `direct`) through
+SQLite, JSONL, CSV and HTML; both readers refuse unknown/nontext values. Direct
+not-configured evidence does not generate a strict-verification outcome.
 `metrics.db` has one current `run_summaries` shape: a table whose columns differ
 is refused with "metrics database <path> was written by another ADORE build;
 delete it to start fresh", never altered in place.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Terminal summaries, workflow, persistence and exports | summarize_run, RunSummary, record_summary/load_summaries | test_metrics.py |
+| Read-only analytical sources and scoped reporting | load_analytical_summaries; web/analytics.py | test_web_scoped_metrics.py, test_web_metrics.py |
+
 ## Key behaviors
 
 - `REQ-FUNC-f5aaaa62` - one truthful terminal summary per run.
+- `REQ-DATA-fd09265f` - workflow round-trips and corrupt/absent-column refusal
+  without rewriting; deletion of the configured metrics DB starts fresh.
 - `REQ-FUNC-ef74f46e` - filtered aggregates, CSV and escaped static HTML.
 - `REQ-FUNC-448cbde7` - shared scoped web aggregates and exports.
 - `REQ-DATA-5a620f4e` - composite job lifetime/period/unallocated consumption.
@@ -68,25 +80,6 @@ delete it to start fresh", never altered in place.
 - Web revision counts distinguish human-requested MR/PR changes (`revise-label`)
   from automatic pipeline repairs (`pipeline-failed`); unknown triggers stay
   unclassified in coverage.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    journal[(Run journal)] --> summarize[summarize_run]
-    summarize --> record[record_summary]
-    record --> sqlite[(metrics.db)]
-    record --> mirror[(JSONL mirror)]
-    sqlite --> reports[CLI reports and exports]
-    sqlite --> readonly[Read-only summary loader]
-    readonly --> analytics[Strict scope and analytical reports]
-    journal --> analytics
-    analytics --> web[Authorized API and CSV]
-    journal --> ingest[Reconcile attributed usage]
-    ingest --> projection[(web.db usage projection)]
-    projection --> cursor[Replay integrity]
-    analytics --> usage[Attributed usage API]
-```
 
 Reporting scope is the authorized immutable project set, a half-open UTC
 instant interval `[from,to)`, the selected IANA timezone and day/week/month

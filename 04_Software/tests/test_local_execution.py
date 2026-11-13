@@ -154,7 +154,7 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
     assert env["HOME"] == context["home"] and env["OPENAI_API_KEY"] == "provider-secret"
     auth = Path(context["home"]) / ".pi/agent/auth.json"
     auth.parent.mkdir(parents=True)
-    auth.write_text('{"provider":{"refresh":"existing-subscription-secret"}}')
+    auth.write_text('{"provider":{"refresh":"existing-subscription-secret"}}', encoding="utf-8")
     io_dir = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, io_dir, env)
     resource = backend.resource_identity("run-1")
@@ -162,9 +162,11 @@ def test_local_environment_ignores_personal_auth_and_forge_credentials(tmp_path,
     assert target(["pi", "--version"], timeout=1).ok
     assert controller.calls[0][1]["env"]["GIT_PAGER"] == "cat"
     assert controller.calls[0][1]["secrets"] == ["provider-secret"]
-    assert auth.read_text() == '{"provider":{"refresh":"existing-subscription-secret"}}'
+    assert auth.read_text(encoding="utf-8") == (
+        '{"provider":{"refresh":"existing-subscription-secret"}}')
     assert not any(
-        "existing-subscription-secret" in p.read_text() for p in io_dir.parent.rglob("*.json")
+        "existing-subscription-secret" in p.read_text(encoding="utf-8")
+        for p in io_dir.parent.rglob("*.json")
     )
     config.local.account = "another-account"
     with pytest.raises(LocalExecutionError):
@@ -246,7 +248,7 @@ def test_local_identity_and_auth_fail_closed_before_native_commands(tmp_path, mo
     if change == "policy":
         config.local.path = str(work)
     elif change == "resource":
-        (io_dir.parent / "local-control/runtime.json").write_text("{}")
+        (io_dir.parent / "local-control/runtime.json").write_text("{}", encoding="utf-8")
     elif change == "executable":
         Path(backend.policy["executable"]).write_bytes(b"replaced")
     with pytest.raises(LocalExecutionError):
@@ -343,7 +345,7 @@ def test_local_scope_control_refuses_reused_process_identity(tmp_path, change):
     path = tmp_path / "active-process.json"
     atomic_record(path, lease)
     if change == "duplicate":
-        path.write_text('{"schema":1,"schema":2}')
+        path.write_text('{"schema":1,"schema":2}', encoding="utf-8")
     with pytest.raises(LocalExecutionError):
         LocalProcessController(scopes).interrupt(tmp_path, "c" * 32, "a" * 64)
     assert jobs.killed == [] and path.exists()
@@ -366,7 +368,7 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
 
         def wait(self, timeout):
             assert (
-                json.loads((control / "active-process.json").read_text())["birth"]
+                json.loads((control / "active-process.json").read_text(encoding="utf-8"))["birth"]
                 == "original-birth"
             )
             assert list((control / "launches").glob("*/release"))
@@ -393,9 +395,11 @@ def test_native_launch_records_ownership_before_release_and_redacts(tmp_path, mo
     )
     assert result.exit_code == (124 if mode == "timeout" else 7 if mode == "nonzero" else 0)
     assert result.timed_out == (mode == "timeout")
-    assert len(stdout.read_bytes()) <= 65536 and "approved-secret" not in stdout.read_text()
+    assert len(stdout.read_bytes()) <= 65536
+    assert "approved-secret" not in stdout.read_text(encoding="utf-8")
     assert jobs.killed and jobs.removed and not (control / "active-process.json").exists()
-    assert all("approved-secret" not in p.read_text() for p in control.rglob("*.json"))
+    assert all("approved-secret" not in p.read_text(encoding="utf-8")
+               for p in control.rglob("*.json"))
 
 
 @pytest.mark.parametrize("interrupted", [False, True])
@@ -430,7 +434,7 @@ def test_native_rpc_stream_is_owned_before_release_and_drained(tmp_path, interru
     controller = LocalProcessController(scopes, spawn=spawn)
     with controller.stream(["node.exe", "cli.js"], cwd=tmp_path, env={}, control=control,
                            run_id="a" * 32, host="b" * 64) as stream:
-        lease = json.loads((control / "active-process.json").read_text())
+        lease = json.loads((control / "active-process.json").read_text(encoding="utf-8"))
         assert lease["pid"] == process.pid and lease["scope"]["name"] == jobs.name
         assert list(control.glob("launches/*/release"))
         assert stream.stdin is process.stdin and stream.stdout is process.stdout
@@ -455,15 +459,17 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
     backend = LocalBackend(config, context=context, controller=controller)
     personal = Path(context["home"]) / ".pi/agent"
     (personal / "extensions").mkdir(parents=True)
-    (personal / "extensions/evil.ts").write_text("throw new Error('must not load')")
-    (personal / "settings.json").write_text('{"extensions":["extensions/evil.ts"]}')
+    (personal / "extensions/evil.ts").write_text(
+        "throw new Error('must not load')", encoding="utf-8")
+    (personal / "settings.json").write_text(
+        '{"extensions":["extensions/evil.ts"]}', encoding="utf-8")
     monkeypatch.setenv("PI_CODING_AGENT_DIR", str(personal))
     monkeypatch.setenv("NODE_OPTIONS", "--require=hostile.js")
     monkeypatch.setenv("GITEA_TOKEN", "forge-secret")
     exchange = Path(config.state.store_root) / "runs/run-1/io"
     backend.provision("run-1", work, work, exchange, {})
     target = backend.bind("run-1", {"OPENAI_API_KEY": "provider-secret"})
-    (work / "questions.md").write_text("stale")
+    (work / "questions.md").write_text("stale", encoding="utf-8")
     agent_dirs = []
     original_stream = controller.stream
 
@@ -476,7 +482,7 @@ def test_native_gate_uses_managed_rpc_and_ignores_hostile_personal_pi(
         assert env["PI_OFFLINE"] == "1" and env["PI_TELEMETRY"] == "0"
         assert not {"GITEA_TOKEN", "NODE_OPTIONS"}.intersection(env)
         agent_dirs.append(agent)
-        (work / "questions.md").write_text("operator question: provider-secret")
+        (work / "questions.md").write_text("operator question: provider-secret", encoding="utf-8")
         with original_stream(argv, **kwargs) as process:
             yield process
 
@@ -521,8 +527,8 @@ def test_local_aegis_file_transport_uses_native_argv(tmp_path):
 
         def run_files(self, argv, stdout, stderr, **kwargs):
             calls.append(argv)
-            stdout.write_text(json.dumps(task_payload()))
-            stderr.write_text("")
+            stdout.write_text(json.dumps(task_payload()), encoding="utf-8")
+            stderr.write_text("", encoding="utf-8")
             return CommandResult()
 
     client = AegisClient(Target(), python_command="native-python", io_dir=exchange)
@@ -610,7 +616,7 @@ def test_local_readiness_never_invokes_container_tools(tmp_path, monkeypatch):
     config, _, _, controller, _ = local_fixture(tmp_path, monkeypatch)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     env_file = tmp_path / ".env"
-    env_file.write_text("OPENAI_API_KEY=readiness-provider-key\n")
+    env_file.write_text("OPENAI_API_KEY=readiness-provider-key\n", encoding="utf-8")
     monkeypatch.setattr("adore.local_execution.LocalProcessController", lambda *args: controller)
     seen = []
 
@@ -671,7 +677,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
         def stream(argv, **kwargs):
             env = kwargs["env"]
             agent = Path(env["PI_CODING_AGENT_DIR"])
-            model = json.loads((agent / "models.json").read_text())
+            model = json.loads((agent / "models.json").read_text(encoding="utf-8"))
             provider = model["providers"]["adore-endpoint"]
             assert provider["baseUrl"] == config.executor.endpoint.base_url
             assert provider["apiKey"] == "adore-no-key"
@@ -684,7 +690,7 @@ def test_local_model_challenge_uses_the_managed_rpc_installation(
     if scenario == "keyless-endpoint":
         monkeypatch.delenv("ADORE_ENDPOINT_API_KEY", raising=False)
     else:
-        env_file.write_text("OPENAI_API_KEY=fake-key\n")
+        env_file.write_text("OPENAI_API_KEY=fake-key\n", encoding="utf-8")
     result = probe_model_connection(
         config, lambda *args, **kwargs: pytest.fail("container call"), env_file
     )
@@ -757,10 +763,10 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
     """@brief Linux control uses the exact owned cgroup and refuses inode/scope drift."""
     root = tmp_path / "delegated"
     root.mkdir()
-    (root / "cgroup.controllers").write_text("pids")
+    (root / "cgroup.controllers").write_text("pids", encoding="utf-8")
     leaf = root / ("adore-" + "c" * 32)
     leaf.mkdir()
-    (leaf / "cgroup.kill").write_text("")
+    (leaf / "cgroup.kill").write_text("", encoding="utf-8")
     scopes = NativeScopes("Linux", str(root), linux_base=root, birth_reader=lambda pid: "boot:123")
     detail = leaf.stat()
     scope = {
@@ -794,8 +800,8 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
     )
     driver = LocalProcessController(scopes)
     driver.interrupt(control, "a" * 32, "b" * 64)
-    assert (leaf / "cgroup.kill").read_text() == "1"
-    (leaf / "cgroup.kill").write_text("")
+    assert (leaf / "cgroup.kill").read_text(encoding="utf-8") == "1"
+    (leaf / "cgroup.kill").write_text("", encoding="utf-8")
     scope["inode"] += 1
     atomic_record(
         control / "active-process.json",
@@ -810,7 +816,7 @@ def test_linux_control_checks_delegated_scope_identity_before_kill(tmp_path):
     )
     with pytest.raises(LocalExecutionError):
         driver.interrupt(control, "a" * 32, "b" * 64)
-    assert (leaf / "cgroup.kill").read_text() == ""
+    assert (leaf / "cgroup.kill").read_text(encoding="utf-8") == ""
     with pytest.raises(LocalExecutionError):
         NativeScopes("Linux", str(tmp_path), linux_base=root)
 
@@ -828,7 +834,7 @@ def test_local_native_settings_accept_tools_path_and_refuse_launch_overrides(tmp
         "[worktree]\nrepo_path=" + json.dumps(str(work)) + "\n"
         '[delivery]\nreviewers=["reviewer"]\n[executor]\nprovider="openai"\nmodel="model"\n'
     )
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     command = json.dumps(str(Path(context["path"]) / "pi.exe")) + " -p {prompt}"
     body = ConfigEdit(
         key="local.path",
@@ -878,7 +884,7 @@ def test_local_node_entrypoint_drift_refuses_execution(tmp_path, monkeypatch):
     backend.provision("run-1", work, work, exchange, {})
     target = backend.bind("run-1", backend.environment)
     assert target([str(node), str(script), "--version"]).ok
-    script.write_text("replaced installed executor")
+    script.write_text("replaced installed executor", encoding="utf-8")
     with pytest.raises(LocalExecutionError):
         target([str(node), str(script), "--version"])
 
@@ -968,7 +974,8 @@ def test_local_child_release_barrier_and_cancel_are_native(
                 "release": str(tmp_path / "release"),
                 "scope": {"kind": "windows-job", "name": "owned"},
             }
-        )
+        ),
+        encoding="utf-8",
     )
     (tmp_path / ("cancel" if cancel else "release")).touch()
     calls = []
@@ -984,7 +991,7 @@ def test_local_child_release_barrier_and_cancel_are_native(
         assert calls[0][0] == ["native", "prompt with spaces"]
         assert calls[0][1]["stdin"] == (sys.stdin if streaming else subprocess.DEVNULL)
         assert calls[0][1]["stdout"] is sys.stdout and calls[0][1]["stderr"] is sys.stderr
-    envelope.write_text('{"unexpected":true}')
+    envelope.write_text('{"unexpected":true}', encoding="utf-8")
     with pytest.raises(ValueError):
         local_child.main(str(envelope))
 
@@ -1019,10 +1026,10 @@ def test_linux_scope_removal_requires_closed_liveness(tmp_path, monkeypatch, eve
     """@brief Owned cgroup removal accepts empty evidence and refuses corrupt liveness."""
     root = tmp_path / "delegated"
     root.mkdir()
-    (root / "cgroup.controllers").write_text("pids")
+    (root / "cgroup.controllers").write_text("pids", encoding="utf-8")
     leaf = root / ("adore-" + "c" * 32)
     leaf.mkdir()
-    (leaf / "cgroup.events").write_text(events)
+    (leaf / "cgroup.events").write_text(events, encoding="utf-8")
     scopes = NativeScopes("Linux", str(root), linux_base=root)
     stat = leaf.stat()
     scope = {"kind": "linux-cgroup", "path": str(leaf), "device": stat.st_dev, "inode": stat.st_ino}
@@ -1112,8 +1119,8 @@ def test_local_aegis_preserves_the_existing_json_exchange_bound(tmp_path, monkey
 
     def output(argv, **kwargs):
         assert kwargs["stdout_limit"] == MAX_JSON_BYTES
-        kwargs["stdout"].write_text(json.dumps({"journal": "x" * 100000}))
-        kwargs["stderr"].write_text("")
+        kwargs["stdout"].write_text(json.dumps({"journal": "x" * 100000}), encoding="utf-8")
+        kwargs["stderr"].write_text("", encoding="utf-8")
         return CommandResult()
 
     controller.run_files = output

@@ -88,7 +88,7 @@ def test_runtime_inventory_lists_successful_probes_only(tmp_path, monkeypatch, s
     calls = []
 
     def probe(argv, *, timeout):
-        if argv[:2] == ["wsl", "-d"]:
+        if argv[:1] == ["wsl"]:
             assert 8 < timeout <= 18
         else:
             assert 0 < timeout <= 5

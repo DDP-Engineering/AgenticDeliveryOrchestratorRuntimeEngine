@@ -76,11 +76,22 @@ configured `store_root`, `.adore/` by default.
 ## Readiness checks
 
 `adore --profile <name> config validate` proves the configuration. Guided setup
-(`adore init`) probes the host tools and the target repository's AEGIS
-payload, which must provide `.agentic/aegis.py` at a supported version and
-schema-1 `status --all --json`; the same two commands verify a target clone by
-hand. `adore --profile <name> run --dry-run` shows ticket selection without
-side effects.
+(`adore init`) probes host tools and the target repository's AEGIS payload
+only when present. Absence reports `No AEGIS found: tickets run in the direct
+workflow` as INFO, with no AEGIS command. Present payloads must meet the
+client-declared supported range and schema-1 `status --all --json`; broken or
+unsupported entries never enable fallback. After confirmation/validation init
+uses the effective `workflow.aegis_python` (default `python`) for both probes;
+a missing interpreter is named with informational CHECK. The same two commands
+verify a present target payload by hand. Web enrollment accepts either workflow
+without installing or modifying AEGIS. Direct CLI init and existing-clone web
+setup-preview share `suggest_verification_command`: bounded local-file discovery
+with source provenance, no command/network/probe or toolchain prerequisite.
+Uncreated enrollment destinations remain not-inspected with no suggestion; saved
+Settings never infer one. The selected command is editable/clearable and saved
+only after human confirmation. Offline proof is `test_verification_hint.py`,
+`test_wizard.py`, `test_web_enrollment.py` and enrollment/settings browser journeys.
+`adore --profile <name> run --dry-run` shows ticket selection without side effects.
 
 ## Build and run
 
@@ -103,6 +114,11 @@ For web service monitoring, `/api/v1/health` checks the API listener and
 `.agentic/aegis.toml` `[commands]` owns the canonical `test` and `lint`
 commands, run from `workdir = "04_Software"`; the suite is fully offline.
 Focused work runs `pytest -q tests/test_<component>.py` from `04_Software`.
+Offline model fakes need provider credentials absent from the parent test
+process (for example `env -u OPENAI_API_KEY`), not copied into fixtures. Native
+machine/account checks require an initialized container/host machine identity;
+Linux uses a nonempty `/etc/machine-id`. Playwright uses its matching installed
+Chromium, including `PLAYWRIGHT_BROWSERS_PATH` when image-provided.
 The final proof for a governed task is
 `python .agentic/aegis.py check --task TASK-<id> --strict --run`. A release
 additionally passes `python 02_Tools/internal/check_release_consistency.py
@@ -114,8 +130,8 @@ Development and packaging run on Windows 11 with PowerShell and Git Bash, and
 on Ubuntu 22+. `.gitattributes` normalizes text to LF in the index except
 `.ps1`, `.cmd` and `.bat`, which are CRLF; a Windows working copy may hold
 either, so scripted edits should preserve each file's existing line endings.
-The `[commands]` entries in `aegis.toml` name the Windows `.venv\Scripts`
-executables; use the `.venv/bin` equivalents on Linux. WSL-wrapped container
+The `[commands]` entries in `aegis.toml` use portable `uv run --frozen`
+commands for Python tests and Ruff, and npm for frontend validation. WSL-wrapped container
 runtimes receive mount-path translation and `WSLENV` propagation from ADORE.
 
 ## Authoritative references
@@ -150,6 +166,17 @@ Selected preparation profiles use `execution.preparation = "path.yml#job@full-co
 Native child environments preserve the account's PATH and inherited PATHEXT so
 Windows shells resolve installed executable names. Forge credential variables
 remain filtered; project tools are still installed by the operator.
+
+Configured direct verification uses the validate timeout override or general gate
+limit from the worktree root: containers use sh -c, native Linux /bin/sh -c and
+native Windows the bound SystemRoot/System32/cmd.exe /d /s /c. Configure the exact
+single-line command in server TOML or through the guided/reviewed configuration
+APIs; empty stays unverified and AEGIS ignores it.
+Native verification output must be UTF-8 and its owned scope must drain; the
+shell has service-account permissions without container/host isolation. Ordinary
+native shell argv remains refused. Offline tests inject controllers/Jobs/cgroups
+and the Windows child/CreateProcess boundary; live platform acceptance remains
+operator-owned.
 
 Local profiles require independently installed CLI/native Python under the ADORE
 service account. Windows needs executable entrypoints (or installed Node/JS argv)

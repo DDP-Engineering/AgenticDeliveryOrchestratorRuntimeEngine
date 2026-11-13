@@ -10,6 +10,8 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync, rmdirSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { importCopy } from "../src/importCopy";
+import { environmentCopy } from "../src/environmentPreparation";
+import { errorMessages } from "../src/errors";
 
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
@@ -55,6 +57,35 @@ const choose = (page: Page, text: string | Buffer) => page.getByLabel(copy.file,
   name: "config.toml", mimeType: "application/toml", buffer: Buffer.from(text),
 });
 
+test("raw import shows automatic environment progress and can retry a failed build", async ({page}) => {
+  await signIn(page);
+  const dialog = await open(page);
+  const submit = dialog.getByRole("button", {name:copy.confirm, exact:true});
+  const text = await document(page, "e2e-auto-environment-retry");
+  let outcome: "running" | "failed" | "ready" = "running", imports = 0;
+  await page.route("**/api/v1/projects/import-environment", async route => {
+    const value = await (await route.fetch()).json();
+    await route.fulfill({status:202, json:{...value, status:"running", stage:"building_executor", error:null}});
+  });
+  await page.route("**/api/v1/environment-preparations/*", route => route.fulfill({json:{
+    id:new URL(route.request().url()).pathname.split("/").at(-1), status:outcome,
+    stage:outcome === "running" ? "building_executor" : outcome,
+    error:outcome === "failed" ? "environment_build_failed" : null,
+  }}));
+  await page.route("**/api/v1/projects/import", route => { imports++; return route.continue(); });
+  await choose(page, text); await expect(submit).toBeEnabled(); await submit.click();
+  const progress = dialog.getByRole("region", {name:environmentCopy.en.title});
+  await expect(progress).toContainText(environmentCopy.en.building_executor);
+  await expect(progress.getByRole("progressbar")).toBeVisible();
+  await expect(submit).toBeDisabled(); expect(imports).toBe(0);
+  await expect(dialog.getByRole("button", {name:copy.cancel, exact:true})).toBeDisabled();
+  outcome = "failed";
+  await expect(dialog.getByRole("alert")).toContainText(errorMessages.en.environment_build_failed);
+  await expect(submit).toBeEnabled(); expect(imports).toBe(0);
+  outcome = "ready"; await submit.click();
+  await expect(dialog).toHaveCount(0); expect(imports).toBe(1);
+});
+
 /** Use the public exporter to create the exact current archive without another ZIP dependency. */
 function bundle(text: string): Buffer {
   const python=resolve("../.venv",process.platform==="win32"?"Scripts/python.exe":"bin/python");
@@ -94,7 +125,7 @@ test("complete exported ZIP validates automatically and imports config and image
 test("ZIP errors and corrupt preview evidence keep the single Import disabled", async ({page})=>{
   await signIn(page);
   const dialog=await open(page), submit=dialog.getByRole("button",{name:copy.confirm,exact:true});
-  const selectZip=(bytes:Buffer)=>page.getByLabel(copy.file,{exact:true}).setInputFiles({name:"project.zip",mimeType:"application/zip",buffer:bytes});
+  const selectZip=(bytes:Buffer)=>page.getByLabel(copy.file,{exact:true}).setInputFiles({name:"project.zip",mimeType:"application/zip",buffer:bytes},{timeout:30_000});
   for(const bytes of [Buffer.alloc(0),Buffer.alloc(18*1024*1024+1)]){
     await selectZip(bytes);await expect(dialog.getByRole("alert")).toHaveText(copy.invalidFile);
     await expect(submit).toBeDisabled();
@@ -165,6 +196,8 @@ test("raw import dialog validates on file selection and enrolls the exact file",
   await submit.evaluate(node => { (node as HTMLButtonElement).click(); (node as HTMLButtonElement).click(); });
   await expect(dialog).toHaveCount(0);
   await expect(opener(page)).toBeFocused();
+  const pageSize = page.getByRole("combobox", {name:"Rows per page"});
+  if (await pageSize.count()) await pageSize.selectOption("50");
   await expect(page.getByRole("link", { name: "e2e-raw-import", exact: true })).toBeVisible();
   expect(imports).toBe(1);
   const projects = await (await page.request.get("/api/v1/projects")).json();

@@ -115,6 +115,29 @@ test("tickets explain shared body modes, exact source, account retention and ine
   }
 });
 
+test("help describes agent-owned checks without a configurable verification command", () => {
+  for (const locale of HELP_LOCALES) {
+    assert.ok(helpOutline(docs()[locale].projects).some(item => item.id === "workflows"));
+    for (const topic of ["projects", "settings", "glossary"]) assert.ok(!read(locale, topic).includes("verify_command"));
+    assert.ok(!helpOutline(docs()[locale].settings).some(item => item.id === "verification-command"));
+  }
+});
+
+test("Jobs help names direct evidence and stage-limit mappings in every locale", async () => {
+  const {directCopy} = await import("../src/jobCopy.ts");
+  const {messages} = await import("../src/i18n.ts");
+  for (const locale of HELP_LOCALES) {
+    const jobs = read(locale, "jobs"), settings = read(locale, "settings"), copy = directCopy[locale];
+    assert.ok(helpOutline(docs()[locale].jobs).some(item => item.id === "direct-evidence"), locale);
+    for (const key of ["workflow", "direct", "attempt"])
+      assert.ok(jobs.includes(copy[key]), `${locale}: ${key}`);
+    for (const text of [jobs, settings]) {
+      for (const term of ["build", "validate", "stage_timeout_overrides", "per_gate_timeout_seconds",
+        messages[locale].directImplementationStage, messages[locale].directValidationStage]) assert.ok(text.includes(term), `${locale}: ${term}`);
+    }
+  }
+});
+
 test("contextual help targets existing topics", () => {
   for (const [place, topic] of Object.entries(CONTEXT_TOPICS)) assert.ok(HELP_TOPICS.includes(topic), place);
   assert.deepEqual(CONTEXT_TOPICS, { tickets: "tickets", addProject: "projects", projectSettings: "settings" });

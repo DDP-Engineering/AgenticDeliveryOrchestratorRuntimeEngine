@@ -31,6 +31,7 @@ from adore.executor.launcher import (
     PiExecutor,
     build_executor,
 )
+from adore.prompts import PromptCatalog
 from adore.util import CommandResult
 import pytest
 
@@ -361,9 +362,11 @@ def test_factory_wires_questions_file() -> None:
     @brief   The factory builds the Pi launcher and passes the configured
              questions filename through.
     """
-    executor = build_executor(PI_TEMPLATE, "m", questions_file="ROBO_QUESTIONS.md")
+    prompts = PromptCatalog()
+    executor = build_executor(PI_TEMPLATE, "m", questions_file="ROBO_QUESTIONS.md", prompts=prompts)
     assert isinstance(executor, PiExecutor)
     assert executor.questions_file == "ROBO_QUESTIONS.md"
+    assert executor.prompts is prompts
 
 
 def test_pi_gate_uses_the_shared_fresh_session_protocol(tmp_path: Path) -> None:

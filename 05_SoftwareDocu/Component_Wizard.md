@@ -37,6 +37,7 @@ get in-line, OS-specific guidance from `doctor`.
   dependency) and `_validate_or_raise()` - the assembled config is written to a
   temp file, loaded and validated the same way the engine does at startup, and
   only committed to the profile when clean (**never saves an invalid profile**).
+  The guard returns the loaded `Config` for the subsequent clone probes.
 - **Save:** writes `config.toml` into the profile dir and creates the
   `profile.json` metadata via `ProfileStore`.
 
@@ -143,10 +144,16 @@ commands + `--profile` resolution.
   task-type labels (fix/change), and the quick framing hint, and writes
   non-defaults into `[labels.lifecycle]` and `[workflow]`.
   Accepting every default writes neither table, keeping the emitted config
-  minimal. It also probes the named clone with `doctor.detect_aegis` and
-  prints setup guidance when the target repository carries no usable
-  AEGIS payload - informational like the rest of the environment check, so
-  an operator can install the payload in another terminal and continue.
+  minimal. After confirmation and candidate validation, before saving, it
+  probes the named clone with `doctor.detect_aegis`, passing the validated
+  `config.workflow.aegis_python` (default `"python"`) for both version and
+  status commands. AEGIS, target gitignore and host push-access reports run
+  together at this point. Absent AEGIS prints
+  `[INFO] No AEGIS found: tickets run in the direct workflow`, without AEGIS
+  commands or installation guidance. A present unusable payload still prints
+  CHECK, its diagnostic and supported-contract guidance. Neither case blocks
+  an otherwise valid profile from being saved; the web readiness gate is unchanged.
+  Prepare-only returns before these probes; no interpreter prompt is added.
 - **Fail-loud recovery and approval:** the wizard asks for the approval label,
   stage-attempt limit, transient-attempt limit and capped backoff list, then
   emits explicit `[delivery]` and `[recovery]` values. Defaults are
@@ -181,7 +188,9 @@ adore init <profile-name> --force   # overwrite an existing profile
   rejects; refusal to overwrite without `--force`; abort-on-"no" writes nothing;
   non-interactive determinism (identical bytes) + fail-fast on a bad answer;
   numbered interactive choices; and the `_validate_or_raise` never-save-invalid
-  guard.
+  guard. Configured python3/default python probe argv and unavailable-interpreter
+  informational reporting are covered with real candidate loading/validation;
+  the python3 case arranges the existing config key at candidate assembly.
 - Live-verified via `adore init --answers` on Windows: environment check,
   minimal config emitted, `config validate` OK.
 - Minimum validation after a change:

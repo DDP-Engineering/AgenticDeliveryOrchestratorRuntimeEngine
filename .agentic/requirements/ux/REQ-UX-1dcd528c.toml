@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-1dcd528c"
+title = "Describe unverified direct approval candidates"
+status = "active"
+requirement = "When presenting a direct candidate with no configured verification command for approval, the conductor shall show its retained implementation/check summary, changed-file count and the exact notice 'Verification: not configured. This candidate is unverified.' without an AEGIS task line."
+verification = "Drive direct completion with a known summary and fake changed-file count, inspect the posted approval body for summary/count/exact notice and absence of the AEGIS task line; compare AEGIS approval text to prove it retains its strict-check/task presentation and direct text makes no verified claim."
+affected_paths = ["04_Software/adore/orchestrator.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_one_session_reaches_unverified_approval_and_publication", "04_Software/tests/test_orchestrator.py::test_clean_full_and_quick_paths_stop_for_fresh_approval"]
+spec = ""
+priority = "high"
+rationale = "A human must know that Pi's reported checks are not independent configured verification."
+created = 2026-11-12
+updated = 2026-11-12

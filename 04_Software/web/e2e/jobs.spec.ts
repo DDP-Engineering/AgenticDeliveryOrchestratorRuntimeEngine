@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
 
+
 const nav = (page: Page) => page.getByRole("navigation", { name: "Primary navigation", exact: true });
 async function signIn(page: Page, user = "admin") {
   await page.goto("/");
@@ -27,6 +28,59 @@ test.afterEach(async ({ request, page }) => {
   await page.goto("about:blank");
   const response = await request.post("/__e2e__/jobs?mode=reset", { headers: { "X-ADORE-E2E": "local-test" } });
   expect(response.ok()).toBe(true);
+});
+
+test.describe("Direct job evidence", () => {
+  test.beforeEach(async ({request}) => {
+    expect((await request.post("/__e2e__/jobs?mode=direct", {headers: {"X-ADORE-E2E": "local-test"}})).ok()).toBe(true);
+  });
+  test.afterEach(async ({page}) => {
+    const response = await page.request.get("/api/v1/me");
+    if (response.ok()) {
+      const {csrf} = await response.json();
+      await page.request.patch("/api/v1/me/preferences", {headers: {"X-CSRF-Token": csrf}, data: {language: "en", theme: "light"}});
+    }
+  });
+  test("publication reset retry and exact whitespace commands remain readable", async ({page}) => {
+    await signIn(page);
+    for (const suffix of ["whitespace", "publication-reset", "retried"]) {
+      await page.goto(`/jobs?project=alpha&run=ux-direct-${suffix}`);
+      const detail = page.locator(".detail-panel"), evidence = detail.locator(".direct-evidence");
+      await detail.getByRole("tab", {name:"Evidence and artifacts",exact:true}).click();
+      await expect(evidence).toBeVisible();
+      await expect(evidence).toContainText("Latest recorded attempt");
+      await expect(detail.locator(".job-detail-meta")).toContainText(
+        suffix === "publication-reset" ? "Stage: Publishing" : "Stage: Done");
+      if (suffix !== "whitespace")
+        await expect(detail.locator(".timeline-table tr").filter({hasText:"reset"})).toContainText("Publishing");
+      await expect(evidence.locator("code, pre")).toHaveCount(0);
+    }
+  });
+
+  for (const corruption of ["workflow-list", "workflow-detail", "direct", "stage"]) {
+    test(`corrupt ${corruption} hides previously valid direct evidence`, async ({page}) => {
+      await page.clock.install();
+      await signIn(page); await page.goto("/jobs?project=alpha&run=ux-direct-passed");
+      await expect(page.locator(".direct-evidence")).toContainText("Latest recorded attempt");
+      const pattern = corruption === "workflow-list" ? "**/api/v1/jobs-page?*" : "**/api/v1/jobs/*/ux-direct-passed";
+      await page.route(pattern, async route => {
+        const response = await route.fetch(), data = await response.json();
+        if (corruption === "workflow-list") data.items[0].workflow = "unrecognized";
+        else if (corruption === "workflow-detail") data.job.workflow = "unrecognized";
+        else if (corruption === "direct") data.job.direct.attempt = -1;
+        else data.job.timeline.push({ts: null, event: "stage-launch", stage: "design"});
+        await route.fulfill({response, json: data});
+      });
+      // Trigger the actual visible polling timer after a successful read.
+      const refreshed = page.waitForResponse(response => response.url().includes(corruption === "workflow-list" ? "/jobs-page?" : "/ux-direct-passed"));
+      await page.clock.fastForward(16000); await refreshed;
+      await expect(page.locator(".data-feedback[role=alert]").first()).toBeVisible();
+      await expect(page.locator(".detail-panel")).toHaveCount(0);
+      await expect(page.locator(".direct-evidence")).toHaveCount(0);
+      if (corruption === "workflow-list") await expect(page.locator(".action-jobs-table, .table-pagination")).toHaveCount(0);
+    });
+  }
+
 });
 
 test("overview uses compact attention and active tables without reporting noise", async ({ page }) => {
@@ -243,6 +297,7 @@ test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs 
 });
 
 test("all real lifecycle groups explain exact stage evidence and protected handoffs", async ({ page }) => {
+  test.setTimeout(90_000); // This journey opens eleven complete job details in sequence.
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await signIn(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
@@ -669,6 +724,8 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
   await page.getByRole("button", { name: "Delete project", exact: true }).click();
   const confirm = page.getByRole("dialog").filter({ has: page.locator(".delete-confirm") });
   await expect(confirm).toBeVisible();
+  await expect(confirm.getByText(/This permanently removes|Kept:|Required field/)).toHaveCount(0);
+  await expect(confirm.locator(".delete-confirm-label")).toContainText("Type alpha to confirm");
   await page.keyboard.press("Escape");
   await expect(confirm).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete project", exact: true })).toBeFocused();
@@ -733,8 +790,8 @@ test("summary with corrupt job evidence shows unknown counters and no fabricated
 });
 
 function readinessFixture(project: string, changes: Record<string, unknown> = {}) {
-  return { auth_bound: true, required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "egress_proxy", ...Object.keys(changes).filter(key => !["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "aegis_files", "egress_proxy"].includes(key))], status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
-    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, aegis_files: true, egress_proxy: true, ...changes } };
+  return { workflow: "direct", auth_bound: true, required_checks: ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "egress_proxy", ...Object.keys(changes).filter(key => !["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "egress_proxy"].includes(key))], status: Object.values(changes).includes(false) ? "failed" : changes.container_runtime === null ? "partial" : "verified", project_id: project, revision: "a".repeat(64), context: "api-host", checked_at: "2026-10-06T10:00:00Z",
+    checks: { git: true, forge_cli: true, forge_auth: true, container_runtime: true, executor_cli: true, egress_proxy: true, ...changes } };
 }
 
 for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as const) {
@@ -756,7 +813,8 @@ for (const scenario of ["passed", "partial", "malformed", "wrong-project"] as co
     } else {
       const panel = page.locator(".readiness-evidence");
       await expect(panel.locator(".readiness-verdict")).toHaveCount(0);
-      await expect(panel.locator(".readiness-check")).toHaveCount(8);
+      await expect(panel.locator(".readiness-check")).toHaveCount(7);
+      await expect(panel.locator(".workflow-information")).toContainText("Direct, no AEGIS found");
       const model = panel.locator(".readiness-check").filter({ hasText: "AI model connection" });
       await expect(model).toContainText("Use Test AI connection in Settings → Agent and model");
       await expect(panel).toContainText("does not test a complete job");
@@ -792,7 +850,7 @@ test("local host prerequisites state the local notice once and give the agent ro
   await page.goto("/projects/alpha");
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   const panel = page.locator(".readiness-evidence");
-  await expect(panel.locator(".readiness-check")).toHaveCount(6);
+  await expect(panel.locator(".readiness-check")).toHaveCount(5);
   const agent = panel.locator(".readiness-check").filter({ hasText: "Local execution" });
   await expect(agent).toContainText("Checks managed Pi and Node");
   await expect(agent).toContainText("Managed Pi requires Node 22.23.4");
@@ -821,7 +879,7 @@ test("host prerequisite explanation accepts the real offline API contract", asyn
   await signIn(page); await page.goto("/projects/alpha");
   await page.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(page.locator(".readiness-check").filter({hasText:"Repository sign-in"})).toContainText("! Action needed");
-  await expect(page.locator(".readiness-check")).toHaveCount(8);
+  await expect(page.locator(".readiness-check")).toHaveCount(7);
   await expect(page.locator(".readiness-check").filter({hasText:"Network proxy image"})).toHaveCount(1);
   await expect(page.locator(".readiness-metadata")).toHaveCount(0);
   await expect(page.locator(".summary-fact").filter({ hasText: "Environment verification" })).toContainText("Verification failed");
@@ -882,7 +940,7 @@ test("host check opens immediately with internal close and preserves user collap
   await expect(panel).not.toBeVisible();
   await page.unroute("**/readiness-check");
   await check.click();
-  await expect(panel.locator(".readiness-check")).toHaveCount(8);
+  await expect(panel.locator(".readiness-check")).toHaveCount(7);
   await expect(page.locator(".readiness-check").filter({hasText:"Network proxy image"})).toHaveCount(1);
   await expect(panel).toBeVisible();
   await expect(page.getByRole("button", { name: "Check details", exact: true })).toHaveCount(0);

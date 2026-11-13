@@ -67,4 +67,4 @@ priority = "normal"   # low | normal | high
 rationale = "Guided setup must not loop unattended or overwrite an operator profile by surprise."
 
 created = 2026-08-15
-updated = 2026-08-15
+updated = 2026-11-12

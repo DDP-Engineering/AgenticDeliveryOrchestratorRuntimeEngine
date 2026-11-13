@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-d0663c1d"
+title = "Refuse unreadable prompt files"
+status = "active"
+requirement = "If reading a required prompt file fails with an operating-system error, the ADORE prompt loader shall fail closed with PromptError naming that file."
+verification = "Load readable fixtures successfully, then inject a PermissionError at the file-read boundary for a required fragment; assert PromptError identifies that file without fallback or partial rendering, independent of the test account's filesystem privileges."
+affected_paths = ["04_Software/adore/prompts.py", "04_Software/tests/test_prompts.py"]
+linked_tests = ["04_Software/tests/test_prompts.py::test_unreadable_file_refused", "04_Software/tests/test_prompts.py::test_all_shipped_fragments_match_original_bytes"]
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

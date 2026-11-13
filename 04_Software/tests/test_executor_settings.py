@@ -71,16 +71,10 @@ def test_credential_update_invalidates_readiness(tmp_path, monkeypatch):
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     module = importlib.import_module("adore.web.app")
-    checks = {
-        "git": True,
-        "forge_cli": True,
-        "forge_auth": True,
-        "container_runtime": True,
-        "executor_cli": True,
-        "aegis_files": True,
-        "egress_proxy": True,
-    }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                            "executor_cli", "egress_proxy"], True)
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -105,16 +99,10 @@ def test_invalid_credential_does_not_discard_readiness(tmp_path, monkeypatch):
     profiles = project(tmp_path)
     StateStore(tmp_path / "state").pause()
     module = importlib.import_module("adore.web.app")
-    checks = {
-        "git": True,
-        "forge_cli": True,
-        "forge_auth": True,
-        "container_runtime": True,
-        "executor_cli": True,
-        "aegis_files": True,
-        "egress_proxy": True,
-    }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                            "executor_cli", "egress_proxy"], True)
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -267,13 +255,13 @@ def test_model_evidence_survives_reload_and_invalidates_on_credentials(tmp_path,
             module,
             "_probe_setup",
             lambda *args, **kwargs: {
+                "workflow": "aegis",
                 "checks": {
                     "git": True,
                     "forge_cli": True,
                     "forge_auth": True,
                     "container_runtime": True,
                     "executor_cli": True,
-                    "aegis_files": True,
                     "egress_proxy": True,
                 },
             },

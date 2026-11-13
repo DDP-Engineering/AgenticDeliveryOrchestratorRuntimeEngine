@@ -250,6 +250,51 @@ stage_timeout_overrides = { build = 5400, validate = 3600 }
 - timeout override keys are `frame`, `specify`, `design`, `build`, or
   `validate`; any other key, `deliver` included, fails validation as not an AEGIS stage. Each positive override bounds one executor attempt, replacing the general stage-attempt limit. In the GUI, all five stages offer General or Custom seconds; General removes that stage’s entry.
 
+The command uses `stage_timeout_overrides.validate`, falling back to
+`budgets.per_gate_timeout_seconds`. Failed and timed-out invocations consume
+`recovery.max_stage_failures` across fresh Pi fix sessions. At the limit the run
+fails `VERIFICATION_FAILED`, retaining evidence; `adore retry` re-arms attempts
+under the existing cumulative budgets. Evidence retains command, exit, elapsed
+seconds and up to the last 200 sanitized output lines (also capped at 6000
+characters). Stdout precedes stderr; no chronological interleaving is claimed.
+The approval comment and MR/PR body show the command/result. Empty configuration
+keeps the explicit unverified notice, never a verification pass.
+
+### Verification command suggestions
+
+For clones without `.agentic/aegis.py`, enrollment and `adore init` share a
+read-only suggestion. Enrollment shows **Suggested from `<file>`** and prefills
+only an untouched draft; a human keeps, edits or clears it before Create. Preview
+never clones, executes commands or saves the suggestion. Settings never infers over
+a saved value; explicit reviewed Save remains authoritative.
+
+The first eligible root match in this order wins:
+
+| File | Suggested command |
+|---|---|
+| `package.json` with a real textual `scripts.test` | `pnpm test` with `pnpm-lock.yaml`, else `yarn test` with `yarn.lock`, else `npm test` |
+| `pyproject.toml`, `pytest.ini`, `tox.ini` | `uv run pytest -q` with `uv.lock`, else `python -m pytest -q` |
+| `go.mod` | `go test ./...` |
+| `Cargo.toml` | `cargo test` |
+| `pom.xml` | `mvn -q test` |
+| `build.gradle`, `build.gradle.kts` | `./gradlew test` with `gradlew`, else `gradle test` |
+| `*.sln`, `*.csproj` | `dotnet test` |
+| `Makefile` with `test:` target | `make test` |
+
+Malformed package JSON and npm's no-test-specified placeholder give no JavaScript
+match. Filenames within a row use the listed order; dotnet filenames are lexical
+within each pattern. The source names the matching manifest, not a lockfile/wrapper.
+Without a root match, exactly one matching immediate child supplies
+`cd <dir> && <command>` and its child-relative source. The sole name must match
+`[A-Za-z0-9_][A-Za-z0-9._-]*`. Multiple matching children give no suggestion,
+including safe plus unsupported names. There is no deeper search.
+
+Links outside the clone and files over 1 MiB are ignored, including lockfiles and
+wrappers. Only package JSON and Makefile contents need reading; other rows use
+names. Access/encoding failures refuse discovery rather than guess a partial
+answer. No tool installation, executable check, network or command execution is
+part of discovery; a suggestion is not a verification result.
+
 ADORE conducts AEGIS major 0 from 0.15.0 upward over JSON schema `1`; a
 different major, a payload below the floor, or any other contract is refused
 at probe. From 0.15.0 validate closes the AEGIS task; there is no deliver stage.
@@ -289,7 +334,7 @@ as stage failures. Resume requires a human comment plus `agent-answered`.
 | --- | --- | --- |
 | `max_iterations` | Total executor launches across stages, including failed attempts, retries and revisions throughout the job lifetime. | `20` |
 | `max_wall_clock_seconds` | Cumulative active-work time across retries, clarification resume and revisions; waiting is excluded. | `3600` |
-| `per_gate_timeout_seconds` | One executor attempt and the strict AEGIS check; recovery may retry a timed-out stage attempt. Stage overrides affect executor attempts only. With `provider = "chatgpt"` this value and every stage override must be at most 3000, because a ChatGPT access token lasts about an hour. | `1800` |
+| `per_gate_timeout_seconds` | One agent stage attempt; recovery may retry a timed-out attempt. Stage overrides bound agent sessions. ADORE does not separately run repository tests. With `provider = "chatgpt"`, this value and each stage override must be at most 3000. | `1800` |
 | `max_cost_usd` | Recorded executor-reported model cost in US dollars over the job lifetime; `0` disables the cap. | `5.0` |
 | `max_files_touched` | Distinct product and AEGIS paths changed from the job base, including committed, pending and new files. | `120` |
 

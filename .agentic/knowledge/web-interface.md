@@ -16,6 +16,11 @@ Statistics browser fixtures restore the authenticated account's English/light
 preferences in afterEach so a failed localized journey cannot leak its locale
 to later files. The four-locale/two-theme statistics journey has a60-second
 case budget, with unchanged assertions and suite-wide limits.
+The malformed-consumption fixture selects a seeded nonempty job cohort rather
+than the first project, so legitimately empty newly enrolled projects cannot
+prevent injection. Running enrollment.spec.ts followed by statistics.spec.ts in
+one offline fixture home proves the integration with unchanged error,
+hidden-evidence and unavailable-export assertions.
 
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
@@ -120,6 +125,50 @@ the orchestrator still owns readiness, locks, approvals and draft publication.
 
 ## Public interface
 
+`setup-preview` returns transient `verification_hint: {command, source} | null`
+only for structurally valid inspected direct clones, using the pure shared
+`adore/verification_hint.py` reader (see wizard.md). It never clones or runs the
+command. AEGIS, absent clones and misses yield null; access/encoding failures
+return redacted setup-unavailable/repo_path findings. Hints are outside canonical
+review/digests and absent from Create/shared preparation and Settings.
+EnrollmentWizard previews on Verification entry, validates the full response,
+and fills only an untouched command with localized accessible source provenance.
+A changed default permits one canonical re-preview; malformed/failed evidence
+blocks progression, and generation guards preserve edits during requests. Edits
+or clearing remain authoritative through Back, preview and Check; repository
+changes clear only untouched defaults. Only explicit Create persists reviewed
+text. Saved Settings never infer defaults. Proof: test_web_enrollment.py,
+test_web_config.py, web/e2e/enrollment.spec.ts and settings.spec.ts; Projects help
+and enrollmentCopy.ts carry the four-locale source guidance.
+
+`REQ-DATA-71366af6`: workflow.verify_command is an exact-string editable API
+setting; resolved reads, Admin exact raw TOML and unrelated reviewed edits preserve
+it under existing validation, authorization and redaction. Guided API enrollment
+accepts strict optional verify_command text, default empty, bound to canonical review.
+Nontext and CR/LF/NUL return field-identifying 422 invalid_request. Scalar/batch
+settings review refuses CR/LF/NUL with value-free command-field 400 invalid_config
+without replacing active/pending bytes. implementation_settings.py serializes a
+literal string, escaping DEL (U+007F) for TOML while retaining literal non-BMP
+Unicode, and checks exact unrelated TOML meaning; pending reads/apply repeat
+typed-domain, claimed-text and unchanged-base semantic checks. Existing Admin/CSRF,
+revision, idle and locking gates remain. Invalid saved values retain key-named
+issues or typed corrupt-config refusal. Enrollment Verification and Settings
+Implementation expose the exact optional command through one-row textareas, with
+shared four-locale names/help/invalid-input feedback. The browser refuses CR/LF/NUL
+before preview or Save and validates scalar/batch pending values before recovery.
+An inspected AEGIS enrollment replaces the control with its repository-test-command
+note; the draft string is not erased. Jobs uses the saved run workflow and independent verification evidence described below. Proof includes
+web/tests/readiness.test.mjs, settings.test.mjs, settingsSave.test.mjs,
+localDiagnostics.test.mjs and web/e2e/enrollment.spec.ts/settings.spec.ts, alongside
+test_web_enrollment.py,
+test_web_config.py, test_web_config_raw.py, test_web_pending_config.py and
+test_web_settings_batch.py. Browser coverage includes both actual clone workflows,
+all four locales, Admin/Dev authority, multiline clipboard refusal, exact nonempty
+and empty reviewed saves, and narrow light/dark layouts. Projects, Settings,
+Glossary and Tickets help describes both workflows, optional command and live
+pre-pick authority; help.test.mjs and help.spec.ts prove content and navigation
+contracts in all four locales.
+
 The settings help catalog includes Pi reasoning effort and describes the native
 service account and optional tools PATH in all four locales.
 
@@ -190,7 +239,17 @@ SQLite bytes, authorization, scope and financial redaction.
   invalid activity timestamps while keeping authorized project identities.
   `/api/v1/jobs/{project_id}/{run_id}` uses composite identity.
   `adore/web/jobs.py` strictly validates schema-1 state, saved ticket metadata and
-  JSONL bytes without altering operational journal recovery. See
+  JSONL bytes without altering operational journal recovery. Authorized list/detail
+  responses carry recorded `workflow` as aegis/direct (REQ-DATA-18b26c84).
+  Missing/unknown/nontext workflows and direct task bindings return typed
+  run_state_corrupt without repair. Direct details additionally expose the closed
+  `direct = {attempt, verification}` projection from captured state/journal bytes;
+  list rows omit it. The last recorded positive safe-integer stage-launch attempt
+  is distinct from cumulative launches and failed attempts; missing launches stay
+  null. Saved configured results retain the redacted command, canonical decimal-text
+  exit, finite nonnegative seconds, boolean timeout and normalized bounded output.
+  Absent verification is unavailable; explicit not configured is unverified.
+  Current configuration never substitutes for saved evidence. See
   `05_SoftwareDocu/Component_Web_Jobs.md` for exact fields and source semantics.
 
 - Exact Admin/CSRF import-preview suggests an available ID when omitted and
@@ -252,7 +311,9 @@ See project-images.md, test_web_executor_recipes.py and portable.spec.ts.
   under existing localized HTTP error categories. Secret literals fail closed.
 - Read models distinguish structural validation, pickup and explicit verification.
   Profile-owned readiness.json validates identity/digest/UTC time/schema/redacted
-  checks; absent evidence is unverified and changed config is stale. Mid-probe
+  checks; browser readers validate the closed workflow/check domain and prerequisite
+  verdict agreement, and render Workflow outside pass/fail rows in four locales.
+  Absent evidence is unverified and changed config is stale. Mid-probe
   config changes cannot publish current evidence. See Component_Web_API.md.
 
 - `DashboardShell` renders authorized semantic links, approved transparent
@@ -313,9 +374,11 @@ See project-images.md, test_web_executor_recipes.py and portable.spec.ts.
   file's CR LF or LF line endings (`REQ-PLAT-722173c8`).
 - The administrator UI edits multiple settings and uses one dirty-aware Save. Important effects receive a no-write canonical preview and native modal; cancellation retains inputs without a new stored draft. Confirmed preparation/apply binds exact hashes and plans. Ordinary changes save directly. Drafts survive errors and stale revisions. Navigation and browser reload guard abandonment. Apply retains atomic idle/lock/pause authority and interrupted-apply reconciliation.
 - Explicit administrator readiness checks use bounded doctor probes from the
-  API host and persist typed revision/time-bound evidence. AEGIS file presence is checked without
-  executing repository code. The stored checks are exactly `git`, `forge_cli`,
-  `forge_auth`, `container_runtime`, `executor_cli` and `aegis_files`, plus the
+  API host and persist typed revision/time-bound evidence. Required `workflow` information
+  is `aegis` from `.agentic/aegis.py` alone, `direct` otherwise in an available clone,
+  or `not-inspected` when unavailable; read-only inspection runs no repository code.
+  The stored base checks are exactly `git`, `forge_cli`, `forge_auth`,
+  `container_runtime` and `executor_cli`, plus the
   boolean `executor_sign_in` for a project with provider `chatgpt` only (true
   when `chatgpt.status` of the server's credential directory is `signed-in`;
   read from the files without starting Pi; false makes the evidence `failed`).
@@ -432,6 +495,7 @@ See project-images.md, test_web_executor_recipes.py and portable.spec.ts.
   fills forge, repository, login, branch and the derived ID and prefills an editable
   clone path `<home>/repos/<ID>`; Continue waits for a successful read; the clone is
   made only at creation (exclusive folder, reused if its origin matches, removed on failure);
+  neither AEGIS file is an enrollment prerequisite and no files are added to the clone;
   no existing-clone mode (a matching clone at the path is reused); no Stable project ID field;
   reviewers are optional (empty list = no review request) in the wizard and Settings.
   Projects offers Enroll new project at `/projects/new` and Import raw
@@ -642,7 +706,8 @@ for Add and Import project. Primary buttons take their text colour from the
 | Authorized global job evidence, paging, revisions | `adore/web/jobs.py`, `jobs_page` and `job_detail` in `app.py` | `test_web_jobs.py`, `test_web_paging.py`, `test_web_rbac.py` |
 | Portable new-project file/copy API and source revision | `_prepare_transfer`, `transfer_source` | `test_web_transfer.py` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
-| Exact TOML/complete ZIP enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import`, `_inspect_bundle_import` | `test_web_import.py`, `test_web_bundle_import.py`, `web/e2e/import.spec.ts` |
+| Both-workflow enrollment and informational Workflow evidence | `_workflow_observation`, `_probe_setup`, `readiness.ts`, `ReadinessEvidence.tsx` | `test_repository_source.py`, `test_web_readiness.py`, `readiness.test.mjs`, `enrollment.spec.ts` |
+| Exact TOML enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
@@ -650,6 +715,8 @@ for Add and Import project. Primary buttons take their text colour from the
 | API permissions/config/metrics | `adore/web/app.py` | `test_web_rbac.py`, `test_web_config.py`, `test_web_pending_config.py`, `test_web_readiness.py`, `test_web_metrics.py` |
 | Worker execution | `adore/web/commands.py` | `test_web_commands.py` |
 | Action workspace, next action and observed history | `web/src/JobWorkspace.tsx`, `jobModel.ts`, `jobCopy.ts` | `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts`, `test_web_jobs.py` |
+| Saved workflow labels, direct attempts/results and trust-boundary errors | `jobs.py::_direct_evidence`, `jobModel.ts::readJobDetail`, `JobWorkspace.tsx::DirectEvidenceView`, `jobCopy.ts::workflowStageLabel` | `test_web_jobs.py` direct evidence cases, `web/tests/jobs.test.mjs`, `web/e2e/jobs.spec.ts` Direct job evidence |
+| Direct stage-limit guidance and localized Jobs help | `web/src/settingHelp.ts`, `web/src/help/content/{en,fr,de,ro}/{jobs,settings}.md` | `web/tests/settingHelp.test.mjs`, `web/tests/help.test.mjs`, `web/e2e/help.spec.ts` |
 | Language, theme, views | `web/src/App.tsx`, `web/src/i18n.ts` | `npm run validate`, isolated Chromium journeys |
 | Shell, branding, scope, request feedback | `web/src/DashboardShell.tsx`, `web/src/Presentation.tsx`, `web/src/App.tsx` | `web/e2e/shell.spec.ts`, `web/tests/shell.test.mjs` |
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
@@ -663,6 +730,35 @@ for Add and Import project. Primary buttons take their text colour from the
 | Offline media | `02_Tools/*web*.py` | `test_web_package.py`, installed HTTP smoke |
 
 ## Key behaviors
+
+- REQ-DATA-08ed925c / REQ-SEC-5d0f86e7: authorized read-only direct evidence is
+  validated before filters/counts/paging, redacted for both roles and released
+  only after source/profile/grant reinspection. Malformed saved attempts/results
+  fail with typed secret-free errors; no repair or external command runs.
+- REQ-UX-4123c97c / REQ-UX-029d0525 / REQ-UX-ad37f7e7 / REQ-UX-5cf762f8:
+  Jobs identifies the saved workflow; direct current/timeline stages are localized
+  Implementation, Validation and Done only, without an AEGIS task. AEGIS labels,
+  actions and observed-only timeline semantics retain their existing meanings.
+- REQ-UX-ef06a3c7 / REQ-UX-1b6f2a83 / REQ-UX-16f751b7 / REQ-UX-f6c6e946 /
+  REQ-UX-7e9792e9 / REQ-UX-647b1549 / REQ-UX-631835f9 / REQ-UX-009b4cb9 /
+  REQ-UX-9cdaa57b / REQ-UX-7fab3dcb: the direct panel shows the saved attempt,
+  command before outcome, duration and focusable literal tail, distinguishing
+  passed, failed, timed out, explicit unverified and unavailable evidence.
+- REQ-UX-b105b854 / REQ-UX-46c09118 / REQ-UX-a8c7ea48: missing/nontext/unknown
+  workflow, malformed direct detail or forbidden direct stages reject browser
+  reads; list error/incomplete/source-change and detail failure hide stale panels.
+- REQ-UX-c77f7335 / REQ-UX-558518e7: four-locale Jobs/Settings help and inline
+  guidance explain direct evidence and build/validate limits with general fallback.
+
+- REQ-FUNC-d50a408d / REQ-FUNC-2bf3e808 / REQ-FUNC-357ae298: offline preview
+  returns a separate command/source hint only for inspected direct clones; AEGIS,
+  absent clones and misses receive null, and access/encoding errors refuse setup.
+- REQ-UX-92197baa / REQ-UX-dd21046e / REQ-UX-cca17b80 /
+  REQ-REL-60015e50: enrollment validates the full hint response, prefills only
+  untouched drafts, identifies the source in four locales and canonically
+  re-previews at most once. Human edits/clearing win over delayed responses.
+- REQ-DATA-c1c4d1c3: saved Settings never infer over an empty/custom command;
+  explicit reviewed Create/Save is the persistence authority.
 
 - REQ-FUNC-e3cf5dfd / REQ-SEC-74753f08: reviewed scalar/batch apply permits parked-clarification jobs only for the five budget keys, with exact candidate reconstruction, Admin/CSRF, source/state-root/lock/revision and unfinished-operation checks retained. Mixed batches, direct edits and other lifecycles keep the existing idle boundary. No job state or approval is written by budget apply.
 - REQ-UX-1054b9b6: composite Job details adds non-financial `budget` counters (launches and cumulative active seconds), current limits and config_revision, bound to unchanged source bytes. The frontend rejects invalid/missing detail budget evidence, shows a 90%/exhausted status notice and an Admin project Settings link, with four-locale timing/help. Statistics remain independent. Proof: test_web_jobs.py, test_web_settings_batch.py, jobs.test.mjs and jobs/enrollment browser journeys.
@@ -804,7 +900,7 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `04_Software/adore/web/settings_batch.py`: closed batch parsing; authority and final configuration validation remain in app.py.
 - `04_Software/web/src/settingsSave.ts`: typed local drafts, meaningful equality, recovery, preview binding and four-locale Save copy.
-- `04_Software/adore/web/implementation_settings.py`: strict retry/map domain and semantic single-setting TOML writer.
+- `04_Software/adore/web/implementation_settings.py`: exact command text, strict retry/map domain and semantic single-setting TOML writers.
 - `04_Software/web/src/implementationSettings.ts`: typed Implementation drafts and localized editor terminology.
 
 - `04_Software/tests/test_local_execution.py`: native integration/negative proof.
@@ -911,19 +1007,22 @@ Git supplies isolated working copies; the repository command tool reads issues a
 publishes draft reviews; repository sign-in tests configured host authentication.
 The container engine starts isolation; agent availability proves executable presence
 in the local image (or, for a local project, that the installed Pi has a
-sign-in or approved key); workflow availability checks the two configured AEGIS files.
-An AI model connection row follows the six checks and shows the saved Test AI
+sign-in or approved key). A separate informational Workflow row reports AEGIS
+from `.agentic/aegis.py` alone, Direct when absent in an available clone, or
+not-inspected when the clone is unavailable; it never gates readiness.
+An AI model connection row follows the five base checks and shows the saved Test AI
 connection evidence (passed or failed, with executor and model), or Not checked
 with guidance to run Test AI connection when none is saved. A project whose
 runtime is `local` hides the container runtime row and shows local-agent copy
 for the agent row. A `chatgpt` project shows a **ChatGPT sign-in** row between the
-six checks and the AI model connection row; when it fails, its fix points to
+base checks and the AI model connection row; when it fails, its fix points to
 Sign in with ChatGPT in Settings → Agent and model. Unknown container detection is incomplete;
 any failed check requires intervention with a targeted corrective instruction.
 These checks do not prove a complete job, Git push permission or AEGIS execution.
 Fresh browser evidence validates the API status contract, selected project identity, revision, UTC
-check time and the exact six check keys/types, plus at most a boolean
-`executor_sign_in` (`readiness.ts` `readinessChecksShape`), before display;
+check time, closed workflow enum and exact configured prerequisite keys/types,
+including the five base checks and applicable boolean `executor_sign_in`,
+`egress_proxy` and `web_search_key` (`readiness.ts`), before display;
 invalid results produce a localized error and withhold the new check rows.
 
 Deletion uses a native modal with exact-name confirmation, Escape/cancel,
@@ -1079,13 +1178,26 @@ The lazy authorized executor-output endpoint reads the last executor-artifacts h
 
 History projects ticket/job targets separately from queue IDs and reports actual terminal outcomes. Local CLI deletion receipts import once into the authorized audit view with crash uncertainty, immutable identity validation and explicit SQLite journal-mode checks. Completed import receipts retain only opaque keys.
 
-Guided and portable enrollment check tokens expire after 15 minutes, are single-use and bind administrator, draft and configuration; a pending clone keeps AEGIS files not checked. Pi thinking choices are validated against the bundled pinned-model capabilities and applied to stages and model checks.
+Guided and portable enrollment check tokens expire after 15 minutes, are single-use
+and bind administrator, draft and configuration. They retain measured workflow/checks
+unchanged at creation, including not-inspected for a pending clone; only a later explicit
+host check inspects the new clone. Pi thinking choices are validated against the bundled
+pinned-model capabilities and applied to stages and model checks.
 
-Readiness schema 2 includes a private machine/account binding and configuration-specific check set; invalid schema instructs the operator to delete the profile readiness.json. Managed credential changes invalidate prior evidence. The project list validates evidence before showing its verdict, and Repository access is neutral because CLI sign-in alone does not establish repository access.
+Readiness schema 3 includes a private machine/account binding, configuration-specific
+prerequisite check set and required closed workflow enum. No aegis_files check is allowed.
+Invalid schema/workflow or corrupt values fail closed even when stale and instruct the
+operator to delete the profile readiness.json; bytes are never repaired or replaced. Managed credential changes invalidate prior evidence. The project list validates evidence before showing its verdict, and Repository access is neutral because CLI sign-in alone does not establish repository access.
 
 A private authentication-context fingerprint binds managed, environment and CLI credential inputs; changes stale previous evidence. Probes recheck it under publication locks and reject old or corrupt readiness before replacing records. Public check sets declare required keys and the browser validates them.
 
-Unobservable external CLI identity remains partial even if its probe passed; a validated project-scoped credential is required for verified. Probe values are validated before writes; list requirements are independently derived from active config.
+Unobservable external CLI identity remains partial even if its probe passed; a validated
+project-scoped credential is required for verified. Workflow never changes the verdict.
+Guided, portable, exact-import and saved-project probes validate workflow and prerequisites
+before evidence release or writes; malformed workflow returns readiness_probe_failed.
+List requirements are independently derived from active config. Focused proof:
+test_web_readiness.py, test_web_enrollment.py, test_repository_source.py,
+test_web_transfer.py and test_web_import.py.
 
 Factory administrator guidance: store initialization announces the initial credentials once; login and own-session reads derive a boolean from the current factory password hash. The authenticated shell shows a four-locale reminder with a link to My account until the password changes. Password changes and resets revoke sessions; the reminder periodically rechecks the current session while visible. Corrupt credential evidence fails closed. No schema changes.
 

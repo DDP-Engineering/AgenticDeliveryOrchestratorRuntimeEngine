@@ -15,9 +15,10 @@ for this package. Read its README for first sign-in, stop controls, data and
 logs. Prepare Git/forge/executor/container tools when configuring projects.
 The following sections describe source/CLI setup.
 
-ADORE selects eligible GitHub, GitLab or Gitea tickets, runs AEGIS
-inside dedicated worktrees with container or native local execution, and opens draft MR/PRs after fresh
-human approval by default. It never merges.
+ADORE selects eligible GitHub, GitLab or Gitea tickets, conducts either the
+repository's AEGIS workflow or a direct implementation inside a dedicated
+worktree with container or native local execution, and opens draft or ready
+MR/PRs after fresh human approval. It never merges.
 
 ## Prerequisites
 
@@ -27,11 +28,20 @@ human approval by default. It never merges.
 - authenticated `gh`, `glab`, or `tea` on the host;
 - Pi, ADORE's only coding agent: built into the executor base image for container
   profiles, installed for the service account (`pi --version`) for local profiles;
-- AEGIS installed in the target repository as `.agentic/aegis.py`;
-- schema 1 from `status --all --json` and valid configured AEGIS tests.
+- documented project build/test instructions and ignore rules for generated files;
+- optionally AEGIS as `.agentic/aegis.py`; when present, a supported payload,
+  schema 1 from `status --all --json` and valid configured AEGIS tests.
 
-ADORE reads only its own schema-1 run state and migrates nothing. Point it
-at a fresh state root and profile.
+No AEGIS means the direct workflow, with an explicitly unverified candidate
+for human approval. An unsupported or broken installed payload is refused,
+never treated as absence. Web enrollment still requires AEGIS; use the
+CLI/configuration path for repositories without it in this build.
+
+ADORE reads only its current schema-1 run shape and migrates nothing. Delete
+run-state directories under the configured `store_root/runs/` before starting
+this build if they lack `workflow`. The metrics summary shape also changed:
+delete the configured statistics database if its column contract is refused.
+Neither store is reset automatically.
 
 ## Install and Configure
 
@@ -85,18 +95,20 @@ approval_label = "agent-approved"
 draft = true
 ```
 
-## Verify AEGIS and the Environment
+## Verify the Environment and Optional AEGIS
 
-In the target clone:
+When the target clone contains `.agentic/aegis.py`, check it with:
 
 ```text
 python .agentic/aegis.py --version
 python .agentic/aegis.py status --all --json
 ```
 
-Expected version is a supported `aegis` version; expected JSON schema is `1`. The assisted
-environment check reports a missing, malformed or incompatible payload before
-the first run.
+The version must satisfy the client-declared supported range and JSON schema
+must be `1`. A present malformed or incompatible payload is refused.
+Without that file, `adore init` and doctor report the information:
+"No AEGIS found: tickets run in the direct workflow". No AEGIS probe is run
+for absence, and ADORE does not install the payload for you.
 
 Build the executor image and verify the configured container runtime. For
 rootless Podman, the typical setting is:
@@ -158,15 +170,20 @@ adore --profile my-project run --once
 
 ## Approval and Draft Publication
 
-With human approval enabled (the default), when strict validation passes ADORE removes the approval label, presents the
-evidence and fingerprint on the ticket, enters `awaiting-approval`, stops the
-container, and releases the slot. Review the evidence, then freshly add
-`agent-approved`. The next poll rechecks the exact candidate and target before
-publication.
+The agent owns repository tests. With AEGIS, ADORE observes the task journal;
+without AEGIS, it records a completed implementation session and its summary.
+A direct session must make product changes and leave no blocking questions.
 
-When the project disables human approval, ADORE checks the validated candidate and target and publishes automatically. ADORE opens the configured draft or ready MR/PR,
-and stops in `in-review`; the AEGIS task already closed in validate. A human
-reviews and merges.
+Human approval is required by default. ADORE removes the old approval label,
+presents the candidate and waits for a fresh `agent-approved` label bound to its
+fingerprint and target commit. Candidate or target drift invalidates that binding.
+Projects may disable `delivery.require_human_approval`; ADORE then checks candidate
+and target freshness before publishing. Both policies keep tests with the agent.
+
+ADORE opens the configured draft or ready MR/PR and enters `in-review` at `done`.
+A human reviews and merges. Progress checkpoints may already be on the owned
+branch when `delivery.publish_checkpoints` is enabled; they do not bypass the
+publication policy.
 
 ## Failure and Recovery
 
@@ -186,7 +203,10 @@ Retry is refused while a required notification remains pending.
 
 ## Native local execution
 
-Choose server or container execution in setup. Server profiles require the [managed Pi installation](Local_Execution.md), native Python for AEGIS and Windows Jobs or delegated Linux cgroup v2. Prepare project tools and forge login for the service account on the ADORE machine.
+Choose server or container execution in setup. Server profiles require the
+[managed Pi installation](Local_Execution.md) and Windows Jobs or delegated
+Linux cgroup v2; AEGIS projects also require the configured native Python.
+Prepare project tools and forge login for the service account on the ADORE machine.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.

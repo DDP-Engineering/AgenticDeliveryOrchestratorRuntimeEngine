@@ -44,8 +44,11 @@ ADORE is in development). Every refusal from `StateStore.load` ends with
 identities fail closed. A pending or completed handoff refuses new cancellation;
 the human-owned worktree remains protected from routine cleanup. A run's stage
 is `frame`, `specify`, `design`, `build`, `validate`, `done` or the reset
-pointer `publishing`; any other stage, the removed AEGIS `deliver` stage
-included, fails closed as an unknown stage. `published_fingerprint` records the
+pointer `publishing` for AEGIS. Required `workflow` is exactly `aegis` or
+`direct`; missing/unknown/nontext values are refused without default filling.
+Direct stages are build/validate/done or the publishing control pointer, with
+null active task and empty task history. AEGIS-only direct stages and task
+bindings fail with StateError. Any other stage, including `deliver`, is unknown. `published_fingerprint` records the
 candidate fingerprint of the last publication that reached review.
 
 The durable store preserves recovery evidence and refuses corrupt or uncertain
@@ -56,6 +59,16 @@ removed between enumeration and file open. Corrupt state remains visible through
 file/directory deletion at open without retries or automatic recreation.
 
 ## Key behaviors
+
+- `REQ-DATA-6a1eb88f`, `REQ-DATA-5987cbe2`, `REQ-DATA-18956e56`,
+  `REQ-DATA-9e8e1a73`: current-shape workflow/task/stage validation refuses
+  corrupt state unchanged, naming the run directory to delete. Constructor
+  defaults apply only to new in-memory callers, never older stored shapes.
+- `REQ-DATA-153dcce1`, `REQ-DATA-3e54b751`: the conductor selects workflow
+  before the first durable claim and retains it on resume/Retry/reset/revision.
+  Existing validation_evidence holds direct summary/completion/not-configured
+  evidence; no extra summary field or strict pass is implied. Completion and
+  validate share one state save; isolation receipts are transient only.
 
 - REQ-DATA-0c65db9f: `RunState.active_work_seconds(now)` computes working time from the durable effective active-start anchor; inactive rows freeze at updated_at. `StateStore.save` shifts the anchor over each inactive interval, including repeated saves and resume, preserving consumed work. Disk load requires a nonempty aware active timestamp; invalid clocks/iteration counters raise StateError without reinitialization. Stored fields and schema remain unchanged. Proof: test_state.py and public conductor resume/retry/review tests.
 

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-5bd765bb"
+title = "Render named dollar placeholders"
+status = "active"
+requirement = "When rendering a valid loaded fragment with its required named values, the ADORE prompt loader shall substitute dollar placeholders using string.Template semantics, including a literal dollar for $$ and literal ordinary braces."
+verification = "Render each shipped fragment with all its named values and compare exact expected text; exercise a template with repeated $name, $$ and {x}, including an empty supplied value, to distinguish substitution from formatting or safe-substitution fallback."
+affected_paths = ["04_Software/adore/prompts.py", "04_Software/adore/prompts/", "04_Software/tests/test_prompts.py"]
+linked_tests = ["04_Software/tests/test_prompts.py::test_template_semantics_and_literal_data", "04_Software/tests/test_prompts.py::test_all_shipped_fragments_match_original_bytes"]
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

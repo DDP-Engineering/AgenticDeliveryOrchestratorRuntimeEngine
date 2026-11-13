@@ -506,3 +506,34 @@ def test_final_unlock_failure_does_not_leave_a_profile_without_sources(
             event["action"] == "project-imported" and event["result"] == "applied"
             for event in events
         )
+
+
+def test_bundle_environment_preparation_binds_review_and_does_not_publish(tmp_path):
+    """ZIP preparation requires CSRF and exact review before any runtime work."""
+    from adore.util import CommandResult
+
+    from tests.test_web_environment import finish
+
+    calls = []
+    def environment_runner(argv, **kwargs):
+        calls.append(argv)
+        return CommandResult()
+
+    home = tmp_path / "home"
+    source = recipe_archive(recipe(), config_raw=document(tmp_path).encode("utf-8"))
+    with TestClient(create_app(home, environment_runner=environment_runner)) as client:
+        auth = headers(client)
+        body = prepared(client, auth, source)
+        path = "/api/v1/projects/import/bundle-environment"
+        assert client.post(path, json=body).status_code == 403
+        stale = client.post(path, json={**body, "revision": "0" * 64}, headers=auth)
+        assert stale.status_code == 409
+        assert not calls
+        response = client.post(path, json=body, headers=auth)
+        assert response.status_code == 202, response.text
+        job = finish(lambda job_id: client.get(
+            "/api/v1/environment-preparations/" + job_id).json(), response.json())
+        assert job["status"] == "ready", job
+        assert calls
+        assert ProfileStore(home).list_profiles() == []
+        assert not (home / "executor-recipes").exists()

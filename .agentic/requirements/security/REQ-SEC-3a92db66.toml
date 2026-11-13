@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-3a92db66"
+title = "Inspect enrollment workflow without executing or changing repository files"
+status = "active"
+requirement = "When enrollment or a web host-prerequisite check determines repository workflow, ADORE shall use read-only file-presence inspection without executing a command to identify the workflow or adding, installing, upgrading or modifying any file in the target clone."
+verification = "Offline tests snapshot a fake clone before and after enrollment and explicit checks for Direct and aegis.py-only cases and compare all file bytes and paths; instrument command fakes to refuse workflow-probing execution and assert that a present executable or broken aegis.py is neither run nor changed."
+affected_paths = ["04_Software/adore/web/app.py"]
+linked_tests = ["04_Software/tests/test_repository_source.py::test_create_clones_after_review_and_checks_do_not", "04_Software/tests/test_repository_source.py::test_matching_existing_clone_is_reused_and_occupied_folder_refused", "04_Software/tests/test_web_readiness.py::test_workflow_is_read_only_file_information", "04_Software/tests/test_web_enrollment.py::test_draft_workflow_preview_check_and_creation"]
+spec = ""
+priority = "high"
+rationale = "Repository-source Git discovery/clone and existing explicit tool checks keep their own boundaries; this rule forbids repository-code execution for workflow identification."
+created = 2026-11-12
+updated = 2026-11-12

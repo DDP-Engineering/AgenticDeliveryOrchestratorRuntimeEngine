@@ -79,3 +79,6 @@ Administratorii pot urma **Ajustează bugetele în Setările proiectului**, desc
 Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
 
 Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
+
+
+**Implementare** (`build`) folosește `workflow.stage_timeout_overrides` sau limita generală `budgets.per_gate_timeout_seconds`. Pentru AEGIS, **Validare** (`validate`) limitează tot sesiunea agentului. ADORE nu rulează teste suplimentare; agentul alege verificările locale și CI conform instrucțiunilor repository-ului.

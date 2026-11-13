@@ -1,5 +1,7 @@
 # What ADORE does
 
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
 ADORE turns a prepared ticket on your code forge into a draft merge request or pull request that people review. This page explains the flow and the two roles; the other topics cover each screen.
 
 ## What ADORE does {#what-adore-does}
@@ -8,8 +10,8 @@ ADORE watches the projects an administrator has enrolled. When a ticket on the f
 
 - It runs a coding agent (the executor) in an isolated environment: a dedicated branch, working folder and container.
 - The agent follows the repository's AEGIS workflow one stage at a time: Frame, Specify, Design, Build and Validate. A small change may take a quick path without Specify and Design.
-- The executor validates the result. By default, ADORE asks a person to approve the exact candidate; a project can disable this gate.
-- ADORE publishes a draft or ready MR/PR after validation and any required approval.
+- ADORE observes the result reported by the agent and asks a person to approve the candidate.
+- After approval, ADORE publishes a draft MR/PR for people to review. A project can be set to publish a ready MR/PR instead.
 
 > ADORE never merges. It has no merge operation; a person decides whether to merge on the forge.
 
@@ -24,8 +26,8 @@ If a project's job state cannot be read, **Needs attention** names that project.
 | 1. Prepare | No job yet | A person | The ticket gets the ready label and a priority label, or you press **Start** in Jobs → Tickets, which adds missing labels after you confirm. |
 | 2. Work | Working | ADORE and the coding agent | ADORE creates the job and the agent works through the AEGIS stages. |
 | 3. Clarify | Waiting for clarification | A person | Only if the agent has a question. Answer in the repository issue and add the answered label. |
-| 4. Validate | Working | Coding agent | The executor runs the project's strict verification. |
-| 5. Approve | Waiting for approval | A person | When approval is enabled, ADORE presents the candidate and a person adds the approval label. |
+| 4. Validate | Working | Coding agent | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
+| 5. Approve | Waiting for approval | A person | ADORE presents the candidate on the forge. A person adds the approval label. Approval is bound to that exact candidate. |
 | 6. Publish | Publishing | ADORE | ADORE pushes the branch and opens the draft MR/PR. |
 | 7. Review | Human review | A person | People review. A requested revision repeats validation and follows the project approval policy. |
 | 8. Merge | Completed | A person | A person merges on the forge. ADORE does not. |

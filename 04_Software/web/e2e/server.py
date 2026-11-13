@@ -124,11 +124,34 @@ def main() -> None:
                 "# Commercial use requires a separate commercial license.\n"
                 "# See LICENSE.txt. SPDX-License-Identifier: "
                 "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+        workflow_clones = {}
+        for workflow, name in (("direct", "direct-fixture"), ("aegis", "aegis-only-fixture"),
+                               ("child", "child-fixture"), ("empty", "empty-fixture")):
+            folder = home / "repos" / name
+            (folder / ".git").mkdir(parents=True)
+            (folder / ".git" / "config").write_text(
+                '[remote "origin"]\n'
+                f'\turl = ssh://git@forge.e2e.invalid:2222/offline/{name}.git\n',
+                encoding="utf-8")
+            if workflow != "empty":
+                manifest = folder / "service" / "go.mod" if workflow == "child" else folder / "go.mod"
+                manifest.parent.mkdir(exist_ok=True)
+                manifest.write_text("module fixture\n", encoding="utf-8")
+            if workflow == "aegis":
+                (folder / ".agentic").mkdir()
+                (folder / ".agentic" / "aegis.py").write_text(
+                    "# Copyright (c) 2026 DDP Engineering\n"
+                    "# This software is licensed under the PolyForm Noncommercial License 1.0.0.\n"
+                    "# Commercial use requires a separate commercial license.\n"
+                    "# See LICENSE.txt. SPDX-License-Identifier: "
+                    "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
+            workflow_clones[workflow] = str(folder)
         probe_mode = {"mode": "failed"}
         # Offline forge tickets shared by the fixture projects (their configs keep the
         # example repository); Stop really removes the ready label here.
         forge_issues = [
-                {"iid": 21, "title": "Add export button", "description": "Export the table.\n- [ ] CSV",
+                {"iid": 21, "title": "Add export button",
+                 "description": "Export the table.\n- [ ] CSV",
                  "labels": ["agent-ready", "P2"], "author": {"username": "ana"}, "state": "opened",
                  "web_url": "https://gitlab.example/offline/alpha/-/issues/21",
                  "created_at": "2026-10-01T10:00:00Z", "updated_at": "2026-10-02T10:00:00Z"},
@@ -137,19 +160,23 @@ def main() -> None:
                  "labels": ["P2"], "author": {"username": "ion"}, "state": "opened",
                  "web_url": "javascript:alert(1)",
                  "created_at": "2026-10-01T11:00:00Z", "updated_at": "2026-10-03T10:00:00Z"},
-                {"iid": 23, "title": "Paused migration", "description": "Waiting.", "labels": ["agent-hold"],
+                {"iid": 23, "title": "Paused migration", "description": "Waiting.",
+                 "labels": ["agent-hold"],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T12:00:00Z", "updated_at": "2026-10-03T11:00:00Z"},
-                {"iid": 24, "title": "Retry the flaky build", "description": "Failed once.", "labels": ["P2"],
+                {"iid": 24, "title": "Retry the flaky build", "description": "Failed once.",
+                 "labels": ["P2"],
                  "author": {"username": "ion"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T13:00:00Z", "updated_at": "2026-10-03T12:00:00Z"},
                 {"iid": 25, "title": "Unlabelled idea", "description": "Try it.", "labels": [],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T14:00:00Z", "updated_at": "2026-10-03T13:00:00Z"},
-                {"iid": 43, "title": "Rejected by the engine", "description": "Fails.", "labels": ["agent-ready", "P2"],
+                {"iid": 43, "title": "Rejected by the engine", "description": "Fails.",
+                 "labels": ["agent-ready", "P2"],
                  "author": {"username": "ana"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T15:00:00Z", "updated_at": "2026-10-03T14:00:00Z"},
-                {"iid": 44, "title": "Queue me", "description": "Succeeds.", "labels": ["agent-ready", "P2"],
+                {"iid": 44, "title": "Queue me", "description": "Succeeds.",
+                 "labels": ["agent-ready", "P2"],
                  "author": {"username": "ion"}, "state": "opened", "web_url": "",
                  "created_at": "2026-10-01T16:00:00Z", "updated_at": "2026-10-03T15:00:00Z"},
         ]
@@ -221,14 +248,23 @@ def main() -> None:
                 return CommandResult(argv=argv, stdout=json.dumps(
                     [{"name": "fixture", "url": "http://forge.e2e.invalid:3000"}]))
             if argv[:2] == ["git", "clone"]:
-                # The clone made at creation: a repository with AEGIS installed.
+                # Direct and py-only repositories exercise enrollment without installing AEGIS.
                 dest = Path(argv[-1])
                 (dest / ".git").mkdir(parents=True)
                 (dest / ".git" / "config").write_text(
                     f'[remote "origin"]\n\turl = {argv[-2]}\n', encoding="utf-8")
-                (dest / ".agentic").mkdir()
-                for item in ("aegis.py", "aegis.toml"):
-                    (dest / ".agentic" / item).write_text("", encoding="utf-8")
+                if "/direct-" not in argv[-2]:
+                    (dest / ".agentic").mkdir()
+                    items = (("aegis.py",) if "/aegis-only-" in argv[-2]
+                             else ("aegis.py", "aegis.toml"))
+                    for item in items:
+                        (dest / ".agentic" / item).write_text(
+                            "# Copyright (c) 2026 DDP Engineering\n"
+                            "# This software is licensed under the "
+                            "PolyForm Noncommercial License 1.0.0.\n"
+                            "# Commercial use requires a separate commercial license.\n"
+                            "# See LICENSE.txt. SPDX-License-Identifier: "
+                            "LicenseRef-PolyForm-Noncommercial-1.0.0\n", encoding="utf-8")
                 return CommandResult(argv=argv)
             if argv[:1] == ["git"] and "-C" in argv:
                 recipe = ("jobs:\n  setup:\n    container:\n"
@@ -258,7 +294,8 @@ def main() -> None:
                  "--dir", directory, *argv[script + 1:]],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-        app = web_app.create_app(home, probe_runner=fixture_probe, chatgpt_popen=fixture_chatgpt)
+        app = web_app.create_app(home, probe_runner=fixture_probe, chatgpt_popen=fixture_chatgpt,
+                                environment_runner=lambda argv, **kwargs: CommandResult(argv=argv))
 
         @app.post("/__e2e__/provider")
         def provider_fixture(request: Request, value: str) -> dict:
@@ -292,7 +329,7 @@ def main() -> None:
             @exception HTTPException For missing authorization or unsupported fixture mode.
             """
             if request.headers.get("X-ADORE-E2E") != "local-test" or mode not in {
-                "seed", "reset", "mutate", "corrupt", "legacy-timestamp",
+                "seed", "reset", "mutate", "corrupt", "legacy-timestamp", "direct",
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
             roots = [StateStore(home / "state" / name) for name in ("alpha", "beta")]
@@ -368,7 +405,70 @@ def main() -> None:
             roots[1].save_ticket("ux-working", {"iid": 42, "title": "Actual beta collision",
                                               "web_url": "https://forge.example/offline/beta/issues/42"})
             roots[0].save(RunState(run_id="ux-missing", ticket_iid=99, stage="build"))
+            if mode == "direct":
+                for index, (status, stage, lifecycle) in enumerate([
+                    ("passed", "done", "awaiting-approval"),
+                    ("failed", "build", "working"),
+                    ("timed out", "validate", "failed"),
+                    ("not configured", "done", "awaiting-approval"),
+                    ("unavailable", "build", "working"),
+                    ("empty", "done", "done"),
+                    ("whitespace", "done", "awaiting-approval"),
+                    ("publication-reset", "publishing", "failed"),
+                    ("retried", "done", "awaiting-approval"),
+                ]):
+                    run_id = "ux-direct-" + status.replace(" ", "-")
+                    passed = status in {"empty", "whitespace", "publication-reset", "retried"}
+                    evidence = {} if status == "unavailable" else {
+                        "verification": "passed" if passed else status}
+                    if passed or status in {"passed", "failed", "timed out"}:
+                        evidence["verification_result"] = {
+                            "command": "   " if status == "whitespace" else
+                            "saved-check && echo '<script>literal</script>'",
+                            "exit_code": 124 if status == "failed" else 0,
+                            "seconds": 0 if status == "empty" else 1.25,
+                            "timed_out": status == "timed out",
+                            "output": "" if status == "empty" else
+                            "  <script>literal tail</script> password=fixture-secret\n" + "x" * 300}
+                    roots[0].save(RunState(
+                        run_id=run_id, ticket_iid=70 + index, workflow="direct", stage=stage,
+                        lifecycle=lifecycle, iterations=9, stage_failures=0,
+                        validation_evidence=evidence))
+                    roots[0].save_ticket(run_id, {"iid": 70 + index,
+                                                "title": f"Direct {status} ticket"})
+                    if status != "unavailable":
+                        roots[0].journal(run_id, "stage-launch", stage="build", attempt=1)
+                        roots[0].journal(run_id, "stage-launch", stage="build", attempt=2)
+                        if stage != "build":
+                            roots[0].journal(run_id, "stage-advanced", current="validate")
+                        if stage == "done":
+                            roots[0].journal(run_id, "stage-advanced", current="done")
+                        if status in {"publication-reset", "retried"}:
+                            roots[0].journal(run_id, "reset", stage="publishing")
+                            if status == "retried":
+                                roots[0].journal(run_id, "operator-retry", stage="done")
             return ids
+
+        original_alpha = profiles.config_path("alpha").read_text(encoding="utf-8")
+
+        @app.post("/__e2e__/settings-workflow")
+        def settings_workflow_fixture(request: Request, workflow: str) -> dict:
+            """@brief Bind disposable alpha settings to an actual offline workflow clone.
+
+            @param[in] request Local test-control authorization.
+            @param[in] workflow Direct, AEGIS or reset to the original fixture config.
+            @return The selected fixture workflow, without executing repository code.
+            @exception HTTPException An unauthorized or unknown selection is rejected.
+            """
+            if request.headers.get("X-ADORE-E2E") != "local-test" or workflow not in {
+                "direct", "aegis", "reset",
+            }:
+                raise HTTPException(403, "test runner header and supported workflow required")
+            text = original_alpha if workflow == "reset" else original_alpha.replace(
+                'repo_path = "../project"',
+                f'repo_path = {json.dumps(workflow_clones[workflow])}')
+            profiles.config_path("alpha").write_text(text, encoding="utf-8")
+            return {"workflow": workflow}
 
         @app.post("/__e2e__/enrollment")
         def enrollment_fixture(request: Request, mode: str = "failed") -> dict:
@@ -384,7 +484,7 @@ def main() -> None:
             }:
                 raise HTTPException(403, "test runner header and supported mode required")
             probe_mode["mode"] = mode
-            return {"clone": str(clone)}
+            return {"clone": str(clone), "workflows": workflow_clones}
         store = app.state.web_store
         developer = store.create_user("developer", "test-password", "developer")
         store.set_memberships(developer["id"], ["alpha"])

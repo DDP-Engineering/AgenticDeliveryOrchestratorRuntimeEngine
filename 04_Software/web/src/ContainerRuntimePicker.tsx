@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale } from "./i18n";
 
 const copy = {
@@ -25,12 +25,16 @@ type Props = {
   locale: Locale;
   disabled: boolean;
   onChange: (value: string) => void;
+  id?: string;
+  invalid?: boolean;
+  autoSelect?: boolean;
 };
 
 /** Show server suggestions without overwriting the current draft. */
-export function ContainerRuntimePicker({ value, label, descriptionId, locale, disabled, onChange }: Props) {
+export function ContainerRuntimePicker({ value, label, descriptionId, locale, disabled, onChange, id, invalid, autoSelect = false }: Props) {
   const [commands, setCommands] = useState<string[] | null>();
   const [manual, setManual] = useState(false);
+  const edited = useRef(false);
   const text = copy[locale];
 
   useEffect(() => {
@@ -46,7 +50,12 @@ export function ContainerRuntimePicker({ value, label, descriptionId, locale, di
             || !list.every(item => typeof item === "string" && item.length > 0 && item.length <= 160)) {
           throw new Error("Invalid runtime inventory");
         }
-        if (!controller.signal.aborted) setCommands([...new Set<string>(list)]);
+        if (!controller.signal.aborted) {
+          const available = [...new Set<string>(list)];
+          setCommands(available);
+          if (autoSelect && !edited.current && value === "docker" && !available.includes(value) && available.length)
+            onChange(available[0]);
+        }
       } catch {
         if (!controller.signal.aborted) setCommands(null);
       }
@@ -58,9 +67,10 @@ export function ContainerRuntimePicker({ value, label, descriptionId, locale, di
   const status = commands === undefined ? text.loading : commands === null ? text.failed
     : commands.length === 0 ? text.empty : "";
   return <>
-    <select aria-label={label} aria-describedby={descriptionId} disabled={disabled}
+    <select id={id} aria-label={label} aria-describedby={descriptionId} aria-invalid={invalid || undefined} disabled={disabled}
       value={selection} onChange={event => {
         const command = event.target.value;
+        edited.current = true;
         setManual(!command);
         if (command) onChange(command);
       }}>
@@ -70,6 +80,7 @@ export function ContainerRuntimePicker({ value, label, descriptionId, locale, di
     {!selection && <input type="text" aria-label={text.manual} aria-describedby={descriptionId}
       disabled={disabled} value={value} onChange={event => {
         setManual(true);
+        edited.current = true;
         onChange(event.target.value);
       }} />}
     {status && <p className="field-hint" role="status">{status}</p>}

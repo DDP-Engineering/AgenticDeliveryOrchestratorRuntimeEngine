@@ -466,3 +466,34 @@ test("statistics labels scoped evidence and shares DST scope with CSV", async ({
   await page.getByRole("tab", { name: "Quality", exact: true }).click();
   await expect(page.locator(".metric-chips").first().getByText("Review still open", { exact: true })).toBeVisible();
 });
+
+
+test("deleting the last project returns to Projects with working enrollment and import", async ({page}) => {
+  let deleted = false;
+  await page.route("**/api/v1/projects", async route => {
+    const response = await route.fetch();
+    const projects = await response.json();
+    await route.fulfill({response, json:deleted ? [] : projects.filter((p:{name:string}) => p.name === "alpha").map((p:object) => ({...p, archived:true}))});
+  });
+  await page.route("**/delete-preview", route => route.fulfill({json:{clone:{path:"/srv/adore/repos/alpha",removable:true,reason:""}}}));
+  await page.route("**/api/v1/projects/*/delete", route => route.fulfill({status:202,json:{id:9801,status:"pending",action:"delete"}}));
+  await page.route("**/api/v1/operations/9801", route => {
+    deleted=true;
+    return route.fulfill({json:{id:9801,status:"succeeded",action:"delete",result:"completed"}});
+  });
+  await signIn(page);await page.goto("/projects/alpha");
+  await page.getByRole("button",{name:"Delete project",exact:true}).click();
+  const dialog=page.getByRole("dialog").filter({has:page.locator(".delete-confirm")});
+  await dialog.getByRole("textbox").fill("alpha");
+  await dialog.getByRole("button",{name:"Delete project",exact:true}).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByRole("heading",{name:"No projects available",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Enroll new project",exact:true})).toHaveCount(1);
+  await expect(page.getByRole("button",{name:"Import raw configuration",exact:true})).toHaveCount(1);
+  await page.getByRole("button",{name:"Import raw configuration",exact:true}).click();
+  await expect(page.getByRole("dialog",{name:"Import raw configuration",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  await page.getByRole("button",{name:"Enroll new project",exact:true}).click();
+  await expect(page).toHaveURL(/\/projects\/new$/);
+  await expect(page.getByRole("heading",{name:"Repository and identity",exact:true})).toBeVisible();
+});

@@ -44,8 +44,8 @@ def test_readiness_persistence_is_closed(tmp_path, monkeypatch, change):
     """@brief Current readiness roundtrips; stale and corrupt records fail closed."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
-    evidence = {"checks": {"git": True, "forge_cli": True, "forge_auth": True,
-                "container_runtime": True, "executor_cli": False, "aegis_files": True,
+    evidence = {"workflow": "aegis", "checks": {"git": True, "forge_cli": True, "forge_auth": True,
+                "container_runtime": True, "executor_cli": False,
                 "egress_proxy": True}}
     monkeypatch.setattr(module, "_probe_setup", lambda *a, **kw: evidence)
     with TestClient(module.create_app(profiles.home)) as client:
@@ -79,16 +79,10 @@ def test_old_readiness_schema_is_refused_with_deletion_guidance(tmp_path, monkey
     """@brief An old readiness record is never migrated or removed automatically."""
     module = importlib.import_module("adore.web.app")
     profiles, _ = _project(tmp_path)
-    checks = {
-        "git": True,
-        "forge_cli": True,
-        "forge_auth": True,
-        "container_runtime": True,
-        "executor_cli": True,
-        "aegis_files": True,
-        "egress_proxy": True,
-    }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                            "executor_cli", "egress_proxy"], True)
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -123,10 +117,10 @@ def test_external_auth_change_makes_readiness_stale(tmp_path, monkeypatch):
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     monkeypatch.setenv("GITLAB_TOKEN", "fixture-one")
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
@@ -154,16 +148,10 @@ def test_external_cli_config_change_makes_readiness_stale(tmp_path, monkeypatch)
     auth.write_text("fixture-one", encoding="utf-8")
     for key in ("XDG_CONFIG_HOME", "LOCALAPPDATA", "APPDATA", "USERPROFILE"):
         monkeypatch.setenv(key, str(root))
-    checks = {
-        "git": True,
-        "forge_cli": True,
-        "forge_auth": True,
-        "container_runtime": True,
-        "executor_cli": True,
-        "aegis_files": True,
-        "egress_proxy": True,
-    }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                            "executor_cli", "egress_proxy"], True)
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -190,16 +178,16 @@ def test_auth_changes_during_probe_do_not_publish(tmp_path, monkeypatch):
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
     monkeypatch.setenv("GITLAB_TOKEN", "before")
 
     def probe(*args, **kwargs):
         monkeypatch.setenv("GITLAB_TOKEN", "after")
-        return {"checks": checks}
+        return {"workflow": "aegis", "checks": checks}
 
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -227,10 +215,10 @@ def test_unbound_cli_identity_stays_partial(tmp_path, monkeypatch):
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -252,10 +240,10 @@ def test_malformed_probe_cannot_replace_good_readiness(tmp_path, monkeypatch):
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
-    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs: {"checks": dict(checks)})
+    monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": dict(checks)})
     with TestClient(module.create_app(profiles.home)) as client:
         csrf = client.post(
             "/api/v1/session", json={"username": "admin", "password": "admin"}
@@ -300,13 +288,45 @@ def test_admin_can_probe_host_prerequisites_without_disclosing_cli_output(tmp_pa
         assert value["checks"]["git"] is True
         assert value["checks"]["forge_cli"] is False
         assert value["checks"]["forge_auth"] is False
-        assert value["checks"]["aegis_files"] is False
+        assert value["workflow"] == "not-inspected"
         assert value["checks"]["executor_cli"] is True
         assert "model_endpoint" not in value["checks"] and "model_probe" not in value
         assert "secret" not in response.text
         assert calls and all(timeout <= 8 for _argv, timeout in calls)
         assert any("--pull=never" in argv and "--network" in argv
                    and "none" in argv for argv, _timeout in calls)
+
+
+@pytest.mark.parametrize("outcome", ["ready", "stopped", "timeout", "invalid-exit"])
+def test_readiness_uses_configured_wsl_runtime_info(tmp_path, outcome):
+    """@brief Check the selected WSL daemon; an unavailable engine cannot launch Pi probes."""
+    profiles, path = _project(tmp_path)
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        'runtime = "docker"', 'runtime = "wsl -d Ubuntu -- docker"'), encoding="utf-8")
+    prefix = ["wsl", "-d", "Ubuntu", "--exec", "docker"]
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(list(argv))
+        if argv == [*prefix, "info"]:
+            return CommandResult(exit_code=1 if outcome == "stopped" else
+                                 False if outcome == "invalid-exit" else 0,
+                                 timed_out=outcome == "timeout", stderr="PRIVATE")
+        return CommandResult(stdout="PRIVATE")
+
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        csrf = client.post("/api/v1/session", json={
+            "username": "admin", "password": "admin"}).json()["csrf"]
+        response = client.post("/api/v1/projects/alpha/readiness-check",
+                               headers={"X-CSRF-Token": csrf})
+        assert response.status_code == 200, response.text
+        assert response.json()["checks"]["container_runtime"] is (outcome == "ready")
+        assert "PRIVATE" not in response.text
+    assert [*prefix, "info"] in calls
+    assert not any(call in (["docker", "--version"], ["podman", "--version"])
+                   for call in calls)
+    if outcome != "ready":
+        assert not any("--entrypoint" in call for call in calls)
 
 
 def test_host_executor_presence_does_not_hide_missing_image_tool(tmp_path):
@@ -357,6 +377,150 @@ def test_readiness_probe_requires_admin_csrf_and_valid_config(tmp_path):
             "username": "dev", "password": "longer-password"}).json()["csrf"]
         assert client.post("/api/v1/projects/alpha/readiness-check",
                            headers={"X-CSRF-Token": dev_csrf}).status_code == 403
+
+
+@pytest.mark.parametrize("backend", ["container", "local"])
+@pytest.mark.parametrize("files,workflow", [([], "direct"), (["aegis.toml"], "direct"),
+    (["aegis.py"], "aegis"), (["aegis.py", "aegis.toml"], "aegis")])
+def test_workflow_is_read_only_file_information(tmp_path, monkeypatch, backend, files, workflow):
+    """@brief Both backends inspect only aegis.py and leave clone bytes untouched."""
+    import adore.local_execution as local_execution
+
+    module = importlib.import_module("adore.web.app")
+    profiles, path = _project(tmp_path)
+    clone = tmp_path / "clone"
+    (clone / ".git").mkdir(parents=True)
+    for name in files:
+        target = clone / ".agentic" / name
+        target.parent.mkdir(exist_ok=True)
+        target.write_text("raise RuntimeError('must not run')\n", encoding="utf-8")
+    text = path.read_text(encoding="utf-8").replace('repo_path = "../project"',
+                                                  f'repo_path = "{clone.as_posix()}"')
+    if backend == "local":
+        text = text.replace('backend = "container"', 'backend = "local"')
+        start = text.index("required_tool_checks = [")
+        end = text.index("]", start) + 1
+        text = text[:start] + "required_tool_checks = []" + text[end:]
+        text += '\n[local]\naccount = "current"\n'
+        monkeypatch.setattr(local_execution, "probe_local_executor", lambda *a, **kw:
+                            {"ready": True, "reason": "ready", "exit_code": 0})
+    path.write_text(text, encoding="utf-8")
+    before = {str(p.relative_to(clone)): p.read_bytes() for p in clone.rglob("*") if p.is_file()}
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(argv)
+        assert not any("aegis" in str(arg) for arg in argv)
+        return CommandResult(argv=argv, exit_code=0)
+
+    with TestClient(module.create_app(profiles.home, probe_runner=runner)) as client:
+        csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
+                           ).json()["csrf"]
+        result = client.post("/api/v1/projects/alpha/readiness-check",
+                             headers={"X-CSRF-Token": csrf})
+        assert result.status_code == 200, result.text
+        evidence = result.json()
+        assert evidence["workflow"] == workflow
+        assert "aegis_files" not in evidence["checks"]
+        assert "aegis_files" not in evidence["required_checks"]
+        saved = json.loads((profiles.profile_dir("alpha") / "readiness.json").read_text())
+        assert saved["schema"] == 3 and saved["workflow"] == workflow
+        project = client.get("/api/v1/projects").json()[0]
+        assert project["verification"]["workflow"] == workflow
+        assert "aegis_files" not in project["verification_requirements"]
+    assert calls
+    assert before == {str(p.relative_to(clone)): p.read_bytes()
+                      for p in clone.rglob("*") if p.is_file()}
+
+
+@pytest.mark.parametrize("workflow", ["aegis", "direct", "not-inspected"])
+@pytest.mark.parametrize("condition,status", [("passed", "verified"), ("failed", "failed"),
+    ("runtime-unknown", "partial"), ("auth-unbound", "partial")])
+def test_workflow_never_changes_prerequisite_verdict(tmp_path, monkeypatch, workflow,
+                                                    condition, status):
+    """@brief The descriptive enum cannot pass, fail or complete host prerequisites."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _path = _project(tmp_path)
+    checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                            "executor_cli", "egress_proxy"], True)
+    if condition == "failed":
+        checks["git"] = False
+    if condition == "runtime-unknown":
+        checks["container_runtime"] = None
+    monkeypatch.setattr(module, "_readiness_auth_bound", lambda *a: condition != "auth-unbound")
+    monkeypatch.setattr(module, "_probe_setup", lambda *a, **kw:
+                        {"workflow": workflow, "checks": checks})
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
+                           ).json()["csrf"]
+        result = client.post("/api/v1/projects/alpha/readiness-check",
+                             headers={"X-CSRF-Token": csrf})
+        assert result.status_code == 200, result.text
+        assert result.json()["status"] == status
+        assert result.json()["workflow"] == workflow
+        assert client.get("/api/v1/projects/alpha").json()["verification"]["status"] == status
+
+
+@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
+def test_invalid_workflow_probe_preserves_saved_evidence(tmp_path, monkeypatch, bad):
+    """@brief Missing/invalid workflow fails typed before overwriting previous evidence."""
+    module = importlib.import_module("adore.web.app")
+    profiles, _path = _project(tmp_path)
+    evidence = {"workflow": "direct", "checks": dict.fromkeys(
+        ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "egress_proxy"],
+        True)}
+    monkeypatch.setattr(module, "_probe_setup", lambda *a, **kw: evidence)
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
+                           ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        result = client.post("/api/v1/projects/alpha/readiness-check", headers=headers)
+        assert result.status_code == 200, result.text
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        before = path.read_bytes()
+        if bad == "missing":
+            evidence.pop("workflow")
+        else:
+            evidence["workflow"] = bad
+        result = client.post("/api/v1/projects/alpha/readiness-check", headers=headers)
+        assert result.status_code == 503, result.text
+        assert result.json()["detail"]["code"] == "readiness_probe_failed"
+        assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}, "old-schema"])
+@pytest.mark.parametrize("stale", [False, True])
+def test_corrupt_workflow_is_refused_even_if_stale(tmp_path, monkeypatch, bad, stale):
+    """@brief Invalid saved workflow/schema is never repaired, including stale records."""
+    module = importlib.import_module("adore.web.app")
+    profiles, config_path = _project(tmp_path)
+    evidence = {"workflow": "direct", "checks": dict.fromkeys(
+        ["git", "forge_cli", "forge_auth", "container_runtime", "executor_cli", "egress_proxy"],
+        True)}
+    monkeypatch.setattr(module, "_probe_setup", lambda *a, **kw: evidence)
+    with TestClient(module.create_app(profiles.home)) as client:
+        csrf = client.post("/api/v1/session", json={"username": "admin", "password": "admin"}
+                           ).json()["csrf"]
+        headers = {"X-CSRF-Token": csrf}
+        result = client.post("/api/v1/projects/alpha/readiness-check", headers=headers)
+        assert result.status_code == 200, result.text
+        path = profiles.profile_dir("alpha") / "readiness.json"
+        record = json.loads(path.read_text())
+        if bad == "missing":
+            record.pop("workflow")
+        elif bad == "old-schema":
+            record["schema"] = 2
+        else:
+            record["workflow"] = bad
+        path.write_text(json.dumps(record))
+        before = path.read_bytes()
+        if stale:
+            config_path.write_bytes(config_path.read_bytes() + b"\n# changed\n")
+        for result in (client.get("/api/v1/projects/alpha"), client.get("/api/v1/projects"),
+                       client.post("/api/v1/projects/alpha/readiness-check", headers=headers)):
+            assert result.status_code == 503, result.text
+            assert "readiness_corrupt" in result.text and "readiness.json" in result.text
+        assert path.read_bytes() == before
 
 
 # END OF FILE

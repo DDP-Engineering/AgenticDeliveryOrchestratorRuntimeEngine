@@ -32,6 +32,7 @@ from __future__ import annotations
 
 # IMPORTS
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 import hashlib
 import ipaddress
 import os
@@ -155,6 +156,18 @@ _GENERATED_PATHSPECS = (
 )
 
 # DATA MODELS / TYPEDEFINITIONS
+
+
+@dataclass(frozen=True)
+class SummaryArtifact:
+    """@brief Bounded summary text and the filesystem identity authorizing later removal.
+    @details This transient receipt is never persisted; callers save sanitized text
+             before explicitly requesting removal from the same owned worktree.
+    """
+
+    text: str
+    path: Path
+    identity: tuple[int, ...]
 
 
 class IsolationError(RuntimeError):
@@ -820,25 +833,165 @@ class WorktreeManager:
         material = "\0".join((target, head, tree, commits)).encode("utf-8")
         return hashlib.sha256(material).hexdigest()
 
-    def worktree_progress_fingerprint(self, run_id: str) -> str:
+    def read_summary(self, run_id: str, *, max_chars: int) -> SummaryArtifact | None:
+        """@brief Read a stable regular UTF-8 summary without removing it.
+        @param[in] run_id Owned worktree identifier.
+        @param[in] max_chars Positive existing evidence bound; retain this many trailing characters.
+        @return Text/identity receipt, or None for an absent summary.
+        @exception IsolationError Source collision, linked/replaced file or failed/invalid read.
+        @note The caller must sanitize and persist text before remove_summary.
+        """
+        if type(max_chars) is not int or max_chars <= 0:
+            raise IsolationError("invalid summary evidence bound")
+        self._exchange_paths(run_id, ("ADORE_SUMMARY.md",))
+        source = self.path_for(run_id) / "ADORE_SUMMARY.md"
+        try:
+            before = source.lstat()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise IsolationError(f"cannot inspect summary: {exc}") from exc
+        try:
+            identity = self._summary_identity(before)
+            # NOFOLLOW/NONBLOCK narrow the open race where available. fstat before
+            # reading also protects platforms without those flags from target reads.
+            flags = (os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                     | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
+            fd = os.open(source, flags)
+            with os.fdopen(fd, "r", encoding="utf-8", newline="") as stream:
+                opened = self._summary_identity(os.fstat(stream.fileno()))
+                # Windows can expose different change-time semantics through
+                # lstat and fstat. Cross-API ownership uses the other fields;
+                # each API's complete receipt still detects changes over time.
+                if opened[:-1] != identity[:-1]:
+                    raise IsolationError("summary changed before read")
+                text = ""
+                while chunk := stream.read(8192):
+                    text = (text + chunk)[-max_chars:]
+                if self._summary_identity(os.fstat(stream.fileno())) != opened:
+                    raise IsolationError("summary changed during read")
+            if self._summary_identity(source.lstat()) != identity:
+                raise IsolationError("summary changed after read")
+        except (OSError, UnicodeError) as exc:
+            raise IsolationError(f"cannot read summary: {exc}") from exc
+        return SummaryArtifact(text, source, identity)
+
+    def remove_summary(self, run_id: str, artifact: SummaryArtifact) -> None:
+        """@brief Remove only the unchanged summary whose text the caller retained.
+        @param[in] run_id Owned worktree identifier.
+        @param[in] artifact Receipt from read_summary for this same worktree.
+        @exception IsolationError Changed ownership/identity or failed unlink.
+        """
+        source = self.path_for(run_id) / "ADORE_SUMMARY.md"
+        if not isinstance(artifact, SummaryArtifact) or artifact.path != source:
+            raise IsolationError("summary receipt belongs to a different worktree")
+        self._exchange_paths(run_id, ("ADORE_SUMMARY.md",))
+        try:
+            if self._summary_identity(source.lstat()) != artifact.identity:
+                raise IsolationError("summary changed before removal")
+            source.unlink()
+            if source.exists() or source.is_symlink():
+                raise IsolationError("summary removal was not verified")
+        except OSError as exc:
+            raise IsolationError(f"cannot remove summary: {exc}") from exc
+
+    @staticmethod
+    def _summary_identity(info: os.stat_result) -> tuple[int, ...]:
+        """@brief Refuse linked/nonregular files and pin identity/content metadata.
+        @param[in] info Metadata from an owned path or its open file descriptor.
+        @return Device, inode, mode, links, size and nanosecond modification/change times.
+        @exception IsolationError The file is not a singly linked regular file.
+        """
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise IsolationError("unsafe summary file identity")
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+                info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def _exchange_paths(self, run_id: str, names: Sequence[str]) -> tuple[str, ...]:
+        """@brief Validate literal exchange paths and refuse source-owned collisions.
+        @param[in] run_id Owned worktree identifier.
+        @param[in] names Repository-relative file paths, never Git patterns.
+        @return Validated distinct paths in caller order.
+        @exception IsolationError Unsafe filesystem or untrusted Git evidence.
+        """
+        if isinstance(names, (str, bytes)):
+            raise IsolationError("invalid exchange path list")
+        for name in names:
+            if (not isinstance(name, str) or not name or "\\" in name
+                    or any(ord(char) < 32 for char in name)
+                    or PurePosixPath(name).is_absolute() or PureWindowsPath(name).drive
+                    or any(part in ("", ".", "..") or part.casefold() == ".git"
+                           for part in name.split("/"))):
+                raise IsolationError(f"unsafe exchange path: {name!r}")
+        paths = tuple(dict.fromkeys(names))
+        if not paths:
+            return paths
+        wt = self.path_for(run_id)
+        try:
+            if wt.resolve() != wt.absolute() or not wt.is_dir():
+                raise IsolationError("linked or absent exchange path worktree")
+            for name in paths:
+                source = wt / name
+                for parent in source.parents:
+                    if parent == wt:
+                        break
+                    if parent.is_symlink():
+                        raise IsolationError(f"linked exchange path parent: {name!r}")
+                if source.exists() or source.is_symlink():
+                    info = source.lstat()
+                    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                        raise IsolationError(f"unsafe exchange path file: {name!r}")
+        except OSError as exc:
+            raise IsolationError(f"cannot inspect exchange path: {exc}") from exc
+        # ls-tree does not share Git diff's pathspec-magic contract. Inspect the
+        # bounded complete HEAD list instead; staged additions are not source ownership.
+        result = self._run_wt(str(wt), "ls-tree", "-r", "--full-tree", "--name-only", "-z", "HEAD")
+        output = result.stdout
+        if (type(result.exit_code) is not int or result.timed_out
+                or not isinstance(output, str) or len(output) > 4_000_000
+                or "\ufffd" in output or (output and not output.endswith("\0"))):
+            raise IsolationError("invalid Git exchange path evidence")
+        entries = output[:-1].split("\0") if output else []
+        if any(not item or any(part in ("", ".", "..") for part in item.split("/"))
+               for item in entries):
+            raise IsolationError("invalid Git exchange path evidence")
+        for entry in entries:
+            if any(entry == name or entry.startswith(name + "/") or name.startswith(entry + "/")
+                   for name in paths):
+                raise IsolationError(f"source-owned exchange path: {entry!r}")
+        return paths
+
+    def worktree_progress_fingerprint(self, run_id: str, *,
+                                      exclude_paths: Sequence[str] = ()) -> str:
         """
         @brief      Observe candidate changes independently of task bookkeeping.
         @details    Hash tracked diff against HEAD and untracked content, excluding
                     journals and generated caches. Symlinks contribute their target
                     text; directory symlinks and malformed paths fail closed.
         @param[in]  run_id Stable run identifier.
+        @param[in]  exclude_paths Literal exchange file names excluded only for this observation.
         @return     SHA-256 fingerprint, including dirty candidate changes.
         @exception  IsolationError When Git or a content observation fails.
         """
         wt = self.path_for(run_id)
-        paths = (".", ":(exclude).agentic/tasks/**", *_GENERATED_PATHSPECS)
-        diff = self._run_wt(str(wt), "diff", "--binary", "HEAD", "--", *paths)
-        untracked = self._run_wt(
-            str(wt), "ls-files", "-z", "--others", "--exclude-standard", "--", *paths
-        ).stdout
+        excluded = self._exchange_paths(run_id, exclude_paths)
+        paths = (".", ":(exclude).agentic/tasks/**", *_GENERATED_PATHSPECS,
+                 *(f":(top,literal,exclude){name}" for name in excluded))
+
+        def observe(*args: str) -> str:
+            """@brief Preserve legacy observation and validate direct exchange-aware evidence."""
+            result = self._run_wt(str(wt), *args)
+            if excluded and (type(result.exit_code) is not int or result.timed_out
+                             or not isinstance(result.stdout, str)
+                             or len(result.stdout) > 4_000_000 or "\ufffd" in result.stdout):
+                raise IsolationError("invalid Git direct progress evidence")
+            return result.stdout
+
+        diff = observe("diff", "--binary", "HEAD", "--", *paths)
+        untracked = observe("ls-files", "-z", "--others", "--exclude-standard", "--", *paths)
         if untracked and not untracked.endswith("\0"):
             raise IsolationError("unterminated untracked progress path list")
-        digest = hashlib.sha256(diff.stdout.encode("utf-8"))
+        digest = hashlib.sha256(diff.encode("utf-8"))
         for name in sorted(untracked.split("\0")[:-1]):
             relative = PurePosixPath(name)
             if (not name or relative.is_absolute() or PureWindowsPath(name).drive
@@ -896,7 +1049,8 @@ class WorktreeManager:
             entry = entry.split(" -> ", 1)[1].strip()
         return entry.strip('"')
 
-    def commit_all_if_dirty(self, run_id: str, message: str) -> bool:
+    def commit_all_if_dirty(self, run_id: str, message: str, *,
+                            exclude_paths: Sequence[str] = ()) -> bool:
         """
         @brief      Commit pending worktree changes as one checkpoint.
         @details    Used by the conductor after each executor stage and after
@@ -906,9 +1060,11 @@ class WorktreeManager:
                     branch. Empty status is a no-op.
         @param[in]  run_id Stable run identifier.
         @param[in]  message Commit message.
+        @param[in]  exclude_paths Literal exchange paths to unstage, exclude and recheck.
         @return     True when a commit was created.
         @exception  IsolationError When git fails.
         """
+        excluded = self._exchange_paths(run_id, exclude_paths)
         wt = str(self.path_for(run_id))
         staged = ("diff", "--cached", "--no-renames", "--name-only", "--diff-filter=A", "-z")
 
@@ -937,6 +1093,7 @@ class WorktreeManager:
             valid = {"??", " D", "D ", "DD", "AU", "UD", "UA", "DU", "AA", "UU"}
             valid.update(x + y for x in " MTARC" for y in " MTDRC" if x + y != "  ")
             i = 0
+            candidate_changes = False
             while i < len(entries):
                 entry = entries[i]
                 if (len(entry) < 4 or entry[2] != " "
@@ -953,8 +1110,10 @@ class WorktreeManager:
                 if any(any(part in ("", ".", "..") for part in path.split("/"))
                        for path in paths):
                     raise IsolationError("invalid Git checkpoint status evidence")
+                if any(path not in excluded for path in paths):
+                    candidate_changes = True
                 i += 1
-            return bool(entries)
+            return candidate_changes
 
         def inspect_paths(*outputs: str) -> None:
             """@brief Refuse suspicious new paths after validating all entries."""
@@ -976,13 +1135,26 @@ class WorktreeManager:
                         f"suspicious checkpoint path {path!r}; inspect and remove or relocate "
                         "the unintended file before retrying")
 
+        if excluded:
+            # Unlike restore, path-limited reset also succeeds for an absent index
+            # entry. It never changes working files and removes staged additions.
+            git("reset", "-q", "HEAD", "--", *(f":(top,literal){name}" for name in excluded))
         if not status():
             return False
         untracked = git("ls-files", "--others", "--exclude-standard", "-z")
         additions = git(*staged)
         inspect_paths(untracked, additions)
-        git("add", "-A")
+        selection = ("--", ".", *(f":(top,literal,exclude){name}" for name in excluded))
+        git("add", "-A", *(selection if excluded else ()))
         inspect_paths(git(*staged))
+        if excluded:
+            all_staged = records(git("diff", "--cached", "--no-renames", "--name-only", "-z"))
+            if any(any(part in ("", ".", "..") for part in path.split("/"))
+                   for path in all_staged):
+                raise IsolationError("invalid Git checkpoint path evidence")
+            if any(path == name or path.startswith(name + "/")
+                   for path in all_staged for name in excluded):
+                raise IsolationError("exchange path remained staged; checkpoint refused")
         if not status():
             return False
         git("commit", "-m", message)

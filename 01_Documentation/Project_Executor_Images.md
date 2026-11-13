@@ -7,7 +7,16 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Project executor images
 
-The server administrator prepares the executor image outside ADORE: the Dockerfile
+Web enrollment and raw configuration import automatically prepare missing shared
+ADORE images before saving the project. The interface shows the current stage,
+waits for verification and allows retry after failure. Later imports reuse the
+images. Docker/Podman must already be installed and running, including when it is
+selected through WSL. The base executor and the network proxy use bundled ADORE
+recipes; no project files or credentials enter their build context. Native imports
+skip container preparation. Shared image builds need server internet access,
+independently of the agent's Internet access setting.
+
+The server administrator prepares custom executor images outside ADORE: the Dockerfile
 and the build stay on the server. Choosing the image is done in ADORE: enrollment
 step 2 and **Project → Settings → Agent and model** offer **Runs in**, **Container
 runtime** and **Executor image**, with suggestions read from the images present on

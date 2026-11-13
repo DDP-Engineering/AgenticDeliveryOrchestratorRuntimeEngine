@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-029d0525"
+
+title = "Identify workflow on the job page"
+
+status = "active"
+
+requirement = """
+When an authorized user opens a valid job page, the interface shall identify that job's recorded workflow as AEGIS or Direct in English, French, German and Romanian.
+"""
+
+verification = "Read valid AEGIS and direct model fixtures and open their composite detail routes in offline Jobs browser journeys; assert each detail's workflow label in all four locales, and switch between mixed workflows to prove the previous job's label is not retained."
+
+affected_paths = ["04_Software/web/src/jobModel.ts", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/i18n.ts", "04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py"]
+
+linked_tests = ["04_Software/web/tests/jobs.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

@@ -16,7 +16,8 @@ Focused proof: `test_pi_installation.py` and `test_local_execution.py`.
 
 ## Purpose and boundaries
 
-Native projects run managed Pi RPC and AEGIS under the current service account.
+Native projects run managed Pi RPC, AEGIS and configured direct verification
+under the current service account.
 The orchestrator owns job state and delivery. The operator owns project tools,
 Node availability and Linux delegation.
 
@@ -25,7 +26,9 @@ Node availability and Linux delegation.
 The installer exposes `install_pi`, `verify_pi`, `managed_pi` and typed
 `PiInstallationError`. LocalBackend implements the shared lifecycle;
 LocalTarget lends scoped RPC pipes through `pi_session` and retains the strict
-AEGIS file transport. `probe_local_executor` reports closed readiness causes.
+AEGIS file transport. `LocalTarget.run_verification(command, *, timeout)` accepts
+only the exact nonempty configured single-line NUL-free workflow command;
+`probe_local_executor` reports closed readiness causes.
 
 ## Invariants
 
@@ -40,11 +43,45 @@ AEGIS file transport. `probe_local_executor` reports closed readiness causes.
   A fresh agent directory outside the worktree disables personal and untrusted
   project resources. Approved provider credentials are injected and redacted.
 - An owned process scope must drain before reuse; unknown or foreign scope
-  evidence is refused. A worktree is not a host sandbox.
+  evidence is refused. A worktree is not a host sandbox. Verification shell
+  commands have service-account filesystem/credential/network authority, without
+  container isolation; dedicated least-privilege accounts are recommended.
+- Ordinary native argv still refuses shell/wrapper executables. Only configured
+  direct verification selects the absolute bound SystemRoot/System32/cmd.exe
+  on Windows or /bin/sh on Linux, never project PATH/COMSPEC.
 - Native Python standard streams use authoritative `PYTHONIOENCODING=utf-8` on Windows/Linux. Ambient Python flags remain
   filtered; invalid UTF-8 evidence is still a typed failure, never replaced.
 
+## Change map
+
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Managed Pi install/readiness | `pi_installation.py`, `probe_local_executor` | `test_pi_installation.py`, `test_local_execution.py` |
+| Configured direct shell verification | `LocalTarget.run_verification`, `local_child.main` | native verification, quoted-command and malformed-transport tests in `test_local_execution.py` |
+| Owned scopes, timeout and capture | `LocalProcessController.run_files`, `NativeScopes` | native capture/ownership/PID-birth/cleanup tests in `test_local_execution.py` |
+| Explicit Retry identity refresh | `LocalBackend` retry revalidation | `test_retry_revalidation.py` |
+
 ## Key behaviors
+
+- `REQ-PLAT-a39ffa22`, `REQ-SEC-d94baaf1`, `REQ-SEC-c81de547`: direct-only
+  verification validates command and pinned identity before the owned release
+  barrier, then uses worktree cwd and bound environment with caller timeout.
+  Windows alone marks the trusted non-RPC envelope, validates its cmd transport
+  and pins the executable while passing raw `/d /s /c` text inside one extra
+  outer quote pair; ordinary argv/RPC retain list serialization. Invalid requests,
+  unavailable shell, identity drift or malformed transport cannot launch work.
+- `REQ-DATA-72e08277`, `REQ-REL-50474528`: verification opts into strict UTF-8
+  rolling tails, at most 64 KiB per stream, with ANSI/NUL removal and known-value
+  span-union/token/header redaction before eviction. Offset/self-overlapping
+  known values retain raw lookahead and mask coverage across safe-prefix cuts,
+  preventing suffix disclosure even over long overlap chains. Public
+  `test_native_verification_capture_masks_overlapping_secrets` covers exact
+  stdout/stderr tails at short-read, chunk and eviction boundaries. Default
+  prefix capture is unchanged. Success, failure and timeout confirm owned
+  descendant drain; invalid UTF-8 or unconfirmed cleanup is a typed
+  LocalExecutionError.
+- `REQ-SEC-a751eb18`: operator/component guidance describes service-account
+  permissions without host/container sandboxing and keeps ordinary shell refusal.
 
 Native ChatGPT uses `chatgpt.helper_for` and managed Node/Pi, without Docker.
 One ADORE-owned sign-in supplies temporary tokens to explicitly bound stage

@@ -321,6 +321,31 @@ def _waiting(run: RunState, events: list[dict], ticket_url: str | None,
     return result
 
 
+def _direct_evidence(run: RunState, events: list[dict]) -> dict:
+    """
+    @brief Project saved direct attempts and independent verification, never config.
+    @param[in] run Validated captured run state.
+    @param[in] events Captured journal in append order.
+    @return Closed redacted detail evidence with explicit unrecorded values.
+    @exception JobReadError For malformed selected state or journal evidence.
+    """
+    if (run.stage not in {"build", "validate", "done"}
+            and not (run.stage == "publishing" and run.lifecycle == "failed")):
+        raise JobReadError("run_state_corrupt")
+    attempt = None
+    for event in events:
+        stage = _event_stage(event)
+        if (stage is not None and stage not in {"build", "validate", "done"}
+                and not (stage == "publishing" and event["event"] == "reset")):
+            raise JobReadError("run_journal_corrupt")
+        if event["event"] == "stage-launch":
+            attempt = event.get("attempt")
+            if type(attempt) is not int or not 1 <= attempt <= 2**53 - 1:
+                raise JobReadError("run_journal_corrupt")
+    return {"attempt": attempt}
+
+
+
 def _view(item: Profile, run_id: str, sources: dict) -> dict:
     """
     @brief Validate schema-1 inputs and return the job evidence allowlist.
@@ -375,7 +400,8 @@ def _view(item: Profile, run_id: str, sources: dict) -> dict:
         "project_display_name": _text(item.display_name or item.name, "job_evidence_corrupt"),
         "project_archived": item.archived, "run_id": run.run_id, "ticket_iid": run.ticket_iid,
         "ticket_title": title, "ticket_url": ticket_url, "mr_url": mr_url,
-        "lifecycle": run.lifecycle, "stage": run.stage,
+        "lifecycle": run.lifecycle, "stage": run.stage, "workflow": run.workflow,
+        **({"direct": _direct_evidence(run, events)} if run.workflow == "direct" else {}),
         "state_revision": sha256(sources[(item.project_id, run_id, "state.json")]).hexdigest(),
         "status_group": _GROUPS[run.lifecycle], "outcome": _text(run.outcome, "run_state_corrupt"),
         "stage_failures": run.stage_failures, "review_rounds": run.review_rounds,

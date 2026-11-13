@@ -27,7 +27,7 @@ ReadinessConfig defaults acceptance checking to false and priority checking to t
 
 Focused public-contract proof: `04_Software/tests/test_branch_naming.py`, existing config and wizard tests, and `04_Software/tests/test_web_branch_naming.py` for HTTP authority.
 
-## 2. AEGIS Settings
+## 2. Workflow Settings
 
 `WorkflowConfig` maps ticket labels to `feature`, `fix`, or `change`, carries a
 quick-path hint, selects the one-token Python executable, and permits timeout

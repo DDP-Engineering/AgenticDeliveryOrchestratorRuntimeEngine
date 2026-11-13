@@ -1,0 +1,24 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-7081a87e"
+title = "Name the unavailable AEGIS interpreter"
+status = "active"
+
+requirement = """
+If the AEGIS version probe exits with code 127, doctor shall return a not-ready AegisStatus whose detail names the supplied interpreter as unavailable to run the AEGIS companion CLI.
+"""
+
+verification = "Offline fake-runner test: create a wrapper, supply python3, return exit 127 for its version command, and assert not-ready status and detail naming python3 rather than a hard-coded python; repeat with python and assert no status command is issued."
+
+affected_paths = ["04_Software/adore/doctor.py"]
+linked_tests = ["04_Software/tests/test_doctor.py::test_aegis_probe_names_unavailable_interpreter"]
+spec = ""
+priority = "normal"
+
+created = 2026-11-10
+updated = 2026-11-10

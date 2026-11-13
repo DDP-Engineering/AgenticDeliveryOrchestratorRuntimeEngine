@@ -315,6 +315,8 @@ def test_explicit_import_probe_outcomes_reinspect_and_redact(tmp_path, monkeypat
             called = True
         return CommandResult(argv=argv, exit_code=0, stdout="fixture-private-value")
 
+    if mode == "verified":
+        monkeypatch.setattr("adore.web.app._readiness_auth_bound", lambda *a: True)
     if mode in {"partial", "verified"}:
         clone = tmp_path / "repo" / ".agentic"
         clone.mkdir(parents=True)
@@ -532,6 +534,58 @@ def test_import_rejects_active_state_and_conductor_lock(tmp_path):
         finally:
             state.release_lock()
         assert not profiles.exists("alpha")
+
+
+@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}, "checks"])
+def test_import_probe_rejects_invalid_workflow(tmp_path, monkeypatch, bad):
+    """@brief Exact import also validates workflow/checks before releasing evidence."""
+    import adore.web.app as web_app
+
+    evidence = {"checks": dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                                         "executor_cli", "egress_proxy"], True),
+                "workflow": "direct"}
+    if bad == "missing":
+        evidence.pop("workflow")
+    elif bad == "checks":
+        evidence["checks"]["git"] = "not-checked"
+    else:
+        evidence["workflow"] = bad
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **kw: evidence)
+    app = create_app(tmp_path / "home")
+    body = {"name": "alpha", "config_text": _document(tmp_path)}
+    with TestClient(app) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        preview = client.post("/api/v1/projects/import-preview", json=body, headers=headers).json()
+        result = client.post("/api/v1/projects/import-check", headers=headers,
+                             json={**body, "revision": preview["revision"]})
+        assert result.status_code == 503, result.text
+        assert result.json()["detail"]["code"] == "readiness_probe_failed"
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
+@pytest.mark.parametrize("workflow", ["aegis", "direct", "not-inspected"])
+@pytest.mark.parametrize("bound", [True, False])
+def test_import_workflow_is_independent_of_auth_verdict(tmp_path, monkeypatch, workflow, bound):
+    """@brief Exact import uses the prerequisite and authentication verdict, not workflow."""
+    import adore.web.app as web_app
+
+    checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                            "executor_cli", "egress_proxy"], True)
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **kw:
+                        {"workflow": workflow, "checks": checks})
+    monkeypatch.setattr(web_app, "_readiness_auth_bound", lambda *a: bound)
+    app = create_app(tmp_path / "home")
+    body = {"name": "alpha", "config_text": _document(tmp_path)}
+    with TestClient(app) as client:
+        headers = {"X-CSRF-Token": _csrf(client)}
+        preview = client.post("/api/v1/projects/import-preview", json=body, headers=headers).json()
+        result = client.post("/api/v1/projects/import-check", headers=headers,
+                             json={**body, "revision": preview["revision"]})
+        assert result.status_code == 200, result.text
+        assert result.json()["status"] == ("verified" if bound else "partial")
+        assert result.json()["workflow"] == workflow
+        assert result.json()["auth_bound"] is bound
+        assert result.json()["required_checks"] == sorted(checks)
 
 
 # END OF FILE

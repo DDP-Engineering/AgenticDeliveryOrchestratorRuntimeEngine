@@ -219,11 +219,10 @@ def test_partial_enrollment_evidence_remains_partial_and_goes_stale(tmp_path, mo
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": False,
         "egress_proxy": True,
     }
-    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs: {"checks": dict(checks)})
-    monkeypatch.setattr(web_app, "_pending_clone", lambda _body: True)
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs:
+                        {"workflow": "not-inspected", "checks": dict(checks)})
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _body(tmp_path)
     with TestClient(app) as client:
@@ -231,8 +230,7 @@ def test_partial_enrollment_evidence_remains_partial_and_goes_stale(tmp_path, mo
         preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
         reviewed = {**body, "revision": preview["revision"]}
         checked = client.post("/api/v1/projects/setup-check", json=reviewed, headers=headers).json()
-        assert checked["status"] == "partial" and checked["checks"]["aegis_files"] == "not-checked"
-        monkeypatch.setattr(web_app, "_pending_clone", lambda _body: False)
+        assert checked["status"] == "partial" and checked["workflow"] == "not-inspected"
         changed = client.post(
             "/api/v1/projects/setup-create",
             json={**reviewed, "display_name": "Other", "evidence_token": checked["evidence_token"]},
@@ -246,6 +244,7 @@ def test_partial_enrollment_evidence_remains_partial_and_goes_stale(tmp_path, mo
         )
         assert created.status_code == 200, created.text
         assert created.json()["verification"]["status"] == "partial"
+        assert created.json()["verification"]["workflow"] == "not-inspected"
         path = app.state.profiles.config_path("alpha")
         path.write_text(path.read_text(encoding="utf-8") + "\n# edited\n", encoding="utf-8")
         result = client.get("/api/v1/projects").json()[0]
@@ -263,11 +262,11 @@ def test_expired_enrollment_check_is_rejected(tmp_path, monkeypatch):
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
     monkeypatch.setattr(web_app, "monotonic", lambda: tick[0])
-    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs: {"checks": dict(checks)})
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs:
+                        {"workflow": "aegis", "checks": dict(checks)})
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     body = _body(tmp_path)
     with TestClient(app) as client:
@@ -296,10 +295,10 @@ def test_readiness_is_host_bound_and_requires_applicable_checks(tmp_path, monkey
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
     }
-    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs: {"checks": dict(checks)})
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *_args, **_kwargs:
+                        {"workflow": "aegis", "checks": dict(checks)})
     host = ["a" * 64]
     monkeypatch.setattr(local_process, "native_context", lambda: {"host": host[0]})
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
@@ -346,13 +345,13 @@ def test_configured_optional_readiness_check_cannot_be_omitted(tmp_path, monkeyp
             "forge_auth": True,
             "container_runtime": True,
             "executor_cli": True,
-            "aegis_files": True,
         }
         if kind == "executor_sign_in":
             checks.update(executor_sign_in=True, egress_proxy=True)
         else:
             checks["web_search_key"] = True
-        monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **k: {"checks": dict(checks)})
+        monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **k:
+                            {"workflow": "aegis", "checks": dict(checks)})
         checked = client.post("/api/v1/projects/alpha/readiness-check", headers=headers)
         assert checked.status_code == 200, checked.text
         stored = app.state.profiles.profile_dir("alpha") / "readiness.json"
@@ -372,11 +371,11 @@ def test_chatgpt_draft_check_rejects_auth_drift(tmp_path, monkeypatch):
         "forge_auth": True,
         "container_runtime": True,
         "executor_cli": True,
-        "aegis_files": True,
         "egress_proxy": True,
         "executor_sign_in": True,
     }
-    monkeypatch.setattr(web_app, "_probe_setup", lambda *args, **kwargs: {"checks": checks})
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *args, **kwargs:
+                        {"workflow": "aegis", "checks": checks})
     app = create_app(tmp_path / "home", probe_runner=_no_probe)
     auth = app.state.profiles.home / "chatgpt" / "auth.json"
     auth.parent.mkdir(parents=True)
@@ -1031,5 +1030,89 @@ def test_enrollment_refuses_an_invalid_provider_selection(tmp_path, changes, fie
     assert any(issue["field"] == field for issue in preview["issues"]), preview["issues"]
 
 
+@pytest.mark.parametrize("files,workflow", [(None, "not-inspected"), ([], "direct"),
+    (["aegis.toml"], "direct"), (["aegis.py"], "aegis"),
+    (["aegis.py", "aegis.toml"], "aegis")])
+def test_draft_workflow_preview_check_and_creation(tmp_path, files, workflow):
+    """@brief Read-only preview/check agree; creation preserves the measured observation."""
+    body = _body(tmp_path)
+    clone = Path(body["repo_path"])
+    if files is None:
+        (clone / ".git").rmdir()
+        clone.rmdir()
+        body["clone_url"] = "https://forge.test/owner/alpha.git"
+    else:
+        for name in files:
+            target = clone / ".agentic" / name
+            target.parent.mkdir(exist_ok=True)
+            target.write_text("raise RuntimeError('never execute')\n", encoding="utf-8")
+    if files is not None:
+        (clone / "go.mod").write_text("module example\n", encoding="utf-8")
+    before = {str(p.relative_to(clone)): p.read_bytes() for p in clone.rglob("*") if p.is_file()}
+
+    def runner(argv, **kwargs):
+        assert not any("aegis" in str(arg) for arg in argv)
+        return CommandResult(argv=argv, exit_code=127)
+
+    app = create_app(tmp_path / "home", probe_runner=runner)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        assert preview["structural_valid"], preview
+        assert preview["workflow"] == workflow
+        assert "verification_hint" not in preview
+        checked = client.post("/api/v1/projects/setup-check", headers=headers,
+                              json={**body, "revision": preview["revision"]})
+        assert checked.status_code == 200, checked.text
+        assert checked.json()["workflow"] == workflow
+        assert "aegis_files" not in checked.json()["checks"]
+        assert before == {str(p.relative_to(clone)): p.read_bytes()
+                          for p in clone.rglob("*") if p.is_file()}
+        if files is None:
+            assert not clone.exists()
+        else:
+            created = client.post("/api/v1/projects/setup-create", headers=headers, json={
+                **body, "revision": preview["revision"],
+                "evidence_token": checked.json()["evidence_token"]})
+            assert created.status_code == 200, created.text
+            assert created.json()["verification"]["workflow"] == workflow
+            assert created.json()["verification"]["checks"] == checked.json()["checks"]
+            assert before == {str(p.relative_to(clone)): p.read_bytes()
+                              for p in clone.rglob("*") if p.is_file()}
+
+
+@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
+def test_draft_invalid_workflow_never_issues_evidence(tmp_path, monkeypatch, bad):
+    """@brief Draft probes validate the required enum before issuing any token."""
+    import adore.web.app as web_app
+
+    evidence = {"checks": dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
+                                         "executor_cli", "egress_proxy"], True)}
+    if bad != "missing":
+        evidence["workflow"] = bad
+    monkeypatch.setattr(web_app, "_probe_setup", lambda *a, **kw: evidence)
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    body = _body(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client)
+        preview = client.post("/api/v1/projects/setup-preview", json=body, headers=headers).json()
+        result = client.post("/api/v1/projects/setup-check", headers=headers,
+                             json={**body, "revision": preview["revision"]})
+        assert result.status_code == 503, result.text
+        assert result.json()["detail"]["code"] == "readiness_probe_failed"
+        assert "evidence_token" not in result.json()
+        assert not app.state.profiles.profile_dir("alpha").exists()
+
+
 # END OF FILE
 
+
+
+def test_removed_verification_command_cannot_be_reintroduced_through_enrollment(tmp_path):
+    app = create_app(tmp_path / "home", probe_runner=_no_probe)
+    with TestClient(app) as client:
+        headers = _login(client)
+        result = client.post("/api/v1/projects/setup-preview", headers=headers,
+                             json={**_body(tmp_path), "verify_command": "must-not-run"})
+        assert result.status_code == 422
+        assert not app.state.profiles.list_profiles()

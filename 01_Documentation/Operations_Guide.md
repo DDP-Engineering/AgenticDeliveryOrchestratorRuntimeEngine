@@ -7,18 +7,37 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Operations Guide
 
+## First web import
+
+Install and start Docker or Podman on the ADORE server before importing a container
+project. Guided enrollment and raw-file import prepare missing ADORE base and
+network-proxy images automatically and show progress before saving the project
+with monitoring paused. WSL runtimes use their selected distro and Linux account.
+Builds need server internet access even when the agent's internet access is off.
+Simultaneous imports reuse preparation; later imports inspect and reuse the images.
+After a failed build or server restart, retry the import to reuse cached layers.
+Custom project images are prepared by the administrator; native imports do not
+build container images. See [Project executor images](Project_Executor_Images.md).
+
 ## Runtime States
 
 | State | Meaning | Next action |
 | --- | --- | --- |
 | `working` | A fresh stage attempt may run. | Advance, park, or fail within budgets. |
 | `parked-clarification` | A human answer is required. | Comment plus `agent-answered`, or timeout. |
-| `awaiting-approval` | Validated candidate is presented. | Freshly add the approval label, or candidate/target drift invalidates it. |
-| `publishing` | The validated candidate is pushed and its MR/PR opened or adopted. | Reach draft MR/PR or fail loudly. |
+| `awaiting-approval` | Strictly validated AEGIS or explicitly unverified direct candidate is presented. | Freshly add the approval label, or candidate/target drift invalidates it. |
+| `publishing` | The approved candidate is pushed and its MR/PR opened or adopted. | Reach draft MR/PR or fail loudly. |
 | `in-review` | Draft MR/PR awaits human action. | Merge, close, or request a bounded revision. |
 | `failed` | Execution stopped with preserved evidence. | Fix cause, clear pending notification, then explicit retry. |
 | `done` | A human merged the draft. | Cleanup is complete/auditable. |
 | `cancelled` | An operator or closed source ticket ended the run. | Audit state remains; delete explicitly if no longer needed. |
+
+The immutable run `workflow` is `aegis` or `direct`, selected from payload
+presence in the worktree at claim. Direct uses `build -> validate -> done`,
+with validate owned by ADORE and no task id. It has no configured independent
+verification command in this build. Pi's reported checks are summary evidence
+only. Both workflows wait at done for fresh approval and review. See
+[Runtime project contract](Integrating_A_Runtime_Project.md).
 
 AEGIS stage is recorded separately as `frame`, `specify`, `design`, `build`,
 `validate`, or `done`. Quick tasks omit specify/design. Validate closes the
@@ -62,6 +81,7 @@ appended to `journal.jsonl` under the profile state root.
 | `AEGIS_PROTOCOL` | Wrong version/schema, malformed CLI output, identity/path violation. | Repair the target payload/journal; do not repeatedly launch an executor. |
 | `AEGIS_TIMEOUT` / `EXECUTOR_TIMEOUT` | The bounded command runner reports that it killed an AEGIS or executor process. | Inspect resource pressure and the configured bound; stderr wording and exit code alone do not produce this classification. |
 | `NOTIFICATION_DELIVERY` | Required ticket/MR write failed. | Restore forge transport. Polling replays the outbox without an execution slot. |
+| `NO_CHANGES` | Direct session ended successfully without product progress; summary/questions alone do not count. | Inspect the retained agent summary and ticket scope before explicit Retry. |
 | `NO_STAGE_PROGRESS` | The executor exited 0 but AEGIS stayed at the same stage; the evidence ends with the executor's last stderr lines (up to 20, colour codes removed). | Read those lines first, for example auto-rejected tool permissions, fix the executor setup, then let the next attempt run or retry. |
 | `BUDGET_EXHAUSTED` | Iteration/time/cost/file cap reached. | Adjust scope/config deliberately, then retry. |
 | `STALE_WORKING` | A conductor died or lost ownership. | Inspect evidence, reconcile the worktree, then retry. |
@@ -73,11 +93,25 @@ best-effort telemetry.
 
 ## Approval Operations
 
-By default a project requires approval. An administrator may disable **Require human approval before PR/MR** in project settings when jobs are finished; ADORE then checks the validated candidate and target before automatic publication. Revisions and retry follow the same project policy; merge remains human.
+A direct approval presentation shows the retained agent summary, changed-file
+count and exact candidate/target fingerprints. No
+AEGIS task line or strict-check pass is implied. Empty questions files park
+rather than complete a candidate. The summary and configured questions file are
+excluded from all direct checkpoints and published candidates; unsafe present
+summary artifacts prevent checkpoint/approval. A checkpoint failure can resume
+conductor-owned validate without replaying completed implementation. Completion
+and entry into validate are saved together, so an interruption after that write
+can be recovered with Retry even at the launch limit.
 
-The approval presentation leads with the deviations the AEGIS journal
-recorded, as a count and in full, and identifies the validation source, diff
-size, exact commits, candidate fingerprint and target commit.
+On adoption and each freshly approved direct revision, ADORE refreshes the MR/PR
+description with the current summary, file count and candidate binding. A refused
+or timed-out description write fails publication with `MR_CREATE_FAILED` rather
+than entering review with stale evidence. Restore forge access and Retry; the
+same approved description is written again without another implementation session.
+
+For AEGIS the approval presentation leads with the deviations the AEGIS journal
+recorded, as a count and in full, then lists strict evidence, warnings,
+commands, diff size, exact commits, candidate fingerprint and target commit.
 Deviations inform the approver; they never block. Do not pre-apply
 `agent-approved`; ADORE removes and verifies it absent before presentation.
 
@@ -93,12 +127,13 @@ candidate invalidation.
 ## Review Operations
 
 ADORE opens a draft by default, or a ready review when `delivery.draft = false`. Apply `agent-revise` to the MR/PR to request a
-governed revision. The next poll creates a new AEGIS task on the same branch,
-preserves earlier journals, and repeats the path. The configured review-round
+bounded revision. The next poll retains the recorded workflow: AEGIS creates a
+new task on the same branch with earlier journals preserved; direct restarts
+build without a task. Both require a new candidate presentation and approval. The configured review-round
 limit ends visibly on both active surfaces.
 
-The revise label is removed only after provisioning, payload probing, and task
-creation succeed. Failures before that point leave the request visible for a
+The revise label is removed only after provisioning and, for AEGIS, payload
+probing and task creation succeed. Failures before that point leave the request visible for a
 later retry. A crash in the narrow create/remove/state-save boundary can leave
 a duplicate or orphan AEGIS task because AEGIS has no idempotency key; inspect
 the `revision-task-created` journal event before manual recovery.
@@ -131,11 +166,11 @@ decides what a new `failed` verdict does:
 | `notify` | Post one comment on the draft and wait for a human. |
 | `ignore` | Skip the pipeline read entirely. |
 
-A repair round is the same bounded path the revise label uses: a new AEGIS task
-on the same branch, the prior journals preserved, and the executor told that a
-green pipeline is part of this round's acceptance criteria. It therefore ends
-where every other round ends, at strict validation and, when configured, a **fresh human approval**
-before anything is pushed. ADORE still never merges.
+A repair round uses the same recorded workflow and bounded path as the revise
+label. The executor receives the pipeline acceptance criteria and discussion.
+AEGIS repeats strict validation; direct presents a new explicitly unverified
+candidate. Both require **fresh human approval** before review publication.
+Guarded WIP checkpoints may be pushed earlier when enabled. ADORE never merges.
 
 `max_review_rounds` bounds repairs and human-requested revisions together, so a
 permanently red pipeline cannot loop. When the budget is spent, ADORE posts a
@@ -145,8 +180,9 @@ A pipeline that is unreadable, or a `gh` too old to report check status, reads
 as `unknown` and is silent. It never blocks the poll and never triggers a
 repair.
 
-The executor runs `check --strict --run` during Validate, covering the
-commands the target repository configures for AEGIS. Keep those aligned
+For AEGIS runs ADORE also verifies `check --strict --run` in the execution
+environment, which covers
+only the commands the target repository configures for AEGIS. Keep those aligned
 with the pipeline if you want local validation to predict the pipeline result
 and avoid spending repair rounds on failures the container could have caught.
 
@@ -164,6 +200,10 @@ queued without changing its terminal lifecycle or outcome.
 
 ## Stopping and Cleanup
 
+Queued cancellation interrupts Direct verification as well as executor sessions.
+Cancellation takes precedence over a returned verification result, so it cannot
+start a fix attempt or present an approval candidate after the check has stopped.
+
 `cancel` removes active resources and retains audit state. Failed runs keep
 their worktree, container companions, and local evidence for explicit retry;
 routine `cleanup` protects them along with active valid runs. To release a
@@ -180,7 +220,8 @@ single-conductor lock.
 
 ## Native local execution
 
-Native runs retain budgets, AEGIS, questions, approval and draft publication. Parking/retry preserve identity; cancel/delete release only verified scope/worktree.
+Native runs retain their recorded AEGIS/direct workflow, budgets, questions,
+approval and draft/ready publication. Parking/retry preserve identity; cancel/delete release only verified scope/worktree.
 
 See [Local execution](Local_Execution.md) for platform prerequisites, configuration,
 authentication, process ownership and acceptance coverage.

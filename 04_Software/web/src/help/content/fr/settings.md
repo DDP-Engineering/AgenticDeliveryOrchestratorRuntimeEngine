@@ -79,3 +79,6 @@ Les administrateurs peuvent suivre **Ajuster les budgets dans les paramètres du
 Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative en cours garde son délai. Le travail actif est cumulé entre relances, réponses et révisions ; l’attente est exclue. Augmenter une limite conserve le travail consommé, la tâche et la progression. Une tâche échouée par épuisement exige toujours **Relancer** après ajustement. Une configuration invalide ou absente bloque les tentatives suivantes jusqu’à correction.
 
 Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.
+
+
+**Implémentation** (`build`) utilise `workflow.stage_timeout_overrides` ou `budgets.per_gate_timeout_seconds`. Avec AEGIS, **Validation** (`validate`) limite aussi la session de l’agent. ADORE ne lance aucun test supplémentaire ; l’agent choisit les contrôles locaux et CI selon les instructions du dépôt.

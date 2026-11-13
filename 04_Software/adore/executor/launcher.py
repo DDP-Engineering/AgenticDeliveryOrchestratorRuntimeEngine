@@ -48,6 +48,7 @@ from adore.executor.base import ExecTarget, Executor, GateRun
 from adore.isolation import IsolationError
 from adore.pi_installation import GUARD, ManagedPi
 from adore.pi_providers import pi_provider
+from adore.prompts import PromptCatalog
 from adore.util import CommandResult, utc_now_iso
 
 # CONSTANTS
@@ -62,16 +63,6 @@ MODELS_FILE = "pi-models.json"
 #: io-dir file holding pi-web-access's web-search.json before it is copied into
 #: Pi's agent directory; it names the search provider and never a key.
 WEB_SEARCH_FILE = "pi-web-search.json"
-#: System-prompt notice of an internet-off run, so the agent does not keep
-#: retrying tools that cannot reach anything.
-INTERNET_OFF_NOTICE = (
-    "Internet access is off for this project: only the model provider and any extra "
-    "hosts the project allows are reachable. Web search and page reading are "
-    "unavailable, and downloads (curl, npm install, pip install and the like) fail "
-    "for every other host; do not retry a refused download. Work with the repository "
-    "and the tools already installed."
-)
-
 _ARCHIVE_STEM_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 #: Pi RPC launch flags: RPC mode, no session file, no project trust, and none
@@ -524,6 +515,7 @@ class PiExecutor(FileProtocolExecutor):
         internet: bool = False,
         web_search: str = "exa",
         thinking: str = "",
+        prompts: PromptCatalog | None = None,
     ) -> None:
         """
         @brief      Configure Pi from the [executor] section.
@@ -535,7 +527,10 @@ class PiExecutor(FileProtocolExecutor):
         @param[in]  internet `[executor] internet`.
         @param[in]  web_search `[executor.web] search` (used while internet is on).
         @param[in]  thinking Optional validated Pi thinking level.
+        @param[in]  prompts Shared eager catalog, or load all shipped prompts here.
+        @exception  PromptError A shipped prompt resource is invalid or unavailable.
         """
+        self.prompts = prompts if prompts is not None else PromptCatalog()
         self.provider = pi_provider(provider) if provider else ""
         self.model_id = model
         self.models = models
@@ -592,8 +587,9 @@ class PiExecutor(FileProtocolExecutor):
         stderr_path.unlink(missing_ok=True)
         web = self.internet and self.web_search != "none"
         argv_builder = execute.pi_argv if native is not None else pi_rpc_argv
-        notice = ("ADORE does not enforce internet restrictions on this server."
-                  if native is not None else "" if self.internet else INTERNET_OFF_NOTICE)
+        notice = (self.prompts.render("system/server-internet.md")
+                  if native is not None else "" if self.internet else
+                  self.prompts.render("system/internet-off.md"))
         argv = argv_builder(self.model_id, self.provider, web=web, notice=notice,
                             thinking=self.thinking)
         placements = []
@@ -807,7 +803,7 @@ def pi_rpc_argv(model: str, provider: str = "", *, web: bool = False, thinking: 
     @param[in]  thinking Optional validated Pi thinking level.
     @param[in]  web Load the pinned pi-web-access extension (internet on only).
     @param[in]  notice Text appended to Pi's system prompt ("" appends nothing);
-                a stage with internet off passes INTERNET_OFF_NOTICE.
+                a stage with internet off passes the loaded offline notice.
     @return     `node <cli.js> --mode rpc ... -e <guard> [-e <pi-web-access>]
                 [--append-system-prompt <notice>] [--provider <p>] --model <model>`.
     """
@@ -837,6 +833,7 @@ def build_executor(
     internet: bool = False,
     web_search: str = "exa",
     thinking: str = "",
+    prompts: PromptCatalog | None = None,
 ) -> Executor:
     """
     @brief      Construct the Pi launcher (config selection point).
@@ -849,11 +846,12 @@ def build_executor(
     @param[in]  internet `[executor] internet`.
     @param[in]  web_search `[executor.web] search`.
     @param[in]  thinking Optional validated Pi thinking level.
+    @param[in]  prompts Optional conductor-owned catalog shared with the launcher.
     @return     A PiExecutor.
     """
     return PiExecutor(command_template, model, questions_file,
                       provider=provider, models=models, internet=internet,
-                      web_search=web_search, thinking=thinking)
+                      web_search=web_search, thinking=thinking, prompts=prompts)
 
 
 # END OF FILE

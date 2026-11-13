@@ -16,10 +16,18 @@ ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d
 | Cadrage | Le périmètre est convenu et l’exécuteur consigne si la tâche suit le chemin complet ou le chemin rapide. |
 | Spécification | L’exigence est rédigée. |
 | Conception | Une courte note de conception est rédigée pour les travaux non triviaux. |
-| Développement | Un test en échec vient d’abord, puis l’implémentation, jusqu’à ce que les tests passent. |
-| Validation | Revue, suite de tests complète, contrôle strict et rapport AEGIS ; la tâche AEGIS se clôt. ADORE enregistre la validation et applique la politique d’approbation du projet. |
+| Développement | L’agent implémente le ticket et choisit les contrôles adaptés selon les instructions du dépôt. |
+| Validation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 
 Le chemin rapide exécute Cadrage, Développement et Validation. Après la Validation, la tâche affiche l’étape **Terminée** pendant l’attente d’approbation, la publication et la revue humaine. AEGIS peut revenir à toute étape précédente du chemin choisi, dont Conception vers Spécification. ADORE enregistre l’étape et continue dans une nouvelle session, dans les limites existantes. Une tâche terminée revient à Validation si une nouvelle vérification est nécessaire. Une étape dispose par défaut de trois tentatives échouées (**Tentatives échouées autorisées par étape**).
+
+## Travaux directs {#direct-evidence}
+
+La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon le travail enregistré. Un travail direct utilise **Implémentation** (`build`), **Validation** (`validate`), puis **Terminée**. Il n’a ni Cadrage, Spécification, Conception, ni tâche AEGIS. La chronologie ne montre que les événements enregistrés, sans étapes terminées supposées.
+
+**Dernière tentative enregistrée** indique le dernier lancement enregistré de l’agent. Sinon, **Tentative indisponible** apparaît. Les tests et contrôles sont rapportés par l’agent ; ADORE ne les exécute pas indépendamment.
+
+**Implémentation** directe utilise la limite `build` dans `workflow.stage_timeout_overrides`, sinon `budgets.per_gate_timeout_seconds`. **Validation** (`validate`) enregistre le candidat pour approbation sans commande de test séparée.
 
 ## Clarification {#clarification}
 
@@ -29,7 +37,9 @@ Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`
 
 ## Approbation {#approval}
 
-Avec **Exiger une approbation humaine avant PR/MR** activé (par défaut) : ADORE retire `agent-approved`, publie les preuves sur le ticket et attend. La tâche affiche **En attente d'approbation** et le ticket conserve `agent-working`. Les preuves nomment le candidat exact et les écarts éventuellement consignés par l’exécuteur.
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
+Quand l’agent termine son workflow, ADORE enregistre le candidat, retire l’ancienne étiquette d’approbation et demande une nouvelle approbation humaine. Les contrôles du journal sont rapportés par l’agent.
 
 Examinez-le, puis ajoutez de nouveau `agent-approved` ; seul un nouvel ajout compte. L’approbation est liée à ce candidat et au commit de la branche cible. Si l’un des deux change, l’approbation est caduque et ADORE intègre, valide et redemande. Cette attente n’a pas de minuterie. Le détail de la tâche propose **Examiner le candidat sur la forge**.
 
@@ -39,7 +49,7 @@ Si cette option est désactivée, ADORE vérifie le candidat validé et la cible
 
 Après validation et approbation si requise, ADORE pousse la branche et ouvre la MR/PR vers la branche cible, demande une revue aux comptes indiqués dans **Demander une revue à**, et pose `agent-mr`. **État de la PR/MR à la publication** choisit Brouillon (par défaut) ou Prête pour revue. La tâche affiche **Publication** puis **Revue humaine**. ADORE ne fusionne jamais. Après la fusion par une personne, ADORE pose `agent-done`, la tâche affiche **Terminé**, et par défaut la branche distante est supprimée. Une MR/PR fermée sans fusion fait échouer la tâche.
 
-Un relecteur ajoute `agent-revise` pour demander des modifications. ADORE recommence la validation et applique la politique d’approbation du projet. **Nombre maximal de tours de révision** limite ce processus (5 par défaut). Une demande au-delà de la limite fait échouer la tâche.
+Pour demander des modifications, un relecteur ajoute `agent-revise` sur la MR/PR. ADORE retire l’étiquette, démarre un nouveau travail sur la même branche (une nouvelle tâche pour AEGIS), puis répète la validation et une nouvelle approbation avant de pousser. **Nombre maximal de tours de révision** (5 par défaut) borne ce mécanisme. Une demande au-delà de la limite fait échouer la tâche.
 
 Si les vérifications CI échouent sur la MR/PR, **Action en cas d’échec des vérifications CI de la PR/MR** décide : Réparation automatique (par défaut) démarre une révision, Notifier uniquement publie un commentaire, et Ignorer ignore l’état de la CI. Les réparations automatiques partagent le budget de révisions ; une fois celui-ci épuisé, ADORE publie un avis et la tâche reste en revue.
 
@@ -71,7 +81,7 @@ Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un pr
 |---|---|
 | Ticket | Numéro et titre ; ouvre le détail de la tâche. |
 | Projet | Le projet propriétaire. |
-| État | L’état, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |
+| État | L’état, le Workflow enregistré, l’Étape courante, et un lien vers le ticket ou la MR/PR lorsqu’une personne doit agir. |
 | Dernière activité | Heure du dernier événement enregistré. |
 | Consommation | Jetons utilisés par la tâche. |
 

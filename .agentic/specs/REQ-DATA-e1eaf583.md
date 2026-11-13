@@ -16,8 +16,10 @@ Guided setup publishes a stopped profile and returns offline findings. Draft ope
 use secret-free request/response data without durable draft storage. Exact import
 retains its separate established contract.
 
-- ProjectInput accepts supported workflow labels, four run limits and credential
-  environment names. Existing callers retain existing defaults.
+- ProjectInput accepts supported workflow labels, four run limits, credential
+  environment names and optional exact single-line verify_command text (empty by
+  default). Nontext or CR/LF/NUL returns field-identifying invalid_request before
+  canonical preview or creation. Enrollment saves the command but never executes it.
 - setup-preview returns a SHA-256 candidate revision binding exact config bytes,
   identity and description, plus config revision and secret-free canonical review.
 - POST projects/setup-check accepts the full draft and required revision, prepares
@@ -33,16 +35,31 @@ retains its separate established contract.
 
 ## Wizard state
 
-Only guided existing-clone method is active here. Existing exact TOML import remains
-accessible through its established route; portable/clone methods are not offered.
+Guided enrollment starts from a repository URL and clones only at creation, or
+reuses a matching-origin clone at the selected path. Repositories with or without
+AEGIS are eligible. Exact TOML import retains its separate Projects dialog.
 Draft state lives only in the mounted wizard. Any changed answer clears preview,
 verification and review; request generation rejects late results. Back retains values.
 Review Change links focus the matching step and retain all answers.
 No browser secrets are collected or local/session storage drafts written.
 Dirty navigation and beforeunload require a loss warning; sign-out clears the draft.
 
-Verification explains host CLI/auth checks and the disposable offline executor
-container check before the button. No probe occurs on typing or preview.
+Verification explains host CLI/auth checks and the disposable executor
+container check before the button. A separate informational Workflow observation
+uses aegis.py presence only, never a version or readiness gate; an unavailable
+clone stays not-inspected. The optional Verification command is a one-row textarea that retains and
+visibly refuses multiline paste before submit. The repository hint extension
+(REQ-UX-92197baa; TASK-51bf134b) prefills an untouched direct-clone draft from
+separate transient command/source evidence returned by setup-preview and shows
+localized provenance. Applying a default invalidates prior candidate/check/review
+evidence and needs a canonical preview of the resulting exact draft before use.
+Explicit edits and clearing remain authoritative through repeated previews.
+An inspected AEGIS draft substitutes its repository-test-command note without
+erasing the draft text and gets no suggestion. Not-inspected clones get none;
+preview never clones to find a hint. Settings never infers over saved values.
+Offline helper/API/wizard/browser tests cover source provenance, default application,
+explicit edits/clearing, invalid responses and canonical re-preview failures.
+No probe occurs on typing or preview.
 Failed/partial/unverified states remain textually explicit. Structural validity gates
 creation; incomplete readiness does not pretend to be success and does not invent a new
 mandatory readiness gate for stopped enrollment. Review includes verification status.

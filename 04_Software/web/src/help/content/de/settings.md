@@ -79,3 +79,6 @@ Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen
 Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.
 
 Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
+
+
+**Implementierung** (`build`) nutzt `workflow.stage_timeout_overrides` oder `budgets.per_gate_timeout_seconds`. Bei AEGIS begrenzt **Validierung** (`validate`) ebenfalls die Agentensitzung. ADORE startet keine zusätzlichen Tests; der Agent wählt lokale und CI-Prüfungen gemäß den Repository-Anweisungen.

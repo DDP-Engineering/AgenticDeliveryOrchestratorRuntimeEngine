@@ -55,7 +55,12 @@ in-review MR URL. Role is human_responder/human_approver/human_reviewer only wit
 actual evidence; responsible_person remains null because no assignee snapshot exists.
 Evidence locations use composite API detail URL and safe forge comment/MR anchors,
 with source identifiers; GitLab uses note anchors, GitHub/Gitea issuecomment anchors,
-and an unknown forge retains the observed ticket URL; never worktree paths, command outputs, descriptions, outbox bodies or validation payloads.
+and an unknown forge retains the observed ticket URL. Worktree paths, descriptions,
+outbox bodies and general validation payloads remain excluded. Direct details alone
+add the narrow allowlisted saved attempt/independent verification projection defined
+in REQ-DATA-08ed925c: redacted command/output, agreeing result, duration and explicit
+absence, validated from captured sources before filtering/counts. Lists omit this
+object and AEGIS details do not carry it. No engine or storage contract changes.
 Unknown evidence yields null values and availability=unknown, with no invented questions.
 Consumption is {availability: unknown}; metrics are a later contract.
 

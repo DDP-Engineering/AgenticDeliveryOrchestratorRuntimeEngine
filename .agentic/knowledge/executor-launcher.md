@@ -28,7 +28,9 @@ means.
 ## Public interface
 
 - `build_executor(command_template, model, questions_file, *, provider,
-  models, internet, web_search)` returns a `PiExecutor`; Pi is the only executor implementation.
+  models, internet, web_search, thinking, prompts)` returns a `PiExecutor`; Pi is the only executor implementation.
+  Optional `prompts` shares the conductor-owned `PromptCatalog`; standalone
+  construction eagerly loads all resources and refuses bad files with `PromptError`.
   `model` is the model ID within the provider, `provider` the
   `[executor] provider` (mapped by `pi_providers.pi_provider`: `chatgpt` ->
   `openai`, `custom` -> `adore-endpoint`), `models` the endpoint
@@ -87,7 +89,7 @@ environment) from `pi-web-search.json` to the agent directory's
 `web-search.json` first; a failed copy fails the gate with `The web search
 configuration could not be placed in Pi's agent directory: ...`. With
 `internet` off nothing web-related is loaded and the argv adds
-`--append-system-prompt INTERNET_OFF_NOTICE`. `pi_rpc_argv(model, provider, *,
+`--append-system-prompt <offline notice>` from `system/internet-off.md`. `pi_rpc_argv(model, provider, *,
 web, notice)` builds the argv; the Test AI connection passes neither. A launch is complete only on
 `agent_settled` that is not aborted with a last assistant stopReason other
 than `error`; the exit code is not the result. Timeout or cancel sends `abort`,
@@ -125,6 +127,13 @@ launching Pi, and normal bounded recovery applies. Stage limits remain 3000 s.
   quoting; the caller owns stage policy.
 
 ## Key behaviors
+
+- `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`, `REQ-FUNC-14872c0d`: system
+  notices render from the shared shipped catalog. Native RPC always uses
+  `system/server-internet.md`; container RPC uses `system/internet-off.md`
+  only with internet off, and internet-on containers append no notice.
+  Selection and transport preserve original bytes. Loading/rendering contracts
+  belong to `prompts.md`; the executor-neutral gate interface stays unchanged.
 
 - REQ-FUNC-c405688e: optional package_secrets enables post-gate known-credential redaction and 64 KiB retained stdout/stderr, live and archived. Complete original usage is streamed before retention truncation; linked output fails closed. Native and disabled profiles retain existing behavior.
 
@@ -175,6 +184,7 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_pi_rpc.py`, `tests/fake_pi_rpc.py`,
   `tests/fixtures/pi_rpc/` - offline replay of the PI-01 recordings.
 - `04_Software/tests/test_executor.py` - launch, timeout and usage contracts.
+- `04_Software/tests/test_prompts.py` - original notice bytes through native/container branches and shared construction-time reads.
 
 Retained stdout/stderr archives encode the returned text directly as UTF-8 bytes. Host newline conversion cannot enlarge bounded package logs; multiline, redaction-expansion and malformed-UTF-8 cases are covered through the public gate interface. Complete original usage remains independent of text retention.
 

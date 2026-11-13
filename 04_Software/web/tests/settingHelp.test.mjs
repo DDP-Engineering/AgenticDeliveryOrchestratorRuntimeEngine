@@ -34,6 +34,17 @@ test("translations differ from the English text", () => {
   }
 });
 
+test("agent stage limits retain their general-limit fallback in every locale", () => {
+  for (const locale of locales) {
+    for (const key of ["workflow.stage_timeout_overrides", "workflow.stage_timeout_overrides.*"]) {
+      const text = SETTING_HELP[locale][key];
+      assert.match(text, /build/, `${locale}: ${key}`);
+      assert.match(text, /validate/, `${locale}: ${key}`);
+      assert.match(text, /per_gate_timeout_seconds/, `${locale}: fallback`);
+    }
+  }
+});
+
 test("named entries resolve to their pattern text; unknown keys have none", () => {
   assert.equal(settingHelp("executor.model", "en"), SETTING_HELP.en["executor.model"]);
   assert.equal(settingHelp("executor.commands.pi.model", "en"), undefined);  // no per-agent tables

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-08a75f14"
+title = "Withhold verification suggestions for ambiguous subdirectories"
+status = "active"
+requirement = "When no verification table row matches the clone root and several first-level directories match that table, the verification suggestion helper shall return no suggestion."
+verification = "An offline public-helper fixture supplies two matching first-level directories, including different languages and one safe-named plus one unsupported-named matching child, and asserts no suggestion regardless of creation order; removing one matching directory produces the single-child cd suggestion, while adding a root match yields that root command."
+affected_paths = ["04_Software/adore/verification_hint.py"]
+linked_tests = ["04_Software/tests/test_verification_hint.py"]
+spec = "specs/REQ-FUNC-8676b7b9.md"
+priority = "normal"
+created = 2026-11-12
+updated = 2026-11-12

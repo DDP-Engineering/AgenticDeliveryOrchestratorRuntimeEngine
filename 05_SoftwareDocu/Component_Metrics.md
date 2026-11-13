@@ -23,7 +23,7 @@ optional self-contained static HTML file.
 
 - `summarize_run(store, run_id, files_changed)` - compute one flat
   `RunSummary` from the run's journal (the append-only truth), state, and
-  ticket snapshot: outcome, final AEGIS strict-check outcome (`ok` or
+  ticket snapshot: recorded workflow (`aegis` or `direct`), outcome, final AEGIS strict-check outcome (`ok` or
   `failed`), priority, span / parked-wait / time-to-MR
   seconds, gate passes/failures, invariant failures, executor launches,
   clarification/review rounds, token totals and cost (from journal `usage`
@@ -143,12 +143,19 @@ Python/Ruff and frontend validation. CLI summary/export semantics are preserved.
 ## 6. Data Contracts
 
 - One SQLite row per run (`run_summaries`, PK run_id), columns = the
-  `RunSummary` fields; the JSONL mirror always equals the table.
+  `RunSummary` fields; the JSONL mirror always equals the table. The `workflow`
+  column is copied from validated run state and carried through SQLite, JSONL,
+  CSV and HTML. Both summary readers refuse unknown/nontext workflow values.
+  A database without that column is refused, never altered. Before starting
+  this build, delete the configured metrics database (default
+  `<store_root>/metrics.db`) to start fresh; `stats --rebuild` can derive new
+  summaries only from retained current-format run state.
 - `_connect` never alters the table: a `run_summaries` table whose columns
   differ from the current `RunSummary` is refused with `metrics database <path>
   was written by another ADORE build; delete it to start fresh`. The
-  `governance_outcome` value comes from `validation-accepted` and recorded
-  `strict-verification` journal events and is `ok` or `failed`.
+  `governance_outcome` value comes only from schema-1 `strict-verification`
+  journal events and is `ok` or `failed`. Without a strict verdict it stays
+  empty: direct `verification = not configured` state evidence is not a pass.
 - Journal `usage` event shape: `{event: "usage", event_id: "<run>:<attempt>",
   attempt, context: <gate|phase>, executor, model, review_round, tokens_in,
   tokens_out, cost_usd, cost_reported}`. Every usage event carries the
@@ -181,8 +188,9 @@ invented day.
 ## 9. Validation And Tests
 
 - `tests/test_metrics.py`: full catalog computation from a schema-1 journal,
-  including accepted executor validation and recorded strict checks; duplicate-free SQLite
-  round-trip + mirror; refusal of a metrics database of another build
+  including failed and successful strict checks; duplicate-free SQLite
+  round-trip + mirror; both workflow values in every export, corrupt workflow
+  and missing-workflow-column refusal without source changes; refusal of a metrics database of another build
   (`test_metrics_database_of_another_build_is_refused_untouched`); since-window filtering
   (unparseable timestamps excluded), grouped aggregation, CSV/HTML outputs
   (escaping, no scripts), merged-by-human aggregation/profile statistics, and

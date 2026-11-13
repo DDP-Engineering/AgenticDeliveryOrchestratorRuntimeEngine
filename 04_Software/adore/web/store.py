@@ -1498,7 +1498,10 @@ class WebStore:
             "password-reset",
         ) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", detail):
             return detail
-        if action == "chatgpt-sign-in-failed" and re.fullmatch(r"chatgpt_[a-z_]{1,48}", detail):
+        if action == "chatgpt-sign-in-failed" and (
+            re.fullmatch(r"chatgpt_[a-z_]{1,48}", detail)
+            or detail in {"container_runtime_unavailable", "executor_image_unavailable"}
+        ):
             return detail
         return "[redacted]"
 

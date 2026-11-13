@@ -22,11 +22,12 @@ verify with `04_Software/tests/test_orchestrator.py`. Web queueing belongs to
 
 ## Purpose and boundaries
 
-The orchestrator conducts one agent-operated AEGIS task through isolation,
-bounded stage execution, validation and configured draft or ready publication. AEGIS owns its task
-journal and closes it in validate, the executor performs code work, and forge
-adapters perform remote operations. ADORE verifies the validate -> done advance
-itself, presents the candidate and publishes with Git and forge operations only.
+The orchestrator conducts AEGIS and direct runs through isolation, bounded
+execution, candidate evidence and configured draft or ready publication. AEGIS
+owns its task journal; direct validate is conductor-owned and independently
+runs the optional configured command, or explicitly records unverified evidence. The executor performs code work and forge adapters perform remote
+operations. ADORE presents the exact candidate and publishes with Git and forge
+operations only.
 ADORE never merges or gives forge credentials to an executor.
 
 ## Public interface
@@ -34,21 +35,25 @@ ADORE never merges or gives forge credentials to an executor.
 `poll_once(ticket_iid=None)` selects an eligible ticket and conducts its run;
 `run_loop()`, `retry(run_id)`, `cancel(run_id)`, `handoff(run_id)` and
 `reset(run_id, stage)` expose bounded operations; reset accepts `frame`,
-`specify`, `design`, `build`, `validate` or `publishing`.
+`specify`, `design`, `build`, `validate` or `publishing` for AEGIS; direct
+reset accepts only `build`, `validate` or `publishing` before mutation.
 `Orchestrator.from_config()` constructs the conductor from validated settings
 and binds project-scoped forge credentials through repository-auth.md using
 the env-file directory. Worktree/container/executor credentials stay separate.
+`from_config` loads one `PromptCatalog` and shares it with the Pi launcher;
+direct construction accepts `prompts=` or eagerly loads the shipped catalog.
 
 ## Invariants
 
 The conductor owns ticket claiming, worktrees/containers, budgets, retries,
-clarification parking, outbox replay, candidate fingerprinting and policy-governed
-MR/PR publication. One AEGIS task is pinned to each run. The executor's
-validate -> done advance triggers ADORE's own strict verification; strict
-verification and, when configured, fresh candidate-bound approval precede the push and draft or
-ready creation, and no executor session or AEGIS command runs after approval.
-A done task without verification evidence returns to validate through
-one fresh session first, and a failed check is routed back from done. A run
+clarification parking, outbox replay, candidate fingerprinting and human-approved
+MR/PR publication. Workflow is selected from the allocated pinned worktree
+before the first claim save and retained on every continuation. Only absent
+`.agentic/aegis.py` selects direct; present unusable payloads never fall back.
+AEGIS runs pin a task whose done journal is observed without independent tests.
+Direct runs carry no task and use agent implementation summaries. Both apply
+candidate/target freshness and the project approval policy; human approval is
+enabled by default. Neither launches an AEGIS command during publication. A run
 keeps the stage done while it awaits approval, publishes and is in review;
 guarded progress checkpoints default to enabled and stay on the owned ticket branch and do
 not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
@@ -73,14 +78,69 @@ requests do not conduct in the HTTP process.
 
 | Change requested | Start with | Focused verification |
 |---|---|---|
+| Direct selection, conduction and completion recovery | `_has_payload`, `_allocate_worktree`, `_conduct_direct` | `test_orchestrator.py` direct/admission/crash tests |
+| Direct verification, remediation, evidence integrity | `_verify_direct`, `_direct_result`, `_direct_failure_context` | `test_orchestrator.py` configured-verification, duration and tail-boundary tests |
 | Stage flow, verification trigger, return to validate | `_conduct_task_impl`, `_strict_verification`, `_validation_failure` | `test_orchestrator.py` path, route and remediation tests |
 | Approval and publication | `_present_for_approval`, `_approval_ready`, `_publish_impl` | `test_orchestrator.py` publication tests, `test_checkpoint_handoff.py` |
-| Executor prompts | `_stage_prompt` | `test_orchestrator.py` prompt tests |
+| Executor prompts | `_stage_prompt`, `_direct_prompt`, `_execution_notices`, `adore/prompts/`; see `prompts.md` for loading/rendering | `test_prompts.py` original-byte/caller matrix; `test_orchestrator.py` prompt tests |
 | Retry and reset | `retry`, `_published`, `reset`, `RESETTABLE_STAGES` | `test_orchestrator.py` reset tests, `test_smoke.py` |
 | Checkpoints and human handoff | `_checkpoint`, `_push_checkpoint`, `handoff` | `test_checkpoint_handoff.py` |
 | Cleanup | `cleanup`, `purge_resources` | `test_orchestrator.py` cleanup tests |
 
 ## Key behaviors
+
+- `REQ-FUNC-7d73a3eb`, `REQ-REL-2c632559`: direct completion requires settled
+  success, no questions and non-exchange progress. Summary-only work fails
+  NO_CHANGES. Summary is sanitized/saved before owned removal; completion and
+  validate are saved atomically so Retry can checkpoint at the final launch
+  limit without Pi. Missing completion needs build authority.
+- `REQ-FUNC-9b2bf2fb`, `REQ-FUNC-8e4ff7bc`: even empty questions park; answered
+  resumes a fresh direct session with the thread and cumulative budgets.
+- `REQ-SEC-23063055`, `REQ-REL-37072309`: all direct checkpoints, including
+  Retry settlement and handoff, pass literal exchange exclusions and refuse
+  unsafe artifacts; isolation owns index/path/summary mechanics.
+- `REQ-UX-1dcd528c`, `REQ-UX-38ee0625`, `REQ-UX-0d63ca91`, `REQ-UX-50f9bf53`:
+  approval and MR/PR descriptions show summary, file count and candidate binding
+  without a task line. Configured verification shows command, result, exit,
+  duration and literal output; no command retains the exact unverified notice.
+  Adoption/revision refreshes the description only after fresh approval;
+  update refusal retains MR_CREATE_FAILED and Retry repeats without Pi.
+- `REQ-DATA-3e54b751`, `REQ-FUNC-ff7dad34`: direct revisions retain workflow,
+  worktree/branch and no task; drift retains completed implementation but
+  requires integration, exact new evidence and fresh approval. Conflicts
+  return to bounded build. A changed candidate/target requires another configured
+  command result before fresh approval.
+- `REQ-FUNC-21ae8007`, `REQ-FUNC-bea4c0aa`: configured direct completion persists
+  validate before verification, integrates the target and runs the bound command
+  with the validate override/general timeout. Passing evidence precedes final
+  checkpoint/fingerprint/done; target drift or cumulative budget exhaustion
+  prevents approval. Containers use `sh -c`; native execution routes to the
+  dedicated operation in `local-execution.md`.
+- `REQ-REL-465c51f3`, `REQ-REL-84f97f23`, `REQ-REL-63496e9f`, `REQ-FUNC-e969d30e`:
+  failed or authoritative timed-out commands count once through shared
+  stage_failures/history and atomically route to build. Successful fix builds
+  preserve the count; exhaustion stops as VERIFICATION_FAILED with last evidence.
+  Explicit Retry re-arms only that counter, retaining cumulative budgets/history.
+- `REQ-DATA-72e08277`, `REQ-REL-4deb6eed`, `REQ-FUNC-e5899386`: retain the latest
+  `verification_result={command, exit_code, seconds, timed_out, output}` with
+  status passed/failed/timed out. Output is sanitized before its last-200-line,
+  6000-character cut, stdout then stderr. Readback preserves valid leading
+  character-cut whitespace while checking sanitation, normalized lines and bounds;
+  malformed types/status/command or nonfinite/negative/float-unrepresentable
+  duration fail with typed integrity outcomes. Fresh fix/Retry prompts reconstruct
+  command, exit, status and output from this evidence; a pass replaces a failure.
+- `REQ-FUNC-91892175`: AEGIS ignores verify_command; strict commands, prompts and
+  successful-transition counter resets remain its own. Unconfigured direct runs
+  retain the explicit unverified path.
+
+- `REQ-FUNC-1f56bfac`, `REQ-FUNC-e8d63a5c`, `REQ-FUNC-14872c0d`: stage,
+  recovery and review text comes from the eagerly checked shipped catalog.
+  Python retains conditional selection, order, joins, description stripping,
+  sanitization and thread rendering. Missing/malformed resources fail with
+  file-named `PromptError` at construction; missing render values fail closed.
+  Original byte captures prove stages, hints, recovery/review callers, package
+  permissions and effective open/proxy/native policies; injected none cases
+  cover interpolation only. See `prompts.md` for resource/error contracts.
 
 - REQ-FUNC-cad97f4d / REQ-REL-8fe70d7b / REQ-DATA-0c65db9f: before provision and each executor attempt, reread the selected source, validate budgets and pin parsed/resolved non-budget settings. Only budgets are rebound; no branch matcher/host probe is rerun. Missing/corrupt/unknown input or non-budget drift fails BUDGET_CONFIG_INVALID before another launch. Active time, sessions and saved task/worktree progress stay cumulative across resume/retry/revision. An in-flight launch retains its timeout. Proof includes public Retry boundaries and HTTP parked-budget save followed by same-job resume in test_orchestrator.py.
 
@@ -168,6 +228,8 @@ Container profiles without recipes or enabled package permission retain the exis
 
 
 - `04_Software/adore/orchestrator.py` - lifecycle and gate logic.
+- `04_Software/adore/prompts.py`, `adore/prompts/` - shared catalog and text resources.
+- `04_Software/tests/test_prompts.py` - byte oracles, real recovery/review callers and catalog sharing.
 - `04_Software/tests/test_orchestrator.py` - selection, recovery and delivery.
 - `04_Software/tests/test_checkpoint_handoff.py` - checkpoint and handoff edges.
 

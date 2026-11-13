@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { useId, useRef, useState, type ReactNode } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { activityAge, commandAllowed, stableExecutionDrift, type Job } from "./jobModel";
-import { budgetCopy, jobCopy, jobGuidance, lifecycleExplanation } from "./jobCopy";
+import { budgetCopy, directCopy, jobCopy, jobGuidance, lifecycleExplanation } from "./jobCopy";
 import { jobDetailsCopy } from "./jobDetailsCopy";
 import { recoveryCopy } from "./recoveryCopy";
 import { ticketCopy } from "./ticketCopy";
@@ -20,12 +20,12 @@ type Tab = "activity" | "evidence" | "technical";
 type Props = {
   job: Job; locale: Locale; t: (key: MessageKey) => string; admin: boolean; busy: boolean;
   onClose: () => void; onCommand: (action: "retry" | "cancel" | "restart", job: Job) => void;
-  consumption: ReactNode; output: ReactNode; timeline: ReactNode;
+  consumption: ReactNode; output: ReactNode; timeline: ReactNode; directEvidence?: ReactNode;
   stageLabel: string; stageName: (stage: string) => string; statusLabel: string;
 };
 
 /** Present only saved job evidence; commands keep their existing worker-owned authorization. */
-export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, consumption, output, timeline, stageLabel, stageName, statusLabel }: Props) {
+export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, consumption, output, timeline, directEvidence, stageLabel, stageName, statusLabel }: Props) {
   const copy = jobCopy[locale], text = jobDetailsCopy[locale], budget = budgetCopy[locale];
   const [selected, setSelected] = useState<Tab>("activity");
   const [eventLimit, setEventLimit] = useState(10);
@@ -56,7 +56,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, co
   return <section className="panel detail-panel job-details" aria-label={`${t("ticket")} #${job.ticket_iid}`}>
     <header className="job-detail-header">
       <div className="job-detail-title"><h2><span>{t("ticket")} #{job.ticket_iid} · </span>{job.ticket_title || copy.titleUnknown}</h2><button className="ghost" onClick={onClose}>{t("close")}</button></div>
-      <div className="job-detail-meta"><span>{t("stage")}: <strong>{stageLabel}</strong></span><span>{job.project_display_name}</span>
+      <div className="job-detail-meta"><span>{t("stage")}: <strong>{stageLabel}</strong></span><span>{directCopy[locale].workflow}: {job.workflow === "direct" ? directCopy[locale].direct : "AEGIS"}</span><span>{job.project_display_name}</span>
         {job.ticket_url && <a href={job.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}
         {commands.length > 0 && <details className="job-actions"><summary>{text.actions}</summary><div className="job-action-menu">
           {commands.map(action => <div key={action}><p className="field-hint">{action === "restart" ? recoveryCopy[locale].help : action === "retry" ? copy.retryHelp : copy.cancelHelp}</p>
@@ -67,7 +67,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, co
     <div className="job-detail-grid">
       <section className={`next-action-panel job-state job-state-${job.lifecycle}`} aria-label={copy.now}>
         <h3>{copy.now}</h3><StatusBadge code={job.lifecycle}>{statusLabel}</StatusBadge>
-        <p className="job-state-description">{lifecycleExplanation(locale, job.lifecycle)}</p>
+        <p className="job-state-description">{(job.workflow === "direct" && job.lifecycle === "working" ? directCopy[locale].working : lifecycleExplanation(locale, job.lifecycle))}</p>
         {job.lifecycle === "working" && <p>{jobGuidance(locale, job.lifecycle).reason}</p>}
         {job.stage_failures > 0 && <p className="notice" role="status">{copy.stageFailures.replace("{count}", String(job.stage_failures))}</p>}
         <div className="job-next-step"><h4>{text.next}</h4><div><strong>{actor}{job.waiting.responsible_person ? ` · ${job.waiting.responsible_person}` : ""}</strong><p>{next}</p>
@@ -111,6 +111,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, co
         {job.ticket_url && <a className="ghost link-button" href={job.ticket_url} target="_blank" rel="noreferrer">{t("ticket")} ↗</a>}
         {job.mr_url && <a className="ghost link-button" href={job.mr_url} target="_blank" rel="noreferrer">{t("draft")} ↗</a>}</div>
       {!job.ticket_url && !job.mr_url && !canNavigate && <p>{copy.evidenceMissing}</p>}
+      {directEvidence}
       {job.preparation && <PreparationResults evidence={job.preparation} locale={locale} />}
     </section>
     <section id={`${prefix}-technical`} role="tabpanel" tabIndex={0} aria-labelledby={`${prefix}-technical-tab`} hidden={selected !== "technical"} className="job-detail-content">

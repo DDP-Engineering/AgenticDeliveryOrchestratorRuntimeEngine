@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import type { Locale } from "./i18n";
 
+
 export const executionStages = ["frame", "specify", "design", "build", "validate"] as const;
 
 /** Exact collection domains shared by draft and persisted candidate validation. */

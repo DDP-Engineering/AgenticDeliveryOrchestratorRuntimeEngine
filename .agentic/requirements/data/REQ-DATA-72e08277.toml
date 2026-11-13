@@ -1,0 +1,18 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-DATA-72e08277"
+title = "Retain bounded sanitized direct verification evidence"
+status = "active"
+requirement = "When a configured direct verification invocation completes or times out, the conductor shall store its latest command, exit code, elapsed duration and last at most 200 output lines in run.validation_evidence through the existing sanitiser."
+verification = "Offline fake command results supply known stdout/stderr, exit values and a fake elapsed clock; reload the run after pass, failure and timeout and compare evidence, with 199/200/201-line output, 5999/6000/6001-character boundaries including cuts exposing leading spaces/tabs/newlines, NUL and credential-bearing text proving tail bounds and sanitization before retention, and fail-then-pass proving the final record is the pass through remediation, approval and publication; public native controller tests also prove exact sanitized stdout/stderr tails for offset/self-overlapping credentials, partial cross-read matches and long overlap chains at chunk and rolling-eviction boundaries on success, nonzero exit and timeout with owned cleanup."
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/local_execution.py", "04_Software/adore/local_process.py"]
+linked_tests = ["04_Software/tests/test_orchestrator.py::test_direct_configured_verification_bounds_and_evidence", "04_Software/tests/test_orchestrator.py::test_direct_verification_output_boundaries", "04_Software/tests/test_orchestrator.py::test_direct_verification_character_boundaries", "04_Software/tests/test_local_execution.py::test_native_verification_capture_keeps_true_sanitized_tail", "04_Software/tests/test_local_execution.py::test_native_verification_capture_masks_overlapping_secrets"]
+spec = "specs/REQ-FUNC-bea4c0aa.md"
+priority = "high"
+rationale = "The independent result, not Pi's reported checks, is the verification evidence."
+created = 2026-11-12
+updated = 2026-11-12

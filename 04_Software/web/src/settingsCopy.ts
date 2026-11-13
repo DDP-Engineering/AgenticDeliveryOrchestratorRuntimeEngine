@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import type { Locale } from "./i18n";
+import type { Locale } from "./i18n.ts";
 
 /** Branch row/editor/review names and server preview findings share four locales. */
 export const branchNamingCopy = {

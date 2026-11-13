@@ -73,7 +73,7 @@ to serve existing clients.
 ## 6. Data Contracts
 
 Each list job exposes `project_id`, project labels/archive flag, `run_id`, ticket
-number/actual title/URL, MR URL, exact `lifecycle`, `stage`, `outcome`,
+number/actual title/URL, MR URL, exact `lifecycle`, `stage`, `workflow`, `outcome`,
 stage/review counters, `created_at`, `updated_at`, `last_activity_at`, `waiting`,
 `evidence_url`, `coverage` and `consumption`. Empty outcomes remain empty.
 No stage implies completion, waiting, a reviewer or a next action.
@@ -112,7 +112,27 @@ HTTP(S) source links require valid host/port and exclude credentials, query/frag
 controls and backslashes, including percent-decoded forms. Free text redacts
 common token/password/secret/API-key/authorization assignments and Basic/Bearer
 credentials. Descriptions, authors, arbitrary journal values, financial payloads,
-outbox bodies, worktree paths and validation command output are excluded.
+outbox bodies, worktree paths and general validation payloads are excluded. The
+projection below contains only the recorded agent attempt.
+
+`workflow` is the recorded `aegis` or `direct` value in authorized list and detail
+reads. Missing/unknown/nontext workflows and direct AEGIS task bindings return
+503 `run_state_corrupt`, never an inferred value. Jobs uses that saved value for
+workflow labels and direct-stage presentation; repository readiness cannot replace it.
+
+Direct details expose only the closed `direct = {attempt}` object. The attempt
+comes from the last recorded stage launch, never from budget or failure counters.
+Old independent-verification fields in retained state are not projected or executed.
+The UI displays agent attempts without command/result/output verification panels.
+
+`_direct_evidence` consumes the same captured run/events as `_view`, before filters,
+counts or paging. `jobs_page` strips `direct` along with timeline from list rows.
+AEGIS details omit `direct`. Direct execution stages are build/validate/done.
+The failed `publishing` recovery pointer is also readable, and a `reset` event may
+record `publishing` even after Retry has completed. Other events cannot introduce
+that execution stage. Malformed saved state/result produces `run_state_corrupt`,
+malformed attempts/events produce `run_journal_corrupt`. No source is repaired,
+engine helper invoked, stored field added or execution behavior changed.
 
 Schema-1 state is validated without adding fields or writing defaults. Ticket
 and journal files may be absent; malformed files, duplicate JSON keys,
@@ -148,7 +168,10 @@ Use `project_id=<immutable ID>` for the same model within a single authorized pr
 ## 9. Validation And Tests
 
 `tests/test_web_jobs.py` verifies multi-project paging/search, totals, grants and
-direct routes, colliding run IDs, timezone ties, source/grant mutations,
+direct routes, recorded workflows for Admin and scoped Developer reads,
+corrupt workflow/task refusal without source changes, direct attempt and all verification
+outcomes/absence, exact large exits, redaction, Unicode bounds, malformed selected
+evidence, absent current config, colliding run IDs, timezone ties, source/grant mutations,
 archived/missing metadata, wait evidence, forge anchors, unsafe URLs, corrupt
 state/tickets/journals, secret filtering, IO failures and zero subprocess calls.
 Advanced-filter/timeline tests prove matching, bounds, corruption/redaction and

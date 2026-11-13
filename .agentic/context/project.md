@@ -19,8 +19,36 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 ## Purpose and users
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
-opt-in GitHub, GitLab or Gitea tickets. Repositories without AEGIS get the direct
-workflow planned in `00_Planning/2026-11-10_Direct_Workflow_Without_AEGIS/PLAN.md`.
+opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
+`.agentic/aegis.py` use bounded fresh direct implementation attempts and optional
+independent verification before human approval; an empty command keeps candidates
+explicitly unverified. A present unsupported or
+broken payload is refused without fallback. Web enrollment accepts repositories
+with or without AEGIS. Guided enrollment and scalar/batch settings APIs accept an
+exact optional single-line verification command under existing reviewed revision
+and access boundaries; invalid nontext, CR/LF/NUL are refused with field feedback.
+Enrollment Verification and Settings Implementation expose the optional command
+through one-row textareas, exact domain validation and localized feedback. For an
+inspected direct clone, enrollment prefills only an untouched draft from a shared
+bounded file-only reader and identifies the source in all four locales. Init offers
+the same suggestion with explicit keep/edit/none choices. Root matches precede a
+unique immediate-child match; external links and files over 1 MiB are ignored.
+Discovery never runs a command or publishes configuration. Human edits/clearing
+and saved Settings remain authoritative; only confirmed Create/Save/init persists
+chosen text. An inspected AEGIS enrollment shows the repository-test-command note
+instead, and AEGIS or unavailable clones receive no suggestion.
+API and browser readiness report a separate
+read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
+checks and stores schema-3 evidence with strict deletion guidance on corruption.
+Pending-clone evidence transfers unchanged at creation; the runtime pre-pick probe
+remains authoritative. Jobs identifies each saved workflow in the list and detail.
+Direct jobs show only Implementation/build, Validation/validate and Done stage
+evidence without an AEGIS task, plus the last recorded executor attempt and saved
+independent verification command/result, duration and bounded redacted literal tail.
+Passed, failed, timed out, explicit not-configured/unverified and unavailable are
+distinct; unknown workflows and corrupt direct transport fail closed and hide stale
+evidence. Current configuration cannot replace saved results. Four-locale Jobs and
+Settings help maps direct stage limits to build/validate with general fallback.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval when configured, or automatically after validation and freshness checks when disabled. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
@@ -36,17 +64,28 @@ ADORE's only coding agent.
 - Native Python children use ADORE-owned UTF-8 standard-stream settings; localized
   evidence does not depend on the Windows code page, and corrupt bytes remain refused.
 - `adore/orchestrator.py` claims tickets, provisions isolation, supervises
-  stages, bounds failures, parks clarifications, replays notifications,
-  verifies strictly and publishes drafts; `adore/state.py` persists schema-1
+  stages or direct implementation, bounds failures, parks clarifications,
+  replays notifications, verifies AEGIS strictly or runs optional direct
+  verification with bounded fresh fixes, records explicit unverified evidence
+  when no command is configured and publishes draft/ready reviews; `adore/state.py` persists schema-1
   run state, the single-conductor lock and an append-only JSONL journal.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
   fingerprints and the Docker/Podman lifecycle; `adore/executor/` launches
   Pi in a container as one `pi --mode rpc` process per stage (`pi_rpc.py`)
   and ADORE-managed native Pi through the same RPC protocol.
+- `adore/prompts.py` eagerly validates the fixed licensed Markdown catalog in
+  `adore/prompts/`; the conductor and Pi launcher share it. Named values are
+  inserted once as literal data, headers are excluded and body bytes preserved.
+  File/encoding/header/template errors and missing values fail closed with
+  file-named `PromptError`. Composition and notice selection remain caller-owned.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
-  profile homes and the `adore` command; `metrics.py`, `process_log.py`,
+  profile homes and the `adore` command; `verification_hint.py` supplies shared
+  read-only repository command/source suggestions to CLI init and web preview.
+  Malformed package evidence is a miss, including decoder-limit failures;
+  filesystem/encoding errors refuse discovery rather than guessing a default.
+  `metrics.py`, `process_log.py`,
   `identity.py`, `branding.py` and `util.py` provide run statistics, mirrored
   logs, derived resource names, identity constants and shared helpers.
 - The optional `adore/web/` API, SQLite identity/operation store and worker
@@ -110,15 +149,33 @@ each component to its source and tests.
 One conductor per state root polls in a loop or in externally scheduled single
 passes, on Windows 11 through Task Scheduler or on Ubuntu 22+ through systemd.
 Run lifecycle states (`working`, parked, awaiting approval, publishing, in
-review, terminal) are separate from the AEGIS stage. The executor's validate
-session closes the AEGIS task; ADORE verifies that advance itself, and the run
-stays at stage done while it awaits approval, publishes and is in review.
+review, terminal) are separate from workflow stage. Workflow is selected from
+the pinned worktree before the first claim save and retained on continuation.
+The executor's validate session closes an AEGIS task; ADORE verifies that advance
+itself. Direct uses build/validate/done with no task bindings: settled changed
+work without questions saves completion/validate atomically, then checkpoints
+and integrates the target. Configured workflow.verify_command runs independently
+through the owned environment under the validate timeout; pass precedes the final
+checkpoint/fingerprint. Failures/timeouts count once under max_stage_failures and
+route to fresh build sessions with retained sanitized command/exit/output context;
+successful fix builds preserve the count. Exhaustion stops VERIFICATION_FAILED;
+explicit Retry re-arms it while retaining history/work and cumulative budgets.
+Empty configuration records not-configured evidence. Retry can finish completed
+validation without another launch; missing completion needs build authority.
+AEGIS ignores verify_command and keeps its strict commands and counter resets. Both runs
+stay at stage done while awaiting approval, publishing and in review.
 A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
 budget, and required forge notifications pass through a persisted outbox. Parked cleanup is durably settled before polling resumes; status replay reconciles the current lifecycle labels.
 Publication requires a fresh `agent-approved` label bound to the exact
-candidate fingerprint and target commit; every review round repeats validation
-and approval.
+candidate fingerprint and target commit; every review round repeats
+workflow-appropriate evidence and approval. Direct approval and MR/PR bodies
+show the retained agent summary, file count and configured command/result or
+explicit unverified notice; adopted and
+revised reviews refresh that description without changing review settings.
+Summary/questions are excluded from direct progress/checkpoints/publication;
+unsafe present artifacts fail closed. Direct summaries never count as a strict
+verification pass. Metrics and authorized job reads serialize recorded workflow.
 The shared CLI/web default publishes guarded work-in-progress checkpoints to
 the owned ticket branch before approval, without opening an MR/PR; an explicit
 false keeps intermediate checkpoints local. An operator
@@ -132,7 +189,8 @@ protects the worktree from routine cleanup and further autonomous execution.
 - ADORE companion version/schema policy is declared in `adore/aegis.py`.
   It never edits the AEGIS payload. ADORE releases use independent Semantic
   Versioning; companion compatibility is verified separately.
-- Run state is schema 1 with no migration from earlier builds; state with
+- Run state is schema 1 with required aegis/direct workflow and no migration
+  from earlier builds; direct task bindings or AEGIS-only stages, state with
   unknown or missing keys, an unknown stage (the removed `deliver` included) or
   corrupt values fails closed with the run directory to delete.
 - Executors use the selected container/native backend, never receive forge credentials, and never
@@ -248,7 +306,11 @@ Project Settings → Agent and model owns the Pi model and launch command settin
 LocalBackend and owned Windows Job/Linux delegated cgroup scopes share the existing
 conductor. Actual machine/account, non-secret environment and installed executable
 identity are pinned. Tools and auth remain operator-owned; worktrees are not host
-sandboxes. The installed Pi uses the account's existing sign-in at
+sandboxes. Configured direct verification alone permits an exact owned platform
+shell operation (Windows cmd from bound SystemRoot, Linux /bin/sh), with the
+service account's permissions and no container isolation. Ordinary native argv
+shell refusal remains. Verification keeps bounded sanitized true trailing output
+and confirms owned cleanup on success, failure and timeout. The installed Pi uses the account's existing sign-in at
 `$PI_CODING_AGENT_DIR/auth.json` (default `~/.pi/agent/auth.json`) or approved
 provider keys. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
 

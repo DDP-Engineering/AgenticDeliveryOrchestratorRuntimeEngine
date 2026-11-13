@@ -13,7 +13,7 @@ import { messages } from "../src/i18n.ts";
 const id = "a".repeat(32), snapshot = "b".repeat(64);
 const job = () => ({ project_id: id, project_name: "alpha", project_display_name: "Alpha",
   project_archived: false, run_id: "one", ticket_iid: 1, ticket_title: null,
-  ticket_url: null, mr_url: null, lifecycle: "working", stage: "build", status_group: "active",
+  ticket_url: null, mr_url: null, workflow: "aegis", lifecycle: "working", stage: "build", status_group: "active",
   outcome: "", stage_failures: 0, review_rounds: 0, created_at: null, updated_at: null, last_activity_at: null,
   waiting: { availability: "unknown", reason: null, next_action: null, responsible_role: null,
     responsible_person: null, evidence_url: null, source: null },
@@ -149,6 +149,58 @@ test("normal lifecycle guidance and failure labels exist in all four locales", a
   }
 });
 
+const directJob = () => ({...job(), workflow:"direct", timeline:[], direct:{attempt:2}});
+const detailOf = row => readJobDetail({job: row, complete: true, snapshot}, id, "one");
+
+test("direct stage labels and timeline use the interface terms in every locale", async () => {
+  const {directCopy, workflowStageLabel} = await import("../src/jobCopy.ts");
+  for (const locale of ["en", "fr", "de", "ro"]) {
+    const t = key => messages[locale][key];
+    assert.equal(workflowStageLabel("build", "direct", t), t("directImplementationStage"));
+    assert.equal(workflowStageLabel("validate", "direct", t), t("directValidationStage"));
+    assert.equal(workflowStageLabel("done", "direct", t), t("done"));
+    for (const stage of ["frame", "specify", "design", "build", "validate"]) {
+      assert.equal(workflowStageLabel(stage, "aegis", t), t(`${stage}Stage`));
+    }
+    for (const key of ["directImplementationStage", "directValidationStage", "done"])
+      assert.ok(directCopy[locale].timeline.includes(t(key)), `${locale}: ${key}`);
+  }
+});
+
+test("recorded workflow is required in list and detail without a guessed default", () => {
+  for (const workflow of ["aegis", "direct"]) {
+    assert.equal(readJobPage({...page(), items: [{...job(), workflow}]}, [id]).items[0].workflow, workflow);
+    assert.equal(detailOf(workflow === "direct" ? directJob() : {...job(), timeline: []}).workflow, workflow);
+  }
+  for (const workflow of [undefined, null, "unknown", "Direct", 0, [], ["aegis"], ["direct"], {}]) {
+    assert.throws(() => readJobPage({...page(), items: [{...job(), workflow}]}, [id]), /unexpected_response/);
+    assert.throws(() => detailOf({...directJob(), workflow}), /unexpected_response/);
+  }
+});
+
+
+
+
+
+test("direct current and timeline stages reject AEGIS-only or unknown stages", () => {
+  for (const stage of ["frame", "specify", "design", "publishing", "unknown"]) {
+    assert.throws(() => readJobPage({...page(), items: [{...job(), workflow: "direct", stage}]}, [id]));
+    assert.throws(() => detailOf({...directJob(), stage}));
+    assert.throws(() => detailOf({...directJob(), timeline: [{ts: null, event: "stage-launch", stage}]}));
+    if (stage !== "unknown") assert.equal(detailOf({...job(), stage, timeline: []}).stage, stage);
+  }
+});
+
+test("direct publication reset remains readable before and after retry", () => {
+  const reset = {ts: null, event: "reset", stage: "publishing"};
+  const row = {...directJob(), lifecycle: "failed", status_group: "terminal", stage: "publishing", timeline: [reset]};
+  assert.equal(detailOf(row).stage, "publishing");
+  assert.equal(readJobPage({...page(), items: [row]}, [id]).items[0].stage, "publishing");
+  assert.deepEqual(detailOf({...directJob(), timeline: [reset]}).timeline, [reset]);
+});
+
+
+
 test("executor output transport is identity bound and closed to arbitrary transcripts", async () => {
   const { readExecutorOutput } = await import("../src/jobModel.ts");
   const evidence = {project_id:id,run_id:"one",availability:"observed",stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",
@@ -162,4 +214,12 @@ test("executor output transport is identity bound and closed to arbitrary transc
     {recorded_at:"2026-11-05"},{state_revision:"unknown"},{in_progress:1}]) {
     assert.throws(()=>readExecutorOutput({...evidence,...change},id,"one"));
   }
+});
+
+
+test("direct details expose attempts without independent verification fields", () => {
+  assert.deepEqual(detailOf(directJob()).direct, {attempt:2});
+  for (const attempt of [0, -1, true, 1.5, 2**53])
+    assert.throws(() => detailOf({...directJob(), direct:{attempt}}));
+  assert.throws(() => detailOf({...directJob(), direct:{attempt:2, verification:{status:"passed",result:null}}}));
 });

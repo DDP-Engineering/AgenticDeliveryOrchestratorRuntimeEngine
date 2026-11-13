@@ -11,6 +11,8 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
+Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
+
 ## Zuerst die Labels anlegen {#labels}
 
 GitHub und Gitea lehnen einen unbekannten Labelnamen ab, sodass ein fehlendes Label Statusaktualisierungen fehlschlagen lässt. Alle folgenden Labels müssen vor dem ersten Start im Forge-Repository existieren. ADORE legt fehlende Labels beim Hinzufügen eines Projekts an (**ADORE-Labels im Repository anlegen**, in Prüfen und erstellen standardmäßig aktiviert) oder wenn Sie in Einstellungen → Repository **Fehlende Labels anlegen** drücken; vorhandene Labels werden nie geändert oder gelöscht, und ADORE zeigt, was angelegt wurde, was schon existierte und was fehlschlug (etwa wenn das Forge-Konto des Servers keine Labels anlegen darf). Die Namen sind Standardwerte; benennen Sie eines nur gemeinsam mit seiner Projekteinstellung um.

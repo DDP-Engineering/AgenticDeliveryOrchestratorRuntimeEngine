@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-1f56bfac"
+title = "Store agent-facing fragments as shipped Markdown files"
+status = "active"
+requirement = "When ADORE supplies stage, recovery, review or system-notice text to Pi, it shall source each fixed fragment from its own project-license-comment-prefixed Markdown file in the application-relative adore/prompts/stage, recovery, review or system directory rather than a Python prompt literal, with no configurable alternate resource location."
+verification = "Inspect the enumerated stage paragraphs, five recovery sites, pipeline brief, ticket-content-change note and offline/server notices against their resource files and integration calls; check that no listed prompt literal remains in orchestrator.py or launcher.py and that both package-permission variants and conditional fragments are represented."
+affected_paths = ["04_Software/adore/prompts/", "04_Software/adore/prompts.py", "04_Software/adore/orchestrator.py", "04_Software/adore/executor/launcher.py", "04_Software/tests/test_prompts.py", "05_SoftwareDocu/Component_Prompts.md"]
+linked_tests = ["04_Software/tests/test_prompts.py::test_all_shipped_fragments_match_original_bytes"]
+priority = "normal"
+created = 2026-11-11
+updated = 2026-11-11

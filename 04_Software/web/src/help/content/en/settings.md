@@ -79,3 +79,6 @@ Administrators can follow **Adjust budgets in project Settings**, open **Impleme
 Budgets are reread before each attempt, including resume and retry. A running attempt keeps its timeout. Active work is cumulative across retries, clarification answers and revisions; waiting time is excluded. Raising a limit preserves consumed work, the task and saved progress. A failed exhausted job still needs **Retry** after adjustment. Invalid or missing configuration stops further attempts until corrected.
 
 If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
+
+
+**Implementation** (`build`) uses `workflow.stage_timeout_overrides` or the general `budgets.per_gate_timeout_seconds`. For AEGIS, **Validation** (`validate`) bounds the agent session too. ADORE does not run additional tests; the agent selects local and CI checks according to the repository instructions.

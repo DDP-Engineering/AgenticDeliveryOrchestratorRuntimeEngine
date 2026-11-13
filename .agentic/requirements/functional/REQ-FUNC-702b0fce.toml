@@ -13,4 +13,4 @@ affected_paths = ["04_Software/adore/web/app.py"]
 linked_tests = ["04_Software/tests/test_web_enrollment.py","04_Software/tests/test_web_readiness.py"]
 spec = "specs/REQ-DATA-e1eaf583.md"
 created = 2026-10-05
-updated = 2026-10-05
+updated = 2026-11-12

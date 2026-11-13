@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 """
 @file       implementation_settings.py
-@brief      Closed retry-schedule, stage-timeout and provider-name candidate values.
+@brief      Exact verification text and closed Implementation candidate values.
 @details    Preserves unrelated human TOML and verifies the exact semantic edit.
 """
 
@@ -33,6 +33,8 @@ MAX_SAFE_INTEGER = 9007199254740991
 
 
 # PUBLIC API
+
+
 def valid_collection(key: str, value: object) -> bool:
     """@brief Check the exact supported collection type and its bounded domain.
     @param[in] key Complete configuration key.
