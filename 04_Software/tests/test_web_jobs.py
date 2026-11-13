@@ -1081,3 +1081,27 @@ def test_event_stage_context_corruption_fails_closed(tmp_path, name, detail):
         response = client.get("/api/v1/jobs-page")
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "run_journal_corrupt"
+
+
+def test_legacy_aegis_jobs_remain_visible_without_changing_saved_history(tmp_path):
+    """Legacy task bindings restore project counters, Jobs and detail reads."""
+    _, items, stores, app = _fixture(tmp_path)
+    path = stores[0].run_dir("same") / "state.json"
+    document = json.loads(path.read_text())
+    document.update(active_task_id="TASK-aaaaaaaa", task_ids=["TASK-aaaaaaaa"])
+    document.pop("workflow")
+    path.write_text(json.dumps(document), encoding="utf-8")
+    before = path.read_bytes()
+    with TestClient(app) as client:
+        _login(client)
+        projects = client.get("/api/v1/projects")
+        assert projects.status_code == 200, projects.text
+        project = next(item for item in projects.json() if item["id"] == items[0].project_id)
+        assert project["invalid_runs"] == []
+        page = _get(client, f"?project_id={items[0].project_id}")
+        job = next(item for item in page["items"] if item["run_id"] == "same")
+        assert job["workflow"] == "aegis"
+        detail = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
+        assert detail.status_code == 200, detail.text
+        assert detail.json()["job"]["workflow"] == "aegis"
+    assert path.read_bytes() == before

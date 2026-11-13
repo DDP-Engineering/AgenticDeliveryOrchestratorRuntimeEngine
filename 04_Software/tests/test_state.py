@@ -702,3 +702,45 @@ def test_parked_poll_counter_rejects_corrupt_state(tmp_path: Path, value: object
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(StateError, match="parked_polls"):
         store.load(run.run_id)
+
+
+@pytest.mark.parametrize("stage,lifecycle", [("build", "working"), ("done", "done"),
+                                           ("done", "in-review")])
+def test_legacy_aegis_workflow_preserves_every_saved_field(tmp_path, stage, lifecycle):
+    """Saved AEGIS task ownership restores workflow without rewriting history."""
+    store = _store(tmp_path)
+    run = RunState(run_id="historical-77", ticket_iid=77, stage=stage,
+                   lifecycle=lifecycle, active_task_id="TASK-aaaaaaaa",
+                   task_ids=["TASK-aaaaaaaa"], iterations=9, review_rounds=2,
+                   validation_evidence={"deviations": ["Recorded exception"]})
+    store.save(run)
+    store.save_ticket(run.run_id, {"iid": 77, "title": "Historical ticket"})
+    store.journal(run.run_id, "historical-event", stage=stage)
+    path = store.run_dir(run.run_id) / "state.json"
+    document = json.loads(path.read_text())
+    document.pop("workflow")
+    path.write_text(json.dumps(document), encoding="utf-8")
+    original = {file.name: file.read_bytes() for file in path.parent.iterdir() if file.is_file()}
+    loaded = store.load(run.run_id)
+    assert loaded.to_dict() == {**document, "workflow": "aegis"}
+    assert "workflow" not in document
+    assert store.invalid_runs() == []
+    assert [item.run_id for item in store.list_runs()] == [run.run_id]
+    after = {file.name: file.read_bytes() for file in path.parent.iterdir() if file.is_file()}
+    assert after == original
+
+
+@pytest.mark.parametrize("stage", ["frame", "specify", "design"])
+def test_legacy_aegis_only_stage_can_identify_unbound_run(stage):
+    document = RunState(run_id="historical-1", ticket_iid=1, stage=stage).to_dict()
+    document.pop("workflow")
+    assert RunState.from_dict(document).workflow == "aegis"
+
+
+def test_legacy_workflow_does_not_fill_other_missing_fields():
+    document = RunState(run_id="historical-1", ticket_iid=1,
+                        active_task_id="TASK-aaaaaaaa", task_ids=["TASK-aaaaaaaa"]).to_dict()
+    document.pop("workflow")
+    document.pop("published_fingerprint")
+    with pytest.raises(StateError, match="missing keys"):
+        RunState.from_dict(document)

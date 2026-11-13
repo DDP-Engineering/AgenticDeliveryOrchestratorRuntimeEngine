@@ -5,7 +5,7 @@ L’approbation humaine avant publication est activée par défaut. Les administ
 Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
 
 
-Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le.
+Une vérification actuelle est transmise au projet créé. Les prérequis non contrôlés restent partiels ; une modification de configuration rend le résultat périmé. Si le contrôle expire, relancez-le. Après une mise à jour, les contrôles de l’hôte enregistrés dans un ancien format deviennent automatiquement non vérifiés. Relancez le contrôle de l’hôte pour obtenir un résultat actuel.
 
 
 Une connexion CLI externe réussie reste partielle car elle peut changer hors d’ADORE sans modification observable. Connectez l’accès au dépôt et vérifiez à nouveau pour lier les identifiants du projet.

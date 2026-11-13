@@ -75,10 +75,14 @@ def test_readiness_persistence_is_closed(tmp_path, monkeypatch, change):
         assert "PRIVATE" not in loaded.text
 
 
-def test_old_readiness_schema_is_refused_with_deletion_guidance(tmp_path, monkeypatch):
-    """@brief An old readiness record is never migrated or removed automatically."""
+@pytest.mark.parametrize("schema", [1, 2])
+@pytest.mark.parametrize("stale", [False, True])
+def test_old_readiness_schema_is_invalidated_without_blocking_projects(
+    tmp_path, monkeypatch, schema, stale,
+):
+    """Old evidence is unverified on reads and replaced only by an explicit check."""
     module = importlib.import_module("adore.web.app")
-    profiles, _ = _project(tmp_path)
+    profiles, config_path = _project(tmp_path)
     checks = dict.fromkeys(["git", "forge_cli", "forge_auth", "container_runtime",
                             "executor_cli", "egress_proxy"], True)
     monkeypatch.setattr(module, "_probe_setup", lambda *args, **kwargs:
@@ -95,16 +99,33 @@ def test_old_readiness_schema_is_refused_with_deletion_guidance(tmp_path, monkey
         )
         path = profiles.profile_dir("alpha") / "readiness.json"
         record = json.loads(path.read_text(encoding="utf-8"))
-        record["schema"] = 1
+        record["schema"] = schema
+        record.pop("workflow")  # This field did not exist in those formats.
         old = json.dumps(record).encode()
         path.write_bytes(old)
+        if stale:
+            config_path.write_bytes(config_path.read_bytes() + b"\n# changed after upgrade\n")
+        profiles.create("beta", store_root=str(tmp_path / "beta-state"))
+        profiles.config_path("beta").write_bytes(config_path.read_bytes().replace(
+            (tmp_path / "state").as_posix().encode(),
+            (tmp_path / "beta-state").as_posix().encode(),
+        ))
         response = client.get("/api/v1/projects/alpha")
-        assert response.status_code == 503 and "readiness.json" in response.text
+        assert response.status_code == 200, response.text
+        assert response.json()["verification"] == {
+            "status": "unverified", "revision": None, "checked_at": None,
+        }
+        listed = client.get("/api/v1/projects")
+        assert listed.status_code == 200, listed.text
+        assert {item["name"] for item in listed.json()} == {"alpha", "beta"}
         assert path.read_bytes() == old
         retry = client.post(
             "/api/v1/projects/alpha/readiness-check", headers={"X-CSRF-Token": csrf}
         )
-        assert retry.status_code == 503 and path.read_bytes() == old
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["status"] in {"partial", "verified"}
+        assert json.loads(path.read_text())["schema"] == 3
+        assert path.read_bytes() != old
 
 
 def test_external_auth_change_makes_readiness_stale(tmp_path, monkeypatch):
@@ -488,7 +509,7 @@ def test_invalid_workflow_probe_preserves_saved_evidence(tmp_path, monkeypatch, 
         assert path.read_bytes() == before
 
 
-@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}, "old-schema"])
+@pytest.mark.parametrize("bad", ["missing", "unknown", None, True, 1, [], {}])
 @pytest.mark.parametrize("stale", [False, True])
 def test_corrupt_workflow_is_refused_even_if_stale(tmp_path, monkeypatch, bad, stale):
     """@brief Invalid saved workflow/schema is never repaired, including stale records."""
@@ -508,8 +529,6 @@ def test_corrupt_workflow_is_refused_even_if_stale(tmp_path, monkeypatch, bad, s
         record = json.loads(path.read_text())
         if bad == "missing":
             record.pop("workflow")
-        elif bad == "old-schema":
-            record["schema"] = 2
         else:
             record["workflow"] = bad
         path.write_text(json.dumps(record))

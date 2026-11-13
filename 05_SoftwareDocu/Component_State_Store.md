@@ -32,9 +32,9 @@ audit log. The closed run-state schema is `1`.
 
 ## 3. Data Contract
 
-Every `state.json` contains `schema_version: 1`. Missing/wrong schema, unknown
-keys and missing keys raise `StateError`; there are no migrations, so state of
-another ADORE build is refused rather than filled in with defaults.
+Every `state.json` contains `schema_version: 1`. Missing/wrong schema and unknown
+keys raise `StateError`. Missing fields are not defaulted, except for the narrow
+legacy workflow compatibility described below.
 `StateStore.load` appends `(run '<id>'; delete <run dir> to remove it)` to
 every refusal. Outbox/failure/task histories are lists and validation evidence is
 an object.
@@ -44,7 +44,12 @@ are explicit lifecycle states. `handed-off` is terminal for metrics while
 cleanup protects its worktree.
 Every record contains `workflow`, exactly `aegis` or `direct`. The constructor's
 `aegis` default is for new in-memory callers only: a persisted missing, nontext
-or unknown workflow is refused with the run directory to delete, never repaired.
+or unknown workflow is normally refused. A schema-1 record missing only
+`workflow` is readable as AEGIS when its valid historical task bindings (including
+an optional active task) or an AEGIS-only stage identify it. Reads never inspect
+the current clone or rewrite the file; all other saved fields are still validated.
+No Direct workflow is inferred. An explicit normal save includes the recovered
+workflow while preserving the existing run identity, counters and history.
 An AEGIS record may name `frame`, `specify`, `design`, `build`, `validate`, `done`
 or the shared reset pointer `publishing`. A direct record may name only `build`,
 `validate`, `done` or `publishing`, with `active_task_id = null` and `task_ids = []`.

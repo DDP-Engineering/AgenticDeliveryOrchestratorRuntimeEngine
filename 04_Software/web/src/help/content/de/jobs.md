@@ -21,6 +21,8 @@ ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Exe
 
 Der schnelle Pfad durchläuft Rahmen, Umsetzung und Validierung. Nach der Validierung zeigt der Auftrag die Phase **Fertig**, während er auf Freigabe wartet, veröffentlicht wird und in menschlicher Prüfung ist. AEGIS kann zu jeder früheren Phase des gewählten Pfads zurückkehren, auch vom Entwurf zur Spezifikation. ADORE speichert die Phase und fährt in einer neuen Sitzung innerhalb der bestehenden Grenzen fort. Eine fertige Aufgabe kehrt zur erneuten Prüfung zur Validierung zurück. Eine Phase erhält standardmäßig drei Fehlversuche (**Erlaubte Fehlversuche je Phase**).
 
+Historische Aufträge ohne gespeicherten Workflow bleiben lesbar, wenn ihre AEGIS-Aufgaben oder Phasen ihn erkennen lassen. Das Lesen bewahrt Verlauf und Statusdateien; mehrdeutige oder beschädigte Daten erfordern weiterhin die Prüfung durch den Betreiber.
+
 ## Direkte Jobs {#direct-evidence}
 
 Liste und Jobseite zeigen **Workflow**: **AEGIS** oder **Direkt**, wie für den Job gespeichert. Ein direkter Job verwendet **Implementierung** (`build`), **Validierung** (`validate`), dann **Fertig**. Er hat weder Rahmen, Spezifikation, Entwurf noch eine AEGIS-Aufgabe. Der Verlauf zeigt nur gespeicherte Ereignisse, keine angenommenen abgeschlossenen Schritte.

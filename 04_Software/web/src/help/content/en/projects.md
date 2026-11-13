@@ -5,7 +5,7 @@ Human approval before publication is enabled by default. Administrators can chan
 Add a repository as a project so ADORE can pick up its ready tickets, run a coding agent on them and publish draft merge or pull requests for people to review. Only administrators add projects, and ADORE never merges.
 
 
-A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again.
+A current environment check is carried to the created project. Unchecked prerequisites remain partial; changing the configuration makes the result stale. If a check expires, run it again. After an upgrade, host checks saved in an older format become unverified automatically. Run a new host check for a current result.
 
 
 A successful external CLI sign-in remains partial because it can change outside ADORE without an observable credential change. Connect repository access and check again to bind the project credential.

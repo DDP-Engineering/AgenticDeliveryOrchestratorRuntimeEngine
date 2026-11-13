@@ -748,8 +748,13 @@ No `aegis_files` key is accepted in checks or required_checks.
 Commands/output/credentials are never persisted. Schema, keys, types,
 identity, digest, time, required configuration-specific checks and redacted values are validated on read; a changed machine/account or relevant authentication input makes it stale; corrupt evidence
 fails closed with `readiness_corrupt` (HTTP category `readiness_probe_failed`), even
-when stale. Any other schema or corrupt record instructs the operator to delete the
-profile's `readiness.json`; reads/check retries preserve its bytes and never repair it.
+when stale. Positive integer schemas older than the current readiness schema are
+invalidated automatically and return `unverified` with no retained check authority.
+This keeps project list/detail reads available after an upgrade, even if the old
+record lacks current fields. Reads preserve the old bytes; an explicit host check
+atomically replaces them using the current schema. Unknown future schemas and
+malformed current records still instruct the operator to delete `readiness.json`;
+they are never silently trusted or repaired.
 
 Absent evidence is `unverified`; differing config bytes are `stale`; matching evidence
 is `failed` if any check fails, `partial` for undetected runtime or unbound forge

@@ -108,7 +108,7 @@ class RunState:
     run_id: str
     ticket_iid: int
     schema_version: int = STATE_SCHEMA_VERSION
-    #: Selected once at claim. Constructor defaults never fill missing stored keys.
+    #: Selected at claim; a legacy AEGIS binding can supply a missing stored workflow.
     workflow: str = "aegis"
     stage: str = "frame"
     lifecycle: str = "working"
@@ -185,8 +185,10 @@ class RunState:
         @brief      Rebuild a RunState from a persisted mapping.
         @details    Missing or wrong schema, unknown keys and missing keys are
                     rejected, so foreign state is never reinterpreted as a run
-                    and state of another ADORE build is never filled in
-                    with defaults (no migrations while ADORE is in development).
+                    and other missing fields are never filled with defaults.
+                    Legacy records missing only workflow can be read as AEGIS
+                    when saved task bindings or an AEGIS-only stage prove it.
+                    This compatibility read never changes the stored document.
         @param[in]  data Mapping loaded from state.json.
         @return     The reconstructed RunState.
         """
@@ -203,6 +205,20 @@ class RunState:
                 f"keys: {unknown}"
             )
         missing = sorted(known - set(data))
+        if missing == ["workflow"] and type(data["schema_version"]) is int:
+            tasks = data.get("task_ids")
+            active = data.get("active_task_id")
+            bound = (isinstance(tasks, list) and bool(tasks)
+                     and all(isinstance(task, str) and _TASK_ID_RE.fullmatch(task)
+                             for task in tasks)
+                     and (active is None or isinstance(active, str) and active in tasks))
+            stage = data.get("stage")
+            aegis_stage = isinstance(stage, str) and stage in {"frame", "specify", "design"}
+            if bound or aegis_stage:
+                # Direct records cannot have AEGIS tasks or these stages. Use
+                # durable evidence, never the repository's current contents.
+                data = {**data, "workflow": "aegis"}
+                missing = []
         if missing:
             raise StateError(
                 f"run-state schema {STATE_SCHEMA_VERSION} is missing keys {missing}; "
