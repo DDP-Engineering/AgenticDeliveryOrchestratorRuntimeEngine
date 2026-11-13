@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-41c99cc5"
+
+title = "Keep recipe administration outside project export"
+
+status = "active"
+
+requirement = """
+When an administrator opens Technical details for a container project, the interface shall offer the existing revision-bound image-definition management dialog separately from export.
+"""
+
+verification = "Offline Chromium proves the closed Technical details entry opens automatic file validation and explicit Save recipe, including invalid/corrupt/stale evidence refusal without configuration edits."
+
+affected_paths = ["04_Software/web/src/RawConfiguration.tsx", "04_Software/web/src/App.tsx", "04_Software/web/e2e/portable.spec.ts"]
+
+linked_tests = ["04_Software/web/e2e/portable.spec.ts"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-11
+updated = 2026-11-11

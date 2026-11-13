@@ -18,8 +18,8 @@ Jede Gruppe ist beim Öffnen der Einstellungen eingeklappt, und die Zahl neben i
 |---|---|
 | Repository | Forge und Repository, Gitea-Login, **Zielbranch** (Basis neuer Aufträge und Ziel der PR/MRs), die Vorlage für den Namen des Auftrags-Branches mit optionaler Namensregel und einem Live-Beispiel sowie Anzeigename, Ressourcenname und Commit-Autor-E-Mail des Agenten. |
 | Tickets | **Label für aufnahmebereite Tickets**, **Label zum Ausschluss von der Aufnahme**, die eingeklappten **Statuslabels**, wie oft ADORE die Forge prüft, ob Tickets Akzeptanzkriterien oder ein Prioritätslabel brauchen, und den Standard-Aufgabentyp. Siehe [Tickets für die automatische Aufnahme](/help/tickets#labels). |
-| Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Prüfbefehl**, **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
-| PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |
+| Implementierung | Limits je Auftrag: **Limit aktiver Aufträge**, **Maximale Executor-Starts je Auftrag**, **Zeitlimit für aktive Arbeit (Sekunden)**, **Kostenlimit je Auftrag (USD)**, **Maximale geänderte Dateien je Auftrag** und **Zeitlimit je Phasenversuch (Sekunden)**. Außerdem **Rückfragen**, **Wiederherstellung nach Fehlern**, **Erweiterte Zeitlimits pro Phase**, **Fortschrittscommits veröffentlichen** und das Label für den Schnellpfad. |
+| PR/MR und Review | **Review anfordern von**, **PR/MR-Status bei Veröffentlichung** (Entwurf oder Bereit zur Prüfung), **Menschliche Freigabe vor PR/MR verlangen** und das Freigabelabel, **Branch nach menschlichem Merge entfernen**, Überarbeitungsrunden und **Aktion bei fehlgeschlagenen PR/MR-CI-Prüfungen** (Automatisch reparieren, Nur benachrichtigen oder Ignorieren). |
 | Statistik | **Messwerte abgeschlossener Aufträge erfassen** und **Vom Agenten gemeldete Token erfassen**. **Statistik-Datenbankdatei** wird nur zur Information angezeigt. |
 | Agent und Modell | Anbieter, Modell, Authentifizierung und **KI-Verbindung testen** [Executor und Modelle](/help/executors). |
 | Technische Details | Schreibgeschützte Installationswerte wie der Auftragsstatus-Ordner, der lokale Repository-Pfad und die Arbeitsordner der Aufträge. Sie werden in der `config.toml` des Projekts auf dem Server geändert, und das Ändern eines Pfads verschiebt keine vorhandenen Daten. |
@@ -33,6 +33,8 @@ Ein Badge **Standard** bedeutet, dass die `config.toml` des Projekts den Wert ni
 Wählen Sie **Auf dem Server installiert** für das von ADORE verwaltete Pi unter dem aktuellen Systemkonto. Der optionale **PATH für Projektwerkzeuge** bestimmt die Werkzeugordner. Siehe [Pi auf dem Server installieren](/help/executors#installed-executors).
 
 ## Bearbeiten {#editing}
+
+Die Leiste **Speichern** und **Änderungen verwerfen** erscheint nur bei ungespeicherten oder wiederhergestellten Änderungen, beim Speichern oder bei einem zu behebenden Fehler. Nach erfolgreichem Speichern oder Verwerfen verschwindet sie. Einen Editor ohne Wertänderung zu öffnen zeigt die Leiste nicht.
 
 1. Wählen Sie **Bearbeiten** neben jedem zu ändernden Wert. Sie können mehrere Einstellungen in verschiedenen Gruppen bearbeiten.
 2. Verwenden Sie die einzige Schaltfläche **Speichern** oberhalb der Gruppen. Sie ist nur bei geänderten Werten und gültigen Eingaben aktiv.
@@ -49,19 +51,17 @@ Es gelten folgende Regeln:
 
 Beim Navigieren oder Neuladen der Seite erscheint eine Rückfrage, bevor ungespeicherte Einstellungen verworfen werden. Kurze Windows-Dateisperren werden automatisch erneut versucht; bei weiterem Fehler prüfen Sie den Dateizugriff und versuchen erneut **Speichern**.
 
-## Prüfbefehl {#verification-command}
-
-Unter **Implementierung** ist **Prüfbefehl** optionaler einzeiliger Shell-Text, gespeichert als `[workflow] verify_command`. Administratoren nutzen dieselben Aktionen **Bearbeiten** und **Speichern** wie für andere Einstellungen; Entwickler dürfen ihn lesen, nicht bearbeiten. Er ist auch bei der Registrierung verfügbar; siehe [Repository-Workflows](/help/projects#workflows).
-
-Im direkten Workflow führt ADORE ihn unabhängig im Worktree-Stamm des Auftrags in der gewählten Umgebung unter dem Validierungszeitlimit aus. Behalten Sie benötigte Leerzeichen, Anführungszeichen und Shell-Operatoren exakt bei. Ein leerer Wert lässt den Kandidaten ausdrücklich ungeprüft. Zeilenumbrüche und NUL werden mit einer Feldmeldung abgelehnt und verhindern das Speichern; korrigieren Sie den Text, statt eine automatische Umwandlung in eine Zeile zu erwarten. Die Weboberfläche führt den Befehl bei Registrierung oder Speichern nie aus.
-
-AEGIS-Aufträge ignorieren diese Einstellung und verwenden die AEGIS-Testbefehle des Repositorys. Das Feld bleibt für beide Workflows in den Einstellungen sichtbar. Kein Befehl wird automatisch vorgeschlagen oder gewählt.
-
-Direkte Implementierung verwendet das Limit **Implementierung** `build` in `workflow.stage_timeout_overrides`; die unabhängige Prüfung verwendet **Validierung** `validate`. Ohne eigene Vorgabe gilt jeweils das allgemeine `budgets.per_gate_timeout_seconds`. Die anderen AEGIS-Phasenlimits gelten nicht für direkte Jobs.
-
 ## Original-TOML {#toml}
 
-Neben der Überschrift Projekteinstellungen haben Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren**. Die Anzeige öffnet einen schließbaren Dialog und hält den Text nur im Speicher. Der Download liefert die gespeicherte `config.toml` genau wie abgelegt, mit Kommentaren, Formatierung und eventuell eingebetteten Geheimnissen, behandeln Sie sie also als Geheimnis. Keine der beiden Funktionen enthält einen ausstehenden Kandidaten, aufgelöste Standardwerte, separate `.env`-Dateien oder externe Zugangsdaten. Entwickler können sie nicht nutzen. Wählen Sie die exportierte Datei unter [Originalkonfiguration importieren](/help/projects#import-project) und ADORE prüft automatisch Serverpfade, die Zuordnung des Statusordners und eingebettete Geheimnisse.
+Neben Projekteinstellungen stehen Administratoren **Originalkonfiguration anzeigen** und **Originalkonfiguration exportieren** zur Verfügung. Die Vorschau zeigt die exakt gespeicherte TOML in einem schließbaren Dialog. Ausstehende Änderungen, separate Umgebungsdateien, externe Zugangsdaten und laufende Auftragsdaten sind ausgeschlossen. Eine einzelne TOML kann Klartextwerte enthalten und muss vertraulich behandelt werden; der vollständige Build-Export verweigert eingebettete Zugangsdaten.
+
+Wählen Sie **Originalkonfiguration exportieren**, wählen Sie das Ziel und speichern Sie. Container-Projekte exportieren ein ZIP mit gespeicherter Konfiguration und vollständiger Image-Definition. Native Projekte speichern `config.toml`. Es gibt keinen Export-Einstellungsdialog. Ohne Zielauswahl gelten die normalen Download-Einstellungen des Browsers. Wählen Sie dieses ZIP direkt unter Projekte → Originalkonfiguration importieren, um Konfiguration und Rezepte gemeinsam mit automatischer Prüfung zu importieren.
+
+Administratoren verwalten Quellen separat unter **Technische Details → Image-Definition**. Wählen Sie eine Dockerfile oder ZIP unter **Definitionsdatei**; sie wird automatisch geprüft. **Rezept speichern** speichert sie, **Definition ändern** ersetzt sie. Fehlende lokale Basisdefinitionen werden ebenfalls hier ergänzt. Die Standard-Executor-Basis von ADORE ist automatisch enthalten.
+
+Definitionen werden je Image gespeichert und von Projekten mit diesem Image geteilt. Das Speichern baut kein Image, ändert keine Einstellungen und startet keine Aufträge neu. Das ZIP enthält alle deklarierten lokalen Basisquellen und eine Compose-Datei zum Bauen auf einem anderen Server. Image-Binärdateien und später vom Agenten installierte Pakete sind ausgeschlossen. Registries und Paketquellen müssen dort erreichbar sein.
+
+Bei beschädigten Rezeptdaten nennt der Dialog, was auf dem Server für einen Neuanfang zu löschen ist. Ein Zurücksetzen des Rezeptkatalogs entfernt gespeicherte Image-Definitionen aller Projekte; Konfigurationen, Zugangsdaten und Aufträge bleiben unverändert. ADORE löscht diese Daten niemals automatisch.
 
 ## Systempakete des Agenten {#system-packages}
 
@@ -80,3 +80,6 @@ Administratoren können **Budgets in den Projekteinstellungen anpassen** wählen
 Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein laufender Versuch behält sein Zeitlimit. Aktive Arbeit wird über Wiederholungen, Rückfrageantworten und Überarbeitungen summiert; Wartezeit zählt nicht. Eine Erhöhung erhält Verbrauch, Aufgabe und Fortschritt. Ein wegen Budgetüberschreitung fehlgeschlagener Job braucht danach weiterhin **Wiederholen**. Ungültige oder fehlende Konfiguration sperrt weitere Versuche bis zur Korrektur.
 
 Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
+
+
+**Implementierung** (`build`) nutzt `workflow.stage_timeout_overrides` oder `budgets.per_gate_timeout_seconds`. Bei AEGIS begrenzt **Validierung** (`validate`) ebenfalls die Agentensitzung. ADORE startet keine zusätzlichen Tests; der Agent wählt lokale und CI-Prüfungen gemäß den Repository-Anweisungen.

@@ -855,15 +855,20 @@ class WorktreeManager:
             identity = self._summary_identity(before)
             # NOFOLLOW/NONBLOCK narrow the open race where available. fstat before
             # reading also protects platforms without those flags from target reads.
-            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+            flags = (os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                     | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
             fd = os.open(source, flags)
             with os.fdopen(fd, "r", encoding="utf-8", newline="") as stream:
-                if self._summary_identity(os.fstat(stream.fileno())) != identity:
+                opened = self._summary_identity(os.fstat(stream.fileno()))
+                # Windows can expose different change-time semantics through
+                # lstat and fstat. Cross-API ownership uses the other fields;
+                # each API's complete receipt still detects changes over time.
+                if opened[:-1] != identity[:-1]:
                     raise IsolationError("summary changed before read")
                 text = ""
                 while chunk := stream.read(8192):
                     text = (text + chunk)[-max_chars:]
-                if self._summary_identity(os.fstat(stream.fileno())) != identity:
+                if self._summary_identity(os.fstat(stream.fileno())) != opened:
                     raise IsolationError("summary changed during read")
             if self._summary_identity(source.lstat()) != identity:
                 raise IsolationError("summary changed after read")

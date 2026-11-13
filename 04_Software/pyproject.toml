@@ -5,7 +5,7 @@
 
 [project]
 name = "adore"
-version = "0.13.0"
+version = "0.15.0"
 description = "Agentic Delivery Orchestrator & Runtime Engine - ticket-to-draft-MR orchestration over an agentic workflow."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,6 +40,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["adore"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"docker/Dockerfile.egress-proxy" = "adore/container_assets/Dockerfile.egress-proxy"
+"docker/Dockerfile.executor-base" = "adore/_executor_recipe/Dockerfile"
+"docker/pi/adore-guard.ts" = "adore/_executor_recipe/pi/adore-guard.ts"
+"docker/pi/adore-chatgpt.mjs" = "adore/_executor_recipe/pi/adore-chatgpt.mjs"
+"../LICENSE.txt" = "adore/_executor_recipe/LICENSE.txt"
 
 # ADORE's own tests only: worktrees/ holds live run checkouts of the TARGET
 # repository, whose test suites are not ours to collect.

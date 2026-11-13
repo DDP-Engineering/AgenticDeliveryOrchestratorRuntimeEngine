@@ -11,7 +11,7 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
-Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS présent mais défectueux ou non pris en charge est refusé, jamais remplacé silencieusement par le workflow direct. Sans ce fichier, le workflow direct utilise la **Commande de vérification** facultative ; vide signifie non vérifié. Les deux workflows gardent les mêmes étiquettes, limites et approbation humaine. Voir [Workflows du dépôt](/help/projects#workflows).
+Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).
 
 ## Créer d’abord les étiquettes {#labels}
 
@@ -70,6 +70,8 @@ Les opérations en file sont vérifiées toutes les 2 secondes lorsque cet ongle
 Les mises à jour inchangées du projet conservent les contenus ouverts et les confirmations Démarrer/Arrêter valides. Si l’identité, l’accès ou l’archivage change, l’ancienne confirmation ne peut plus être envoyée, même après restauration. Appuyez sur **Lire les tickets** et vérifiez à nouveau. Mettre la surveillance en pause ou la réactiver invalide aussi l’ancienne confirmation Démarrer, même si l’état précédent revient ; relisez et vérifiez avant de démarrer. Ce seul changement n’invalide pas Arrêter et ne ferme pas les contenus. Un nouveau Démarrer manuel éligible reste possible en pause. Les contenus des projets retirés restent masqués jusqu’à une nouvelle lecture explicite. Quitter le contexte annule les requêtes du navigateur et ignore les résultats obsolètes ; cela n’annule pas une commande déjà acceptée par le serveur.
 
 Les lectures de tickets et commentaires sont limitées à 30 secondes et ne réessaient jamais automatiquement la forge. Après une erreur, utilisez **Lire les tickets** pour la liste, ou fermez puis rouvrez **Détails** pour les commentaires. Rouvrir des commentaires en cours de lecture partage cette lecture.
+
+Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne, alignés à droite avec l’en-tête Actions. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.
 
 ## Lire descriptions et commentaires {#reading-bodies}
 

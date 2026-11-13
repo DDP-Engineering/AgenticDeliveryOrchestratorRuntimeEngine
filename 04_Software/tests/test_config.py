@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 # IMPORTS
-import json
 from pathlib import Path
 
 from adore.config import Config, egress_policy, load_config, validate_config
@@ -85,40 +84,6 @@ def test_pickup_and_review_defaults_and_explicit_overrides(tmp_path: Path) -> No
     assert "require_known_component" not in sample.raw["readiness"]
 
 
-@pytest.mark.parametrize("command", [
-    None, "", "  ", 'printf \'$HOME {checks} café\' | grep "café"',
-])
-def test_direct_verification_command_preserves_exact_string(tmp_path, command):
-    """@brief Omitted/empty verification is optional; shell syntax stays literal data."""
-    addition = "" if command is None else "\n[workflow]\nverify_command = " + json.dumps(command)
-    config = load_config(_write_config(tmp_path, MINIMAL_VALID + addition))
-    assert validate_config(config) == []
-    expected = "" if command is None else command
-    assert config.workflow.verify_command == expected
-    assert config.to_dict()["workflow"]["verify_command"] == expected
-
-
-@pytest.mark.parametrize("command", [1, True, [], {}, "test\nnext", "test\rnext",
-                                     "test\r\nnext", "test\n", "test\x00next"])
-def test_direct_verification_command_refuses_invalid_values(tmp_path, command):
-    """@brief Human configuration refuses types, line breaks and NUL with the key named."""
-    # An inline table is TOML syntax, not JSON's object syntax.
-    encoded = "{}" if command == {} else json.dumps(command)
-    config = load_config(_write_config(tmp_path, MINIMAL_VALID
-                                      + "\n[workflow]\nverify_command = " + encoded))
-    assert any("workflow.verify_command" in issue for issue in validate_config(config))
-    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
-    config.workflow.verify_command = command
-    assert any("workflow.verify_command" in issue for issue in validate_config(config))
-
-
-def test_direct_verification_command_refuses_toml_multiline(tmp_path):
-    """@brief A real TOML multiline string cannot bypass single-line validation."""
-    config = load_config(_write_config(tmp_path, MINIMAL_VALID
-                                      + '\n[workflow]\nverify_command = """one\ntwo"""'))
-    assert any("workflow.verify_command" in issue for issue in validate_config(config))
-
-
 def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     """
     @brief   A minimal file loads, defaults apply, and validation passes.
@@ -132,6 +97,18 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.budgets.max_cost_usd == 5.0
     assert config.budgets.max_files_touched == 120
     assert config.review.trigger == "label"
+
+
+
+@pytest.mark.parametrize("value, valid", [
+    (True, True), (False, True), ("false", False), (0, False),
+])
+def test_publication_approval_policy_boolean_boundary(tmp_path, value, valid):
+    """@brief Approval is required by default and invalid policy fails validation."""
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert config.delivery.require_human_approval is True
+    config.delivery.require_human_approval = value
+    assert any("require_human_approval" in issue for issue in validate_config(config)) is not valid
 
 
 @pytest.mark.parametrize("reviewers", ["alice", [1], ["--repo"], ["two names"]])
@@ -871,3 +848,15 @@ def test_cost_cap_zero_is_explicit_opt_out_and_invalid_inputs_fail_closed(tmp_pa
         assert issues == []
     else:
         assert any("max_cost_usd" in issue for issue in issues)
+
+
+@pytest.mark.parametrize("legacy", ['"npm test"', 'true', '["old"]'])
+def test_removed_direct_check_is_ignored_without_rewriting_profile(tmp_path, legacy):
+    text = MINIMAL_VALID + '\n[workflow]\nverify_command = ' + legacy + '\n'
+    path = tmp_path / "config.toml"
+    path.write_text(text, encoding="utf-8")
+    config = load_config(path)
+    assert not hasattr(config.workflow, "verify_command")
+    assert "verify_command" not in config.to_dict()["workflow"]
+    assert not any("verify_command" in issue for issue in validate_config(config))
+    assert path.read_text(encoding="utf-8") == text

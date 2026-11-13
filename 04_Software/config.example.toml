@@ -223,6 +223,9 @@ runtime = "docker"
 # projects should derive their own image from that base and add project
 # dependencies.
 image = "adore-executor-project:latest"
+# Optional raw-export build manifest, relative to the project Git repository.
+# Set to a reviewed path.json@full-commit whose image matches the tag above.
+# build_definition = ""
 # Keep the container (stopped) when a run parks, so resume is a fast start.
 keep_parked = true
 # How the parked-container grace period is measured: "polls" | "seconds".
@@ -306,7 +309,7 @@ branch_rule = ""
 # ----- Workflow ------------------------------------------------------------------
 # A present supported AEGIS payload selects stage-by-stage journals: ADORE
 # creates the task after its branch; the frame executor chooses its path.
-# Without AEGIS, direct runs use build/validate/done and optional verification.
+# Without AEGIS, the agent implements the ticket directly and chooses its checks.
 # A broken/unsupported present payload is refused, never a direct fallback.
 # These settings are optional; absent values use the defaults below.
 [workflow]
@@ -323,11 +326,9 @@ quick_label = "agent-quick"
 aegis_python = "python"
 # Direct only: one shell command line from the worktree root. Container: sh -c;
 # local: platform shell with service-account permissions, not a host sandbox.
-# Empty means unverified. Non-string, CR/LF and NUL values are refused.
 # Validate timeout below (else per_gate_timeout_seconds) bounds the command.
 # Failures/timeouts consume max_stage_failures; fresh Pi sessions get evidence.
 # Approval and MR/PR show the sanitized command/result. AEGIS ignores this key.
-verify_command = ""
 # Optional per-stage override of [budgets] per_gate_timeout_seconds, for the
 # stages that legitimately need more room than intake does. Keys are the AEGIS
 # stages that launch an executor: frame, specify, design, build, validate;
@@ -361,7 +362,7 @@ max_files_touched        = 120    # includes AEGIS forms/evidence + product file
 
 # ----- Delivery ------------------------------------------------------------------
 # ADORE opens the configured review state after human approval. It never merges.
-# true creates a draft; false creates a review-ready PR/MR. Both require human approval.
+# true creates a draft; false creates a review-ready PR/MR. Approval follows the setting below.
 [delivery]
 # Branch the MR/PR targets.
 target_branch = "develop"
@@ -373,6 +374,7 @@ reviewers = ["reviewer.one"]
 remove_source_branch = true
 # ADORE removes this label before presentation and accepts only a fresh re-add.
 approval_label = "agent-approved"
+require_human_approval = true
 # Publish remote WIP checkpoints by default; delivery needs fresh human approval.
 # Set false to keep intermediate checkpoints local.
 publish_checkpoints = true

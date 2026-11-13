@@ -5,6 +5,8 @@ O lucrare este munca pe care o face ADORE pentru un tichet, de la preluare pân�
 
 Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directorul de lucru, inclusiv modificările nepublicate; pot rămâne resurse. Starea și dovezile rămân. Ștergerea este separată.
 
+Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.
+
 ## Etape {#stages}
 
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.
@@ -14,8 +16,8 @@ ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă 
 | Încadrare | Se stabilește domeniul, iar executorul înregistrează dacă lucrarea urmează calea completă sau cea rapidă. |
 | Specificare | Se scrie cerința. |
 | Proiectare | Se scrie o notă scurtă de proiectare pentru lucrările netriviale. |
-| Construire | Mai întâi un test care eșuează, apoi implementarea, până când testele trec. |
-| Validare | Revizuire, suita completă de teste, o verificare strictă și raportul AEGIS; sarcina AEGIS se închide. ADORE repetă apoi singur verificarea strictă înainte să ceară aprobarea. |
+| Construire | Agentul implementează tichetul și alege verificările potrivite conform instrucțiunilor repository-ului. |
+| Validare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
 
 Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucrarea afișează etapa **Finalizată** cât timp așteaptă aprobarea, este publicată și se află în revizie umană. AEGIS poate reveni la orice etapă anterioară de pe calea aleasă, inclusiv din Proiectare în Specificare. ADORE salvează etapa și continuă într-o sesiune nouă, în limitele existente. O sarcină finalizată revine la Validare când este necesară o verificare nouă. O etapă primește implicit trei încercări eșuate (**Încercări eșuate permise per etapă**).
 
@@ -23,33 +25,29 @@ Calea rapidă parcurge Încadrare, Construire și Validare. După Validare, lucr
 
 Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, conform înregistrării jobului. Un job direct folosește **Implementare** (`build`), **Validare** (`validate`), apoi **Finalizată**. Nu are Încadrare, Specificare, Proiectare sau task AEGIS. Cronologia arată numai evenimente salvate, nu pași presupus terminați.
 
-**Ultima încercare înregistrată** este ultima încercare de lansare a executorului, nu lansările cumulate sau încercările eșuate. Fără lansare salvată, pagina arată **Încercare indisponibilă**. Verificarea independentă arată comanda salvată înaintea rezultatului, **Durată (secunde)** și **Finalul ieșirii** ca text literal cu secrete mascate. Ieșirea goală este explicită. Modificarea Setărilor nu înlocuiește comanda sau rezultatul salvat.
+**Ultima încercare înregistrată** arată ultima lansare înregistrată a agentului. Fără una, apare **Încercare indisponibilă**. Agentul raportează testele și verificările; ADORE nu le execută independent.
 
-| Rezultat | Semnificație |
-|---|---|
-| Reușită | Comanda a ieșit cu zero fără expirarea timpului. |
-| Eșuată | Comanda a ieșit cu un cod nenul fără expirarea timpului; ultimul eșec rămâne vizibil în noua încercare de implementare. |
-| Timp expirat | Comanda a depășit limita, indiferent de codul de ieșire. |
-| Neconfigurată: neverificat | Nu era configurată o comandă de verificare; nu înseamnă reușită. |
-| Dovada verificării indisponibilă | Nu există încă un rezultat salvat; nu înseamnă neconfigurată. |
-
-Implementarea directă folosește limita **Implementare** `build` din `workflow.stage_timeout_overrides`; verificarea independentă folosește **Validare** `validate`. Fiecare revine la limita generală `budgets.per_gate_timeout_seconds` când nu există o suprascriere. Celelalte limite AEGIS nu se aplică joburilor directe.
+**Implementare** directă folosește limita `build` din `workflow.stage_timeout_overrides`, cu revenire la `budgets.per_gate_timeout_seconds`. **Validare** (`validate`) înregistrează candidatul pentru aprobare fără o comandă de test separată.
 
 ## Clarificare {#clarification}
 
-Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**.
+Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**. Alege **Citește întrebarea** pentru a deschide **Întrebarea agentului**, apoi **Răspunde pe tichet** când există un loc înregistrat.
 
 Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answered`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
 
 ## Aprobare {#approval}
 
-Când validarea strictă AEGIS sau verificarea directă configurată reușește (sau verificarea directă este explicit neconfigurată), ADORE elimină `agent-approved`, postează dovezile pe tichet și așteaptă. Lucrarea afișează **Așteaptă aprobarea**, iar tichetul păstrează `agent-working`. Dovezile numesc candidatul exact și eventualele abateri înregistrate de executor.
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
+Când agentul încheie fluxul, ADORE înregistrează candidatul, elimină eticheta veche de aprobare și cere o nouă aprobare umană. Verificările din jurnal sunt raportate de agent.
 
 Revizuiți-l, apoi adăugați din nou `agent-approved`; contează doar o adăugare nouă. Aprobarea este legată de acel candidat și de commit-ul ramurii țintă. Dacă oricare dintre ele se schimbă, aprobarea devine nulă, iar ADORE integrează, validează și cere din nou aprobarea. Această așteptare nu are temporizator. Detaliile lucrării oferă **Verifică versiunea pe platforma Git**.
 
+Când opțiunea este dezactivată, ADORE verifică candidatul validat și ținta, apoi publică fără a aștepta eticheta. ADORE nu face merge.
+
 ## Publicare și revizuire {#review}
 
-După aprobare, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează `agent-mr`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează `agent-done`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.
+După validare și aprobarea necesară, ADORE face push ramurii și deschide MR/PR-ul către ramura țintă, cere review de la conturile din **Solicită review de la** și setează `agent-mr`. **Starea PR/MR la publicare** alege Draft (implicit) sau Pregătit pentru review. Lucrarea afișează **Publicare**, apoi **Revizie umană**. ADORE nu integrează niciodată. După ce o persoană integrează, ADORE setează `agent-done`, lucrarea afișează **Finalizat**, iar implicit ramura remote este ștearsă. Un MR/PR închis fără integrare face lucrarea să eșueze.
 
 Pentru a cere modificări, un recenzor adaugă `agent-revise` pe MR/PR. ADORE elimină eticheta, pornește lucru nou pe aceeași ramură (un task nou pentru AEGIS) și repetă validarea și o nouă aprobare înainte de push. **Numărul maxim de runde de revizie** (5 implicit) limitează acest proces. O cerere peste limită face lucrarea să eșueze.
 
@@ -59,7 +57,7 @@ Dacă verificările CI eșuează pe MR/PR, decide **Acțiune când verificările
 
 Când o etapă eșuează, ADORE ține la zi un singur comentariu de incident pe tichet, cu etapa, încercarea, codul erorii, dovezile și următoarea acțiune; dacă agentul s-a oprit fără să avanseze etapa, dovezile arată și ultimele lui linii de ieșire de eroare. După ultima încercare postează un comentariu final, setează `agent-failed`, oprește containerul, păstrează worktree-ul și eliberează locul. Alte cauze sunt un timp de răspuns expirat, un tichet sursă șters și o limită depășită, precum costul sau fișierele modificate. Închiderea tichetului sursă cât timp o lucrare așteaptă o anulează.
 
-În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea `agent-failed` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.
+În Lucrări, o lucrare eșuată afișează **Eșuate**, iar detaliile ei explică faptul că dovezile de recuperare sunt păstrate. **Reîncearcă** cere workerului să recupereze lucrarea; nu ocolește validarea sau aprobarea cerută. În vizualizarea Tichete, Reia înlocuiește Pornește. Eliminarea `agent-failed` nu reîncearcă. **Anulează** apare pentru lucrările neterminate și cere workerului să se oprească și să curețe. Lucrările încheiate nu pot fi anulate. Administratorii și dezvoltatorii atribuiți le pot folosi pe ambele. O comandă din coadă își arată progresul, de exemplu Comandă în coadă sau Comandă terminată. O comandă eșuată sau incertă spune și motivul, când motorul îl numește, și arată ultimele linii ale motorului.
 
 Pentru lucrările locale, **Reia** verifică executorul instalat și acceptă actualizarea executabilului sau a mediului moștenit pe același calculator și cont. Păstrează sarcina, worktree-ul, ramura, istoricul și limitele cumulative. Monitorizarea automată nu face această revalidare. Setările de execuție schimbate sau dovezile de recuperare corupte trebuie corectate. Dacă repornirea eșuează, comanda apare eșuată cu motivul salvat: executabil lipsă, versiune invalidă, comandă eșuată sau expirarea timpului. Verificarea versiunii nu trimite cereri modelului; folosește **Testează conexiunea IA** pentru aceasta.
 
@@ -93,9 +91,9 @@ Listele și detaliile deschise se actualizează la 15 secunde cât timp pagina e
 
 Trimiterea unei comenzi păstrează pagina și detaliile deschise. Citirile listei, detaliilor și Consumului așteaptă cât timp comanda este în coadă sau în execuție. Rezultatul observat declanșează citiri noi fără resetarea vizualizării. Comenzile rămân indisponibile până la revalidarea listei și detaliilor. O stare de comandă ilizibilă înseamnă rezultat încă necunoscut, nu reușită.
 
-După o eroare de conexiune sau limita de citire de 30 de secunde, informațiile validate anterior pot rămâne cu un avertisment și **Reîncearcă**. O listă sau un detaliu învechit nu permite comenzi; eșecul consumului nu blochează acțiuni valide independent. Dovezile nevalide sau refuzate sunt ascunse. Un snapshot de paginare schimbat cere **Reîncarcă prima pagină**, fără resetare ascunsă. Actualizările părintelui nu recitesc ieșirea deschisă; o revizie nouă a dovezilor jobului îi elimină în continuare legătura.
+După o eroare de conexiune sau limita de citire de 30 de secunde, informațiile validate anterior pot rămâne cu un avertisment și **Reîncearcă**. O listă sau un detaliu învechit nu permite comenzi; eșecul consumului nu blochează acțiuni valide independent. Dovezile nevalide sau refuzate sunt ascunse. Un snapshot de paginare schimbat cere **Reîncarcă prima pagină**, fără resetare ascunsă. Actualizările părintelui nu recitesc ieșirea deschisă; o revizie nouă a jobului marchează ieșirea păstrată ca posibil învechită până la o nouă citire explicită.
 
-Detaliile afișează **Ce se întâmplă acum**, **Cine intervine**, **Unde** și **Ce urmează**, apoi Consum, o Cronologie (Dată, Eveniment, Etapă), linkurile **Dovezi și artefacte** și **Detalii tehnice**. Cronologia listează doar evenimentele salvate. O activitate veche, singură, nu arată că lucrul s-a oprit.
+Detaliile înlocuiesc lista cât timp sunt deschise. Antetul compact reunește numărul și numele tichetului. **Ce se întâmplă acum** arată starea, cine acționează și **Pasul următor**. Bugetele și Consumul sunt alături pe ecrane late și dedesubt pe ecrane înguste. **Activitate** listează evenimentele salvate de la cel mai recent. **Întrebarea agentului** conține clarificarea activă; celelalte stări arată **Dovezi și artefacte**. **Detalii tehnice** conține identificatori, ieșirea executorului și **Evenimentele originale înregistrate**, care pot fi extinse. **Închide** revine la listă cu filtrele păstrate. Evenimentele trecute nu devin cereri curente de acțiune.
 
 ## Bugetele jobului {#budgets}
 
@@ -111,11 +109,13 @@ Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, 
 
 **În lucru** înseamnă că ADORE conduce etapa salvată; momentan nu se cere intervenția unui om. **Așteaptă clarificare** necesită un răspuns pe tichet. **Eșuat** oprește lucrul autonom și păstrează dovezile de recuperare. Cardul afișează încercările eșuate ale etapei curente chiar când jobul rămâne În lucru.
 
-Întrebările afișează Markdown cu liste, tabele și cod. HTML-ul rămâne literal, linkurile nesigure sunt inactive, iar imaginile nu se încarcă automat. Tabelele și codul lung au derulare în interiorul întrebării.
+Întrebările apar în **Întrebarea agentului** ca Markdown cu liste, tabele și cod. Comentariile HTML de la început sunt omise din vizualizarea lizibilă; **Întrebarea originală și dovezile** păstrează sursa exactă. Restul HTML rămâne text, linkurile nesigure sunt inactive și imaginile nu se încarcă automat. Tabelele late și codul se derulează în interiorul întrebării.
 
 Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.
 
-În **Dovezi și artefacte**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+În **Detalii tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+
+Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.
 
 O lansare fără captură dovedită sau cu snapshotul șters este explicit indisponibilă; arhivele brute nu sunt citite ca alternativă. Dovezile corupte sunt refuzate. Joburile existente pot rămâne fără ieșire până la o lansare ulterioară; această vizualizare nu pornește niciuna.
 

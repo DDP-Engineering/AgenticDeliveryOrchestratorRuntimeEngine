@@ -1,5 +1,7 @@
 # Ajouter un dépôt
 
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
 Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
 
 
@@ -13,21 +15,22 @@ Une connexion CLI externe réussie reste partielle car elle peut changer hors d�
 Préparez ces éléments :
 
 - L’adresse du dépôt (https ou ssh) que le compte du serveur ADORE peut lire. ADORE le clone dans son propre dossier à la création du projet.
-- Une **Commande de vérification** facultative pour un dépôt sans AEGIS. Vous pouvez la laisser vide ; le candidat obtenu reste alors explicitement non vérifié.
 - Un compte GitLab, GitHub ou Gitea qui peut lire et mettre à jour les tickets et créer des revues en brouillon.
 - Les noms des étiquettes de disponibilité et d’approbation. Une personne ajoute l’étiquette de disponibilité pour rendre un ticket éligible ; voir [Tickets et prise en charge automatique](/help/tickets#labels).
-- L’identifiant du modèle de l’agent de programmation Pi et, pour un projet en conteneur, une image sur le serveur construite à partir de l’image de base d’ADORE, qui contient Pi. Voir [Exécuteurs et modèles](/help/executors).
+- L’identifiant du modèle Pi et, pour les conteneurs, un service Docker ou Podman actif. L’image commune par défaut est préparée automatiquement à l’import ; les images personnalisées doivent déjà exister dans ce service. Voir [Exécuteurs et modèles](/help/executors).
 
 ## Inscrire un nouveau projet {#add-project}
 
 Choisissez **Inscrire un nouveau projet** dans [Projets](/projects). L’assistant guidé commence par Dépôt et identité et comporte cinq étapes, et la modification d’une réponse rend périmées les validations et vérifications précédentes.
+
+Lorsqu’il ne reste aucun projet, Vue d’ensemble et Projets proposent **Inscrire un nouveau projet** et **Importer la configuration brute** aux administrateurs. La suppression du dernier projet vous ramène à Projets, où ces deux actions restent disponibles.
 
 | Étape | Ce qui est demandé |
 |---|---|
 | Dépôt et identité | **URL du dépôt** et **Lire le dépôt** : ADORE remplit **Forge**, **Dépôt**, **Gitea tea login**, **Branche cible** et l’identifiant du projet, à confirmer, et propose un **Chemin du clone local** modifiable. **Continuer** reste désactivé tant que le dépôt n’a pas été lu. **Nom affiché** reprend le nom du dépôt ; **Description** est facultative. |
 | Agent et modèle | Choisissez le **Fournisseur**, le **Modèle** et, si nécessaire, le point de terminaison. Pour un conteneur, choisissez le moteur et l’image. Enregistrez la clé du fournisseur dans Paramètres après la création. Pour **Installé sur le serveur**, seuls le compte système actuel et le **PATH des outils du projet** facultatif s’affichent. |
 | Éligibilité, relecteurs et limites | **Label prêt**, **Label d'approbation**, **Réviseurs (séparés par des virgules)** facultatifs et quatre limites par tâche : lancements de l’exécuteur, secondes actives, coût déclaré en USD et fichiers modifiés. Un plafond de coût à 0 désactive ce plafond ; cela ne signifie pas gratuit. |
-| Vérification | **Valider la configuration** contrôle la structure et les dossiers du serveur. **Vérifier l'environnement** teste Git et l’accès à la forge. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |
+| Vérification | L’ouverture de cette étape contrôle automatiquement la configuration, les dossiers du serveur, Git et l’accès à la forge. **Revérifier l'environnement** relance ces contrôles. **Workflow** indique séparément le workflow observé du dépôt sans bloquer l’inscription. En exécution sur le serveur, **Pi sur le serveur** indique les échecs locaux, dont les versions incompatibles de Node. En conteneur, le contrôle teste le moteur et Pi dans l’image locale. Rien n’est publié. **Continuer** ouvre la révision une fois la configuration valide. |
 | Révision et création | Affiche le candidat exact et les emplacements sur le serveur, ainsi qu’une liste repliée **Paramètres laissés par défaut** avec la valeur par défaut de chaque autre paramètre (en lecture seule ; modifiez-les dans Paramètres après la création). **Modifier** revient à une étape. **Créer avec prise de tickets arrêtée** clone d’abord le dépôt (depuis une URL), vérifie la branche cible, puis enregistre le projet et, sauf si vous décochez **Créer les étiquettes ADORE dans le dépôt**, crée les étiquettes ADORE manquantes et en affiche le résultat ; **Ouvrir le projet** suit. |
 
 Pour l’exécution locale native, choisissez **Exécution → Installé sur le serveur**. Les configurations de conteneur spécialisées passent par la méthode TOML serveur avancée ci-dessous.
@@ -40,18 +43,15 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Workflows du dépôt {#workflows}
 
-Les dépôts avec ou sans AEGIS peuvent être inscrits. ADORE n’installe, ne met à jour ni ne modifie AEGIS et n’ajoute aucun fichier au clone pendant l’inscription. Vous ne choisissez pas de workflow :
+À la confirmation d’une inscription guidée ou d’un import de configuration, ADORE prépare les images communes d’exécution et de proxy manquantes avant d’enregistrer le projet. La progression indique l’étape actuelle ; la première préparation peut prendre plusieurs minutes et nécessite Internet sur le serveur. Les imports suivants réutilisent les images. En cas d’échec, réessayez l’import sans ressaisir les mêmes réponses. Les imports natifs ignorent cette préparation. Les images personnalisées restent à la charge de l’administrateur.
 
-- **AEGIS, étape par étape** signifie que `.agentic/aegis.py` est présent ; `.agentic/aegis.toml` n’est pas nécessaire à l’inscription. ADORE conduit les étapes AEGIS du dépôt et utilise ses commandes de test.
-- **Direct, aucun AEGIS trouvé** signifie qu’un clone inspecté ne contient pas `.agentic/aegis.py`. Pi implémente le ticket dans une session limitée ; ADORE exécute ensuite la commande de vérification facultative avant l’approbation humaine.
-
-**Workflow** est une information, pas un prérequis en échec ni un contrôle de version. Tant que le clone local n’existe pas, il n’est pas inspecté ; l’aperçu et les contrôles ne le clonent pas. La création conserve le résultat mesuré. Lancez **Vérifier les prérequis de l’hôte** après la création pour inspecter le nouveau clone. La vérification réelle avant la prise en charge refuse toujours un AEGIS présent mais défectueux ou non pris en charge ; elle ne passe jamais silencieusement au workflow direct.
-
-À l’entrée de Vérification, ADORE lit les dossiers serveur et valide la configuration sans commande externe. **Commande de vérification** est facultative. Pour un clone direct existant, elle est préremplie si les fichiers du dépôt fournissent une suggestion, avec **Suggestion issue de** et le fichier source. Gardez-la, modifiez-la ou effacez-la ; les contrôles et aperçus suivants conservent vos modifications, y compris l’effacement. Sans correspondance, ou avant la création du clone, elle reste vide. Les suggestions examinent d’abord les manifestes à la racine, puis un seul dossier correspondant de premier niveau ; plusieurs dossiers correspondants ne donnent rien. Les liens hors du clone et les fichiers de plus de 1 MiB sont ignorés. Aucune suggestion n’est exécutée ni garantie fonctionnelle, et Paramètres ne remplace jamais une valeur enregistrée par une suggestion. Saisissez une commande shell sur une seule ligne ; les sauts de ligne et NUL sont refusés avec un message, pas supprimés. L’inscription conserve le texte exact sans l’exécuter. La vérification directe part de la racine de l’arbre de travail de la tâche, dans l’environnement choisi et sous sa limite de validation. Vide signifie non vérifié. Pour un dépôt AEGIS inspecté, le champ est remplacé par **Utilise les commandes de test AEGIS du dépôt**. Modifiez ensuite la commande enregistrée dans Paramètres → Implémentation ; voir [Commande de vérification](/help/settings#verification-command).
+**AEGIS / Direct**. L’agent découvre et exécute les contrôles selon les instructions du dépôt. Avec AEGIS, il suit les étapes enregistrées ; sinon il implémente directement le ticket. ADORE observe le progrès et le journal, enregistre le candidat et demande une approbation humaine. Il ne relance pas les tests du dépôt ni les contrôles AEGIS stricts.
 
 ## Importer la configuration brute {#import-project}
 
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un fichier UTF-8 `config.toml` exporté dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve le fichier exact.
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 `config.toml` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
+
+Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
 
 
 Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :

@@ -50,13 +50,10 @@ clarification parking, outbox replay, candidate fingerprinting and human-approve
 MR/PR publication. Workflow is selected from the allocated pinned worktree
 before the first claim save and retained on every continuation. Only absent
 `.agentic/aegis.py` selects direct; present unusable payloads never fall back.
-AEGIS runs pin a task whose validate -> done advance triggers independent
-strict verification. An AEGIS done task without evidence returns to validate
-through a fresh session; a failed check routes back from done. Direct runs
-carry no task and use build/validate/done with passing configured verification
-or explicit not-configured evidence. Both
-require fresh candidate-bound approval before review publication; neither
-launches Pi or an AEGIS command after approval. A run
+AEGIS runs pin a task whose done journal is observed without independent tests.
+Direct runs carry no task and use agent implementation summaries. Both apply
+candidate/target freshness and the project approval policy; human approval is
+enabled by default. Neither launches an AEGIS command during publication. A run
 keeps the stage done while it awaits approval, publishes and is in review;
 guarded progress checkpoints default to enabled and stay on the owned ticket branch and do
 not open an MR/PR. Drift forces re-conduction. Failed and handed-off resources
@@ -192,7 +189,7 @@ Container profiles without recipes or enabled package permission retain the exis
 
 - `REQ-FUNC-e5419c07`: Resolve/persist plan, pin base commit, bind identity, provision/check, then execute bounded preparation before AEGIS/AI. Immutable receipts and policy/resource IDs guard resume; explicit replay recreates the owned container and retains worktree/history.
 
-- `REQ-FUNC-ff7dad34` - candidate-bound approval and human-approved draft or ready publication.
+- `REQ-FUNC-ff7dad34` - candidate-bound approval when configured and policy-governed draft or ready publication.
 - `REQ-FUNC-9246f8cc` - the validate -> done advance triggers the strict check before presentation.
 - `REQ-FUNC-faab24b2` - a conduct step that starts at done without verification evidence
   returns the task to validate first.
@@ -201,7 +198,7 @@ Container profiles without recipes or enabled package permission retain the exis
 - `REQ-FUNC-fbc3fca5` - prompts name `advance`, `log` and `pause`; continuations name `brief` and the State.
 - `REQ-FUNC-f9bdb5d2` - reset accepts only the conducted stages and publishing.
 - `REQ-FUNC-d8d1b95b` - retry returns a published candidate to review, resumes an
-  approved unpublished one and conducts any other run from done.
+  fresh eligible unpublished one under the configured policy and conducts any other run from done.
 - `REQ-FUNC-40057219` - publication refuses a run outside stage done or publishing.
 - `REQ-FUNC-ab65704b` - recorded deviations lead the approval presentation.
 - `REQ-FUNC-83133b5e` - deterministic stage failure and timeout recovery.
@@ -285,3 +282,12 @@ Status comments identify the pinned or configured backend. Terminal failures nam
 Parked recovery rechecks backend stop and removes the handoff; failures terminate with PARK_CLEANUP_FAILED. Quoted notification markers never authorize comment adoption.
 
 The orchestrator supplies the configured Pi thinking level to the executor factory.
+
+## Publication approval policy
+
+`REQ-FUNC-751a55a1` / `REQ-REL-d3060dfd`: project delivery policy defaults
+to human approval. Automatic publication checks the persisted validation task,
+candidate fingerprint and freshly fetched target before publication; drift
+returns to validation and unavailable or invalid evidence stops publication.
+Waiting-job reconciliation and retry follow the current project policy; an
+existing review stays in review.

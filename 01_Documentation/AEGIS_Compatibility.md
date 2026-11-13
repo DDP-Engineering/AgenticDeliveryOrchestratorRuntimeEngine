@@ -7,6 +7,14 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # AEGIS compatibility
 
+ADORE guides agents and observes their recorded workflow. AEGIS completion is
+read from the task journal; Direct completion comes from the implementation
+session and its summary. Tests and their local/CI selection belong to the agent.
+ADORE does not invoke `check --strict --run` or run a separately configured test
+command. Candidate fingerprints, target freshness and fresh human approval remain
+required before publication. Old `workflow.verify_command` values are ignored
+without rewriting profiles and cannot be edited through the API.
+
 ADORE consumes each target repository's installed AEGIS companion CLI. Supported
 version/schema policy is declared in `04_Software/adore/aegis.py`. ADORE and AEGIS
 have independent release versions. This checkout retains the managed 0.15
@@ -22,8 +30,9 @@ when ADORE requires fresh evidence. Older Deliver journals remain readable as
 history and do not authorize new execution.
 
 Validate finishes with the companion's strict check, report and advance to Done.
-ADORE independently checks the candidate and requests fresh candidate-bound
-human approval. It owns publication; executors never commit, push or open reviews.
+ADORE binds the executor's completed validation to the candidate checkpoint and
+requests fresh candidate-bound human approval when configured. It owns publication; executors
+never commit, push or open reviews.
 
 Every stage session reads the installed step and `.agentic/templates/task.md`.
 It preserves existing task identity, legal prologue, retained guide links and

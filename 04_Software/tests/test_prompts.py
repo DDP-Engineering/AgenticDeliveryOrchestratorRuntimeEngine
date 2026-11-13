@@ -27,7 +27,6 @@ import shutil
 from string import Template
 
 from adore import orchestrator as orchestrator_module
-from adore.aegis import AegisError
 from adore.config import egress_policy
 from adore.executor.base import GateRun
 from adore.executor.launcher import PiExecutor, pi_rpc_argv
@@ -40,7 +39,6 @@ from tests.test_orchestrator import (
     make_config,
     make_engine,
     make_run,
-    passing_check,
     task,
 )
 from tests.test_pi_rpc import FakePi, SpawnTarget
@@ -143,28 +141,12 @@ def test_effective_network_stage_bytes(tmp_path, monkeypatch, case):
     assert actual.encode("utf-8") == case["expected"].encode("utf-8")
 
 
-def test_direct_verification_fragments_keep_literal_values(prompts):
-    """@brief Failure fields are independent literal values, not recursive template syntax."""
-    catalog = prompts.PromptCatalog()
-    command = 'printf "${output} $HOME {x} café"'
-    output = 'token=[REDACTED] ${command} ``` {x}'
-    assert command in catalog.render("direct/verification.md", command=command)
-    body = catalog.render("direct/verification-failure.md", command=command,
-                          output=output, exit_code="124", status="timed out")
-    assert command in body and output in body and "Exit code: 124" in body
-    assert "Previous verification timed out" in body
-    with pytest.raises(prompts.PromptError, match="missing placeholder"):
-        catalog.render("direct/verification-failure.md", command=command)
-
-
 def test_all_shipped_fragments_match_original_bytes(prompts):
     """@brief Inventory, placeholder completeness and original bodies are proven together."""
     catalog = prompts.PromptCatalog()
     inventory = {p.relative_to(prompts.PROMPT_ROOT).as_posix()
                  for p in prompts.PROMPT_ROOT.rglob("*.md")}
-    assert inventory == set(BASELINE["fragments"]) | {
-        "direct/implementation.md", "direct/verification.md", "direct/verification-failure.md",
-    }
+    assert inventory == set(BASELINE["fragments"]) | {"direct/implementation.md"}
     assert inventory == set(prompts.FRAGMENTS)
     for fragment, expected in BASELINE["fragments"].items():
         actual = catalog.render(fragment, **BASELINE["values"])
@@ -301,10 +283,7 @@ def test_shipped_placeholder_sets_are_complete(prompts):
     """@brief Every shipped placeholder has an exact captured caller value."""
     for fragment in prompts.FRAGMENTS:
         body = (prompts.PROMPT_ROOT / fragment).read_bytes().decode()[len(prompts.LEGAL_PREFIX):]
-        expected = ({"command"} if fragment == "direct/verification.md" else
-                    {"command", "output", "exit_code", "status"}
-                    if fragment == "direct/verification-failure.md" else BASELINE["values"].keys())
-        assert set(Template(body).get_identifiers()) <= expected
+        assert set(Template(body).get_identifiers()) <= BASELINE["values"].keys()
 
 
 def test_production_factory_shares_one_eager_catalog(prompts, monkeypatch, tmp_path):
@@ -329,7 +308,6 @@ def test_production_factory_shares_one_eager_catalog(prompts, monkeypatch, tmp_p
 
 @pytest.mark.parametrize("scenario", [
     "revalidation-route", "integration-conflict", "continuation", "no-progress",
-    "strict-verification",
 ])
 def test_recovery_callers_preserve_original_context(tmp_path, monkeypatch, scenario):
     """@brief Every recovery branch passes complete original context to its launch."""
@@ -339,18 +317,13 @@ def test_recovery_callers_preserve_original_context(tmp_path, monkeypatch, scena
     stage = {"revalidation-route": "done", "integration-conflict": "validate",
              "strict-verification": "done"}.get(scenario, "build")
     run.stage = "validate" if scenario == "revalidation-route" else stage
+    if scenario == "revalidation-route":
+        run.validation_evidence = {"agent_review_required": True}
     before = task(stage)
     after = replace(before, log=(evidence,)) if scenario == "continuation" else before
     client = FakeAegis([before, after, after])
     if scenario == "integration-conflict":
         monkeypatch.setattr(worktrees, "merge", lambda *a: CommandResult(exit_code=1))
-    if scenario == "strict-verification":
-        run.validation_evidence = engine._validation_payload(passing_check())
-
-        def check(*args, **kwargs):
-            raise AegisError(evidence)
-
-        monkeypatch.setattr(client, "check", check)
     contexts = []
 
     def launch(state, ticket, current, **kwargs):

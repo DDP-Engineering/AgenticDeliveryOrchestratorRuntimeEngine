@@ -11,7 +11,6 @@ import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
 import { connectionRowVisible, settingVisible } from "../src/settings";
 import { test, expect, type Page } from "@playwright/test";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
-import { messages } from "../src/i18n";
 
 async function openSettings(page: Page, name = "alpha", user = "admin") {
   await page.goto("/");
@@ -39,150 +38,6 @@ test.afterEach(async ({ page }) => {
   }
 });
 
-test("verification command refuses multiline input and saves exact text through reviewed settings", async ({ page }) => {
-  await openSettings(page);
-  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  const row = page.locator('[id="setting-workflow.verify_command"]');
-  await expect(row).toContainText("AEGIS");
-  await row.getByRole("button", {name:"Edit Verification command",exact:true}).click();
-  const command = row.getByRole("textbox", {name:"Verification command",exact:true});
-  await expect(command).toHaveJSProperty("tagName", "TEXTAREA");
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.evaluate(() => navigator.clipboard.writeText("npm test\r\nsecond command"));
-  await command.focus(); await page.keyboard.press("ControlOrMeta+V");
-  await expect(command).toHaveValue("npm test\nsecond command");
-  await expect(row.getByRole("alert")).toContainText("one line");
-  await expect(settingsSave(page)).toBeDisabled();
-  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  const value = "  echo 'é 🧪' && npm test  ";
-  await command.fill(value); await saveSettings(page);
-  const saved = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  expect(saved.config.workflow.verify_command).toBe(value);
-  await expect(page.locator('[data-setting-purpose="implementation"]')).toHaveAttribute("open", "");
-  await row.getByRole("button").click();
-  await row.getByRole("textbox").fill(before.config.workflow.verify_command);
-  await saveSettings(page);
-});
-
-for (const locale of ["en", "fr", "de", "ro"] as const) {
-  for (const workflow of ["direct", "aegis"] as const) {
-    for (const user of ["admin", "developer"] as const) {
-      test(`verification command ${workflow} settings in ${locale} for ${user} at 390px`, async ({ page }) => {
-        const control = { "X-ADORE-E2E": "local-test" };
-        expect((await page.request.post(`/__e2e__/settings-workflow?workflow=${workflow}`, { headers: control })).ok()).toBe(true);
-        let me: { csrf: string } | undefined;
-        try {
-          await page.setViewportSize({ width: 390, height: 844 });
-          await openSettings(page, "alpha", user);
-          me = await (await page.request.get("/api/v1/me")).json();
-          const headers = { "X-CSRF-Token": me!.csrf };
-          expect((await page.request.patch("/api/v1/me/preferences", { headers, data: { language: locale } })).ok()).toBe(true);
-          await page.reload();
-          await expect(page.locator("html")).toHaveAttribute("lang", locale);
-          const implementation = page.locator('[data-setting-purpose="implementation"]');
-          await implementation.locator(":scope > summary").click();
-          const row = implementation.locator('[id="setting-workflow.verify_command"]');
-          const copy = messages[locale];
-          await expect(row.locator("strong")).toHaveText(copy.verificationCommand);
-          await expect(row).toContainText(copy.verificationCommandHelp);
-          const active = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-          const folder = workflow === "direct" ? "direct-fixture" : "aegis-only-fixture";
-          expect(active.config.worktree.repo_path.replaceAll("\\", "/").endsWith(`/${folder}`)).toBe(true);
-          if (user === "developer") {
-            await expect(row.getByRole("button")).toHaveCount(0);
-            await expect(row.getByRole("textbox")).toHaveCount(0);
-            await expect(row.locator(".setting-control > code")).toHaveText("—");
-            expect(active.config.workflow.verify_command).toBe("");
-            const denied = await page.request.post("/api/v1/projects/alpha/config/pending", {
-              headers, data: { key: "workflow.verify_command", value: "npm test", revision: "a".repeat(64) },
-            });
-            expect(denied.status()).toBe(403);
-          } else {
-            const before = active;
-            await row.getByRole("button").click();
-            const command = row.getByRole("textbox", { name: copy.verificationCommand, exact: true });
-            await expect(command).toHaveJSProperty("tagName", "TEXTAREA");
-            await expect(command).toHaveValue("");
-            await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-            let preparations = 0;
-            page.on("request", request => { if (/\/config\/(preview|pending|apply)$/.test(request.url())) preparations++; });
-            await page.evaluate(() => navigator.clipboard.writeText("npm test\r\nsecond command"));
-            await command.focus(); await page.keyboard.press("ControlOrMeta+V");
-            await expect(command).toHaveValue("npm test\nsecond command");
-            await expect(row.getByRole("alert")).toHaveText(copy.verificationCommandInvalid);
-            await expect(settingsSave(page, locale)).toBeDisabled();
-            expect(preparations).toBe(0);
-            expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-            const value = "  echo 'é 🧪' && npm test  ";
-            await command.fill(value);
-            for (const theme of ["light", "dark"]) {
-              await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
-              expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-              const bounds = await command.boundingBox();
-              expect(bounds!.width).toBeGreaterThan(100);
-              expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
-            }
-            await saveSettings(page, false, locale);
-            expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.workflow.verify_command).toBe(value);
-            await page.reload();
-            await implementation.locator(":scope > summary").click();
-            await expect(row).toContainText(value.trim());
-            await row.getByRole("button").click();
-            await command.fill("");
-            const budget = implementation.locator('[id="setting-budgets.max_iterations"]');
-            await budget.getByRole("button").click();
-            await budget.getByRole("spinbutton").fill(String(before.config.budgets.max_iterations + 1));
-            await settingsSave(page, locale).click();
-            await expect(settingsImpact(page)).toContainText(copy.verificationCommand);
-            await settingsImpact(page).getByRole("button", { name: settingsSaveCopy[locale].confirm, exact: true }).click();
-            await expect(settingsSave(page, locale)).toBeDisabled();
-            const cleared = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-            expect(cleared.config.workflow.verify_command).toBe("");
-            expect(cleared.config.budgets.max_iterations).toBe(before.config.budgets.max_iterations + 1);
-          }
-        } finally {
-          if (me) {
-            await page.request.patch("/api/v1/me/preferences", { headers: { "X-CSRF-Token": me.csrf }, data: { language: "en" } });
-            if (user === "admin") await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": me.csrf } });
-          }
-          expect((await page.request.post("/__e2e__/settings-workflow?workflow=reset", { headers: control })).ok()).toBe(true);
-        }
-      });
-    }
-  }
-}
-
-for (const saved of ["", "  echo saved custom  "]) {
-  test(`saved command ${JSON.stringify(saved)} overrides repository hints on unrelated Save`, async ({page}) => {
-    const control={"X-ADORE-E2E":"local-test"};
-    await page.request.post("/__e2e__/settings-workflow?workflow=direct",{headers:control});
-    try {
-      await openSettings(page);
-      const row=page.locator('[id="setting-workflow.verify_command"]');
-      if(saved){
-        await row.getByRole("button").click();
-        await row.getByRole("textbox").fill(saved);
-        await saveSettings(page);
-        await page.reload();
-        await page.locator('[data-setting-purpose="implementation"] > summary').click();
-      }
-      const before=await (await page.request.get("/api/v1/projects/alpha/config")).json();
-      expect(before.config.workflow.verify_command).toBe(saved);
-      await row.getByRole("button").click();
-      await expect(row.getByRole("textbox")).toHaveValue(saved);
-      const budget=page.locator('[id="setting-budgets.max_iterations"]');
-      await budget.getByRole("button").click();
-      await budget.getByRole("spinbutton").fill(String(before.config.budgets.max_iterations+1));
-      await saveSettings(page, true);
-      const after=await (await page.request.get("/api/v1/projects/alpha/config")).json();
-      expect(after.config.workflow.verify_command).toBe(saved);
-      expect(after.config.budgets.max_iterations).toBe(before.config.budgets.max_iterations+1);
-    } finally {
-      await page.request.post("/__e2e__/settings-workflow?workflow=reset",{headers:control});
-    }
-  });
-}
-
 test("branch naming previews invalid drafts and applies both fields through exact review", async ({ page }) => {
   await openSettings(page);
   const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
@@ -204,7 +59,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
   await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   await expect(page.locator('[data-setting-purpose="repository"]')).toHaveAttribute("open", "");
   const rule = page.locator('[id="setting-worktree.branch_rule"]');
   await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
@@ -220,7 +75,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
   await expect(review).toContainText("Optional branch name rule");
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.worktree.branch_template).toBe("feature/{slug}-{iid}");
   expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
@@ -234,7 +89,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
     await settingsSave(page).click();
     await review.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   }
 });
 
@@ -363,6 +218,7 @@ test("request review from edits one account per line through reviewed apply", as
   const editor = row.getByRole("textbox", { name: "Request review from", exact: true });
   await expect(editor).toHaveValue(before.config.delivery.reviewers.join("\n"));
   await expect(editor).toHaveAttribute("rows", "6");
+  expect((await editor.boundingBox())!.height).toBeGreaterThanOrEqual(144);
   await editor.fill("alice\nbob.smith");
   await settingsSave(page).click();
   const review = settingsImpact(page);
@@ -372,7 +228,7 @@ test("request review from edits one account per line through reviewed apply", as
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.reviewers).toEqual(["alice", "bob.smith"]);
   // Restore the independent test profile using the same reviewed workflow.
   await expect(page.locator('[data-setting-purpose="reviews"]')).toHaveAttribute("open", "");
@@ -381,7 +237,7 @@ test("request review from edits one account per line through reviewed apply", as
   await settingsSave(page).click();
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
 });
 
 test("publication state offers draft and ready with explicit reviewed apply", async ({ page }) => {
@@ -401,7 +257,7 @@ test("publication state offers draft and ready with explicit reviewed apply", as
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   await expect(row.locator("code")).toHaveText("Ready for review");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.draft).toBe(false);
   // Restore the independent test profile through the same reviewed UI.
@@ -438,7 +294,7 @@ test("purpose guidance, correction and important confirmation preserve unsaved d
   await expect(settingsSave(page)).toBeFocused();
   await discardSettings(page);
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -736,13 +592,15 @@ test("stale Save and malformed restored candidate fail closed while retaining ed
   await expect(settingsSave(page)).toBeDisabled();
   await expect(settingsImpact(page)).toHaveCount(0);
   await page.unroute("**/config/preview");
-  await discardSettings(page);
   await page.route("**/projects/*/config/pending", async route => {
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({json:{candidate_revision:"broken"}});
   });
-  await revalidateVisiblePage(page);
+  // Discarding the stale draft reloads configuration. Intercept that read before
+  // starting it; a visibility event during an in-flight reload can be coalesced.
+  await page.locator(".settings-save-bar").getByRole("button", {name:"Discard changes",exact:true}).click();
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
+  await expect(page.locator(".settings-save-bar")).toContainText("could not be verified");
   const implementation = page.locator('[data-setting-purpose="implementation"]');
   if (await implementation.getAttribute("open") === null) await implementation.locator("summary").first().click();
   await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
@@ -827,7 +685,7 @@ test("administrators choose the executor image in Agent and model through review
   await expect(review.getByText(/managed externally|prepared externally/)).toHaveCount(0);
   await discardSettings(page);
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -849,7 +707,7 @@ test("internet access for the agent is off by default and warns before it is swi
   await expect(review.getByText(internetCopy.en.internetWarning)).toBeVisible();
   await discardSettings(page);
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -1087,4 +945,23 @@ test("typed Implementation controls remain read-only for developers on narrow sc
   await expect(row.getByRole("button")).toHaveCount(0);
  }
  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
+
+test("human approval policy is reviewed and saved per project", async ({ page }) => {
+  await openSettings(page);
+  const name = "Require human approval before PR/MR";
+  const row = page.locator(".setting-row").filter({has: page.getByText(name, {exact: true})});
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(before.config.delivery.require_human_approval).toBe(true);
+  await row.getByRole("button", {name: `Edit ${name}`, exact: true}).click();
+  await row.getByRole("combobox").selectOption("false");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
+  await expect(review).toContainText(name);
+  await expect(review).toContainText("false");
+  await review.getByRole("button", {name: "Save changes", exact: true}).click();
+  await expect(review).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get("/api/v1/projects/alpha/config"))
+    .json()).config.delivery.require_human_approval).toBe(false);
 });

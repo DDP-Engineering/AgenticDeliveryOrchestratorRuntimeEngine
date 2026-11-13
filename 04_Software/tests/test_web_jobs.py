@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 import subprocess
 import time
+from unittest.mock import patch
 
 from adore.executor.base import GateRun
 from adore.executor.diagnostics import record_diagnostics
@@ -86,7 +87,8 @@ def _get(client, query=""):
     ("failed", 2**100, False, 1, "tail"),
     ("not configured", None, None, None, None),
     ("unavailable", None, None, None, None),
-])
+], ids=["passed-empty", "failed-redacted", "timeout-unicode", "large-negative-exit",
+        "large-positive-exit", "not-configured", "unavailable"])
 def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
         tmp_path, role, status, exit_code, timed_out, seconds, output):
     """@brief Detail projects saved direct evidence, not current config or counters."""
@@ -117,11 +119,7 @@ def test_direct_saved_evidence_is_authorized_redacted_and_read_only(
         response = client.get(f"/api/v1/jobs/{items[0].project_id}/same")
         assert response.status_code == 200, response.text
         direct = response.json()["job"]["direct"]
-        assert set(direct) == {"attempt", "verification"} and direct["attempt"] == 2
-        expected = None if result is None else {
-            **result, "command": redact_text(result["command"]),
-            "exit_code": str(exit_code), "output": redact_text(output)}
-        assert direct["verification"] == {"status": status, "result": expected}
+        assert direct == {"attempt": 2}
         assert "PRIVATE" not in response.text
         if role == "developer":
             assert client.get(f"/api/v1/jobs/{items[1].project_id}/same").status_code == 404
@@ -135,18 +133,12 @@ def test_direct_absent_launch_does_not_guess_from_other_counters(tmp_path):
     with TestClient(app) as client:
         _login(client)
         job = client.get(f"/api/v1/jobs/{items[0].project_id}/same").json()["job"]
-        assert job["direct"] == {"attempt": None, "verification": {
-            "status": "unavailable", "result": None}}
+        assert job["direct"] == {"attempt": None}
 
 
 @pytest.mark.parametrize("mutation", [
     "attempt-missing", "attempt-bool", "attempt-zero", "attempt-float", "attempt-unsafe",
-    "current-stage", "timeline-stage", "result-null", "result-extra", "result-missing",
-    "status-missing", "status-null", "status-unknown", "unconfigured-result", "mismatch",
-    "exit-bool", "seconds-bool", "seconds-negative", "seconds-overflow", "timeout-type",
-    "output-type", "output-long", "output-lines", "output-nul", "output-ansi",
-    "output-cr", "output-surrogate", "output-trailing-lf", "output-separator",
-    "command-type", "command-nul",
+    "current-stage", "timeline-stage", "publication-launch", "publication-transition",
 ])
 def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_path, mutation):
     """@brief All selected direct sources fail closed before filtering or totals."""
@@ -169,31 +161,10 @@ def test_direct_corrupt_evidence_refuses_lists_and_details_without_repair(tmp_pa
     elif mutation == "timeline-stage":
         stores[0].journal("same", "stage-advanced", current="design")
         code = "run_journal_corrupt"
-    elif mutation == "result-null":
-        evidence["verification_result"] = None
-    elif mutation == "result-extra":
-        result["private"] = "PRIVATE"
-    elif mutation == "result-missing":
-        del evidence["verification_result"]
-    elif mutation == "status-missing":
-        del evidence["verification"]
-    elif mutation in {"status-null", "status-unknown", "unconfigured-result", "mismatch"}:
-        evidence["verification"] = {"status-null": None, "status-unknown": "PRIVATE",
-                                    "unconfigured-result": "not configured",
-                                    "mismatch": "failed"}[mutation]
-    else:
-        field, value = {
-            "exit-bool": ("exit_code", True), "seconds-bool": ("seconds", True),
-            "seconds-negative": ("seconds", -1), "seconds-overflow": ("seconds", 10**400),
-            "timeout-type": ("timed_out", 1), "output-type": ("output", []),
-            "output-long": ("output", "x" * 6001), "output-lines": ("output", "\n" * 200),
-            "output-nul": ("output", "\x00"), "output-ansi": ("output", "\x1b[31mred"),
-            "output-cr": ("output", "\r\n"), "output-surrogate": ("output", "\ud800"),
-            "output-trailing-lf": ("output", "tail\n"),
-            "output-separator": ("output", "one\u2028two"),
-            "command-type": ("command", []), "command-nul": ("command", "\x00"),
-        }[mutation]
-        result[field] = value
+    elif mutation in {"publication-launch", "publication-transition"}:
+        stores[0].journal("same", "stage-launch" if mutation == "publication-launch"
+                         else "stage-advanced", stage="publishing", attempt=2)
+        code = "run_journal_corrupt"
     _state(stores[0], "same", **updates)
     paths = list(stores[0].run_dir("same").iterdir())
     before = {path: path.read_bytes() for path in paths}
@@ -975,6 +946,8 @@ def test_executor_output_is_scoped_operational_and_never_a_transcript(tmp_path):
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["availability"] == "observed"
+            assert body["attempt"] == 1 and body["stage"] == "build"
+            assert body["recorded_at"] and body["in_progress"] is False
             assert body["exit_code"] == 1 and body["timed_out"] is False
             assert "ModuleNotFoundError: No module named 'yaml'" in body["stdout"]
             assert "pytest: 1 failed, 2 passed" in body["stdout"]
@@ -1027,6 +1000,38 @@ def test_executor_output_refuses_corrupt_and_foreign_sources(tmp_path, mutation)
         response = client.get(f"/api/v1/jobs/{items[0].project_id}/same/executor-output")
         assert response.status_code == 503
         assert response.json() == {"detail": {"code": "job_evidence_corrupt"}}
+
+
+def test_executor_output_read_conflict_is_recoverable(tmp_path):
+    """@brief Concurrent journal appends refuse a read, then a fresh read succeeds."""
+    from adore.web import executor_evidence
+    _, items, stores, app = _fixture(tmp_path)
+    _executor_archive(stores[0])
+    _state(stores[0], "same", iterations=2, stage="validate")
+    original = executor_evidence._read
+    changed = False
+
+    def append_during_read(path, limit):
+        """@brief Append one valid event between the two integrity reads."""
+        nonlocal changed
+        raw = original(path, limit)
+        if path == stores[0].run_dir("same") / "journal.jsonl" and not changed:
+            changed = True
+            stores[0].journal("same", "stage-launch", stage="validate", attempt=1)
+        return raw
+
+    with TestClient(app) as client:
+        _login(client)
+        url = f"/api/v1/jobs/{items[0].project_id}/same/executor-output"
+        with patch.object(executor_evidence, "_read", append_during_read):
+            conflict = client.get(url)
+        assert conflict.status_code == 409
+        assert conflict.json() == {"detail": {"code": "job_snapshot_changed"}}
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response.json()["in_progress"] is True
+        assert response.json()["attempt"] == 1
+        assert response.json()["stage"] == "build"
 
 
 def test_executor_output_missing_and_latest_only(tmp_path):

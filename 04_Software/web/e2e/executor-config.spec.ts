@@ -46,7 +46,7 @@ test("executor workspace owns model, credentials and coherent evidence", async (
  const command=panel.getByLabel("Executor launch command",{exact:true});
  await expect(command).toHaveJSProperty("tagName","SELECT");
  await command.selectOption(PI_PRESET);
- await expect(settingsSave(page)).toBeDisabled();
+ await expect(page.locator(".settings-save-bar")).toHaveCount(0);
  await panel.getByRole("button",{name:"Cancel",exact:true}).click();
  await page.getByLabel("Credential variable",{exact:true}).selectOption("OPENAI_API_KEY");
  await page.getByLabel("API key",{exact:true}).fill("offline-private-key");
@@ -86,7 +86,7 @@ for (const user of ["admin", "developer"]) {
    await panel.getByRole("button",{name:"Edit Executor launch command",exact:true}).click();
    const command=panel.getByLabel("Executor launch command",{exact:true});
    await expect(command).toHaveValue(current);
-   await expect(settingsSave(page)).toBeDisabled();
+   await expect(page.locator(".settings-save-bar")).toHaveCount(0);
    await command.selectOption(config.settings.find((s:{key:string})=>s.key==="executor.command").choices[0]);
    await expect(settingsSave(page)).toBeEnabled();
    await panel.getByRole("button",{name:"Cancel",exact:true}).click();
@@ -130,6 +130,7 @@ test("current model evidence remains coherent in Summary and host check details"
 });
 
 test("model and provider drafts have complete review and fit mobile",async({page})=>{
+ await page.setViewportSize({width:1520,height:900});
  await page.context().route("**/*", route=>new URL(route.request().url()).origin==="http://127.0.0.1:18765"?route.continue():route.abort());
  await page.goto("/"); await page.getByLabel("Username",{exact:false}).fill("admin"); await page.getByLabel("Password",{exact:false}).fill("admin"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
  await expect(page.getByRole("navigation",{name:"Primary navigation",exact:true})).toBeVisible();
@@ -138,18 +139,36 @@ test("model and provider drafts have complete review and fit mobile",async({page
  await page.getByRole("button",{name:"Edit Provider",exact:true}).click();
  const editor=page.locator(".setting-editor");
  const provider=editor.getByLabel("Provider",{exact:true});
+ const model=editor.getByLabel("Model",{exact:true});
+ const reasoning=editor.getByLabel("Reasoning effort",{exact:true});
+ const baseUrl=editor.getByLabel("Endpoint base URL",{exact:true});
+ const apiType=editor.getByLabel("Endpoint API type",{exact:true});
+ const expectSingleLine=async(controls: typeof provider[])=>{
+   for (const control of controls) {
+     await expect(control).toBeVisible();
+     const box=await control.boundingBox();
+     expect(box!.height).toBeGreaterThanOrEqual(40);
+     expect(box!.height).toBeLessThan(64);
+   }
+ };
  await expect(provider.locator('option[value="anthropic"]')).toHaveCount(1);
  await expect(editor.getByText(/OPENAI_API_KEY/)).toBeVisible();
  await provider.selectOption("chatgpt");
+ await expectSingleLine([provider,model]);
+ await provider.focus();
+ await page.keyboard.press("Tab");
+ await expect(model).toBeFocused();
  await expect(editor.getByText(connectionCopy.en.chatgptNote,{exact:true})).toBeVisible();
  await provider.selectOption("custom");
  await expect(editor.getByText(connectionCopy.en.baseUrlHelp,{exact:true})).toBeVisible();
  await expect(editor.getByText(/ADORE_ENDPOINT_API_KEY/)).toBeVisible();
  await expect(settingsSave(page)).toBeDisabled();
- await editor.getByLabel("Model",{exact:true}).fill("qwen/qwen3.5-9b");
- await editor.getByLabel("Endpoint base URL",{exact:true}).fill("http://172.27.80.1:1234/v1");
- await expect(editor.getByLabel("Endpoint API type",{exact:true})).toHaveValue("openai-completions");
+ await model.fill("qwen/qwen3.5-9b");
+ await baseUrl.fill("http://172.27.80.1:1234/v1");
+ await expect(apiType).toHaveValue("openai-completions");
+ await expectSingleLine([provider,model,reasoning,baseUrl,apiType]);
  await page.setViewportSize({width:390,height:844});
+ await expectSingleLine([provider,model,reasoning,baseUrl,apiType]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await settingsSave(page).click();
  const review=settingsImpact(page);
@@ -238,7 +257,7 @@ test("important confirmation shows differences and unchanged editors keep Save d
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await discardSettings(page);
  await page.getByRole("button",{name:"Edit Model",exact:true}).click();
- await expect(settingsSave(page)).toBeDisabled();await expect(review).toHaveCount(0);
+ await expect(page.locator(".settings-save-bar")).toHaveCount(0);await expect(review).toHaveCount(0);
  expect(await(await page.request.get(`/api/v1/projects/${id}/config/pending`)).json()).toBeNull();
  expect((await(await page.request.get(`/api/v1/projects/${id}/config`)).json()).revision).toBe(before.revision);
 });
@@ -295,6 +314,11 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
   await expect(panel.getByRole("heading",{name:c.title,exact:true})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Provider API key",exact:true})).toHaveCount(0);
   await expect(panel.locator("[data-chatgpt-status]")).toHaveText(c["not-signed-in"]);
+  expect((await page.request.post("/__e2e__/enrollment?mode=failed",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
+  await panel.getByRole("button",{name:c.start,exact:true}).click();
+  await expect(panel.getByRole("alert")).toHaveText(errorMessages.en.container_runtime_unavailable);
+  await expect(panel.getByRole("link",{name:c.link,exact:true})).toHaveCount(0);
+  expect((await page.request.post("/__e2e__/enrollment?mode=partial",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
   await panel.getByRole("button",{name:c.start,exact:true}).click();
   const link=panel.getByRole("link",{name:c.link,exact:true});
   await expect(link).toHaveAttribute("href",/^https:\/\/auth\.openai\.com\//);
@@ -314,6 +338,7 @@ test("an administrator signs the server in with ChatGPT and disconnects it",asyn
  } finally {
   await page.request.delete("/api/v1/chatgpt-sign-in",{headers:{"X-CSRF-Token":(await(await page.request.get("/api/v1/session")).json()).csrf}}).catch(()=>undefined);
   expect((await fixture("openai")).ok()).toBe(true);
+  expect((await page.request.post("/__e2e__/enrollment?mode=failed",{headers:{"X-ADORE-E2E":"local-test"}})).ok()).toBe(true);
  }
 });
 

@@ -5,6 +5,8 @@ A job is the work ADORE does for one ticket, from pickup to a merged change. Thi
 
 Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime and worktree, including unpublished work; resources can remain if cleanup fails. Job state and evidence remain. Deleting a job is a separate action.
 
+Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.
+
 ## Stages {#stages}
 
 ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor session. Executors never push, open an MR/PR or merge.
@@ -14,8 +16,8 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 | Frame | Scope is agreed and the executor records whether the job takes the full or the quick path. |
 | Specify | The requirement is written. |
 | Design | A short design note is written for non-trivial work. |
-| Build | A failing test comes first, then the implementation, until the tests pass. |
-| Validate | Review, the full test suite, a strict check and the AEGIS report; the AEGIS task closes. ADORE then repeats the strict check itself before it asks for approval. |
+| Build | The agent implements the ticket and selects suitable checks according to the repository instructions. |
+| Validate | The agent reports checks according to the repository instructions, including CI-only checks not run locally, and closes the AEGIS task. ADORE observes completion without rerunning tests. |
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
@@ -23,33 +25,29 @@ The quick path runs Frame, Build and Validate. After Validate the job shows the 
 
 The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (`build`), **Validation** (`validate`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.
 
-**Latest recorded attempt** is the last executor stage-launch attempt, not cumulative launches or failed attempts. Without a saved launch, the page shows **Attempt unavailable**. Independent verification shows the saved command before its result, **Duration (seconds)** and **Output tail** as literal redacted text. Empty output is explicit. Changing Settings does not replace the saved command or result.
+**Latest recorded attempt** shows the last recorded agent launch. Without one, the page shows **Attempt unavailable**. Tests and checks are reported by the agent; ADORE does not execute them independently.
 
-| Result | Meaning |
-|---|---|
-| Passed | The command exited zero without timing out. |
-| Failed | The command exited nonzero without timing out; the latest failure stays visible during a new implementation attempt. |
-| Timed out | The command exceeded its time limit, regardless of exit code. |
-| Not configured: unverified | No verification command was configured; this is not a pass. |
-| Verification evidence unavailable | No verification outcome is recorded yet; this does not mean not configured. |
-
-Direct implementation uses the **Implementation** `build` limit in `workflow.stage_timeout_overrides`; independent verification uses the **Validation** `validate` limit. Each falls back to the general `budgets.per_gate_timeout_seconds` when its override is unset. The other AEGIS stage limits do not apply to direct jobs.
+Direct **Implementation** uses the `build` override in `workflow.stage_timeout_overrides`, falling back to `budgets.per_gate_timeout_seconds`. **Validation** (`validate`) records the candidate for approval without running a separate test command.
 
 ## Clarification {#clarification}
 
-When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**.
+When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**. Choose **Read the question** to open **Agent question**, then **Answer on the ticket** when a saved location is available.
 
 Reply with a normal comment on the ticket, then add `agent-answered`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
 
 ## Approval {#approval}
 
-When AEGIS strict validation or configured direct verification passes (or direct verification is explicitly unconfigured), ADORE removes `agent-approved`, posts the evidence on the ticket and waits. The job shows **Waiting for approval** and the ticket keeps `agent-working`. The evidence names the exact candidate and any deviations the executor recorded.
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
+When the agent completes its workflow, ADORE records the candidate, removes the old approval label and asks for fresh human approval. Checks shown in the task journal are agent-reported.
 
 Review it, then add `agent-approved` again; only a fresh addition counts. The approval is bound to that candidate and the target branch commit. If either changes, the approval is void and ADORE integrates, validates and asks again. This wait has no timer. The job detail offers **Review the candidate on the forge**.
 
+When disabled, ADORE checks the validated candidate and target and publishes without waiting for a label. ADORE never merges.
+
 ## Publication and review {#review}
 
-After approval ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets `agent-mr`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets `agent-done`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
+After validation and any required approval, ADORE pushes the branch and opens the MR/PR against the target branch, requests review from the accounts in **Request review from**, and sets `agent-mr`. **PR/MR state at publication** chooses Draft (default) or Ready for review. The job shows **Publishing** and then **Human review**. ADORE never merges. After a person merges, ADORE sets `agent-done`, the job shows **Completed**, and by default the remote branch is removed. An MR/PR closed without a merge fails the job.
 
 To request changes, a reviewer adds `agent-revise` to the MR/PR. ADORE removes the label, starts new work on the same branch (a new task for AEGIS), and repeats validation and fresh approval before it pushes. **Maximum revision rounds** (5 by default) bounds this. A request beyond the limit fails the job.
 
@@ -59,7 +57,7 @@ If CI checks fail on the MR/PR, **Action when PR/MR CI checks fail** decides: Au
 
 When a stage fails, ADORE keeps one incident comment on the ticket up to date with the stage, attempt, error code, evidence and next action; when the agent exited without moving the stage on, the evidence also shows its last error-output lines. After the final attempt it posts a terminal comment, sets `agent-failed`, stops the container, keeps the worktree and frees the slot. Other causes are an expired answer time, a deleted source ticket and an exceeded limit such as cost or changed files. Closing the source ticket while a job waits cancels it.
 
-In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or approval. In the Tickets view, Retry replaces Start. Removing `agent-failed` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
+In Jobs a failed job shows **Failed**, and its detail explains that recovery evidence is kept. **Retry** asks the worker to recover the job; it does not bypass validation or any required approval. In the Tickets view, Retry replaces Start. Removing `agent-failed` does not retry. **Cancel** appears for unfinished jobs and asks the worker to stop and clean up. Finished jobs cannot be cancelled. Administrators and assigned developers can use both. A queued command shows its progress, such as Command queued or Command completed. A failed or uncertain command also says why, when the engine names a reason, and shows the engine's last lines.
 
 For local jobs, explicit **Retry** rechecks the installed executor and accepts an updated executable or inherited environment on the same computer and account. It keeps the task, worktree, branch, history and cumulative limits. Automatic monitoring does not do this. Changed execution settings or corrupt recovery evidence still need correction. If restarting fails, the command is marked failed and shows the saved cause, such as a missing executable, invalid version, command failure or timeout. No model request is sent by this version check; use **Test AI connection** for that.
 
@@ -93,9 +91,9 @@ Lists and open details update every 15 seconds while visible; Consumption update
 
 Submitting a job command keeps your page and open details. List, detail and Consumption reads wait while the command is queued or running. Its observed result triggers fresh reads without resetting the view. Job commands stay unavailable until list and detail evidence validates again. An unreadable command status means the outcome is still unknown; it is not success.
 
-After a connection failure or a 30-second read deadline, older validated information can remain with a stale notice and **Retry**. Stale job list or detail evidence cannot enable commands; a consumption failure alone does not block independently valid job actions. Invalid or denied evidence is hidden. A changed paging snapshot requires **Reload first page**, not a silent page reset. Open executor output is not fetched again by parent updates; a changed job evidence revision still clears its binding.
+After a connection failure or a 30-second read deadline, older validated information can remain with a stale notice and **Retry**. Stale job list or detail evidence cannot enable commands; a consumption failure alone does not block independently valid job actions. Invalid or denied evidence is hidden. A changed paging snapshot requires **Reload first page**, not a silent page reset. Open executor output is not fetched again by parent updates; a changed job revision marks retained output as possibly out of date until another explicit read.
 
-The detail shows **What is happening now**, **Who acts**, **Where** and **What follows**, then Consumption, a Timeline (Date, Event, Stage), **Evidence and artifacts** links and **Technical details**. The timeline lists only saved events. Old activity alone does not show that work stopped.
+The detail replaces the job list while open. Its compact heading combines the ticket number and title. **What is happening now** shows the state, who acts and **Next step**. Budgets and Consumption sit beside it on wide screens and below it on narrow screens. **Activity** lists saved events newest first. **Agent question** holds the active clarification; other states show **Evidence and artifacts**. **Technical details** holds identifiers, executor output and expandable **Original recorded events**. **Close** returns to the list with its filters. Old events do not become current action requests.
 
 ## Job budgets {#budgets}
 
@@ -111,11 +109,13 @@ If current limits cannot be read, the detail keeps saved consumption, evidence a
 
 **Working** means ADORE is conducting the saved stage; no human action is currently requested. **Waiting for clarification** needs an answer on the ticket. **Failed** stops autonomous work and keeps recovery evidence. The status card shows failed attempts in the current stage even while the job stays Working.
 
-Questions render as Markdown with lists, tables and code. HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
+Questions appear in **Agent question** as Markdown with lists, tables and code. Leading HTML comments are omitted in the readable view; **Original question and evidence** retains the exact source. Other HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
 
 Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.
 
-Under **Evidence and artifacts**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+Under **Technical details**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+
+The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.
 
 A launch without proven capture, or a deleted snapshot, is explicitly unavailable; raw archives are never used as a fallback. Corrupt evidence is refused. Existing jobs can remain unavailable until a later executor launch records evidence; this view never starts one.
 

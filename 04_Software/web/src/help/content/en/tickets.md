@@ -11,7 +11,7 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
-Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A present broken or unsupported payload is refused, never silently replaced by Direct. Without that file, the direct workflow uses the optional **Verification command**; empty means unverified. Both workflows retain the same labels, limits and human approval. See [Repository workflows](/help/projects#workflows).
+Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).
 
 ## Create the labels first {#labels}
 
@@ -70,6 +70,8 @@ Queued operations are checked every 2 seconds while this tab is visible, with on
 Unchanged project updates keep open bodies and valid Start/Stop confirmations. If project identity, access or archive status changes, the old review cannot submit, even after restore. Press **Read tickets** and review again. Pausing or resuming monitoring also invalidates the old Start review, even if the previous state returns; read and review again before Start. This alone does not invalidate Stop or close bodies. A fresh eligible manual Start still works while monitoring is paused. Removed projects' bodies stay hidden until a new explicit read. Leaving the context cancels browser requests and ignores obsolete action results; it does not undo a command already accepted by the server.
 
 Ticket and comment reads have a 30-second limit and never retry the forge automatically. After an error, press **Read tickets** for the list, or close and reopen **Details** for comments. Reopening comments while their read is pending shares that read.
+
+On desktop, Start or Retry, Stop and Details or Hide details stay on one row, aligned to the right with the Actions heading. On narrow screens, the buttons can wrap to keep them within the page.
 
 ## Reading descriptions and comments {#reading-bodies}
 

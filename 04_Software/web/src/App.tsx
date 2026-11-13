@@ -448,6 +448,8 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
   // Prices are recorded only for Pi and the model configured for it in Agent and model.
   const priceExecutor = "pi";
   const configuredPriceModel = projectConfig ? settingValue(projectConfig.config, "executor.model") : undefined;
+  const dockerBuild = projectConfig && settingValue(projectConfig.config, "execution.backend") === "container"
+    ? true : undefined;
   const priceModel = typeof configuredPriceModel === "string" && configuredPriceModel.trim() ? configuredPriceModel : "";
   const statisticsText = statisticsCopy[locale];
   const authorizedMetricsKey = JSON.stringify(projects.map(project => [project.id, project.name]).sort());
@@ -1005,6 +1007,11 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
     setError(new ApiError("project_not_found"));
   }, [projects, projectsLoaded]);
 
+  useEffect(() => {
+    if (page !== "projectDetails" || projectsState !== "ready" || projects.length) return;
+    setRequestedRun(""); setJobScope(""); setPage("projects");
+  }, [page, projectsState, projects.length]);
+
   const clearPrivateView = () => {
     setImportOpen(false);
     viewGeneration.current += 1;
@@ -1531,11 +1538,13 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
           <button onClick={() => { setNotice(""); setProjectNotice(null); setOperationVisible(false); }} aria-label={t("close")}>×</button>
         </div>}
         {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState !== "ready" && <DataFeedback state={projectsState} t={t} />}
-        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t} onEnroll={page === "overview" ? () => setPage("createProject") : undefined} />}
+        {["overview", "projects", "projectDetails", "jobs", "metrics"].includes(page) && projectsState === "ready" && projects.length === 0 && <ProjectEmpty isAdmin={isAdmin} t={t}
+          onEnroll={() => { setError(""); setPage("createProject"); }}
+          onImport={() => { setError(""); setPage("projects"); setImportOpen(true); }} />}
         {page === "overview" && projectsState === "ready" && projects.length > 0 && <JobWorkspace admin={isAdmin} {...workspaceProps} mode="overview" />}
 
         {page === "projects" && projectsState === "ready" && <>
-          <div className="section-actions">{isAdmin && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => setImportOpen(true)}>{t("importProject")}</button></>}</div>
+          <div className="section-actions">{isAdmin && projects.length > 0 && <><button className="primary" onClick={() => { setError(""); setPage("createProject"); }}>{t("createProject")}</button><button className="ghost" onClick={() => setImportOpen(true)}>{t("importProject")}</button></>}</div>
           {projects.length > 0 && <section className="panel">
             {projects.length ? <PagedTable key={`${projectSortKey}-${projectSortDescending}`} t={t}><table className="projects-table"><thead><tr>
               <SortHeader label={t("project")} sortKey="name" activeKey={projectSortKey} descending={projectSortDescending} onSort={changeProjectSort} />
@@ -1568,7 +1577,6 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
           <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">
               <div className="summary-fact"><dt>{selectedProject.runtime === "local" ? enrollmentCopy[locale].runsIn : t("containerType")}</dt><dd>{selectedProject.runtime === "local" ? enrollmentCopy[locale].installed : ({ docker: "Docker", podman: "Podman" } as Record<string, string>)[selectedProject.runtime] || selectedProject.runtime}</dd></div>
-              <div className="summary-fact"><dt>{t("executor")}</dt><dd>{selectedProject.executor === "pi" ? "Pi" : selectedProject.executor || "—"}</dd></div>
               <div className="summary-fact"><dt>{jc.pickup}</dt><dd><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></dd></div>
               <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
               {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
@@ -1591,9 +1599,7 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
           </section>} />
           {isAdmin && deleteTarget?.id === selectedProject.id && <ProjectDeleteDialog onClose={() => setDeleteTarget(null)}><section className="delete-confirm">
             <h2 id="delete-project-title">{t("deleteProjectTitle").replace("{project}", deleteTarget.name)}</h2>
-            <p>{t("deleteProjectRemoves")}</p>
-            <p className="muted">{t("deleteProjectKeeps")}</p>
-            <form className="form-stack" onSubmit={deleteProject}><FormLegend t={t} />
+            <form className="form-stack" onSubmit={deleteProject}>
               <DeleteCloneOption locale={locale} project={deleteTarget.id} read={path => request(path)} checked={deleteClone} onChange={setDeleteClone} />
               <label><span className="delete-confirm-label">{t("deleteProjectConfirm").split("{project}").map((part, index) => <Fragment key={index}>{index > 0 && <strong className="delete-confirm-name">{deleteTarget.name}</strong>}{part}</Fragment>)}<RequiredMark /></span><input value={deleteName} onChange={event => setDeleteName(event.target.value)} autoComplete="off" spellCheck={false} required /></label>
               {!deleteReviewCurrent && <p role="status">{userCopy[locale].reviewChanged}</p>}
@@ -1618,7 +1624,7 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
                   {isAdmin && selected && <section className="executor-prices"><h3>{t("estimatedPrices")}</h3><p className="muted">{t("priceHelp")}</p>
                     {priceModel ? <form key={`${selected}:${priceModel}`} ref={priceFormRef} className="form-grid" onChange={event=>updatePriceDraft(event.currentTarget)} onSubmit={savePrice}><FormLegend t={t} /><input type="hidden" name="executor" value={priceExecutor} /><input type="hidden" name="model" value={priceModel} /><label><span>{t("effectiveFrom")}<RequiredMark /></span><input name="effective_from" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required /></label><label><span>{t("inputRate")}<RequiredMark /></span><input name="input_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><label><span>{t("outputRate")}<RequiredMark /></span><input name="output_usd_per_million" type="number" min="0" max="1000000" step="0.000001" required /></label><button className="primary form-submit" type="submit">{t("save")}</button></form> : <p className="muted">{t("priceNeedsModel")}</p>}
                     {projectPrices.length > 0 && <PagedTable t={t}><table><thead><tr><th>{t("executor")}</th><th>{t("model")}</th><th>{t("effectiveFrom")}</th><th>{t("inputRate")}</th><th>{t("outputRate")}</th></tr></thead><tbody>{projectPrices.map(price => <tr key={price.id}><td>{price.executor}</td><td>{price.model}</td><td>{price.effective_from}</td><td>{price.input_usd_per_million}</td><td>{price.output_usd_per_million}</td></tr>)}</tbody></table></PagedTable>}
-                  </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} />}>
+                  </section>}</>} actions={isAdmin && <RawConfiguration key={`${session.user.id}:${selected}:${projectConfig.revision}`} project={selected} locale={locale} dockerBuild={dockerBuild} revision={projectConfig.revision} image={String(settingValue(projectConfig.config, "container.image") ?? "")} csrf={session.csrf} />}>
             {isAdmin && <>
             {projectConfig.issues.length > 0 && <div className="alert">{projectConfig.issues.join(" · ")}</div>}
             {settingsConfirmation && settingsConfirmation.project === selected && <SettingsImpactDialog config={settingsConfirmation.config} candidate={settingsConfirmation.candidate} edits={settingsConfirmation.edits} project={settingsConfirmation.label} paused={selectedProject?.paused === true} valid={!settingsConfirmation.invalid && settingsConfirmation.binding === actionContext && !selectedProject?.archived && isAdmin} locale={locale} onDecision={accepted => settingsConfirmation.resolve(accepted)} />}
@@ -1631,8 +1637,10 @@ function AppView({ boundary, onDenied, onSession, onPasswordChanged, onSignOut }
         </>}
 
         {page === "jobs" && projectsState === "ready" && projects.length > 0 && <>
-          <section className="panel compact"><div className="workspace-controls"><label htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label></div></section>
-          {jobsSubtabs}
+          <div className="jobs-toolbar">
+            {jobsSubtabs}
+            <label className="jobs-scope" htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
+          </div>
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
               {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} principal={projectsPrincipal} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} onOperationComplete={revalidateTicketOperation} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
@@ -1884,11 +1892,11 @@ function SettingsList({ request, executorOnly=false, project, revision, csrf, br
   const [editing, setEditing] = useState<Set<string>>(()=>recoveredEditors(drafts));
   const [saving, setSaving] = useState(false), [conflict, setConflict] = useState(false);
   const disabled = externallyDisabled || saving || readFailed;
-  const saveBar = useRef<HTMLDivElement>(null), wasSaving = useRef(false);
+  const saveBar = useRef<HTMLDivElement>(null), settingsPanel = useRef<HTMLElement>(null), wasSaving = useRef(false);
   useEffect(() => {
     if (wasSaving.current && !saving) {
       const button=saveBar.current?.querySelector<HTMLButtonElement>("button.primary:not(:disabled)");
-      if (button) button.focus(); else saveBar.current?.focus();
+      if (button) button.focus(); else (saveBar.current ?? settingsPanel.current)?.focus({preventScroll:true});
     }
     wasSaving.current=saving;
   }, [saving]);
@@ -2019,7 +2027,6 @@ function SettingsList({ request, executorOnly=false, project, revision, csrf, br
             </div>;
           })}</div> : row.input === "retry-delays" ? <><textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required /><p className="muted">{editorCopy.schedule}</p></> : row.input === "boolean" || row.input === "choice"
             ? <select aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)}>{row.input === "choice" && !row.choices.includes(draft) && <option value={draft} disabled>{draft}</option>}{(row.input === "boolean" ? ["true", "false"] : row.choices).map(option => <option key={option} value={option}>{agentValue(row.key, option, locale) ?? (row.key === "review.on_pipeline_failure" ? pipelineFailureValue(option, locale) ?? option : row.key === "delivery.draft" ? publicationValue(option, locale) : option)}</option>)}</select>
-            : row.key === "workflow.verify_command" ? <textarea rows={1} aria-label={label(row)} aria-describedby={`help-${row.key}` + (typedValue(row) === null ? ` error-${row.key}` : "")} aria-invalid={typedValue(row) === null || undefined} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} />
             : row.input === "reviewers" ? <textarea rows={6} aria-label={label(row)} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} />
             : <input aria-label={label(row)} type={row.input === "number" ? "number" : "text"} step={row.step} min={row.minimum ?? undefined} max={row.maximum ?? undefined} maxLength={BRANCH_NAMING_KEYS.has(row.key) ? 512 : undefined} aria-describedby={`help-${row.key}`} disabled={disabled} value={draft} onChange={event => setDraft(event.target.value)} required={row.input === "number"}
               list={row.key === "container.image" && serverImages?.images.length ? "setting-image-options" : undefined} />}
@@ -2027,7 +2034,7 @@ function SettingsList({ request, executorOnly=false, project, revision, csrf, br
           {row.key === "container.image" && serverImages && (!serverImages.available ? <p className="field-hint">{enrollmentCopy[locale].imagesUnavailable}</p>
             : draft.trim() && !serverImages.images.includes(draft.trim()) && <p className="field-hint" role="status">{enrollmentCopy[locale].imageMissing}</p>)}
           <div className="button-row"><button type="button" className="ghost" disabled={disabled} onClick={() => cancelEdit(row)}>{t("cancel")}</button></div>
-          {typedValue(row) === null && <p role="alert" id={`error-${row.key}`}>{row.key === "workflow.verify_command" ? t("verificationCommandInvalid") : row.input === "connection" ? connectionCopy[locale].invalid : editorCopy.invalid}</p>}
+          {typedValue(row) === null && <p role="alert" id={`error-${row.key}`}>{row.input === "connection" ? connectionCopy[locale].invalid : editorCopy.invalid}</p>}
         </div>;
   };
   const renderRow = (row:SettingRow) => <div className="setting-row" key={row.key} id={`setting-${row.key}`} tabIndex={-1}>
@@ -2045,11 +2052,11 @@ function SettingsList({ request, executorOnly=false, project, revision, csrf, br
           : (editing.has(row.key) ? draftFor(row) === "true" : row.value === true) && <p className="alert" role="note">{internetCopy[locale].internetWarning}</p>)}
 
       </div>;
-  return <section className="panel" id="project-settings">
+  return <section ref={settingsPanel} tabIndex={-1} className="panel" id="project-settings">
     {header ?? <div className="panel-heading"><div className="heading-with-help"><h2>{executorOnly ? executorCopy[locale].tab : t("projectSettings")}</h2>{!executorOnly && <HelpLink topic={CONTEXT_TOPICS.projectSettings} locale={locale} />}</div>{actions}</div>}
     {!canEdit && <p className="muted">{copy.readOnly}</p>}
-    {canEdit && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
-      <div><span role="status" aria-live="polite">{dirty ? saveCopy.dirty.replace("{count}",String(prepared.edits.length+prepared.invalid.length)) : branchCandidate ? saveCopy.prepared : saveCopy.clean}</span>
+    {canEdit && (dirty || branchCandidate || readFailed || saving) && <div ref={saveBar} tabIndex={-1} className="settings-save-bar" aria-label={saveCopy.save}>
+      <div><span role="status" aria-live="polite">{dirty ? saveCopy.dirty.replace("{count}",String(prepared.edits.length+prepared.invalid.length)) : readFailed ? copy.readFailed : saveCopy.prepared}</span>
       {stale && <p role="alert">{saveCopy.stale}</p>}
       {(prepared.invalid.length>0 || branchInvalid) && <p role="alert">{saveCopy.invalid}</p>}</div>
       <div className="button-row"><button type="button" className="ghost" disabled={externallyDisabled || saving || !dirty && !branchCandidate && !readFailed} onClick={()=>void discardAll()}>{saveCopy.discard}</button>
@@ -2062,6 +2069,10 @@ function SettingsList({ request, executorOnly=false, project, revision, csrf, br
       {group.name === "executor" && <div className="executor-settings-content executor-connection-area">{executorBefore}</div>}
       {group.name === "executor" && backend === "local" && <p className="field-hint">{localCopy[locale].account}{localIdentity && <>: <strong>{localIdentity.account}</strong> · {localIdentity.machine} · {localIdentity.system}</>}. {localCopy[locale].notice}</p>}
       {group.name === "technical" && <p className="muted">{technicalSettingsHelp[locale]}</p>}
+      {group.name === "technical" && canEdit && backend === "container" && project && revision && csrf &&
+        <RawConfiguration key={`${project}:${revision}`} definitionOnly project={project} locale={locale}
+          dockerBuild image={String(settingValue(config,"container.image") ?? "")} revision={revision} csrf={csrf} />}
+
       {group.name === "reviews" && settingValue(config, "delivery.target_branch") !== undefined && <div className="setting-row setting-reference">
         <div><strong>{copy.integrationBranch}</strong><p className="setting-essential">{copy.integrationBranchHelp}</p>
         <a className="text-button" href="#setting-delivery.target_branch" onClick={event => {

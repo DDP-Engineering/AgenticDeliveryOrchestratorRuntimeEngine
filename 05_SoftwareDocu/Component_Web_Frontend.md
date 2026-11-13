@@ -7,29 +7,24 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web frontend
 
-Enrollment's Verification step and Settings → Implementation expose the optional
-**Verification command**, with shared four-locale names and help. Enrollment
-prefills an untouched direct draft from transient repository evidence and shows
-localized source provenance; Settings preserves saved values, including empty.
-Normal-height one-row textareas retain pasted line breaks; the shared exact-string
-validator refuses CR/LF/NUL before preview or Save, with localized field feedback.
-Settings scalar/batch response readers validate the same domain before recovery
-or apply. Admin edits use the existing reviewed save; developers remain read-only.
-An inspected AEGIS enrollment replaces the control with the repository-owned test
-commands note, preserving any saved draft text. Workflow observations are shown
-separately from prerequisite results; no mode selector is added. Offline unit/render and enrollment/settings browser tests cover
-these controls. Settings journeys bind the isolated profile to actual Direct and
-Python-entrypoint-only AEGIS clones, cover all four locales and both roles, and
-verify multiline clipboard refusal, exact Unicode/space preservation, empty
-reviewed batch saves and narrow light/dark layouts. Projects, Settings, Glossary
-and Tickets help explains only delivered workflow/command behavior in all four
-locales; helper and browser contracts check structure, terms, navigation and
-live-probe authority. The committed production bundle is rebuilt with these inputs.
-The offline enrollment-to-Statistics regression runs both specifications in one
-fixture home. Malformed-consumption injection selects a seeded nonempty job
-cohort explicitly, not the first project: newly enrolled projects legitimately
-have no jobs. The existing hidden-evidence, error and unavailable-export assertions
-remain unchanged for malformed and aborted responses.
+ADORE guides agents and observes their recorded workflow. AEGIS completion is
+read from the task journal; Direct completion comes from the implementation
+session and its summary. Tests and their local/CI selection belong to the agent.
+ADORE does not invoke `check --strict --run` or run a separately configured test
+command. Candidate fingerprints, target freshness and fresh human approval remain
+required before publication. Old `workflow.verify_command` values are ignored
+without rewriting profiles and cannot be edited through the API.
+
+Guided enrollment and raw-file import call the reviewed shared-environment
+preparation route automatically on confirmation. `EnvironmentProgress` shows the
+current stage and an indeterminate progress indicator in four locales; the user
+can retry preparation failures with the reviewed answers/file retained. Saving
+waits for a strictly validated ready response with the same operation ID. Navigation
+guards remain active throughout preparation and publication. Closed views stop
+polling and never proceed to publication; shared server preparation can finish
+and be reused. Long builds refresh previously measured readiness before saving.
+`environment.test.mjs` covers transport/state boundaries; browser journeys cover
+visible progress, publication order and failed-build retry.
 
 Both own-password change forms mask all three fields by default, offer independent eye-icon reveal controls with accessible labels, display the eight-character minimum and require matching confirmation before sending only current and replacement values.
 
@@ -65,7 +60,7 @@ requests. `tests/request.test.mjs` and `e2e/sessionRefresh.spec.ts` prove transp
 late denial/success, five-view immediate sign-out, HTTP/session correction, price
 ownership, account replacement, bounded session reads and hidden/coalesced polling.
 
-Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty Overview offers enrollment to administrators; empty Projects omits the table panel.
+Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains serialized commands and cancel signals. Empty project views offer enrollment and raw import to administrators. Deleting the last project returns to Projects, which omits the empty table panel. The delete dialog keeps the clone choice and exact-name instruction without the introductory paragraphs.
 
 ## Access, Settings and App result ownership
 
@@ -314,7 +309,9 @@ Missing, nontext or unknown values reject the response, never choose a default.
 `JobWorkspace` identifies Workflow inside the existing Status cell and current-state
 card without adding a table column. `workflowStageLabel` keeps all AEGIS labels and
 observed-only timeline behavior; Direct uses Implementation/build, Validation/validate
-and Done only, without an AEGIS task or quick-path explanation. Lifecycle/action,
+and Done, without an AEGIS task or quick-path explanation. The failed publication
+reset pointer and historical publication reset event retain the Publishing label.
+They are administrative recovery evidence, never an executor launch stage. Lifecycle/action,
 consumption, budgets and operational executor-output controls retain their meanings.
 
 A direct detail requires a closed `direct` attempt/latest-independent-verification
@@ -322,7 +319,9 @@ object (see Component_Web_Jobs.md). AEGIS details refuse this object. Positive s
 attempts or explicit absence, closed status/result shapes, canonical decimal-text
 exit codes, outcome agreement, finite nonnegative seconds and normalized bounded
 Unicode tails are validated before any display. Direct current/non-null timeline
-stages outside build/validate/done fail closed instead of being filtered.
+stages outside build/validate/done fail closed, except for that failed pointer and
+`reset` event. Nonempty saved commands retain exact spaces and tabs, matching the
+configuration and conductor domain. Empty configured-result commands remain invalid.
 List error/incomplete/source-change and detail failures hide stale detail evidence;
 request/composite/session guards remain unchanged.
 
@@ -333,7 +332,7 @@ Passed, Failed, Timed out, Not configured: unverified and unavailable evidence a
 distinct. There is no command action or HTML/Markdown evaluation. Settings changes
 cannot substitute today's command for saved evidence. Direct working/timeline copy
 makes no AEGIS or synthetic progress claim. Help and inline timeout guidance map
-build/validate to direct implementation/independent verification with general fallback.
+build to direct agent implementation with the general timeout fallback; validate only records the candidate.
 
 `tests/jobs.test.mjs` exercises workflow/evidence/stage trust boundaries and valid
 controls; `e2e/jobs.spec.ts` uses opt-in persisted direct fixtures while retaining the
@@ -376,8 +375,12 @@ right edge, wrapping when space is limited. `TicketWorkspace` mounts it for
 descriptions and comments in Rendered mode; Markdown source uses a focusable
 `pre` containing the untouched API string.
 An empty description uses the existing localized fallback before rendering.
-Ticket actions reserve a bounded column width and wrap whole buttons instead
-of shrinking their labels into broken words when Details changes to Hide details.
+Ticket actions reserve 26rem on desktop, keeping Start/Retry, Stop and
+Details/Hide details together on one line across the four interface languages.
+The Actions header and button group align to the right; the last button keeps
+the same right edge when details open or close.
+At 1100px and below, whole buttons may wrap; at 720px and below the column uses
+8rem and labels wrap at spaces. Expansion does not change desktop button-row layout.
 
 `App` owns the shared mode for both project and global Tickets workspaces.
 `ticketPreferences.ts::readPreferences` validates nullable language/theme and the
@@ -468,7 +471,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -733,71 +736,6 @@ An unavailable operation read explicitly leaves completion unknown. The API and
 worker recheck authority and lifecycle; the browser does not claim job success
 from command acceptance.
 
-Administration's account section is labelled Users in every locale.
-The About dialog constrains its width and height to the viewport, with internal
-scrolling for the license and notice content and an accessible Close button.
-It opens with the DDP Engineering logo on a dark band, ADORE and its version
-as the largest text, the license name, and What's new, License and Third-party
-notices buttons; License and Third-party notices expand their texts only on
-request (`aria-expanded`). What's new replaces the content in the same, wider
-dialog with Back: each release from `/api/v1/about` `release_notes`, newest
-first (`Unreleased` as In development, released ones with version and date),
-grouped New, Improved, Fixed and by topic in the user's locale with English
-fallback (`src/releaseNotes.ts`).
-Projects shows two administrator actions. Enroll new project opens
-`EnrollmentWizard` at `/projects/new`. Import raw configuration opens
-`RawImportDialog` on Projects. A browser Back refused by a guarded wizard restores the URL of the page
-shown (`shownUrl`). Enroll new project opens the administrator-only `EnrollmentWizard`.
-It presents five ordered steps, starting at repository/identity, with shared visible,
-associated guidance for repository/identity, environment, eligibility/reviewers/limits, verification and
-review/create. `enrollmentCopy.ts` supplies complete EN/FR/DE/RO catalogs.
-The verification step uses the draft's execution mode for the introduction and
-check labels, with a separate neutral Workflow observation and optional Verification
-command textarea (or the repository-owned AEGIS test-command note after inspection).
-On entry to Verification, an offline preview may provide `verification_hint` as
-null or a complete command/source pair for Direct only. Local `validPreview`
-checks the full response before applying it, including single-line command and
-relative forward-slash non-traversing source. React renders the source as text.
-An untouched draft accepts the hint and uses at most one additional canonical
-preview of the resulting exact command. Old candidate/check/review evidence is
-cleared; a failed second preview keeps the editable draft but blocks Check/Continue.
-A sticky memory-only human edit flag includes explicit clearing; request generations
-ensure typing during either preview wins. No command-keyed effect or recursive
-resuggestion exists. AEGIS/uninspected clones get none. The browser never executes
-the command; Create submits only the exact reviewed draft, not hint evidence. For server execution, the Pi row uses the validated local probe
-reason for its remediation text.
-Step 1 reads a repository URL by default: **Read repository** calls
-`/api/v1/projects/repository-source` and fills forge, repository, Gitea login,
-target branch and the derived project ID (`name`, never an input), and prefills an
-editable clone location (`repo_path`) with a note on whether it is cloned or reused;
-Display name starts as the repository name and is cleared with the URL that filled it.
-Continue is disabled until the read succeeds. There is no existing-clone mode; the server
-reuses a clone at the chosen path when its origin matches. Every text field shows an example
-placeholder. Reviewers are optional (an empty list requests no review), in the wizard and
-in the Settings reviewer editor.
-Step 2 offers **Provider** (OpenAI-compatible endpoint, ChatGPT subscription and Pi's
-API-key providers from `GET /api/v1/pi-providers`), **Model** (any typed ID, with Pi's
-models for an API-key provider as a datalist; a ChatGPT subscription gets no
-suggestions there) and, only for an endpoint, **Endpoint base URL**
-and **Endpoint API type**; a help paragraph names the credential variable to save after
-creation (`credentialNote`), because enrollment takes no secret. Review and create lists
-them plus **Credential to save after creation**. **Runs in** offers Container or
-Installed on the server (`execution.backend`); Container adds **Container runtime**
-and a free-text **Executor image** whose suggestions come from `serverImages.ts`
-(`GET /api/v1/executor-images`), and Installed shows the native command and local
-account fields. There is no agent choice: Pi is the only coding agent. A
-container project uses API-key mode; a local project chooses API-key mode or
-the account's own Pi sign-in (`existing`). Additional credential references are optional.
-`ForgeLabels.tsx` offers the label option on Review and create (ticked by default; after
-creation the wizard calls `labels/ensure` and shows the report, a failure leaving the project
-created) and **Create missing labels** in Settings → Repository.
-Review and create also shows `DefaultSettings`: the preview's `defaults` grouped by
-`settingPurpose`, named by `settingLabels.ts` (`settingDisplayLabel`, the label function
-Settings uses too) and formatted like Settings values, read-only.
-The separate human display name and stable profile ID are reviewed with forge
-identity, target branch, selected Gitea tea login, credential environment names,
-ready/approval labels, reviewers, four run limits and canonical server paths.
-
 Wizard state lives in the mounted component. Back and Change retain values;
 each changed answer invalidates preview, verification and frozen review and
 increments a generation guard. Late responses cannot refill a changed/unmounted
@@ -820,8 +758,11 @@ Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
 **Import raw configuration** opens a native dialog on Projects. Selecting a file
-validates UTF-8 and automatically calls the preview endpoint for the exact bytes
-and suggested identity. Replacing the file or closing the dialog aborts validation
+accepts UTF-8 TOML (512 KiB) or the current complete project ZIP (18 MiB) and
+automatically calls its preview endpoint for the exact bytes and suggested
+identity. ZIPs use base64 on the wire and require a separate bundle revision.
+Their configuration and recipe are published together without extra source
+controls or image building. Replacing the file or closing the dialog aborts validation
 and invalidates its result. Import rereads the selected file and sends the exact
 reviewed identity and revision to locked publication. The synchronous submission
 guard blocks duplicates and prevents leaving during publication. Success closes
@@ -873,7 +814,7 @@ shared `statisticsView(true)` without the project selector or the cross-project 
 selector on the global page, From, Through, Group by, All time, Export CSV) with no
 time zone control (UTC unless the URL supplies one), and `StatisticsEvidence` shows no
 current-stock panel.
-Summary holds Monitoring Active/Paused status, runtime/executor and explicit
+Summary holds Monitoring Active/Paused status, runtime and explicit
 revision-bound verification evidence. Administrators use Summary to pause or
 activate monitoring, archive/restore, and delete archived idle projects using
 exact-name confirmation. Deletion intent clears on page or selected-ID changes;
@@ -1030,13 +971,31 @@ those views after the switch.
 ## 3. Implementation Overview
 
 `EnrollmentWizard.tsx` runs guided setup with the setup preview, check and
-create endpoints. Portable transfer has its own API contract, exercised by
+create endpoints. Entering Verification automatically previews the current draft
+and then checks server prerequisites. One Recheck environment action repeats both
+checks; navigation or edits discard late responses. Normal inline helper paragraphs
+are omitted in favor of the contextual help link, with separate spacing for optional
+credentials. Portable transfer has its own API contract, exercised by
 `tests/test_web_transfer.py`.
 
 
 `RawConfiguration.tsx` owns four-locale Admin raw actions, bounded fetch, exact-byte download and native dialog with Escape/Close/focus restoration. Abort and pending-ref guards discard late results on unmount. Errors use localized safe codes; TOML is escaped text and never stored in browser storage. `e2e/portable.spec.ts` covers bytes, failures, role denial, late responses and four locales at 390px.
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
+
+The toolbar keeps two equally sized actions. Export directly opens the optional
+browser save picker in click activation, then validates the complete container ZIP
+or native TOML before writing exact bytes. Unsupported browsers retain ordinary
+Blob downloads. Picker cancellation makes no request; errors show a closable dialog.
+Write failures abort the writable and never silently download a fallback. A ref-based
+single flight and generation guards invalidate late picker/fetch/write results on
+project/account unmount. No inline export options or source-upload wizard exists.
+
+A separate `RawConfiguration definitionOnly` instance is mounted inside closed
+Technical details for administrator container projects. It retains the existing
+recipe validation, explicit Save recipe, replacement, CAS and CSRF safeguards.
+Dismissal restores focus; a recipe mutation cannot be dismissed mid-save.
+Four locales cover controls, save errors and help; no bytes enter browser storage.
 
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
@@ -1058,6 +1017,8 @@ model input with `providerModels` as a datalist; endpoint URL and API select onl
 `host.docker.internal` works only on Docker Desktop; a note naming the credential
 variable, or for `chatgpt` that the server signs in to one ChatGPT Plus or Pro account
 shared by every ChatGPT project and that stages get a short-lived access token);
+Settings preserves native single-line heights for provider, model, reasoning
+and conditional endpoint inputs. Multiline editors keep their own sizing.
 `ChatGptSignIn.tsx` is the server's ChatGPT sign-in panel, shown to Admins of a
 non-archived `chatgpt` project in the Agent and model Authentication slot in place of
 the Provider API key form: status (`signed-in`, `not-signed-in`, `sign-in-again`, with
@@ -1290,8 +1251,8 @@ infrastructure, full accessibility and participant acceptance remain human work.
 Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.
 
 
-Project Summary uses two panels beneath the shared project header. The first
-shows separated label/value tiles for Container type, Executor, Monitoring,
+Project Summary uses two panels beneath the shared project header. Its seven facts use one compact row on wide screens and wrap on smaller screens; the redundant Pi executor tile is omitted. Panel, empty-state and table spacing is reduced without hiding job evidence. The first
+shows compact label/value tiles for Container type, Monitoring,
 environment verification and actual scoped Active jobs, Waiting, Draft review
 and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
 and withholds job rows. The second groups compact Needs attention and Active
@@ -1474,7 +1435,7 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Operational Job details
 
-JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
+JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. The active clarification lives in its own tab and uses ForgeMarkdown with inert HTML, permitted navigation, image placeholders and local scrolling; its readable view omits leading comments while its original source remains expandable. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
 
 ExecutorOutputView fetches only on demand and rejects stale/unmounted or identity-mismatched responses. The viewer displays host-normalized diagnostics and explains omitted private content and unavailable provenance. Browser regressions exercise four locales, safe Markdown, concrete output, refresh and 390px dark-theme local scrolling.
 
@@ -1495,3 +1456,50 @@ History renders localized ticket/job identities, a CLI actor for CLI deletion, a
 Enrollment and Agent and model expose supported Pi thinking levels. Enrollment displays localized check names and times and transfers only server-issued current evidence; incomplete checks stay partial. Local execution and repository reconnect actions use descriptive labels.
 
 Project-list readiness is parsed as a closed identity/revision/checks verdict before display. The Repository access action does not infer repository access from CLI authentication.
+
+The project lifecycle browser fixture reads an authenticated initial catalog once
+and fulfills its local archive-state view without asynchronous upstream proxies.
+This avoids handler-removal races during polling teardown while preserving all
+lifecycle, scoped CSRF, clone ownership and exact-name deletion assertions.
+
+Recipe recovery errors name the server data to remove explicitly. A whole-catalog
+reset message in all four locales explains that image definitions for all projects
+are removed while configurations, credentials and jobs remain untouched.
+
+## Publication approval setting
+
+The PR/MR settings category presents the reviewed per-project human approval
+boolean in all four locales. It defaults to enabled and uses the existing
+administrator confirmation and idle-project mutation boundary.
+
+## Job details presentation
+
+`JobDetails.tsx` presents the verified detail separately from the job list. The
+header combines ticket number and title; Job actions shares the current-stage
+metadata row and exposes only commands allowed by the existing command policy.
+Retry, cancel and confirmed fresh-run recovery keep worker authorization, CSRF,
+revision binding and confirmation behavior. Close restores the existing list filters.
+
+The current lifecycle, responsible actor and Next step precede secondary budgets
+and consumption. Missing usage or limits remain explicitly unavailable, never
+zero or guessed progress. Activity lists saved events newest first with localized
+names for recognized events and the original event code. Unrecognized events use
+a neutral title. An older clarification event is historical, not a current action.
+
+Three keyboard-accessible tabs separate Activity, Agent question (only while
+clarification is active) or Evidence and artifacts, and Technical details. The
+question uses the existing safe Markdown renderer. Leading editorial HTML comments
+are omitted from its readable view; an expandable Original question and evidence
+retains the exact source. Other HTML stays inert text and images are never loaded.
+No historical question content is inferred when the API no longer provides it.
+Technical details retains identifiers, on-demand verified executor output, recovery
+diagnosis and the paged original timeline. All tabs use the same saved evidence;
+none starts an executor or grants candidate approval. Copy and help cover all four
+locales. The layout uses the application's light/dark tokens and stacks on narrow
+screens. No API, stored format or dependency change is required.
+
+## Compact project and Jobs controls
+
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+
+Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.

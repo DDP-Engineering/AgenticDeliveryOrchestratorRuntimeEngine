@@ -23,11 +23,19 @@ test("one Save commits several ordinary setting edits without an impact dialog",
  try {
   await page.goto("/projects/"+id+"/configuration");
   const bar=page.locator(".settings-save-bar");
-  await expect(bar.getByRole("button",{name:"Save",exact:true})).toBeDisabled();
+  await expect(bar).toHaveCount(0);
   await page.locator('[data-setting-purpose="tickets"] > summary').click();
   for(const [index,key] of keys.entries()){
    const row=page.locator('[id="setting-'+key+'"]');
    await row.getByRole("button",{name:/^Edit /}).click();
+   if(index===0){
+    await expect(bar).toHaveCount(0);
+    const unchanged=await row.getByRole("spinbutton").inputValue();
+    await row.getByRole("spinbutton").fill(String(Number(unchanged)+1));
+    await expect(bar).toBeVisible();
+    await row.getByRole("spinbutton").fill(unchanged);
+    await expect(bar).toHaveCount(0);
+   }
    await row.getByRole("spinbutton").fill(String(index===0?75:7));
   }
   await expect(page.getByRole("button",{name:"Prepare candidate",exact:true})).toHaveCount(0);
@@ -35,7 +43,7 @@ test("one Save commits several ordinary setting edits without an impact dialog",
   await bar.getByRole("button",{name:"Save",exact:true}).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect.poll(async()=>{const c=await(await page.request.get(endpoint)).json();return [c.config.polling.poll_interval_seconds,c.config.polling.poll_jitter_seconds];}).toEqual([75,7]);
-  await expect(bar.getByRole("button",{name:"Save",exact:true})).toBeDisabled();
+  await expect(bar).toHaveCount(0);
  } finally {
   const me=await(await page.request.get("/api/v1/me")).json();
   const headers={"X-CSRF-Token":me.csrf};
@@ -74,7 +82,7 @@ test("important multi-setting Save confirms exact values and keeps cancelled edi
   await expect(settingsSave(page)).toBeEnabled();
   await settingsSave(page).click();
   await settingsImpact(page).getByRole("button",{name:"Save changes",exact:true}).click();
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await(await page.request.get(endpoint)).json()).config.budgets.max_iterations).toBe(before.config.budgets.max_iterations+1);
  } finally {
   if(await settingsImpact(page).count()) await settingsImpact(page).getByRole("button",{name:"Keep editing",exact:true}).click();
@@ -140,7 +148,7 @@ test("recovered pending settings display their values and save as one bound batc
   for(const [i,key] of keys.entries()) await expect(page.locator('[id="setting-'+key+'"]').getByRole("spinbutton")).toHaveValue(String(values[i]));
   const replacement=page.waitForRequest(r=>r.method()==="POST"&&r.url().endsWith("/config/pending"));
   await settingsSave(page).click();expect((await replacement).postDataJSON().pending_revision).toBe(pending.candidate_revision);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   const current=await(await page.request.get(endpoint)).json();expect(keys.map(k=>current.config.polling[k.split(".")[1]])).toEqual(values);
  } finally {
   await page.request.delete(endpoint+"/pending",{headers});const current=await(await page.request.get(endpoint)).json();
@@ -179,7 +187,9 @@ for(const outcome of ["saved","stale","corrupt"] as const){
     const applied=page.waitForRequest(r=>r.method()==="POST"&&r.url().endsWith("/config/apply"));
     await settingsImpact(page).getByRole("button",{name:"Save changes",exact:true}).click();
     expect((await applied).postDataJSON()).toEqual({base_revision:pending.base_revision,candidate_revision:pending.candidate_revision});
-    await expect(settingsSave(page)).toBeDisabled();expect(writes).toBe(1);
+    if(outcome==="saved") await expect(page.locator(".settings-save-bar")).toHaveCount(0);
+    else await expect(settingsSave(page)).toBeDisabled();
+    expect(writes).toBe(1);
    }
    const current=await(await page.request.get(endpoint)).json();expect(current.config.agent.slug).toBe(outcome==="saved"?value:before.config.agent.slug);
   } finally {

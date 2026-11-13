@@ -73,7 +73,7 @@ def _seed_run(tmp_path: Path) -> StateStore:
          versioned_usage("r-45", 2, context="specify", tokens_in=2000,
                          tokens_out=150, cost_usd=0.03)),
         ("2026-07-04T11:10:01Z", "stage-advanced", {"stage": "specify"}),
-        ("2026-07-04T11:19:59Z", "strict-verification", {"passed": True}),
+        ("2026-07-04T11:19:59Z", "validation-accepted", {"passed": True}),
         ("2026-07-04T11:20:00Z", "mr-opened", {"url": "https://x/mr/29"}),
         ("2026-07-04T12:00:00Z", "merged", {"mr": "https://x/mr/29"}),
     ]

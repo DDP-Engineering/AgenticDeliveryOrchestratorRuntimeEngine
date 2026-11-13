@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-0f5a1e11"
+title = "Refuse executor recipe replacement after a concurrent update"
+status = "active"
+requirement = "If a recipe association changes after an administrator previews a replacement, ADORE shall refuse the stale replacement with HTTP 409."
+verification = "Preview two replacements for one image, save one, reject the other and preserve the first association and source snapshot."
+affected_paths = ["04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/build_bundle.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawConfiguration.tsx"]
+linked_tests = ["04_Software/tests/test_executor_recipes.py", "04_Software/tests/test_web_executor_recipes.py", "04_Software/tests/test_web_config_raw.py"]
+spec = "specs/REQ-FUNC-c2cbfa1b.md"
+created = 2026-11-11
+updated = 2026-11-11

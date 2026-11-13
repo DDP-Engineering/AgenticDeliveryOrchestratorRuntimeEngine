@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test, expect, type Page } from "@playwright/test";
 import { setPickup } from "./pickup";
+import { ticketCopy } from "../src/ticketCopy";
 
 async function signIn(page: Page, username = "admin", password = "admin") {
   await page.goto("/");
@@ -54,6 +55,59 @@ test("the ticket number column leaves room for content in both scopes", async ({
   await expect(table.locator(".ticket-detail")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });
+
+for (const locale of ["en", "fr", "de", "ro"] as const) {
+  test(`ticket actions stay right-aligned on one desktop row in ${locale}`, async ({page},info) => {
+    await signIn(page);
+    const me=await (await page.request.get("/api/v1/me")).json();
+    const prefs={headers:{"X-CSRF-Token":me.csrf},data:{language:locale,theme:"light"}};
+    await page.request.patch("/api/v1/me/preferences",prefs);
+    const projects=await (await page.request.get("/api/v1/projects")).json();
+    const alpha=projects.find((project:{name:string})=>project.name==="alpha").id;
+    const copy=ticketCopy[locale];
+    try {
+      for(const width of [1440,1600]) {
+        await page.setViewportSize({width,height:900});
+        for(const url of ["/jobs",`/projects/${alpha}/jobs`]) {
+          await page.goto(url);
+          await page.getByRole("button",{name:copy.read,exact:true}).click();
+          const row=page.locator(".ticket-row").first();
+          const rightEdge = async () => row.locator(".ticket-actions").evaluate(el => {
+            const last = el.lastElementChild!;
+            return { group: el.getBoundingClientRect().right, button: last.getBoundingClientRect().right };
+          });
+          const collapsed = await rightEdge();
+          expect(Math.abs(collapsed.group - collapsed.button)).toBeLessThan(1);
+          expect(await page.locator(".ticket-table > thead th").last().evaluate(el => getComputedStyle(el).textAlign)).toBe("right");
+          await row.getByRole("button",{name:copy.details,exact:true}).click();
+          await expect(row.getByRole("button",{name:copy.hide,exact:true})).toBeVisible();
+          const expanded = await rightEdge();
+          expect(Math.abs(expanded.group - expanded.button)).toBeLessThan(1);
+          expect(Math.abs(expanded.button - collapsed.button)).toBeLessThan(1);
+          const buttons=row.locator(".ticket-actions button");
+          const bounds=await buttons.evaluateAll(nodes=>nodes.map(node=>{
+            const box=node.getBoundingClientRect();
+            return {top:box.top,right:box.right,scroll:node.scrollWidth,client:node.clientWidth};
+          }));
+          expect(bounds).toHaveLength(3);
+          expect(Math.max(...bounds.map(box=>box.top))-Math.min(...bounds.map(box=>box.top))).toBeLessThan(1);
+          for(const box of bounds) expect(box.scroll).toBeLessThanOrEqual(box.client);
+          expect(Math.max(...bounds.map(box=>box.right))).toBeLessThanOrEqual(width);
+          if(width===1440 && url!=="/jobs") await page.screenshot({path:info.outputPath(`expanded-actions-${locale}.png`),fullPage:true});
+          await row.getByRole("button",{name:copy.hide,exact:true}).click();
+          expect(Math.abs((await rightEdge()).button - collapsed.button)).toBeLessThan(1);
+        }
+      }
+      await page.setViewportSize({width:360,height:800});
+      const row=page.locator(".ticket-row").first();
+      await row.getByRole("button",{name:copy.details,exact:true}).click();
+      await expect(page.locator(".ticket-detail").first()).toBeVisible();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    } finally {
+      await page.request.patch("/api/v1/me/preferences",{...prefs,data:{language:"en",theme:"light"}});
+    }
+  });
+}
 
 test("tickets sub-tab reads open tickets on request and controls them safely", async ({ page }) => {
   await signIn(page);

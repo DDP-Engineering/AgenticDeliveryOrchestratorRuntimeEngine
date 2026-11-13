@@ -24,7 +24,7 @@ export async function saveSettings(page: Page, important = false, locale: Locale
   await settingsImpact(page).getByRole("button",{name:settingsSaveCopy[locale].confirm,exact:true}).click();
  }
  await expect(settingsImpact(page)).toHaveCount(0);
- await expect(settingsSave(page,locale)).toBeDisabled();
+ await expect(page.locator(".settings-save-bar")).toHaveCount(0);
 }
 
 /** Close confirmation without publication, then explicitly discard the draft. */
@@ -35,5 +35,5 @@ export async function discardSettings(page: Page, locale: Locale = "en") {
  const discard=page.locator(".settings-save-bar").getByRole("button",{name:settingsSaveCopy[locale].discard,exact:true});
  await expect(discard).toBeEnabled();
  await discard.click();
- await expect(discard).toBeDisabled();
+ await expect(page.locator(".settings-save-bar")).toHaveCount(0);
 }

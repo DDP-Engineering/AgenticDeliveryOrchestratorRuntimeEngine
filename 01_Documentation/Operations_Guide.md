@@ -7,6 +7,18 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Operations Guide
 
+## First web import
+
+Install and start Docker or Podman on the ADORE server before importing a container
+project. Guided enrollment and raw-file import prepare missing ADORE base and
+network-proxy images automatically and show progress before saving the project
+with monitoring paused. WSL runtimes use their selected distro and Linux account.
+Builds need server internet access even when the agent's internet access is off.
+Simultaneous imports reuse preparation; later imports inspect and reuse the images.
+After a failed build or server restart, retry the import to reuse cached layers.
+Custom project images are prepared by the administrator; native imports do not
+build container images. See [Project executor images](Project_Executor_Images.md).
+
 ## Runtime States
 
 | State | Meaning | Next action |
@@ -82,7 +94,7 @@ best-effort telemetry.
 ## Approval Operations
 
 A direct approval presentation shows the retained agent summary, changed-file
-count and "Verification: not configured. This candidate is unverified." No
+count and exact candidate/target fingerprints. No
 AEGIS task line or strict-check pass is implied. Empty questions files park
 rather than complete a candidate. The summary and configured questions file are
 excluded from all direct checkpoints and published candidates; unsafe present
@@ -92,7 +104,7 @@ and entry into validate are saved together, so an interruption after that write
 can be recovered with Retry even at the launch limit.
 
 On adoption and each freshly approved direct revision, ADORE refreshes the MR/PR
-description with the current summary, file count and unverified notice. A refused
+description with the current summary, file count and candidate binding. A refused
 or timed-out description write fails publication with `MR_CREATE_FAILED` rather
 than entering review with stale evidence. Restore forge access and Retry; the
 same approved description is written again without another implementation session.
@@ -128,7 +140,7 @@ the `revision-task-created` journal event before manual recovery.
 
 During publication ADORE first adopts an existing open MR/PR for the task
 branch, avoiding duplicate creation after a crash or failed read-back.
-Publication pushes the approved candidate once and runs no executor session
+Publication pushes the validated candidate once and runs no executor session
 or AEGIS command before entering `in-review`; it refuses a run that is neither
 at stage `done` nor at the `publishing` reset pointer with `PUBLICATION_STAGE`.
 
@@ -187,6 +199,10 @@ If only the final status write of an already terminal run fails, the replay is
 queued without changing its terminal lifecycle or outcome.
 
 ## Stopping and Cleanup
+
+Queued cancellation interrupts Direct verification as well as executor sessions.
+Cancellation takes precedence over a returned verification result, so it cannot
+start a fix attempt or present an approval candidate after the check has stopped.
 
 `cancel` removes active resources and retains audit state. Failed runs keep
 their worktree, container companions, and local evidence for explicit retry;

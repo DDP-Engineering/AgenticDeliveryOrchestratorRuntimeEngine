@@ -712,46 +712,6 @@ class LocalTarget:
         self.read_output(stderr)
         return result
 
-    def run_verification(self, command: str, *, timeout: float) -> CommandResult:
-        """@brief Execute only the configured direct check through the owned platform shell.
-        @param[in] command Exact nonempty single-line workflow.verify_command value.
-        @param[in] timeout Validate-stage wall-time limit.
-        @return Actual exit/timeout and bounded redacted trailing output streams.
-        @exception LocalExecutionError Invalid request, identity, shell or owned cleanup.
-        @note This operation grants service-account authority, not host isolation;
-              ordinary argv resolution continues to refuse shells and wrappers.
-        """
-        backend = self.backend
-        if (not isinstance(command, str) or not command
-                or any(char in command for char in "\x00\r\n")
-                or command != backend.config.workflow.verify_command):
-            raise LocalExecutionError("invalid workflow.verify_command native request")
-        backend.verify_identity(self.name, self.resource)
-        if backend.context["system"] == "Windows":
-            root = next((value for key, value in self.env.items()
-                         if key.upper() == "SYSTEMROOT"), "")
-            if not root or not (Path(root).is_absolute() or ntpath.isabs(root)):
-                raise LocalExecutionError("native verification requires absolute SystemRoot")
-            shell = Path(root) / "System32" / "cmd.exe"
-            arguments = ["/d", "/s", "/c", command]
-        else:
-            shell = Path("/bin/sh")
-            arguments = ["-c", command]
-        if not shell.is_file() or (backend.context["system"] != "Windows"
-                                   and not os.access(shell, os.X_OK)):
-            raise LocalExecutionError("native verification platform shell is unavailable")
-        directory = Path(self.paths.io) / ("native-verification-" + uuid4().hex)
-        directory.mkdir()
-        stdout, stderr = directory / "stdout.txt", directory / "stderr.txt"
-        result = backend.controller.run_files(
-            [str(shell.resolve()), *arguments], cwd=Path(self.paths.worktree), env=self.env,
-            timeout=timeout, stdout=stdout, stderr=stderr, control=backend._control(self.resource),
-            run_id=self.resource["id"], host=self.resource["host"], secrets=self._secrets(),
-            capture_tail=True, windows_verification=backend.context["system"] == "Windows",
-        )
-        result.stdout, result.stderr = self.read_output(stdout), self.read_output(stderr)
-        return result
-
     def __call__(self, argv, *, timeout=None) -> CommandResult:
         """@brief Run one backend command with its same controlled native environment."""
         directory = Path(self.paths.io) / ("native-command-" + uuid4().hex)

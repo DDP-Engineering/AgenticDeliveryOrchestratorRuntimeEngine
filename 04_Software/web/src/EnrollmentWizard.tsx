@@ -10,6 +10,8 @@ import { ApiError, describeError } from "./errors";
 import { enrollmentCopy } from "./enrollmentCopy";
 import { localCopy } from "./localExecution";
 import { setupCopy } from "./setupCopy";
+import { ContainerRuntimePicker } from "./ContainerRuntimePicker";
+import { enrollmentFlowCopy } from "./enrollmentFlowCopy";
 import { CloneLocation } from "./HostFolderPicker";
 import { localFailureText, validLocalProbe, type LocalProbe } from "./localDiagnostics";
 import { proposeImage, readServerImages, type ServerImages } from "./serverImages";
@@ -18,16 +20,17 @@ import { settingDisplayLabel } from "./settingLabels";
 import { settingPurpose, settingVisible, PURPOSE_GROUPS } from "./settings";
 import { pipelineFailureValue, publicationValue, settingsCopy } from "./settingsCopy";
 import { HelpLink } from "./HelpCenter";
-import { CUSTOM, CHATGPT, ENDPOINT_APIS, connectionCopy, credentialNote, providerModels, providerThinking, thinkingCopy, providerName, readProviderCatalog, validEndpointUrl, type ProviderCatalog } from "./agentConnection";
+import { CUSTOM, CHATGPT, ENDPOINT_APIS, connectionCopy, providerModels, providerThinking, thinkingCopy, providerName, readProviderCatalog, validEndpointUrl, type ProviderCatalog } from "./agentConnection";
 import { CONTEXT_TOPICS } from "./help/topics.ts";
 import { readinessKeys, validReadinessMeasurement, validWorkflow, type RepositoryWorkflow } from "./readiness";
-import { validVerificationCommand } from "./implementationSettings";
 import { readinessCheckLabel, WorkflowInformation } from "./ReadinessEvidence";
+import { EnvironmentProgress } from "./EnvironmentProgress";
+import { environmentCopy, environmentFailure, prepareEnvironment, type EnvironmentProgress as Progress } from "./environmentPreparation";
 
 type Draft = {
   clone_url: string; name: string; display_name: string; description: string; kind: string; repo: string;
   repo_path: string; target_branch: string; login: string; provider: string; model: string; thinking: string;
-  endpoint_base_url: string; endpoint_api: string; verify_command: string;
+  endpoint_base_url: string; endpoint_api: string;
   runtime: string; image: string; auth_mode: string; env_keys: string; reviewers: string;
   execution_backend: string; local_account: string; local_path: string;
   ready_label: string; approval_label: string; max_iterations: string;
@@ -35,10 +38,8 @@ type Draft = {
 };
 type FieldName = keyof Draft;
 type Finding = { code: string; field: string; remediation: string };
-type VerificationHint = { command: string; source: string };
 type Preview = { structural_valid: boolean; issues: Finding[]; revision: string | null;
   config_revision: string | null; review: Record<string, unknown> | null;
-  verification_hint: VerificationHint | null;
   workflow?: RepositoryWorkflow; defaults?: { key: string; value: unknown }[] };
 type Verification = { status: "failed" | "partial" | "verified"; draft_revision: string; revision: string; local_probe?: LocalProbe;
   checked_at: string; workflow: RepositoryWorkflow; evidence_token: string; required_checks: string[]; auth_bound: boolean; checks: Record<string, boolean | null> };
@@ -80,7 +81,6 @@ function DefaultSettings({ defaults, locale, backend }: {
   if (!rows.length) return null;
   return <details className="enrollment-review enrollment-defaults">
     <summary>{c.defaultsTitle} ({rows.length})</summary>
-    <p className="muted">{c.defaultsHelp}</p>
     {PURPOSE_GROUPS.map(group => {
       const items = rows.filter(item => settingPurpose(item.key) === group);
       return items.length > 0 && <section key={group}><h4>{settingsCopy[locale][group as keyof typeof settingsCopy.en] as string}</h4>
@@ -100,12 +100,12 @@ class SetupError extends ApiError {
 const initial: Draft = { clone_url: "", name: "", display_name: "", description: "", kind: "gitlab", repo: "", repo_path: "",
   execution_backend: "container", local_account: "current", local_path: "",
   target_branch: "main", login: "", provider: "openai", model: "", thinking: "", endpoint_base_url: "", endpoint_api: "",
-  runtime: "docker", image: "adore-executor-base:1.0.0", verify_command: "",
+  runtime: "docker", image: "adore-executor-base:1.0.0",
   auth_mode: "api-key", env_keys: "", reviewers: "", ready_label: "agent-ready", approval_label: "agent-approved",
   max_iterations: "20", max_wall_clock_seconds: "5400", max_cost_usd: "5", max_files_touched: "120" };
 const fields: FieldName[][] = [[], ["clone_url", "display_name", "name", "description", "kind", "repo", "login", "repo_path", "target_branch"],
   ["provider", "model", "thinking", "endpoint_base_url", "endpoint_api", "execution_backend", "runtime", "image", "local_account", "local_path", "auth_mode", "env_keys"],
-  ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"], ["verify_command"]];
+  ["ready_label", "approval_label", "reviewers", "max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"], []];
 const numeric = ["max_iterations", "max_wall_clock_seconds", "max_cost_usd", "max_files_touched"] as const;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 const isFindings = (value: unknown): value is Finding[] => Array.isArray(value) && value.every(item =>
@@ -121,7 +121,7 @@ const fieldFor = (path: string): FieldName | undefined => {
     "platform.repo": "repo", "container.runtime": "runtime", "container.image": "image",
     "executor.model": "model", "executor.thinking": "thinking", "executor.provider": "provider", "executor.endpoint.base_url": "endpoint_base_url",
     "executor.endpoint.api": "endpoint_api", "executor.endpoint": "endpoint_base_url",
-    "delivery.reviewers": "reviewers", "delivery.target_branch": "target_branch", "workflow.verify_command": "verify_command" };
+    "delivery.reviewers": "reviewers", "delivery.target_branch": "target_branch" };
   const first = path.split(".")[0], last = path.split(".").at(-1) ?? path;
   return aliases[path] ?? (path in initial ? path as FieldName : first in initial ? first as FieldName :
     last in initial ? last as FieldName : undefined);
@@ -129,20 +129,24 @@ const fieldFor = (path: string): FieldName | undefined => {
 
 /** Validate the whole response before any default or candidate is applied. */
 const validPreview = (value: Preview, draft: Draft): boolean => {
-  const hint = value?.verification_hint;
-  const validHint = hint === null || !!hint && typeof hint === "object"
-    && typeof hint.command === "string" && hint.command.length > 0 && validVerificationCommand(hint.command)
-    && typeof hint.source === "string" && hint.source.length > 0
-    && !/^[A-Za-z]:|[\\\\\x00-\x1f\x7f]/.test(hint.source)
-    && hint.source.split("/").every(part => !!part && part !== "." && part !== "..")
-    && value.workflow === "direct";
-  return !!value && validHint && typeof value.structural_valid === "boolean" && isFindings(value.issues)
+  return !!value && typeof value.structural_valid === "boolean" && isFindings(value.issues)
     && value.structural_valid === (value.issues.length === 0)
     && (!value.structural_valid || validWorkflow(value.workflow) && digest(value.revision) && digest(value.config_revision)
       && !!value.review && value.review.name === draft.name && value.review.display_name === draft.display_name
-      && value.review.verify_command === draft.verify_command
       && ["config_path", "store_root", "worktree_root"].every(key => typeof value.review?.[key] === "string"));
 };
+
+/** The same evidence contract applies to manual checks and refreshed post-build checks. */
+function validVerification(value: Verification, draft: Pick<Draft, "provider" | "execution_backend">, preview: Preview): boolean {
+  const expected = [...readinessKeys,
+    ...(draft.provider === CHATGPT ? ["executor_sign_in"] : []), ...(draft.execution_backend === "container" ? ["egress_proxy"] : [])];
+  return !!value && ["failed", "partial", "verified"].includes(value.status) && value.draft_revision === preview.revision
+    && value.revision === preview.config_revision && value.auth_bound === false && digest(value.evidence_token) && typeof value.checked_at === "string"
+    && Number.isFinite(Date.parse(value.checked_at)) && !!value.checks
+    && (draft.execution_backend !== "local" || validLocalProbe(value.local_probe, value.checks.executor_cli === true))
+    && validReadinessMeasurement(value, expected)
+    && [...value.required_checks].sort().join() === [...expected].sort().join();
+}
 
 /** Mounted memory-only enrollment; server owns canonical setup and stopped publication. */
 export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated, registerGuard }: {
@@ -150,10 +154,8 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   onOpen: (id: string) => void; onCreated: () => void;
   registerGuard: (guard: (() => boolean) | null) => void;
 }) {
-  const c = enrollmentCopy[locale];
+  const c = enrollmentCopy[locale], flow = enrollmentFlowCopy[locale];
   const [draft, setDraft] = useState<Draft>(initial);
-  const commandEdited = useRef(false);
-  const [appliedHint, setAppliedHint] = useState<VerificationHint | null>(null);
   // Enrollment starts at Repository and identity; the clone requirement is that step's clone-path help.
   const [step, setStep] = useState(1);
   // Step 1 reads a repository URL; an existing clone is reused when its path is the clone path.
@@ -170,6 +172,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
   const [reviewed, setReviewed] = useState<{ draft: ReturnType<typeof payload>; preview: Preview } | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [failure, setFailure] = useState<unknown>(null);
+  const [environment, setEnvironment] = useState<Progress | null>(null);
   const [busy, setBusy] = useState<"preview" | "probe" | "create" | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
   // Create the project's labels in the repository right after creation (on by default).
@@ -222,6 +225,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
 
   const move = (next: number, field?: FieldName) => {
     if (operation.current === "create") return;
+    if (operation.current) { generation.current++; operation.current = null; setBusy(null); }
     focusTarget.current = field ? "enroll-" + field : null;
     setStep(next);
     if (next === step) {
@@ -236,9 +240,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     move(Math.max(1, target), field);
   };
   const change = (field: FieldName, value: string) => {
-    if (field === "verify_command") { commandEdited.current = true; setAppliedHint(null); }
-    const resetHint = ["clone_url", "repo_path"].includes(field) && !commandEdited.current;
-    if (resetHint) setAppliedHint(null);
+    setEnvironment(null);
     dirty.current = true; generation.current++;
     if (preview || verification || reviewed) setStale(true);
     setPreview(null); setVerification(null); setReviewed(null); setFindings([]); setFailure(null);
@@ -247,7 +249,6 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     if (field === "clone_url") { setDetected(null); selectedBranch.current = null; }
     if (field === "target_branch") selectedBranch.current = { url: draft.clone_url.trim(), branch: value };
     setDraft(current => ({ ...current, [field]: value,
-      ...(resetHint ? { verify_command: "" } : {}),
       ...(prefilled !== null && current.display_name === prefilled ? { display_name: "" } : {}),
       // A new URL needs a new read and a new derived ID.
       ...(field === "clone_url" ? { name: "", repo: "", repo_path: "", target_branch: "" } : {}),
@@ -283,8 +284,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
         const number = Number(value); valid = !!value.trim() && Number.isFinite(number) &&
           (key === "max_cost_usd" ? number >= 0 : Number.isSafeInteger(number) && number > 0);
       }
-      if (key === "verify_command") valid = validVerificationCommand(value);
-      if (!valid) errors.push({ code: "invalid_input", field: key, remediation: key === "verify_command" ? t("verificationCommandInvalid") : c.invalid });
+      if (!valid) errors.push({ code: "invalid_input", field: key, remediation: c.invalid });
     }
     setFindings(errors); setFailure(null);
     return errors.length === 0;
@@ -349,61 +349,45 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
     finally { if (alive.current) setDetecting(false); }
   };
-  const runPreview = async () => {
+  const runValidation = async () => {
     if (operation.current || !validateLocal([1, 2, 3, 4])) return;
     const token = generation.current;
-    operation.current = "preview"; setBusy("preview"); setFailure(null); setReviewed(null);
+    operation.current = "probe"; setBusy("probe"); setFailure(null); setReviewed(null);
     setPreview(null); setVerification(null);
     try {
-      let candidate = draft;
-      let value = await call("setup-preview", payload(candidate)) as Preview;
+      const candidate = await call("setup-preview", payload(draft)) as Preview;
       if (!alive.current || token !== generation.current) return;
-      if (!validPreview(value, candidate)) throw new ApiError("unexpected_response");
-      const hint = value.verification_hint;
-      if (value.structural_valid && hint && !commandEdited.current) {
-        setAppliedHint(hint);
-        if (hint.command !== candidate.verify_command) {
-          candidate = { ...candidate, verify_command: hint.command };
-          dirty.current = true; setStale(true); setDraft(candidate);
-          // At most one canonical re-preview. Evidence never mutates server review.
-          value = await call("setup-preview", payload(candidate)) as Preview;
-          if (!alive.current || token !== generation.current) return;
-          if (!validPreview(value, candidate)) throw new ApiError("unexpected_response");
-        }
-      }
-      setPreview(value); setFindings(value.issues); setStale(false);
-    } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
-    finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
-  };
-  // One offline discovery on entry, never on typing or as a command-keyed loop.
-  useEffect(() => { if (step === 4) void runPreview(); }, [step]);
-  const runProbe = async () => {
-    if (operation.current || !preview?.structural_valid || !preview.revision) return;
-    const token = generation.current;
-    operation.current = "probe"; setBusy("probe"); setVerification(null); setFailure(null); setFindings([]);
-    try {
-      const value = await call("setup-check", { ...payload(draft), revision: preview.revision }) as Verification;
+      if (!validPreview(candidate, draft)) throw new ApiError("unexpected_response");
+      setPreview(candidate); setFindings(candidate.issues); setStale(false);
+      if (!candidate.structural_valid || !candidate.revision) return;
+      const value = await call("setup-check", { ...payload(draft), revision: candidate.revision }) as Verification;
       if (!alive.current || token !== generation.current) return;
-      const expected = [...readinessKeys,
-        ...(draft.provider === CHATGPT ? ["executor_sign_in"] : []), ...(draft.execution_backend === "container" ? ["egress_proxy"] : [])];
-      if (!value || !["failed", "partial", "verified"].includes(value.status) || value.draft_revision !== preview.revision ||
-        value.revision !== preview.config_revision || value.auth_bound !== false || !digest(value.evidence_token) || typeof value.checked_at !== "string" ||
-        !Number.isFinite(Date.parse(value.checked_at)) || !value.checks ||
-        (draft.execution_backend === "local" && !validLocalProbe(value.local_probe, value.checks.executor_cli === true)) ||
-        !validReadinessMeasurement(value, expected) ||
-        [...value.required_checks].sort().join() !== [...expected].sort().join())
-        throw new ApiError("unexpected_response");
+      if (!validVerification(value, draft, candidate)) throw new ApiError("unexpected_response");
       setVerification(value);
     } catch (cause) { if (alive.current && token === generation.current) reject(cause); }
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
   };
+  // Each visit checks this exact draft once; retries are an explicit user action.
+  useEffect(() => { if (step === 4) void runValidation(); }, [step]);
   const confirm = async () => {
     if (operation.current || !reviewed?.preview.revision) return;
     operation.current = "create"; setBusy("create"); setFailure(null); setFindings([]);
     const token = generation.current;
     try {
-      const value = await call("setup-create", { ...reviewed.draft, revision: reviewed.preview.revision,
-        ...(verification ? { evidence_token: verification.evidence_token } : {}) }) as Created;
+      const body = { ...reviewed.draft, revision: reviewed.preview.revision };
+      setEnvironment(null);
+      await prepareEnvironment(() => call("setup-environment", body), setEnvironment,
+        () => alive.current && token === generation.current);
+      // Builds can outlive the original evidence token. Refresh measured evidence
+      // after preparation rather than publishing stale missing-image checks.
+      let fresh = verification;
+      if (verification) {
+        fresh = await call("setup-check", body) as Verification;
+        if (!validVerification(fresh, reviewed.draft, reviewed.preview)) throw new ApiError("unexpected_response");
+        if (!alive.current || token !== generation.current) return;
+        setVerification(fresh);
+      }
+      const value = await call("setup-create", { ...body, ...(fresh ? { evidence_token: fresh.evidence_token } : {}) }) as Created;
       if (!alive.current || token !== generation.current) return;
       if (!value || !/^[0-9a-f]{32}$/.test(value.id) || value.name !== reviewed.draft.name ||
         value.display_name !== reviewed.draft.display_name || !value.paused || value.pickup_state !== "stopped")
@@ -416,11 +400,14 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           .then(result => { if (alive.current) setLabelResult(validLabelReport(result) ? { report: result } : { error: new ApiError("unexpected_response") }); })
           .catch(cause => { if (alive.current) setLabelResult({ error: cause }); });
       }
-    } catch (cause) { if (alive.current && token === generation.current) { setReviewed(null); reject(cause); } }
+    } catch (cause) { if (alive.current && token === generation.current) {
+      if (!environmentFailure(cause)) setReviewed(null);
+      reject(cause);
+    } }
     finally { if (alive.current && token === generation.current) { operation.current = null; setBusy(null); } }
   };
   const labels: Record<FieldName, string> = {
-    verify_command: t("verificationCommand"), execution_backend: c.runsIn, local_account: localCopy[locale].account,
+    execution_backend: c.runsIn, local_account: localCopy[locale].account,
     local_path: localCopy[locale].path,
     clone_url: c.url, name: c.id, display_name: c.display, description: t("description"), kind: t("forge"), repo: t("repository"),
     login: "Gitea tea login", repo_path: t("clonePath"), target_branch: t("targetBranch"),
@@ -437,13 +424,19 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
     numeric.includes(key as typeof numeric[number]) ? "limits" : "rules";
   const modelOptions = providerModels(draft.provider, catalog);
   const control = (key: FieldName) => {
-    if (key === "local_account" || key === "login" && draft.kind !== "gitea"
+    if (key === "auth_mode" || key === "local_account" || key === "login" && draft.kind !== "gitea"
         || key.startsWith("local_") && draft.execution_backend !== "local"
         || ["runtime", "image"].includes(key) && draft.execution_backend === "local"
         || key.startsWith("endpoint_") && draft.provider !== CUSTOM) return null;
     if (key === "repo_path" && detected) return <CloneLocation key={key} value={draft.repo_path} automatic={detected.repo_path}
       label={labels.repo_path} locale={locale} onChange={path=>change("repo_path",path)}
       invalid={findings.some(item=>fieldFor(item.field)==="repo_path")}/>;
+    if (key === "runtime") return <div className="enrollment-field" key={key}>
+      <label htmlFor="enroll-runtime">{labels.runtime}<span aria-hidden="true"> *</span></label>
+      <ContainerRuntimePicker id="enroll-runtime" value={draft.runtime} label={labels.runtime}
+        descriptionId="" locale={locale} disabled={busy === "create"}
+        autoSelect onChange={value => change("runtime", value)} />
+    </div>;
     const options: Partial<Record<FieldName, string[]>> = { kind: [...(draft.kind ? [] : [""]), "gitlab", "github", "gitea"],
       target_branch: detected ? [...(detected.default_branch ? [detected.default_branch] : []),
         ...detected.branches.filter(branch => branch !== detected.default_branch)] : undefined,
@@ -454,8 +447,7 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
       endpoint_api: ENDPOINT_APIS, thinking: ["", ...providerThinking(draft.provider, draft.model, catalog)] };
     const error = findings.some(item => fieldFor(item.field) === key);
     const common = { id: "enroll-" + key, value: draft[key],
-      "aria-describedby": "enrollment-help-" + helpId(key) + (error ? " error-" + key : "")
-        + (key === "target_branch" && detected ? " enrollment-branch-help" : ""),
+      "aria-describedby": error ? "error-" + key : undefined,
       "aria-invalid": error || undefined, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => change(key, event.target.value) };
     return <div className="enrollment-field" key={key}>
       <label htmlFor={common.id}>{labels[key]}{!["description", "login", "local_path", "reviewers", "env_keys", "thinking"].includes(key) && <span aria-hidden="true"> *</span>}</label>
@@ -473,16 +465,15 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           list={key === "image" && images?.available ? "enroll-image-options" : key === "model" && modelOptions.length ? "enroll-model-options" : undefined} />}
       {key === "model" && modelOptions.length > 0 && <datalist id="enroll-model-options">{modelOptions.map(name => <option value={name} key={name} />)}</datalist>}
       {key === "image" && images?.available && <datalist id="enroll-image-options">{images.images.map(name => <option value={name} key={name} />)}</datalist>}
-      {key === "target_branch" && detected && <p className="field-hint" id="enrollment-branch-help">{
-        !detected.branches.length ? setupCopy[locale].noBranches : detected.default_branch
-          ? setupCopy[locale].branchHelp : setupCopy[locale].noDefaultBranch}</p>}
+      {key === "target_branch" && detected && (!detected.branches.length || !detected.default_branch) &&
+        <p className="field-hint">{!detected.branches.length ? setupCopy[locale].noBranches : setupCopy[locale].noDefaultBranch}</p>}
       {key === "image" && images && (!images.available ? <p className="field-hint">{c.imagesUnavailable}</p>
-        : draft.image.trim() && !images.images.includes(draft.image.trim()) && <p className="field-hint" role="status">{c.imageMissing}</p>)}
+        : draft.image.trim() && !images.images.includes(draft.image.trim()) && <p className="field-hint" role="status">{
+          draft.image.trim() === initial.image ? environmentCopy[locale].automatic : c.imageMissing}</p>)}
       {error && <p className="field-hint" id={"error-" + key}><strong>{c.invalid}</strong></p>}
     </div>;
   };
   const workflow = verification?.workflow ?? preview?.workflow ?? "not-inspected";
-  const commandInvalid = !validVerificationCommand(draft.verify_command);
   const status = stale ? c.stale : !verification ? c.unverified : verification.status === "failed" ? c.failedCheck :
     verification.status === "partial" ? c.partial : c.verified;
   const submit = (event: FormEvent) => {
@@ -514,28 +505,22 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
           labels[fieldFor(item.field)!] : c.steps[3]} — {c.correction}</button>
         <p>{item.code === "project_exists" ? c.idExists :
           item.code === "reserved_project_name" ? c.idReserved :
-          fieldFor(item.field) === "verify_command" ? t("verificationCommandInvalid") :
           item.code === "invalid_input" ? c.invalid : fieldFor(item.field) ?
             (helpId(fieldFor(item.field)!) === "url" ? c.urlHelp : c[helpId(fieldFor(item.field)!) as "identity" | "login" |
               "environment" | "credentials" | "rules" | "limits"] ?? connectionCopy[locale].invalid) : c.failed}</p>
         <span> · {item.code}</span>
       </li>)}</ul>
-      {!findings.length && <button className="text-button" onClick={() => move(4)}>{c.validate}</button>}
+      {!findings.length && step !== 4 && <button className="text-button" onClick={() => move(4)}>{c.validate}</button>}
     </div>}
     <form onSubmit={submit} noValidate>
       <fieldset disabled={busy === "create"} className="enrollment-fields">
         {step < 4 && <>
-          {(step === 1 ? ["url", "identity", ...(draft.kind === "gitea" ? ["login"] : [])] : step === 2 ? ["agent", "environment", "credentials"] :
-            ["rules", "limits"]).map(key => <p id={"enrollment-help-" + key} key={key}>{key === "agent" ? [connectionCopy[locale].providerHelp,
-              draft.provider === CUSTOM ? connectionCopy[locale].baseUrlHelp : "", credentialNote(draft.provider, catalog, locale), c.keyAfterCreate].filter(Boolean).join(" ")
-              : step === 2 && draft.execution_backend === "local" ? (key === "environment" ? localCopy[locale].notice : c.noSecrets) : key === "url" ? c.urlHelp : c[key as
-              "identity" | "login" | "environment" | "credentials" | "rules" | "limits"]}</p>)}
           {step === 1 ? <>
             <div className="enrollment-field enrollment-url">
               <label htmlFor="enroll-clone_url">{c.url}<span aria-hidden="true"> *</span></label>
               <div className="inline-field">
                 <input id="enroll-clone_url" value={draft.clone_url} autoComplete="off" maxLength={512}
-                  placeholder={t("examplePrefix") + " " + examples.clone_url} aria-describedby="enrollment-help-url"
+                  placeholder={t("examplePrefix") + " " + examples.clone_url}
                   aria-invalid={findings.some(item => fieldFor(item.field) === "clone_url") || undefined}
                   onChange={event => change("clone_url", event.target.value)}
                   onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void readRepository(); } }} />
@@ -552,36 +537,26 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             <p className="visually-hidden" role="status">{detected ? c.detected : ""}</p>
             {detected && <>{detected.kind === null && <p role="note">{c.forgeUnknown}</p>}
               <div className="enrollment-grid">{(["display_name", "description", "kind", "login", "repo_path", "target_branch"] as FieldName[]).map(control)}</div>
-              <p className="field-hint" id="enrollment-clone-note">{draft.repo_path === detected.repo_path && detected.clone === "existing" ? c.cloneExisting : c.cloneEdited}</p></>}
+              </>}
           </> : step === 2 ? <div className="enrollment-agent-columns">
-            <div className="enrollment-agent-column">{(["provider", "model", "thinking", "endpoint_base_url", "endpoint_api", "auth_mode", "env_keys"] satisfies FieldName[]).map(control)}</div>
+            <div className="enrollment-agent-column">{(["provider", "model", "thinking", "endpoint_base_url", "endpoint_api"] satisfies FieldName[]).map(control)}</div>
             <div className="enrollment-agent-column">{(["execution_backend", "runtime", "image", "local_path"] satisfies FieldName[]).map(control)}
               {draft.execution_backend === "local" && <p className="field-hint">{localCopy[locale].account}. {localCopy[locale].agentFix}</p>}
             </div>
           </div> : <div className="enrollment-grid">{fields[step].filter(key=>!key.startsWith("local_")).map(control)}</div>}
+          {step === 2 && <details className="enrollment-credentials"><summary>{flow.extras}</summary>
+            {control("env_keys")}
+          </details>}
 
         </>}
         {step === 4 && <>
-          <p>{draft.execution_backend === "local" ? c.localEffects : c.effects}</p><p>{c.noSecrets}</p>
           {!failure && <WorkflowInformation workflow={workflow} locale={locale} />}
-          {workflow === "aegis" ? <p role="note">{t("aegisTestCommands")}</p> : <div className="enrollment-field">
-            <label htmlFor="enroll-verify_command">{t("verificationCommand")}</label>
-            <p id="enrollment-help-verify_command">{t("verificationCommandHelp")}</p>
-            <textarea id="enroll-verify_command" rows={1} value={draft.verify_command} aria-describedby={"enrollment-help-verify_command" + (appliedHint ? " enrollment-verification-source" : "") + (commandInvalid ? " error-verify_command" : "")} aria-invalid={commandInvalid || undefined} onChange={event => change("verify_command", event.target.value)} />
-            {appliedHint && <p className="field-hint" id="enrollment-verification-source">{c.suggestedFrom} <code>{appliedHint.source}</code></p>}
-            {commandInvalid && <p id="error-verify_command">{t("verificationCommandInvalid")}</p>}
-          </div>}
           <div className="verify-action">
-            <button type="button" className="primary" disabled={!!busy} onClick={() => void runPreview()}>{c.validate}</button>
-            <span role="status">{preview?.structural_valid && <span className="action-result ok">{c.valid}</span>}</span>
-          </div>
-          {/* The check needs a valid setup first; its status stays visible meanwhile. */}
-          <div className="verify-action">
-            <button type="button" className="ghost" disabled={!!busy || !preview?.structural_valid} onClick={() => void runProbe()}>{verification ? c.recheck : c.check}</button>
+            <button type="button" className="ghost" disabled={!!busy} onClick={() => void runValidation()}>{c.recheck}</button>
             <span role="status"><span className={"action-result " + (stale ? "warn" : !verification ? "muted"
               : verification.status === "failed" ? "fail" : verification.status === "partial" ? "warn" : "ok")}>{status}</span></span>
           </div>
-          {verification && <>{!verification.auth_bound && verification.status === "partial" && <p>{({ en: "External CLI sign-in can change outside ADORE; the result remains partial until repository access is connected.", fr: "La connexion CLI externe peut changer hors d’ADORE ; le résultat reste partiel jusqu’à la connexion du dépôt.", de: "Die externe CLI-Anmeldung kann sich außerhalb von ADORE ändern; das Ergebnis bleibt bis zur Repository-Verbindung teilweise.", ro: "Autentificarea CLI externă se poate schimba în afara ADORE; rezultatul rămâne parțial până la conectarea repository-ului." })[locale]}</p>}<p>{c.checked}: {new Date(verification.checked_at).toLocaleString(locale)}</p><ul>{Object.entries(verification.checks).filter(([key]) => draft.execution_backend !== "local" || key !== "container_runtime").map(([key, result]) =>
+          {verification && <><p>{c.checked}: {new Date(verification.checked_at).toLocaleString(locale)}</p><ul>{Object.entries(verification.checks).filter(([key]) => draft.execution_backend !== "local" || key !== "container_runtime").map(([key, result]) =>
             {
               const nativeExecutor = draft.execution_backend === "local" && key === "executor_cli";
               const guidance = nativeExecutor ? localFailureText(locale, verification.local_probe)
@@ -595,12 +570,11 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             })}</ul></>}
         </>}
         {step === 5 && reviewed && <>
-          <p>{c.reviewHelp}</p><p>{c.status}: {status}</p>
           {!failure && <WorkflowInformation workflow={workflow} locale={locale} />}
           {reviewed.draft.execution_backend === "local" && <section className="enrollment-review"><h3>{localCopy[locale].title}</h3><p>{localCopy[locale].notice}</p><p>{localCopy[locale].machine}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.machine ?? "—")} · {localCopy[locale].account}: {String((reviewed.preview.review?.local_execution as Record<string, unknown>)?.account ?? "—")}</p></section>}
-          {fields.slice(1).map((group, index) => <section className="enrollment-review" key={index}>
+          {fields.slice(1, 4).map((group, index) => <section className="enrollment-review" key={index}>
             <h3>{c.steps[index]}</h3><button type="button" className="text-button" onClick={() => move(index + 1)}>{c.change} — {c.steps[index]}</button>
-            <dl>{group.filter(key => (key !== "clone_url" || !!reviewed.draft.clone_url) && (!key.startsWith("endpoint_") || reviewed.draft.provider === CUSTOM) && (reviewed.draft.execution_backend === "local" ? !["runtime", "image"].includes(key) : !key.startsWith("local_"))).map(key => <div key={key}><dt>{labels[key]}</dt><dd>{key === "verify_command" && workflow === "aegis" ? t("aegisTestCommands") : key === "provider" ? providerName(String(reviewed.preview.review?.provider ?? ""), catalog, locale) : key === "execution_backend" ? (reviewed.draft.execution_backend === "local" ? c.installed : c.container) : key === "thinking" && !reviewed.draft.thinking ? thinkingCopy[locale].default : key === "auth_mode" ? ({ en: "API key", fr: "Clé API", de: "API-Schlüssel", ro: "Cheie API" }[locale]) : (Array.isArray(reviewed.preview.review?.[key]) ?
+            <dl>{group.filter(key => (key !== "auth_mode" && (key !== "env_keys" || reviewed.draft.env_keys.length > 0) && (key !== "clone_url" || !!reviewed.draft.clone_url)) && (!key.startsWith("endpoint_") || reviewed.draft.provider === CUSTOM) && (reviewed.draft.execution_backend === "local" ? !["runtime", "image"].includes(key) : !key.startsWith("local_"))).map(key => <div key={key}><dt>{labels[key]}</dt><dd>{key === "provider" ? providerName(String(reviewed.preview.review?.provider ?? ""), catalog, locale) : key === "execution_backend" ? (reviewed.draft.execution_backend === "local" ? c.installed : c.container) : key === "thinking" && !reviewed.draft.thinking ? thinkingCopy[locale].default : key === "auth_mode" ? ({ en: "API key", fr: "Clé API", de: "API-Schlüssel", ro: "Cheie API" }[locale]) : (Array.isArray(reviewed.preview.review?.[key]) ?
               (reviewed.preview.review?.[key] as string[]).join(", ") : String(reviewed.preview.review?.[key] ?? "")) || "—"}</dd></div>)}
               {(index === 0 ? [["branch_template", c.branches]] : index === 1 ? (reviewed.preview.review?.credential_variable ? [["credential_variable", c.credentialVariable]] : []) :
                 index === 2 ? [["hold_label", c.hold], ["exclude_label", c.exclude]] : []).map(([key, label]) =>
@@ -611,13 +585,14 @@ export function EnrollmentWizard({ locale, csrf, t, onCancel, onOpen, onCreated,
             <div key={key}><dt>{{ config_path: c.configFile, store_root: c.jobState,
               worktree_root: c.worktrees, repo_path: t("clonePath") }[key]}</dt>
               <dd>{String(reviewed.preview.review?.[key] ?? "—")}</dd></div>)}</dl></section>
-          <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p><p>{c.createEffect}</p>
+          <p className="enrollment-digest">{c.revision}: {reviewed.preview.revision}</p>
           <DefaultSettings defaults={reviewed.preview.defaults} locale={locale} backend={reviewed.draft.execution_backend} />
           <label className="forge-labels-option"><input type="checkbox" checked={createLabels} onChange={event => setCreateLabels(event.target.checked)} />
             <span>{forgeLabelsCopy[locale].option}</span></label>
         </>}
       </fieldset>
-      {busy && <p role="status">{c.busy} {c.checkingHelp}</p>}
+      {busy && (!environment || environment.status === "ready") && <p role="status">{c.busy} {c.checkingHelp}</p>}
+      <EnvironmentProgress value={environment} locale={locale} />
       <div className="enrollment-actions">
         {step > 1 && <button type="button" className="ghost" disabled={busy === "create"} onClick={() => move(step - 1)}>{c.back}</button>}
         {/* From a URL, the wizard cannot continue until the repository has been read. */}

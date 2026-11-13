@@ -1,5 +1,7 @@
 # Glosar
 
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
 Aceștia sunt termenii folosiți în interfața web ADORE și în aceste subiecte de ajutor.
 
 ## Termeni {#terms}
@@ -14,14 +16,13 @@ Aceștia sunt termenii folosiți în interfața web ADORE și în aceste subiect
 | Agent de programare / Executor | Instrumentul AI în linie de comandă care face munca pentru o lucrare într-un mediu izolat: Pi, singurul agent de programare pe care îl rulează ADORE. Nu are credențiale forge și nu face niciodată commit sau push și nu deschide ori integrează un MR/PR. |
 | Model | ID-ul modelului la furnizorul ales, de exemplu gpt-5.4 pentru OpenAI. Se setează împreună cu furnizorul în Setări → Agent și model, iar prețurile estimate aparțin unei perechi executor–model. |
 | AEGIS | Fluxul instalat în repository care încadrează, specifică, proiectează, construiește și validează o modificare. ADORE îl conduce o etapă pe rând (Încadrare, Specificare, Proiectare, Construire, Validare) și publică rezultatul aprobat; o modificare mică poate sări peste Specificare și Proiectare. |
-| Flux direct | Fluxul pentru un repository fără `.agentic/aegis.py`: o sesiune Pi de implementare limitată, urmată de verificarea independentă opțională ADORE și de aceleași limite de aprobare și revizuire umană. |
-| Comandă de verificare | Comandă shell opțională pe o singură linie, setată la înrolare sau în Setări → Implementare și salvată ca `[workflow] verify_command`. Rulările directe o execută din rădăcina worktree-ului sub limita de validare; gol înseamnă neverificat, iar AEGIS folosește propriile teste în schimb. |
+| Flux direct | Un repository fără AEGIS este implementat direct de agent. Agentul își conduce verificările; ADORE urmărește progresul și cere aprobarea umană. |
 | Candidat | Rezultatul validat al unei lucrări, pe care ADORE îl prezintă spre aprobare, identificat printr-o amprentă și commit-ul țintă. Aprobarea se aplică exact acelui candidat și expiră dacă se schimbă candidatul sau ramura sa țintă. |
 | Așteaptă clarificări | Agentul are nevoie de un răspuns pentru a continua. Răspundeți la întrebarea sa în tichetul din repository. |
 | Așteaptă aprobarea | Rezultatul este validat și așteaptă autorizarea publicării de către o persoană. Aprobarea se înregistrează pe forge pentru candidatul curent. |
-| MR/PR ciornă | Merge request-ul (GitLab) sau pull request-ul (GitHub, Gitea) pe care ADORE îl deschide după aprobare, ca ciornă, cu excepția cazului în care proiectul este setat să publice unul pregătit. Oamenii îl revizuiesc. |
+| MR/PR ciornă | Cererea MR/PR deschisă după validare și aprobarea necesară. Oamenii o revizuiesc. |
 | Revizie umană | Un MR/PR este disponibil pentru revizie umană. Integrarea rămâne o decizie umană. |
-| Rundă de revizie | O nouă trecere a agentului de programare pe aceeași ramură după ce un recenzor cere modificări sau după verificări CI eșuate, când repararea automată este activată. Rundele sunt limitate de **Numărul maxim de runde de revizie**, iar fiecare cere o aprobare nouă înainte de a se publica ceva. |
+| Rundă de revizie | O nouă trecere a agentului după modificări cerute sau erori CI. Fiecare rundă repetă validarea și respectă politica de aprobare. |
 | Forge | Platforma de găzduire unde se află tichetele, etichetele, aprobările și MR/PR-urile: GitHub, GitLab sau Gitea. |
 
 > ADORE nu are nicio operație de integrare. Integrarea este întotdeauna decizia unei persoane, pe forge.

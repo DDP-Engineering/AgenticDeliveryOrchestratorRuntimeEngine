@@ -170,26 +170,20 @@ adore --profile my-project run --once
 
 ## Approval and Draft Publication
 
-An AEGIS candidate needs independent strict validation. A direct run instead
-uses one bounded fresh Pi session per attempt to implement the whole ticket;
-ADORE checks settled success, no questions file and genuine changes other than
-the two exchange files. Pi's summary is retained as reported checks, not
-independent verification. The ticket and MR/PR show its summary, changed-file
-count and "Verification: not configured. This candidate is unverified."
-Summary-only work fails with `NO_CHANGES`. There is no direct verification
-command in this build.
+The agent owns repository tests. With AEGIS, ADORE observes the task journal;
+without AEGIS, it records a completed implementation session and its summary.
+A direct session must make product changes and leave no blocking questions.
 
-Both paths remove the old approval label, present the evidence and fingerprint,
-enter `awaiting-approval`, stop execution and release the slot. Review the
-evidence, then freshly add `agent-approved`. The next poll rechecks the exact
-candidate and target before publication. Target or candidate drift requires
-another presentation and fresh approval.
+Human approval is required by default. ADORE removes the old approval label,
+presents the candidate and waits for a fresh `agent-approved` label bound to its
+fingerprint and target commit. Candidate or target drift invalidates that binding.
+Projects may disable `delivery.require_human_approval`; ADORE then checks candidate
+and target freshness before publishing. Both policies keep tests with the agent.
 
-ADORE publishes the approved candidate as the configured draft or ready MR/PR
-and stops in `in-review`, at stage `done`. Progress checkpoints may already be
-on the owned branch when `delivery.publish_checkpoints` is enabled (the default);
-they are not review publication and do not bypass approval. A human reviews
-and merges.
+ADORE opens the configured draft or ready MR/PR and enters `in-review` at `done`.
+A human reviews and merges. Progress checkpoints may already be on the owned
+branch when `delivery.publish_checkpoints` is enabled; they do not bypass the
+publication policy.
 
 ## Failure and Recovery
 

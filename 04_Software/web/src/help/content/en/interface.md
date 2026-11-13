@@ -26,14 +26,16 @@ The top bar shows the page title and these controls.
 - **About**: the ADORE version, with **What's new** (release notes by release, newest first, grouped New, Improved and Fixed), **License** and **Third-party notices**.
 - **How ADORE works**: opens this help center.
 
+On Jobs, **Job scope** sits to the right of **Tickets** and **Jobs** on wide screens. On narrow screens it wraps below the tabs.
+
 ## Project hub {#project-hub}
 
 Opening a project from Projects shows its name and repository path above these tabs.
 
 | Tab | What it holds |
 |---|---|
-| Summary | Container type, executor, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
-| Settings | The project's effective settings in groups. Administrators change one setting at a time through a reviewed change; Devs read them without secrets. See [Project settings](/help/settings). |
+| Summary | Container type, Monitoring, environment verification, job counts, and compact Needs attention and Active jobs tables. Administrators also get **Pause monitoring** or **Activate monitoring**, **Archive project** or **Restore project**, **Check host prerequisites** and **Repository access**. |
+| Settings | Effective settings, one Save for administrators, and configuration export with retained executor image definitions. Developers read settings without secrets. See [Project settings](/help/settings). |
 | Jobs | The Tickets and Jobs sub-tabs for this project, without a project selector. |
 | Statistics | The same reporting period, tabs and exports as the Statistics page, for this project only. |
 | History | Recorded changes to the project and its finished jobs. |
@@ -50,7 +52,7 @@ Badges carry a symbol as well as colour, and job lists show the current stage be
 | Job status | Meaning |
 |---|---|
 | Working | ADORE is conducting a stage. |
-| Publishing | ADORE is publishing an approved candidate. |
+| Publishing | ADORE is publishing the validated candidate under the project policy. |
 | Waiting for clarification | The agent needs an answer in the repository issue. |
 | Waiting for approval | A person must approve the candidate on the forge. |
 | Human review | A draft MR/PR is open; people decide whether to merge. |

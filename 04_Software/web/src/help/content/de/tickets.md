@@ -11,7 +11,7 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
-Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Ein vorhandenes defektes oder nicht unterstütztes AEGIS wird abgewiesen, nie stillschweigend durch Direkt ersetzt. Ohne diese Datei nutzt der direkte Workflow den optionalen **Prüfbefehl**; leer bedeutet ungeprüft. Beide Workflows behalten dieselben Labels, Limits und menschliche Freigabe. Siehe [Repository-Workflows](/help/projects#workflows).
+Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
 
 ## Zuerst die Labels anlegen {#labels}
 
@@ -70,6 +70,8 @@ Eingereihte Vorgänge werden bei sichtbarem Tab alle 2 Sekunden geprüft, mit je
 Unveränderte Projektaktualisierungen erhalten offene Inhalte und gültige Start-/Stoppbestätigungen. Ändern sich Projektidentität, Zugriff oder Archivstatus, lässt sich die alte Bestätigung auch nach Wiederherstellung nicht absenden. Drücken Sie **Tickets lesen** und prüfen Sie erneut. Pausieren oder Fortsetzen der Überwachung macht auch die alte Startbestätigung ungültig, selbst wenn der vorherige Zustand zurückkehrt; lesen und prüfen Sie vor dem Start erneut. Dies allein macht Stoppen nicht ungültig und schließt keine Inhalte. Ein neuer berechtigter manueller Start bleibt bei pausierter Überwachung möglich. Inhalte entfernter Projekte bleiben bis zu einer neuen ausdrücklichen Abfrage verborgen. Beim Verlassen des Kontexts werden Browseranfragen abgebrochen und veraltete Aktionsergebnisse ignoriert; ein bereits vom Server angenommener Befehl wird dadurch nicht rückgängig gemacht.
 
 Ticket- und Kommentarabfragen haben eine Grenze von 30 Sekunden und wiederholen Forge-Abfragen nie automatisch. Nutzen Sie nach einem Fehler **Tickets lesen** für die Liste oder schließen und öffnen Sie **Details** für Kommentare. Erneutes Öffnen während einer laufenden Kommentarabfrage nutzt dieselbe Abfrage.
+
+Auf dem Desktop bleiben Starten oder Wiederholen, Stoppen und Details oder Details ausblenden in einer Zeile, rechtsbündig wie die Überschrift Aktionen. Auf schmalen Bildschirmen können die Schaltflächen umbrechen, damit sie in die Seite passen.
 
 ## Beschreibungen und Kommentare lesen {#reading-bodies}
 

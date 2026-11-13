@@ -12,8 +12,8 @@
 @brief Typed client for the agent-driven AEGIS companion CLI.
 @details ADORE invokes ``python .agentic/aegis.py`` inside the isolated
          worktree. AEGIS owns task journals and workflow instructions; ADORE
-         creates tasks, reads schema-1 status/check documents, runs objective
-         verification, and fails loudly when the CLI or persisted journal
+         creates tasks, reads schema-1 status/check documents, and fails
+         loudly when the CLI or persisted journal
          crosses the documented trust boundary incorrectly. It speaks the
          documented CLI and schema, with no alternate-contract fallback.
 """

@@ -26,14 +26,16 @@ La barre supérieure affiche le titre de la page et ces commandes.
 - **À propos** : la version d’ADORE, avec **Nouveautés** (notes de version par version, de la plus récente à la plus ancienne, regroupées en Nouveau, Amélioré et Corrigé), **Licence** et **Mentions des composants tiers**.
 - **Comment fonctionne ADORE** : ouvre ce centre d’aide.
 
+Dans Tâches, le sélecteur de périmètre se trouve à droite de **Tickets** et **Tâches** sur grand écran. Sur petit écran, il passe sous les onglets.
+
 ## Hub du projet {#project-hub}
 
 L’ouverture d’un projet depuis Projets affiche son nom et le chemin de son dépôt au-dessus de ces onglets.
 
 | Onglet | Ce qu’il contient |
 |---|---|
-| Résumé | Type de conteneur, exécuteur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |
-| Paramètres | Les paramètres effectifs du projet, par groupes. Les administrateurs modifient un paramètre à la fois par un changement vérifié ; les Dev les lisent sans les secrets. Voir [Paramètres du projet](/help/settings). |
+| Résumé | Type de conteneur, surveillance, vérification de l’environnement, nombre de tâches, et tableaux compacts À traiter et Tâches actives. Les administrateurs disposent aussi de **Suspendre la surveillance** ou **Activer la surveillance**, **Archiver le projet** ou **Restaurer le projet**, **Vérifier les prérequis de l’hôte** et **Accès au dépôt**. |
+| Paramètres | Paramètres effectifs, enregistrement groupé pour les administrateurs et export avec les définitions d’image conservées. Les développeurs lisent sans secrets. Voir [Paramètres du projet](/help/settings). |
 | Tâches | Les sous-onglets Tickets et Tâches de ce projet, sans sélecteur de projet. |
 | Statistiques | La même période de rapport, les mêmes onglets et les mêmes exports que la page Statistiques, pour ce projet seulement. |
 | Historique | Les changements enregistrés du projet et ses tâches terminées. |
@@ -50,7 +52,7 @@ Les badges portent un symbole en plus de la couleur, et les listes de tâches af
 | État de la tâche | Signification |
 |---|---|
 | En cours | ADORE conduit une étape. |
-| Publication | ADORE publie un candidat approuvé. |
+| Publication | ADORE publie le candidat validé selon la politique du projet. |
 | En attente de clarification | L’agent attend une réponse dans le ticket du dépôt. |
 | En attente d'approbation | Une personne doit approuver le candidat sur la forge. |
 | Revue humaine | Une MR/PR en brouillon est ouverte ; des personnes décident de fusionner ou non. |

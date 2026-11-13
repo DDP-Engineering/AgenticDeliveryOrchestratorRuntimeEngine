@@ -1,0 +1,17 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+**
+!LICENSE.txt
+!02_Tools/
+!02_Tools/containers/
+!02_Tools/containers/adore-executor/
+!02_Tools/containers/adore-executor/Dockerfile
+!02_Tools/containers/adore-executor/Dockerfile.dockerignore
+!02_Tools/containers/adore-executor/README.md
+!04_Software/
+!04_Software/docker/
+!04_Software/docker/pi/
+!04_Software/docker/pi/adore-guard.ts
+!04_Software/docker/pi/adore-chatgpt.mjs

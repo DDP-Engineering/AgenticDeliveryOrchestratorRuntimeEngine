@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -791,19 +789,25 @@ claim made by this build session.
 - 2026-11-13 build: Round-2 build audit: npm run build, release-note checker, git diff --check and direct SHA-256/traceability audit exit 0. All 127 frontend input and 7 output hashes independently match; all 42 requirements are active with nonempty existing source/test paths. Evolution exit 0 reviewed 71 post-anchor product/test/doc paths (13 added/56 modified/2 removed), preserving D1-D8 scope and original anchor. Current 24/24 changed paths comprise the two recorded fixes/proof, inherited cancellation-fixture correction, scoped requirements/spec/knowledge, user/component documentation, four Tickets help locales, changelog/localized release entries and four regenerated static paths. No new dependency/backend/schema/payload/publication change. Round-2 corrections complete; fresh independent round-3 reviews and final strict proof/report remain validate work.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 61 warnings, 28 notes. Thirty-five inherited ticket-ref/stale-path/journal-header/legacy-deliver findings remain outside scope; 23 uncovered-source heuristics classify frontend helper/browser files as source although real linked_tests exist (including the inherited Tickets fixture now changed). Journal credential-language prose and the Users deliberately fake offline literal are password-scan false positives. DEVIATION build: generated minified JS added-lines secret scan is unavailable - accepted because this candidate's bundle was rebuilt from reviewed source and all stamped hashes match; not a detected secret or final strict proof. Existing large-chunk warning retained without unrelated splitting/dependency expansion. No unresolved product finding identified by focused correction proof; no independent approval or complete suite claimed.
 - 2026-11-13 build: completed; next validate
+- 2026-11-13 validate: Recovery validation is integrating the locally available target origin/task/direct-workflow at fb14e06 without committing or publication. git merge --no-commit --no-ff produced 16 conflicted paths (no conflict was active at session entry). Target includes compact JobDetails tabs, retained executor-output conflicts, removed verification-command configuration and released 0.15.0 notes. Resolve by composing target presentation/output semantics with task-owned read controllers and action gates, not choosing either side wholesale. Bound recovery to 45 minutes, 30 edited paths and 6 focused verification commands; full proof remains gated on semantic integration review.
+- 2026-11-13 validate: Recovery continuation: entry retains 16 unmerged index paths but conflict markers have already been removed in the working files by the prior session. Review their composed content before marking resolved. Bound this validate session to 45 minutes, 30 ticket-scoped edits and 8 focused verification commands; no commit/publication or payload edits. Preserve target compact details/output semantics and task read/action ownership; route substantive missing integration work to build rather than claim final proof.
+- 2026-11-13 validate: Target conflict recovery: all 16 unmerged paths are now resolved in the index (git ls-files -u empty), without commit or publication. Reviewed composed JobWorkspace: retains task owned-read controllers, principal/context gates, command generations and stale-action refusal while using target JobDetails tabs and retained executor-output conflict/revision semantics. Reviewed four-locale Jobs/Tickets help compositions and kept target 0.15.0 history plus ticket-only Unreleased CHANGELOG/notes. Corrected Romanian Unreleased ticket note length. npm run build exit 0 regenerated the integrated static bundle; direct SHA-256 audit matches 132 inputs/7 outputs, release-note checker since task base and git diff --check exit 0. Evolution refreshed, including inherited target integration changes; those backend/release/delivery changes are target content, not newly authored ticket scope.
+- 2026-11-13 validate: Integration verification: npm run typecheck exit 0; node --test tests/jobs.test.mjs tests/help.test.mjs tests/statistics.test.mjs tests/polling.test.mjs exit 0 (65/65); build:e2e exit 0. PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx playwright test e2e/jobDetails.spec.ts e2e/jobRefresh.spec.ts --max-failures=4 exit 1: 2 passed, 4 failed, 17 not run. Target compact-layout/keyboard and unsafe-question tests pass. Target resume test dispatches visible-only visibilitychange, which intentionally does not revalidate under this task. Task list failure test cannot find Retry because !run hides the entire list Refresh; detail/usage tests cannot find Cancel because it now lives in the closed Job actions disclosure. These are real incomplete integration/fixture findings, not a green focused suite. No final strict proof or fresh independent approval/report run against this integrated candidate.
+- 2026-11-13 validate: Return-to-build findings: (1) JobWorkspace hides list feedback/Refresh while run is selected but still relies on list authority; on initial/closed list failure visibleDetail is withheld and the only Close button is inside missing JobDetails, leaving no local retry/close path. Keep target detail-replaces-list layout, but expose relevant list error/stale/retry and safe detail exit without remounting. Prove list initial failure, transient/corrupt failure and post-result action barriers with detail open. (2) Adapt jobRefresh/operationRefresh and other affected task journeys to target Job actions disclosure, Technical details/output/raw-event tabs and detail-replaces-list navigation, preserving original data/authority/DOM/focus/paging/selection oracles. Preserve target retained output conflict handling rather than reinstating the obsolete clear-on-revision assertion. Use genuine hidden-to-visible or explicit Refresh in newly integrated target journeys, never synthetic visible-only refresh. (3) Source inspection: JobDetails Activity uses reversed-array index keys, so append shifts surviving event DOM identities; apply task stable-key contract and add changed/unchanged Activity identity/reading-continuity proof. (4) Reconcile affected component/knowledge/requirement current-state prose (notably output revision retention and removed independent direct verification) with target code. Then focused integration, regenerated assets, fresh round-3 reviews and final strict proof/report remain mandatory. Existing bundle-size warning remains; no live/CI acceptance run.
+- 2026-11-13 validate: returned to build - Target Git conflicts resolved, but compact JobDetails integration needs visible list-failure recovery/exit, stable Activity event identities and refresh/output/command test adaptation before validation can pass.
 
 ## Rulings
 
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Completed round-2 pooled-token publication and ticket pickup-review fixes with negative/recovery and unchanged-authority regressions, localized docs/help/notes and rebuilt static assets.
-evidence: 62 helper/help/request tests and 99 offline Chromium cases pass; UI/E2E typecheck, isolated/production builds, release-note check, 127 input/7 output fingerprint audit, 42-contract traceability audit and git diff --check exit 0.
-issues: Fresh independent round-3 reviews and final strict proof/report remain for validate. Advisory check has 0 errors, 61 explained warnings and 28 notes; existing bundle-size warning retained. No live/deployed acceptance or publication performed.
+status: waiting
+reported: build - paused
+next: continue build: Target Git conflicts resolved, but compact JobDetails integration needs visible list-failure recovery/exit, stable Activity event identities and refresh/output/command test adaptation before validation can pass.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Resolved all 16 conflict paths and regenerated/staged integrated static assets; preserved target compact details/output semantics and task read/action guards.
+evidence: Typecheck, 65 helper/help tests, isolated/production builds, 132-input/7-output fingerprint audit, release-note check and diff whitespace audit pass; focused Chromium exits 1 (2 passed, 4 failed, 17 not run).
+issues: Build must correct open-detail list recovery/exit and Activity identity, adapt affected browser fixtures/prose without weakening refresh/action/output boundaries, then return for fresh reviews and final strict proof. No commit/publication or task closure.
 spec_compliance:
 implementation_quality:
 review_round: 2

@@ -7,39 +7,64 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Web API
 
-Enrollment `setup-preview` returns transient `verification_hint: {command, source}`
-or null, separate from submitted review text and revision digests. After valid
-preparation, only an inspected Direct clone calls `suggest_verification_command`.
-AEGIS, absent clones, no match and invalid drafts return null. Preview never clones
-or probes for discovery. `OSError`/`UnicodeError` map to a redacted 503
-`project_setup_invalid` with `repo_path` finding; no profile is published.
-Create/shared preparation and Settings never discover or install defaults; the
-existing exact reviewed command remains the sole saved value. Offline
-`test_web_enrollment.py` proves direct/source, AEGIS/pending suppression, unchanged
-review/digests, explicit publication and inaccessible evidence. See
-[Verification hint reader](Component_Verification_Hint.md).
+ADORE guides agents and observes their recorded workflow. AEGIS completion is
+read from the task journal; Direct completion comes from the implementation
+session and its summary. Tests and their local/CI selection belong to the agent.
+ADORE does not invoke `check --strict --run` or run a separately configured test
+command. Candidate fingerprints, target freshness and fresh human approval remain
+required before publication. Old `workflow.verify_command` values are ignored
+without rewriting profiles and cannot be edited through the API.
 
-`workflow.verify_command` is an editable exact-string setting in the API catalog.
-Enrollment accepts optional strict `verify_command` text, default empty, and saves
-it as a TOML string before canonical review hashing. Explicit null/nontext or
-CR/LF/NUL input returns 422 `invalid_request` with `verify_command` field feedback.
-The scalar/batch settings review uses the same command domain and literal-string
-writer; invalid text returns 400 `invalid_config` with value-free
-`workflow.verify_command` feedback, leaving active and pending bytes unchanged.
-Nothing trims, infers scalar types or executes the command during enrollment or save.
-The writer preserves newline style, escapes DEL (U+007F) as a TOML Unicode
-escape while retaining literal non-BMP Unicode, and verifies that no unrelated
-parsed TOML meaning changed; unsupported human spellings fail closed. Pending read/apply
-rechecks claimed text, typed domain and whole-document meaning against an unchanged
-base. Existing Admin/CSRF, revision, idle and locking boundaries remain authoritative.
-Resolved configuration, exact Admin raw TOML and unrelated edits preserve the value.
-Invalid saved values retain key-named diagnostic issues or typed corrupt-config refusal.
-Proof: `test_web_enrollment.py`, `test_web_config.py`, `test_web_config_raw.py`,
-`test_web_pending_config.py`, `test_web_settings_batch.py`. The browser uses this
-same domain for enrollment and Implementation settings with four-locale field
-feedback; the guided AEGIS note changes presentation only, not saved command text.
-Offline enrollment/settings journeys cover both actual clone workflows, exact
-nonempty and empty saves, role refusal and multiline clipboard input.
+The browser starts `POST /api/v1/projects/setup-environment` or `import-environment`
+with the exact reviewed enrollment, then polls administrator-only
+`GET /api/v1/environment-preparations/{id}` before publishing with the existing
+create/import route. `transfer-environment` accepts the same reviewed transfer
+contract as `transfer-create`. Admin/CSRF and stale-source checks precede all work.
+No project is published by preparation. Progress contains only an opaque ID,
+status, stage and allowlisted failure code; no build output or credentials.
+
+`environment.py` prepares missing default executor/proxy images from four bundled
+files, matches service UID/GID (including WSL), verifies Pi with no network or
+mounts, and reuses existing images. Custom image names are inspected, never built
+or pulled automatically. WSL aliases share a canonical runtime key. Simultaneous
+imports share progress; crash-reclaiming locks serialize builds across web processes.
+There are at most eight active and 64 retained operations; each build has a
+30-minute limit. Failed/restarted preparation can be retried with engine layer-cache
+reuse. Progress is in memory; after a web restart callers retry, and image presence
+is inspected again. The wheel shares executor sources with `adore/_executor_recipe` and includes
+the proxy Dockerfile under `adore/container_assets`.
+Regression coverage: `test_web_environment.py`, browser enrollment/import journeys
+and `environment.test.mjs`. Existing API creation routes remain compatible; browser
+enrollment automatically invokes preparation before them. Manual checks/previews
+remain read-only. Measured readiness is refreshed after long builds before creation.
+
+Container readiness checks the configured Docker/Podman daemon with `info`,
+including canonical WSL command prefixes, before probing Pi inside the selected
+image without network access. ChatGPT sign-in checks that daemon and the local
+image before starting its helper. Failures return redacted 503 codes
+`container_runtime_unavailable` or `executor_image_unavailable`, audited by code
+and translated in all four locales. Probes have eight-second bounds and reject
+timeouts even with exit code zero. They never pull/build images or alter credentials.
+The shared executor image is prepared once per container service and reused by
+projects selecting it. Regression coverage: `test_web_readiness.py` and
+`test_web_chatgpt.py`.
+
+## Executor source recipes
+
+Admin-only `/api/v1/projects/{name}/executor-recipe` GET reads image definition
+availability. POST `.../preview` validates a Dockerfile/context or complete-source
+ZIP in memory; PUT retains it with same-origin CSRF, config revision and observed
+image binding. The target is the effective selected image or a missing local
+base. Saving source metadata leaves project config, pending changes, credentials
+and job state untouched, including while a job is parked.
+
+The raw config route with `include_build=true` resolves managed, immutable Git
+and bundled definitions. Complete export includes every declared local base;
+it never runs Docker or silently emits a partial image chain. Native raw TOML
+export is unchanged. Typed 400/409/503 failures distinguish invalid or missing
+sources, concurrent changes and corrupt stored records with a deletion recovery
+path. See [Executor recipes](Component_Executor_Recipes.md) for current data and
+offline tests. Recipe-source errors do not affect the ordinary Settings read.
 
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
@@ -468,6 +493,15 @@ row/default generation. Credential-bearing URLs are redacted in effective reads.
 
 `GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
 
+`include_build=true` returns an `application/zip` attachment. The build
+reader requires a Docker project, a registered manifest and an exact tagged
+image match. It reads declared regular Git blobs at the full reviewed commit,
+checks their sizes, identities and paths, and generates a Compose definition
+with a relative context. The archive preserves the original TOML bytes. A
+configuration containing inline credentials, an unavailable source or an
+invalid definition returns a stable, value-free error. The endpoint rechecks
+the configuration and project identity after ZIP generation.
+
 `POST /api/v1/projects/{name}/config/preview` builds the same validated candidate as preparation, without writing active settings, pending evidence or audit events. `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, prepare and discard one candidate. Preparation verifies the previous complete candidate against active bytes and replaces it only with its exact `pending_revision` and unchanged base; missing or stale replacement bindings return 409. Preview and preparation share `_prepare_config_candidate` and its final-document/plan checks.
 
 `settings.batch` is a virtual edit key whose wire value is strict JSON: 1–100 unique `{key,value}` objects with string fields. `settings_batch.py` rejects malformed, duplicate, overlapping or nested targets and connection aliases. Each member passes existing authority/type/secret checks, then the final combined TOML is validated. `proposed_value` is a safe typed map. Public read/apply recompute full candidate meaning against the unchanged active base, rejecting hidden collateral changes. Restart requirements are the union of member keys. Direct PUT refuses this vocabulary with `pending_config_required`.
@@ -523,7 +557,7 @@ immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
 
 Review cohorts use first MR opening/adoption in scope; validation cohorts use
-first strict verdict in scope. Human merge uses reviewed jobs with actual done
+first recorded validation verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
 null. Open reviews are labeled current state. Monetary efficiency uses only
@@ -863,7 +897,12 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Job diagnostics and concurrent usage
 
-The scoped executor-output GET delegates to the strict job snapshot and host-captured evidence reader. It returns only project/run identity, availability, normalized stdout/stderr and exit/timeout facts; source paths, argv and raw IO are never returned. Latest entries without a capture reference return missing, not an older output.
+The scoped executor-output GET delegates to the strict job snapshot and
+host-captured evidence reader. It returns project/run identity, state revision,
+availability, latest attempt, stage and recorded time, launch activity,
+normalized stdout/stderr and exit/timeout facts. Source paths, argv and raw IO
+are excluded. Latest entries without a capture reference return missing.
+A concurrent journal or state change returns 409 `job_snapshot_changed`.
 
 Usage projection accepts an older request snapshot after another request advanced the cursor only when a fresh strict selected-run journal confirms both the incoming prefix and the saved cursor digest. It validates every returned projected event, retains the newer cursor and preserves the older request's real snapshot. Changed or truncated sources still fail closed; no automatic retry or fabricated totals are used. `test_web_metrics.py` includes a controlled HTTP interleaving and persistent-cursor checks.
 
@@ -873,3 +912,9 @@ History projects verified ticket and job target identities independently of oper
 Readiness checks bind private hashes of relevant owned and external CLI authentication inputs. Draft tokens and project checks recheck the binding before publication; changed credentials make old evidence stale. Corrupt or old readiness records are refused before any replacement. Responses declare required checks, and the browser verifies their presence before displaying a verdict.
 
 A successful external CLI sign-in is not a bound identity and keeps the overall result partial. Only a validated project-scoped repository credential binds the forge identity; the project list separately reports the check keys derived from current config. Probe values are validated before replacing evidence.
+
+## Publication approval setting
+
+The project configuration catalog exposes `delivery.require_human_approval`
+as an editable boolean. The normal Admin candidate review, authorization,
+validation and idle-project checks apply. Invalid scalar values are rejected.

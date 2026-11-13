@@ -16,6 +16,7 @@ import {
 
 /** The name a setting has in Settings, in the chosen language (shared by Settings and enrollment). */
 export function settingDisplayLabel(key: string, locale: Locale): string {
+  if (key === "delivery.require_human_approval") return { en: "Require human approval before PR/MR", fr: "Exiger une approbation humaine avant PR/MR", de: "Menschliche Freigabe vor PR/MR verlangen", ro: "Cere aprobare uman\u0103 \u00eenainte de PR/MR" }[locale];
   if (key === "local.path") return localCopy[locale].path;
   if (key === "labels.selection.type_epic") return { en: "Epic label", fr: "Étiquette épopée", de: "Epic-Label", ro: "Etichetă epic" }[locale];
   const common = COMMON_SETTINGS.find(entry => entry.key === key)?.label;

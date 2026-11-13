@@ -15,8 +15,10 @@
 """
 
 # IMPORTS
+import base64
+import binascii
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import csv
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -48,6 +50,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from adore import __version__, chatgpt, doctor, metrics
 from adore.aegis import RUN_KINDS
 from adore.branding import EXECUTOR_BASE_IMAGE, EXECUTOR_NAME
+from adore.build_bundle import BuildBundleError, export_build_bundle
 from adore.cli import _NOT_SECRET_KEYS, _SECRET_KEY_RE, _is_secret_key, _newline, _set_toml_scalar
 from adore.clone_cleanup import project_clone_decision
 from adore.config import (
@@ -61,6 +64,7 @@ from adore.config import (
     validate_config,
 )
 from adore.config_edit import ConfigEditLockedError, config_edit_lock
+from adore.executor_recipes import RecipeStore, effective_recipe_config, recipe_status
 from adore.forge import ForgeError, ForgeResponseError
 from adore.forge_labels import ensure_labels, project_labels
 from adore.gitea_auth import GiteaAuthError, portable_tea_runner
@@ -90,6 +94,8 @@ from adore.preparation import (
     validate_plan,
 )
 from adore.profiles import ProfileError, ProfileStore, validate_display_name, validate_profile_id
+from adore.project_bundle import read_project_bundle, validate_bundle_image
+from adore.recipe_sources import MAX_ARCHIVE_BYTES, RecipeError, parse_recipe
 from adore.release_notes import ReleaseNotesError, load_release_notes
 from adore.repository_auth import (
     RepositoryAuthError,
@@ -109,8 +115,8 @@ from adore.util import (
     run_command,
     strict_json_loads,
 )
-from adore.verification_hint import suggest_verification_command
 from adore.web import analytics
+from adore.web.environment import EnvironmentError, EnvironmentPreparation
 from adore.web.executor_configuration import (
     CONNECTION_KEY,
     CONNECTION_KEYS,
@@ -132,9 +138,7 @@ from adore.web.executor_settings import (
 from adore.web.implementation_settings import (
     COLLECTION_KEYS,
     set_collection,
-    set_verify_command,
     valid_collection,
-    valid_verify_command,
 )
 from adore.web.jobs import JobReadError, read_job_budget, read_jobs, read_overview_jobs, sort_jobs
 from adore.web.model_connection import probe_model_connection
@@ -375,15 +379,6 @@ class ProjectInput(BaseModel):
     max_cost_usd: float = Field(default=5.0, ge=0, le=1000000, allow_inf_nan=False)
     max_files_touched: int = Field(default=120, ge=1, le=1000000, strict=True)
     clone_url: str = Field(default="", max_length=512)
-    verify_command: str = Field(default="", strict=True)
-
-    @field_validator("verify_command")
-    @classmethod
-    def validate_verify_command(cls, value: str) -> str:
-        """@brief Refuse invalid command text rather than trim, flatten or execute it."""
-        if not valid_verify_command(value):
-            raise ValueError("verify_command must be a single line without CR, LF or NUL")
-        return value
 
 
 class RepositorySourceInput(BaseModel):
@@ -455,6 +450,23 @@ class ProjectImportPreviewInput(ProjectImportInput):
     name: str | None = Field(default=None, min_length=1, max_length=64)
 
 
+class ProjectBundleImportInput(BaseModel):
+    """@brief Exact exported ZIP bytes and the identity accepted during preview."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=64)
+    display_name: str | None = None
+    description: str = Field(default="", max_length=500)
+    source: str = Field(min_length=1, max_length=MAX_ARCHIVE_BYTES * 4 // 3 + 4)
+    revision: str = ""
+
+
+class ProjectBundlePreviewInput(ProjectBundleImportInput):
+    """@brief Optional identity allows the current import naming rules to suggest one."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 class ConfigEdit(BaseModel):
     """@brief One validated scalar or complete settings-batch edit."""
 
@@ -462,6 +474,16 @@ class ConfigEdit(BaseModel):
     value: str
     revision: str
     pending_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class RecipeInput(BaseModel):
+    """@brief Bounded source attachment bound to the project and image association."""
+
+    model_config = ConfigDict(extra="forbid")
+    image: str = Field(min_length=1, max_length=255)
+    source: str = Field(min_length=1, max_length=MAX_ARCHIVE_BYTES * 4 // 3 + 4)
+    revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class BranchPreview(BaseModel):
@@ -911,6 +933,17 @@ def _setup_display(body: ProjectInput | ProjectImportInput) -> str:
                                  else body.name)
 
 
+def _container_probe(runner: CommandRunner, argv: list[str]) -> bool:
+    """@brief Check bounded container prerequisites without exposing command output."""
+    try:
+        result = runner(argv, timeout=8)
+    except (OSError, TimeoutError):
+        return False
+    return (isinstance(result, CommandResult) and type(result.exit_code) is int
+            and result.exit_code == 0 and type(result.timed_out) is bool
+            and not result.timed_out)
+
+
 def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = None,
                  chatgpt_dir: Path | None = None, *, external_auth: bool = True) -> dict:
     """@brief Run bounded redacted prerequisites for an explicit config snapshot.
@@ -1014,8 +1047,6 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
         git = doctor.detect_git(bounded_runner)
         forge = doctor.detect_platform_cli(config.platform.kind, bounded_runner)
         auth = doctor.auth_status(config.platform.kind, bounded_runner, external_auth=False)
-        runtimes = (doctor.detect_runtimes(bounded_runner)
-                    if config.execution.backend == "container" else None)
     except (OSError, UnicodeError, TypeError, ValueError,
             KeyError, TimeoutError, PreparationError) as exc:
         raise _error(503, "readiness_probe_failed") from exc
@@ -1033,6 +1064,9 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
                                 chatgpt_dir or chatgpt.credential_dir()) == "signed-in"}
                                if config.executor.provider == CHATGPT else {}),
                             **_internet_checks(config, bounded_runner, env_file)}}
+    prefix = doctor.inventory_runtime_argv(config.container.runtime.strip())
+    runtime_ready = bool(prefix and _container_probe(bounded_runner, [*prefix, "info"]))
+    executor = False
     try:
         image_runtime = ContainerManager(
             config.container.runtime, config.container.image,
@@ -1041,24 +1075,20 @@ def _probe_setup(config, probe_runner: CommandRunner, env_file: Path | None = No
             egress=egress_policy(config),
             selinux_relabel=config.container.selinux_relabel,
         )
-        executor = bounded_runner([
+        executor = runtime_ready and _container_probe(bounded_runner, [
             *image_runtime.runtime_argv, "run", "--rm", "--pull=never",
             "--network", "none", "--entrypoint", "python",
             config.container.image, "-c",
             "import shutil,sys; sys.exit(0 if shutil.which(sys.argv[1]) else 1)",
             EXECUTOR_NAME,
-        ], timeout=8).ok
+        ])
     except (IsolationError, OSError, TimeoutError, ValueError):
         executor = False
-    runtime_name = config.container.runtime.strip()
-    runtime = (runtimes.docker if runtime_name == "docker" else
-               runtimes.podman if runtime_name == "podman" else None)
     checks = {
         "git": git.present and not git.detail,
         "forge_cli": forge.present and not forge.detail,
         "forge_auth": auth.authenticated,
-        "container_runtime": (runtime.present and not runtime.detail
-                              if runtime is not None else None),
+        "container_runtime": runtime_ready,
         "executor_cli": executor,
     }
     if config.executor.provider == CHATGPT:
@@ -1087,7 +1117,6 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             "clone_url",
             "evidence_token",
             "thinking",
-            "verify_command",
         }
     )
     answers["budgets_choice"] = "custom"
@@ -1187,7 +1216,6 @@ def _prepare_project(profiles: ProfileStore, body: ProjectInput) -> tuple[dict, 
             if body.thinking:
                 candidate.document = candidate.document.replace(
                     "[executor]\n", "[executor]\nthinking = " + json.dumps(body.thinking) + "\n", 1)
-            candidate.document = set_verify_command(candidate.document, body.verify_command)
             issues.extend(_config_findings(_config_from_bytes(candidate.document.encode("utf-8"))))
         except WizardError as exc:
             issues.append(_finding("setup_field_invalid", exc.field,
@@ -1532,7 +1560,9 @@ def _publish_paused_locked(
     readiness: dict | None = None,
 ) -> dict:
     """@brief Publish metadata after pause, holding ownership and conductor locks."""
-    with _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"):
+    with ExitStack() as enrollment:
+        enrollment.enter_context(
+            _web_config_edit_lock(profiles.home / "web-enrollment" / "config.toml"))
         try:
             if not profiles.id_availability(name):
                 raise _error(409, "project_exists")
@@ -1571,7 +1601,7 @@ def _publish_paused_locked(
         except FileExistsError as exc:
             raise _error(409, "project_exists") from exc
         state = StateStore(root, config.agent.slug)
-        locked, previously_paused = False, False
+        locked, released, previously_paused = False, False, False
         try:
             locked = state.acquire_lock()
             if not locked:
@@ -1610,6 +1640,10 @@ def _publish_paused_locked(
             if recheck is not None:
                 recheck()
             result = _profile_view(profiles, item)
+            # Confirm audit success only after final filesystem cleanup succeeds.
+            state.release_lock()
+            released = True
+            enrollment.close()
             web.audit(
                 actor,
                 "project-imported" if imported else "project-created",
@@ -1640,7 +1674,7 @@ def _publish_paused_locked(
                 "Check local enrollment storage before retrying.",
             ) from exc
         finally:
-            if locked:
+            if locked and not released:
                 state.release_lock()
 
 
@@ -1810,8 +1844,6 @@ def _valid_candidate_scalar(key: str, proposed: object, backend: str = "containe
                         and member != BATCH_KEY
                         and _valid_candidate_scalar(member, item, backend)
                         for member, item in proposed.items()))
-    if key == "workflow.verify_command":
-        return valid_verify_command(proposed)
     if key in COLLECTION_KEYS:
         return valid_collection(key, proposed)
     if key == CONNECTION_KEY:
@@ -1853,14 +1885,6 @@ def _set_candidate_value(text: str, key: str, value: str) -> str:
                 raise _error(400, "setting_not_editable")
             text = _set_candidate_value(text, member, wire)
         return text
-    if key == "workflow.verify_command":
-        if not valid_verify_command(value):
-            raise HTTPException(status_code=400, detail={
-                "code": "invalid_config",
-                "issues": [_finding("invalid_config", key,
-                                    "Use a single line without CR, LF or NUL.")],
-            })
-        return set_verify_command(text, value)
     if key in COLLECTION_KEYS:
         return set_collection(text, key, value)
     if key == CONNECTION_KEY:
@@ -2048,7 +2072,7 @@ def _public_pending_config(value: dict, *, active_text: str | None = None) -> di
         if type(claimed) is not type(proposed) or claimed != proposed:
             raise ValueError("candidate review metadata differs from its value")
         if ((value["key"] in COLLECTION_KEYS
-                or value["key"] in {CONNECTION_KEY, BATCH_KEY, "workflow.verify_command"})
+                or value["key"] in {CONNECTION_KEY, BATCH_KEY})
                 and active_text is not None
                 and sha256(active_text.encode("utf-8")).hexdigest() == value["base_revision"]
                 and candidate != tomllib.loads(_set_candidate_value(
@@ -2081,6 +2105,7 @@ def _restart_required(key: str, wire: str = "") -> bool:
 # Environment settings an administrator chooses in the web (reviewed edits only).
 _CHOSEN_ENVIRONMENT_KEYS = frozenset({
     "execution.backend", "container.runtime", "container.image", "container.system_packages",
+    "container.build_definition",
     "local.path",
 })
 _IMAGE_LIST_TIMEOUT = 15
@@ -2122,7 +2147,7 @@ def _editable_setting_key(key: str) -> bool:
     @return     True when the key may be staged from the browser.
     """
     if key in {"metrics.db_path", "metrics.export_jsonl", "metrics.html_out",
-               "workflow.aegis_python"}:
+               "workflow.aegis_python", "workflow.verify_command"}:
         return False
     if key in {"clarification.answer_timeout", "clarification.max_rounds",
                CONNECTION_KEY, BATCH_KEY}:
@@ -2509,6 +2534,39 @@ def _inspect_project_import(
             "verification": {"status": "unverified"}}, config
 
 
+def _inspect_bundle_import(profiles: ProfileStore, body: ProjectBundlePreviewInput,
+                           runner: CommandRunner):
+    """
+    @brief Bind exact ZIP bytes to native import inspection and image associations.
+    @param[in] profiles Current project and source ownership store.
+    @param[in] body Untrusted bounded base64 source and optional identity.
+    @param[in] runner Existing bounded Git reader for preparation-selected images.
+    @return Preview, native import input, complete bundle and association revisions.
+    @exception RecipeError Invalid archive, mismatched image or corrupt/conflicting sources.
+    @exception HTTPException Invalid configuration or ownership inspection failure.
+    """
+    try:
+        source = base64.b64decode(body.source, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise RecipeError("bundle_invalid") from exc
+    bundle = read_project_bundle(source)
+    identity = {key: getattr(body, key) for key in ("name", "display_name", "description")
+                if key in body.model_fields_set}
+    native = _import_preview_identity(profiles, ProjectImportPreviewInput(
+        config_text=bundle.config_raw.decode("utf-8"), **identity))
+    preview, config = _inspect_project_import(profiles, native)
+    revisions = {}
+    if preview["validation"]["structural_valid"]:
+        validate_bundle_image(bundle, config, runner=runner)
+        revisions = RecipeStore(profiles.home).preview_import(bundle.recipe)
+    native = native.model_copy(update={"revision": preview["revision"]})
+    bundle_revision = sha256(source).hexdigest()
+    revision = sha256(json.dumps({"bundle": bundle_revision, "config": preview["revision"],
+                                 "bindings": revisions}, sort_keys=True).encode()).hexdigest()
+    return ({**preview, "revision": revision, "bundle_revision": bundle_revision},
+            native, bundle, revisions)
+
+
 def _reviewed_import(profiles: ProfileStore, body: ProjectImportInput,
                      *, own_state_lock: bool = False) -> tuple[dict, object]:
     """@brief Reject a stale or invalid import at each publication/probe boundary.
@@ -2715,17 +2773,20 @@ def _run_view(run) -> dict:
 # PUBLIC API
 def create_app(home: str | Path | None = None,
                *, probe_runner: CommandRunner = run_command,
+               environment_runner: CommandRunner | None = None,
                chatgpt_popen: Callable[..., subprocess.Popen] = subprocess.Popen) -> FastAPI:
     """
     @brief Construct the optional web service for a profile home.
     @param[in] home ADORE_HOME override used by tests and deployment.
     @param[in] probe_runner Injectable runner for explicit readiness probes.
+    @param[in] environment_runner Optional separate boundary for shared image preparation.
     @param[in] chatgpt_popen Process factory of the ChatGPT sign-in helper.
     @return Configured FastAPI application.
     """
     profiles = ProfileStore(home)
     web = WebStore(profiles.home / "web.db")
     config_lock = Lock()
+    environment = EnvironmentPreparation(profiles.home, environment_runner or probe_runner)
     enrollment_evidence: dict[str, tuple[int, str, str, float, dict]] = {}
     enrollment_lock = Lock()
 
@@ -2802,7 +2863,9 @@ def create_app(home: str | Path | None = None,
                        "/api/v1/projects/setup-check",
                        "/api/v1/projects/setup-create", "/api/v1/projects/transfer-source",
                        "/api/v1/projects/transfer-preview", "/api/v1/projects/transfer-check",
-                       "/api/v1/projects/transfer-create"}
+                       "/api/v1/projects/transfer-create", "/api/v1/projects/setup-environment",
+                       "/api/v1/projects/import-environment",
+                       "/api/v1/projects/transfer-environment"}
         if _request.url.path in setup_paths or _request.url.path.endswith("/identity"):
             detail["issues"] = issues
         return JSONResponse(status_code=422, content={"detail": detail})
@@ -3391,16 +3454,6 @@ def create_app(home: str | Path | None = None,
     ) -> dict:
         """@brief Preview exact setup and separate direct-only file hints, without probes."""
         preview, _candidate = _prepare_project(profiles, body)
-        preview["verification_hint"] = None
-        if preview["structural_valid"] and preview.get("workflow") == "direct":
-            try:
-                hint = suggest_verification_command(Path(body.repo_path).expanduser())
-            except (OSError, UnicodeError) as exc:
-                raise _contract_rejection(
-                    "project_setup_unavailable", "repo_path",
-                    "Check local repository file access.") from exc
-            if hint is not None:
-                preview["verification_hint"] = {"command": hint[0], "source": hint[1]}
         web.audit(
             _user["id"],
             "enrollment-prepared",
@@ -3550,6 +3603,31 @@ def create_app(home: str | Path | None = None,
             "auth_bound": auth_bound,
         }
 
+    def prepare_environment(config, user: dict, name: str) -> dict:
+        """Start shared preparation only after the enrollment's exact review passes."""
+        try:
+            job = environment.start(config)
+        except EnvironmentError as exc:
+            raise _error(503, exc.code) from exc
+        web.audit(user["id"], "environment-preparation-started", name)
+        return job
+
+    @app.get("/api/v1/environment-preparations/{job_id}")
+    def read_environment_preparation(job_id: str,
+                                     _user: Annotated[dict, Depends(administrator)]) -> dict:
+        """Expose only bounded, value-free progress to server administrators."""
+        job = environment.read(job_id)
+        if job is None:
+            raise _error(404, "environment_preparation_expired")
+        return job
+
+    @app.post("/api/v1/projects/transfer-environment", status_code=202)
+    def prepare_transfer_environment(body: ReviewedTransferInput, request: Request,
+                                    user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, candidate = reviewed_transfer(body, request)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        return prepare_environment(config, user, body.target.name)
+
     @app.post("/api/v1/projects/transfer-create")
     def create_transfer(
         body: ReviewedTransferInput,
@@ -3618,6 +3696,13 @@ def create_app(home: str | Path | None = None,
         if not secrets.compare_digest(body.revision, preview["revision"]):
             raise _error(409, "stale_config_revision")
         return preview, candidate
+
+    @app.post("/api/v1/projects/setup-environment", status_code=202)
+    def prepare_setup_environment(body: ReviewedProjectInput,
+                                  user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, candidate = reviewed_setup(body)
+        config = _config_from_bytes(candidate.document.encode("utf-8"))
+        return prepare_environment(config, user, body.name)
 
     @app.post("/api/v1/projects/setup-check")
     def check_project_setup(
@@ -3733,6 +3818,68 @@ def create_app(home: str | Path | None = None,
             candidate_revision=preview.get("revision"),
         )
         return preview
+
+    @app.post("/api/v1/projects/import-environment", status_code=202)
+    def prepare_import_environment(body: ProjectImportInput,
+                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        _preview, config = _reviewed_import(profiles, body)
+        return prepare_environment(config, user, body.name)
+
+    @app.post("/api/v1/projects/import/bundle-environment", status_code=202)
+    def prepare_bundle_environment(body: ProjectBundleImportInput,
+                                   user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """Prepare the execution environment bound to the reviewed complete ZIP."""
+        try:
+            preview, native, _bundle, _revisions = _inspect_bundle_import(
+                profiles, body, probe_runner)
+            if (not re.fullmatch(r"[0-9a-f]{64}", body.revision)
+                    or not secrets.compare_digest(body.revision, preview["revision"])):
+                raise _error(409, "stale_import_preview")
+            _native_preview, config = _reviewed_import(profiles, native)
+            return prepare_environment(config, user, native.name)
+        except RecipeError as exc:
+            raise recipe_failure(exc) from exc
+
+    @app.post("/api/v1/projects/import/bundle-preview")
+    def preview_project_bundle(body: ProjectBundlePreviewInput,
+                               user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Automatically validate the exact complete ZIP without retaining sources."""
+        try:
+            preview, native, _bundle, _revisions = _inspect_bundle_import(
+                profiles, body, probe_runner)
+        except RecipeError as exc:
+            raise recipe_failure(exc) from exc
+        web.audit(user["id"], "toml-import-prepared", phase="prepare", result="prepared",
+                  resource_type="project", resource_id=native.name,
+                  candidate_revision=preview["revision"])
+        return preview
+
+    @app.post("/api/v1/projects/import/bundle")
+    def import_project_bundle(body: ProjectBundleImportInput,
+                              user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Publish exact project configuration and retained image sources together."""
+        try:
+            preview, native, bundle, revisions = _inspect_bundle_import(
+                profiles, body, probe_runner)
+            if (not re.fullmatch(r"[0-9a-f]{64}", body.revision)
+                    or not secrets.compare_digest(body.revision, preview["revision"])):
+                raise _error(409, "stale_import_preview")
+            _native_preview, config = _reviewed_import(profiles, native)
+
+            def publish():
+                """@brief Keep the existing profile, pause, ownership and failure boundaries."""
+                return _publish_paused(profiles, web, user["id"], native.name, bundle.config_raw, {
+                    "display_name": preview["display_name"], "description": body.description,
+                    "platform": config.platform.kind, "repo": config.platform.repo,
+                    "runtime": config.container.runtime,
+                    "config_path": str(profiles.config_path(native.name)),
+                    "store_root": config.state.store_root,
+                }, imported=True, import_body=native, base_revision=body.revision)
+
+            return RecipeStore(profiles.home).publish_import(
+                bundle.recipe, revisions=revisions, publish=publish)
+        except RecipeError as exc:
+            raise recipe_failure(exc) from exc
 
     @app.post("/api/v1/projects/import-check")
     def check_project_import(body: ProjectImportInput,
@@ -3979,6 +4126,15 @@ def create_app(home: str | Path | None = None,
             config.container.uv_cache_volume, config.container.npm_cache_volume,
             probe_runner, run_args=config.container.run_args,
             selinux_relabel=config.container.selinux_relabel)
+        if manager is not None:
+            for command, code in (
+                ([*manager.runtime_argv, "info"], "container_runtime_unavailable"),
+                ([*manager.runtime_argv, "image", "inspect", manager.image],
+                 "executor_image_unavailable"),
+            ):
+                if not _container_probe(probe_runner, command):
+                    web.audit(user["id"], "chatgpt-sign-in-failed", item.name, detail=code)
+                    raise _error(503, code)
         manager = chatgpt.helper_for(config, manager, runner=probe_runner)
         with chatgpt_lock:
             previous = chatgpt_pending["session"]
@@ -4337,14 +4493,123 @@ def create_app(home: str | Path | None = None,
                 raise _error(503, "config_corrupt") from exc
         return {**result, "revision": body.revision}
 
+    def recipe_failure(exc):
+        """@brief Translate closed recipe metadata without exposing uploaded file contents."""
+        if isinstance(exc, BuildBundleError):
+            return _error(400, exc.code)
+        status = (503 if exc.code in {"recipe_store_corrupt", "recipe_builtin_unavailable",
+                                     "recipe_write_failed"} else
+                  409 if exc.code in {"recipe_changed", "recipe_import_conflict"} else 400)
+        return HTTPException(status, {"code": exc.code, "missing_images": list(exc.missing),
+                                      "recovery": exc.recovery})
+
+    def recipe_source_bytes(path):
+        """@brief Bound every recipe config read and translate unsafe/missing sources."""
+        try:
+            if path.is_symlink() or not path.is_file():
+                raise ValueError("invalid project source")
+            with path.open("rb") as source:
+                raw = source.read(MAX_SOURCE_BYTES + 1)
+            if not raw or len(raw) > MAX_SOURCE_BYTES or path.is_symlink():
+                raise ValueError("invalid project source")
+            return raw
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+
+    def recipe_config(name, user):
+        """@brief Read one authorized source snapshot before consulting recipe metadata."""
+        item = project(name, user)
+        path = profiles.config_path(item.name)
+        try:
+            raw = recipe_source_bytes(path)
+            config = _config_from_bytes(raw)
+        except (OSError, ValueError, TypeError) as exc:
+            raise _error(503, "config_corrupt") from exc
+        try:
+            config = effective_recipe_config(config, runner=probe_runner)
+        except RecipeError as exc:
+            raise recipe_failure(exc) from exc
+        return item, path, raw, config
+
+    @app.get("/api/v1/projects/{name}/executor-recipe")
+    def executor_recipe(name: str, user: Annotated[dict, Depends(administrator)]) -> dict:
+        """@brief Read image-shared definition availability without changing project or jobs."""
+        _, path, raw, config = recipe_config(name, user)
+        try:
+            result = recipe_status(config, home=profiles.home, runner=probe_runner)
+        except (RecipeError, BuildBundleError) as exc:
+            raise recipe_failure(exc) from exc
+        if recipe_source_bytes(path) != raw:
+            raise _error(409, "stale_config_revision")
+        return {**result, "revision": sha256(raw).hexdigest()}
+
+    def inspect_recipe(name, body, user):
+        """@brief Validate one selected/root-or-missing-base attachment before retention."""
+        item, path, raw, config = recipe_config(name, user)
+        if sha256(raw).hexdigest() != body.revision:
+            raise _error(409, "stale_config_revision")
+        if config.execution.backend != "container":
+            raise _error(400, "recipe_native")
+        try:
+            if body.image != config.container.image:
+                current = recipe_status(config, home=profiles.home, runner=probe_runner)
+                if body.image not in current["missing_images"]:
+                    raise RecipeError("recipe_image_mismatch")
+            source = base64.b64decode(body.source, validate=True)
+            if len(source) > MAX_ARCHIVE_BYTES:
+                raise RecipeError()
+            document = parse_recipe(source, body.image)
+            # A selected corrupt association must be recovered explicitly, not replaced silently.
+            catalog = RecipeStore(profiles.home)
+            catalog.get(body.image)
+            observed = catalog.binding_digest(body.image)
+            result = recipe_status(config, home=profiles.home, runner=probe_runner,
+                                   overrides={body.image: document})
+        except (RecipeError, BuildBundleError) as exc:
+            raise recipe_failure(exc) from exc
+        except (binascii.Error, ValueError) as exc:
+            raise _error(400, "recipe_invalid") from exc
+        if recipe_source_bytes(path) != raw or project(name, user).project_id != item.project_id:
+            raise _error(409, "stale_config_revision")
+        return path, raw, config, document, {**result, "expected_digest": observed,
+                                             "upload_image": body.image,
+                                             "revision": sha256(raw).hexdigest()}
+
+    @app.post("/api/v1/projects/{name}/executor-recipe/preview")
+    def preview_executor_recipe(name: str, body: RecipeInput,
+                                user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Check the selected source and graph in memory; no catalog writes occur."""
+        _, _, _, _, result = inspect_recipe(name, body, user)
+        return result
+
+    @app.put("/api/v1/projects/{name}/executor-recipe")
+    def save_executor_recipe(name: str, body: RecipeInput,
+                             user: Annotated[dict, Depends(admin_mutation)]) -> dict:
+        """@brief Save source metadata with image/config binding, independent of job admission."""
+        item = project(name, user)
+        with _web_config_edit_lock(profiles.config_path(item.name)):
+            _, _, config, document, _ = inspect_recipe(name, body, user)
+            try:
+                saved_digest = RecipeStore(profiles.home).put(
+                    document, expected_digest=body.expected_digest)
+                result = recipe_status(config, home=profiles.home, runner=probe_runner)
+            except (RecipeError, BuildBundleError) as exc:
+                raise recipe_failure(exc) from exc
+        web.audit(user["id"], "executor-recipe-saved", item.name,
+                  resource_type="config", resource_id="executor-recipe", phase="apply",
+                  result="applied", base_revision=body.expected_digest,
+                  candidate_revision=saved_digest)
+        return {**result, "revision": body.revision}
+
     @app.get("/api/v1/projects/{name}/config/raw")
     def raw_config(name: str, user: Annotated[dict, Depends(administrator)],
-                   download: bool = False) -> Response:
+                   download: bool = False, include_build: bool = False) -> Response:
         """
         @brief      Read the administrator's original saved TOML without redaction.
         @param[in]  name Authorized profile name or immutable project ID.
         @param[in]  user Administrator resolved before any config read.
         @param[in]  download Return the fixed config.toml attachment filename.
+        @param[in]  include_build Download the reviewed Docker build bundle.
         @return     Exact saved UTF-8 bytes, including comments and inline secrets.
         @exception  HTTPException Corrupt, unreadable or changed source fails closed.
         @note       External credential files and environment values are not read.
@@ -4358,7 +4623,7 @@ def create_app(home: str | Path | None = None,
                 raw = source.read(MAX_SOURCE_BYTES + 1)
             if not raw or len(raw) > MAX_SOURCE_BYTES:
                 raise ValueError("invalid source size")
-            tomllib.loads(raw.decode("utf-8"))
+            parsed = tomllib.loads(raw.decode("utf-8"))
             with path.open("rb") as source:
                 unchanged = source.read(MAX_SOURCE_BYTES + 1) == raw
         except (OSError, UnicodeError, ValueError, RecursionError) as exc:
@@ -4366,6 +4631,25 @@ def create_app(home: str | Path | None = None,
         if not unchanged or project(name, user).project_id != item.project_id:
             raise _error(409, "stale_config_revision")
         headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+        if include_build:
+            if _secret_config_keys(parsed):
+                raise _error(400, "build_config_has_secrets")
+            try:
+                config = _config_from_bytes(raw)
+                bundle = export_build_bundle(config, raw, runner=probe_runner, home=profiles.home)
+                with path.open("rb") as source:
+                    unchanged = source.read(MAX_SOURCE_BYTES + 1) == raw
+            except BuildBundleError as exc:
+                raise _error(400, exc.code) from exc
+            except RecipeError as exc:
+                raise recipe_failure(exc) from exc
+            except (OSError, ValueError, TypeError) as exc:
+                raise _error(503, "config_corrupt") from exc
+            if (not unchanged or path.is_symlink()
+                    or project(name, user).project_id != item.project_id):
+                raise _error(409, "stale_config_revision")
+            headers["Content-Disposition"] = 'attachment; filename="adore-docker-build.zip"'
+            return Response(content=bundle, media_type="application/zip", headers=headers)
         if download:
             headers["Content-Disposition"] = 'attachment; filename="config.toml"'
         return Response(content=raw, media_type="text/plain", headers=headers)

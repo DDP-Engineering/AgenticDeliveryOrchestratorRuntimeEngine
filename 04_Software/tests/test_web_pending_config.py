@@ -44,6 +44,27 @@ def _headers(client):
     return {"X-CSRF-Token": csrf}
 
 
+
+def test_approval_policy_cannot_apply_while_job_is_waiting(tmp_path):
+    """@brief Reviewed policy edits wait until the project has no unfinished jobs."""
+    profiles, path, state = _project(tmp_path)
+    state.save(RunState(run_id="busy", ticket_iid=1, lifecycle="awaiting-approval"))
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        headers = _headers(client)
+        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
+        staged = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                             json={"key": "delivery.require_human_approval", "value": "false",
+                                   "revision": revision})
+        assert staged.status_code == 200, staged.text
+        pending = staged.json()
+        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                             json={"candidate_revision": pending["candidate_revision"],
+                                   "base_revision": pending["base_revision"]})
+        assert result.status_code == 409, result.text
+    assert path.read_bytes() == original
+
+
 def test_pending_candidate_for_an_external_key_is_corrupt_but_discardable(tmp_path):
     """@brief Only an earlier build staged operator-owned keys: refuse it, let it be discarded."""
     from hashlib import sha256
@@ -581,8 +602,6 @@ def test_implementation_setting_bad_input_never_writes(tmp_path, key, value):
 @pytest.mark.parametrize('key,value,claimed', [
     ('recovery.retry_backoff_seconds','[5,30]','[true]'),
     ('workflow.stage_timeout_overrides','{"build":300}','{"design":300}'),
-    ('workflow.verify_command', 'echo safe', 'echo changed'),
-    ('workflow.verify_command', 'echo safe', 'echo\nbad'),
 ])
 def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value,claimed):
     """@brief Corrupt persisted typed evidence cannot be read or applied as a reviewed value."""
@@ -608,7 +627,6 @@ def test_implementation_collection_corrupt_pending_is_refused(tmp_path,key,value
 @pytest.mark.parametrize("key,value", [
     ("recovery.retry_backoff_seconds", "[5,30]"),
     ("workflow.stage_timeout_overrides", '{"build":300}'),
-    ("workflow.verify_command", 'echo "safe"'),
 ])
 def test_implementation_collections_keep_role_csrf_revision_and_integrity_gates(
         tmp_path, key, value):

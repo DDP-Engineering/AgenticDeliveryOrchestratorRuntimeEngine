@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { messages } from "../src/i18n";
-import { workflowCopy } from "../src/readiness";
+import { enrollmentCopy } from "../src/enrollmentCopy";
 import { directCopy } from "../src/jobCopy";
 
 const title = (locale: string, topic: string) =>
@@ -81,7 +81,7 @@ test("contextual help links open their topic in a new tab and keep the page", as
 });
 
 for (const locale of ["en", "fr", "de", "ro"] as const) {
-  test(`help describes both workflows and verification command in ${locale}`, async ({ page }) => {
+  test(`help describes agent-owned workflows in ${locale}`, async ({ page }) => {
     await signIn(page);
     const me = await (await page.request.get("/api/v1/me")).json();
     const headers = { "X-CSRF-Token": me.csrf };
@@ -89,24 +89,24 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
       expect((await page.request.patch("/api/v1/me/preferences", { headers, data: { language: locale } })).ok()).toBe(true);
       await page.goto("/help/projects#workflows");
       await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      for (const key of ["overview", "projects", "jobs", "metrics", "myAccount", "systemStatus", "adminUsers", "adminAudit"] as const)
+        await expect(page.locator("#primary-navigation").getByRole("link", {name:messages[locale][key],exact:true})).toBeVisible();
+      for (const text of [enrollmentCopy[locale].recheck, messages[locale].createProject, messages[locale].importProject])
+        await expect(article(page)).toContainText(text);
       await expect(page.locator("#workflows")).toBeInViewport();
-      for (const text of [workflowCopy[locale].aegis, workflowCopy[locale].direct, messages[locale].verificationCommand,
-        messages[locale].aegisTestCommands]) await expect(article(page)).toContainText(text);
-      await article(page).locator('a[href="/help/settings#verification-command"]').click();
-      await expect(page.locator("#verification-command")).toBeInViewport();
-      await expect(article(page)).toContainText("[workflow] verify_command");
-      await expect(article(page)).toContainText("NUL");
+      for (const text of ["AEGIS", locale === "de" ? "Direkt" : "Direct"]) await expect(article(page)).toContainText(text);
+
+      await page.goto("/help/settings");
       await expect(article(page)).toContainText("stage_timeout_overrides");
       await expect(article(page)).toContainText("per_gate_timeout_seconds");
       await page.goto("/help/jobs#direct-evidence");
       await expect(page.locator("#direct-evidence")).toBeInViewport();
-      for (const key of ["attempt", "passed", "failed", "timed out", "not configured", "unavailable"] as const)
+      for (const key of ["attempt"] as const)
         await expect(article(page)).toContainText(directCopy[locale][key]);
       await expect(article(page)).toContainText(messages[locale].directImplementationStage);
       await expect(article(page)).toContainText(messages[locale].directValidationStage);
       await expect(article(page)).toContainText("per_gate_timeout_seconds");
       await page.goto("/help/glossary");
-      await expect(article(page).getByRole("cell", { name: messages[locale].verificationCommand, exact: true })).toBeVisible();
       const direct = { en: "Direct workflow", fr: "Workflow direct", de: "Direkter Workflow", ro: "Flux direct" }[locale];
       await expect(article(page).getByRole("cell", { name: direct, exact: true })).toBeVisible();
       await page.goto("/help/tickets");

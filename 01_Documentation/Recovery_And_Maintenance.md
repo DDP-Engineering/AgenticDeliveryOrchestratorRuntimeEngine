@@ -39,7 +39,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
    ```
 
 The first retry attempt is a fresh model session and re-reads durable artifacts.
-An interrupted publication retry also rechecks fresh approval. If the label was
+When human approval is enabled, an interrupted publication retry also rechecks fresh approval. If the label was
 removed, ADORE returns to validation/presentation instead of publishing. Work
 left in the worktree is committed before the freshness check, so it changes
 the candidate fingerprint and invalidates the approval instead of failing the
@@ -97,7 +97,7 @@ slot. Once the outbox is empty, explicit retry is permitted.
 ## Candidate or Target Drift
 
 ADORE removes stale approval and routes back to integration/validation. Review
-the new presentation and freshly add the approval label again. Never reuse the
+the new presentation and freshly add the approval label again when approval is required. Never reuse the
 old approval based on a visually similar diff.
 
 ## Clarification Recovery
@@ -129,10 +129,10 @@ after a crash in the narrow create/remove/state-save boundary.
 
 If publication created an MR/PR but failed to persist its identity, retry adopts
 the existing open branch MR/PR. The AEGIS task closed in validate, so a retry
-after a failed push or MR/PR creation publishes the same approved candidate. A
+after a failed push or MR/PR creation publishes the same fresh candidate under the project policy. A
 run that fails after its candidate reached review returns to review on retry,
-with no new validation or approval; after `reset --to publishing` without a
-fresh approval, retry conducts the run from the closed task.
+with no new validation or approval; after `reset --to publishing` without required
+approval, retry conducts the run from the closed task.
 
 ## State Surgery and Cleanup
 

@@ -34,15 +34,6 @@ cancellation all confirm process tree drainage.
 
 ## Direct verification-only operation
 
-`LocalTarget.run_verification(command, *, timeout)` permits only the nonempty
-single-line NUL-free exact configured `workflow.verify_command`. Type/value,
-pinned host/account/environment and resource checks precede launch. Windows
-selects absolute `SystemRoot/System32/cmd.exe /d /s /c` from the bound environment;
-Linux resolves `/bin/sh -c`. Missing shells fail with `LocalExecutionError`;
-project PATH/COMSPEC, ordinary argv shell resolution and interpreter wrappers
-provide no bypass. Worktree cwd, bound environment, durable release barrier,
-owned timeout interruption and full scope drain are shared with native commands.
-
 Windows verification alone sets the controller's `windows_verification=True`
 transport marker. The trusted child validates the dedicated non-RPC Windows
 cmd envelope before release, pins the executable explicitly and passes a raw

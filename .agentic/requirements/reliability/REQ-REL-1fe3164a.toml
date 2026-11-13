@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-REL-1fe3164a"
+title = "Refuse invalid stale or conflicting bundle imports without partial publication"
+status = "active"
+requirement = "If a project ZIP import is invalid, stale, conflicts with an existing root recipe or fails publication, ADORE shall refuse it with a typed error while preserving existing projects and image bindings and rolling back newly published bindings on ordinary publication failures."
+verification = "Exercise invalid/unauthorized inputs, concurrent configuration/ownership/binding changes, root recipe conflict, storage corruption, lock and injected profile/source publication failures; verify no new visible project or dangling source associations, with typed escalation if rollback itself fails."
+affected_paths = ["04_Software/adore/project_bundle.py", "04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/importCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/import.spec.ts", "04_Software/adore/release_notes.toml", "04_Software/web/src/help/content", "04_Software/adore/web/static"]
+linked_tests = ["04_Software/tests/test_project_bundle.py", "04_Software/tests/test_web_bundle_import.py", "04_Software/web/e2e/import.spec.ts"]
+spec = "specs/REQ-FUNC-1ca885c7.md"
+created = 2026-11-11
+updated = 2026-11-11

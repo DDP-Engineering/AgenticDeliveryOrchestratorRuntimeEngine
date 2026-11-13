@@ -16,9 +16,9 @@
 
 from __future__ import annotations
 
-# IMPORTS
-import codecs
 from contextlib import contextmanager
+
+# IMPORTS
 import ctypes
 from ctypes import wintypes
 import hashlib
@@ -55,125 +55,6 @@ class LocalExecutionError(ExecutionRecoveryError):
 
 
 # LOCAL HELPERS
-
-
-def _drain_tail(stream, path: Path, secrets: list[str], *, max_bytes: int) -> None:
-    """@brief Drain strict UTF-8 into a redacted rolling tail without persisting raw bytes.
-    @param[in] stream Owned byte pipe, drained to EOF even after retention is full.
-    @param[in] path Owned output file.
-    @param[in] secrets Known values matched with overlap before rolling eviction.
-    @param[in] max_bytes Retained UTF-8 byte bound.
-    @details Known-value matching unions overlapping spans before consuming the safe
-             prefix, retaining raw lookahead and mask coverage across reads. A separate
-             bounded marker state suppresses entire credential tokens (and complete
-             Authorization headers), even across chunks and overlong lines. ANSI/NUL
-             removal precedes matching. No raw partial token can become an orphaned
-             tail when its marker is evicted. Ordinary prefix capture is unchanged.
-    """
-    decoder = codecs.getincrementaldecoder("utf-8")(errors="strict")
-    known = sorted({value for value in secrets if value}, key=len, reverse=True)
-    overlap = max((len(value) for value in known), default=1) - 1
-    pending, marker, mode, escape = "", "", "plain", ""
-    covered = 0  # Leading pending characters already masked by the previous read.
-    header = False
-    retained = b""
-    key_end = re.compile(r"(?i)(authorization|token|api[_-]?key|bearer)$")
-
-    def retain(text):
-        """@brief Evict only already-sanitized bytes, preserving a UTF-8 boundary."""
-        nonlocal retained
-        retained = (retained + text.encode("utf-8"))[-max_bytes:]
-        retained = retained.decode("utf-8", errors="ignore").encode("utf-8")
-
-    def mask(text):
-        """@brief Recognize credential markers incrementally with bounded token state."""
-        nonlocal marker, mode, header
-        emitted = []
-        for char in text:
-            if mode in {"value", "header"}:
-                if char in "\r\n" or mode == "value" and char.isspace():
-                    emitted.append(char)
-                    mode = "plain"
-                continue
-            if mode == "waiting":
-                if char.isspace():
-                    emitted.append(char)
-                else:
-                    emitted.append("[REDACTED]")
-                    mode = "header" if header else "value"
-                continue
-            if mode in {"separator", "bearer-separator"}:
-                if char.isspace():
-                    emitted.append(char)
-                    if mode == "bearer-separator":
-                        mode = "waiting"
-                    continue
-                if mode == "separator" and char in ":=":
-                    emitted.append(char)
-                    mode = "waiting"
-                    continue
-                mode = "plain"
-            marker += char
-            match = key_end.search(marker)
-            if match:
-                emitted.append(marker)
-                key = match[1].lower()
-                mode = "bearer-separator" if key == "bearer" else "separator"
-                header = key == "authorization"
-                marker = ""
-            elif len(marker) > 16:
-                emitted.append(marker[:-16])
-                marker = marker[-16:]
-        retain("".join(emitted))
-
-    while True:
-        chunk = stream.read(4096)
-        clean = []
-        for char in decoder.decode(chunk, final=not chunk):
-            if escape:
-                if escape == "start":
-                    escape = "csi" if char == "[" else "osc" if char == "]" else ""
-                elif (escape == "csi" and "@" <= char <= "~"
-                      or escape == "osc" and char == "\x07"
-                      or escape == "osc-end" and char == "\\"):
-                    escape = ""
-                elif escape in {"osc", "osc-end"}:
-                    escape = "osc-end" if char == "\x1b" else "osc"
-            elif char == "\x1b":
-                escape = "start"
-            elif char != "\x00":
-                clean.append(char)
-        pending += "".join(clean)
-        safe = len(pending) if not chunk else max(0, len(pending) - overlap)
-        if safe:
-            spans = [(0, covered)] if covered else []
-            for value in known:
-                index = pending.find(value)
-                while 0 <= index < safe:
-                    spans.append((index, index + len(value)))
-                    index = pending.find(value, index + 1)
-            merged = []
-            for start, end in sorted(spans):
-                if merged and start <= merged[-1][1]:
-                    merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-                else:
-                    merged.append((start, end))
-            emitted, cursor = [], 0
-            for start, end in merged:
-                emitted.append(pending[cursor:start])
-                if start or not covered:
-                    emitted.append("[REDACTED]")
-                cursor = end
-            emitted.append(pending[cursor:safe])
-            mask("".join(emitted))
-            # Never consume lookahead: an incomplete overlapping value can start
-            # inside an already-masked match and extend it on the next read.
-            covered = max(0, cursor - safe)
-            pending = pending[safe:]
-        if not chunk:
-            break
-    retain(marker)
-    path.write_bytes(retained)
 
 
 def atomic_record(path: Path, value: dict) -> None:
@@ -724,9 +605,8 @@ class LocalProcessController:
             self.scopes.remove(lease["scope"])
             path.unlink()
 
-    def _launch(self, argv, cwd, env, control, run_id, host, *, streaming=False,
-                windows_verification=False):
-        """@brief Persist the owned lease before releasing argv or dedicated cmd text."""
+    def _launch(self, argv, cwd, env, control, run_id, host, *, streaming=False):
+        """@brief Persist the owned process lease before releasing native argv."""
         token = uuid4().hex
         with self.lock:
             if (control / "active-process.json").exists():
@@ -738,10 +618,10 @@ class LocalProcessController:
             process = None
             try:
                 launch.mkdir(parents=True, exist_ok=False)
-                command = {"argv": argv, "cwd": str(cwd), "scope": scope, "release": str(release)}
-                if windows_verification:
-                    command["windows_verification"] = True
-                atomic_record(envelope, command)
+                atomic_record(
+                    envelope,
+                    {"argv": argv, "cwd": str(cwd), "scope": scope, "release": str(release)},
+                )
                 process = self.spawn(
                     [
                         sys.executable,
@@ -824,11 +704,9 @@ class LocalProcessController:
         host: str,
         secrets: list[str],
         stdout_limit: int = 65536,
-        capture_tail: bool = False,
-        windows_verification: bool = False,
     ) -> CommandResult:
         """@brief Persist scope/PID ownership before releasing one bounded native command.
-        @param[in] argv Resolved native argv; shell text only for dedicated verification.
+        @param[in] argv Resolved native argv; no shell interpretation.
         @param[in] cwd Dedicated native worktree or explicit probe directory.
         @param[in] env Controlled service-account environment.
         @param[in] timeout Positive wall-clock bound.
@@ -839,8 +717,6 @@ class LocalProcessController:
         @param[in] host Pinned machine/account identity.
         @param[in] secrets Approved known values for redaction, never written to controls.
         @param[in] stdout_limit Native stdout bound; AEGIS JSON uses its existing limit.
-        @param[in] capture_tail Opt-in verification-only sanitized trailing capture.
-        @param[in] windows_verification Preserve configured cmd shell text, not C argv escaping.
         @return Actual command exit and authoritative timeout outcome.
         @exception LocalExecutionError Ownership, launch or cleanup cannot be confirmed.
         """
@@ -848,15 +724,7 @@ class LocalProcessController:
             raise LocalExecutionError("native command requires a positive timeout")
         if type(stdout_limit) is not int or not 1 <= stdout_limit <= 4 * 1024 * 1024:
             raise LocalExecutionError("native stdout limit is invalid")
-        if type(capture_tail) is not bool:
-            raise LocalExecutionError("native capture mode is invalid")
-        if type(windows_verification) is not bool or (
-            windows_verification and self.scopes.system != "Windows"
-        ):
-            raise LocalExecutionError("native Windows verification mode is invalid")
-        process, scope = self._launch(
-            argv, cwd, env, control, run_id, host, windows_verification=windows_verification,
-        )
+        process, scope = self._launch(argv, cwd, env, control, run_id, host)
         errors = []
 
         def drain(stream, path):
@@ -865,15 +733,13 @@ class LocalProcessController:
             @param[in] path Owned bounded output file.
             """
             try:
-                if capture_tail:
-                    _drain_tail(stream, path, secrets,
-                                max_bytes=stdout_limit if path == stdout else 65536)
-                else:
-                    _drain(
-                        stream, path, secrets,
-                        max_bytes=stdout_limit if path == stdout else 65536,
-                        strict_utf8=True,
-                    )
+                _drain(
+                    stream,
+                    path,
+                    secrets,
+                    max_bytes=stdout_limit if path == stdout else 65536,
+                    strict_utf8=True,
+                )
             except (OSError, ValueError) as exc:
                 errors.append(exc)
 

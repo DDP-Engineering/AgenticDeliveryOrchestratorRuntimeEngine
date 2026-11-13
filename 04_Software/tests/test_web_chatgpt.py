@@ -23,6 +23,7 @@ import sqlite3
 
 from adore import chatgpt
 from adore.util import CommandResult
+from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
 
@@ -97,7 +98,7 @@ def test_admin_signs_the_server_in_and_out(tmp_path):
         assert action in rows
     for secret in (STATE, "fake-code", "auth.openai.com", "fake-access", "127.0.0.1:1455"):
         assert secret not in rows
-    login = runtime.calls[0]
+    login = next(argv for argv in runtime.calls if "run" in argv)
     assert [login[i + 1] for i, part in enumerate(login) if part == "--volume"] == [
         f"{directory.resolve().as_posix()}:/adore/chatgpt"]
 
@@ -140,6 +141,51 @@ def test_cancel_and_paste_without_pending_sign_in(tmp_path):
         cancelled = client.delete("/api/v1/chatgpt-sign-in/pending", headers=headers)
         assert cancelled.json() == {"status": "not-signed-in", "pending": False}
         assert any(argv[1:3] == ["rm", "--force"] for argv in runtime.calls)
+
+
+@pytest.mark.parametrize("stage,code", [
+    ("runtime", "container_runtime_unavailable"), ("image", "executor_image_unavailable"),
+])
+@pytest.mark.parametrize("outcome", ["exit", "timeout", "invalid-exit"])
+@pytest.mark.parametrize("runtime", ["docker", "wsl -d Ubuntu -- docker"])
+def test_container_prerequisite_failure_does_not_start_sign_in(
+    tmp_path, stage, code, outcome, runtime,
+):
+    """@brief Report container setup precisely before any OAuth helper or credential effect."""
+    profiles = project(tmp_path)
+    set_executor(profiles, "chatgpt", "gpt-5.6-luna")
+    path = profiles.config_path("alpha")
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        'runtime = "docker"', f'runtime = "{runtime}"'), encoding="utf-8")
+    prefix = (["docker"] if runtime == "docker" else
+              ["wsl", "-d", "Ubuntu", "--exec", "docker"])
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(list(argv))
+        if argv == [*prefix, "info"] and stage == "runtime" or (
+            argv[len(prefix):len(prefix) + 2] == ["image", "inspect"] and stage == "image"
+        ):
+            return CommandResult(exit_code=(False if outcome == "invalid-exit" else
+                                            0 if outcome == "timeout" else 1),
+                                 timed_out=outcome == "timeout", stderr="PRIVATE")
+        return CommandResult()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("OAuth helper started without its container prerequisites")
+
+    app = create_app(profiles.home, probe_runner=runner, chatgpt_popen=forbidden)
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/api/v1/projects/alpha/chatgpt-sign-in", headers=sign_in(client))
+        assert response.status_code == 503, response.text
+        assert response.json()["detail"]["code"] == code
+        assert "PRIVATE" not in response.text
+        assert client.get("/api/v1/chatgpt-sign-in").json()["pending"] is False
+    assert not (profiles.home / "chatgpt/auth.json").exists()
+    assert code in audit_text(profiles)
+    assert calls[0] == [*prefix, "info"]
+    if stage == "runtime":
+        assert len(calls) == 1
 
 
 def test_a_helper_that_cannot_start_is_unavailable(tmp_path, monkeypatch):

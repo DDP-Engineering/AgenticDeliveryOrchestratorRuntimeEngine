@@ -20,201 +20,10 @@ import tomllib
 from adore.cli import EXIT_ERROR, EXIT_OK, main
 from adore.config import load_config
 from adore.profiles import ProfileStore
-from adore.state import RunState, StateStore
+from adore.state import StateStore
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
-
-
-@pytest.mark.parametrize("command", ["", 'printf \'$HOME {checks} café\\\\\' | grep "café"'])
-def test_direct_verification_web_preserves_setting_through_unrelated_edit(tmp_path, command):
-    """@brief Resolved/raw/edit seams preserve an editable verification command."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha", store_root=str(tmp_path / "state"))
-    path = profiles.config_path("alpha")
-    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
-    text = text.replace('store_root = ".adore"',
-                        f'store_root = "{(tmp_path / "state").as_posix()}"')
-    clone = tmp_path / "clone"
-    (clone / ".git").mkdir(parents=True)
-    (clone / "go.mod").write_text("module fixture\n", encoding="utf-8")
-    text = text.replace('repo_path = "../project"',
-                        'repo_path = ' + json.dumps(str(clone)))
-    text = text.replace('verify_command = ""\n', '')
-    text = text.replace('[workflow]\n', '[workflow]\nverify_command = '
-                        + json.dumps(command, ensure_ascii=False) + '\n')
-    path.write_bytes(text.replace("\n", "\r\n").encode())
-    original = path.read_bytes()
-    with TestClient(create_app(profiles.home)) as client:
-        assert client.get("/api/v1/projects/alpha/config/raw").status_code == 401
-        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
-        headers = {"X-CSRF-Token": login.json()["csrf"]}
-        body = client.get("/api/v1/projects/alpha/config").json()
-        assert body["config"]["workflow"]["verify_command"] == command
-        settings = {item["key"]: item for item in body["settings"]}
-        assert settings["workflow.verify_command"]["editable"] is True
-        for suffix in ("", "?download=true"):
-            raw = client.get("/api/v1/projects/alpha/config/raw" + suffix)
-            assert raw.status_code == 200 and raw.content == original
-        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
-                               json={"key": "delivery.reviewers", "value": '["alice"]',
-                                     "revision": body["revision"]})
-        assert response.status_code == 200, response.text
-        candidate = response.json()
-        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                             json={"candidate_revision": candidate["candidate_revision"],
-                                   "base_revision": candidate["base_revision"]})
-        assert result.status_code == 200, result.text
-    assert load_config(path).workflow.verify_command == command
-    expected = tomllib.loads(original.decode())
-    expected["delivery"]["reviewers"] = ["alice"]
-    assert tomllib.loads(path.read_text()) == expected
-
-
-@pytest.mark.parametrize("batch", [False, True])
-@pytest.mark.parametrize("newline,aegis", [("\n", False), ("\r\n", True)])
-@pytest.mark.parametrize("command", ["", "true", "123", "  ", "echo 💡",
-                                    pytest.param("printf '\x7f💡'", id="del-and-non-bmp"),
-                                    ' printf \'$HOME {checks} café\\\\\' | grep "café" '])
-def test_verification_command_review_and_apply_exact_text(tmp_path, batch, newline, aegis, command):
-    """@brief Scalar/batch review preserves exact strings, unrelated TOML and newline style."""
-    from tests.test_web_pending_config import _headers, _project
-
-    profiles, path, _ = _project(tmp_path)
-    clone = tmp_path / "clone"
-    (clone / ".git").mkdir(parents=True)
-    if aegis:
-        (clone / ".agentic").mkdir()
-        (clone / ".agentic/aegis.py").write_text("broken payload, never execute")
-    text = path.read_text().replace('repo_path = "../project"',
-                                    'repo_path = ' + json.dumps(str(clone)))
-    assert json.dumps(str(clone)) in text
-    path.write_bytes(text.replace("\n", newline).encode())
-    original = path.read_bytes()
-    before = tomllib.loads(original.decode())
-    edits = [{"key": "workflow.verify_command", "value": command},
-             {"key": "polling.poll_interval_seconds", "value": "75"}]
-    with TestClient(create_app(profiles.home)) as client:
-        headers = _headers(client)
-        view = client.get("/api/v1/projects/alpha/config").json()
-        body = {"key": "settings.batch" if batch else "workflow.verify_command",
-                "value": json.dumps(edits) if batch else command, "revision": view["revision"]}
-        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json=body)
-        assert response.status_code == 200, response.text
-        candidate = response.json()
-        assert candidate["proposed_value"] == ({"workflow.verify_command": command,
-            "polling.poll_interval_seconds": 75} if batch else command)
-        assert path.read_bytes() == original
-        assert client.get("/api/v1/projects/alpha/config/pending").json() == candidate
-        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers, json={
-            key: candidate[key] for key in ("base_revision", "candidate_revision")})
-        assert result.status_code == 200, result.text
-        assert client.get("/api/v1/projects/alpha/config").json()[
-            "config"]["workflow"]["verify_command"] == command
-    before["workflow"]["verify_command"] = command
-    if batch:
-        before["polling"]["poll_interval_seconds"] = 75
-    assert tomllib.loads(path.read_text()) == before
-    assert load_config(path).workflow.verify_command == command
-    assert (b"\r\n" in path.read_bytes()) == (newline == "\r\n")
-
-
-@pytest.mark.parametrize("batch", [False, True])
-@pytest.mark.parametrize("command", ["one\ntwo", "one\rtwo", "one\r\ntwo", "one\n",
-                                    "one\r", "one\0two"])
-def test_verification_command_invalid_text_preserves_pending(tmp_path, batch, command):
-    """@brief Invalid commands identify the field and replace neither live nor pending bytes."""
-    from tests.test_web_pending_config import _headers, _project
-
-    profiles, path, _ = _project(tmp_path)
-    original = path.read_bytes()
-    with TestClient(create_app(profiles.home)) as client:
-        headers = _headers(client)
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        initial = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
-                              json={"key": "budgets.max_iterations", "value": "11",
-                                    "revision": revision})
-        assert initial.status_code == 200
-        pending = path.parent / "pending_config.json"
-        retained = pending.read_bytes()
-        value = json.dumps([{"key": "workflow.verify_command", "value": command}]) if batch else (
-            command)
-        for route in ("preview", "pending"):
-            response = client.post("/api/v1/projects/alpha/config/" + route, headers=headers,
-                json={"key": "settings.batch" if batch else "workflow.verify_command",
-                      "value": value, "revision": revision,
-                      "pending_revision": initial.json()["candidate_revision"]})
-            assert response.status_code == 400, response.text
-            detail = response.json()["detail"]
-            assert detail["code"] == "invalid_config"
-            assert any(issue["field"] == "workflow.verify_command" for issue in detail["issues"])
-            assert command not in response.text
-            assert path.read_bytes() == original and pending.read_bytes() == retained
-
-
-@pytest.mark.parametrize("boundary", ["active", "lock", "stale", "write"])
-@pytest.mark.parametrize("batch", [False, True])
-def test_verification_command_apply_failure_preserves_files(tmp_path, monkeypatch, boundary, batch):
-    """@brief Existing apply guards and storage failures retain exact live/pending evidence."""
-    from tests.test_web_pending_config import _headers, _project
-
-    profiles, path, state = _project(tmp_path)
-    with TestClient(create_app(profiles.home), raise_server_exceptions=False) as client:
-        headers = _headers(client)
-        revision = client.get("/api/v1/projects/alpha/config").json()["revision"]
-        body = {"key": "settings.batch" if batch else "workflow.verify_command",
-                "value": json.dumps([{"key": "workflow.verify_command", "value": "true"}])
-                if batch else "true", "revision": revision}
-        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers, json=body)
-        assert response.status_code == 200, response.text
-        candidate = response.json()
-        pending = path.parent / "pending_config.json"
-        retained = pending.read_bytes()
-        if boundary == "active":
-            state.save(RunState(run_id="working", ticket_iid=42, lifecycle="working"))
-        elif boundary == "lock":
-            assert state.acquire_lock()
-        elif boundary == "stale":
-            path.write_bytes(path.read_bytes() + b"\n# external edit\n")
-        elif boundary == "write":
-            original_replace = Path.replace
-
-            def refuse_write(source, target):
-                """@brief Refuse replacement only at the active TOML publication boundary."""
-                if target == path:
-                    raise OSError("fixture replacement refused")
-                return original_replace(source, target)
-
-            monkeypatch.setattr(Path, "replace", refuse_write)
-        original = path.read_bytes()
-        try:
-            result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
-                json={key: candidate[key] for key in ("base_revision", "candidate_revision")})
-            assert result.status_code == (500 if boundary == "write" else 409), result.text
-            assert path.read_bytes() == original and pending.read_bytes() == retained
-        finally:
-            if boundary == "lock":
-                state.release_lock()
-
-
-@pytest.mark.parametrize("value", ["1", "true", "[]", "{}", '"one\\ntwo"', '"one\\u0000two"'])
-def test_direct_verification_web_refuses_invalid_resolved_config(tmp_path, value):
-    """@brief Invalid saved verification never becomes a usable resolved configuration."""
-    profiles = ProfileStore(tmp_path / "home")
-    profiles.create("alpha")
-    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
-    text = text.replace('verify_command = ""\n', '')
-    profiles.config_path("alpha").write_text(
-        text.replace('[workflow]\n', '[workflow]\nverify_command = ' + value + '\n'))
-    with TestClient(create_app(profiles.home)) as client:
-        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
-        response = client.get("/api/v1/projects/alpha/config")
-        if response.status_code == 200:
-            # The diagnostic view may expose an invalid file with explicit issues.
-            assert any("workflow.verify_command" in issue for issue in response.json()["issues"])
-        else:
-            assert response.status_code == 503, response.text
-            assert response.json()["detail"]["code"] == "config_corrupt"
 
 
 @pytest.mark.parametrize("multiline", [False, True])
@@ -223,7 +32,7 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
     profiles = ProfileStore(tmp_path / "home")
     profiles.create("alpha", store_root=str(tmp_path / "state"))
     path = profiles.config_path("alpha")
-    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text()
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(encoding="utf-8")
     text = text.replace('store_root = ".adore"',
                         f'store_root = "{(tmp_path / "state").as_posix()}"')
     if multiline:
@@ -251,8 +60,59 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
         assert result.status_code == 200, result.text
     expected = tomllib.loads(original.decode())
     expected["delivery"]["reviewers"] = ["alice", "bob.smith"]
-    assert tomllib.loads(path.read_text()) == expected
+    assert tomllib.loads(path.read_text(encoding="utf-8")) == expected
     assert b"\r\n" in path.read_bytes()
+
+
+
+def test_approval_policy_review_and_apply(tmp_path):
+    """@brief An admin can review and save only the selected project's approval policy."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha", store_root=str(tmp_path / "state"))
+    path = profiles.config_path("alpha")
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(encoding="utf-8")
+    text = text.replace('store_root = ".adore"',
+                        f'store_root = "{(tmp_path / "state").as_posix()}"')
+    path.write_text(text, encoding="utf-8")
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        view = client.get("/api/v1/projects/alpha/config").json()
+        row = next(row for row in view["settings"]
+                   if row["key"] == "delivery.require_human_approval")
+        assert row["editable"] and row["type"] == "boolean" and row["default"] is True
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": row["key"], "value": "false",
+                                     "revision": view["revision"]})
+        assert response.status_code == 200, response.text
+        candidate = response.json()
+        assert candidate["proposed_value"] is False
+        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                             json={"candidate_revision": candidate["candidate_revision"],
+                                   "base_revision": candidate["base_revision"]})
+        assert result.status_code == 200, result.text
+    assert load_config(path).delivery.require_human_approval is False
+
+
+
+@pytest.mark.parametrize("value", ["maybe", "1", "null", ""])
+def test_approval_policy_rejects_invalid_web_values(tmp_path, value):
+    """@brief Invalid policy input cannot produce a pending reviewed candidate."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes((Path(__file__).resolve().parents[1] / "config.example.toml").read_bytes())
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        view = client.get("/api/v1/projects/alpha/config").json()
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": "delivery.require_human_approval", "value": value,
+                                     "revision": view["revision"]})
+        assert response.status_code == 400, response.text
+        assert client.get("/api/v1/projects/alpha/config/pending").json() is None
+    assert path.read_bytes() == original
 
 
 def test_reviewer_list_accepts_an_empty_list(tmp_path):
@@ -310,7 +170,7 @@ def test_reviewer_pending_list_rejects_forged_value(tmp_path, claimed):
                                       "revision": revision})
         assert candidate.status_code == 200
         pending = profiles.profile_dir("alpha") / "pending_config.json"
-        record = json.loads(pending.read_text())
+        record = json.loads(pending.read_text(encoding="utf-8"))
         record["value"] = claimed
         pending.write_text(json.dumps(record), encoding="utf-8")
         response = client.get("/api/v1/projects/alpha/config/pending")

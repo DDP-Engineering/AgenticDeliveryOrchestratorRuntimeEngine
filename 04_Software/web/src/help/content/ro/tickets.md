@@ -11,7 +11,7 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
-Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS prezent, dar defect sau nesuportat, este refuzat, niciodată înlocuit automat cu Direct. Fără acest fișier, fluxul direct folosește câmpul opțional **Comandă de verificare**; gol înseamnă neverificat. Ambele fluxuri păstrează aceleași etichete, limite și aprobarea umană. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
 
 ## Creați mai întâi etichetele {#labels}
 
@@ -70,6 +70,8 @@ Operațiile din coadă sunt verificate la fiecare 2 secunde cât timp fila este 
 Actualizările neschimbate ale proiectului păstrează conținutul deschis și confirmările valide Pornește/Oprește. Dacă identitatea, accesul sau arhivarea proiectului se schimbă, vechea confirmare nu mai poate fi trimisă, nici după restaurare. Apăsați **Citește tichetele** și revizuiți din nou. Punerea în pauză sau reluarea monitorizării invalidează și vechea confirmare Pornește, chiar dacă revine starea anterioară; recitiți și revizuiți înainte de pornire. Doar această schimbare nu invalidează Oprește și nu închide conținutul. O nouă pornire manuală eligibilă rămâne posibilă cu monitorizarea în pauză. Conținutul proiectelor eliminate rămâne ascuns până la o nouă citire explicită. Părăsirea contextului anulează cererile browserului și ignoră rezultatele acțiunilor vechi; nu anulează o comandă deja acceptată de server.
 
 Citirile tichetelor și comentariilor au o limită de 30 de secunde și nu reîncearcă automat accesul la forge. După o eroare, folosiți **Citește tichetele** pentru listă sau închideți și redeschideți **Detalii** pentru comentarii. Redeschiderea comentariilor în timpul citirii folosește aceeași cerere.
+
+Pe desktop, Pornește sau Reia, Oprește și Detalii sau Ascunde detaliile rămân pe același rând, aliniate la dreapta împreună cu antetul Acțiuni. Pe ecrane înguste, butoanele pot trece pe rândul următor pentru a rămâne în pagină.
 
 ## Citirea descrierilor și comentariilor {#reading-bodies}
 

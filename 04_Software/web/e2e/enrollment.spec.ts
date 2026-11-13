@@ -9,11 +9,36 @@ import { dirname, join } from "node:path";
 import { enrollmentCopy } from "../src/enrollmentCopy";
 import { connectionCopy } from "../src/agentConnection";
 import { messages, type Locale } from "../src/i18n";
+import { enrollmentFlowCopy } from "../src/enrollmentFlowCopy";
 import { workflowCopy } from "../src/readiness";
+import { environmentCopy } from "../src/environmentPreparation";
 
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin ===
     "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
+});
+
+test("guided import waits for automatic environment preparation before saving", async ({page}) => {
+  await enter(page); await verification(page, "e2e-auto-environment"); await validate(page);
+  await page.getByRole("button", {name:"Continue", exact:true}).click();
+  await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
+  let ready = false, creates = 0;
+  await page.route("**/api/v1/projects/setup-environment", async route => {
+    const value = await (await route.fetch()).json();
+    await route.fulfill({status:202, json:{...value, status:"running", stage:"building_executor", error:null}});
+  });
+  await page.route("**/api/v1/environment-preparations/*", route => route.fulfill({json:{
+    id:new URL(route.request().url()).pathname.split("/").at(-1), status:ready ? "ready" : "running",
+    stage:ready ? "ready" : "building_executor", error:null,
+  }}));
+  await page.route("**/api/v1/projects/setup-create", route => { creates++; return route.continue(); });
+  await page.getByRole("button", {name:"Create project with pickup stopped", exact:true}).click();
+  const progress = page.getByRole("region", {name:environmentCopy.en.title});
+  await expect(progress).toContainText(environmentCopy.en.building_executor);
+  expect(creates).toBe(0);
+  ready = true;
+  await expect(page.getByRole("heading", {name:"Enrollment complete", exact:true})).toBeVisible();
+  expect(creates).toBe(1);
 });
 
 async function enter(page: Page, username = "admin") {
@@ -34,7 +59,7 @@ test("guided enrollment begins at repository and identity with visible step navi
     "3. Eligibility, reviewers and limits", "4. Verification", "5. Review and create"]);
   await expect(steps.locator('[aria-current="step"]')).toHaveText("1. Repository and identity");
   await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(0);
-  await expect(page.getByText(/git clone/)).toBeVisible();
+  await expect(page.getByText(/git clone/)).toHaveCount(0);
   await expect(page.getByLabel("Stable project ID", { exact: false })).toHaveCount(0);
   // One flow: a repository URL; there is no existing-clone mode.
   await expect(page.getByRole("button", { name: "Use an existing clone on this server", exact: true })).toHaveCount(0);
@@ -45,20 +70,15 @@ test("step 2 offers Pi providers and an OpenAI-compatible endpoint and names the
   await repository(page, "e2e-endpoint");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const provider = page.getByLabel(/^Provider \*/);
-  const help = page.locator("#enrollment-help-agent");
+
   await expect(provider).toHaveValue("openai");
-  await expect(help).toContainText("OPENAI_API_KEY");
-  await expect(help).toContainText(enrollmentCopy.en.keyAfterCreate);
   await expect(page.locator('#enroll-model-options option[value="gpt-5.5"]')).toHaveCount(1);
   await page.getByLabel(/^Model \*/).fill("gpt-5.5");
   await expect(page.getByLabel("Reasoning effort")).toContainText("medium");
   await page.getByLabel("Reasoning effort").selectOption("medium");
   await expect(page.getByLabel(/^Endpoint base URL/)).toHaveCount(0);
   await provider.selectOption("chatgpt");
-  await expect(help).toContainText(connectionCopy.en.chatgptNote);
   await provider.selectOption("custom");
-  await expect(help).toContainText("ADORE_ENDPOINT_API_KEY");
-  await expect(help).toContainText("host.docker.internal");
   await page.getByLabel(/^Model \*/).fill("qwen/qwen3.5-9b");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.locator(".enrollment-errors")).toContainText("Endpoint base URL");
@@ -101,7 +121,6 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   const custom = join(home, "repos", "custom-url-service");
   await page.getByLabel("Custom location", { exact: true }).check();
   await clonePath.fill(custom);
-  await expect(page.locator("#enrollment-clone-note")).toContainText("You can change the folder.");
   await expect(page.getByLabel("Forge", { exact: false })).toHaveValue("gitea");
   await expect(page.getByLabel("Gitea tea login", { exact: false })).toHaveValue("fixture");
   await expect(page.getByLabel("Target branch", { exact: false })).toHaveValue("main");
@@ -118,7 +137,6 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   const defaults = page.locator(".enrollment-defaults");
   await defaults.locator("summary").click();
   await expect(defaults).toContainText("Ticket check interval (seconds)");
-  await expect(defaults).toContainText("change any of them in Settings");
   await expect(defaults.getByRole("textbox")).toHaveCount(0);
   // Creating the ADORE labels in the repository is on by default.
   await expect(page.getByRole("checkbox", { name: /Create the ADORE labels in the repository/ })).toBeChecked();
@@ -132,32 +150,6 @@ test("enrollment reads a repository URL, derives the ID and clones at creation",
   expect(created.paused).toBe(true);
 });
 
-test("verification command preserves multiline paste until corrected and saves exact direct text", async ({ page }) => {
-  await enter(page); await verification(page, "direct-command");
-  const command = page.getByRole("textbox", {name:"Verification command", exact:true});
-  await expect(command).toHaveValue("");
-  await expect(command).toHaveJSProperty("tagName", "TEXTAREA");
-  let previews = 0;
-  page.on("request", request => { if (request.url().endsWith("/setup-preview")) previews++; });
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.evaluate(() => navigator.clipboard.writeText("npm test\nother command"));
-  await command.focus(); await page.keyboard.press("ControlOrMeta+V");
-  await page.getByRole("button", {name:"Validate setup",exact:true}).click();
-  await expect(page.getByRole("alert")).toContainText("one line");
-  await expect(command).toHaveValue("npm test\nother command");
-  await expect(page.getByRole("button", {name:"Continue",exact:true})).toBeDisabled();
-  expect(previews).toBe(0);
-  const value = "  echo 'é 🧪' && npm test  ";
-  await command.fill(value); await validate(page);
-  await expect(page.locator(".workflow-information")).toContainText("Not inspected");
-  await page.getByRole("button", {name:"Continue",exact:true}).click();
-  await expect(page.locator(".enrollment-review").filter({hasText:"Verification command"}).first()).toContainText(value);
-  await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
-  await page.getByRole("button", {name:"Create project with pickup stopped",exact:true}).click();
-  await expect(page.getByRole("heading", {name:"Enrollment complete",exact:true})).toBeVisible();
-  const config = await (await page.request.get("/api/v1/projects/direct-command/config")).json();
-  expect(config.config.workflow.verify_command).toBe(value);
-});
 
 for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
   for (const workflow of ["direct", "aegis", "empty", "pending"] as const) {
@@ -184,42 +176,14 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
         await page.getByRole("button",{name:c.continue,exact:true}).click();
         await page.locator("#enroll-model").fill("fixture-model");
         for (let i=0;i<2;i++) await page.getByRole("button",{name:c.continue,exact:true}).click();
-        const command = page.getByRole("textbox", {name:text.verificationCommand,exact:true});
-        await expect(page.getByText(c.valid,{exact:true})).toBeVisible();
-        if (workflow === "direct") {
-          await expect(command).toHaveValue("go test ./...");
-          const sourceText = {en:"Suggested from",fr:"Suggestion issue de",de:"Vorgeschlagen aus",ro:"Sugerat din"}[locale];
-          await expect(page.locator("#enrollment-verification-source")).toHaveText(`${sourceText} go.mod`);
-          let previews = 0;
-          page.on("request", request => { if (request.url().endsWith("/setup-preview")) previews++; });
-          await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-          await page.evaluate(() => navigator.clipboard.writeText("npm test\nsecond command"));
-          await command.focus(); await page.keyboard.press("ControlOrMeta+A"); await page.keyboard.press("ControlOrMeta+V");
-          await page.getByRole("button", { name: c.validate, exact: true }).click();
-          await expect(command).toHaveValue("npm test\nsecond command");
-          await expect(page.getByRole("alert")).toContainText(text.verificationCommandInvalid);
-          await expect(page.getByRole("button", { name: c.continue, exact: true })).toBeDisabled();
-          expect(previews).toBe(0);
-          const exact = "  echo 'é 🧪' && npm test  ";
-          await page.evaluate(value => navigator.clipboard.writeText(value), exact);
-          await command.fill(""); await command.focus(); await page.keyboard.press("ControlOrMeta+V");
-          await expect(command).toHaveValue(exact);
-          await command.fill("");
-        }
-        await page.getByRole("button", {name:c.validate,exact:true}).click();
-        await expect(page.getByText(c.valid,{exact:true})).toBeVisible();
+        await expect(page.locator("#enroll-verify_command")).toHaveCount(0);
+
+        await page.getByRole("button", {name:c.recheck,exact:true}).click();
         const information = page.locator(".workflow-information");
         await expect(information).toHaveText(`${workflowCopy[locale].label}: ${workflowCopy[locale][observedWorkflow]}`);
         await expect(information.getByRole("button")).toHaveCount(0);
-        if (workflow === "aegis") {
-          await expect(command).toHaveCount(0);
-          await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
-          await expect(page.getByRole("note")).toContainText(text.aegisTestCommands);
-        } else {
-          await expect(command).toHaveValue("");
-          await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
-        }
-        await page.getByRole("button", {name:c.check,exact:true}).click();
+
+        await page.getByRole("button", {name:c.recheck,exact:true}).click();
         await expect(page.getByText(c.failedCheck,{exact:true})).toBeVisible();
         await expect(information).toContainText(workflowCopy[locale][observedWorkflow]);
         await page.getByRole("button", {name:c.continue,exact:true}).click();
@@ -229,7 +193,6 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
           await page.getByRole("button",{name:c.create,exact:true}).click();
           await expect(page.getByRole("heading",{name:c.completion,exact:true})).toBeVisible();
           const saved = await (await page.request.get(`/api/v1/projects/${name}/config`)).json();
-          expect(saved.config.workflow.verify_command).toBe("");
         }
       } finally {
         await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:"en"}});
@@ -246,21 +209,20 @@ test("malformed workflow preview and probe responses never display successful ev
       if (workflow === undefined) delete value.workflow; else value.workflow = workflow;
       await route.fulfill({json:value});
     });
-    await page.locator(".verify-action").getByRole("button",{name:"Validate setup",exact:true}).click();
+    await page.locator(".verify-action").getByRole("button",{name:"Recheck environment",exact:true}).click();
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.locator(".workflow-information")).toHaveCount(0);
     await expect(page.getByRole("button",{name:"Continue",exact:true})).toBeDisabled();
     await page.unroute("**/setup-preview");
   }
-  await page.locator(".verify-action").getByRole("button",{name:"Validate setup",exact:true}).click();
-  await expect(page.getByText("Structural setup valid",{exact:true})).toBeVisible();
+  await page.locator(".verify-action").getByRole("button",{name:"Recheck environment",exact:true}).click();
   for (const workflow of [undefined, null, "other", true]) {
     await page.route("**/setup-check",async route=>{
       const response = await route.fetch(), value = await response.json();
       if (workflow === undefined) delete value.workflow; else value.workflow = workflow;
       await route.fulfill({json:value});
     });
-    await page.getByRole("button",{name:"Check environment",exact:true}).click();
+    await page.getByRole("button",{name:"Recheck environment",exact:true}).click();
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.locator(".workflow-information")).toHaveCount(0);
     await expect(page.getByText(/Verified — the reported/)).toHaveCount(0);
@@ -292,6 +254,7 @@ test("label creation can be skipped and its failure keeps the project", async ({
 });
 
 test("agent and model chooses where the executor runs", async ({ page }) => {
+  await page.route("**/api/v1/executor-runtimes", route => route.fulfill({json:{commands:["docker","podman"]}}));
   await enter(page); await repository(page, "env-choice");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Agent and model", exact: true })).toBeVisible();
@@ -341,146 +304,12 @@ async function repository(page: Page, name = "e2e-valid") {
   await page.getByLabel("Display name", { exact: false }).fill("Offline service");
   return await page.getByLabel("Local clone path", { exact: false }).inputValue();
 }
-async function hintVerification(page: Page, kind: "direct" | "child" | "empty" = "direct") {
-  await repository(page, kind === "direct" ? "direct-fixture" : `${kind}-fixture`);
-  const response = await page.request.post("/__e2e__/enrollment", {headers:{"X-ADORE-E2E":"local-test"}});
-  const folder = (await response.json()).workflows[kind];
-  await page.getByLabel("Custom location", {exact:true}).check();
-  await page.getByLabel("Local clone path", {exact:false}).fill(folder);
-  await environment(page);
-  for (let i=0;i<2;i++) await page.getByRole("button", {name:"Continue",exact:true}).click();
-}
 
-for (const kind of ["direct", "child", "empty"] as const) {
-  test(`repository verification hint default ${kind} is canonical and saved only at Create`, async ({page}) => {
-    await enter(page);
-    let previews = 0, name = "";
-    page.on("request", request => {
-      if (request.url().endsWith("/setup-preview")) { previews++; name = request.postDataJSON().name; }
-    });
-    await hintVerification(page, kind);
-    await expect(page.getByText("Structural setup valid", {exact:true})).toBeVisible();
-    const expected = kind === "empty" ? "" : kind === "child" ? "cd service && go test ./..." : "go test ./...";
-    await expect(page.getByLabel("Verification command", {exact:true})).toHaveValue(expected);
-    expect(previews).toBe(kind === "empty" ? 1 : 2);
-    const projects = await (await page.request.get("/api/v1/projects")).json();
-    expect(projects.some((p:{name:string})=>p.name===name)).toBe(false);
-    if (kind === "empty") await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
-    else await expect(page.locator("#enrollment-verification-source")).toContainText(kind === "child" ? "service/go.mod" : "go.mod");
-    await page.getByRole("button", {name:"Continue",exact:true}).click();
-    await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
-    await page.getByRole("button", {name:"Create project with pickup stopped",exact:true}).click();
-    await expect(page.getByRole("heading", {name:"Enrollment complete",exact:true})).toBeVisible();
-    const saved = await (await page.request.get(`/api/v1/projects/${name}/config`)).json();
-    expect(saved.config.workflow.verify_command).toBe(expected);
-  });
-}
-
-for (const chosen of ["", "  echo 'human café' | cat  "]) {
-  test(`explicit hint edit ${JSON.stringify(chosen)} survives preview check Back and Create`, async ({page}) => {
-    await enter(page); await hintVerification(page);
-    const command = page.getByLabel("Verification command", {exact:true});
-    await expect(command).toHaveValue("go test ./...");
-    await command.fill(chosen);
-    await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
-    await validate(page);
-    await page.getByRole("button", {name:"Check environment",exact:true}).click();
-    await expect(page.getByText(enrollmentCopy.en.failedCheck,{exact:true})).toBeVisible();
-    await page.getByRole("button", {name:"Back",exact:true}).click();
-    await page.getByRole("button", {name:"Continue",exact:true}).click();
-    await validate(page);
-    await expect(command).toHaveValue(chosen);
-    await page.getByRole("button", {name:"Continue",exact:true}).click();
-    const review = page.locator(".enrollment-review").filter({hasText:"Verification command"}).first();
-    await expect(review).toContainText(chosen || "—");
-    let name = "";
-    page.on("request", request => {if(request.url().endsWith("/setup-create")) name=request.postDataJSON().name;});
-    await page.getByRole("checkbox", {name:/Create the ADORE labels/}).uncheck();
-    await page.getByRole("button", {name:"Create project with pickup stopped",exact:true}).click();
-    await expect(page.getByRole("heading", {name:"Enrollment complete",exact:true})).toBeVisible();
-    const saved=await (await page.request.get(`/api/v1/projects/${name}/config`)).json();
-    expect(saved.config.workflow.verify_command).toBe(chosen);
-  });
-}
-
-test("malformed verification hints are refused before any draft change", async ({page}) => {
-  await enter(page);
-  let bad: unknown = {command:123, source:"go.mod"};
-  await page.route("**/setup-preview",async route=>{
-    const response=await route.fetch(), value=await response.json();
-    value.verification_hint=bad;
-    await route.fulfill({json:value});
-  });
-  await hintVerification(page);
-  for (const hint of [{command:123, source:"go.mod"}, {command:"go test ./..."},
-    {command:"go test ./...",source:null}, {command:"go\ntest",source:"go.mod"},
-    {command:"go test ./...",source:"../go.mod"}, {command:"go test ./...",source:"/go.mod"}]) {
-    bad=hint;
-    await page.locator(".verify-action").getByRole("button", {name:"Validate setup",exact:true}).click();
-    await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.getByLabel("Verification command", {exact:true})).toHaveValue("");
-    await expect(page.getByRole("button", {name:"Continue",exact:true})).toBeDisabled();
-    await expect(page.getByRole("button", {name:"Check environment",exact:true})).toBeDisabled();
-  }
-  await page.unroute("**/setup-preview");
-  await validate(page);
-  await expect(page.getByLabel("Verification command", {exact:true})).toHaveValue("go test ./...");
-});
-
-test("changing repository removes an untouched earlier hint and its source",async ({page})=>{
-  await enter(page); await hintVerification(page);
-  await expect(page.getByLabel("Verification command",{exact:true})).toHaveValue("go test ./...");
-  for(let i=0;i<3;i++) await page.getByRole("button",{name:"Back",exact:true}).click();
-  await hintVerification(page,"empty");
-  await expect(page.getByText("Structural setup valid",{exact:true})).toBeVisible();
-  await expect(page.getByLabel("Verification command",{exact:true})).toHaveValue("");
-  await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
-});
-
-for (const phase of [1,2]) {
-  test(`late preview ${phase} cannot overwrite an explicit cleared command`,async ({page})=>{
-    await enter(page);
-    let release!:()=>void, observed!:()=>void, calls=0;
-    const gate=new Promise<void>(resolve=>{release=resolve;});
-    const received=new Promise<void>(resolve=>{observed=resolve;});
-    await page.route("**/setup-preview",async route=>{
-      const response=await route.fetch();
-      if(++calls===phase){observed();await gate;}
-      await route.fulfill({response});
-    });
-    await hintVerification(page);
-    await received;
-    const command=page.getByLabel("Verification command",{exact:true});
-    await command.fill("human"); await command.fill("");
-    const completed=page.waitForResponse(response=>response.url().endsWith("/setup-preview"));
-    release();
-    await completed;
-    await page.unrouteAll({behavior:"wait"});
-    await validate(page);
-    await expect(command).toHaveValue("");
-    await expect(page.locator("#enrollment-verification-source")).toHaveCount(0);
-  });
-}
-
-test("canonical hint re-preview failure keeps draft but blocks review",async ({page})=>{
-  await enter(page);
-  let calls=0;
-  await page.route("**/setup-preview",async route=>{
-    if(++calls===2) await route.fulfill({status:503,json:{detail:{code:"project_setup_invalid"}}});
-    else await route.continue();
-  });
-  await hintVerification(page);
-  await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.getByLabel("Verification command",{exact:true})).toHaveValue("go test ./...");
-  await expect(page.getByRole("button",{name:"Continue",exact:true})).toBeDisabled();
-  await expect(page.getByRole("button",{name:"Check environment",exact:true})).toBeDisabled();
-  await page.unroute("**/setup-preview");
-  await validate(page);
-});
 
 async function environment(page: Page) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByLabel(/^Model \*/).fill("fixture-model");
+  await page.getByText(enrollmentFlowCopy.en.extras, {exact:true}).click();
   await page.getByLabel("Credential environment references", { exact: false }).fill("LOCAL_API_KEY");
 }
 async function verification(page: Page, name = "e2e-valid") {
@@ -493,8 +322,8 @@ async function verification(page: Page, name = "e2e-valid") {
   return clone;
 }
 const validate = async (page: Page) => {
-  await page.locator(".verify-action").getByRole("button", { name: "Validate setup", exact: true }).click();
-  await expect(page.getByText("Structural setup valid", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", {name:"Continue",exact:true})).toBeEnabled();
+  await expect(page.locator(".verify-action").getByRole("button", {name:"Recheck environment",exact:true})).toBeEnabled();
 };
 
 test("native enrollment reports the Node failure under Pi on the server", async ({ page }) => {
@@ -502,11 +331,10 @@ test("native enrollment reports the Node failure under Pi on the server", async 
   await repository(page, "e2e-native-node");
   await environment(page);
   await page.getByLabel(/^Runs in/).selectOption("local");
-  for (let step = 0; step < 2; step++) {
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-  }
-  await expect(page.getByText(/Pi and Node installations on the server/)).toBeVisible();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   const previewResponse = page.waitForResponse(response => response.url().endsWith("/setup-preview"));
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByText(/Pi and Node installations on the server/)).toHaveCount(0);
   await validate(page);
   const preview = await (await previewResponse).json();
   const checks = { git: true, forge_cli: true, forge_auth: true, container_runtime: true,
@@ -517,7 +345,7 @@ test("native enrollment reports the Node failure under Pi on the server", async 
     checked_at: "2026-01-01T00:00:00Z", required_checks: Object.keys(checks), checks,
     local_probe: { ready: false, reason: "node-incompatible", exit_code: 0 },
   } }));
-  await page.getByRole("button", { name: "Check environment", exact: true }).click();
+  await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   const piCheck = page.getByRole("listitem").filter({ has: page.getByText("Pi on the server", { exact: true }) });
   await expect(piCheck).toContainText("Failed");
   await expect(piCheck).toContainText("Managed Pi requires Node 22.23.4 or later in the 22.x line.");
@@ -538,9 +366,8 @@ test("complete reviewed draft creates once with stopped pickup and honest failed
   });
   await enter(page);
   const clone = await verification(page);
-  await expect(page.getByText(/Unverified — no environment/)).toBeVisible();
   await validate(page);
-  await page.getByRole("button", { name: "Check environment", exact: true }).click();
+  await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
   await fixture(page, "partial");
   await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
@@ -614,7 +441,7 @@ test("field summary focus, malformed fields, collision and invalid server clone 
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByLabel("Reviewers", { exact: false })).toHaveValue("");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("button",{name:"Validate setup",exact:true}).click();
+  await page.getByRole("button",{name:"Recheck environment",exact:true}).click();
   await expect(page.getByRole("alert")).toContainText("setup_field_invalid");
   expect(previewName).toBe("alpha-2");
   await page.getByRole("button",{name:/Local clone path — Correct/}).click();
@@ -627,7 +454,7 @@ test("field summary focus, malformed fields, collision and invalid server clone 
 test("Back and review changes retain values and invalidate dependent checks", async ({ page }) => {
   await enter(page); await verification(page, "e2e-back");
   await validate(page);
-  await page.getByRole("button", { name: "Check environment", exact: true }).click();
+  await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await expect(page.getByText(/Failed — correct/).first()).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Change — Repository and identity", exact: true }).click();
@@ -641,7 +468,6 @@ test("Back and review changes retain values and invalidate dependent checks", as
   await expect(page.getByText(/Stale — the draft changed/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
   await validate(page);
-  await expect(page.getByText(/Unverified — no environment/)).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.locator(".enrollment-review")).toContainText(["Changed display"]);
 });
@@ -651,7 +477,7 @@ test("pending preview becomes stale on upstream edit; corrupt or stale readiness
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/setup-preview", async route => { await gate; await route.continue(); });
-  await page.getByRole("button", { name: "Validate setup", exact: true }).click();
+  await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Maximum executor launches", { exact: false })).toHaveValue("20");
   await page.getByLabel("Maximum executor launches", { exact: false }).fill("8");
@@ -662,16 +488,15 @@ test("pending preview becomes stale on upstream edit; corrupt or stale readiness
   await validate(page);
   await page.route("**/setup-check", route => route.fulfill({ status: 409, contentType: "application/json",
     body: JSON.stringify({ detail: { code: "stale_config_revision" } }) }));
-  await page.getByRole("button", { name: "Check environment", exact: true }).click();
+  await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await expect(page.getByRole("alert")).toBeFocused();
-  await expect(page.getByText(/Unverified — no environment/)).toBeVisible();
   await page.unroute("**/setup-check");
   await page.route("**/setup-check", async route => {
     const response = await route.fetch();
     const value = await response.json();
     await route.fulfill({ json: { ...value, status: "verified", checks: { ...value.checks, git: false } } });
   });
-  await page.getByRole("button", { name: "Check environment", exact: true }).click();
+  await page.getByRole("button", { name: "Recheck environment", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(/unexpected_response|unexpected response/i);
   await expect(page.getByText(/Verified — the reported/)).toHaveCount(0);
 });
@@ -757,7 +582,8 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
         headers: { "X-CSRF-Token": me.csrf }, data: { language: locale } });
       await page.goto("/projects/new");
       await expect(page.getByRole("heading", { name: enrollmentCopy[locale].steps[0], exact: true })).toBeVisible();
-      await expect(page.getByText(enrollmentCopy[locale].urlHelp, { exact: true })).toBeVisible();
+      for (const text of [enrollmentCopy[locale].urlHelp, enrollmentCopy[locale].identity, enrollmentCopy[locale].login])
+        await expect(page.getByText(text, {exact:true})).not.toBeVisible();
       await expect(page.getByLabel(enrollmentCopy[locale].url, { exact: false })).toBeVisible();
     } finally {
       // Browser contexts share this server-side account preference.
@@ -768,3 +594,87 @@ for (const locale of ["en", "fr", "de", "ro"] as Locale[]) {
     }
   });
 }
+
+
+test("subscription enrollment needs no API key and automatically selects the detected WSL runtime", async ({page}) => {
+  const runtime = "wsl -d Ubuntu --exec docker";
+  await page.route("**/api/v1/executor-runtimes", route => route.fulfill({json:{commands:[runtime]}}));
+  await enter(page); await repository(page, "subscription-wsl");
+  await page.getByRole("button", {name:"Continue",exact:true}).click();
+  await page.getByLabel(/^Provider/).selectOption("chatgpt");
+  await expect(page.getByText(enrollmentFlowCopy.en.subscription,{exact:true})).not.toBeVisible();
+  await expect(page.getByLabel(/Model authentication/)).toHaveCount(0);
+  await expect(page.getByLabel("Credential environment references",{exact:false})).not.toBeVisible();
+  await expect(page.getByLabel("Container runtime",{exact:true})).toHaveValue(runtime);
+  await page.getByLabel(/^Model \*/).fill("gpt-6.1-sol");
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await expect(page.locator("#enroll-verify_command")).toHaveCount(0);
+  await expect(page.getByText(enrollmentFlowCopy.en.verify,{exact:true})).not.toBeVisible();
+  await expect(page.getByText(enrollmentCopy.en.effects,{exact:true})).not.toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+
+test("clean enrollment validates once on entry and keeps a single manual recheck", async ({page}, info) => {
+  await enter(page); await repository(page, "clean-enrollment");
+  for (const text of [enrollmentCopy.en.identity, enrollmentCopy.en.login, enrollmentCopy.en.urlHelp])
+    await expect(page.getByText(text,{exact:true})).not.toBeVisible();
+  await expect(page.locator("#enrollment-clone-note, #enrollment-branch-help")).toHaveCount(0);
+  await environment(page);
+  const credentials=page.locator(".enrollment-credentials"), columns=page.locator(".enrollment-agent-columns");
+  const box=await credentials.boundingBox(), preceding=await columns.boundingBox();
+  expect(box!.y - (preceding!.y + preceding!.height)).toBeGreaterThanOrEqual(20);
+  const summary=await credentials.locator("summary").boundingBox();
+  const label=await credentials.locator("label").boundingBox();
+  expect(label!.y - (summary!.y + summary!.height)).toBeGreaterThanOrEqual(14);
+  for (const text of [enrollmentFlowCopy.en.subscription, enrollmentFlowCopy.en.environment, enrollmentCopy.en.credentials])
+    await expect(page.getByText(text,{exact:true})).not.toBeVisible();
+  await page.screenshot({path:info.outputPath("clean-agent-and-model.png"),fullPage:true});
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  for (const text of [enrollmentCopy.en.rules, enrollmentCopy.en.limits])
+    await expect(page.getByText(text,{exact:true})).not.toBeVisible();
+  let previews=0, checks=0;
+  page.on("request", request => {
+    if(request.url().endsWith("/setup-preview")) previews++;
+    if(request.url().endsWith("/setup-check")) checks++;
+  });
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await validate(page);
+  expect(previews).toBe(1); expect(checks).toBe(1);
+  await expect(page.locator(".verify-action button")).toHaveCount(1);
+  await expect(page.getByText(enrollmentFlowCopy.en.details,{exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"Recheck environment",exact:true}).click();
+  await validate(page); expect(previews).toBe(2); expect(checks).toBe(2);
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  for(const text of [enrollmentCopy.en.reviewHelp,enrollmentCopy.en.createEffect])
+    await expect(page.getByText(text,{exact:true})).not.toBeVisible();
+  await expect(page.getByText(/^Environment verification:/)).toHaveCount(0);
+  await page.locator(".enrollment-defaults summary").click();
+  await expect(page.getByText(enrollmentCopy.en.defaultsHelp,{exact:true})).not.toBeVisible();
+});
+
+test("leaving automatic validation ignores a stale check and validates the changed draft",async({page})=>{
+  let checks=0, release!:()=>void, announce!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const received=new Promise<void>(resolve=>{announce=resolve;});
+  await page.route("**/api/v1/projects/setup-check",async route=>{
+    checks++;
+    if(checks===1){announce();await gate;await route.fulfill({json:{stale:"must be ignored"}});}
+    else await route.continue();
+  });
+  try{
+    await enter(page);await verification(page,"validation-race");await received;
+    await expect(page.getByRole("button",{name:"Recheck environment",exact:true})).toBeDisabled();
+    await page.getByRole("button",{name:"Back",exact:true}).click();
+    await page.getByLabel("Reviewers",{exact:false}).fill("another-reviewer");
+    await page.getByRole("button",{name:"Continue",exact:true}).click();
+    await validate(page);expect(checks).toBe(2);
+    const response=page.waitForResponse(r=>r.url().endsWith("/setup-check"));
+    release();await response;
+    await page.unrouteAll({behavior:"wait"});
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("button",{name:"Continue",exact:true})).toBeEnabled();
+  }finally{release();}
+});

@@ -286,7 +286,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -454,6 +454,12 @@ SQLite bytes, authorization, scope and financial redaction.
   allowlisted review. import-check reuses bounded probes with
   ephemeral revision/time-bound status; import confirms unchanged bytes after
   full identity/ownership/state reinspection within enrollment/conductor locks.
+  The same popup accepts a complete exported ZIP (18 MiB) or TOML (512 KiB).
+  Bundle-preview/bundle routes under `/projects/import` bind exact ZIP bytes,
+  ordinary config revision and observed source associations. Source retention and
+  paused publication are coordinated under the recipe lock. Different root
+  recipes reject rather than replace. Failure rolls back new bindings/profile;
+  final project/enrollment unlocks precede applied audit confirmation. See project-images.md.
 
 - `create_app(home, probe_runner=...)` mounts `/api/v1` and bundled static
   assets. The runner is injectable for explicit host-readiness and image runtime commands.
@@ -474,6 +480,14 @@ SQLite bytes, authorization, scope and financial redaction.
 - `WebStore(home / "web.db")` owns accounts, sessions, grants, audit and queue.
 - `02_Tools/create_package.py` creates a complete native portable archive;
   `verify_package.py` checks it using automatically cleaned temporary data.
+
+Admin container export defaults to the complete source ZIP. RawConfiguration keeps
+missing-base attachment, replacement, errors and recovery inside one compact dialog;
+file selection previews automatically, Save recipe is explicit and stale/invalid
+responses never enable a complete export. All four locales use the same mobile
+layout. Admin/CSRF/config-revision/digest checks guard source retention independently
+of job admission; no pending or active configuration/job state is rewritten.
+See project-images.md, test_web_executor_recipes.py and portable.spec.ts.
 
 ## Invariants
 
@@ -890,9 +904,7 @@ for Add and Import project. Primary buttons take their text colour from the
 | Portable new-project file/copy API and source revision | `_prepare_transfer`, `transfer_source` | `test_web_transfer.py` |
 | Enrollment, display identity, readiness evidence | `adore/profiles.py`, `adore/wizard.py`, `adore/web/app.py` | `test_web_enrollment.py`, `test_web_errors.py` |
 | Both-workflow enrollment and informational Workflow evidence | `_workflow_observation`, `_probe_setup`, `readiness.ts`, `ReadinessEvidence.tsx` | `test_repository_source.py`, `test_web_readiness.py`, `readiness.test.mjs`, `enrollment.spec.ts` |
-| Exact Verification command enrollment and reviewed saves | `ProjectInput`, `implementation_settings.py`, `EnrollmentWizard.tsx`, `implementationSettings.ts`, `settingsSave.ts` | `test_web_enrollment.py`, `test_web_config.py`, `settings.test.mjs`, `settingsSave.test.mjs`, `settings.spec.ts` |
 | Exact TOML enrollment and automatic validation | `web/src/RawImportDialog.tsx`, `importCopy.ts`, `_inspect_project_import` | `test_web_import.py`, `web/e2e/import.spec.ts` |
-| Direct-clone verification suggestion, localized provenance and human authority | `preview_project_setup`, `adore/verification_hint.py` (see `wizard.md`), `EnrollmentWizard.tsx` `validPreview`/`runPreview`, `enrollmentCopy.ts` | `test_verification_hint.py`, `test_web_enrollment.py`, `web/e2e/enrollment.spec.ts`, saved-command `settings.spec.ts` journeys |
 | Guided enrollment steps, correction, draft loss and review | `web/src/EnrollmentWizard.tsx`, `web/src/enrollmentCopy.ts`, `App.tsx` | `web/e2e/enrollment.spec.ts` |
 | Ticket rich text, exact source and account mode | `web/src/forgeMarkdown.ts`, `ticketPreferences.ts`, `TicketWorkspace.tsx`, `App.tsx`; preference routes and store | `web/tests/forgeMarkdown.test.mjs`, `ticketPreferences.test.mjs`, `web/e2e/tickets.spec.ts`, `test_web_auth.py`, `test_web_rbac.py` |
 | Accounts, sessions, queue | `adore/web/store.py` | `test_web_auth.py`, `test_web_commands.py` |
@@ -1330,7 +1342,7 @@ WSL commands also resolve image suggestions. The reviewed Save flow owns all
 configuration writes. Proof: `test_executor_environment_choice.py` and
 `images.spec.ts`.
 
-ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. They omit image definition and build controls. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
+ExecutorEnvironment.tsx supplies a compact conditional container notice with four-locale external Dockerfile/build/profile instructions. Config GET returns the effective image and Admin-only resolved config path. Enrollment step 2 and Settings → Agent and model offer Runs in (container | local), Container runtime and Executor image with suggestions from `GET /api/v1/executor-images` (Admin, read-only; serverImages.ts) and local account fields; additional credential names are optional. Image building remains external; recipe attachment belongs to the export dialog. Mutation guards for the other environment keys precede all config writes and staging/application; the dedicated existing AI connection test is retained. The image-build routes are removed and answer 404. A pending candidate with an `image_build` binding or for an operator-owned key is 503 `pending_config_corrupt` on view and apply, and an administrator can still discard it. Focused proof: test_executor_environment_choice.py, test_web_pending_config.py, images.spec.ts, enrollment.spec.ts. Detailed ownership: project-images.md.
 
 External ownership and preparation/model/credential errors have localized corrective messages in errors.ts; errors.test.mjs checks server-code coverage and diagnostic/generic fallback.
 
@@ -1424,3 +1436,17 @@ password and requires repeating the confirmation.
 The Users list opens one native dialog for Add user or Reset password. The
 selected account is named in reset; both actions share password confirmation.
 The reset result is acknowledged only after a valid response.
+
+The project lifecycle browser fixture takes one authenticated, validated project
+catalog snapshot and fulfills its local archive flag without an upstream proxy.
+This keeps polling handlers deterministic when unrouteAll removes routing; all
+CSRF, clone ownership and exact-name deletion assertions remain active.
+
+Project Settings exports directly through the optional browser destination picker or ordinary download: complete container ZIP or exact native TOML. Recipe administration is separate under closed Technical details; cancellation and scope changes invalidate pending saves, and write errors abort before commit with localized feedback.
+
+## Per-project publication approval
+
+The PR/MR and review settings include the localized boolean **Require human
+approval before PR/MR**. The existing Admin reviewed-save and idle-job rules
+apply; the default requires approval and disabling it permits automatic
+publication only after validation and freshness checks.

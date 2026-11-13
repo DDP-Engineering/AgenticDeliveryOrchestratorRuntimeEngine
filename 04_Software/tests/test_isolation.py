@@ -23,6 +23,7 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+from types import SimpleNamespace
 
 from adore.config import EgressPolicy
 from adore.isolation import (
@@ -1629,13 +1630,45 @@ def test_summary_read_then_owned_removal(tmp_path: Path, text: str) -> None:
     wt = manager.path_for("run-1")
     wt.mkdir(parents=True)
     source = wt / "ADORE_SUMMARY.md"
-    source.write_text(text, encoding="utf-8")
+    source.write_text(text, encoding="utf-8", newline="\n")
     artifact = manager.read_summary("run-1", max_chars=6000)
     assert artifact is not None and artifact.text == text[-6000:]
     assert source.read_text(encoding="utf-8") == text  # Caller must persist before removal.
     manager.remove_summary("run-1", artifact)
     assert not source.exists()
     assert all("commit" not in call for call in runner.calls)
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_summary_compares_change_times_within_each_metadata_api(tmp_path, monkeypatch, changed):
+    """@brief Different path/descriptor clocks are valid; a changed open file is refused."""
+    manager = WorktreeManager(tmp_path / "repo", tmp_path / "work", runner=FakeRunner(_ok(), _ok()))
+    source = manager.path_for("run-1") / "ADORE_SUMMARY.md"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"rewritten summary\r\nwith control \x1a and trailing text")
+    original = os.fstat
+    calls = 0
+
+    def descriptor_stat(fd):
+        """@brief Model Windows metadata clocks without changing any file contents."""
+        nonlocal calls
+        calls += 1
+        info = original(fd)
+        values = {key: getattr(info, key) for key in (
+            "st_dev", "st_ino", "st_mode", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")}
+        values["st_ctime_ns"] += 100 + (calls if changed else 0)
+        return SimpleNamespace(**values)
+
+    monkeypatch.setattr(os, "fstat", descriptor_stat)
+    if changed:
+        with pytest.raises(IsolationError, match="changed during read"):
+            manager.read_summary("run-1", max_chars=6000)
+        assert source.exists()
+    else:
+        artifact = manager.read_summary("run-1", max_chars=6000)
+        assert artifact.text == source.read_bytes().decode("utf-8")
+        manager.remove_summary("run-1", artifact)
+        assert not source.exists()
 
 
 def test_summary_absence_is_not_an_error(tmp_path: Path) -> None:

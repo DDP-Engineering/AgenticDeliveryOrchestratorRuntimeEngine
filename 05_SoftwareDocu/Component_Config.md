@@ -37,16 +37,6 @@ unknown stage. Mapping values accept only
 those three task kinds. Bug/fix mappings win over change, configured feature
 labels follow, and an unmatched ticket uses `default_kind`.
 
-`WorkflowConfig.verify_command` is an exact single-line string, empty by default.
-Validation is type-first and refuses CR, LF and NUL with
-`workflow.verify_command` named. Shell syntax is data, not split or normalized.
-Configured direct runs use the validate override or general gate timeout; AEGIS
-ignores the command and retains its own strict verification. Generic resolved
-serialization includes the key, raw reads preserve original bytes and unrelated
-web edits leave it intact. Metadata marks it noneditable and the frontend hides
-it pending a dedicated interface. Public proof: `test_config.py`,
-`test_web_config.py`, `test_web_config_raw.py` and exact catalog tests.
-
 `PollingConfig.max_concurrent_runs` is a capacity ceiling only. The current
 conductor is synchronous and serial; values above one do not create parallel
 gates or workers.
@@ -55,11 +45,11 @@ gates or workers.
 nonempty nonnegative backoff list. Defaults are 3, 3 and `[5, 30, 120]`.
 
 `DeliveryConfig.approval_label` defaults to `agent-approved`, must be nonempty
-and cannot collide with lifecycle/control labels. `delivery.draft` is a strict boolean: true (default) creates drafts; false creates ready reviews. Fresh human approval remains mandatory.
+and cannot collide with lifecycle/control labels. `delivery.draft` is a strict boolean: true (default) creates drafts; false creates ready reviews. Fresh human approval is required when the project policy enables it.
 `publish_checkpoints` is a strict boolean, on by default for CLI and web.
 Explicit false keeps intermediate checkpoints local. When enabled, the
 conductor may publish guarded ticket-branch checkpoints before approval;
-MR/PR creation still waits for fresh candidate-bound approval. The reported
+MR/PR creation follows the project approval policy. The reported
 cost budget accepts a finite nonnegative USD amount; zero disables that cap
 for subscription or local execution while iteration, time and file caps remain.
 
@@ -79,6 +69,15 @@ container.
 `[container] runtime_env` and `[local] environment` names starting with a
 removed coding agent's prefix (`OPENCODE_`, `CODEX_`, `QWEN_`) are refused
 with a message to remove them from `config.toml`.
+
+`container.build_definition` is an optional scalar for Docker build export.
+Validation accepts an empty string or a portable repository-relative JSON path
+with a full Git commit ID. The export reader checks the commit and its contents
+on request. Executor launch uses the configured image independently.
+Managed image definitions are separate records under the ADORE home. The normal
+export dialog retains these sources without changing this optional Git-source
+setting or any execution policy. A managed association takes precedence during
+source export; preparation selects its effective image in memory.
 
 ## 4. Inputs and Outputs
 
@@ -239,3 +238,9 @@ Non-budget binding preserves scalar types as well as values: boolean false and n
 
 
 Pi thinking is optional; explicit values are validated against the pinned provider/model catalog, with custom endpoints limited to off. Invalid or unproven levels fail configuration validation.
+
+## Publication approval policy
+
+`delivery.require_human_approval` is a strict boolean, default true. It selects
+whether human candidate approval precedes publication; it does not change
+validation, draft state, guarded publication, or the human merge boundary.

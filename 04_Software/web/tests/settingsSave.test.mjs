@@ -89,20 +89,6 @@ test("recovered values use the right editor domain and exact response meaning",(
  assert.equal(candidateMatchesEdits({...saved,proposed_value:{...saved.proposed_value,"polling.poll_interval_seconds":"75"}},edits,rows),false);
 });
 
-test("verification drafts retain exact text and refuse line breaks or NUL before saving",()=>{
- const key="workflow.verify_command", rows=[row(key,"old command","text")];
- for (const value of ["", " ", "123", "true", "echo 'é 🧪' && npm test", "C:\\tools\\verify.cmd"]) {
-  assert.deepEqual(prepareSettingDrafts({},rows,{[key]:value}),{edits:[{key,value}],invalid:[]});
-  const saved={...candidate, proposed_value:{[key]:value},value:JSON.stringify({[key]:value})};
-  assert.equal(validPendingConfig(saved),true);
-  assert.equal(candidateMatchesEdits(saved,[{key,value}],rows),true);
-  assert.deepEqual(recoverSettingDrafts({},rows,saved),{[key]:value});
- }
- for (const value of ["a\nb","a\rb","a\r\nb","command\n","a\u0000b"]) {
-  assert.deepEqual(prepareSettingDrafts({},rows,{[key]:value}),{edits:[],invalid:[key]});
- }
-});
-
 test("only important effects request confirmation",()=>{
  const edits=[
   {key:"container.system_packages",value:"true"},{key:"executor.internet",value:"true"},

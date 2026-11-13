@@ -26,7 +26,6 @@ import contextlib
 from copy import deepcopy
 from datetime import timedelta
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -39,7 +38,6 @@ from uuid import uuid4
 from adore import chatgpt, metrics
 from adore.aegis import (
     FULL_STAGES,
-    AegisCheck,
     AegisClient,
     AegisError,
     AegisProtocolError,
@@ -92,7 +90,6 @@ from adore.state import (
     run_id_pattern,
 )
 from adore.util import (
-    ANSI_ESCAPE,
     CommandResult,
     force_rmtree,
     in_quiet_hours,
@@ -126,7 +123,7 @@ _STALE_WORKING_GRACE_SECONDS = 60
 
 
 class _CheckpointHalted(IsolationError):
-    """@brief A checkpoint already recorded a terminal ownership/signaling failure."""
+    """@brief Conduction has settled cancellation, handoff or a checkpoint failure."""
 
 
 # HELPER FUNCTIONS
@@ -162,20 +159,6 @@ def _head_and_tail(text: str, limit: int) -> str:
     head = text.split("\n", 1)[0][: limit // 2]
     marker = "\n...\n"
     return head + marker + text[-(limit - len(head) - len(marker)):]
-
-
-def _valid_direct_duration(seconds: Any) -> bool:
-    """@brief Check duration integrity without overflowing on arbitrary JSON integers.
-    @param[in] seconds Untrusted execution or saved duration.
-    @return True for a nonnegative finite number safe for float-based presentation.
-    """
-    if type(seconds) not in {int, float}:
-        return False
-    try:
-        return math.isfinite(seconds) and seconds >= 0
-    except OverflowError:
-        # JSON integers may exceed the float range used by isfinite and formatting.
-        return False
 
 
 def _task_type(ticket: Ticket, config: Config) -> str:
@@ -584,6 +567,9 @@ class Orchestrator:
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
             return False
+        if not self.config.delivery.require_human_approval and ticket.state != "opened":
+            self._fail_immediately(run, "TICKET_CLOSED", "ticket closed before retry publication")
+            return True
         try:
             self._revalidate_native_retry(run)
         except (IsolationError, PreparationError, OSError, ValueError) as exc:
@@ -596,12 +582,20 @@ class Orchestrator:
             self.store.journal(run_id, "operator-retry", stage="done")
             self._enter_review(run)
             return True
-        # An approved candidate waits at done; `reset --to publishing` points
+        if (not self.config.delivery.require_human_approval
+                and run.stage in {"done", "publishing"} and run.validation_evidence
+                and not self._valid_automatic_evidence(run)):
+            self._fail_immediately(
+                run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+            )
+            return True
+        # A validated candidate waits at done; `reset --to publishing` points
         # retry at the same publication.
         resume_publication = (
             run.stage in {"done", "publishing"}
             and bool(run.validation_evidence)
-            and bool(run.approval_presented_at)
+            and (bool(run.approval_presented_at)
+                 or not self.config.delivery.require_human_approval)
         )
         if resume_publication:
             # EVERY fingerprint refuses a dirty tree, including the freshness
@@ -617,8 +611,11 @@ class Orchestrator:
                 not run.approval_label_removed
                 or self.config.delivery.approval_label not in ticket.labels
             )
-            approval_ready = self._approval_ready(run, ticket)
-            if not approval_ready and not approval_absent:
+            approval_ready = (self._approval_ready(run, ticket)
+                              if self.config.delivery.require_human_approval
+                              else self._automatic_publication_ready(run, ticket))
+            if not approval_ready and (not approval_absent
+                                       or not self.config.delivery.require_human_approval):
                 # Freshness errors and candidate drift already fail or re-conduct.
                 return True
             resume_publication = approval_ready
@@ -1214,8 +1211,8 @@ class Orchestrator:
 
     def _conduct_direct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """@brief Conduct fresh bounded implementation attempts, with no AEGIS command.
-        @details Validate runs optional independent verification, with bounded fresh
-                 fixes; a retained completion marker permits recovery without Pi.
+        @details Validate is conductor-owned and records explicitly unverified evidence;
+                 a retained completion marker permits checkpoint recovery without Pi.
         @param[in,out] run Durable direct run with no AEGIS task bindings.
         @param[in] ticket Current source ticket.
         @param[in] thread Human clarification or review discussion for the next fresh attempt.
@@ -1227,12 +1224,6 @@ class Orchestrator:
                     return
                 if not self._refresh_budgets(run):
                     return
-                if (run.stage_failures >= self.config.recovery.max_stage_failures
-                        and run.failure_history
-                        and run.failure_history[-1]["code"] == "VERIFICATION_FAILED"):
-                    self._fail_immediately(run, "VERIFICATION_FAILED",
-                                           "verification attempts exhausted")
-                    return
                 completed = self._direct_completed(run) and run.stage != "build"
                 budget = self._budget_exceeded(run, include_launch=not completed)
                 if budget:
@@ -1240,11 +1231,7 @@ class Orchestrator:
                     return
                 if not completed:
                     run.stage = "build"
-                    run.validation_evidence = {
-                        key: value for key, value in run.validation_evidence.items()
-                        if key in {"summary", "verification", "verification_result"}
-                    }
-                    run.validation_evidence.setdefault("summary", "")
+                    run.validation_evidence = {"summary": ""}
                     run.candidate_fingerprint = ""
                     run.candidate_base_ref = ""
                     self.store.save(run)
@@ -1298,14 +1285,7 @@ class Orchestrator:
                     run.validation_evidence["implementation"] = "completed"
                     # Persist completion and its recovery stage in one state write:
                     # Retry must not spend another launch after durable success.
-                    if self.config.workflow.verify_command:
-                        self.store.journal(run.run_id, "stage-advanced", previous="build",
-                                           current="validate", stage="validate",
-                                           failed_attempts=run.stage_failures)
-                        run.stage = "validate"
-                        self.store.save(run)
-                    else:
-                        self._successful_transition(run, "build", "validate")
+                    self._successful_transition(run, "build", "validate")
                 self._checkpoint(run, "ADORE direct implementation")
                 if not self._integrate_target(run):
                     if run.lifecycle != "working":
@@ -1319,22 +1299,7 @@ class Orchestrator:
                 if budget:
                     self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
                     return
-                verified_target = self.worktrees.ref_head(run.base_ref)
-                if self.config.workflow.verify_command:
-                    if not self._verify_direct(run):
-                        if run.lifecycle != "working":
-                            return
-                        continue
-                    budget = self._budget_exceeded(run, include_launch=False)
-                    if budget:
-                        self._fail_immediately(run, "BUDGET_EXHAUSTED", budget)
-                        return
-                    self._checkpoint(run, "ADORE direct verification passed")
-                else:
-                    run.validation_evidence["verification"] = "not configured"
                 try:
-                    if self.worktrees.ref_head(run.base_ref) != verified_target:
-                        raise IsolationError("target changed during direct verification")
                     changed = self.worktrees.changed_files(run.run_id, run.base_ref)
                     if type(changed) is not int or changed < 0:
                         raise IsolationError("invalid changed-file count")
@@ -1347,76 +1312,19 @@ class Orchestrator:
                     return
                 run.validation_evidence["changed_files"] = changed
                 self._successful_transition(run, run.stage, "done")
-                self._present_for_approval(run, ticket)
+                if self.config.delivery.require_human_approval:
+                    self._present_for_approval(run, ticket)
+                elif self._automatic_publication_ready(run, ticket):
+                    self._publish(run, ticket)
                 return
         except _CheckpointHalted:
             return
         except ExecutionRecoveryError as exc:
             if not self._cancel_if_requested(run):
                 self._fail_immediately(run, "INFRASTRUCTURE_EXHAUSTED", exc)
-        except StateError as exc:
-            self._fail_immediately(run, "VERIFICATION_EVIDENCE", exc)
         except IsolationError as exc:
             self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
 
-    @staticmethod
-    def _check_direct_result(result: CommandResult, seconds: float) -> None:
-        """@brief Refuse malformed external execution evidence without coercing a pass.
-        @param[in] result Untrusted bound backend outcome.
-        @param[in] seconds Measured monotonic elapsed time.
-        @exception IsolationError Exit, timeout, streams or duration violate the contract.
-        """
-        if (type(result.exit_code) is not int or type(result.timed_out) is not bool
-                or not isinstance(result.stdout, str) or not isinstance(result.stderr, str)
-                or not _valid_direct_duration(seconds)):
-            raise IsolationError("malformed direct verification execution result")
-
-    def _verify_direct(self, run: RunState) -> bool:
-        """@brief Run one bounded independent check and atomically route a failed attempt.
-        @param[in,out] run Completed direct implementation at validate.
-        @return True only for a strictly typed exit-zero, non-timeout result.
-        @exception ExecutionRecoveryError Owned execution or cleanup cannot be confirmed.
-        """
-        command = self.config.workflow.verify_command
-        target = self._execute(run)
-        limit = self.config.workflow.stage_timeout_overrides.get(
-            "validate", self.config.budgets.per_gate_timeout_seconds,
-        )
-        started = time.monotonic()
-        result = (target.run_verification(command, timeout=limit)
-                  if self.config.execution.backend == "local"
-                  else target(["sh", "-c", command], timeout=limit))
-        seconds = time.monotonic() - started
-        try:
-            self._check_direct_result(result, seconds)
-        except IsolationError as exc:
-            self._fail_immediately(run, "VERIFICATION_RESULT", exc)
-            return False
-        separator = ("\n" if result.stdout and result.stderr
-                     and not result.stdout.endswith("\n") else "")
-        output = result.stdout + separator + result.stderr
-        redact = getattr(target, "redact", lambda text: text)
-        status = ("timed out" if result.timed_out else
-                  "passed" if result.exit_code == 0 else "failed")
-        run.validation_evidence.update(
-            verification=status,
-            verification_result={
-                "command": _sanitize(command), "exit_code": result.exit_code,
-                "seconds": seconds, "timed_out": result.timed_out,
-                "output": output_tail(output, lambda text: _sanitize(redact(text), None),
-                                      lines=200, chars=_MAX_EVIDENCE),
-            },
-        )
-        if status == "passed":
-            self.store.save(run)
-            return True
-        # The next build and retained failure must be one durable write with its count.
-        run.stage = "build"
-        run.validation_evidence.pop("implementation", None)
-        run.candidate_fingerprint = run.candidate_base_ref = ""
-        self._stage_failure(run, "VERIFICATION_FAILED", self._direct_failure_context(run),
-                            stage="validate")
-        return False
 
     def _conduct_task(
         self, run: RunState, ticket: Ticket, client: AegisClient, thread: str,
@@ -1436,12 +1344,9 @@ class Orchestrator:
     ) -> None:
         """
         @brief      Run fresh, journal-authoritative stage attempts until approval.
-        @details    Validate closes the AEGIS task by advancing to done. ADORE
-                    verifies that advance itself and presents the candidate. A
-                    step that finds the task at done without verification
-                    evidence sends it back to validate through one fresh session
-                    first; evidence that no longer matches the candidate is
-                    checked again with the strict check at done.
+        @details The agent owns repository checks and advances the task journal.
+                 ADORE monitors valid transitions and records done for approval;
+                 it never independently launches the test catalogue.
         """
         failure_context = ""
         while run.lifecycle == "working":
@@ -1473,7 +1378,29 @@ class Orchestrator:
             if run.lifecycle != "working":
                 return
             if task.done:
-                if not run.validation_evidence:
+                if (not self.config.delivery.require_human_approval
+                        and run.validation_evidence
+                        and not run.validation_evidence.get("agent_review_required")
+                        and not self._valid_automatic_evidence(run)):
+                    self._fail_immediately(
+                        run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+                    )
+                    return
+                if (run.validation_evidence
+                        and not run.validation_evidence.get("agent_review_required")
+                        and run.candidate_fingerprint):
+                    try:
+                        current = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
+                        target = self.worktrees.ref_head(run.base_ref)
+                    except IsolationError as exc:
+                        self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
+                        return
+                    if current != run.candidate_fingerprint or target != run.candidate_base_ref:
+                        run.validation_evidence = {"agent_review_required": True}
+                        run.candidate_fingerprint = ""
+                        run.candidate_base_ref = ""
+                        self.store.save(run)
+                if run.validation_evidence.get("agent_review_required"):
                     result = self._launch_stage(
                         run,
                         ticket,
@@ -1512,14 +1439,19 @@ class Orchestrator:
                         run, f"ADORE route {run.active_task_id} to validation"
                     )
                     self._successful_transition(run, "done", "validate")
+                    run.validation_evidence = {}
+                    self.store.save(run)
                     continue
-                if self._already_verified(run):
-                    self._refresh_deviations(run, task)
-                elif not self._strict_verification(run, client):
+                if not run.validation_evidence and not self._record_aegis_completion(run, task):
                     return
+                run.validation_evidence["deviations"] = list(task.deviations)
+                self.store.save(run)
                 if self._cancel_if_requested(run):
                     return
-                self._present_for_approval(run, ticket)
+                if self.config.delivery.require_human_approval:
+                    self._present_for_approval(run, ticket)
+                elif self._automatic_publication_ready(run, ticket):
+                    self._publish(run, ticket)
                 return
             if task.stage == "validate" and not self._integrate_target(run):
                 failure_context = self.prompts.render("recovery/integration-conflict.md")
@@ -1604,11 +1536,8 @@ class Orchestrator:
             except IsolationError as exc:
                 self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
                 return
-            if (
-                task.stage == "validate"
-                and updated.done
-                and not self._strict_verification(run, client)
-            ):
+            if (task.stage == "validate" and updated.done
+                    and not self._record_aegis_completion(run, updated, checkpoint=False)):
                 return
 
     def _transition_accepted(
@@ -1715,28 +1644,8 @@ class Orchestrator:
         # `abort`) gets that grace before the container is stopped underneath it.
         grace_of = getattr(self.executor, "cancel_grace_seconds", None)
         cancel_grace = grace_of(execute) if grace_of is not None else None
-        watch_done = Event()
-        watcher: Thread | None = None
-        if run.lifecycle == "working":
-            def interrupt_on_cancel() -> None:
-                """@brief Stop only this run's gate when its marker appears."""
-                while not watch_done.wait(0.2):
-                    try:
-                        if not self.store.cancel_requested(run.run_id):
-                            continue
-                        if cancel_grace is not None and watch_done.wait(cancel_grace):
-                            return
-                        self.backend.interrupt(
-                            run.container, expected=run.execution.get("resource") or None
-                        )
-                    except (StateError, IsolationError) as exc:
-                        self.log(f"cancel interruption failed: {_sanitize(exc)}")
-                    return
-
-            watcher = Thread(target=interrupt_on_cancel, daemon=True)
-            watcher.start()
         options = {} if cancel_grace is None else {"cancel": self._cancel_check(run)}
-        try:
+        with self._watch_cancellation(run, grace=cancel_grace):
             result = self.executor.run_gate(
                 execute,
                 run.worktree,
@@ -1751,16 +1660,47 @@ class Orchestrator:
                    if self.config.container.system_packages else {}),
                 **options,
             )
-        finally:
-            watch_done.set()
-            if watcher is not None:
-                watcher.join(timeout=21)
         self._journal_usage(run, run.stage, result)
         self._journal_artifacts(run, run.stage, result)
         if self._handoff_at_boundary(run):
             # The executor has exited, so no container writer can race human ownership.
             raise _CheckpointHalted("human handoff requested")
         return result
+
+    @contextlib.contextmanager
+    def _watch_cancellation(self, run: RunState, *, grace: float | None = None) -> Iterator[None]:
+        """@brief Interrupt the owned backend while an agent stage blocks.
+        @param[in] run Active run whose durable cancellation marker is observed.
+        @param[in] grace Optional executor abort grace before interrupting its backend.
+        @note Callers recheck the marker after execution before accepting its result.
+        """
+        watch_done = Event()
+
+        def interrupt_on_cancel() -> None:
+            """@brief Stop only this run's command when its marker appears."""
+            while not watch_done.wait(0.2):
+                try:
+                    if not self.store.cancel_requested(run.run_id):
+                        continue
+                    if grace is not None and watch_done.wait(grace):
+                        return
+                    self.backend.interrupt(
+                        run.container, expected=run.execution.get("resource") or None,
+                    )
+                except (StateError, IsolationError) as exc:
+                    self.log(f"cancel interruption failed: {_sanitize(exc)}")
+                return
+
+        watcher = None
+        if run.lifecycle == "working":
+            watcher = Thread(target=interrupt_on_cancel, daemon=True)
+            watcher.start()
+        try:
+            yield
+        finally:
+            watch_done.set()
+            if watcher is not None:
+                watcher.join(timeout=21)
 
     def _cancel_check(self, run: RunState) -> Callable[[], bool]:
         """
@@ -1853,12 +1793,6 @@ class Orchestrator:
             self.prompts.render("stage/ticket.md", iid=str(ticket.iid), title=ticket.title,
                                 description=ticket.description.strip()),
         ]
-        if self.config.workflow.verify_command:
-            parts.append(self.prompts.render("direct/verification.md",
-                                             command=self.config.workflow.verify_command))
-            previous = self._direct_result(run)
-            if previous and run.validation_evidence["verification"] != "passed":
-                parts.append(self._direct_failure_context(run))
         if failure_context:
             parts.append(self.prompts.render("stage/recovery-context.md",
                                              context=_sanitize(failure_context)))
@@ -1986,181 +1920,29 @@ class Orchestrator:
             return False
         return False
 
-    def _strict_verification(self, run: RunState, client: AegisClient) -> bool:
-        """@brief Independently execute and interpret the strict AEGIS verification."""
-        try:
-            check = client.check(
-                run.active_task_id,
-                strict=True,
-                run=True,
-                timeout=self.config.budgets.per_gate_timeout_seconds,
-            )
-        except AegisProtocolError:
-            raise
-        except AegisError as exc:
-            return self._validation_failure(run, "STRICT_CHECK_INVOCATION", exc)
-        executed = check.executed_runs
-        valid = (
-            check.exit_code == 0
-            and check.passed
-            and check.errors == 0
-            and check.promoted_warnings == 0
-            and bool(executed)
-            and all(item.status == "ok" and item.exit_code == 0 for item in executed)
-        )
-        evidence = self._validation_payload(check)
-        self.store.journal(run.run_id, "strict-verification", **evidence)
-        if not valid:
-            return self._validation_failure(run, "STRICT_VERIFICATION_FAILED", evidence)
-        try:
-            task = self._task(client, run)
-        except AegisTaskError as exc:
-            return self._validation_failure(run, "JOURNAL_INVALID", exc)
-        if not task.done:
-            return self._validation_failure(
-                run, "STRICT_STAGE_MISMATCH", f"strict pass left task at {task.stage}"
-            )
-        evidence["deviations"] = list(task.deviations)
-        self._checkpoint(run, f"ADORE verified {run.active_task_id}")
+
+    def _record_aegis_completion(
+        self, run: RunState, task: AegisTask, *, checkpoint: bool = True,
+    ) -> bool:
+        """Record the agent's done journal and exact candidate without running tests."""
+        if checkpoint:
+            self._checkpoint(run, f"ADORE completed {run.active_task_id}")
         try:
             fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
             target = self.worktrees.ref_head(run.base_ref)
         except IsolationError as exc:
             self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
             return False
-        run.validation_evidence = evidence
+        run.validation_evidence = {
+            "source": "agent-aegis-journal", "stage": "done", "task_id": task.task_id,
+            "deviations": list(task.deviations),
+            "reported_checks": _sanitize("\n".join(task.log[-20:]), _MAX_EVIDENCE),
+        }
         run.candidate_fingerprint = fingerprint
         run.candidate_base_ref = target
-        run.stage = "done"
         self.store.save(run)
+        self.store.journal(run.run_id, "validation-accepted", passed=True, task_id=task.task_id)
         return True
-
-    def _refresh_deviations(self, run: RunState, task: AegisTask) -> None:
-        """
-        @brief      Re-harvest recorded deviations into the stored evidence.
-        @details    The conduct loop reads the task again before it presents the
-                    candidate, so the approval presentation shows what the
-                    journal records at that moment rather than what it recorded
-                    when the strict check ran. It costs nothing: the task is
-                    already read.
-        @param[in]  run The run about to be presented for approval.
-        @param[in]  task The task document the conduct loop just read.
-        """
-        run.validation_evidence["deviations"] = list(task.deviations)
-        self.store.save(run)
-
-    def _already_verified(self, run: RunState) -> bool:
-        """
-        @brief      Whether the exact candidate on disk was already verified.
-        @details    The validate -> done transition verifies, and the next pass
-                    of the conduct loop reads the task back at done and would
-                    verify again. That ran the whole strict catalogue AND every
-                    configured command a SECOND time on every successful run -
-                    six seconds on a toy repository, a doubled test suite on a
-                    real one (live finding 2026-09-18).
-
-                    Re-verification is skipped only when the candidate hashes
-                    identically to the one the stored evidence describes, so a
-                    tree that moved for any reason is verified again. A
-                    fingerprint failure, including a dirty worktree, answers
-                    "not verified" and the full check runs.
-        @param[in]  run The run sitting at the done stage.
-        @return     True when the stored evidence still describes this exact
-                    candidate.
-        """
-        if not run.validation_evidence or not run.candidate_fingerprint:
-            return False
-        try:
-            current = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
-        except IsolationError:
-            return False
-        return current == run.candidate_fingerprint
-
-    @staticmethod
-    def _validation_payload(check: AegisCheck) -> dict[str, Any]:
-        """@brief Persist bounded objective evidence without raw unbounded output."""
-        return {
-            "exit_code": check.exit_code,
-            "passed": check.passed,
-            "errors": check.errors,
-            "warnings": check.warnings,
-            "promoted_warnings": check.promoted_warnings,
-            "commands": [
-                {
-                    "name": item.name,
-                    "status": item.status,
-                    "exit_code": item.exit_code,
-                    "seconds": item.seconds,
-                }
-                for item in check.runs
-            ],
-            "findings": [
-                {
-                    "level": item.level,
-                    "check": item.check,
-                    "path": item.path,
-                    "message": _sanitize(item.message, 1000),
-                }
-                for item in check.findings[:20]
-            ],
-        }
-
-    def _validation_failure(self, run: RunState, code: str, evidence: Any) -> bool:
-        """@brief Count one strict invocation, regardless of finding count."""
-        if not self._stage_failure(run, code, evidence, stage="validate"):
-            return False
-        run.stage = "validate"
-        run.validation_evidence = {}
-        run.candidate_fingerprint = ""
-        self.store.save(run)
-        # The journal may still say done. A fresh remediation launch must
-        # return it legally before another validation can pass.
-        ticket = self._ticket_from_snapshot(run)
-        task_id = run.active_task_id or "TASK-unknown"
-        task = AegisTask(
-            task_id=task_id,
-            title=ticket.title,
-            file=f".agentic/tasks/{run.active_task_id}.md",
-            header={
-                "stage": "done", "type": run.aegis_type, "path": run.aegis_path,
-                "requirements": "", "branch": run.branch, "base": "", "opened": "",
-            },
-            stage="done",
-            step_file=None,
-            done=True,
-            checklist=(),
-            log=(),
-        )
-        result = self._launch_stage(
-            run,
-            ticket,
-            task,
-            failure_context=self.prompts.render(
-                "recovery/strict-verification.md", task_id=task_id,
-                evidence=_sanitize(evidence),
-            ),
-        )
-        if self._cancel_if_requested(run):
-            return False
-        if result.has_questions:
-            self._park(run, result.questions)
-            return False
-        if not result.ok:
-            self._stage_failure(run, "VALIDATION_REMEDIATION_EXIT", result.stderr or result.output)
-            return False
-        if run.lifecycle == "working":
-            execute = self._execute(run)
-            self._conduct_task(
-                run,
-                ticket,
-                AegisClient(
-                    execute,
-                    self.config.workflow.aegis_python,
-                    self._io_dir(run.run_id),
-                ),
-                "",
-            )
-        return False
 
     def _present_for_approval(self, run: RunState, ticket: Ticket) -> None:
         """@brief Remove stale approval, present evidence, and release execution capacity."""
@@ -2204,9 +1986,7 @@ class Orchestrator:
         evidence = run.validation_evidence
         if run.workflow == "direct":
             return (
-                (f"{self.identity.tag} Candidate validated for ticket #{ticket.iid}.\n\n"
-                 if self._direct_result(run, required=True) else
-                 f"{self.identity.tag} Unverified candidate for ticket #{ticket.iid}.\n\n")
+                f"{self.identity.tag} Candidate ready for ticket #{ticket.iid}.\n\n"
                 + self._direct_candidate_body(run)
                 + "\n\nADORE will never merge it. To approve this exact candidate, freshly add "
                 f"`{self.config.delivery.approval_label}` after this presentation. New reviews "
@@ -2217,11 +1997,6 @@ class Orchestrator:
         marker = self.identity.make_marker(
             run.run_id, "approval", fingerprint=run.candidate_fingerprint
         )
-        commands = evidence.get("commands", [])
-        command_lines = "\n".join(
-            f"- `{item.get('name')}`: {item.get('status')} (exit {item.get('exit_code')})"
-            for item in commands
-        ) or "- No command evidence (approval is invalid)."
         try:
             commits = self._commit_list(run)
             diff_files = self.worktrees.changed_files(run.run_id, run.base_ref)
@@ -2229,24 +2004,22 @@ class Orchestrator:
             commits = [f"unavailable: {_sanitize(exc, 500)}"]
             diff_files = -1
         commit_lines = "\n".join(f"- `{item}`" for item in commits) or "- none"
-        warnings = int(evidence.get("warnings", 0) or 0)
         deviations = [str(item) for item in evidence.get("deviations", [])]
         deviation_lines = "\n".join(
             f"- {_sanitize(item, 1000)}" for item in deviations
         ) or "- none recorded"
         return (
-            f"{self.identity.tag} Candidate validated for ticket #{ticket.iid}.\n\n"
+            f"{self.identity.tag} Candidate ready for ticket #{ticket.iid}.\n\n"
             f"- AEGIS task: `{run.active_task_id}`\n"
             f"- Path: `{run.aegis_path}`\n"
-            f"- Strict errors: {evidence.get('errors', '?')}\n"
-            f"- Warnings: {warnings}; promoted warnings: "
-            f"{evidence.get('promoted_warnings', '?')}\n"
+            "- AEGIS stage: done (reported by the agent)\n"
             f"- Changed files: {diff_files}\n"
             f"- Deviations recorded: {len(deviations)}\n"
             f"- Candidate fingerprint: `{run.candidate_fingerprint}`\n"
             f"- Target commit: `{run.candidate_base_ref}`\n\n"
             f"Recorded deviations:\n{deviation_lines}\n\n"
-            f"Verification commands:\n{command_lines}\n\n"
+            "Agent-reported checks:\n"
+            f"{evidence.get('reported_checks', 'See the AEGIS task journal.')}\n\n"
             f"Local commit series:\n{commit_lines}\n\n"
             "Intended outcome: push this exact candidate and open/update an MR/PR; "
             f"new reviews open as {'draft' if self.config.delivery.draft else 'ready for review'}. "
@@ -2283,6 +2056,71 @@ class Orchestrator:
             return False
         return True
 
+    @staticmethod
+    def _valid_automatic_evidence(run: RunState) -> bool:
+        """@brief Check the complete saved validation record and its task binding.
+        @param[in] run Run whose evidence is being evaluated.
+        @return True only for the current task's complete executor evidence.
+        """
+        evidence = run.validation_evidence
+        if run.workflow == "direct":
+            return (set(evidence) == {"summary", "implementation", "changed_files"}
+                    and evidence.get("implementation") == "completed"
+                    and isinstance(evidence.get("summary"), str)
+                    and type(evidence.get("changed_files")) is int
+                    and evidence["changed_files"] >= 0)
+        legacy = (set(evidence) == {"source", "task_id", "deviations"}
+                  and evidence.get("source") == "executor")
+        observed = (set(evidence) == {"source", "stage", "task_id", "deviations", "reported_checks"}
+                    and evidence.get("source") == "agent-aegis-journal"
+                    and evidence.get("stage") == "done"
+                    and isinstance(evidence.get("reported_checks"), str))
+        return ((legacy or observed)
+                and isinstance(run.active_task_id, str) and bool(run.active_task_id)
+                and run.active_task_id in run.task_ids
+                and evidence.get("task_id") == run.active_task_id
+                and isinstance(evidence.get("deviations"), list)
+                and all(isinstance(item, str) for item in evidence["deviations"]))
+
+    def _automatic_publication_ready(self, run: RunState, ticket: Ticket) -> bool:
+        """@brief Verify saved validation, candidate and target before automatic publication.
+        @param[in,out] run Validated run to check or return for validation.
+        @param[in] ticket Source ticket used for revalidation notifications.
+        @return True only for a fresh candidate and target.
+        """
+        evidence = run.validation_evidence
+        if not evidence or not run.candidate_fingerprint or not run.candidate_base_ref:
+            self._invalidate_approval(run, ticket, "candidate validation is missing or changed")
+            return False
+        if not self._valid_automatic_evidence(run):
+            self._fail_immediately(
+                run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+            )
+            return False
+        try:
+            current_ticket = self.forge.get_ticket(ticket.iid)
+        except ForgeError as exc:
+            self._fail_immediately(run, "PUBLICATION_TICKET", exc)
+            return False
+        if current_ticket is None:
+            self._fail_immediately(run, "TICKET_DELETED", "ticket deleted before publication")
+            return False
+        if self._cancel_if_ticket_closed(run, current_ticket):
+            return False
+        try:
+            self._transient(run, "publication-fetch", self.worktrees.fetch)
+            target = self.worktrees.ref_head(run.base_ref)
+            fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
+        except IsolationError as exc:
+            self._fail_immediately(run, "PUBLICATION_FRESHNESS", exc)
+            return False
+        if target != run.candidate_base_ref or fingerprint != run.candidate_fingerprint:
+            self._invalidate_approval(run, ticket, "candidate or target changed after validation")
+            return False
+        self.store.journal(run.run_id, "automatic-publication-authorized",
+                           fingerprint=run.candidate_fingerprint, target=target)
+        return True
+
     def _invalidate_approval(self, run: RunState, ticket: Ticket, reason: str) -> None:
         """@brief Clear stale approval and require integration, validation and presentation."""
         try:
@@ -2295,7 +2133,7 @@ class Orchestrator:
         run.validation_evidence = (
             {key: value for key, value in run.validation_evidence.items()
              if key in {"summary", "implementation"}}
-            if run.workflow == "direct" else {}
+            if run.workflow == "direct" else {"agent_review_required": True}
         )
         run.candidate_fingerprint = ""
         run.candidate_base_ref = ""
@@ -2308,9 +2146,10 @@ class Orchestrator:
             run,
             "approval-invalidated",
             f"{self.identity.tag} Approval invalidated: {_sanitize(reason)}. "
-            "The target will be integrated and the candidate revalidated before a fresh "
-            f"`{self.config.delivery.approval_label}` approval is accepted.\n"
-            f"{self.identity.make_marker(run.run_id, 'approval-invalidated')}",
+            "The target will be integrated and the candidate revalidated before publication. "
+            + (f"A fresh `{self.config.delivery.approval_label}` approval is required.\n"
+               if self.config.delivery.require_human_approval else "\n")
+            + f"{self.identity.make_marker(run.run_id, 'approval-invalidated')}",
         )
         if run.lifecycle == "working":
             self._conduct(run, ticket)
@@ -2328,10 +2167,8 @@ class Orchestrator:
                     a failed write retains publication retry authority, not success.
                     AEGIS 0.15.0 closes the task in validate, so publication is
                     Git and forge work only: no executor session and no AEGIS
-                    command runs after the human approved. `_approval_ready`
-                    fetched and re-checked the target commit and the candidate
-                    fingerprint just before every call, so the pushed branch is
-                    exactly the candidate the approval names.
+                    command runs during publication. The approval or automatic
+                    freshness check verifies target and candidate before the call.
         @param[in]  run The approved run at stage done.
         @param[in]  ticket The source ticket, for the MR/PR title.
         """
@@ -2471,79 +2308,24 @@ class Orchestrator:
             f"{self.identity.make_marker(run.run_id, 'delivery')}"
         )
 
-    def _direct_result(self, run: RunState, *, required: bool = False) -> dict | None:
-        """@brief Strictly read the one current direct verification evidence shape.
-        @param[in] run Saved run whose result may cross into prompts or human approval.
-        @param[in] required Require a completed configured or explicit unconfigured result.
-        @return Valid configured result, or None for absent/unconfigured evidence.
-        @exception StateError Corrupt, mismatched, unbounded or inconsistent saved evidence.
-        @note Duration checks refuse integers outside the float range used for display.
-              Output sanitation and bounds are checked without trimming: the writer's
-              final character cut can expose leading whitespace in a valid retained tail.
-        """
-        evidence = run.validation_evidence
-        result = evidence.get("verification_result")
-        command = self.config.workflow.verify_command
-        if result is None:
-            if required and command:
-                raise StateError("direct verification evidence is missing")
-            return None
-        if (not command or not isinstance(result, dict)
-                or set(result) != {"command", "exit_code", "seconds", "timed_out", "output"}
-                or not isinstance(result["command"], str) or result["command"] != _sanitize(command)
-                or type(result["exit_code"]) is not int or type(result["timed_out"]) is not bool
-                or not _valid_direct_duration(result["seconds"])
-                or not isinstance(result["output"], str)
-                or len(result["output"]) > _MAX_EVIDENCE
-                or len(result["output"].splitlines()) > 200
-                or "\n".join(result["output"].splitlines()) != result["output"]
-                or _sanitize(ANSI_ESCAPE.sub("", result["output"]), None) != result["output"]):
-            raise StateError("direct verification evidence is corrupt or mismatched")
-        status = ("timed out" if result["timed_out"] else
-                  "passed" if result["exit_code"] == 0 else "failed")
-        if evidence.get("verification") != status:
-            raise StateError("direct verification status disagrees with its result")
-        return result
 
-    def _direct_failure_context(self, run: RunState) -> str:
-        """@brief Reconstruct fresh-session failure context from the retained typed result."""
-        result = self._direct_result(run, required=True)
-        if result is None:
-            raise StateError("configured verification failure result is missing")
-        return self.prompts.render(
-            "direct/verification-failure.md", command=result["command"],
-            exit_code=str(result["exit_code"]), status=run.validation_evidence["verification"],
-            output=result["output"],
-        )
-
-    def _direct_evidence_ready(self, run: RunState) -> bool:
+    @staticmethod
+    def _direct_evidence_ready(run: RunState) -> bool:
         """@brief Summary alone is not completion and can never authorize publication."""
         evidence = run.validation_evidence
-        result = self._direct_result(run, required=True)
         return (
             evidence.get("implementation") == "completed"
-            and (evidence.get("verification") == "not configured" if result is None
-                 else evidence["verification"] == "passed")
             and type(evidence.get("changed_files")) is int and evidence["changed_files"] >= 0
             and bool(run.candidate_fingerprint) and bool(run.candidate_base_ref)
         )
 
-    def _direct_candidate_body(self, run: RunState) -> str:
-        """@brief Render typed independent evidence separately from agent-reported checks."""
+    @staticmethod
+    def _direct_candidate_body(run: RunState) -> str:
+        """@brief Render durable agent-reported checks without claiming verification."""
         evidence = run.validation_evidence
-        result = self._direct_result(run, required=True)
-        verification = "Verification: not configured. This candidate is unverified."
-        if result is not None:
-            # Indentation is a literal Markdown block even for embedded backtick fences.
-            command = "\n".join("    " + line for line in result["command"].splitlines())
-            output = "\n".join("    " + line for line in result["output"].splitlines())
-            verification = (f"Verification: {evidence['verification']} "
-                            f"(exit {result['exit_code']}, {result['seconds']:.3f} seconds).\n\n"
-                            f"Command:\n\n{command}\n\nOutput tail:\n\n{output}")
         return (
             f"Agent summary (including its own checks):\n{evidence.get('summary', '')}\n\n"
             f"Changed files: {evidence.get('changed_files', '?')}\n\n"
-            f"{verification}\n\n"
             f"Candidate fingerprint: `{run.candidate_fingerprint}`\n\n"
             f"Target commit: `{run.candidate_base_ref}`"
         )
@@ -2874,9 +2656,8 @@ class Orchestrator:
         """
         @brief      Push the run branch, retrying a transient remote failure.
         @details    The push is the most expensive moment in a run to lose: every
-                    engineering stage has been paid for and a human has already
-                    approved this exact candidate, which a terminal failure
-                    discards along with the approval. Every fetch around it
+                    engineering stage has been paid for and the candidate has
+                    passed the configured publication policy. Every fetch around it
                     already retries through `_transient`; the push did not, so a
                     single "Failed to authenticate user" from a credential
                     refresh ended a fully validated run (live finding
@@ -3031,6 +2812,10 @@ class Orchestrator:
         if self._cancel_if_ticket_closed(run, ticket):
             return
         self._refresh_ticket_snapshot(run, ticket, context="approval")
+        if not self.config.delivery.require_human_approval:
+            if self._automatic_publication_ready(run, ticket):
+                self._publish(run, ticket)
+            return
         if not self._approval_ready(run, ticket):
             return
         summary["approved"] += 1
@@ -3317,8 +3102,8 @@ class Orchestrator:
         body = (
             f"{self.identity.tag} The forge pipeline reported `failed`, so ADORE "
             f"started an automatic repair round ({run.review_rounds}/{rounds}).\n\n"
-            "New commits will appear on this branch once the work passes strict "
-            "validation and a human re-approves the candidate on the source "
+            "New commits will appear on this branch once the agent completes "
+            "its workflow and a human re-approves the candidate on the source "
             "ticket. ADORE still never merges. Set "
             "`[review] on_pipeline_failure = \"notify\"` to be asked first "
             f"instead.\n{marker}"

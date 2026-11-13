@@ -9,11 +9,7 @@ export const lifecycles = ["working", "publishing", "parked-clarification", "awa
 export const stages = ["frame", "specify", "design", "build", "validate", "done", "publishing"] as const;
 export type Lifecycle = typeof lifecycles[number];
 export type Workflow = "aegis" | "direct";
-export type DirectEvidence = { attempt: number | null; verification:
-  { status: "unavailable" | "not configured"; result: null } |
-  { status: "passed" | "failed" | "timed out"; result: {
-    command: string; exit_code: string; seconds: number; timed_out: boolean; output: string } }
-};
+export type DirectEvidence = { attempt: number | null };
 export type JobBudget = { launches: number; active_seconds: number } & (
   { availability: "observed"; reason: null; max_launches: number;
     max_active_seconds: number; config_revision: string } |
@@ -72,7 +68,8 @@ export function readJob(value: unknown, authorized: string[]): Job {
     !string(row.project_name) || !string(row.project_display_name) || typeof row.project_archived !== "boolean" ||
     !count(row.ticket_iid) || Number(row.ticket_iid) < 1 || !optionalText(row.ticket_title) ||
     (row.workflow !== "aegis" && row.workflow !== "direct") ||
-    row.workflow === "direct" && !["build", "validate", "done"].includes(String(row.stage)) ||
+    row.workflow === "direct" && !["build", "validate", "done"].includes(String(row.stage))
+      && !(row.stage === "publishing" && row.lifecycle === "failed") ||
     !lifecycles.includes(row.lifecycle as Lifecycle) || !stages.includes(row.stage as typeof stages[number]) ||
     row.status_group !== lifecycleGroup(String(row.lifecycle)) || !string(row.outcome) ||
     !count(row.stage_failures) || !count(row.review_rounds) ||
@@ -140,24 +137,9 @@ export function readJobPage(value: unknown, authorized: string[], overview = fal
 
 /** Validate the closed saved direct evidence before rendering any result. */
 function readDirectEvidence(value: unknown): DirectEvidence {
-  const direct = object(value), verification = object(direct.verification);
-  if (Object.keys(direct).sort().join(",") !== "attempt,verification" ||
-    direct.attempt !== null && (!count(direct.attempt) || Number(direct.attempt) < 1) ||
-    Object.keys(verification).sort().join(",") !== "result,status") invalid();
-  if (verification.status === "unavailable" || verification.status === "not configured") {
-    if (verification.result !== null) invalid();
-  } else {
-    const result = object(verification.result);
-    const text = (value: unknown): value is string => string(value) && !/[\x00\ud800-\udfff]/u.test(value);
-    if (Object.keys(result).sort().join(",") !== "command,exit_code,output,seconds,timed_out" ||
-      !text(result.command) || !result.command.trim() || /[\r\n]/.test(result.command) ||
-      !string(result.exit_code) || !/^(?:0|-?[1-9][0-9]*)$/.test(result.exit_code) ||
-      typeof result.seconds !== "number" || !Number.isFinite(result.seconds) || result.seconds < 0 ||
-      typeof result.timed_out !== "boolean" || !text(result.output) ||
-      /[\r\x0b\x0c\x1b-\x1e\x85\u2028\u2029]|\n$/.test(result.output) || [...result.output].length > 6000 || result.output.split("\n").length > 200) invalid();
-    const expected = result.timed_out ? "timed out" : result.exit_code === "0" ? "passed" : "failed";
-    if (verification.status !== expected) invalid();
-  }
+  const direct = object(value);
+  if (Object.keys(direct).join() !== "attempt" ||
+    direct.attempt !== null && (!count(direct.attempt) || Number(direct.attempt) < 1)) invalid();
   return direct as DirectEvidence;
 }
 
@@ -172,7 +154,8 @@ export function readJobDetail(value: unknown, project: string, run: string): Job
   else if ("direct" in job) invalid();
   for (const event of job.timeline!) if (!event || !stamp(event.ts) || !string(event.event) || !event.event ||
     event.stage !== null && (!stages.includes(event.stage as typeof stages[number]) ||
-      job.workflow === "direct" && !["build", "validate", "done"].includes(event.stage))) invalid();
+      job.workflow === "direct" && !["build", "validate", "done"].includes(event.stage)
+        && !(event.stage === "publishing" && event.event === "reset"))) invalid();
   return job as Job & { timeline: NonNullable<Job["timeline"]> };
 }
 
@@ -196,21 +179,26 @@ export function commandAllowed(job: Job, action: "retry" | "cancel" | "restart")
 }
 
 
-export type ExecutorOutput = {project_id:string;run_id:string} & (
-  {availability:"observed";stdout:string;stderr:string;exit_code:number;timed_out:boolean} |
-  {availability:"missing";stdout:null;stderr:null;exit_code:null;timed_out:null}
+export type ExecutorOutput = {project_id:string;run_id:string;state_revision:string;in_progress:boolean} & (
+  {availability:"observed";stdout:string;stderr:string;exit_code:number;timed_out:boolean;
+    attempt:number;stage:typeof stages[number] | null;recorded_at:string} |
+  {availability:"missing";stdout:null;stderr:null;exit_code:null;timed_out:null;
+    attempt:null;stage:null;recorded_at:null}
 );
 /** Closed operational evidence transport; raw transcript bytes are never displayable. */
 export function readExecutorOutput(value: unknown, project: string, run: string): ExecutorOutput {
   const row = object(value);
-  if (Object.keys(row).sort().join(",") !== "availability,exit_code,project_id,run_id,stderr,stdout,timed_out" ||
-    row.project_id !== project || row.run_id !== run) invalid();
+  if (Object.keys(row).sort().join(",") !== "attempt,availability,exit_code,in_progress,project_id,recorded_at,run_id,stage,state_revision,stderr,stdout,timed_out" ||
+    row.project_id !== project || row.run_id !== run || typeof row.in_progress !== "boolean" ||
+    !string(row.state_revision) || !/^[a-f0-9]{64}$/.test(row.state_revision)) invalid();
   if (row.availability === "missing") {
-    if ([row.stdout,row.stderr,row.exit_code,row.timed_out].some(value=>value!==null)) invalid();
+    if ([row.stdout,row.stderr,row.exit_code,row.timed_out,row.attempt,row.stage,row.recorded_at].some(value=>value!==null)) invalid();
   } else if (row.availability === "observed") {
     if (!string(row.stdout) || !string(row.stderr) || row.stdout.length>65536 || row.stderr.length>65536 ||
       !Number.isInteger(row.exit_code) || Number(row.exit_code)<-(2**31) || Number(row.exit_code)>=2**31 ||
-      typeof row.timed_out!=="boolean") invalid();
+      typeof row.timed_out!=="boolean" || !count(row.attempt) || Number(row.attempt)<1 ||
+      row.stage !== null && !stages.includes(row.stage as typeof stages[number]) ||
+      row.recorded_at === null || !stamp(row.recorded_at)) invalid();
     const credential = /(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|[a-fA-F0-9]{32,})/;
     const module = /^ModuleNotFoundError: No module named '[A-Za-z_][A-Za-z0-9_.]{0,79}'$/;
     const counts = /^pytest: [0-9]{1,7} (?:failed|passed|skipped|errors?|deselected|xfailed|xpassed)(?:, [0-9]{1,7} (?:failed|passed|skipped|errors?|deselected|xfailed|xpassed))*$/;

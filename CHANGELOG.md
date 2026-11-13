@@ -12,92 +12,108 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
-### Added
-
-- Jobs identifies AEGIS and Direct workflows. Direct details show only Implementation
-  and Validation stages, the recorded attempt, and saved independent verification
-  command, outcome, duration and output tail. Unknown or corrupt evidence fails closed;
-  four-locale help explains direct stage limits without changing run behavior.
-
-- Suggest an optional verification command from bounded repository files during direct
-  enrollment and `adore init`, with source provenance and human keep/edit/clear choices.
-  Discovery never executes commands, changes saved Settings or suggests for AEGIS clones.
-
-- Web enrollment accepts repositories without AEGIS or with only its Python entrypoint,
-  without adding files to the clone. Enrollment and Settings → Implementation save an
-  optional exact verification command and refuse multiline or NUL input with field feedback.
-  Workflow is informational, not a readiness gate; help covers both workflows in four locales.
-
-- Optional direct-workflow verification command with bounded fresh-session fixes,
-  validate timeouts, sanitized retained evidence and approval/MR/PR results.
-  Native verification uses an owned platform-shell operation; ordinary shell
-  refusal and candidate-bound human approval remain enforced. AEGIS is unchanged.
-
-- Conduct CLI/configured tickets without AEGIS through bounded fresh direct Pi sessions,
-  retain their summaries and present explicitly unverified candidates for fresh human
-  approval; keep clarification, recovery, review and publication boundaries shared.
-  CLI setup reports missing AEGIS as information; a present unusable payload is refused.
-  Adopted and revised reviews carry the current direct summary and unverified notice;
-  Gitea description updates require final 2xx acknowledgment before entering review.
-  Interrupted durable completion resumes without spending another implementation launch.
-
 ### Fixed
-
-- Validate common reporting boundaries across all projects and pooled Statistics
-  before publication, including exact safe-integer token directions and combined
-  totals in pooled reports and job consumption; invalid aggregates show error/Retry,
-  never a rendering crash or false success time. Latch Settings confirmations invalid after detected project
-  rename/archive/monitoring changes, including reverts and in-flight preview/pending
-  responses; keep unchanged reviews and drafts, and require a fresh review to save.
-
-- Bind monitoring, archive, restore and delete callbacks/notices to current project
-  authority; cancel obsolete browser submissions without claiming server rollback.
-  Preserve unchanged delete drafts but invalidate changed reviews; removed projects
-  return explicitly to the directory. Observed App results replace pre-result
-  Statistics/Jobs/History reads without remounting content or trusting old action
-  evidence; reporting rereads both sources as a new coordinated generation.
-
-- Bound/coalesce ticket operation status reads without changing their cadence;
-  cancel obsolete reads and leave failed/invalid status explicitly unknown.
-  Observed results revalidate shared project metadata without rereading forge
-  tickets/comments or interrupting open bodies and controls. Preserve unchanged
-  ticket confirmations, invalidate changed project authority until an explicit
-  reread, and prune removed identities. Monitoring pause/resume invalidates old Start
-  reviews even after a revert; independent Stop reviews remain valid and a fresh
-  eligible manual Start still works while paused. Bound/cancel explicit list/comment reads
-  and ignore obsolete action responses without claiming server rollback.
-
-- Preserve Project Access reviews/focus and Settings groups through background and
-  observed monitoring results. Cancel old grant reads before writes and require
-  strict post-change validation; changed account/project authority invalidates reviews.
-  Keep Settings drafts guarded and validate own saved values without remounting;
-  unrelated operation results cannot cancel a confirmed Save's validation read.
-  Bound/coalesce App operation and System status reads without changing cadence or
-  treating failed/invalid health checks as healthy or unknown completion as success.
-
-- Keep Users rows, access reviews, dialog drafts and focus during manual refresh;
-  record successful completion rather than request start. Refuse failed or changed
-  authority, recheck selected projects at creation and cancel pre-write list reads
-  before strict post-account-change revalidation without remounting unrelated forms.
-
-- Keep Jobs/History rows, pages, open details, consumption and manual executor output
-  mounted during same-context background reads. Add scoped Refresh/retry, validated
-  completion times and marked older information after transport/deadline failure;
-  stale job evidence cannot enable commands and invalid evidence remains hidden.
-  Preserve the view through job-operation results, cancel pre-write reads and require
-  validated post-result authority. Bound/coalesce worker and operation reads, retain
-  explicit unknown/error outcomes and cancel old ownership when changing runs.
-
-- Keep both change-evidence panels visible during manual and automatic rereads,
-  preserving page, filter drafts, open evidence and focus. Add project Refresh,
-  validated completion times and marked older evidence with retry after connection
-  or deadline failures; invalid and unauthorized evidence remains hidden.
 
 - Keep global and project Statistics reports, table controls and CSV menus visible
   during coordinated background updates. Add non-destructive Refresh/retry and
   successful source times; mark retained transport/deadline failures stale while
   rejecting invalid or unauthorized evidence. Selected reports no longer wait on
   unrelated all-project reads; automatic cadence is unchanged.
+- Validate common reporting boundaries and pooled Statistics before publication,
+  including safe-integer token directions and combined totals in reports and job
+  consumption. Invalid aggregates show error/Retry, not a crash or false success time.
+- Keep Jobs/History rows, pages, open details, consumption and manual executor output
+  through same-context reads and command results. Add scoped Refresh/retry, validated
+  completion times and marked older information after transport/deadline failure;
+  stale job evidence cannot enable commands. Preserve the target's compact detail
+  tabs and retained executor-output conflict handling.
+- Keep both change-evidence panels visible during manual and automatic rereads,
+  preserving pages, filter drafts, open evidence and focus. Add project Refresh,
+  validated completion times and marked older evidence with retry after connection
+  or deadline failures; invalid and unauthorized evidence remains hidden.
+- Keep Users rows, access reviews, dialog drafts and focus during manual refresh;
+  record validated completion rather than request start. Refuse failed or changed
+  authority and cancel pre-write reads before strict post-account-change validation.
+- Preserve Project Access reviews/focus and Settings groups through background and
+  monitoring results. Keep guarded drafts and validate saved values without remounting.
+  Detected project rename/archive/monitoring changes latch confirmations invalid,
+  including reverts and in-flight responses; require a fresh review before saving.
+- Bind monitoring, archive, restore and delete callbacks/notices to current project
+  authority. Cancel obsolete browser submissions without claiming server rollback;
+  unchanged delete drafts survive, changed reviews cannot submit, and removed projects
+  return to the directory. Observed results supersede pre-result reporting/jobs/audit
+  reads without remounting or trusting old action evidence.
+- Bound/coalesce operation reads without changing cadence or treating unreadable
+  completion as success. Ticket results revalidate metadata without rereading forge
+  tickets/comments or closing bodies. Changed project authority invalidates reviews;
+  monitoring pause/resume invalidates old Start reviews even after revert, while
+  independent Stop and a fresh eligible manual Start remain valid while paused.
+- Remove private views and cancel browser requests immediately on sign-out or detected
+  authentication/access loss. Recheck changed sessions or require explicit sign-in
+  without denial loops; coalesce applicable factory-session checks and reject corrupt
+  transitions. Coalesce bounded project metadata reads without letting an older
+  response replace a newer host-check result.
+
+## [0.15.0] - 2026-11-12
+
+### Added
+
+- Configure whether each project requires human approval before PR/MR publication.
+
+- Import complete project ZIPs in one automatically validated dialog, retaining
+  exact configuration and executor image sources together with monitoring paused.
+
+- Retain shared executor image recipes from Dockerfiles or source ZIPs and export
+  project configuration with complete local-base definitions from one compact dialog.
+- Include the standard executor base definition automatically in source exports.
+
+### Fixed
+
+- Compact Project Summary, remove its redundant executor tile, show Settings save controls only for pending work, and align Job scope with Tickets/Jobs tabs.
+- Remove the verbose job-search hint while retaining the search limit and filters.
+
+- Redesign Job details with a compact ticket heading, explicit next action, resources and evidence tabs.
+
+- Save complete project exports directly, with recipe administration kept in Technical details.
+
+- Align the ticket Actions header and buttons to the right, keeping desktop actions on one row.
+
+- Keep raw configuration export options and feedback in dialogs with symmetric Settings actions.
+
+- Keep Provider, Model and other single-line Settings controls at normal height.
+- Retain verified executor output through live read conflicts and summarize completed launches.
+
+### Added
+
+- Web imports automatically prepare missing shared executor and network-proxy
+  images, show progress, share concurrent preparation and support retry before
+  saving a project. Existing images are reused, including through WSL.
+
+- Jobs identifies AEGIS and Direct workflows and shows recorded agent attempts.
+- Enroll repositories with or without AEGIS. ChatGPT subscriptions use server
+  sign-in without an API-key selector; container choices include detected WSL runtimes.
+- ADORE observes the agent's AEGIS journal and direct summaries, binds candidates
+  to human approval and publishes approved changes. Repository checks belong to
+  the agent; ADORE no longer runs strict AEGIS checks or standalone test commands.
+
+
+### Fixed
+
+- Restore enrollment and raw import actions after deleting the last project,
+  and simplify the delete confirmation while keeping the exact-name instruction.
+
+- Simplify enrollment helper text and credential spacing; automatically check setup
+  and server access on entering Verification, with one manual recheck action.
+
+- Check the configured container daemon, including WSL, during readiness and report
+  unavailable services or executor images before starting ChatGPT sign-in.
+
+- Read rewritten Direct summaries reliably on Windows, retaining file replacement
+  and modification checks.
+- Keep Direct Jobs readable across publication reset/retry history, while refusing
+  invalid execution stages.
+- Make tests independent of host shells, default encodings, newline
+  conversion and symlink privileges; give large parameter cases bounded test IDs.
 
 - Use the configured workflow Python for both AEGIS probes during `adore init`, and name it when unavailable.
 
@@ -114,12 +130,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Open Add user and account password resets from the Users list with shared confirmation and eye buttons. Own-password changes also use confirmation and eye buttons.
 
 - Announce the initial web account and remind its administrator to change the factory password.
-
-- Immediately remove private web views and cancel browser requests on sign-out or
-  detected HTTP authentication/access loss, including Settings prices and explicit
-  child reads. Recheck changed sessions or require explicit sign-in instead of an
-  automatic denial loop. Keep new sign-in behind the bounded sign-out request;
-  coalesce applicable factory-session checks and fail closed on invalid transitions.
 
 - Clarify enrollment and project settings, preserve current readiness evidence, and support Pi reasoning effort.
 
@@ -147,9 +157,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Concurrent job deletion no longer interrupts project/run listings; corrupt state remains visible and unrelated read errors still propagate.
 
-- Coalesce project metadata reads across initial loading, session reminders and
-  refresh triggers, with bounded cancellation. A late project-list response cannot
-  replace a newer host-check result; subsequent background polls still refresh verification.
+- A late project-list response no longer replaces a newer explicit host-check result; subsequent background polls still refresh verification.
 
 ### Changed
 
@@ -158,6 +166,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Delete each configured statistics database before starting this build; summaries now record workflow.
 
 - Store agent prompts as shipped Markdown files in `adore/prompts/`, preserving the text sent to Pi.
+- Use the executor's completed AEGIS validation for candidate approval, eliminating the duplicate strict run by ADORE.
 
 - Offer detected Docker and Podman commands in project Settings, including Windows WSL, with manual entry and WSL image suggestions.
 
@@ -177,6 +186,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 
 ### Added
+
+- Export a reviewed Docker build bundle alongside the raw project configuration.
 
 - Support ChatGPT subscription sign-in and scoped Pi execution natively on Windows and Linux/WSL2, with temporary stage tokens.
 

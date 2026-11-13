@@ -1,5 +1,7 @@
 # Adăugarea unui repository
 
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
 Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.
 
 
@@ -13,21 +15,22 @@ O autentificare CLI externă reușită rămâne parțială deoarece se poate sch
 Pregătiți următoarele:
 
 - Adresa repository-ului (https sau ssh) pe care contul serverului ADORE o poate citi. ADORE îl clonează în propriul dosar când creați proiectul.
-- O **Comandă de verificare** opțională pentru un repository fără AEGIS. O puteți lăsa goală; candidatul rezultat rămâne atunci explicit neverificat.
 - Un cont GitLab, GitHub sau Gitea care poate citi și actualiza tichetele și poate crea cereri de revizuire ciornă.
 - Numele etichetelor ready și de aprobare. O persoană adaugă eticheta ready pentru ca un tichet să devină eligibil; vezi [Tichete pentru preluare automată](/help/tickets#labels).
-- ID-ul modelului pentru agentul de programare Pi și, pentru un proiect în container, o imagine de pe server construită din imaginea de bază ADORE, care conține Pi. Vezi [Executori și modele](/help/executors).
+- ID-ul modelului pentru Pi și, pentru containere, un serviciu Docker sau Podman pornit. Imaginea comună implicită se pregătește automat la import; imaginile personalizate trebuie să existe deja în acel serviciu. Vezi [Executori și modele](/help/executors).
 
 ## Înrolarea unui proiect nou {#add-project}
 
 Alegeți **Înrolează un proiect nou** în [Proiecte](/projects). Asistentul ghidat începe cu Repository și identitate și are cinci pași, iar schimbarea oricărui răspuns face ca validările și verificările anterioare să devină învechite.
+
+Când nu mai există proiecte, Prezentare și Proiecte oferă administratorilor **Înrolează un proiect nou** și **Importă configurația brută**. Ștergerea ultimului proiect vă readuce la Proiecte, unde ambele acțiuni rămân disponibile.
 
 | Pas | Ce cere |
 |---|---|
 | Repository și identitate | **URL-ul repository-ului** și **Citește repository-ul**: ADORE completează **Forge**, **Depozit**, **Gitea tea login**, **Ramură țintă** și ID-ul proiectului, pentru confirmare, și propune o **Calea clonei locale** pe care o puteți schimba. **Continuă** rămâne dezactivat până când repository-ul a fost citit. **Nume afișat** pornește de la numele repository-ului; **Descriere** este opțională. |
 | Agent și model | Alegeți **Furnizor**, **Model** și detaliile endpointului, dacă este necesar. Pentru container, alegeți runtime-ul și imaginea. Salvați cheia furnizorului în Setări după creare. Pentru **Instalat pe server** apar contul curent al sistemului și opțional **PATH pentru uneltele proiectului**. |
 | Eligibilitate, recenzori și limite | **Etichetă ready**, **Etichetă de aprobare**, **Revizori (separați prin virgulă)** opționali și patru limite per lucrare: lansări ale executorului, secunde active, cost raportat în USD și fișiere modificate. O limită de cost 0 dezactivează acea limită; nu înseamnă gratuit. |
-| Verificare | **Validează configurarea** verifică structura și folderele de pe server. **Verifică mediul** testează Git și accesul la forge. **Workflow** arată separat fluxul observat al repository-ului, fără să blocheze înrolarea. Pentru execuția nativă, **Pi pe server** afișează erorile locale, inclusiv versiunile Node incompatibile. Pentru execuția în container, se verifică motorul și Pi din imaginea locală. Nu se publică nimic. **Continuă** deschide revizuirea după ce configurarea este validă. |
+| Verificare | Deschiderea acestui pas verifică automat configurarea, folderele serverului, Git și accesul la forge. **Reverifică mediul** repetă aceste verificări. **Workflow** arată separat fluxul observat al repository-ului, fără să blocheze înrolarea. Pentru execuția nativă, **Pi pe server** afișează erorile locale, inclusiv versiunile Node incompatibile. Pentru execuția în container, se verifică motorul și Pi din imaginea locală. Nu se publică nimic. **Continuă** deschide revizuirea după ce configurarea este validă. |
 | Revizuire și creare | Afișează candidatul exact și locațiile de pe server, plus o listă restrânsă **Setări lăsate la valorile implicite** cu valoarea implicită a fiecărei alte setări (doar citire; le schimbați în Setări după creare). **Modifică** revine la un pas. **Creează cu preluarea oprită** clonează întâi repository-ul (dintr-un URL), verifică ramura țintă, apoi salvează proiectul și, dacă nu debifați **Creează etichetele ADORE în repository**, creează etichetele ADORE lipsă și arată rezultatul; urmează **Deschide proiectul**. |
 
 Pentru execuția locală nativă alegeți **Rulează în → Instalat pe server**. Configurările specializate de container folosesc metoda avansată cu TOML de server de mai jos.
@@ -40,18 +43,15 @@ Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent
 
 ## Fluxurile repository-ului {#workflows}
 
-Se pot înrola repository-uri cu sau fără AEGIS. ADORE nu instalează, actualizează sau modifică AEGIS și nu adaugă fișiere în clonă la înrolare. Nu selectați un flux:
+La confirmarea înrolării ghidate sau a unui import de configurație, ADORE pregătește imaginile comune de execuție și de proxy care lipsesc, înainte să salveze proiectul. Progresul arată etapa curentă; prima pregătire poate dura câteva minute și necesită internet pe server. Importurile următoare reutilizează imaginile. După un eșec al pregătirii, reîncercați importul fără să introduceți din nou aceleași răspunsuri. Importurile native omit pregătirea containerelor. Definițiile imaginilor personalizate rămân în responsabilitatea administratorului.
 
-- **AEGIS, etapă cu etapă** înseamnă că există `.agentic/aegis.py`; `.agentic/aegis.toml` nu este necesar pentru înrolare. ADORE conduce etapele AEGIS ale repository-ului și folosește comenzile sale de test.
-- **Direct, AEGIS nu a fost găsit** înseamnă că o clonă inspectată nu conține `.agentic/aegis.py`. Pi implementează tichetul într-o sesiune limitată; ADORE rulează apoi comanda de verificare opțională înaintea aprobării umane.
-
-**Workflow** este informație, nu o cerință eșuată sau o verificare de versiune. Până când există clona locală, aceasta este neinspectată; previzualizarea și verificările nu o clonează. Crearea păstrează rezultatul măsurat. Rulați **Verifică cerințele gazdei** după creare pentru a inspecta clona nouă. Verificarea efectivă dinaintea preluării tichetelor refuză în continuare un AEGIS prezent, dar defect sau nesuportat; nu trece niciodată automat la Direct.
-
-La intrarea în Verificare, ADORE citește folderele serverului și validează configurarea fără comenzi externe. **Comandă de verificare** este opțională. Pentru o clonă directă existentă, se completează dacă fișierele repository-ului oferă o sugestie, cu **Sugerat din** și fișierul sursă. Păstrați, modificați sau goliți comanda; verificările și previzualizările ulterioare păstrează modificările, inclusiv golirea. Fără potrivire sau înainte de crearea clonei, rămâne goală. Sugestiile verifică întâi manifestele din rădăcină, apoi un singur folder potrivit de prim nivel; mai multe foldere potrivite nu dau nicio sugestie. Legăturile în afara clonei și fișierele peste 1 MiB sunt ignorate. Nicio sugestie nu este executată sau confirmată funcțională, iar Setări nu înlocuiește niciodată o valoare salvată cu o sugestie. Introduceți o comandă shell pe o singură linie; sfârșiturile de linie și NUL sunt refuzate cu un mesaj, nu eliminate. Înrolarea salvează textul exact, fără să îl execute. Verificarea directă pornește din rădăcina worktree-ului lucrării, în mediul ales și sub limita sa de validare. Gol înseamnă neverificat. Pentru un repository AEGIS inspectat, câmpul este înlocuit cu **Folosește comenzile de test AEGIS ale repository-ului**. Modificați comanda salvată ulterior în Setări → Implementare; vedeți [Comandă de verificare](/help/settings#verification-command).
+**AEGIS / Direct**. Agentul descoperă și rulează verificările conform instrucțiunilor repository-ului. Cu AEGIS urmează etapele înregistrate; fără AEGIS implementează direct tichetul. ADORE urmărește progresul și jurnalul, înregistrează candidatul și cere aprobarea umană. Nu rulează separat testele repository-ului sau verificări AEGIS stricte.
 
 ## Importă configurația brută {#import-project}
 
-În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog fișierul UTF-8 `config.toml` exportat. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează fișierul octet cu octet.
+În [Proiecte](/projects), alegeți **Importă configurația brută** și selectați în dialog ZIP-ul exportat sau fișierul UTF-8 `config.toml`. ADORE verifică automat fișierul, căile de pe server, dosarul de stare și secretele incluse. Corectați problemele semnalate în fișier și selectați-l din nou. Alegeți **Importă** după validare. Proiectul nou pornește cu monitorizarea în pauză și păstrează configurația octet cu octet.
+
+Selectează direct ZIP-ul exportat complet: configurația și definițiile imaginilor sunt importate împreună. ADORE verifică și graful surselor, corespondența imaginii și definițiile existente. O definiție diferită care folosește deja numele imaginii principale este refuzată. Fișierele TOML pot avea până la 512 KiB, iar ZIP-urile până la 18 MiB. Construiește imaginile separat pe serverul destinație, folosind fișierul Compose inclus. Vezi [Setări → Exportă configurația brută](/help/settings#toml).
 
 
 Un proiect nou începe cu monitorizarea oprită. Dezvoltatorii îl văd după ce un administrator acordă accesul în fila **Acces** a proiectului. În fila **Rezumat**:

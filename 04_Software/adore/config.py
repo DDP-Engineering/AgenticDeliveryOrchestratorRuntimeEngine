@@ -43,6 +43,7 @@ from adore.branding import (
     PRODUCT_SLUG,
     UV_CACHE_VOLUME,
 )
+from adore.build_bundle import BuildBundleError, definition_parts
 from adore.chatgpt import MAX_STAGE_SECONDS as CHATGPT_MAX_STAGE_SECONDS
 from adore.pi_providers import (
     CHATGPT,
@@ -432,6 +433,7 @@ class ContainerConfig:
 
     runtime: str = "docker"
     image: str = EXECUTOR_BASE_IMAGE
+    build_definition: str = ""
     system_packages: bool = False
     keep_parked: bool = True
     parked_ttl_mode: str = "polls"
@@ -467,7 +469,7 @@ class WorktreeConfig:
 @dataclass
 class WorkflowConfig:
     """
-    @brief   [workflow] - direct verification and AEGIS task policy.
+    @brief   [workflow] - how ticket labels map onto an AEGIS task.
     @details `kind_labels` maps a ticket label to an AEGIS task type; fix/bug
              labels win over change, then configured feature labels, with
              `default_kind` used when none match. The quick label is a framing
@@ -475,9 +477,7 @@ class WorkflowConfig:
              AEGIS's documented eligibility rules. `stage_timeout_overrides`
              raises or lowers the
              per-executor-launch bound for individual stages; anything absent
-             uses [budgets] per_gate_timeout_seconds. `verify_command` is an
-             optional single-line shell command for direct runs only; AEGIS
-             ignores it and uses the repository's own verification commands.
+             uses [budgets] per_gate_timeout_seconds.
     """
 
     default_kind: str = "feature"
@@ -486,7 +486,6 @@ class WorkflowConfig:
     )
     quick_label: str = "agent-quick"
     aegis_python: str = "python"
-    verify_command: str = ""
     stage_timeout_overrides: dict[str, int] = field(default_factory=dict)
 
 
@@ -532,6 +531,7 @@ class DeliveryConfig:
     reviewers: list[str] = field(default_factory=list)
     remove_source_branch: bool = True
     approval_label: str = "agent-approved"
+    require_human_approval: bool = True
     publish_checkpoints: bool = True
 
 
@@ -542,7 +542,7 @@ class ReviewConfig:
     @details `on_pipeline_failure` decides what a red forge pipeline on the
              published draft does. "revise" starts a governed repair round on
              the SAME bounded path the revise label uses, so the repair still
-             ends at a fresh human approval before anything is pushed;
+             follows the project publication approval policy;
              "notify" posts one comment and waits for a human; "ignore" skips
              the pipeline read entirely. Every mode obeys `max_review_rounds`.
     """
@@ -819,6 +819,10 @@ def load_config(path: str | Path) -> Config:
     """
     with Path(path).open("rb") as handle:
         raw = tomllib.load(handle)
+    # Older profiles may retain the removed independent-check setting. Ignore it
+    # without rewriting the file or exposing it in the effective configuration.
+    if isinstance(raw.get("workflow"), dict):
+        raw["workflow"].pop("verify_command", None)
     config = Config(
         agent=_build_section(AgentConfig, raw.get("agent")),
         platform=_build_section(PlatformConfig, raw.get("platform")),
@@ -1147,6 +1151,11 @@ def validate_config(config: Config) -> list[str]:
     for section in config.raw:
         check(section in KNOWN_SECTIONS, f"unknown section: [{section}]")
     issues.extend(_unknown_key_issues(config.raw))
+    try:
+        definition_parts(config.container.build_definition)
+    except BuildBundleError:
+        issues.append("[container] build_definition must be a safe relative "
+                      "manifest.json@full-commit")
 
     check(bool(config.agent.name.strip()), "[agent] name must not be empty")
     check(
@@ -1472,12 +1481,6 @@ def validate_config(config: Config) -> list[str]:
 
     workflow = config.workflow
     check(
-        isinstance(workflow.verify_command, str)
-        and not any(char in workflow.verify_command for char in "\x00\r\n"),
-        "workflow.verify_command must be a single-line string without NUL "
-        "(empty means not configured)",
-    )
-    check(
         workflow.default_kind in RUN_KINDS,
         f"[workflow] default_kind must be one of {', '.join(RUN_KINDS)}: "
         f"{workflow.default_kind!r}",
@@ -1562,6 +1565,8 @@ def validate_config(config: Config) -> list[str]:
     )
     check(valid_reviewers(config.delivery.reviewers),
           "[delivery] reviewers must list valid human account names (empty requests no review)")
+    check(type(config.delivery.require_human_approval) is bool,
+          "[delivery] require_human_approval must be a boolean")
     check(type(config.delivery.draft) is bool, "[delivery] draft must be a boolean")
     check(
         type(config.delivery.remove_source_branch) is bool,

@@ -18,8 +18,8 @@ Fiecare grup este închis când deschideți Setări, iar numărul de lângă num
 |---|---|
 | Repository | Forge-ul și repository-ul, login-ul Gitea, **Ramura de integrare** (baza lucrărilor noi și destinația PR/MR-urilor), șablonul numelui ramurii lucrării, cu o regulă opțională de denumire și un exemplu în timp real, precum și numele afișat al agentului, numele resursei și e-mailul autorului commit-urilor. |
 | Tichete | **Eticheta pentru preluare**, **Eticheta de excludere de la preluare**, **Etichete de stare** (pliate), cât de des verifică ADORE forge-ul, dacă tichetele cer criterii de acceptare sau o etichetă de prioritate și tipul implicit de sarcină. Vezi [Tichete pentru preluare automată](/help/tickets#labels). |
-| Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Comandă de verificare**, **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
-| PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |
+| Implementare | Limite per lucrare: **Limita lucrărilor active**, **Numărul maxim de lansări ale executorului per job**, **Limita timpului de lucru activ (secunde)**, **Plafonul costului jobului (USD)**, **Numărul maxim de fișiere modificate per job** și **Limita timpului pentru o încercare de etapă (secunde)**. Conține și **Clarificări**, **Recuperare după erori**, **Limite avansate de timp pe etapă**, **Publică commituri de progres** și eticheta de sugestie pentru traseul rapid. |
+| PR/MR și review | **Solicită review de la**, **Starea PR/MR la publicare** (Draft sau Pregătit pentru review), **Cere aprobare umană înainte de PR/MR** și eticheta de aprobare, **Șterge ramura după integrarea făcută de o persoană**, rundele de revizie și **Acțiune când verificările CI ale PR/MR eșuează** (Reparare automată, Doar notificare sau Ignoră). |
 | Statistici | **Înregistrează măsurătorile lucrărilor finalizate** și **Înregistrează tokenurile raportate de agent**. **Fișierul bazei de date pentru statistici** este afișat doar cu titlu informativ. |
 | Agent și model | Furnizorul, modelul, autentificarea și **Testează conexiunea AI** [Executori și modele](/help/executors). |
 | Detalii tehnice | Valori de instalare doar pentru citire, precum dosarul de stare al lucrărilor, calea repository-ului local și folderele de lucru ale lucrărilor. Se modifică în `config.toml` al proiectului, pe server, iar schimbarea unei căi nu mută datele existente. |
@@ -33,6 +33,8 @@ O insignă **Implicit** înseamnă că `config.toml` al proiectului nu setează 
 Alegeți **Instalat pe server** pentru Pi administrat de ADORE sub contul curent al sistemului. **PATH pentru uneltele proiectului** selectează opțional directoarele cu unelte. Vedeți [Instalarea Pi pe server](/help/executors#installed-executors).
 
 ## Editare {#editing}
+
+Bara **Salvează** și **Renunță la modificări** apare doar pentru modificări nesalvate sau recuperate, în timpul salvării ori când o eroare cere recuperare. Dispare după salvare sau renunțare reușită. Deschiderea unui editor fără schimbarea valorii nu afișează bara.
 
 1. Alege **Editează** lângă fiecare valoare de modificat. Poți edita mai multe setări din grupuri diferite.
 2. Folosește unicul buton **Salvează** deasupra grupurilor. Se activează doar când există valori schimbate și toate modificările sunt valide.
@@ -49,19 +51,17 @@ Reguli aplicabile:
 
 Navigarea și reîncărcarea paginii cer confirmare înainte de a pierde modificările nesalvate. Blocajele scurte de fișier Windows sunt reîncercate automat; dacă salvarea eșuează, verifică accesul la fișier și reîncearcă **Salvează**.
 
-## Comandă de verificare {#verification-command}
-
-În **Implementare**, **Comandă de verificare** este text shell opțional pe o singură linie, salvat ca `[workflow] verify_command`. Administratorii folosesc aceleași acțiuni **Editează** și **Salvează** ca pentru celelalte setări; dezvoltatorii pot citi valoarea, dar nu o pot edita. Câmpul apare și la înrolare; vedeți [Fluxurile repository-ului](/help/projects#workflows).
-
-Pentru fluxul direct, ADORE o execută independent din rădăcina worktree-ului lucrării, în mediul ales și sub limita de validare. Păstrați exact spațiile, ghilimelele și operatorii shell necesari. O valoare goală lasă candidatul explicit neverificat. Sfârșiturile de linie și NUL sunt refuzate cu un mesaj la câmp și împiedică salvarea; corectați textul, nu așteptați eliminarea automată a liniilor noi. Interfața web nu rulează niciodată comanda la înrolare sau salvare.
-
-Lucrările AEGIS ignoră această setare și folosesc comenzile de test AEGIS ale repository-ului. Câmpul rămâne vizibil în Setări pentru ambele fluxuri. Nicio comandă nu este sugerată sau selectată automat.
-
-Implementarea directă folosește limita **Implementare** `build` din `workflow.stage_timeout_overrides`; verificarea independentă folosește **Validare** `validate`. Fiecare revine la limita generală `budgets.per_gate_timeout_seconds` când nu există o suprascriere. Celelalte limite AEGIS nu se aplică joburilor directe.
-
 ## TOML original {#toml}
 
-Lângă titlul Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea deschide un dialog care se poate închide și păstrează textul doar în memorie. Descărcarea oferă `config.toml` salvat exact așa cum este stocat, cu comentarii, formatare și eventualele secrete inline, deci tratați-l ca pe un secret. Niciuna nu include un candidat în așteptare, valorile implicite rezolvate, fișiere `.env` separate sau credențiale externe. Dezvoltatorii nu le pot folosi. Selectați fișierul exportat în [Importă configurația brută](/help/projects#import-project) iar ADORE verifică automat înainte de înrolare căile de pe server, dosarul de stare și secretele incluse în fișier.
+Lângă Setările proiectului, administratorii au **Previzualizare configurație originală** și **Exportă configurația brută**. Previzualizarea arată TOML-ul salvat exact, într-un dialog care poate fi închis. Sunt excluse modificările în așteptare, fișierele de mediu separate, credențialele externe și datele joburilor în curs. Un TOML simplu poate conține valori în clar și trebuie tratat ca secret; exportul complet de construire refuză credențialele în clar.
+
+Apasă **Exportă configurația brută**, alege destinația și salvează. Proiectele în container exportă un ZIP cu configurația salvată și definiția completă a imaginii. Proiectele native salvează `config.toml`. Nu există un panou de configurare a exportului. Dacă browserul nu oferă alegerea destinației, se aplică preferințele sale obișnuite de descărcare. Selectează direct ZIP-ul exportat în Proiecte → Importă configurația brută pentru a importa configurația și rețetele împreună, cu validare automată.
+
+Administratorii gestionează sursele separat în **Detalii tehnice → Definiția imaginii**. Alege un Dockerfile sau ZIP în **Fișier de definiție**; fișierul este verificat automat. **Salvează rețeta** îl păstrează, iar **Schimbă definiția** îl înlocuiește. Tot aici se adaugă bazele locale lipsă. Baza standard a executorului ADORE este inclusă automat.
+
+Definițiile sunt păstrate pe imagine și sunt comune proiectelor care o folosesc. Salvarea unei rețete nu construiește imaginea, nu schimbă setările și nu repornește joburi. ZIP-ul include toate sursele declarate pentru bazele locale și un fișier Compose pentru construire pe alt server. Sunt excluse imaginile binare și pachetele instalate ulterior de agent. Registrele și sursele de pachete trebuie să fie accesibile acolo.
+
+Dacă o rețetă este coruptă, dialogul indică ce trebuie șters pe server pentru a începe din nou. Resetarea catalogului elimină definițiile de imagine salvate pentru toate proiectele; configurațiile, autentificările și joburile rămân neschimbate. ADORE nu șterge niciodată automat aceste date.
 
 ## Pachetele de sistem ale agentului {#system-packages}
 
@@ -80,3 +80,6 @@ Administratorii pot urma **Ajustează bugetele în Setările proiectului**, desc
 Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și reîncercare. Încercarea în curs își păstrează limita de timp. Lucrul activ se cumulează între reîncercări, răspunsuri și revizii; așteptarea este exclusă. Majorarea păstrează consumul, taskul și progresul salvat. Un job eșuat prin epuizarea bugetului cere în continuare **Reia** după ajustare. Configurația nevalidă sau lipsă oprește încercările următoare până la corectare.
 
 Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
+
+
+**Implementare** (`build`) folosește `workflow.stage_timeout_overrides` sau limita generală `budgets.per_gate_timeout_seconds`. Pentru AEGIS, **Validare** (`validate`) limitează tot sesiunea agentului. ADORE nu rulează teste suplimentare; agentul alege verificările locale și CI conform instrucțiunilor repository-ului.
