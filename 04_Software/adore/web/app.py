@@ -227,7 +227,6 @@ _SETUP_ERROR_CODES = {
 }
 _REQUEST_PARTS = ("body", "query", "path", "header", "cookie")
 _LOW_STORAGE_BYTES = 1024**3
-_READINESS_SCHEMA = 3
 _TERMINAL_RUN_LIFECYCLES = ("done", "failed", "cancelled", "handed-off")
 _DELETABLE_RUN_LIFECYCLES = (*_TERMINAL_RUN_LIFECYCLES, "handoff-pending")
 
@@ -803,12 +802,6 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
         if path.stat().st_size > 16384:
             raise ValueError("oversized readiness")
         value = strict_json_loads(path.read_text(encoding="utf-8"))
-        # Readiness is replaceable evidence, not project configuration. Older
-        # formats carry no authority after an upgrade. Keep reads side-effect
-        # free; an explicit host check atomically replaces the legacy record.
-        if (isinstance(value, dict) and type(value.get("schema")) is int
-                and 0 < value["schema"] < _READINESS_SCHEMA):
-            return {"status": "unverified", "revision": None, "checked_at": None}
         keys = {
             "schema",
             "project_id",
@@ -825,7 +818,7 @@ def _verification_view(profiles: ProfileStore, profile, revision: str | None) ->
             not isinstance(value, dict)
             or set(value) != keys
             or type(value["schema"]) is not int
-            or value["schema"] != _READINESS_SCHEMA
+            or value["schema"] != 3
             or not _valid_workflow(value["workflow"])
             or value["project_id"] != profile.project_id
             or not isinstance(value["revision"], str)
@@ -1633,7 +1626,7 @@ def _publish_paused_locked(
                 _write_pending_config(
                     directory / "readiness.json",
                     {
-                        "schema": _READINESS_SCHEMA,
+                        "schema": 3,
                         "workflow": readiness["workflow"],
                         "project_id": item.project_id,
                         "host": readiness["host"],
@@ -4297,7 +4290,7 @@ def create_app(home: str | Path | None = None,
                     or not _valid_readiness_checks(evidence.get("checks"), config)):
                 raise _error(503, "readiness_probe_failed")
             value = {
-                "schema": _READINESS_SCHEMA,
+                "schema": 3,
                 "workflow": evidence["workflow"],
                 "project_id": item.project_id,
                 "revision": revision,

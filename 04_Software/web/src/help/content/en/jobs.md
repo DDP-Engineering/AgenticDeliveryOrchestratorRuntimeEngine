@@ -21,8 +21,6 @@ ADORE runs the AEGIS stages one at a time, each attempt in a fresh executor sess
 
 The quick path runs Frame, Build and Validate. After Validate the job shows the stage **Done** while it waits for approval, is published and is in human review. AEGIS may return to any earlier stage on the selected path, including Design to Specify. ADORE saves the stage and continues in a fresh session within the existing limits. A done task returns to Validate when fresh verification is needed. A stage gets three failed attempts by default (**Failed attempts allowed per stage**).
 
-Historical jobs without a saved workflow remain readable when their AEGIS tasks or stages identify it. Reading preserves the original history and state files; ambiguous or corrupt records still require operator attention.
-
 ## Direct jobs {#direct-evidence}
 
 The list and job page show **Workflow**: **AEGIS** or **Direct**, as recorded for that job. A direct job uses **Implementation** (`build`), **Validation** (`validate`), then **Done**. It has no Framing, Specification, Design or AEGIS task. The timeline shows only saved events, not assumed completed steps.

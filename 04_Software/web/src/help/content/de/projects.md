@@ -5,7 +5,7 @@ Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Admini
 Fügen Sie ein Repository als Projekt hinzu, damit ADORE seine bereiten Tickets aufnehmen, einen Coding-Agenten darauf ansetzen und Entwürfe für Merge Requests oder Pull Requests zur menschlichen Prüfung veröffentlichen kann. Nur Administratoren fügen Projekte hinzu, und ADORE führt nie einen Merge aus.
 
 
-Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung. Nach einem Update gelten Host-Prüfungen in einem älteren Format automatisch als ungeprüft. Starten Sie die Host-Prüfung erneut, um ein aktuelles Ergebnis zu erhalten.
+Eine aktuelle Umgebungsprüfung wird an das erstellte Projekt übertragen. Ungeprüfte Voraussetzungen bleiben teilweise geprüft; Konfigurationsänderungen machen das Ergebnis veraltet. Wiederholen Sie eine abgelaufene Prüfung.
 
 
 Eine erfolgreiche externe CLI-Anmeldung bleibt teilweise geprüft, da sie sich außerhalb von ADORE unbemerkt ändern kann. Verbinden Sie den Repository-Zugang und prüfen Sie erneut, um die Projekt-Zugangsdaten zu binden.

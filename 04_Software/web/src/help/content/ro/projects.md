@@ -5,7 +5,7 @@ Aprobarea umană înainte de publicare este activată implicit. Administratorii 
 Adăugați un repository ca proiect pentru ca ADORE să poată prelua tichetele lui pregătite, să ruleze un agent de programare pe ele și să publice MR/PR-uri ciornă pe care oamenii să le revizuiască. Doar administratorii adaugă proiecte, iar ADORE nu integrează niciodată modificările.
 
 
-O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou. După upgrade, verificările gazdei salvate într-un format vechi devin automat neverificate. Rulează o nouă verificare a gazdei pentru un rezultat actual.
+O verificare actuală a mediului se transferă proiectului creat. Cerințele neverificate rămân parțiale; schimbarea configurației învechește rezultatul. Dacă verificarea expiră, ruleaz-o din nou.
 
 
 O autentificare CLI externă reușită rămâne parțială deoarece se poate schimba în afara ADORE fără o modificare observabilă. Conectați accesul la repository și verificați din nou pentru a lega credențialele proiectului.

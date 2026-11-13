@@ -45,7 +45,7 @@ text = { en = "Compact model fields, one Save and direct complete export; image 
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Jobs preserve history from older builds and stop checkpoints containing suspicious new paths.", fr = "Les tâches gardent leur ancien historique et arrêtent les points de contrôle aux chemins suspects.", de = "Jobs bewahren ältere Verläufe und stoppen Prüfpunkte bei verdächtigen neuen Pfaden.", ro = "Lucrările păstrează istoricul vechi și opresc punctele de control cu căi noi suspecte." }
+text = { en = "Jobs preserve progress and stop checkpoints containing suspicious new paths.", fr = "Les tâches gardent leur progrès et arrêtent les points de contrôle aux chemins suspects.", de = "Jobs bewahren Fortschritt und stoppen Prüfpunkte bei verdächtigen neuen Pfaden.", ro = "Joburile păstrează progresul și opresc punctele de control cu căi noi suspecte." }
 
 [[release.entry]]
 category = "fixed"
@@ -55,7 +55,7 @@ text = { en = "ChatGPT works natively on Windows/Linux. Container checks explain
 [[release.entry]]
 category = "fixed"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Old checks reset after upgrades; enrollment stays available after deleting the last project.", fr = "Inscription après suppression rétablie ; les anciens contrôles expirent lors des mises à jour.", de = "Nach letztem Löschen wieder registrieren; alte Host-Prüfungen verfallen beim Update.", ro = "Înrolare după ștergerea ultimului proiect; verificările vechi se invalidează la upgrade." }
+text = { en = "Keep sign-in and Pi errors; retry Windows locks. Restore enrollment after deleting the last project.", fr = "Connexion, Pi et verrous Windows corrigés. Inscription possible après la dernière suppression.", de = "Anmeldung, Pi-Fehler, Windows-Sperren: korrigiert. Nach letztem Löschen wieder registrieren.", ro = "Păstrează autentificarea și erorile Pi; reia blocările Windows. Înrolare după ultimul proiect șters." }
 
 [[release.entry]]
 category = "fixed"

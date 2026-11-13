@@ -25,12 +25,6 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
-- Read historical AEGIS jobs missing only `workflow` from saved task ownership or
-  AEGIS-only stages, preserving all history, state fields and project data.
-
-- Invalidate legacy host-readiness records automatically after upgrades, keeping
-  project lists accessible and allowing a fresh check to replace old evidence.
-
 - Compact Project Summary, remove its redundant executor tile, show Settings save controls only for pending work, and align Job scope with Tickets/Jobs tabs.
 - Remove the verbose job-search hint while retaining the search limit and filters.
 
@@ -123,8 +117,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
-- Preserve historical AEGIS run state when its saved tasks or stages identify the
-  missing workflow; other incompatible records still require explicit recovery.
+- Delete the run-state directories under each configured `store_root/runs/` before starting this build.
 
 - Delete each configured statistics database before starting this build; summaries now record workflow.
 
@@ -137,8 +130,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 - Refresh project Settings, Access, History and global Change history automatically. Settings pauses while edits are unsaved. Project History uses automatic updates in place of its Refresh buttons.
 
-- Invalidate older readiness formats automatically; workflow observations remain
-  separate from prerequisite checks.
+- Delete each project profile’s `readiness.json` before starting this build; workflow observations are now separate from prerequisite checks.
 
 - Ticket details place Body display and its selector together on the right of the description heading; action buttons wrap without splitting words when details open.
 
@@ -233,7 +225,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - **Test AI connection in a container runs over Pi's RPC mode** with the same challenge as Pi installed on the server (one shell command that prints a nonce, then an exact reply) and reports `credential-missing` (no key saved or set; no container starts), `credential-invalid`, `connection-failed` (provider or endpoint unreachable), `model-unavailable`, `rate-limited` and `provider-error` separately, with guidance in four languages.
 - **BREAKING: Pi is ADORE's only coding agent; OpenCode, Codex and Qwen Code support is removed.** `[executor]` takes `provider` and `model`. Container runs use the image's pinned Pi. Server runs use managed Pi and require removing any explicit `[executor] command`. `default`, `stage_host_auth`, every `[executor.<name>]` table (`[executor.pi]` included) and `[labels.executor]` are refused as unknown keys, and `[container] runtime_env` or `[local] environment` names starting `OPENCODE_`, `CODEX_` or `QWEN_` are refused; move the model to `[executor] model` and delete the rest. Removed with them: the agent choice in Settings → Agent and model, enrollment and `adore init`; host sign-in staging (`stage_host_auth`, auth mode `host-auth`; container projects use provider API keys); the OpenCode-compatible endpoint form, model catalogue, endpoint probe and the host check's model-endpoint row (the Test AI connection result still shows there); local OpenCode configuration isolation and `CODEX_HOME`; and OpenCode, Codex and Qwen Code in the executor image, which now installs only Pi and pi-web-access as the coding agent. Before starting this build, finish or cancel active jobs and delete each profile's `readiness.json`, `model-connection.json` and `pending_config.json`; Statistics keeps the executor names stored with earlier usage.
 - **Pi in containers runs through its RPC mode.** The executor image pins Node 22.23.4, Pi 1.4.0 and pi-web-access 0.46.0 (checked by `docker/verify-runtime.sh`) and ships ADORE's Pi guard extension. Each stage starts one `pi --mode rpc --no-session` process with an ADORE-owned agent directory (`/home/adore/.adore-pi-agent`) and none of the personal skills, extensions, templates, themes or MCP servers; the guard, loaded with `-e` without project trust, blocks `git push` and `gh`/`glab`/`tea`. ADORE sends `abort` at the stage timeout or on cancel and ends the process after a grace period; failures name their class (credential, sign-in, rate-limit, model, network, provider); token usage is summed over the turns and Pi's estimated cost is not reported. Both execution environments use a fixed RPC launcher. A Pi agent directory mounted at `/home/adore/.pi/agent` is no longer read, so a ChatGPT subscription uses the server's ChatGPT sign-in instead (see Added). Rebuild `adore-executor-base:1.0.0` before starting this build.
-- ADORE rejects incompatible data from earlier builds, except for legacy readiness caches and identifiable AEGIS runs missing only `workflow`. Run state at the removed `deliver` stage or missing a current key, `profile.json` with unknown or missing keys, `config.toml` keys this build does not read (such as `[state] channel` or the Codex `{resume}` placeholder), a `metrics.db` with other columns, journal events without a timestamp or with one lacking its UTC offset, usage events without an event ID, pending configuration candidates staged by an earlier build, and audit rows without evidence are refused with a message that names what to delete or fix. The retired image-build subsystem and its `/image-build` routes are removed, and `adore cleanup` no longer recognises container and network names cut by earlier builds; remove such leftovers with the runtime CLI (Recovery_And_Maintenance.md). Statistics Trends no longer shows **Usage without a consumption date**, which every current usage event has. `POST /config/apply` requires `base_revision`, which the browser already sends. Before starting this build, delete the run directories, `metrics.db` and `pending_config.json` that the refusals name, and remove stale keys from `config.toml`.
+- ADORE no longer reads data written by earlier builds: there are no migrations or compatibility while it is in development. Run state at the removed `deliver` stage or missing a current key, `profile.json` with unknown or missing keys, `config.toml` keys this build does not read (such as `[state] channel` or the Codex `{resume}` placeholder), a `metrics.db` with other columns, journal events without a timestamp or with one lacking its UTC offset, usage events without an event ID, pending configuration candidates staged by an earlier build, and audit rows without evidence are refused with a message that names what to delete or fix. The retired image-build subsystem and its `/image-build` routes are removed, and `adore cleanup` no longer recognises container and network names cut by earlier builds; remove such leftovers with the runtime CLI (Recovery_And_Maintenance.md). Statistics Trends no longer shows **Usage without a consumption date**, which every current usage event has. `POST /config/apply` requires `base_revision`, which the browser already sends. Before starting this build, delete the run directories, `metrics.db` and `pending_config.json` that the refusals name, and remove stale keys from `config.toml`.
 - **Test AI connection** for Pi installed on the server now asks the agent to run `echo <nonce>` with its shell tool and then reply with a second nonce. It reports connected only when the shell call completed and printed the nonce and the reply is exact; a missing, rejected or failed shell call reports the new reason `tool-call-failed`, with guidance in four languages to check the agent's permissions. The local test is bounded at 90 seconds instead of 45 and keeps up to 1 MiB of agent output instead of 64 KiB, so a local Pi test, whose events repeat the whole conversation, can pass at all. Container profiles run the same challenge over RPC. The help text, the host-check row and the docs no longer say tools are never checked.
 - **BREAKING: ADORE conducts AEGIS 0.15.0, where validate closes the task, and
   requires AEGIS 0.15.0 or newer.** The conducted paths are frame, specify,
