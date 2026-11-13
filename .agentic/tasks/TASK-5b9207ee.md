@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: validate
+stage: build
 type: feature
 path: full
 interaction: autopilot
@@ -23,16 +23,14 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] diff reviewed against scope, requirements, design, error paths,
-      portability, security and unrequested work
-- [ ] knowledge pages of changed components current with the reviewed code
-- [ ] project and environment context reconciled with the candidate
-- [ ] requirements re-read: status, prose, verification, paths and links true
-- [ ] manual or inspection verification recorded where applicable
-- [ ] explicit review approved, when enabled
-- [ ] final `check --strict --run` result logged truthfully after the last edit
-- [ ] remaining warnings and pre-existing failures explained
-- [ ] `report` appended
+- [ ] each automated increment has a red line before its implementation and a
+      green line after; each manual one a logged observation
+- [ ] anchor recorded before implementation; evolution reviewed after
+- [ ] focused tests green, with the command and its scope logged
+- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
+      requirement, or `retired` with its reason
+- [ ] affected docstrings, usage examples and setup instructions updated
+- [ ] `check` clean, or each remaining warning explained in the Log
 
 ## Frame
 
@@ -708,19 +706,24 @@ boundaries are covered. No deployed visual/live forge/model acceptance is claime
 - 2026-11-13 build: Final build audit: evolution exit 0 reviewed all 70 post-anchor paths (13 added/55 modified/2 removed) against D1-D8, including preserved code, proof, localized help/notes and old/new static assets. Current increment changes 45/60 scoped paths including 36 requirement activations/link updates, two reconciled specs, component/knowledge proof and four browser files; no new product/dependency/backend/schema/payload change. All 127 static input and 7 output SHA-256 hashes independently match, so test/docs-only edits require no bundle rebuild. git diff --check and release-note check exit 0. No pending implementation work remains from the build handoffs; strict suite and independent review belong to the next stage.
 - 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 59 warnings, 28 notes. 35 inherited findings (2 ticket-ref/17 stale-path/14 journal-header/2 unticked legacy deliver) remain outside scope. Twenty-two uncovered-source heuristics classify frontend helper/browser tests as product source; actual linked_tests now exist on all 42 task requirements, so do not put tests into affected_paths to silence them. Two password-literal warnings are reviewed false positives: usersRefresh uses a deliberately fake offline password, and minified JS matches localized UI labels (password:Password/Mot de passe/Passwort/Parola and reveal/reset/change labels), not credentials. Independent static fingerprints match. This refines the earlier unavailable-minified-scan description without rewriting its history. Existing large-chunk build warning remains; no dependency/splitting expansion. No warning identifies an unresolved product defect; full strict proof/independent review is intentionally not claimed at build.
 - 2026-11-13 build: completed; next validate
+- 2026-11-13 validate: Validate session bounds: 45 minutes, at most 12 ticket-scoped changed files and 8 focused verification commands before final proof. Review current candidate and all contracts first; route any implementation defect to build and stop at that boundary. Full strict proof runs only after reconciliation and enabled independent approvals; no publication or payload edits.
+- 2026-11-13 validate: Independent read-only round-1 reviews completed using two separate ephemeral Pi reviewer sessions (specification and implementation quality; no child journals or repository edits). Both returned changes_required. Shared high-severity finding: statistics.ts:206-212 checks canonical metrics/usage equality per project but not across projects; App.tsx:472 subsequently aggregates outside owned validation and metrics.ts:43-46 throws on inconsistent global intervals, with no root error boundary. Existing statistics helper mismatch test is single-project and global browser fixtures use consistent intervals. Required correction: validate common cross-project canonical reporting fields (excluding identity) and all potentially throwing aggregate work before ready publication; add two-project helper/browser negatives asserting explicit error/Retry, withheld report/exports, no pageerror or false success time, and successful recovery.
+- 2026-11-13 validate: Focused validation reproduction: node /tmp/task77-review/reporting-repro.mjs exit 1 (expected failing contract assertion). Reused the existing statistics.test.mjs licensed fixture definitions to build alpha/beta metrics and usage: identical requested UTC calendar day, valid matching metrics/usage within each project, alpha canonical interval 00:00-00:00 and beta 01:00-01:00. Individual production validators accepted both. createReportingRefresh published ready; aggregateMetrics then threw RangeError: Inconsistent server metric scope. Assertion expecting closed error failed. This is a current-candidate trust-boundary defect, not an environment failure or completed proof. No product/test files edited.
+- 2026-11-13 validate: Specification reviewer also found high-severity Settings review authority gap, confirmed by current-source inspection: App.tsx:1152-1168 saveSettings.current checks only session/view/config request generations, while SettingsImpactDialog:1803-1842 receives no name/archive authority binding and disables Confirm only for restart_required with unpaused pickup. Detected /projects rename/archive does not invalidate that continuation, and archive/restore can revive it without new review. Existing settingsRefresh.spec.ts proves unchanged/unrelated review preservation, not changed live authority. Required correction: capture semantic project review preconditions, latch invalidation, expose disabled correction feedback, recheck before pending/apply writes; add archive/rename/restore negatives with zero writes from an invalid review plus unchanged preservation control (REQ-SEC-6d0b0125, D6). Browser reproduction of this second finding was not run; it is independently reviewed and source-confirmed, not claimed as a test outcome. Reconciliation and final strict proof/report remain unfinished and must follow corrections and fresh approvals.
+- 2026-11-13 validate: returned to build - Round-1 independent reviews require two corrections: fail closed before publishing cross-project reporting interval/aggregate mismatches, and latch Settings confirmation invalid when live project name/archive/action authority changes. Add the named negative behavioral tests, preserve unchanged-review continuity, rerun focused proof, then return for round-2 reviews and final strict validation.
 
 ## Rulings
 
 
 ## State
 
-status: ready
-reported: build - completed
-next: start validate: read .agentic/steps/5_validate.md
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
-changed: Completed remaining reporting/Settings/sign-in and external-result/live-identity acceptance; activated all 42 contracts, reconciled reporting specs and component knowledge; preserved current localized docs and verified static assets.
-evidence: 77 helper tests and TypeScript pass; final 50 focused browser cases pass after three fixture corrections; release-note check, 127 input/7 output SHA-256 hashes and diff checks pass; advisory 0 errors.
-issues: Validate must run full strict suite and independent reviews. Earlier 246-case run had three now-corrected fixture failures; no complete green suite claimed. Advisory warnings are inherited/heuristic/false-positive findings; dev replay/native sign-out deadline not separately browser-forced.
+status: waiting
+reported: build - paused
+next: continue build: Round-1 independent reviews require two corrections: fail closed before publishing cross-project reporting interval/aggregate mismatches, and latch Settings confirmation invalid when live project name/archive/action authority changes. Add the named negative behavioral tests, preserve unchanged-review continuity, rerun focused proof, then return for round-2 reviews and final strict validation.
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
+changed: Recorded both independent review findings and confirmed the reporting defect with a focused failing reproduction; product candidate preserved unchanged.
+evidence: node /tmp/task77-review/reporting-repro.mjs exit 1: invalid global scope published ready then aggregateMetrics threw; git diff --check exit 0. Settings authority finding confirmed by source inspection, not browser execution.
+issues: Two high-severity implementation defects remain. Final strict suite and report intentionally not run before corrections; task is not validated or closed.
 spec_compliance:
 implementation_quality:
-review_round:
+review_round: 1
