@@ -1052,6 +1052,13 @@ page and open sections. Each informational resource has its own **Refresh** or
 **Retry**, nonblocking progress and last validated completion time. Slow requests
 are coalesced and end after 30 seconds; navigating or changing context cancels them.
 An unchanged response does not collapse details or reread manual executor output.
+While details replace the table, the Jobs list's Refresh/freshness remains visible
+because commands also depend on that evidence. List failure offers local Retry
+(or explicit Reload first page for a changed snapshot), and a withheld detail
+always offers Close to return to its filters. Activity and Original recorded
+events preserve surviving event identity, selection and reading position as saved
+events are appended. A changed job revision marks retained executor output as
+possibly out of date; only an explicit output read replaces that snapshot.
 
 Submitting a job command cancels older reads while keeping the view in place.
 List, detail and consumption rereads wait while that command is pending or running.

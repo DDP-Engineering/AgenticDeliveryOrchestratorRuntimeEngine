@@ -48,7 +48,8 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, co
     tabs.current?.scrollIntoView({ block: "nearest" });
   };
   const commands = (["retry", "cancel", "restart"] as const).filter(action => commandAllowed(job, action));
-  const events = job.timeline?.slice().reverse() ?? [];
+  // Saved position and immutable fields survive an append; reversed display indexes do not.
+  const events = job.timeline?.map((event, index) => ({ event, key: JSON.stringify([index, event.ts, event.event, event.stage]) })).reverse() ?? [];
   const tabName = (tab: Tab) => tab === "activity" ? text.activity : tab === "technical" ? copy.technical : question ? text.question : copy.artifacts;
   // Only leading editorial comments are omitted from the readable question. The exact source stays below it.
   const readableQuestion = job.waiting.reason?.replace(/^(?:\s*<!--[\s\S]*?-->\s*)+/, "") ?? "";
@@ -97,7 +98,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, co
     </div>
     <section id={`${prefix}-activity`} role="tabpanel" tabIndex={0} aria-labelledby={`${prefix}-activity-tab`} hidden={selected !== "activity"} className="job-detail-content">
       <h3>{text.activity}</h3><p className="field-hint">{copy.observedTimeline}</p>
-      {events.length ? <ol className="job-activity">{events.slice(0, eventLimit).map((event, index) => <li key={index}><time dateTime={event.ts || undefined}>{date(event.ts)}</time><div><strong>{text.events[event.event as keyof typeof text.events] || text.recordedEvent}</strong>
+      {events.length ? <ol className="job-activity">{events.slice(0, eventLimit).map(({ event, key }) => <li key={key}><time dateTime={event.ts || undefined}>{date(event.ts)}</time><div><strong>{text.events[event.event as keyof typeof text.events] || text.recordedEvent}</strong>
         <code>{event.event}</code></div>{event.stage && <span className="job-event-stage">{stageName(event.stage)}</span>}</li>)}</ol> : <p>{copy.unknown}</p>}
       {events.length > eventLimit && <button className="ghost" onClick={() => setEventLimit(events.length)}>{t("all")} ({events.length})</button>}
     </section>

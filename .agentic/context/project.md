@@ -20,37 +20,25 @@ Implementation settings support reviewed edits for human-answer waiting time (po
 
 ADORE, the Agentic Delivery Orchestrator & Runtime Engine, conducts a team's
 opt-in GitHub, GitLab or Gitea tickets. CLI/configured repositories without
-`.agentic/aegis.py` use bounded fresh direct implementation attempts and optional
-independent verification before human approval; an empty command keeps candidates
-explicitly unverified. A present unsupported or
-broken payload is refused without fallback. Web enrollment accepts repositories
-with or without AEGIS. Guided enrollment and scalar/batch settings APIs accept an
-exact optional single-line verification command under existing reviewed revision
-and access boundaries; invalid nontext, CR/LF/NUL are refused with field feedback.
-Enrollment Verification and Settings Implementation expose the optional command
-through one-row textareas, exact domain validation and localized feedback. For an
-inspected direct clone, enrollment prefills only an untouched draft from a shared
-bounded file-only reader and identifies the source in all four locales. Init offers
-the same suggestion with explicit keep/edit/none choices. Root matches precede a
-unique immediate-child match; external links and files over 1 MiB are ignored.
-Discovery never runs a command or publishes configuration. Human edits/clearing
-and saved Settings remain authoritative; only confirmed Create/Save/init persists
-chosen text. An inspected AEGIS enrollment shows the repository-test-command note
-instead, and AEGIS or unavailable clones receive no suggestion.
+`.agentic/aegis.py` use bounded fresh direct implementation attempts. Tests/checks
+belong to the coding agent under repository instructions; ADORE records the candidate
+without independently executing tests. A present unsupported or broken payload is
+refused without fallback. Web enrollment accepts repositories with or without
+AEGIS. Enrollment and Settings expose no independent verification-command setting
+or discovery hint. Reviewed revision/access boundaries and explicit configuration
+publication remain unchanged.
 API and browser readiness report a separate
 read-only workflow observation (AEGIS, Direct or not-inspected) outside prerequisite
 checks and stores schema-3 evidence with strict deletion guidance on corruption.
 Pending-clone evidence transfers unchanged at creation; the runtime pre-pick probe
 remains authoritative. Jobs identifies each saved workflow in the list and detail.
 Direct jobs show only Implementation/build, Validation/validate and Done stage
-evidence without an AEGIS task, plus the last recorded executor attempt and saved
-independent verification command/result, duration and bounded redacted literal tail.
-Passed, failed, timed out, explicit not-configured/unverified and unavailable are
-distinct; unknown workflows and corrupt direct transport fail closed and hide stale
-evidence. Current configuration cannot replace saved results. Four-locale Jobs and
+evidence without an AEGIS task, plus the last recorded executor attempt or explicit
+absence. Unknown workflows and corrupt direct transport fail closed and hide affected
+evidence. Operational executor output remains separately validated and read on demand. Four-locale Jobs and
 Settings help maps direct stage limits to build/validate with general fallback.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
-isolated branch/worktree with container or native local execution, verifies the candidate independently,
+isolated branch/worktree with container or native local execution, observes the agent's AEGIS completion,
 and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval when configured, or automatically after validation and freshness checks when disabled. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
 Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
 Its users are the operator who runs the conductor on a host, the reviewers who
@@ -65,9 +53,8 @@ ADORE's only coding agent.
   evidence does not depend on the Windows code page, and corrupt bytes remain refused.
 - `adore/orchestrator.py` claims tickets, provisions isolation, supervises
   stages or direct implementation, bounds failures, parks clarifications,
-  replays notifications, verifies AEGIS strictly or runs optional direct
-  verification with bounded fresh fixes, records explicit unverified evidence
-  when no command is configured and publishes draft/ready reviews; `adore/state.py` persists schema-1
+  replays notifications, observes AEGIS completion or records the direct candidate
+  without rerunning agent-owned tests and publishes draft/ready reviews; `adore/state.py` persists schema-1
   run state, the single-conductor lock and an append-only JSONL journal.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
@@ -81,10 +68,8 @@ ADORE's only coding agent.
   file-named `PromptError`. Composition and notice selection remain caller-owned.
 - `adore/config.py`, `doctor.py`, `wizard.py`, `profiles.py` and `cli.py`
   provide validated configuration, host readiness probes, assisted setup,
-  profile homes and the `adore` command; `verification_hint.py` supplies shared
-  read-only repository command/source suggestions to CLI init and web preview.
-  Malformed package evidence is a miss, including decoder-limit failures;
-  filesystem/encoding errors refuse discovery rather than guessing a default.
+  profile homes and the `adore` command. Configuration publication remains explicit;
+  neither CLI nor web setup discovers an independent verification command.
   `metrics.py`, `process_log.py`,
   `identity.py`, `branding.py` and `util.py` provide run statistics, mirrored
   logs, derived resource names, identity constants and shared helpers.
@@ -162,15 +147,10 @@ the pinned worktree before the first claim save and retained on continuation.
 The executor's validate session closes an AEGIS task; ADORE verifies that advance
 itself. Direct uses build/validate/done with no task bindings: settled changed
 work without questions saves completion/validate atomically, then checkpoints
-and integrates the target. Configured workflow.verify_command runs independently
-through the owned environment under the validate timeout; pass precedes the final
-checkpoint/fingerprint. Failures/timeouts count once under max_stage_failures and
-route to fresh build sessions with retained sanitized command/exit/output context;
-successful fix builds preserve the count. Exhaustion stops VERIFICATION_FAILED;
-explicit Retry re-arms it while retaining history/work and cumulative budgets.
-Empty configuration records not-configured evidence. Retry can finish completed
-validation without another launch; missing completion needs build authority.
-AEGIS ignores verify_command and keeps its strict commands and counter resets. Both runs
+and integrates the target. The agent owns test selection and execution, including
+reporting checks that require CI or were not run locally. ADORE observes workflow
+completion and does not rerun repository tests or require an independent command.
+Direct validate records the candidate; AEGIS completion follows its durable journal. Both runs
 stay at stage done while awaiting approval, publishing and in review.
 A stage receives a bounded
 number of failed attempts, questions park the run without consuming that
@@ -320,11 +300,8 @@ Project Settings → Agent and model owns the Pi model and launch command settin
 LocalBackend and owned Windows Job/Linux delegated cgroup scopes share the existing
 conductor. Actual machine/account, non-secret environment and installed executable
 identity are pinned. Tools and auth remain operator-owned; worktrees are not host
-sandboxes. Configured direct verification alone permits an exact owned platform
-shell operation (Windows cmd from bound SystemRoot, Linux /bin/sh), with the
-service account's permissions and no container isolation. Ordinary native argv
-shell refusal remains. Verification keeps bounded sanitized true trailing output
-and confirms owned cleanup on success, failure and timeout. The installed Pi uses the account's existing sign-in at
+sandboxes. Native execution retains service-account permissions and owned process
+cleanup boundaries. No independent direct verification command runs in this backend. The installed Pi uses the account's existing sign-in at
 `$PI_CODING_AGENT_DIR/auth.json` (default `~/.pi/agent/auth.json`) or approved
 provider keys. See knowledge/local-execution.md and 01_Documentation/Local_Execution.md.
 

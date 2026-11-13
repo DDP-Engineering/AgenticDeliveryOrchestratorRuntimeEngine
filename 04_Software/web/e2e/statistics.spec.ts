@@ -340,7 +340,8 @@ test("job list and direct detail show lifetime consumption without same-run coll
   await page.goto(`/jobs?project=${alpha}&run=ux-working`);
   const detail = page.locator(".detail-panel"); await expect(detail.locator(".job-consumption").first()).toContainText("12");
   await expect(detail).not.toContainText("Selected period");
-  await expect(detail.locator("details")).toContainText(alpha);
+  await detail.getByRole("tab", { name: "Technical details", exact: true }).click();
+  await expect(detail.getByRole("tabpanel", { name: "Technical details", exact: true })).toContainText(alpha);
 });
 
 test("Dev direct statistics and CSV remain nonfinancial and denied project routes fail closed", async ({ page }) => {

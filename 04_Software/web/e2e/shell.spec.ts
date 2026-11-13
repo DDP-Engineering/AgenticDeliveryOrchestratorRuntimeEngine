@@ -193,7 +193,7 @@ test("failed projects and corrupt metrics fail closed instead of empty or zero",
   await expect(page.locator(".stats-grid")).toHaveCount(0);
 });
 
-test("glossary defines supported human actions with essential field help visible", async ({ page }) => {
+test("glossary defines supported human actions and enrollment links its field guidance", async ({ page }) => {
   await signIn(page);
   await page.getByText("How ADORE works", { exact: true }).click();
   await page.getByRole("navigation", { name: "Help topics", exact: true }).getByRole("link", { name: "Glossary", exact: true }).click();
@@ -205,9 +205,14 @@ test("glossary defines supported human actions with essential field help visible
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("button", { name: "Enroll new project", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Repository and identity", exact: true })).toBeVisible();
-  await expect(page.locator("#enrollment-help-url")).toBeVisible();
-  await expect(page.locator("#enrollment-help-identity")).toBeVisible();
-  await expect(page.getByLabel("Repository URL", { exact: false })).toHaveAttribute("aria-describedby", "enrollment-help-url");
+  await expect(page.getByRole("textbox", { name: "Repository URL", exact: true })).toBeVisible();
+  const help = page.getByRole("link", { name: "Help: Adding a repository", exact: true });
+  await expect(help).toBeVisible();
+  const opened = page.waitForEvent("popup");
+  await help.click();
+  const guide = await opened;
+  await expect(guide.locator(".help-article")).toContainText("Repository URL");
+  await guide.close();
 });
 
 test("pending job details cannot refill another project's view", async ({ page }) => {

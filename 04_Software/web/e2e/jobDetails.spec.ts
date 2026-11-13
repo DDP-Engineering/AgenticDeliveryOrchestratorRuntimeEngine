@@ -5,6 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect } from "@playwright/test";
+import { revalidateVisiblePage } from "./polling";
 
 test.beforeEach(async ({ page, context, request }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
@@ -56,7 +57,7 @@ test("compact details keep filters on return and support keyboard evidence navig
   await page.goto("/projects/alpha/jobs?run=ux-clarification");
   await detail.getByRole("button", { name: "Read the question", exact: true }).click();
   await expect(question).toHaveAttribute("aria-selected", "true");
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   await expect(question).toHaveAttribute("aria-selected", "true");
 });
 
@@ -96,7 +97,7 @@ test("resuming a job removes the active question and its action without rewritin
   await page.goto("/jobs?project=alpha&run=ux-clarification");
   await page.getByRole("button", { name: "Read the question", exact: true }).click();
   resumed = true;
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await revalidateVisiblePage(page);
   const detail = page.locator(".job-details");
   await expect(detail.locator(".job-state .status")).toContainText("Working");
   await expect(detail.getByRole("tab", { name: "Agent question", exact: true })).toHaveCount(0);
@@ -105,4 +106,99 @@ test("resuming a job removes the active question and its action without rewritin
   await detail.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(detail.locator(".job-activity li").first()).toContainText("Work resumed");
   await expect(detail.locator(".job-activity")).toContainText("parked");
+});
+
+
+test("Activity keeps surviving event identity, selection and scroll through unchanged and appended reads", async ({ page }) => {
+  await page.clock.install();
+  let appended = false, hold = false;
+  const releases: Array<() => void> = [];
+  await page.route("**/api/v1/jobs/*/ux-working", async route => {
+    const response = await route.fetch(), data = await response.json();
+    data.job.timeline = Array.from({ length: appended ? 21 : 20 }, (_, index) => ({
+      ts: "2026-11-12T10:00:00Z", event: `saved-event-${index}`, stage: "build",
+    }));
+    if (hold) await new Promise<void>(resolve => releases.push(resolve));
+    await route.fulfill({ response, json: data }).catch(() => {});
+  });
+  try {
+    await page.goto("/jobs?project=alpha&run=ux-working");
+    const detail = page.locator(".job-details"), activity = detail.getByRole("tabpanel", { name: "Activity", exact: true });
+    await activity.getByRole("button", { name: "All (20)", exact: true }).click();
+    const row = activity.locator("li").filter({ hasText: "saved-event-10" });
+    const node = await row.elementHandle();
+    await activity.focus();
+    const panel = await activity.elementHandle();
+    await row.locator("code").evaluate(node => {
+      const range = document.createRange(); range.selectNodeContents(node);
+      const selection = getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+    });
+    await page.evaluate(() => scrollTo(0, 300));
+    const scroll = await page.evaluate(() => scrollY);
+    for (const changed of [false, true]) {
+      appended = changed; hold = true;
+      await revalidateVisiblePage(page);
+      await expect.poll(() => releases.length).toBe(1);
+      expect(await node!.evaluate(node => node.isConnected)).toBe(true);
+      expect(await panel!.evaluate(node => node === document.activeElement)).toBe(true);
+      expect(await page.evaluate(() => getSelection()!.toString())).toBe("saved-event-10");
+      expect(await page.evaluate(() => scrollY)).toBe(scroll);
+      hold = false; releases.shift()!();
+      await expect(page.locator(".jobs-detail-refresh .refresh-feedback")).toHaveAttribute("data-refreshing", "false");
+      expect(await node!.evaluate(node => node.isConnected)).toBe(true);
+      await expect(row).toContainText("saved-event-10");
+      expect(await panel!.evaluate(node => node === document.activeElement)).toBe(true);
+      expect(await page.evaluate(() => getSelection()!.toString())).toBe("saved-event-10");
+      expect(await page.evaluate(() => scrollY)).toBe(scroll);
+      await expect(detail.getByRole("tab", { name: "Activity", exact: true })).toHaveAttribute("aria-selected", "true");
+      if (changed) await expect(activity.locator("li").first()).toContainText("saved-event-20");
+    }
+  } finally { releases.forEach(release => release()); }
+});
+
+test("open detail can exit a closed list failure without losing its list filters", async ({ page }) => {
+  await page.goto("/jobs?project=alpha&view=jobs");
+  await page.getByLabel("Search jobs", { exact: true }).fill("ux-working");
+  await page.locator(".action-jobs-table tbody tr td:first-child a").click();
+  await expect(page.locator(".job-details")).toBeVisible();
+  await page.route("**/api/v1/jobs-page?*", route => route.fulfill({ status: 200, contentType: "application/json", body: "{" }));
+  await revalidateVisiblePage(page);
+  await expect(page.locator(".job-details")).toHaveCount(0);
+  await page.locator(".job-workspace").getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("ux-working");
+  await page.unroute("**/api/v1/jobs-page?*");
+  await page.locator(".jobs-list-refresh").getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.locator(".action-jobs-table tbody tr")).toHaveCount(1);
+});
+
+
+for (const failure of ["snapshot", "incomplete"]) test(`open detail retains explicit ${failure} list recovery and safe exit`, async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/jobs?project=alpha&view=jobs");
+  await page.locator(".table-pagination").getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.locator(".table-pagination")).toContainText("11–");
+  await page.locator(".action-jobs-table tbody tr td:first-child a").first().click();
+  await expect(page.locator(".job-details")).toBeVisible();
+  let rejected = true, zeroReload = false;
+  await page.route("**/api/v1/jobs-page?*", async route => {
+    const query = new URL(route.request().url()).searchParams;
+    if (!rejected) {
+      zeroReload = query.get("offset") === "0" && !query.has("snapshot");
+      return route.continue();
+    }
+    if (failure === "snapshot") return route.fulfill({ status: 409, json: { detail: { code: "job_snapshot_changed" } } });
+    const response = await route.fetch(), data = await response.json();
+    data.complete = false;
+    await route.fulfill({ response, json: data });
+  });
+  await page.locator(".jobs-list-refresh").getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.locator(".job-details")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: failure === "snapshot" ? "Job sources changed" : "Incomplete job response", exact: true })).toBeVisible();
+  await expect(page.locator(".job-workspace").getByRole("button", { name: "Close", exact: true })).toBeVisible();
+  rejected = false;
+  await page.getByRole("button", { name: "Reload first page", exact: true }).click();
+  await expect(page.locator(".job-details")).toBeVisible();
+  expect(zeroReload).toBe(true);
+  await page.locator(".job-details").getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.locator(".table-pagination")).toContainText("1–10");
 });

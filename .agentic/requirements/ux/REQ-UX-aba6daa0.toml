@@ -15,7 +15,7 @@ requirement = """
 While the selected composite job and executor-output evidence binding remain valid, the web interface shall preserve already opened on-demand executor output through parent list/detail/consumption refresh without additional output requests or changes to its provenance, integrity and conflict handling.
 """
 
-verification = "Offline browser: explicitly open executor output, focus and scroll its literal text, then hold/resolve unchanged and unrelated changed parent reads; assert the snapshot remains and no extra output request occurs; changing job or invalidating the existing output binding uses its established unavailable/conflict behavior, never an unverified output fallback."
+verification = "Offline browser: explicitly open executor output, focus and scroll its literal text, then hold/resolve unchanged and unrelated changed parent reads; assert the snapshot remains and no extra output request occurs; a changed job revision retains the verified snapshot with a possibly-out-of-date notice without fetching; a live journal conflict retains it with explicit retry, while changing job, authorization loss or missing identity clears protected output. No unverified output fallback is used."
 
 affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 

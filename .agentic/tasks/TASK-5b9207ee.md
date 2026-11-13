@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -604,6 +606,34 @@ are rebuilt and fingerprint-audited before advance. Full strict proof, fresh
 independent round-3 reviews and task closure remain validate-stage work, not a
 claim made by this build session.
 
+### Compact target integration corrections
+
+Open job detail retains the target detail-replaces-list layout, but list authority
+now has its own visible Refresh/freshness and failure recovery. Closed list failure
+withholds dependent detail/actions with its actual error; Close remains available
+when detail is withheld. Snapshot/incomplete recovery keeps explicit Reload first
+page, proven from a nonfirst page with detail open. Activity keys use original saved
+position plus immutable event fields so appending events does not retarget selected
+text or replace surviving nodes. Existing raw-event paging uses the same identity
+principle.
+
+Task browser fixtures now use target Job actions disclosures, Technical details,
+stdout and Original recorded events, and inspect list controls after Close. Manual
+output fixtures carry the closed provenance fields. Tests preserve retained verified
+output with a stale notice on revision changes and target conflict/retry semantics;
+no automatic output read or integrity relaxation was added. Old visible-only target
+refresh stimuli now exercise real hidden-to-visible transitions. Component/user/help,
+knowledge/context and scoped requirement links reflect the integrated behavior,
+including the target's attempt-only direct evidence and absent independent command.
+
+Focused proof: 70 helpers/help/request contracts pass. The integrated 134-case run
+passed 133 with one obsolete enrollment helper assumption; after adapting its
+accessible textbox and new-tab help link, all 63 jobDetails/jobRefresh/operationRefresh/
+shell journeys pass against the rebuilt candidate. All Jobs/Statistics cases passed
+in the preceding integrated run, and no subsequent product behavior edit occurred.
+This is focused build proof, not a green full suite or independent approval.
+Fresh round-3 reviews, complete strict proof/report and closure remain validate work.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -795,19 +825,29 @@ claim made by this build session.
 - 2026-11-13 validate: Integration verification: npm run typecheck exit 0; node --test tests/jobs.test.mjs tests/help.test.mjs tests/statistics.test.mjs tests/polling.test.mjs exit 0 (65/65); build:e2e exit 0. PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx playwright test e2e/jobDetails.spec.ts e2e/jobRefresh.spec.ts --max-failures=4 exit 1: 2 passed, 4 failed, 17 not run. Target compact-layout/keyboard and unsafe-question tests pass. Target resume test dispatches visible-only visibilitychange, which intentionally does not revalidate under this task. Task list failure test cannot find Retry because !run hides the entire list Refresh; detail/usage tests cannot find Cancel because it now lives in the closed Job actions disclosure. These are real incomplete integration/fixture findings, not a green focused suite. No final strict proof or fresh independent approval/report run against this integrated candidate.
 - 2026-11-13 validate: Return-to-build findings: (1) JobWorkspace hides list feedback/Refresh while run is selected but still relies on list authority; on initial/closed list failure visibleDetail is withheld and the only Close button is inside missing JobDetails, leaving no local retry/close path. Keep target detail-replaces-list layout, but expose relevant list error/stale/retry and safe detail exit without remounting. Prove list initial failure, transient/corrupt failure and post-result action barriers with detail open. (2) Adapt jobRefresh/operationRefresh and other affected task journeys to target Job actions disclosure, Technical details/output/raw-event tabs and detail-replaces-list navigation, preserving original data/authority/DOM/focus/paging/selection oracles. Preserve target retained output conflict handling rather than reinstating the obsolete clear-on-revision assertion. Use genuine hidden-to-visible or explicit Refresh in newly integrated target journeys, never synthetic visible-only refresh. (3) Source inspection: JobDetails Activity uses reversed-array index keys, so append shifts surviving event DOM identities; apply task stable-key contract and add changed/unchanged Activity identity/reading-continuity proof. (4) Reconcile affected component/knowledge/requirement current-state prose (notably output revision retention and removed independent direct verification) with target code. Then focused integration, regenerated assets, fresh round-3 reviews and final strict proof/report remain mandatory. Existing bundle-size warning remains; no live/CI acceptance run.
 - 2026-11-13 validate: returned to build - Target Git conflicts resolved, but compact JobDetails integration needs visible list-failure recovery/exit, stable Activity event identities and refresh/output/command test adaptation before validation can pass.
+- 2026-11-13 build: Integration correction build bounds: 45 minutes, at most 30 ticket-scoped changed paths and 12 focused verification commands. Correct only returned compact-details list-recovery/exit and Activity identity findings, adapt affected refresh/output/command fixtures to target presentation without weakening authority/continuity oracles, reconcile current-state prose and regenerate assets. Preserve existing anchor, review round and history; no validate-stage proof or publication.
+- 2026-11-13 build: red: npm run typecheck exit 0; playwright jobDetails/jobRefresh --grep Activity-keeps/can-exit/Jobs-list-failures exits 1 (3/3 expected failures). Appended Activity reuses reversed-index nodes and changes selected saved-event-10 text to saved-event-11; closed list failure with detail open has neither local Retry nor Close. Tests use compact detail evidence and genuine hidden-to-visible revalidation (REQ-UX-013bb10e, REQ-UX-046922f1, REQ-UX-25f45e27, REQ-UX-b6f7f1ad, REQ-SEC-b6a74dea). Original build anchor retained.
+- 2026-11-13 build: green: npm run build:e2e && playwright jobDetails/jobRefresh --grep Activity-keeps/can-exit/Jobs-list-failures exit 0 (3/3, UI/E2E typing and isolated build). Open detail now exposes list-owned Refresh/stale/error recovery and a safe Close when failed evidence withholds detail; list/detail action gates remain strict. Activity uses saved position plus immutable event fields, preserving actual selected text/focus/scroll through append and unchanged refresh. Remaining compact-layout fixture/prose integration and broader focused proof still owed.
+- 2026-11-13 build: Compact integration focused run: typecheck succeeds; jobDetails/jobRefresh/operationRefresh 42/43 pass, with initial-list deadline fixture capturing an obsolete Overview route.fetch during navigation. Excluding overview=true from that held Jobs resource preserves the initial/stale/late-response oracle and passes 3/3 repeats. jobs/shell/statistics run 86/89 pass: remaining target fixture assumptions are generic Error unexpected_response copy, identifiers now in Technical details, and enrollment field guidance now linked rather than obsolete inline IDs. DEVIATION build: adapt the inherited enrollment help fixture to its target-rendered help link (no enrollment product change), alongside compact-detail fixtures, preserving glossary/field-guidance coverage. Original command/data/DOM/focus/selection and output-integrity oracles remain; target output fixtures now carry all closed provenance fields and retain revision-marked snapshots rather than expecting obsolete remount clearing.
+- 2026-11-13 build: green: npm run typecheck and node --test tests/jobs.test.mjs tests/help.test.mjs tests/statistics.test.mjs tests/polling.test.mjs tests/request.test.mjs exit 0 (70/70). Rebuilt candidate: release-note checker, npm run build, npm run build:e2e and playwright e2e/jobDetails.spec.ts e2e/jobRefresh.spec.ts e2e/operationRefresh.spec.ts e2e/shell.spec.ts exit 0 (63/63). Activity append/unchanged selection, focus, scroll and identity; initial/stale/corrupt list recovery/exit; nonfirst-page snapshot/incomplete zero-page reload; retained output and own/external operation barriers pass. Earlier integrated 134 run passed 133; only enrollment helper fixture remained and is corrected/proven in the final 63 run. All jobs/statistics journeys passed in that prior run; no full-suite claim.
+- 2026-11-13 build: release-notes: updated (merged Activity continuity and safe detail exit into existing Jobs fixed note in en/fr/de/ro; no new category entry; check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exits 0 after shortening Romanian copy).
+- 2026-11-13 build: help: updated (Jobs en/fr/de/ro explains list recovery while detail replaces the table, safe Close, explicit snapshot Reload and stable Activity/raw events. Locale outline/link/parser contracts pass in 70-helper command; existing narrow locale/theme keyboard retry passes).
+- 2026-11-13 build: Integration build audit: evolution exit 0 reviewed 235 post-anchor paths, separating inherited target integration backend/release/delivery additions/removals from this session's 27 scoped paths (two product files, six browser fixtures, four help locales, docs/context/knowledge, four requirement links/prose, notes/changelog and rebuilt JS/index/stamp). Preserve original anchor and target content; no backend/dependency/schema/payload or publication change authored. All 42 task requirements are active with nonempty existing affected_paths/linked_tests. Independent SHA-256 audit matches all 132 frontend inputs and 7 outputs; git diff --check exits 0. Returned integration findings are corrected; fresh reviews and full strict proof/report remain validate work.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exits 0: 0 errors, 177 warnings, 28 manual-verification notes after target integration. Two ticket-ref, 37 stale-path, 16 missing-linked-test, 14 legacy journal-header and 2 unticked legacy-deliver findings belong to inherited records (including removed verification-command sources/tests), not the 42 audited task contracts. Ninety-five uncovered-source heuristics include frontend test-as-source and inherited target changes; five outside-layout findings are target example config and release archives, untouched here. Secret flags reviewed: journal/Users credential-language prose and deliberately fake fixture; three target Python key-block fixtures contain literal fixture/fixture-private, not keys. DEVIATION build: generated minified-JS added-lines scan is unavailable - accepted with reviewed-source rebuild and all stamped hashes matching. Inherited target traceability warnings remain out of this focused correction; strict proof and independent review must evaluate the integrated candidate in validate. Existing large-chunk build warning retained without unrelated splitting/dependencies.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: Target Git conflicts resolved, but compact JobDetails integration needs visible list-failure recovery/exit, stable Activity event identities and refresh/output/command test adaptation before validation can pass.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Resolved all 16 conflict paths and regenerated/staged integrated static assets; preserved target compact details/output semantics and task read/action guards.
-evidence: Typecheck, 65 helper/help tests, isolated/production builds, 132-input/7-output fingerprint audit, release-note check and diff whitespace audit pass; focused Chromium exits 1 (2 passed, 4 failed, 17 not run).
-issues: Build must correct open-detail list recovery/exit and Activity identity, adapt affected browser fixtures/prose without weakening refresh/action/output boundaries, then return for fresh reviews and final strict proof. No commit/publication or task closure.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected compact detail list recovery/exit and Activity identity; adapted refresh/output/command journeys and current-state docs/help/traceability; rebuilt integrated assets.
+evidence: 70 helpers/help/request tests, 63 focused Chromium journeys, UI/E2E typing, production/isolated builds, release-note check, 132-input/7-output hash audit and whitespace check pass; advisory check has 0 errors.
+issues: 177 advisory warnings explained in Log, mostly inherited target traceability; full strict suite/report and fresh independent round-3 reviews remain validate-stage work. No live/CI acceptance or publication performed.
 spec_compliance:
 implementation_quality:
 review_round: 2

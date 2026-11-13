@@ -332,8 +332,12 @@ export function JobWorkspace(props: Props) {
     </section>}
     {!compactOverview && consumptionProjects && <div className="jobs-consumption-refresh" role="group" aria-label={copy.consumption}><h3>{copy.consumption}</h3><RefreshFeedback snapshot={currentConsumption} locale={locale} t={t} onRefresh={() => void usageOwner.current?.refresh()} /></div>}
     {run && <div className="jobs-detail-refresh" role="group" aria-label={copy.details}><RefreshFeedback snapshot={currentDetail} locale={locale} t={t} onRefresh={() => void detailOwner.current?.refresh()} /></div>}
-    {run && !visibleDetail && state !== "changed" && feedback(detailState, detailFailure)}
-    {run && state === "changed" && feedback("changed", failure)}
+    {/* The list remains command authority even when details replace its table. */}
+    {run && <div className="jobs-list-refresh" role="group" aria-label={mode === "history" ? copy.history : t("jobs")}><RefreshFeedback snapshot={currentList} locale={locale} t={t} onRefresh={() => void listOwner.current?.refresh()} /></div>}
+    {run && !visibleDetail && <>
+      <button className="ghost" onClick={onClose}>{t("close")}</button>
+      {!visible ? feedback(state, failure) : feedback(detailState, detailFailure)}
+    </>}
     {visibleDetail && <JobDetails key={detailKey} job={visibleDetail} locale={locale} t={t} admin={props.admin} busy={busy || !canAct}
       onClose={onClose} onCommand={(action, job) => void command(action, job)}
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}

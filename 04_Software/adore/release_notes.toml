@@ -23,7 +23,7 @@ text = { en = "Reports keep tables and export menus during updates, with Refresh
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Jobs, history and details keep view state on refresh, with stale notices and retry.", fr = "Tâches, historique et détails gardent leur état, avec avis de données périmées et réessai.", de = "Aufträge, Verlauf und Details behalten ihren Zustand, mit Veraltungshinweis und Wiederholung.", ro = "Lucrările, istoricul și detaliile își păstrează starea, cu avertizări de date vechi și reîncercare." }
+text = { en = "Jobs keep views and Activity stable on refresh, with stale notices, retry and safe detail exit.", fr = "Tâches et activité stables à l’actualisation, avec avis, réessai et fermeture sûre des détails.", de = "Aufträge und Aktivität bleiben stabil, mit Veraltungshinweis, Wiederholung und sicherem Schließen.", ro = "Lucrările și activitatea rămân stabile, cu avertizări, reîncercare și închidere sigură a detaliilor." }
 
 [[release.entry]]
 category = "fixed"

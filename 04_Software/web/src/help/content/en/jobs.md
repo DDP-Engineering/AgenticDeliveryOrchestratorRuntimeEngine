@@ -89,6 +89,8 @@ Click a column heading to sort. **Search jobs** matches titles, numbers, project
 
 Lists and open details update every 15 seconds while visible; Consumption updates every 30 seconds. Background reads keep rows, sort, filters, page size, page, open sections and your reading position. Use the separate **Refresh** controls for jobs, detail and Consumption. **Last refreshed** records a validated completion, not the start of a request.
 
+The jobs list’s Refresh and failure feedback remain available while details are open. If invalid list evidence hides the detail, use **Retry** or **Close** to return to the filters; a changed paging snapshot still requires **Reload first page**. **Activity** and **Original recorded events** keep surviving events and selected text stable as new events arrive.
+
 Submitting a job command keeps your page and open details. List, detail and Consumption reads wait while the command is queued or running. Its observed result triggers fresh reads without resetting the view. Job commands stay unavailable until list and detail evidence validates again. An unreadable command status means the outcome is still unknown; it is not success.
 
 After a connection failure or a 30-second read deadline, older validated information can remain with a stale notice and **Retry**. Stale job list or detail evidence cannot enable commands; a consumption failure alone does not block independently valid job actions. Invalid or denied evidence is hidden. A changed paging snapshot requires **Reload first page**, not a silent page reset. Open executor output is not fetched again by parent updates; a changed job revision marks retained output as possibly out of date until another explicit read.

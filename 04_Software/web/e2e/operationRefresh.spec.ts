@@ -90,9 +90,9 @@ for (const ownCommand of [false, true]) test(`App result preserves open job deta
   await page.getByRole("combobox", { name: "Rows per page", exact: true }).selectOption("all");
   await page.locator('.action-jobs-table a[href*="ux-working"]').click();
   const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+  await detail.locator(".job-actions summary").click();
   await expect(cancel).toBeEnabled();
   const node = await detail.elementHandle();
-  await detail.locator("details").first().locator(":scope > summary").click();
   await page.route("**/api/v1/jobs-page?*", async route => { lists++; const response = await route.fetch(); await route.fulfill({ response }).catch(() => {}); });
   await page.route("**/api/v1/jobs/*/ux-working", async route => { details++; const response = await route.fetch(); await detailRead.promise; await route.fulfill({ response }).catch(() => {}); });
   try {
@@ -118,7 +118,7 @@ for (const ownCommand of [false, true]) test(`App result preserves open job deta
     await cancel.evaluate((button: HTMLButtonElement) => button.click());
     expect(writes).toBe(ownCommand ? 1 : 0);
     expect(await node!.evaluate(element => element.isConnected)).toBe(true);
-    await expect(detail.locator("details").first()).toHaveAttribute("open", "");
+    await expect(detail.locator(".job-actions")).toHaveAttribute("open", "");
     detailRead.resolve();
     await expect(cancel).toBeEnabled();
     expect(await node!.evaluate(element => element.isConnected)).toBe(true);
@@ -212,6 +212,7 @@ test("Live archived project retains job detail while revoking operational contro
   const items = await directory(page), alpha = items.find(project => project.name === "alpha");
   await page.goto(`/jobs?project=${alpha.id}&run=ux-working`);
   const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+  await detail.locator(".job-actions summary").click();
   await expect(cancel).toBeEnabled(); const node = await detail.elementHandle();
   alpha.archived = true;
   await page.route("**/api/v1/projects", route => route.fulfill({ json: items }));

@@ -52,10 +52,12 @@ for (const resource of ["list", "detail", "usage"]) {
     const feedback = workspace.locator(resource === "list" ? ".jobs-list-refresh .refresh-feedback" : resource === "detail" ? ".jobs-detail-refresh .refresh-feedback" : ".jobs-consumption-refresh .refresh-feedback");
     await expect(feedback.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
     await expect(feedback.locator("time")).toHaveCount(0);
-    const evidence = resource === "list" ? workspace.locator(".action-jobs-table") : resource === "detail" ? detail : detail.locator(".job-consumption");
+    const evidence = resource === "usage" ? detail.locator(".job-consumption") : detail;
     await expect(evidence).toHaveCount(0);
+    if (resource !== "usage") await expect(workspace.getByRole("button", { name: "Close", exact: true })).toBeVisible();
     failure = ""; await feedback.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(evidence).toBeVisible();
+    await detail.locator(".job-actions summary").click();
     const cancel = detail.getByRole("button", { name: "Cancel", exact: true });
     await expect(cancel).toBeEnabled();
     const time = await feedback.locator("time").getAttribute("datetime");
@@ -78,9 +80,11 @@ for (const resource of ["list", "detail", "usage"]) {
       failure = invalid; await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
       await expect(feedback.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
       await expect(evidence).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
+      if (resource !== "usage") await expect(workspace.getByRole("button", { name: "Close", exact: true })).toBeVisible();
       await expect(feedback.getByRole("status")).toHaveCount(0); expect(errors).toEqual([]);
       failure = ""; await feedback.getByRole("button", { name: "Retry", exact: true }).click();
       await expect(evidence).toBeVisible();
+      if (resource !== "usage") await detail.locator(".job-actions summary").click();
     }
     // HTTP denial now crosses the shared session boundary: no resource-local
     // Retry may reuse old authority, even if /me still reports the old role.
@@ -101,6 +105,9 @@ for (const resource of ["list", "detail", "usage"]) {
     const releases: Array<() => void> = [];
     const pattern = resource === "list" ? "**/api/v1/jobs-page?*" : resource === "detail" ? "**/api/v1/jobs/*/ux-working" : "**/api/v1/projects/*/usage?*";
     await page.route(pattern, async route => {
+      // The previous Overview can still finish route.fetch during navigation;
+      // it is not the newly owned Jobs initial read whose deadline we test.
+      if (resource === "list" && new URL(route.request().url()).searchParams.has("overview")) return route.continue();
       const response = await route.fetch();
       if (hold) await new Promise<void>(resolve => releases.push(resolve));
       await route.fulfill({ response }).catch(() => undefined);
@@ -251,7 +258,7 @@ test("Jobs hidden return coalesces, query and navigation cancel owned reads, and
     await route.fulfill({ response }).catch(() => undefined);
   });
   try {
-    await page.goto(`/jobs?project=${id}&run=ux-working`);
+    await page.goto(`/jobs?project=${id}&view=jobs`);
     const feedback = page.locator(".jobs-list-refresh .refresh-feedback");
     await expect(feedback.locator("time")).toHaveCount(1);
     const before = reads;
@@ -273,6 +280,10 @@ test("Jobs hidden return coalesces, query and navigation cancel owned reads, and
     await expect(feedback.locator("time")).toHaveCount(0);
     releases[0](); hold = false; releases[1]();
     await expect(page.locator(".action-jobs-table tbody tr")).toHaveCount(1);
+    await expect(feedback).toHaveAttribute("data-refreshing", "false");
+    // Open the retained filtered job; the compact layout replaces the list.
+    await page.locator('.action-jobs-table a[href*="ux-working"]').click();
+    await page.locator(".detail-panel .job-actions summary").click();
     await expect(feedback).toHaveAttribute("data-refreshing", "false");
     // The finite slot releases without any obsolete completion or tick backlog.
     const last = await feedback.locator("time").getAttribute("datetime");
@@ -315,19 +326,23 @@ test("Jobs detail and consumption remain mounted with manual output through pare
       await route.fulfill({ response, json: value }).catch(() => undefined);
     });
   }
+  const outputRevision = (await (await page.request.get(`/api/v1/jobs/${id}/ux-clarification`)).json()).job.state_revision;
   await page.route("**/api/v1/jobs/*/ux-clarification/executor-output", route => {
     outputReads++;
     return route.fulfill({ json: { project_id: id, run_id: "ux-clarification", availability: "observed", exit_code: 0, timed_out: false,
-      stdout: "diagnostic: network\n" + Array(100).fill("[other output withheld]").join("\n"), stderr: "" } });
+      stdout: "diagnostic: network\n" + Array(100).fill("[other output withheld]").join("\n"), stderr: "",
+      attempt: 1, stage: "build", recorded_at: "2026-11-12T10:00:00Z", in_progress: false, state_revision: outputRevision } });
   });
   try {
     await page.goto(`/jobs?project=${id}&run=ux-clarification`);
     const detail = page.locator(".detail-panel"), amounts = detail.locator(".job-consumption");
     await expect(amounts).toBeVisible();
+    await detail.getByRole("tab", { name: "Technical details", exact: true }).click();
     await detail.getByRole("button", { name: "View latest executor output", exact: true }).click();
     const output = detail.locator(".executor-output pre").first();
+    await detail.locator(".executor-output summary").filter({ hasText: "stdout" }).click();
     await expect(output).toContainText("diagnostic: network");
-    await detail.locator("details > summary").click();
+    await detail.getByText("Original recorded events", { exact: true }).click();
     const timelinePager = detail.locator(".timeline-pagination");
     await timelinePager.getByRole("combobox").selectOption("25");
     await timelinePager.getByRole("button", { name: "Next", exact: true }).click();
@@ -355,19 +370,22 @@ test("Jobs detail and consumption remain mounted with manual output through pare
     expect(await node!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
     expect(await output.evaluate(node => node.scrollTop)).toBe(localScroll);
     expect(await page.evaluate(() => getSelection()!.toString())).toBe(selection);
-    await expect(detail.locator("details")).toHaveAttribute("open", "");
+    await expect(detail.locator(".executor-output details")).toHaveAttribute("open", "");
+    await expect(detail.getByText("Original recorded events", { exact: true }).locator("..")).toHaveAttribute("open", "");
     expect(outputReads).toBe(1);
     changedTitle = true;
     await page.locator(".jobs-detail-refresh").getByRole("button", { name: "Refresh", exact: true }).click();
-    await expect(detail.locator(".panel-heading h2")).toHaveText("Updated clarification title");
+    await expect(detail.locator(".job-detail-title h2")).toContainText("Updated clarification title");
     expect(await node!.evaluate(node => node.isConnected)).toBe(true); expect(outputReads).toBe(1);
     expect(await timelineRow!.evaluate(node => node.isConnected)).toBe(true);
     await expect(timelinePager.getByRole("combobox")).toHaveValue("25");
     await expect(timelinePager).toContainText("26–41 / 41");
-    // Preserve, never relax, the existing conservative revision-bound output invalidation.
+    // Target output semantics retain the validated snapshot, explicitly marked stale on revision change.
     changedRevision = true;
     await page.locator(".jobs-detail-refresh").getByRole("button", { name: "Refresh", exact: true }).click();
-    await expect(output).toHaveCount(0);
+    await expect(output).toBeVisible();
+    await expect(detail.locator(".executor-output .notice")).toContainText("snapshot");
+    expect(await node!.evaluate(node => node.isConnected)).toBe(true);
     await expect(detail.getByRole("button", { name: "View latest executor output", exact: true })).toBeEnabled();
     expect(outputReads).toBe(1);
   } finally { releases.forEach(release => release()); }
@@ -388,10 +406,12 @@ for (const outcome of ["succeeded", "failed"]) {
         await route.fulfill({ response, json: value }).catch(() => undefined);
       });
     }
+    const outputRevision = (await (await page.request.get(`/api/v1/jobs/${id}/ux-working`)).json()).job.state_revision;
     await page.route("**/api/v1/jobs/*/ux-working/executor-output", route => {
       outputReads++;
       return route.fulfill({ json: { project_id: id, run_id: "ux-working", availability: "observed", exit_code: 0,
-        timed_out: false, stdout: "diagnostic: network", stderr: "" } });
+        timed_out: false, stdout: "diagnostic: network", stderr: "", attempt: 1, stage: "build",
+        recorded_at: "2026-11-12T10:00:00Z", in_progress: false, state_revision: outputRevision } });
     });
     let finish!: () => void;
     const pending = new Promise<void>(resolve => { finish = resolve; });
@@ -401,15 +421,19 @@ for (const outcome of ["succeeded", "failed"]) {
       await route.fulfill({ json: { id: 7701, status: outcome } }).catch(() => undefined);
     });
     try {
-      await page.goto(`/jobs?project=${id}&run=ux-working`);
-      const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
-      await expect(cancel).toBeEnabled();
+      await page.goto(`/jobs?project=${id}&view=jobs`);
       const pager = page.locator(".job-workspace .table-pagination");
       await pager.getByRole("combobox").selectOption("25");
+      await page.locator('.action-jobs-table a[href*="ux-working"]').click();
+      const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+      await detail.locator(".job-actions summary").click();
+      await expect(cancel).toBeEnabled();
       await expect(page.locator(".jobs-list-refresh .refresh-feedback")).toHaveAttribute("data-refreshing", "false");
+      await detail.getByRole("tab", { name: "Technical details", exact: true }).click();
       await detail.getByRole("button", { name: "View latest executor output", exact: true }).click();
+      await detail.locator(".executor-output summary").filter({ hasText: "stdout" }).click();
       await expect(detail.locator(".executor-output pre").first()).toContainText("diagnostic: network");
-      await detail.locator("details > summary").click();
+      await detail.getByText("Original recorded events", { exact: true }).click();
       const panel = await detail.elementHandle(), output = await detail.locator(".executor-output pre").first().elementHandle();
       hold = true; await revalidateVisiblePage(page);
       await expect.poll(() => releases.length).toBe(3);
@@ -428,19 +452,22 @@ for (const outcome of ["succeeded", "failed"]) {
       await expect.poll(() => releases.length).toBe(6);
       expect(await panel!.evaluate(node => node.isConnected)).toBe(true);
       expect(await output!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
-      await expect(detail.locator("details")).toHaveAttribute("open", "");
+      await expect(detail.locator(".job-actions")).toHaveAttribute("open", "");
+      await expect(detail.locator(".executor-output details")).toHaveAttribute("open", "");
+      await expect(detail.getByText("Original recorded events", { exact: true }).locator("..")).toHaveAttribute("open", "");
       await expect(cancel).toBeDisabled();
       // The cancelled pre-write successes cannot restore authority or advance time.
       releases.slice(0, 3).forEach(release => release());
       await expect(cancel).toBeDisabled();
       hold = false; releases.slice(3).forEach(release => release());
-      await expect(detail.locator(".panel-heading h2")).toHaveText("Observed post-operation title");
+      await expect(detail.locator(".job-detail-title h2")).toContainText("Observed post-operation title");
       await expect(cancel).toBeEnabled();
       expect(await output!.evaluate(node => node.isConnected && node === document.activeElement)).toBe(true);
       expect(outputReads).toBe(1);
-      await expect(pager.getByRole("combobox")).toHaveValue("25");
       await expect(page.locator(".command-result")).toContainText(`#7701`);
       await expect(page.locator(".command-result")).toContainText(outcome === "succeeded" ? "Command completed" : "Command failed");
+      await detail.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(pager.getByRole("combobox")).toHaveValue("25");
     } finally { finish(); releases.forEach(release => release()); }
   });
 }
@@ -451,6 +478,7 @@ test("Jobs worker and operation reads coalesce, expire and cancel on navigation 
   const id = await alphaId(page);
   await page.goto(`/jobs?project=${id}&run=ux-working`);
   const cancel = page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true });
+  await page.locator(".detail-panel .job-actions summary").click();
   await expect(cancel).toBeEnabled();
   let workerReads = 0, operationReads = 0, hold = true;
   const releases: Array<() => void> = [];
@@ -505,6 +533,7 @@ test("Jobs failed post-operation evidence never restores command authority from 
   const id = await alphaId(page);
   await page.goto(`/jobs?project=${id}&run=ux-working`);
   const detail = page.locator(".detail-panel"), cancel = detail.getByRole("button", { name: "Cancel", exact: true });
+  await detail.locator(".job-actions summary").click();
   await expect(cancel).toBeEnabled();
   await page.route("**/api/v1/jobs/*/ux-working", route => route.abort("failed"));
   await page.route("**/operations/cancel", route => route.fulfill({ json: { id: 7703, status: "failed" } }));
@@ -534,6 +563,7 @@ test("Jobs running operation keeps one polling owner and cancels it when its vie
   try {
     await page.goto(`/jobs?project=${id}&run=ux-working`);
     const cancel = page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true });
+    await page.locator(".detail-panel .job-actions summary").click();
     await expect(cancel).toBeEnabled();
     page.once("dialog", dialog => dialog.accept()); await cancel.click();
     await expect(page.locator(".command-result")).toContainText("Command running");
@@ -560,13 +590,16 @@ test("Jobs run navigation cancels the old operation even inside the same project
   try {
     await page.goto(`/jobs?project=${id}&run=ux-working`);
     const cancel = page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true });
+    await page.locator(".detail-panel .job-actions summary").click();
     await expect(cancel).toBeEnabled();
     page.once("dialog", dialog => dialog.accept()); await cancel.click();
     await expect.poll(() => reads).toBe(1);
     const aborted = page.waitForEvent("requestfailed", request => request.url().endsWith("/operations/7705"));
-    await page.locator('.action-jobs-table a[href*="ux-clarification"]').click();
+    await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
     await aborted;
+    await page.locator('.action-jobs-table a[href*="ux-clarification"]').click();
     await expect(page.locator(".detail-panel")).toContainText("Waiting for clarification");
+    await page.locator(".detail-panel .job-actions summary").click();
     await expect(page.locator(".detail-panel").getByRole("button", { name: "Cancel", exact: true })).toBeEnabled();
     release(); await page.clock.fastForward(6000);
     await expect(page.locator(".command-result")).toHaveCount(0); expect(reads).toBe(1);

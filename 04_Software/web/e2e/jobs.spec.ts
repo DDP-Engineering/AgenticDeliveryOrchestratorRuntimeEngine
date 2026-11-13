@@ -1207,7 +1207,8 @@ test("job budgets show retained consumption and boundary timing in four locales"
       await route.fulfill({response,json:data});
     });
     await page.goto("/jobs?project=alpha&run=ux-clarification");
-    await expect(page.getByText("The server sent an unexpected response.",{exact:true})).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Could not load data", exact: true })).toBeVisible();
+    await expect(page.locator(".job-workspace")).toContainText("unexpected_response");
     await expect(page.locator(".job-budgets")).toHaveCount(0);
   } finally {
     await page.goto("/account");

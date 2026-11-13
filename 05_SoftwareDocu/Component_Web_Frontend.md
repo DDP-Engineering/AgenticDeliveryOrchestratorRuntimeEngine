@@ -314,31 +314,26 @@ reset pointer and historical publication reset event retain the Publishing label
 They are administrative recovery evidence, never an executor launch stage. Lifecycle/action,
 consumption, budgets and operational executor-output controls retain their meanings.
 
-A direct detail requires a closed `direct` attempt/latest-independent-verification
-object (see Component_Web_Jobs.md). AEGIS details refuse this object. Positive safe
-attempts or explicit absence, closed status/result shapes, canonical decimal-text
-exit codes, outcome agreement, finite nonnegative seconds and normalized bounded
-Unicode tails are validated before any display. Direct current/non-null timeline
-stages outside build/validate/done fail closed, except for that failed pointer and
-`reset` event. Nonempty saved commands retain exact spaces and tabs, matching the
-configuration and conductor domain. Empty configured-result commands remain invalid.
-List error/incomplete/source-change and detail failures hide stale detail evidence;
-request/composite/session guards remain unchanged.
+A direct detail requires the closed `direct = {attempt}` projection (see
+Component_Web_Jobs.md). AEGIS details refuse this object. Attempts are positive safe
+integers or explicit absence. Direct current/non-null timeline stages outside
+build/validate/done fail closed, except for the failed publication pointer and
+`reset` event. Closed list/incomplete/source-change and detail failures hide affected
+evidence; typed transport failures may retain only marked informational snapshots.
 
 The localized `directCopy` and i18n stage keys cover English, French, German and
-Romanian. The independent-verification panel shows the saved attempt, command before
-result, elapsed seconds and a focusable literal `pre` tail, or explicit empty output.
-Passed, Failed, Timed out, Not configured: unverified and unavailable evidence are
-distinct. There is no command action or HTML/Markdown evaluation. Settings changes
-cannot substitute today's command for saved evidence. Direct working/timeline copy
-makes no AEGIS or synthetic progress claim. Help and inline timeout guidance map
-build to direct agent implementation with the general timeout fallback; validate only records the candidate.
+Romanian. Evidence and artifacts shows Latest recorded attempt or Attempt unavailable.
+Tests/checks are agent-reported; no independent test-command configuration or result
+panel exists. Settings and enrollment do not infer or expose a verification command.
+Direct working/timeline copy makes no AEGIS or synthetic progress claim. Help and
+inline timeout guidance map build to direct implementation with the general timeout
+fallback; validate only records the candidate.
 
 `tests/jobs.test.mjs` exercises workflow/evidence/stage trust boundaries and valid
 controls; `e2e/jobs.spec.ts` uses opt-in persisted direct fixtures while retaining the
 default AEGIS cohort and assertions. Browser proof covers mixed global/project lists,
-all outcomes/absence, switching, post-success corruption, four locales, desktop/mobile,
-both themes and keyboard output access. Help model/browser tests cover terms, mapping,
+attempts/absence, switching, post-success corruption, four locales, desktop/mobile,
+both themes and keyboard operational-output access. Help model/browser tests cover terms, mapping,
 structure and navigation. The committed production bundle includes these inputs.
 
 ## Host-check response ordering
@@ -548,15 +543,22 @@ clears the snapshot/offset; an ordinary retry never silently rebases that page.
 Surviving composite rows, local filters/sort/page size/page, detail disclosures,
 clarification/output selection and scrolling remain mounted. Timeline keys use
 original saved position plus immutable event fields, not the reversed display
-index. Executor output stays manual and preserves the existing composite and
-state_revision remount boundary and closed diagnostic validator; unrelated title
-updates do not fetch or reset output. Current ready list AND detail plus live
+index, in both Activity and Original recorded events. Detail replaces the table,
+not its list read owner: list Refresh/freshness and stale/error recovery remain
+visible, and withheld detail always has a safe Close. Closed list failure renders
+list failure (not a misleading successful-detail error); snapshot conflict keeps
+explicit zero-page Reload. Executor output stays manual with a closed diagnostic
+validator. Same composite identity retains validated output across title/revision
+updates and read conflicts; changed revision marks it possibly out of date without
+an automatic fetch. Authorization/missing-identity errors clear protected output. Current ready list AND detail plus live
 nonarchived project authority are required at render and submit for Retry/Cancel/
 Restart. Informational consumption alone is not action authority. Offline
 `e2e/jobRefresh.spec.ts` covers held and changed/unchanged reads in all three list
 scopes, failure classification, stale-action separation, deadline recovery,
-query/unmount cancellation, hidden/visible joins, output binding and narrow
-four-locale/two-theme keyboard retry.
+query/unmount cancellation, hidden/visible joins, retained output binding and narrow
+four-locale/two-theme keyboard retry. `e2e/jobDetails.spec.ts` additionally proves
+Activity selection/focus/scroll through unchanged/append reads, safe failure exit
+and list-filter restoration in the compact presentation.
 
 Job command submission increments an evidence generation, cancels pre-write
 list/detail/consumption work without clearing presentation, and blocks their

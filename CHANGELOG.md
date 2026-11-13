@@ -26,7 +26,8 @@ This project follows Keep a Changelog and Semantic Versioning.
   through same-context reads and command results. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;
   stale job evidence cannot enable commands. Preserve the target's compact detail
-  tabs and retained executor-output conflict handling.
+  tabs and retained executor-output conflict handling. Keep list failure recovery
+  and safe detail exit available, and preserve Activity event identity on append.
 - Keep both change-evidence panels visible during manual and automatic rereads,
   preserving pages, filter drafts, open evidence and focus. Add project Refresh,
   validated completion times and marked older evidence with retry after connection
