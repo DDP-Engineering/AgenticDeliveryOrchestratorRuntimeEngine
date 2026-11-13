@@ -1153,6 +1153,9 @@ successful-update time; it cannot replace the page with a rendering failure.
 Token directions and known combined totals must be exact safe integers, including
 pooled reports and job consumption. Out-of-range evidence is refused, not rounded
 or displayed as current; an unknown direction still makes its combined total unknown.
+Job, current-state, quality and coverage counts and elapsed-time sums follow the same
+exact-number rule. Even individually valid project figures are refused if their
+all-project sum cannot be represented exactly; no rounded count renews freshness.
 Malformed job evidence, invalid review-round counts or invalid revision details in a
 report show error/Retry without a successful-update time, rather than breaking the
 Quality tab. This includes the administrator's selected-project revision table;
@@ -1164,7 +1167,9 @@ than measured zero; valid measured zero and evidence-weighted costs remain disti
 Unpriced usage event counts must also be exact nonnegative whole numbers, both per
 project and across all projects. Invalid or overflowing counts show error/Retry
 without totals, exports or a successful-update time. Missing counts remain unknown
-(a dash), not measured zero; valid zero counts still show 0.
+(a dash), not measured zero; valid zero counts still show 0. If any project's unpriced
+count is missing, the all-project count is unknown even when other projects report
+zero or a positive count. Known per-project values remain visible.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal

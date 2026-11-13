@@ -78,6 +78,12 @@ and computes pooled metrics/usage within owned validation before publishing them
 on the complete report. App renders those stored aggregates without recomputing.
 Cross-project interval mismatch or pooled failure clears report/exports/success
 time with error/Retry; two-project helper/browser negatives also assert no pageerror.
+Shared raw/pooled numeric validation checks lifecycle/current-stock/total/day,
+quality and coverage counts, derived rates and review totals as exact safe evidence.
+Duration pooling rejects unsafe sample sums before deriving means/medians. Individually
+valid members whose pooled counts overflow fail before ready/time; helper safe-boundary
+controls and eight pooled-family browser cases prove initial/replacement refusal,
+withheld report/exports/time, no pageerror and recovery.
 Metrics run collections are arrays of object rows; review-round counts and their
 per-project derived total validate as nonnegative safe integers before publication.
 Malformed collections/rows/counts fail closed in global Quality without report,
@@ -99,7 +105,11 @@ withholding, no report/exports/time/pageerror and valid recovery.
 Optional Admin unpriced-event counts validate as nonnegative safe integers in raw
 amounts and pooled totals before ready/time. Malformed, null, negative, fractional
 or unsafe counts and pooled overflow fail closed; absent counts remain unknown,
-zero remains measured zero and Dev financial evidence stays forbidden. Statistics
+zero remains measured zero and Dev financial evidence stays forbidden. Pooled unpriced
+counts remain absent unless every contributor supplies known evidence; a missing count
+cannot become zero or a measured subtotal. Mixed zero/absent and positive/absent helper
+and global Usage browser controls preserve known project values and ready reports
+through initial/replacement reads and all-known recovery. Statistics
 helpers and global/global-selected/project-hub Usage browser cases prove initial
 and replacement withholding, no report/exports/time/pageerror and known/zero/absent
 recovery.

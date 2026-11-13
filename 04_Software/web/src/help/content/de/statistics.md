@@ -24,6 +24,8 @@ Nach einem Verbindungsfehler oder einer abgelaufenen Lesefrist kann der letzte g
 
 Ein Strich bedeutet, dass der Wert unbekannt ist. Unter einem Wert bedeutet **Gemessene Null**, dass ADORE null beobachtet hat, **Nicht verfügbar**, dass nichts aufgezeichnet wurde, und **Teilweise · bekannte Teilsumme**, dass die Zahl nur die Nutzung umfasst, die Token gemeldet hat.
 
+Projektübergreifende Anzahlen und Zeitsummen müssen exakt sein; eine zu große Summe zeigt einen Fehler und **Wiederholen**, keine gerundete aktuelle Zahl. Fehlt bei einem Projekt die erfasste Anzahl für **Nutzung ohne Preis**, bleibt die Gesamtanzahl unbekannt, auch wenn ein anderes Projekt null oder eine positive Zahl meldet. Bekannte Anzahlen je Projekt bleiben sichtbar.
+
 ## Die vier Reiter {#tabs}
 
 ### Übersicht {#tab-summary}

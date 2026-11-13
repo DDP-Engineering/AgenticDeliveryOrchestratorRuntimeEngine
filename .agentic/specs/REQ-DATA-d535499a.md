@@ -63,7 +63,10 @@ valid weighted/zero/unknown recovery.
 Optional Admin unpriced-event counts must be nonnegative safe integers at every
 raw amount boundary and in pooled totals. Present null, malformed types, negative,
 fractional or unsafe counts and pooled sum overflow fail before any ready or
-successful-time publication. Absent counts remain unknown, not measured zero;
+successful-time publication. Pooled counts are known only if every contributing
+project supplies the optional field; mixed zero/absent and positive/absent inputs
+remain valid but leave the pooled count absent while keeping known project values.
+Absent counts remain unknown, not measured zero;
 valid zero stays zero and financial fields remain forbidden to Devs. Helper and
 global/global-selected/project-hub Usage browser cases cover initial/replacement
 withholding, no report/exports/time/pageerror and valid known/zero/absent recovery.
@@ -80,7 +83,14 @@ fail closed with error/Retry, no report/exports or new success time, and no rend
 exception. Token validation includes safe-integer directions and known combined
 input/output totals before publication, for raw and pooled period/total/day evidence,
 usage/cache buckets and job amounts. Known overflow fails closed; a missing direction
-keeps the combined total unknown. All members and pooled results validate before
+keeps the combined total unknown. Shared raw/pooled validation also covers lifecycle,
+current-stock, total, daily, quality and coverage counters, review-round totals and
+derived rates. Counts must remain nonnegative safe integers after pooling; duration
+sample sums must be safe before deriving averages/medians. Individually valid project
+counts whose sum loses precision fail before any ready or successful-time publication,
+not as a later render check. Helpers exercise every count family, exact safe-boundary
+controls and recovery; eight pooled-family browser negatives cover initial/replacement
+error/Retry with no report/exports/time/pageerror. All members and pooled results validate before
 any replacement becomes visible. The configured scope and role also bind CSV links; server authorization
 remains authoritative.
 

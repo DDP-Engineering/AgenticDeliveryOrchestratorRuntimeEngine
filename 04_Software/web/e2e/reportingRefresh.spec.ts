@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test, expect, type Page } from "@playwright/test";
 import { revalidateVisiblePage, trackScopeReads } from "./polling";
+import type { Metrics } from "../src/metrics";
 
 const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; };
 const feedback = (page: Page) => page.locator(".refresh-feedback");
@@ -343,6 +344,79 @@ for (const scope of ["global", "selected", "project"] as const) for (const failu
     }
   });
 }
+
+for (const family of ["period", "stock", "quality", "coverage", "daily", "totals", "duration", "review rounds"] as const) {
+  test(`Statistics global rejects pooled ${family} precision loss before publication and recovers`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    let corrupt = true;
+    await page.route(/\/api\/v1\/metrics\?/, async route => {
+      const body = await (await route.fetch()).json();
+      const entries = Object.values(body) as Metrics[];
+      expect(entries.length).toBeGreaterThan(1);
+      entries.forEach((value, index) => {
+        const number = corrupt ? index === 0 ? Number.MAX_SAFE_INTEGER : 2 : 1;
+        if (family === "period") value.period.started = number;
+        if (family === "stock") value.current_stock!.jobs_now = number;
+        if (family === "quality") value.quality.operator_retries = number;
+        if (family === "coverage") value.coverage.usage_events_with_tokens = number;
+        if (family === "totals") value.totals.runs = number;
+        if (family === "review rounds") value.runs = [{ review_rounds: number }];
+        if (family === "daily") value.daily = [{ date: "2026-10-25", started: number, completed: 0, failed: 0,
+          tokens_in: null, tokens_out: null, mr_revisions: 0, pipeline_repairs: 0 }];
+        if (family === "duration") value.duration = value.period.duration = { sampled_runs: 1, samples_seconds: [number],
+          sum_span_seconds: number, avg_span_seconds: number, median_span_seconds: number };
+      });
+      await route.fulfill({ json: body });
+    });
+    await page.goto("/metrics");
+    for (let round = 0; round < 2; round++) {
+      await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.locator(".statistics-evidence")).toHaveCount(0);
+      await expect(page.locator(".metrics-export")).toHaveCount(0);
+      expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+      corrupt = false;
+      await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+      await expect(page.locator(".statistics-evidence")).toBeVisible();
+      expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+      if (round === 0) {
+        await page.getByText("Export CSV", { exact: true }).click();
+        corrupt = true;
+        await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+      }
+    }
+  });
+}
+
+for (const known of [0, 7]) test(`Statistics global Usage keeps mixed ${known} and absent unpriced evidence unknown`, async ({ page }) => {
+  let mixed = true;
+  await page.route(/\/api\/v1\/usage\?/, async route => {
+    const body = await (await route.fetch()).json();
+    const entries = Object.entries(body) as Array<[string, { totals: Record<string, unknown> }]>;
+    expect(entries.length).toBeGreaterThan(1);
+    for (const [name, value] of entries) {
+      if (mixed && name !== "alpha") delete value.totals.unpriced_events;
+      else value.totals.unpriced_events = known;
+    }
+    await route.fulfill({ json: body });
+  });
+  await page.goto("/metrics?tab=usage");
+  const chip = page.locator(".usage-totals > div").filter({ has: page.getByText("Unpriced usage events", { exact: true }) });
+  await expect(chip.locator("dd")).toHaveText("—");
+  const table = page.locator("#metrics-tab-panel table").filter({ has: page.getByRole("columnheader", { name: "Unpriced usage events", exact: true }) });
+  await expect(table.locator("tbody tr").filter({ hasText: /^alpha/ }).locator("td").last()).toHaveText(String(known));
+  await page.getByText("Export CSV", { exact: true }).click();
+  for (const next of [false, true, false]) {
+    mixed = next;
+    await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(feedback(page)).toHaveAttribute("data-refreshing", "false");
+    await expect(chip.locator("dd")).toHaveText(mixed ? "—" : String(known * 2));
+    await expect(page.locator(".metrics-export")).toHaveAttribute("open", "");
+    expect((await times(page)).length).toBe(3);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  }
+});
 
 for (const failure of ["application", "media", "foreign", "scope"] as const) test(`Statistics ${failure} refresh refuses both report members and exports`, async ({ page }) => {
   const id = await alpha(page);

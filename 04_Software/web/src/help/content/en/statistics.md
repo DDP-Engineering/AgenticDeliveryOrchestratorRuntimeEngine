@@ -24,6 +24,8 @@ After a connection failure or read deadline, the last validated report can remai
 
 A dash means the value is unknown. Under a value, **Measured zero** means ADORE observed zero, **Not available** means nothing was recorded, and **Partial · known subtotal** means the figure covers only the usage that reported tokens.
 
+All-project counts and elapsed-time sums must be exact; an out-of-range total shows an error and **Retry**, not a rounded fresh figure. If any project has no recorded **Unpriced usage events** count, the all-project count stays unknown even when another project reports zero or a positive count. Known per-project counts remain visible.
+
 ## The four tabs {#tabs}
 
 ### Summary {#tab-summary}

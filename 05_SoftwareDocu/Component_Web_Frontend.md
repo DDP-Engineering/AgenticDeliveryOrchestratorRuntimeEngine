@@ -245,7 +245,14 @@ validation boundary and stored on the report; rendering never repeats aggregate
 work. Validation checks safe-integer token directions and known input-plus-output
 totals for raw and pooled period/total/day evidence, usage/cache buckets and job
 amounts before publication. A missing direction keeps the combined total unknown;
-known overflow is invalid, not an unknown or approximate number. Metrics `runs`
+known overflow is invalid, not an unknown or approximate number. The same numeric
+validator checks raw and pooled lifecycle, current-stock, total, daily, quality and
+coverage counters and derived review totals/rates. Count sums must remain exact safe
+integers, not merely finite numbers. Duration sample sums also stay safe before
+computing pooled averages/medians. Individually valid members whose sums overflow
+fail before ready or freshness, with no report/exports or render exception; helper
+safe-boundary/recovery controls and eight pooled-family browser cases prove this.
+Metrics `runs`
 must be an array of object rows with nonnegative safe-integer `review_rounds`;
 the derived per-project review-round total must also be safe. Global Quality therefore
 never discovers malformed run evidence after successful publication. Helper and
@@ -271,7 +278,12 @@ report, exports, success time or pageerror, then valid weighted/zero/unknown rec
 Optional Admin `unpriced_events` counts validate as nonnegative safe integers at
 raw amount boundaries and again after pooling. Present null, text, fractional,
 negative or unsafe evidence and pooled sum overflow fail before ready or freshness;
-absence remains unknown and measured zero stays zero. Dev financial projections
+absence remains unknown and measured zero stays zero. A pooled unpriced count is
+known only when every contributing project supplies it; mixing zero or positive
+counts with an absent count leaves the pooled field absent, while each project's
+known value remains visible. Initial and replacement mixed-evidence helper/browser
+controls prove this is a valid ready report, not a failure or a measured subtotal.
+Dev financial projections
 remain forbidden. Helper tests cover amount/role boundaries; global, global-selected
 and project-hub Usage browser tests cover initial/replacement refusal, hidden
 report/exports/time, no pageerror and valid known/zero/absent recovery.

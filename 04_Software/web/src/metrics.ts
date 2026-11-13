@@ -17,6 +17,7 @@ function duration(evidence: Duration[]): Duration {
   const spans = evidence.flatMap(row => {
     if (!Array.isArray(row.samples_seconds) || row.samples_seconds.some(value =>
       !Number.isSafeInteger(value) || value < 0) || row.sampled_runs !== row.samples_seconds.length ||
+      !Number.isSafeInteger(row.sum_span_seconds) || row.sum_span_seconds < 0 ||
       row.sum_span_seconds !== row.samples_seconds.reduce((total, value) => total + value, 0)) {
       throw new RangeError("Invalid server duration evidence");
     }
@@ -24,6 +25,9 @@ function duration(evidence: Duration[]): Duration {
   }).sort((a, b) => a - b);
   const count = spans.length;
   const total = spans.reduce((value, span) => value + span, 0);
+  // Exact source spans can still overflow when pooled. Refuse before computing
+  // means/medians or publishing a rounded duration as fresh evidence.
+  if (!Number.isSafeInteger(total)) throw new RangeError("Invalid pooled duration evidence");
   return { sampled_runs: count, sum_span_seconds: total, samples_seconds: spans,
     avg_span_seconds: count ? Math.round(total / count) : null,
     median_span_seconds: count ? (spans[Math.floor((count - 1) / 2)] + spans[Math.floor(count / 2)]) / 2 : null };
@@ -117,7 +121,11 @@ export function aggregateUsage(items: Usage[]): Usage {
     for (const field of ["tokens_in", "tokens_out"] as const) row[field] = sum([row[field], day[field]]);
     for (const field of ["cache_read_tokens", "cache_write_tokens", "reported_cost_usd", "estimated_cost_usd"] as const) row[field] = sum([row[field], day[field]]);
   }
-  if (items.some(item => "unpriced_events" in item.totals)) totals.unpriced_events = items.reduce((total, item) => total + (item.totals.unpriced_events || 0), 0);
+  // A missing contributing count is unknown, not a measured zero. Keep the
+  // pooled optional field absent unless every member supplies known evidence.
+  if (items.length && items.every(item => item.totals.unpriced_events !== undefined)) {
+    totals.unpriced_events = items.reduce((total, item) => total + item.totals.unpriced_events!, 0);
+  }
   if (!items.some(item => "reported_cost_usd" in item.totals)) {
     delete totals.reported_cost_usd; delete totals.estimated_cost_usd; delete totals.unpriced_events;
     for (const row of buckets.values()) { delete row.reported_cost_usd; delete row.estimated_cost_usd; }

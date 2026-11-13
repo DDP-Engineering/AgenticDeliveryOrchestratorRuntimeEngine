@@ -24,6 +24,8 @@ Après une panne de connexion ou un délai de lecture dépassé, le dernier rapp
 
 Un tiret signifie que la valeur est inconnue. Sous une valeur, **Zéro mesuré** signifie qu’ADORE a observé zéro, **Non disponible** signifie que rien n’a été enregistré, et **Partiel · sous-total connu** signifie que le chiffre ne couvre que l’utilisation qui a déclaré des jetons.
 
+Les décomptes et sommes de durées de tous les projets doivent être exacts ; un total hors limites affiche une erreur et **Réessayer**, pas un chiffre arrondi présenté comme actuel. Si un projet n’a aucun décompte enregistré pour **Utilisations sans tarif**, le décompte global reste inconnu même si un autre projet indique zéro ou un nombre positif. Les décomptes connus par projet restent visibles.
+
 ## Les quatre onglets {#tabs}
 
 ### Résumé {#tab-summary}

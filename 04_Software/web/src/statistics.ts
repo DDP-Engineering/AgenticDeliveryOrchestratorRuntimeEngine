@@ -52,8 +52,41 @@ function tokenPair(value: unknown) {
   const row = object(value);
   totalTokens({ tokens_in: tokens(row.tokens_in), tokens_out: tokens(row.tokens_out) });
 }
-function metricTokens(value: Metrics) {
-  for (const row of [value.period, value.totals, ...value.daily]) tokenPair(row);
+/** Apply the same numeric contract to raw members and every derived pooled family. */
+function metricNumbers(value: unknown) {
+  const row = object(value);
+  const stock = object(row.current_stock);
+  if (stock.basis !== "current_state") invalid();
+  for (const key of ["active_now", "waiting_now", "review_now", "terminal_now", "jobs_now"]) count(stock[key]);
+  const period = object(row.period);
+  for (const key of ["started", "completed", "failed"]) count(period[key]);
+  tokenPair(period);
+  for (const [key, value] of Object.entries(period)) {
+    if (!["from", "to", "basis", "duration"].includes(key)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
+  }
+  const totals = object(row.totals); tokenPair(totals);
+  for (const [key, value] of Object.entries(totals)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
+  const coverage = object(row.coverage);
+  for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "runs_with_usage"]) count(coverage[key]);
+  for (const value of Object.values(coverage)) count(value);
+  const quality = object(row.quality);
+  costEfficiency(quality);
+  for (const key of ["reviewed_jobs", "reworked_jobs", "validated_jobs", "first_pass_validations", "human_merged_jobs", "first_pass_merges", "open_review_jobs", "stage_failures", "operator_retries"]) count(quality[key]);
+  for (const [rate, numerator, denominator] of [["review_rework_rate", "reworked_jobs", "reviewed_jobs"], ["first_validation_rate", "first_pass_validations", "validated_jobs"], ["first_pass_merge_rate", "first_pass_merges", "human_merged_jobs"]]) {
+    const expected = quality[denominator] ? Number(quality[numerator]) / Number(quality[denominator]) : null;
+    if (quality[rate] !== expected || expected !== null && expected > 1) invalid();
+  }
+  if (!Array.isArray(row.daily)) invalid();
+  for (const item of row.daily as unknown[]) {
+    const day = object(item);
+    for (const key of ["started", "completed", "failed", "mr_revisions", "pipeline_repairs"]) count(day[key]);
+    tokenPair(day);
+    for (const [key, value] of Object.entries(day)) if (key !== "date") key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
+  }
+  // Validate derived review counts too, not only each contributing run.
+  if (!Array.isArray(row.runs)) invalid();
+  let reviewRounds = 0;
+  for (const item of row.runs as unknown[]) reviewRounds = count(reviewRounds + count(object(item).review_rounds));
 }
 function amounts(value: unknown) {
   const row = object(value);
@@ -103,40 +136,15 @@ function revisions(value: unknown, project: string) {
 export function readStatistics(value: unknown, project: string, selection: ReportingSelection, admin: boolean): Metrics {
   const row = object(value);
   scope(row.scope, project, selection); financial(row, admin); jobs(row.jobs, project);
-  const stock = object(row.current_stock);
-  if (stock.basis !== "current_state") invalid();
-  for (const key of ["active_now", "waiting_now", "review_now", "terminal_now", "jobs_now"]) count(stock[key]);
+  metricNumbers(row);
   const period = object(row.period);
   if (period.from !== object(row.scope).from || period.to !== object(row.scope).to) invalid();
-  for (const key of ["started", "completed", "failed"]) count(period[key]);
-  tokenPair(period);
-  const totals = object(row.totals); tokenPair(totals);
-  for (const [key, value] of Object.entries(totals)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
-  const coverage = object(row.coverage);
-  for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "runs_with_usage"]) count(coverage[key]);
-  for (const value of Object.values(coverage)) count(value);
-  const quality = object(row.quality);
-  costEfficiency(quality);
-  for (const key of ["reviewed_jobs", "reworked_jobs", "validated_jobs", "first_pass_validations", "human_merged_jobs", "first_pass_merges", "open_review_jobs", "stage_failures", "operator_retries"]) count(quality[key]);
-  for (const [rate, numerator, denominator] of [["review_rework_rate", "reworked_jobs", "reviewed_jobs"], ["first_validation_rate", "first_pass_validations", "validated_jobs"], ["first_pass_merge_rate", "first_pass_merges", "human_merged_jobs"]]) {
-    const expected = quality[denominator] ? Number(quality[numerator]) / Number(quality[denominator]) : null;
-    if (quality[rate] !== expected || expected !== null && expected > 1) invalid();
-  }
-  if (!Array.isArray(row.daily)) invalid();
   const dates = new Set<string>();
   for (const item of row.daily as unknown[]) {
     const day = object(item);
     if (typeof day.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day.date) || dates.has(day.date)) invalid();
     dates.add(String(day.date));
-    for (const key of ["started", "completed", "failed", "mr_revisions", "pipeline_repairs"]) count(day[key]);
-    tokenPair(day);
-    for (const [key, value] of Object.entries(day)) if (key !== "date") key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   }
-  // Global Quality reads review_rounds from every run. Refuse malformed rows
-  // and unsafe derived counts before the owner can publish ready or freshness.
-  if (!Array.isArray(row.runs)) invalid();
-  let reviewRounds = 0;
-  for (const item of row.runs as unknown[]) reviewRounds = count(reviewRounds + count(object(item).review_rounds));
   if ("revisions" in row) revisions(row.revisions, project);
   const result = row as unknown as Metrics;
   const pooled = aggregateMetrics([result], selection.timezone, selection.from, selection.through);
@@ -266,7 +274,7 @@ export function createReportingRefresh(options: {
           // an aggregate error after ready data/success time has been published.
           const pooledMetrics = aggregateMetrics(Object.values(current.metrics), selection.timezone, selection.from, selection.through);
           const pooledUsage = aggregateUsage(Object.values(current.usage));
-          metricTokens(pooledMetrics); costEfficiency(pooledMetrics.quality);
+          metricNumbers(pooledMetrics);
           amounts(pooledUsage.totals); pooledUsage.daily.forEach(amounts);
           settled = true; signal.removeEventListener("abort", aborted);
           resolve({ metrics: current.metrics, usage: current.usage, pooledMetrics, pooledUsage, metricsAt: current.metricsAt,

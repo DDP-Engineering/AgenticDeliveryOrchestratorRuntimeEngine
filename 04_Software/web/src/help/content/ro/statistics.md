@@ -24,6 +24,8 @@ După o eroare de conexiune sau depășirea termenului de citire, ultimul raport
 
 O liniuță înseamnă că valoarea este necunoscută. Sub o valoare, **Zero măsurat** înseamnă că ADORE a observat zero, **Indisponibil** înseamnă că nu s-a înregistrat nimic, iar **Parțial · subtotal cunoscut** înseamnă că cifra acoperă doar utilizarea care a raportat tokenuri.
 
+Numerele și sumele duratelor pentru toate proiectele trebuie să fie exacte; un total în afara limitelor afișează o eroare și **Reîncearcă**, nu o valoare rotunjită prezentată ca actuală. Dacă un proiect nu are înregistrat numărul de **Utilizări fără preț**, totalul rămâne necunoscut chiar dacă alt proiect raportează zero sau un număr pozitiv. Valorile cunoscute pe proiect rămân vizibile.
+
 ## Cele patru file {#tabs}
 
 ### Rezumat {#tab-summary}

@@ -523,6 +523,81 @@ test("reporting rejects raw unpriced counts and pooled overflow before success t
   }
 });
 
+/** Individually exact evidence must not become rounded fresh pooled counts. */
+test("reporting validates every pooled count family and derived duration before publication", async () => {
+  const paths = [
+    ...["active_now", "waiting_now", "review_now", "terminal_now", "jobs_now"].map(key => ["current_stock", key]),
+    ...["started", "completed", "failed", "merged", "mr_revisions", "pipeline_repairs"].flatMap(key => [["period", key], ["daily", 0, key]]),
+    ...["runs", "started", "completed", "failed", "mr_revisions", "pipeline_repairs"].map(key => ["totals", key]),
+    ...["reviewed_jobs", "reworked_jobs", "validated_jobs", "first_pass_validations", "human_merged_jobs", "first_pass_merges", "open_review_jobs", "stage_failures", "operator_retries"].map(key => ["quality", key]),
+    ...["summary_only_runs", "runs_without_usage", "usage_events_with_tokens", "usage_events_without_tokens", "lifecycle_started_unallocated", "lifecycle_completed_unallocated", "runs_with_usage", "revision_events_unclassified", "launches_with_reported_tokens", "launches_with_unavailable_tokens", "launches_capture_disabled", "launches_with_reported_cost", "launches_with_unavailable_cost", "runs_with_reported_cost", "runs_with_estimated_cost", "usage_events_unpriced"].map(key => ["coverage", key]),
+    ["duration", "sum_span_seconds"], ["runs", "review_rounds"],
+  ];
+  for (const path of paths) {
+    const h = reporting({ admin: true, projectIds: ["alpha", "beta"] });
+    const complete = async mode => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = {}, usage = {};
+      for (const id of ["alpha", "beta"]) {
+        metrics[id] = fixture(); usage[id] = consumption();
+        for (const value of [metrics[id], usage[id]]) { value.scope = scope(id); value.jobs[0].project_id = id; }
+        metrics[id].totals.cost_usd = 0; // Keep optional Admin coverage in the pooled result.
+        const number = mode === "valid" ? 1 : id === "beta" ? 2 : Number.MAX_SAFE_INTEGER - (mode === "boundary" ? 2 : 0);
+        if (path[0] === "duration") {
+          metrics[id].duration = metrics[id].period.duration = { sampled_runs: 1, samples_seconds: [number],
+            sum_span_seconds: number, avg_span_seconds: number, median_span_seconds: number };
+        } else if (path[0] === "runs") metrics[id].runs = [{ review_rounds: number }];
+        else {
+          const target = path.slice(0, -1).reduce((value, key) => value[key], metrics[id]);
+          target[path.at(-1)] = number;
+          const quality = metrics[id].quality;
+          for (const [rate, numerator, denominator] of [["review_rework_rate", "reworked_jobs", "reviewed_jobs"],
+            ["first_validation_rate", "first_pass_validations", "validated_jobs"], ["first_pass_merge_rate", "first_pass_merges", "human_merged_jobs"]]) {
+            quality[denominator] = Math.max(quality[denominator], quality[numerator]);
+            quality[rate] = quality[denominator] ? quality[numerator] / quality[denominator] : null;
+          }
+        }
+        readStatistics(metrics[id], id, selection, true); readConsumption(usage[id], id, selection, true);
+      }
+      h.requests.metrics.at(-1).resolve(metrics); h.requests.usage.at(-1).resolve(usage); await pending;
+    };
+    await complete("overflow");
+    assert.equal(h.latest().status, "error", path.join("/"));
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false, "no transient success");
+    await complete("boundary"); assert.equal(h.latest().status, "ready", "exact safe boundary is accepted");
+    h.advance(100);
+    await complete("overflow"); assert.equal(h.latest().status, "error", path.join("/"));
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null, "no renewed freshness");
+    await complete("valid"); assert.equal(h.latest().status, "ready", "valid recovery");
+    h.owner.dispose();
+  }
+});
+
+test("reporting preserves mixed unknown unpriced counts through initial and replacement success", async () => {
+  for (const known of [0, 7]) for (const missing of ["alpha", "beta"]) {
+    const h = reporting({ admin: true, projectIds: ["alpha", "beta"] });
+    const complete = async mixed => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = {}, usage = {};
+      for (const id of ["alpha", "beta"]) {
+        metrics[id] = fixture(); usage[id] = consumption();
+        for (const value of [metrics[id], usage[id]]) { value.scope = scope(id); value.jobs[0].project_id = id; }
+        usage[id].totals.reported_cost_usd = null;
+        if (!mixed || id !== missing) usage[id].totals.unpriced_events = known;
+        readConsumption(usage[id], id, selection, true);
+      }
+      h.requests.metrics.at(-1).resolve(metrics); h.requests.usage.at(-1).resolve(usage); await pending;
+      assert.equal(h.latest().status, "ready", "unknown evidence is valid, not a read error");
+      assert.equal(h.latest().data.pooledUsage.totals.unpriced_events, mixed ? undefined : 2 * known);
+      assert.equal(h.latest().data.usage[missing].totals.unpriced_events, mixed ? undefined : known);
+    };
+    await complete(true); await complete(false);
+    h.advance(100); await complete(true); assert.equal(h.latest().completedAt, 1100);
+    await complete(false); h.owner.dispose();
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();
