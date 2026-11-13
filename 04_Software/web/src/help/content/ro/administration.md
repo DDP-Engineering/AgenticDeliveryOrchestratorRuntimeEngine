@@ -41,7 +41,7 @@ Sub **Administrare**, deschideți [Starea sistemului](/admin/status). Se actuali
 
 ## Istoricul modificărilor {#change-history}
 
-Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În Istoricul modificărilor global, **Actualizează** reîncarcă imediat lista.
+Sub **Administrare**, deschideți [Istoricul modificărilor](/admin/audit) pentru a vedea cine ce a modificat, când și cu ce rezultat. Fila **Istoric** a unui proiect afișează aceleași dovezi doar pentru acel proiect, împreună cu lucrările lui încheiate. Ambele pagini se actualizează la fiecare 15 secunde cât timp sunt vizibile și păstrează filtrele, pagina și dovezile deschise. În ambele vederi, **Reîmprospătează** recitește aceeași pagină fără a șterge tabelul, filtrele în curs de editare, dovezile deschise sau focalizarea tastaturii. **Ultima actualizare** indică o citire validată reușită, nu începutul ei. O eroare de conexiune sau termenul de citire de 10 secunde poate lăsa dovezile anterioare marcate clar ca neactuale, cu **Reîncearcă**. Dovezile invalide, neautorizate sau eșuate din alte motive rămân ascunse până la o citire reușită.
 
 Istoricul identifică tichetele și lucrările separat de numerele operațiilor. O operație eșuată apare ca **Eșuat**, iar una refuzată ca **Respins**. Ștergerile din CLI au autorul CLI și rămân vizibile după eliminarea lucrării. O ștergere întreruptă rămâne **Incert** până la confirmarea rezultatului.
 

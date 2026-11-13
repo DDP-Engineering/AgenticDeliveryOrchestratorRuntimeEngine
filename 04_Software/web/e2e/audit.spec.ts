@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { revalidateVisiblePage } from "./polling";
 import { auditCopy } from "../src/auditCopy";
-import type { Locale } from "../src/i18n";
+import { messages, type Locale } from "../src/i18n";
 import { test, expect } from "@playwright/test";
 
 test.beforeEach(async ({ context, page }) => {
@@ -119,7 +119,7 @@ test(`${view} change history background reads keep the active filters and open e
   await expect(action).toHaveValue("unapplied-filter");
   expect(query.get("action")).toBe(event.action);
   expect(query.get("project_id")).toBe(project || null);
-  await expect(panel.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(project ? 0 : 1);
+  await expect(panel.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(1);
   if (project) projectId = "0".repeat(32);
   else actor = "invalid actor!";
   await revalidateVisiblePage(page);
@@ -131,6 +131,180 @@ test(`${view} change history background reads keep the active filters and open e
   await expect(panel.getByRole("cell").filter({ hasText: actor })).toBeVisible();
 });
 }
+
+for (const view of ["global", "project"] as const) {
+test(`${view} change history manual refresh retains paged evidence and draft focus`, async ({ page }) => {
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const project = projects.find((item: { name: string }) => item.name === "alpha").id;
+  const baseline = await (await page.request.get("/api/v1/audit-page?limit=10&offset=0")).json();
+  const event = { ...baseline.items[0], project_id: project, actor: "continuity_actor" };
+  await page.clock.install();
+  let hold = false, reads = 0, release = () => {}, actor = event.actor;
+  const queries: string[] = [];
+  await page.route("**/api/v1/audit-page?*", async route => {
+    reads++;
+    const query = new URL(route.request().url()).searchParams;
+    queries.push(query.toString());
+    const offset = Number(query.get("offset")), size = query.get("limit") === "all" ? 70 : Number(query.get("limit"));
+    const value = { items: Array.from({ length: Math.min(size, 70 - offset) }, (_, index) => ({ ...event, id: offset + index + 1, actor })), total: 70, offset, limit: query.get("limit") === "all" ? null : size };
+    if (hold) await new Promise<void>(resolve => { release = resolve; });
+    await route.fulfill({ json: value }).catch(() => undefined);
+  });
+  try {
+    await page.goto(view === "project" ? `/projects/${project}/history` : "/admin/audit");
+    const panel = page.locator(".audit-evidence"), feedback = panel.locator(".refresh-feedback");
+    const action = panel.getByLabel("Change type", { exact: true });
+    await action.fill(event.action); await panel.getByRole("button", { name: "Apply filters", exact: true }).click();
+    const size = panel.getByRole("combobox", { name: "Rows per page", exact: true });
+    await size.selectOption("25");
+    await expect(panel.locator("tbody tr")).toHaveCount(25);
+    await panel.getByRole("button", { name: "Next", exact: true }).click();
+    await expect.poll(() => new URLSearchParams(queries.at(-1)).get("offset")).toBe("25");
+    await expect(feedback).toHaveAttribute("data-refreshing", "false");
+    const evidence = panel.getByRole("button", { name: /Evidence/ }).first();
+    await evidence.click(); await action.fill("unapplied-filter");
+    const row = await panel.locator("tbody tr").first().elementHandle();
+    const input = await action.elementHandle();
+    const lastSuccess = await feedback.locator("time").getAttribute("datetime");
+    const query = queries.at(-1), before = reads;
+    hold = true;
+    await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect.poll(() => reads).toBe(before + 1);
+    await feedback.getByRole("button", { name: "Refresh", exact: true }).focus(); await page.keyboard.press("Enter");
+    await action.focus();
+    const scroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
+    await page.clock.runFor(2000); await revalidateVisiblePage(page);
+    expect(reads).toBe(before + 1); expect(queries.at(-1)).toBe(query);
+    await expect(panel.getByRole("table")).toBeVisible(); await expect(evidence).toHaveAttribute("aria-expanded", "true");
+    await expect(size).toHaveValue("25"); await expect(action).toHaveValue("unapplied-filter"); await expect(action).toBeFocused();
+    await expect(panel.getByText(auditCopy.en.loading, { exact: true })).toHaveCount(0);
+    await expect(feedback.locator("time")).toHaveAttribute("datetime", lastSuccess!);
+    hold = false; release();
+    await expect(feedback).toHaveAttribute("data-refreshing", "false");
+    expect(await row!.evaluate(node => node === document.querySelector(".audit-evidence tbody tr"))).toBe(true);
+    expect(await input!.evaluate(node => node === document.activeElement)).toBe(true);
+    expect(await page.evaluate(() => ({ x: scrollX, y: scrollY }))).toEqual(scroll);
+    await expect(feedback.locator("time")).not.toHaveAttribute("datetime", lastSuccess!);
+    // Changed background evidence updates the same surviving row without a loading panel.
+    actor = "changed_actor"; hold = true;
+    await page.clock.fastForward(15000); await expect.poll(() => reads).toBe(before + 2);
+    await expect(panel.locator("tbody")).not.toContainText(actor);
+    await expect(evidence).toHaveAttribute("aria-expanded", "true");
+    hold = false; release();
+    await expect(panel.locator("tbody tr").first()).toContainText(actor);
+    expect(await row!.evaluate(node => node === document.querySelector(".audit-evidence tbody tr"))).toBe(true);
+    await expect(action).toBeFocused(); await expect(size).toHaveValue("25");
+    await expect(evidence).toHaveAttribute("aria-expanded", "true");
+    expect(new URLSearchParams(queries.at(-1)).get("offset")).toBe("25");
+  } finally { release(); }
+});
+}
+
+for (const failure of ["transport", "deadline", "malformed", "denied"] as const) {
+test(`change history ${failure} refresh has honest freshness and recovery`, async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/admin/audit");
+  const panel = page.locator(".audit-evidence"), feedback = panel.locator(".refresh-feedback");
+  await expect(panel.getByRole("table")).toBeVisible();
+  const lastSuccess = await feedback.locator("time").getAttribute("datetime");
+  let release = () => {};
+  await page.route("**/api/v1/audit-page?*", async route => {
+    if (failure === "transport") await route.abort("failed");
+    else if (failure === "deadline") {
+      await new Promise<void>(resolve => { release = resolve; });
+      await route.fulfill({ json: { items: [], total: 0, offset: 0, limit: 10 } }).catch(() => undefined);
+    } else if (failure === "malformed") await route.fulfill({ contentType: "application/json", body: "{" });
+    else await route.fulfill({ status: 403, json: { detail: { code: "forbidden" } } });
+  });
+  try {
+    await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    if (failure === "deadline") await page.clock.runFor(10000);
+    const informational = failure === "transport" || failure === "deadline";
+    if (informational) {
+      await expect(feedback.getByRole("status")).toContainText("Refresh failed");
+      await expect(panel.getByRole("table")).toBeVisible();
+      await expect(feedback.locator("time")).toHaveAttribute("datetime", lastSuccess!);
+    } else {
+      await expect(panel.getByRole("alert")).toContainText("Could not load data");
+      await expect(panel.getByRole("table")).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
+      await expect(feedback.getByRole("status")).toHaveCount(0);
+    }
+    await page.unroute("**/api/v1/audit-page?*");
+    await page.clock.runFor(1000);
+    await feedback.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(panel.getByRole("table")).toBeVisible(); await expect(feedback.getByRole("status")).toHaveCount(0);
+    await expect(feedback.locator("time")).not.toHaveAttribute("datetime", lastSuccess!);
+    release();
+    await expect(panel.getByRole("table")).toBeVisible();
+  } finally { release(); }
+});
+}
+
+test("change history query ownership cancels old reads and pauses hidden scheduling", async ({ page }) => {
+  const baseline = await (await page.request.get("/api/v1/audit-page?limit=10&offset=0")).json();
+  await page.clock.install();
+  let hold = false, reads = 0;
+  const releases: Array<() => void> = [];
+  await page.route("**/api/v1/audit-page?*", async route => {
+    reads++;
+    const action = new URL(route.request().url()).searchParams.get("action");
+    const value = { ...baseline, items: [{ ...baseline.items[0], actor: action ? "replacement_actor" : "original_actor" }], total: 1 };
+    if (hold) await new Promise<void>(resolve => { releases.push(resolve); });
+    await route.fulfill({ json: value }).catch(() => undefined);
+  });
+  try {
+    await page.goto("/admin/audit");
+    const panel = page.locator(".audit-evidence"), feedback = panel.locator(".refresh-feedback");
+    await expect(panel.getByRole("cell").filter({ hasText: "original_actor" })).toBeVisible();
+    const before = reads;
+    // Hidden intervals do not read. One visible return joins repeated visible events.
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.clock.fastForward(45000); expect(reads).toBe(before);
+    hold = true;
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      document.dispatchEvent(new Event("visibilitychange")); document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(() => reads).toBe(before + 1);
+    await expect.poll(() => releases.length).toBe(1);
+    const oldCancelled = page.waitForEvent("requestfailed", request => request.url().includes("/audit-page?") && !request.url().includes("action="));
+    await panel.getByLabel("Change type", { exact: true }).fill("replacement-event");
+    await panel.getByRole("button", { name: "Apply filters", exact: true }).click();
+    await oldCancelled;
+    await expect.poll(() => releases.length).toBe(2);
+    await expect(panel.getByRole("table")).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
+    releases[0](); await expect(panel.getByText("original_actor", { exact: true })).toHaveCount(0);
+    hold = false; releases[1]();
+    await expect(panel.getByRole("cell").filter({ hasText: "replacement_actor" })).toBeVisible();
+    // Leaving the view aborts its current read and prevents a late publication/retry.
+    hold = true;
+    await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect.poll(() => releases.length).toBe(3);
+    const leaving = page.waitForEvent("requestfailed", request => request.url().includes("/audit-page?"));
+    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Projects", exact: true }).click();
+    await leaving;
+    const exitedReads = reads; releases[2](); await page.clock.fastForward(45000);
+    expect(reads).toBe(exitedReads); await expect(panel).toHaveCount(0);
+  } finally { releases.forEach(release => release()); }
+});
+
+test("removed audit events cannot regain an old expanded disclosure", async ({ page }) => {
+  const baseline = await (await page.request.get("/api/v1/audit-page?limit=10&offset=0")).json();
+  let items = [baseline.items[0]];
+  await page.route("**/api/v1/audit-page?*", route => route.fulfill({ json: { ...baseline, items, total: items.length } }));
+  await page.goto("/admin/audit");
+  const panel = page.locator(".audit-evidence"), feedback = panel.locator(".refresh-feedback");
+  await panel.getByRole("button", { name: /Evidence/ }).click();
+  await expect(panel.locator(".audit-detail-row")).toBeVisible();
+  items = []; await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(panel.getByText("No changes match these filters.", { exact: true })).toBeVisible();
+  await expect(panel.locator(".audit-detail-row")).toHaveCount(0);
+  items = [baseline.items[0]]; await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(panel.getByRole("button", { name: /Evidence/ })).toHaveAttribute("aria-expanded", "false");
+});
 
 test("project change history background recovers from a stalled read", async ({ page }) => {
   const projects = await (await page.request.get("/api/v1/projects")).json();
@@ -172,10 +346,10 @@ test("malformed or failed projections hide evidence and retry recovers", async (
   await expect(page.locator(".audit-evidence")).not.toContainText("injected-private-secret");
   await page.unroute("**/api/v1/audit-page?*");
   await page.route("**/api/v1/audit-page?*", route => route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":{"code":"web_store_corrupt"}}' }));
-  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.locator(".audit-evidence").getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByText("Could not load data", { exact: true })).toBeVisible();
   await page.unroute("**/api/v1/audit-page?*");
-  await page.locator(".audit-evidence").getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.locator(".audit-evidence").getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByRole("columnheader", { name: "Result", exact: true })).toBeVisible();
 });
 
@@ -229,6 +403,17 @@ test("localized change evidence remains usable at 390px in both themes", async (
         await page.goto("/admin/audit");
         await expect(page.getByLabel(auditCopy[locale].actor, { exact: true })).toBeVisible();
         await expect(page.getByRole("button", { name: auditCopy[locale].apply, exact: true })).toBeVisible();
+        const feedback = page.locator(".audit-evidence .refresh-feedback");
+        await expect(feedback.locator("time")).toHaveCount(1);
+        await page.route("**/api/v1/audit-page?*", route => route.abort("failed"));
+        await feedback.getByRole("button", { name: messages[locale].refresh, exact: true }).click();
+        await expect(feedback.getByRole("status")).toHaveText(messages[locale].refreshStale);
+        await expect(page.locator(".audit-evidence table")).toBeVisible();
+        await feedback.getByRole("button", { name: messages[locale].retry, exact: true }).focus();
+        await page.unroute("**/api/v1/audit-page?*");
+        await page.keyboard.press("Enter");
+        await expect(feedback.getByRole("status")).toHaveCount(0);
+        await expect(feedback.getByRole("button", { name: messages[locale].refresh, exact: true })).toBeFocused();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
       }
     }

@@ -429,9 +429,19 @@ Project **History** combines jobs with change evidence for that immutable projec
 Dev receives assigned-project operational changes; administrative account/access,
 price and policy events remain Admin-only. Revoked or replaced grants cannot expose another project's events.
 Global **Change history** and project **History** reload the current evidence page
-every 15 seconds while visible. They keep the applied filters, current page and open evidence. An empty result
-explains that no changes match. Failed reads hide data until a successful update.
-The global **Change history** panel's **Refresh** button retries immediately. There is no audit export.
+every 15 seconds while visible. Both panels also offer **Refresh** using the same
+read path without removing the table, filter drafts, page size/page, surviving open
+evidence or keyboard focus. An empty result explains that no changes match.
+**Last refreshed** records successful validated completion, including an unchanged
+response, never request start or failure. Repeated clicks and visible-tab triggers
+join an in-flight read. Reads pause while hidden; returning visible revalidates once.
+A connection failure or the 10-second read deadline can retain the previous page
+with a failed-refresh notice explicitly identifying it as older, not current
+evidence, its original success time and **Retry**. Initial failures have no retained
+data. Invalid, mismatched, unauthorized and other application failures hide affected
+evidence and counts until a successful read. A changed query starts with scoped
+loading and cancels the preceding read; late responses cannot replace the new page.
+Removed events lose their open disclosure. There is no audit export.
 
 In **System status**, administrators set **Audit retention**; the current limits
 are shown above the prefilled form (Unlimited when no limit is set). Zero/blank means

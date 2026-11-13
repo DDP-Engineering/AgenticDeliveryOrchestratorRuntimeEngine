@@ -61,6 +61,15 @@ test("consumption preserves reported versus estimated and rejects missing or cor
   assert.throws(() => readConsumption(value, "alpha", selection, true));
 });
 
+test("consumption validates unique date executor model bucket identities", () => {
+  const bucket = { date: "2026-10-25", executor: "pi", model: "example", ...amounts(7, 5) };
+  const value = { scope: scope(), totals: amounts(7, 5), lifetime: amounts(7, 5), unallocated: amounts(), jobs: [job()],
+    daily: [bucket, { ...bucket, model: null }, { ...bucket, model: "" }, { ...bucket, date: "2026-10-26" }], coverage: {} };
+  assert.equal(readConsumption(value, "alpha", selection, false).daily.length, 4);
+  value.daily.push({ ...bucket, tokens_in: 99 });
+  assert.throws(() => readConsumption(value, "alpha", selection, false), /Invalid statistics response/);
+});
+
 /** Controlled reporting resources: fixtures still pass through production validators. */
 function reporting(overrides = {}) {
   assert.equal(typeof statistics.createReportingRefresh, "function", "coordinated reporting owner is available");

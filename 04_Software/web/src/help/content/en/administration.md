@@ -41,7 +41,7 @@ Under **Administration**, open [System status](/admin/status). It refreshes by i
 
 ## Change history {#change-history}
 
-Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Both views refresh every 15 seconds while visible and keep your filters, page and open evidence. On the global Change history page, **Refresh** reloads the list immediately.
+Under **Administration**, open [Change history](/admin/audit) to see who changed what, when, and with what result. A project's **History** tab shows the same evidence for that project alone, together with its finished jobs. Both views refresh every 15 seconds while visible and keep your filters, page and open evidence. In either view, **Refresh** rereads the same page without clearing the table, filter drafts, open evidence or keyboard focus. **Last refreshed** records a successful validated read, not its start. A connection failure or the 10-second read deadline can leave the previous evidence visibly marked as not current, with **Retry**. Invalid, unauthorized or other failed evidence is hidden until a successful read.
 
 History identifies ticket and job targets separately from operation numbers. A failed operation is shown as **Failed**; a refused operation is **Rejected**. CLI deletions identify the actor as CLI and remain visible after the job is removed. An interrupted deletion stays **Uncertain** until its result is confirmed.
 

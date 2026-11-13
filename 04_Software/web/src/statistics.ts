@@ -106,10 +106,15 @@ export function readConsumption(value: unknown, project: string, selection: Repo
   for (const key of ["totals", "lifetime", "unallocated"]) amounts(row[key]);
   for (const value of Object.values(object(row.coverage))) count(value);
   if (!Array.isArray(row.daily)) invalid();
+  const buckets = new Set<string>();
   for (const item of row.daily as unknown[]) {
     const day = object(item); amounts(day);
     if (typeof day.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day.date) ||
       day.executor !== null && typeof day.executor !== "string" || day.model !== null && typeof day.model !== "string") invalid();
+    // One source bucket per tuple; null and empty names remain distinct identities.
+    const identity = JSON.stringify([day.date, day.executor, day.model]);
+    if (buckets.has(identity)) invalid();
+    buckets.add(identity);
   }
   const result = row as unknown as Usage;
   aggregateUsage([result]);

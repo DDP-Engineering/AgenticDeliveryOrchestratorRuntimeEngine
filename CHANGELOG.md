@@ -43,6 +43,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep both change-evidence panels visible during manual and automatic rereads,
+  preserving page, filter drafts, open evidence and focus. Add project Refresh,
+  validated completion times and marked older evidence with retry after connection
+  or deadline failures; invalid and unauthorized evidence remains hidden.
+
 - Keep global and project Statistics reports, table controls and CSV menus visible
   during coordinated background updates. Add non-destructive Refresh/retry and
   successful source times; mark retained transport/deadline failures stale while

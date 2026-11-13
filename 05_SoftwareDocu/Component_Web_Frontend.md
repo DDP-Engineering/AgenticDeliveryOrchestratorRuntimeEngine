@@ -117,6 +117,13 @@ Context exit disposes/aborts both members. Only committed data drives cards,
 tables and exports. Context changes synchronously hide the preceding report;
 initial and closed failures retain the existing DataFeedback boundary.
 
+Usage rows use the same JSON-encoded date/executor/model tuple as analytical
+aggregation, without their current display index. `readConsumption` rejects
+duplicate source buckets before publication (null and empty names remain distinct).
+`e2e/statistics.spec.ts` proves a surviving row retains its DOM identity when a
+changed amount moves it within the selected sort, and duplicate evidence hides the
+report and export; `tests/statistics.test.mjs` covers accepted and duplicate tuples.
+
 `Presentation.tsx::RefreshFeedback` keeps Refresh focusable with `aria-disabled`
 and a guarded handler while pending; progress and full/member success times are
 non-live. Stale/closed failure status is announced separately. Statistics records
@@ -390,9 +397,17 @@ the event (fixed table layout; 12-character ids with the full value as title;
 revisions only when recorded). Missing values say Before
 value not recorded; candidate preparation and uncertain application attempts are
 labeled separately from applied results. `auditCopy.ts` supplies four locales.
-Strict transport/value checks withhold malformed, mismatched or failed evidence
-and counts. Principal/project keyed instances and cancelled requests suppress
-stale completion; the project reader mounts only after stable identity resolves.
+Strict transport/value checks withhold malformed, mismatched, unauthorized and
+other nontransport failed evidence and counts. `createReadController<Page>` owns
+one query-bound read with the existing 10-second deadline. Pending rereads retain
+the validated page; only positively typed transport/deadline failures retain it
+as marked stale information. `RefreshFeedback` supplies localized non-live progress,
+validated completion time and Refresh/retry in both scopes. Same-query triggers
+coalesce; query changes synchronously gate out preceding evidence and cancel its
+owner. Principal/role/project-scope keys, not refresh counters, own panel identity;
+the project reader mounts only after stable identity resolves. Applied/draft
+filters, paging, surviving event disclosures, focus and scroll persist during
+revalidation. Successful removal prunes vanished event disclosures.
 There is no audit export. Browser tests in `e2e/audit.spec.ts` own empty/error,
 filter/paging, privacy, role, locale/theme and 390px behavior.
 
@@ -434,8 +449,14 @@ reads that overlap edits or writes. Price reads have a separate lifecycle and
 validate the rate list before rendering. Access invalidates older reads
 at the start of a grant change. The audit read stays bound to the applied
 filters and page, and keeps evidence open for the same event IDs. The audit
-panel's manual Refresh is available in global Change history. Audit requests
-have a 10-second deadline and cancel when the query or view changes.
+panel's manual Refresh is available in both global Change history and project
+History. `viewRefresh` is a reread signal, not part of the panel key or query-owner
+effect. Audit requests have a 10-second deadline and cancel when the query or view
+changes; deadline expiry releases the read slot even if the transport ignores abort.
+`e2e/audit.spec.ts` covers held manual/periodic second-page reads, unchanged/changed
+row identity, focus/scroll/draft retention, transport/deadline stale recovery,
+malformed/denied refusals, query/unmount cancellation, hidden/visible scheduling
+and four-locale/two-theme narrow keyboard retry.
 Overview skips consumption reads and reporting/date/technical prose. Worker
 faults appear above the job tables. When both Overview responses identify the
 same unreadable projects, Needs attention names them and both tables show jobs

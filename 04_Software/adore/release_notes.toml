@@ -134,7 +134,7 @@ text = { en = "System status shows retention and storage; Users lists each accou
 [[release.entry]]
 category = "improved"
 topic = { en = "Navigation", fr = "Navigation", de = "Navigation", ro = "Navigare" }
-text = { en = "Settings, Access and both history views refresh automatically. Settings pauses during edits.", fr = "Paramètres, Accès et les deux historiques s’actualisent. La saisie suspend les Paramètres.", de = "Einstellungen, Zugriff und beide Verläufe aktualisieren sich. Beim Bearbeiten pausiert es.", ro = "Setări, Acces și paginile de istoric se actualizează automat. Editarea pune Setările în pauză." }
+text = { en = "Settings and Access update automatically; both change histories keep your place and offer Retry.", fr = "Paramètres et Accès s’actualisent ; les historiques gardent votre place et proposent Réessayer.", de = "Einstellungen und Zugriff laden automatisch; beide Änderungsverläufe bleiben beim Wiederholen offen.", ro = "Setări și Acces se actualizează; istoricul păstrează pagina și oferă Reîncearcă în ambele vederi." }
 
 [[release.entry]]
 category = "improved"

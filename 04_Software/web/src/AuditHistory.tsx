@@ -7,12 +7,15 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import { Fragment, useEffect, useRef, useState } from "react";
 import { messages, type Locale } from "./i18n";
 import { auditCopy } from "./auditCopy";
-import { startVisiblePolling } from "./polling";
+import { createReadController, startVisiblePolling, type ReadController, type ReadSnapshot } from "./polling";
+import { RefreshFeedback } from "./Presentation";
+import { ApiError } from "./errors";
 
 type Row = { id: number; actor_id: number | null; actor: string | null; action: string; project: string;
   project_id: string | null; resource_type: string | null; resource_id: string | null; created_at: string;
   phase: string | null; result: string | null; before: unknown; after: unknown; operation_id: number | null;
   base_revision: string | null; candidate_revision: string | null; correlation: string | null };
+type Page = { items: Row[]; total: number; offset: number; limit: number | null };
 type Filters = { actor: string; project: string; type: string; from: string; to: string };
 const empty: Filters = { actor: "", project: "", type: "", from: "", to: "" };
 
@@ -52,9 +55,9 @@ function validRow(value: unknown): value is Row {
 const short = (hex: string) => <code title={hex}>{hex.slice(0, 12)}</code>;
 
 /** Filtered server pages are isolated by principal and project via the parent key. */
-export function AuditHistory({ locale, projects, fixedProject, read }: {
+export function AuditHistory({ locale, projects, fixedProject, read, refresh = 0 }: {
   locale: Locale; projects: Array<{ id: string; name: string; display_name?: string }>;
-  fixedProject?: string; read: (path: string, signal: AbortSignal) => Promise<unknown>;
+  fixedProject?: string; read: (path: string, signal: AbortSignal) => Promise<unknown>; refresh?: number;
 }) {
   const c = auditCopy[locale];
   const [draft, setDraft] = useState<Filters>({ ...empty, project: fixedProject || "" });
@@ -62,46 +65,54 @@ export function AuditHistory({ locale, projects, fixedProject, read }: {
   const [open, setOpen] = useState<number[]>([]);
   const [size, setSize] = useState("10");
   const [offset, setOffset] = useState(0);
-  const [refresh, setRefresh] = useState(0);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [rows, setRows] = useState<Row[]>([]);
-  const [total, setTotal] = useState(0);
+  const [snapshot, setSnapshot] = useState<ReadSnapshot<Page> | null>(null);
+  const owner = useRef<ReadController | null>(null);
   const [invalid, setInvalid] = useState(false);
   const reader = useRef(read); reader.current = read;
+  const query = new URLSearchParams({ limit: size, offset: String(offset) });
+  if (filters.actor) query.set("actor_id", filters.actor);
+  if (filters.project) query.set("project_id", filters.project);
+  if (filters.type) query.set("action", filters.type);
+  if (filters.from) query.set("from", filters.from + ":00Z");
+  if (filters.to) query.set("to", filters.to + ":00Z");
+  // Gate before effects: a new query never renders the preceding page under new controls.
+  const queryKey = query.toString();
+  const current = snapshot?.key === queryKey ? snapshot : null;
+  const state = current?.status ?? "loading";
+  const rows = current?.data?.items ?? [];
+  const total = current?.data?.total ?? 0;
   useEffect(() => {
-    let active = true;
-    let cancelRead: (() => void) | null = null;
-    setState("loading"); setRows([]); setTotal(0);
-    const query = new URLSearchParams({ limit: size, offset: String(offset) });
-    if (filters.actor) query.set("actor_id", filters.actor);
-    if (filters.project) query.set("project_id", filters.project);
-    if (filters.type) query.set("action", filters.type);
-    if (filters.from) query.set("from", filters.from + ":00Z");
-    if (filters.to) query.set("to", filters.to + ":00Z");
-    const load = async () => {
-      if (cancelRead) return;
-      const controller = new AbortController();
-      const deadline = window.setTimeout(() => controller.abort(), 10000);
-      cancelRead = () => { window.clearTimeout(deadline); controller.abort(); };
-      try {
-        const page = await reader.current(`/audit-page?${query}`, controller.signal) as { items: unknown[]; total: number; offset: number; limit: number | null };
+    setOpen([]);
+    const controller = createReadController<Page>({
+      key: queryKey, deadlineMs: 10000, policy: "informational",
+      read: async signal => {
+        const page = await reader.current(`/audit-page?${queryKey}`, signal) as Page;
         if (!page || !Array.isArray(page.items) || !Number.isSafeInteger(page.total) || page.total < 0 ||
             page.offset !== offset || page.limit !== (size === "all" ? null : Number(size)) ||
             page.items.length > page.total || size !== "all" && page.items.length > Number(size) ||
             page.items.some(row => !validRow(row) || filters.project && row.project_id !== filters.project) ||
-            new Set(page.items.map(row => (row as Row).id)).size !== page.items.length) throw new Error("invalid evidence");
-        if (active) { setRows(page.items as Row[]); setTotal(page.total); setState("ready"); }
-      } catch {
-        if (active) { setRows([]); setTotal(0); setState("error"); }
-      } finally { window.clearTimeout(deadline); cancelRead = null; }
-    };
-    void load();
-    const stop = startVisiblePolling(() => void load(), 15000);
-    return () => { active = false; stop(); cancelRead?.(); };
-  }, [filters, size, offset, refresh]);
+            new Set(page.items.map(row => row.id)).size !== page.items.length) throw new ApiError("unexpected_response");
+        return page;
+      },
+      publish: value => {
+        setSnapshot(value);
+        if (value.status === "ready" && !value.refreshing && value.data) {
+          const surviving = new Set(value.data.items.map(row => row.id));
+          setOpen(ids => ids.every(id => surviving.has(id)) ? ids : ids.filter(id => surviving.has(id)));
+        }
+      },
+    });
+    owner.current = controller;
+    void controller.refresh();
+    const stop = startVisiblePolling(() => void controller.refresh(), 15000);
+    return () => { stop(); controller.dispose(); if (owner.current === controller) owner.current = null; };
+  }, [queryKey]);
+  // Post-operation revalidation is a trigger, never a new component/query identity.
+  useEffect(() => { void owner.current?.refresh(); }, [refresh]);
   const input = (key: keyof Filters, label: string, type = "text") => <label>{label}<input type={type} value={draft[key]} onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))} /></label>;
   return <section className="panel wide-panel audit-evidence" aria-label={c.title}>
-    <div className="panel-heading"><h2>{c.title}</h2>{!fixedProject && <button type="button" className="ghost" onClick={() => setRefresh(value => value + 1)}>{c.refresh}</button>}</div>
+    <div className="panel-heading"><h2>{c.title}</h2></div>
+    <RefreshFeedback snapshot={current} locale={locale} t={key => messages[locale][key]} onRefresh={() => void owner.current?.refresh()} />
     <form className="audit-filters" onSubmit={event => {
       event.preventDefault();
       if (draft.actor && !/^[1-9][0-9]*$/.test(draft.actor) || draft.type && !/^[a-z][a-z0-9-]{0,79}$/.test(draft.type) ||

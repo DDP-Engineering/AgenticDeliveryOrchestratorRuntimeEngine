@@ -510,6 +510,36 @@ test("Statistics manual refresh preserves paging focus and freshness through fai
   } finally { release?.(); }
 });
 
+test("Usage bucket identity survives changed sort position and rejects duplicate evidence", async ({ page }) => {
+  await signIn(page);
+  const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
+  let tokens = 5, duplicate = false;
+  await page.route("**/api/v1/projects/*/usage?*", async route => {
+    const body = await (await route.fetch()).json();
+    const bucket = (model: string, input: number) => ({ date: "2026-10-25", executor: "pi", model, ...amounts(input, 0) });
+    body.daily = [bucket("surviving-model", tokens), bucket("lower-model", 1), bucket("upper-model", 10)];
+    if (duplicate) body.daily.push({ ...body.daily[0], tokens_in: 99 });
+    await route.fulfill({ json: body });
+  });
+  await page.goto(`/projects/${alpha}/statistics?tab=usage`);
+  const table = page.locator(".usage-table"), feedback = page.locator(".refresh-feedback");
+  await expect(table).toBeVisible();
+  await page.getByRole("columnheader", { name: "Input tokens", exact: true }).getByRole("button").click();
+  const row = table.locator("tbody tr").filter({ hasText: "surviving-model" });
+  await expect(table.locator("tbody tr").nth(1)).toContainText("surviving-model");
+  const identity = await row.elementHandle();
+  tokens = 20;
+  await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(table.locator("tbody tr").nth(2)).toContainText("surviving-model");
+  expect(await identity!.evaluate(node => node.isConnected && node === [...document.querySelectorAll(".usage-table tbody tr")].find(row => row.textContent?.includes("surviving-model")))).toBe(true);
+  await expect(row).toContainText("20");
+  await page.getByText("Export CSV", { exact: true }).click();
+  duplicate = true;
+  await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible(); await expect(table).toHaveCount(0);
+  await expect(page.locator(".metrics-export")).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
+});
+
 test("metric and usage responses with different canonical intervals fail closed together", async ({ page }) => {
   await signIn(page); const alpha = (await (await page.request.get("/api/v1/projects")).json()).find((item: any) => item.name === "alpha").id;
   await page.route("**/api/v1/projects/*/usage?*", async route => {

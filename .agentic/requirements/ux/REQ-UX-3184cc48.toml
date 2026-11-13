@@ -9,7 +9,7 @@ id = "REQ-UX-3184cc48"
 
 title = "Offer non-destructive change evidence Refresh in both scopes"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While global Change history or the project History change-evidence panel is displayed, the interface shall offer a localized manual Refresh/retry control invoking the same coalesced current-query revalidation path as its periodic reads without remounting the panel.

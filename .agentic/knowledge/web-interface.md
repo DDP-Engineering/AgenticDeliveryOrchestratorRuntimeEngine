@@ -32,8 +32,20 @@ Statistics retains content/export while pending; only positively typed transport
 deadline failures retain a marked stale report. Closed failures hide it. Shared
 four-locale RefreshFeedback exposes non-live progress and full/member successful
 times plus failure status/retry. CSV reads current server data, not the retained
-screen. Helper and offline Statistics browser tests cover the seam; Jobs/audit/
-Users integration and full cross-view authorization acceptance remain separate.
+screen. Helper and offline Statistics browser tests cover the seam; Jobs/Users
+integration and full cross-view authorization acceptance remain separate.
+
+`AuditHistory.tsx` uses a query-bound informational `createReadController<Page>`
+with a 10s deadline and 15s visible cadence. Manual Refresh/retry in both scopes,
+periodic/visible and parent reread signals join the same owner without a panel
+remount. Scoped render gating and cancellation hide earlier queries immediately.
+Rows use event IDs; surviving disclosures, draft filters, page and focus remain,
+while removed event disclosures are pruned. Positively typed transport/deadline
+failures retain visibly marked old evidence/time; malformed, denied and other
+application failures clear evidence/counts. RefreshFeedback is localized and non-live
+except stale failure status. `web/e2e/audit.spec.ts` proves held second-page reads,
+unchanged/changed DOM/focus/scroll, fresh-time semantics, recovery/closed failures,
+hidden/visible counts, cancellation and narrow locale/theme keyboard retry.
 
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
@@ -217,8 +229,9 @@ SQLite bytes, authorization, scope and financial redaction.
   outside SQLite signed64-bit bounds. Admin global history includes closed
   structured evidence; Dev sees only a currently assigned project and operational
   actions, excluding admin/access/price/financial-config/name-only rows. `AuditHistory.tsx` renders
-  who/what/when/result and known redacted diff/revision/correlation; failed or
-  malformed reads hide data and counts. Project History retains job history and
+  who/what/when/result and known redacted diff/revision/correlation; malformed,
+  unauthorized and other nontransport failures hide data and counts, while typed
+  same-query transport/deadline failures retain only marked older information. Project History retains job history and
   adds this evidence. Retention editing lives under System status with separate
   day/text-byte limits and actual deleted-event impact.
 
