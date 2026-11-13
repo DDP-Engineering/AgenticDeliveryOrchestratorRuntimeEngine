@@ -84,13 +84,12 @@ unsupported entries never enable fallback. After confirmation/validation init
 uses the effective `workflow.aegis_python` (default `python`) for both probes;
 a missing interpreter is named with informational CHECK. The same two commands
 verify a present target payload by hand. Web enrollment accepts either workflow
-without installing or modifying AEGIS. Direct CLI init and existing-clone web
-setup-preview share `suggest_verification_command`: bounded local-file discovery
-with source provenance, no command/network/probe or toolchain prerequisite.
-Uncreated enrollment destinations remain not-inspected with no suggestion; saved
-Settings never infer one. The selected command is editable/clearable and saved
-only after human confirmation. Offline proof is `test_verification_hint.py`,
-`test_wizard.py`, `test_web_enrollment.py` and enrollment/settings browser journeys.
+without installing or modifying AEGIS. The coding agent selects and reports
+repository checks; ADORE observes the durable AEGIS journal or the direct
+candidate without running a separate verification command. Enrollment and Settings
+do not discover or configure such a command. Offline proof is `test_wizard.py`,
+`test_web_enrollment.py`, `test_orchestrator.py` and enrollment/settings browser
+journeys.
 `adore --profile <name> run --dry-run` shows ticket selection without side effects.
 
 ## Build and run
@@ -167,16 +166,13 @@ Native child environments preserve the account's PATH and inherited PATHEXT so
 Windows shells resolve installed executable names. Forge credential variables
 remain filtered; project tools are still installed by the operator.
 
-Configured direct verification uses the validate timeout override or general gate
-limit from the worktree root: containers use sh -c, native Linux /bin/sh -c and
-native Windows the bound SystemRoot/System32/cmd.exe /d /s /c. Configure the exact
-single-line command in server TOML or through the guided/reviewed configuration
-APIs; empty stays unverified and AEGIS ignores it.
-Native verification output must be UTF-8 and its owned scope must drain; the
-shell has service-account permissions without container/host isolation. Ordinary
-native shell argv remains refused. Offline tests inject controllers/Jobs/cgroups
-and the Windows child/CreateProcess boundary; live platform acceptance remains
-operator-owned.
+Native executor attempts use the configured stage timeout or general attempt
+limit. The agent owns repository checks within that attempt; ADORE launches no
+independent verification shell. Native output must be UTF-8 and its owned scope
+must drain. The executor has service-account permissions without container/host
+isolation; ordinary native shell argv remains refused. Offline tests inject
+controllers/Jobs/cgroups and the Windows child/CreateProcess boundary; live
+platform acceptance remains operator-owned.
 
 Local profiles require independently installed CLI/native Python under the ADORE
 service account. Windows needs executable entrypoints (or installed Node/JS argv)

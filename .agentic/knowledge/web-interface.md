@@ -890,7 +890,7 @@ for Add and Import project. Primary buttons take their text colour from the
 | URLs, tabs, navigation | `web/src/routes.ts`, `web/src/App.tsx` | `npm test` (`routes.test.mjs`), browser check |
 | Owned reads, transport/stale policy, visibility and deadlines | `web/src/polling.ts::createReadController`, `request.ts::createRequestScope`, `Presentation.tsx::RefreshFeedback` | `tests/polling.test.mjs`, `request.test.mjs`, `e2e/sessionRefresh.spec.ts` |
 | Coordinated reporting, pins, promotion and validated pooled evidence | `statistics.ts::createReportingRefresh`, App reporting owner | `tests/statistics.test.mjs`, `e2e/statistics.spec.ts`, `reportingRefresh.spec.ts` |
-| Jobs/History continuity, command generations and manual output identity | `JobWorkspace.tsx`, `jobModel.ts` | `e2e/jobRefresh.spec.ts`, `operationRefresh.spec.ts`, `tests/jobs.test.mjs` |
+| Jobs/History continuity, compact detail recovery, Activity identity and command generations | `JobWorkspace.tsx`, `JobDetails.tsx`, `jobModel.ts` | `e2e/jobDetails.spec.ts`, `jobRefresh.spec.ts`, `operationRefresh.spec.ts`, `tests/jobs.test.mjs` |
 | Manual Users continuity and unchanged/invalid review authority | App Users owner, `UserCreation.tsx`, `AccountActionDialog.tsx`, `ProjectAccess` | `e2e/usersRefresh.spec.ts`, `accessRefresh.spec.ts`, `settingsRefresh.spec.ts` |
 | Background refresh and paging | `web/src/polling.ts`, `JobWorkspace`, `ServerPager` in `App.tsx`, `/api/v1/audit-page` | `npm test` (`polling.test.mjs`), `test_web_paging.py` |
 | Settings, Access and Change history refresh | `settingsPoll` and `ProjectAccess` in `App.tsx`, `AuditHistory.tsx` | `e2e/settings.spec.ts`, `e2e/shell.spec.ts`, `e2e/audit.spec.ts` |
@@ -1109,9 +1109,10 @@ Native control/auth route to local-execution.md. Focused proof:
 
 - `tests/test_web_transfer.py` covers the portable new-project enrollment API.
 
-- `04_Software/web/src/JobWorkspace.tsx` â€” scoped attention/jobs/detail, observed
-  paging and queued command feedback; `jobModel.ts` validates transport evidence,
-  `jobCopy.ts` localizes conditional actions.
+- `04_Software/web/src/JobWorkspace.tsx` — scoped attention/jobs/detail, owned
+  reads, paging and queued command feedback; `JobDetails.tsx` owns compact detail
+  tabs and stable Activity events, `jobModel.ts` validates transport evidence,
+  and `jobCopy.ts` localizes conditional actions.
 - `04_Software/web/tests/jobs.test.mjs`, `04_Software/web/e2e/jobs.spec.ts` â€” public
   evidence/route boundaries and offline real API/worker/browser journeys.
 
@@ -1183,7 +1184,7 @@ scoped response validation and performed-check classification. Focused proof is
 `web/tests/readiness.test.mjs` and `web/e2e/jobs.spec.ts` readiness journeys.
 Explicit host checks retain internally validated check time and configuration revision.
 A validated current host-check completion supersedes in-flight project-list reads
-before publishing its result (`App::checkProjectReadiness`, `projectsRequest`).
+before publishing its result (`App::checkProjectReadiness`, `projectsReader.invalidate()`).
 Older snapshots cannot overwrite that result; subsequent fresh polls retain update
 authority. The held-snapshot/fresh-poll journey in `web/e2e/jobs.spec.ts` proves
 both sides of this response-order boundary under `REQ-UX-78923e00`.
