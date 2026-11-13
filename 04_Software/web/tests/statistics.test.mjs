@@ -387,6 +387,86 @@ test("reporting validates optional revision identities and values before publish
   }
 });
 
+/** Monetary evidence must validate before eager Quality chip formatting or pooling. */
+test("reporting validates optional cost efficiency structures counts and money before success", async () => {
+  const keys = ["reported_per_completed", "estimated_per_completed", "reported_per_human_merged", "estimated_per_human_merged"];
+  const evidence = () => ({ jobs_with_evidence: 2, usd_per_job: 8 });
+  const bad = [undefined, null, [], "costs", 0];
+  for (const key of keys) {
+    for (const entry of [null, [], "cost", 0, {}, { jobs_with_evidence: 0 }]) bad.push({ [key]: entry });
+    for (const count of [undefined, null, {}, "2", -1, 0.5, Number.MAX_SAFE_INTEGER + 1, Infinity, NaN]) {
+      bad.push({ [key]: { ...evidence(), jobs_with_evidence: count } });
+    }
+    for (const money of [undefined, {}, { toString: null }, [], "invalid", "8", -1, Infinity, NaN]) {
+      bad.push({ [key]: { ...evidence(), usd_per_job: money } });
+    }
+  }
+  // The collection is optional, but every present entry must carry valid evidence.
+  bad.push({ unrecognized_bucket: null }, { reported_per_completed: { jobs_with_evidence: 0, usd_per_job: { toString: null } } });
+  const valid = { reported_per_completed: evidence(), estimated_per_completed: { jobs_with_evidence: 1, usd_per_job: 0 },
+    reported_per_human_merged: { jobs_with_evidence: 0, usd_per_job: null }, estimated_per_human_merged: { jobs_with_evidence: 2, usd_per_job: null } };
+  for (const costs of [undefined, {}, valid]) {
+    const value = fixture();
+    if (costs !== undefined) value.quality.cost_efficiency = costs;
+    assert.equal(readStatistics(value, "alpha", selection, true).quality.cost_efficiency, costs);
+  }
+  for (const costs of bad) {
+    const h = reporting({ admin: true });
+    const complete = async costs => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = memberValue("metrics", 1);
+      metrics.alpha.totals.cost_usd = 0;
+      metrics.alpha.quality.cost_efficiency = costs;
+      h.requests.metrics.at(-1).resolve(metrics); h.requests.usage.at(-1).resolve(memberValue("usage", 1));
+      await pending;
+    };
+    await complete(costs);
+    assert.equal(h.latest().status, "error", `invalid efficiency: ${JSON.stringify(costs)}`);
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false, "no transient success");
+    await complete(valid); assert.equal(h.latest().status, "ready");
+    h.advance(100);
+    await complete(costs); assert.equal(h.latest().status, "error");
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete({}); assert.equal(h.latest().status, "ready", "empty collection recovers");
+    h.owner.dispose();
+  }
+});
+
+test("reporting validates pooled efficiency counts and weighted money including unknown and zero", async () => {
+  for (const failure of ["weighted product", "weighted sum", "pooled count"]) {
+    const h = reporting({ admin: true, projectIds: ["alpha", "beta"] });
+    const complete = async (bad = false, unknown = false) => {
+      const pending = h.owner.refresh(); await flush();
+      const metrics = {}, usage = {};
+      for (const id of ["alpha", "beta"]) {
+        metrics[id] = fixture(); usage[id] = consumption();
+        for (const value of [metrics[id], usage[id]]) { value.scope = scope(id); value.jobs[0].project_id = id; }
+        metrics[id].totals.cost_usd = 0;
+        metrics[id].quality.cost_efficiency = { reported_per_completed: {
+          jobs_with_evidence: bad ? failure === "pooled count" ? Number.MAX_SAFE_INTEGER : failure === "weighted product" ? 2 : 1 : id === "alpha" ? 1 : 3,
+          usd_per_job: unknown ? null : bad ? failure === "pooled count" ? 0 : 1e308 : id === "alpha" ? 0 : 8,
+        } };
+        readStatistics(metrics[id], id, selection, true);
+      }
+      h.requests.metrics.at(-1).resolve(metrics); h.requests.usage.at(-1).resolve(usage); await pending;
+    };
+    await complete(true);
+    assert.equal(h.latest().status, "error", failure);
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    assert.equal(h.states.some(state => state.status === "ready"), false);
+    await complete(); assert.equal(h.latest().status, "ready");
+    assert.deepEqual(h.latest().data.pooledMetrics.quality.cost_efficiency.reported_per_completed,
+      { jobs_with_evidence: 4, usd_per_job: 6 }, "valid evidence weighting is unchanged");
+    h.advance(100);
+    await complete(true); assert.equal(h.latest().status, "error");
+    assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+    await complete(false, true); assert.equal(h.latest().status, "ready");
+    assert.equal(h.latest().data.pooledMetrics.quality.cost_efficiency.reported_per_completed.usd_per_job, null, "unknown money is not zero");
+    h.owner.dispose();
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();

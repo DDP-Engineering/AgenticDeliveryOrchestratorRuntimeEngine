@@ -89,6 +89,13 @@ Absent/empty revisions remain valid. Selected-project Admin Quality fails closed
 malformed initial/replacement revisions before report/exports/time publication;
 helper and both global-selected/project-hub browser tests prove populated/empty
 recovery without pageerror.
+Optional Quality cost-efficiency collections/entries validate object structure,
+nonnegative safe-integer evidence counts and nullable finite nonnegative money.
+Derived pooled counts and weighted results validate before ready/time, rejecting
+unsafe sums and weighted overflow. Unknown contributing money remains null rather
+than measured zero; valid zero/weighted means are unchanged. Statistics helper
+and global/global-selected/project-hub browser negatives prove initial/replacement
+withholding, no report/exports/time/pageerror and valid recovery.
 Raw and pooled token directions/cache counts and known combined input/output totals
 validate as safe integers before publication, including period/total/day and job
 consumption evidence. Missing directions keep totals unknown; known overflow fails

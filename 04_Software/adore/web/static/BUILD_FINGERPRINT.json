@@ -103,7 +103,7 @@
     "04_Software/web/src/localDiagnostics.ts": "f4f4b8bd3e8b6f9d0e902d9a89f6f7d34df8ca671be2bace90cf2a37a9492f5d",
     "04_Software/web/src/localExecution.ts": "25e43ea9e055da87e2f43bb45e1d47454c80f7ba345b8f03b365c3aa3fbe3f11",
     "04_Software/web/src/main.tsx": "68dcab1152e381348e50855b8274184f2bf92e1f44648a8ebcec42623652c6a8",
-    "04_Software/web/src/metrics.ts": "2b58abde5fc965050d6dab713aa3aa3cc06ad828f420b173214a1cce650b6db6",
+    "04_Software/web/src/metrics.ts": "50b738759738eec13f3f3a452cf1c0d45c91faeb92d277ebc9d8b2dfbffde436",
     "04_Software/web/src/modelEvidence.ts": "091c9aafd170abcc232e770b2ab88eb9b5b156182987ddf09e593c283284f8fd",
     "04_Software/web/src/operationReason.ts": "1bce25fe80057d2360ee54145092406e35cab6ec9166c9141de6980c2905cbcf",
     "04_Software/web/src/polling.ts": "3b734c9f6495e122eaedc8d71c6c5ff4c238f2c1d8e30d7c27c9222259919afd",
@@ -122,7 +122,7 @@
     "04_Software/web/src/settingsCopy.ts": "8a826dad1205638e8e6e0b2a178b8aa29b73c49f047937704aa4343f8a2c3072",
     "04_Software/web/src/settingsSave.ts": "db89af7f64efae8bc19a7f082572cdd4fae88bf56c5e018aaa0c7e3c6a3b717d",
     "04_Software/web/src/setupCopy.ts": "e300e1cead0d1f90474df43f4008337e5d8d04767be28aaab6a60bcbf8a22a04",
-    "04_Software/web/src/statistics.ts": "5e8cd664e23832588c3702e6e76b4b317e73b45a4da98aaaab62eef3d5f4d40e",
+    "04_Software/web/src/statistics.ts": "c30b0d136163290107ec81ceace6926ac74719c28580b976f81642db0889a86b",
     "04_Software/web/src/statisticsCopy.ts": "abae1bc20d085b130f6490bd8fb8850e69f7a6ef179e579cc70e74e1f74690f9",
     "04_Software/web/src/styles.css": "a3f954fa31b046631c10aea3f708f824ba61b9071c9502d55cf57b77824d504f",
     "04_Software/web/src/ticketCopy.ts": "8a827aa032341ad0db1d050508e1edd4d58746db534d7fb93b972b6230a0e19c",
@@ -138,8 +138,8 @@
     "LICENSE.txt": "2494616d0c43cfda4aa0fd8c53f429d615a2e38b50d45c3d9e6db264149e65a6",
     "THIRD_PARTY_NOTICES.md": "d37d52874114ed0021bdd24e27054209dd0278ba72a8bca3171a0db77235ed86",
     "assets/DDP_Engineering_logo_dark-BgzND1ZS.png": "4957da4edf9aebf02dcb0e24823ff5f8d5ee524622773f4285c9e2261903c481",
-    "assets/index-BOll43Z5.js": "ce8e4241db8a9809f2bf953ee1983e89d3c3445b2dda5294c22ac2620563d98d",
+    "assets/index-B-c8cUcl.js": "a47bef698fbabeb78e0183fb81a61015784c9e8e11954685d7e9704c2bbee8b9",
     "assets/index-fy_DMSsS.css": "10c50edff28830170a04f3a86d3b276ecb01cae5aa6aca905c90d4d1cfa786db",
-    "index.html": "040af5d6c5f474838f888b371c69a7caeefe98ad6c73797d2e1cc37555403d9c"
+    "index.html": "1a45829b916e6c749349df451a151156537395f63a19ea2e628344027cfdc75e"
   }
 }

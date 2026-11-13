@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -679,6 +681,30 @@ is introduced. Production assets are rebuilt and all 132 input/7 output hashes m
 Fresh independent round-5 reviews, full strict proof/report and task closure belong
 to the next validate session; this build does not claim that approval or full proof.
 
+### Round-5 review correction
+
+The returned build corrects the recorded Quality cost-efficiency validation gap.
+Present collections and entries must be objects with safe nonnegative evidence
+counts and nullable finite nonnegative money. Absent/empty collections remain valid.
+Derived pooled counts and weighted results validate before ready or successful-time
+publication; count sums and weighted product/sum overflow fail closed. Unknown
+contributing monetary evidence remains unavailable rather than measured zero;
+valid zero and evidence-weighted means are unchanged.
+
+Helper negatives cover every consumed efficiency bucket, collection/entry shapes,
+missing/unsafe counts, malformed/negative/nonfinite money and pooled overflow. The
+23 new browser cases cover global all-project, global selected and project-hub
+Quality initial/replacement failures with explicit error/Retry, no report/exports/
+success time/pageerror, and valid weighted/zero/unknown recovery. Focused proof
+passes 76 helper/help contracts and 111 integrated Chromium reporting/Statistics/
+session/operation cases, including four locales and both themes. Component/user/
+knowledge documentation, reporting spec, scoped requirement links, CHANGELOG and
+existing four-locale Statistics release entry are current; existing help already
+covers invalid evidence and unknown versus measured zero. Production assets are
+rebuilt and independently fingerprint-audited. These are build results, not final
+strict proof or independent approval. Fresh round-6 reviews, full strict proof/report
+and task closure remain the next validate stage; this session stops at build advance.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -913,19 +939,29 @@ to the next validate session; this build does not claim that approval or full pr
 - 2026-11-13 validate: Round-5 independent specification and quality reviews both CHANGES_REQUIRED: statistics.ts:105-111 validates Quality counters/rates but not quality.cost_efficiency, and createReportingRefresh at :253-255 validates pooled tokens but not pooled efficiency. Current aggregateMetrics at metrics.ts:48-53 performs unchecked jobs_with_evidence weighting; App.tsx:1417-1418 eagerly formats the raw selected or pooled values in costChips. Both reviewers reproduced malformed monetary strings and negative amounts publishing ready/completedAt and displaying NaN/negative money, plus finite 1e308 with evidence count 2 yielding pooled Infinity while still ready. Specification reviewer also demonstrated a JSON object monetary value {toString:null} publishing ready and throwing TypeError in the exact currency formatter. Parent independently reran both licensed disposable production-API scripts (node /tmp/task77-round5-efficiency-repro.mjs and node /tmp/task77-review5-cost-repro.mjs, both exit 0 asserting the unsafe current behavior). Browser crash consequence is source/formatter-confirmed, not browser-reproduced. Violates REQ-SEC-7ee58549, REQ-DATA-d535499a and REQ-UX-cbca5fd9. Required build correction: validate present efficiency collection/entry structure, safe nonnegative evidence counts and nullable finite nonnegative monetary values, then validate derived pooled efficiency before any successful publication. Cover malformed collections/entries/counts/money and weighted overflow with helper plus global/selected initial/replacement/recovery browser regressions: explicit error/Retry, no report/CSV/success time/pageerror; preserve valid unknown/zero/weighted controls and existing cadence/continuity. Existing statistics/metrics helpers and reportingRefresh/statistics browser tests were inspected: valid weighted costs are covered, malformed efficiency/weighted overflow is not. Review evidence paths are ephemeral /tmp/task77-review5/spec.log and quality.log; this Log is the durable finding.
 - 2026-11-13 validate: Round-5 reconciliation/evidence: read whole task journal, all 42 active linked contracts, both reporting specs, web-interface knowledge, project/environment context and ticket-specific diff against integrated target fb14e06; inherited target backend/release/delivery content remains separate from ticket scope. All 42 task contracts have existing source/test paths; no contract weakened and no explicit Manual:/Inspection: verification clause found in task requirements. Existing knowledge/context describe owned read/coherent reporting/authority boundaries; no artifact edit can resolve the reproduced validation defect. Release-note check since bafae7e55bbcfda18451ee621368204af9dd864b and git diff --check exit 0. Independent SHA-256 audit matches all 132 frontend inputs and 7 outputs. Both independent reviewers ran focused statistics/polling/request helpers (45 passed, zero failed each); these green helpers do not cover or waive the reproduced defect. Final strict/full proof and report deliberately not run: correct-first/prove-last requires return to build. Only executor-owned journal changed in this session; no product patch, payload edit, commit, push, forge access or publication. Round-6 fresh independent reviews and final proof/report remain after correction, within installed six-round bound.
 - 2026-11-13 validate: returned to build - Round-5 spec/quality changes required: Quality cost-efficiency structures, monetary values and weighted pooled results bypass validation, publish ready/time and can render NaN/Infinity or throw. Reject before publication and add initial/replacement/recovery negative proof.
+- 2026-11-13 build: Round-5 correction build bounds: 45 minutes, at most 22 ticket-scoped paths and 12 focused verification commands. Correct only recorded Quality cost-efficiency structure/count/money and pooled-result validation before publication, with helper plus global/selected initial/replacement/recovery proof. Preserve anchor/review round/history, update scoped traceability/docs/notes and rebuild assets; no backend/dependency/schema/payload or publication changes. Fresh Node 22.23.4, locked node_modules/.venv, matching image Chromium and nonempty machine identity verified.
+- 2026-11-13 build: red: cd 04_Software/web && node --test tests/statistics.test.mjs exit 1 (20 pass/2 fail). New cost-efficiency structure/count/money owner test publishes ready for null collection, and weighted-product overflow publishes ready instead of error. Tests cover every efficiency entry, nullable/zero controls, pooled count/product/sum overflow, initial/replacement withholding of data/time and valid recovery (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9). Existing anchor retained.
+- 2026-11-13 build: red: npm run build:e2e/typecheck exit 0; playwright reportingRefresh --grep 'global Quality rejects invalid efficiency weighted product' exit 1: pooled Infinity remains ready with no Retry. Earlier money-object global case already refused corrupt input via aggregate arithmetic but exposed nullable-money recovery incorrectly displayed as /bin/bash.00; the selected money-object case passes its existing closed-boundary control. New helper/browser proof precedes implementation and additionally requires genuine unknown, zero and weighted controls (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9).
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/request.test.mjs tests/errors.test.mjs tests/help.test.mjs exit 0 (76/76); npm run build:e2e/typecheck and playwright reportingRefresh --grep "invalid efficiency" exit 0 (23/23). Raw present cost collections/entries validate object structure, safe nonnegative evidence counts and nullable finite nonnegative money; pooled counts and weighted results validate before ready/time. Unknown contributing money stays unknown instead of measured zero, while legitimate zero and hand-calculated weighted cost remain correct. Initial/replacement negatives in global, global-selected and project-hub Quality show error/Retry with no report/CSV/time/pageerror and valid recovery (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9). Prior red Log shell expanded its dollar-zero text; the actual observed incorrect recovery display was USD 0.00, not a quoted shell identifier.
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/request.test.mjs tests/errors.test.mjs tests/help.test.mjs exit 0 (76/76); npm run build:e2e/typecheck and playwright e2e/reportingRefresh.spec.ts e2e/statistics.spec.ts e2e/sessionRefresh.spec.ts e2e/operationRefresh.spec.ts exit 0 (111/111 offline Chromium cases). Includes all 23 new cost-evidence cases, zero-weight malformed money objects, no report/CSV/time/pageerror on initial/replacement failure, valid zero/weighted/unknown recovery, and unchanged reporting cadence/coherence/continuity, denial and operation boundaries. Four-locale/two-theme narrow regression remains green; no original oracle weakened. Full strict proof and fresh independent round-6 reviews remain validate-stage work.
+- 2026-11-13 build: release-notes: updated (existing Statistics fixed entry now names invalid Quality data or costs in en/fr/de/ro; no added category entry; check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exits 0).
+- 2026-11-13 build: help: none (cost validation and unknown-money preservation enforce the existing invalid-evidence/error/Retry and unknown-versus-measured-zero help clauses. No new labels, controls, steps, cadence or workflow; all four Statistics locales inspected and help outline/link/parser contracts pass).
+- 2026-11-13 build: Round-5 build audit: npm run build, release-note checker, git diff --check and independent SHA-256/traceability audits exit 0. All 132 frontend inputs and 7 outputs match; all 42 task requirements remain active with existing source/test links. Evolution exit 0 reviewed 236 post-anchor paths (41 added/183 modified/12 removed), separating inherited target integration from this session’s 18/22 scoped paths: Statistics validator/pooled null semantics, helper/browser evidence, three requirement verifications, reporting spec/component/user/knowledge docs, merged localized note/CHANGELOG, journal and four regenerated JS/index/stamp paths. Original anchor retained; no backend/dependency/schema/payload or publication changes. Full strict proof and fresh round-6 independent reviews intentionally remain validate work.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exits 0: 0 errors, 177 warnings, 28 notes. Remaining categories match inherited target findings already explained: 2 ticket-ref, 37 stale-path, 16 no-linked-tests, 14 legacy journal-header, 2 unticked-deliver; 95 uncovered-source heuristics include frontend browser tests/inherited sources; 5 outside-layout paths are untouched target config/release archives. Six secret flags are inherited journal/Users fake credential wording, three target private-key fixture literals and unavailable generated-JS scan; this correction introduces no secret literal. DEVIATION build: generated minified-JS added-lines scan remains unavailable - accepted with reviewed-source rebuild and matching input/output hashes, not a detected secret or final strict proof. Existing Vite large-chunk warning retained without unrelated splitting/dependencies. No unresolved round-5 correction in focused proof; independent approval/full suite not claimed.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: continue build: Round-5 spec/quality changes required: Quality cost-efficiency structures, monetary values and weighted pooled results bypass validation, publish ready/time and can render NaN/Infinity or throw. Reject before publication and add initial/replacement/recovery negative proof.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Recorded independently reproduced cost-efficiency validation gap; no candidate product files changed.
-evidence: Two independent reviews changes_required; each ran 45 passing helpers. Parent reproduced invalid ready publication/formatter failure with two Node scripts (exit 0 demonstrating defect); release-note, whitespace and 132-input/7-output hash audits pass.
-issues: Validation unfinished: malformed/overflowing Quality efficiency must fail closed before ready publication. Final strict/full proof and report not run; fresh round-6 reviews required after build correction.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Corrected round-5 Quality cost-evidence and pooled-result validation before publication; preserved unknown money, added initial/replacement/recovery proof, updated scoped docs/notes/traceability and rebuilt assets.
+evidence: 76 helper/help tests and 111 offline Chromium reporting/Statistics/session/operation cases pass; typecheck, production build, release-note check, git diff --check and independent 132-input/7-output SHA-256 audit exit 0; advisory check has 0 errors.
+issues: Fresh round-6 independent reviews, full strict proof/report and task closure remain validate work. Inherited advisory warnings and generated-JS scan limitation are explained in Log; existing bundle-size warning remains. No live/deployed or CI acceptance run.
 spec_compliance:
 implementation_quality:
 review_round: 5

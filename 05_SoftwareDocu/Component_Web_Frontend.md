@@ -259,6 +259,15 @@ Absent and empty collections remain valid; malformed revision evidence clears th
 whole report before selected-project Admin Quality can render or record success.
 Helper tests and global-selected/project-hub Quality journeys prove initial and
 replacement refusal, no pageerror/report/exports/time and populated/empty recovery.
+Optional `quality.cost_efficiency` is an object of object entries; each present
+entry requires a nonnegative safe-integer `jobs_with_evidence` and nullable finite
+nonnegative `usd_per_job`. Absent/empty collections remain valid. Both raw entries
+and derived pooled evidence counts/weighted money validate before publication, so
+unsafe count sums and weighted product/sum overflow cannot publish ready or freshness.
+`metrics.ts` preserves unknown contributing money as null instead of measured zero;
+valid zero and evidence-weighted means are unchanged. Helper and global/global-selected/
+project-hub Quality browser negatives prove initial/replacement refusal with no
+report, exports, success time or pageerror, then valid weighted/zero/unknown recovery.
 Cross-project interval disagreement or aggregate failure withholds the report,
 exports and success time with explicit error/Retry, rather than throwing in render. App uses this owner for both global and
 project Statistics. Its render key captures the session principal/role, authorized

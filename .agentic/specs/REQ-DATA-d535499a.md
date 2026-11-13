@@ -51,6 +51,15 @@ totals are safe, and reported/estimated money is nullable finite and nonnegative
 Malformed revision evidence fails before selected-project Admin Quality rendering,
 without any report/exports/success time; initial/replacement browser negatives in
 both selected scopes assert no pageerror and valid populated/empty recovery.
+Optional Quality cost-efficiency collections and their present entries are objects;
+each entry requires a nonnegative safe-integer evidence count and nullable finite
+nonnegative money. Absent/empty collections remain valid. Raw entries and derived
+pooled counts/weighted results validate before ready or successful times; unsafe
+count sums and weighted product/sum overflow fail closed. Unknown contributing
+money remains unavailable rather than measured zero; valid zero and weighted
+means retain their meaning. Helper and global/selected/project-hub Quality browser
+negatives cover initial/replacement refusal, no report/exports/time/pageerror and
+valid weighted/zero/unknown recovery.
 Each project in a global response maps to the current
 immutable identity, not just a reusable name. The response project set equals the
 captured authorized set. Corresponding metrics/usage canonical scopes agree on

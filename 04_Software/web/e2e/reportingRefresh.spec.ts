@@ -246,6 +246,59 @@ for (const scope of ["selected", "project"] as const) for (const failure of ["co
   });
 }
 
+for (const scope of ["global", "selected", "project"] as const) for (const failure of ["collection", "entry", "count", "money string", "negative money", "money object", "weighted product", "weighted sum", "pooled count"] as const) {
+  // Summation overflow needs more than one individually valid project.
+  if (scope !== "global" && (failure === "weighted sum" || failure === "pooled count")) continue;
+  test(`Statistics ${scope} Quality rejects invalid efficiency ${failure} before publication and recovers`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const id = await alpha(page);
+    let corrupt = true, unknown = false;
+    await page.route(/\/api\/v1\/(?:projects\/[^/]+\/)?metrics\?/, async route => {
+      const body = await (await route.fetch()).json();
+      const entries = scope === "global" ? Object.values(body) : [body];
+      if (scope === "global") expect(entries.length).toBeGreaterThan(1);
+      entries.forEach((entry, index) => {
+        const value = entry as { quality: { cost_efficiency: unknown } };
+        const evidence = { jobs_with_evidence: index === 0 ? 1 : 3, usd_per_job: unknown ? null : index === 0 ? 0 : 8 };
+        if (corrupt) {
+          if (failure === "count") Object.assign(evidence, { jobs_with_evidence: "2" });
+          if (failure === "money string") Object.assign(evidence, { usd_per_job: "invalid" });
+          if (failure === "negative money") evidence.usd_per_job = -1;
+          if (failure === "money object") Object.assign(evidence, { jobs_with_evidence: 0, usd_per_job: { toString: null } });
+          if (failure === "weighted product") Object.assign(evidence, { jobs_with_evidence: 2, usd_per_job: 1e308 });
+          if (failure === "weighted sum") Object.assign(evidence, { jobs_with_evidence: 1, usd_per_job: 1e308 });
+          if (failure === "pooled count") Object.assign(evidence, { jobs_with_evidence: Number.MAX_SAFE_INTEGER, usd_per_job: 0 });
+        }
+        value.quality.cost_efficiency = corrupt && failure === "collection" ? [] :
+          { reported_per_completed: corrupt && failure === "entry" ? null : evidence };
+      });
+      await route.fulfill({ json: body });
+    });
+    await page.goto(scope === "global" ? "/metrics?tab=quality" : scope === "selected" ? `/metrics?project=${id}&tab=quality` : `/projects/${id}/statistics?tab=quality`);
+    await expect(page.getByRole("tab", { name: "Quality", exact: true })).toHaveAttribute("aria-selected", "true");
+    for (let round = 0; round < 2; round++) {
+      await expect(feedback(page).getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toHaveCount(0);
+      await expect(page.locator("#metrics-tab-panel .metric-chips, #metrics-tab-panel table")).toHaveCount(0);
+      await expect(page.locator(".metrics-export")).toHaveCount(0);
+      expect(await times(page)).toEqual([]); expect(errors).toEqual([]);
+      corrupt = false; unknown = round === 1;
+      await feedback(page).getByRole("button", { name: "Retry", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Delivery quality", exact: true })).toBeVisible();
+      const chip = page.locator(".metric-chips > div").filter({ has: page.getByText("Reported / completed", { exact: true }) });
+      await expect(chip.locator("dd")).toContainText(unknown ? "—" : scope === "global" ? "$6.00" : "$0.00");
+      expect((await times(page)).length).toBe(3); expect(errors).toEqual([]);
+      if (round === 0) {
+        await page.getByText("Export CSV", { exact: true }).click();
+        corrupt = true;
+        await feedback(page).getByRole("button", { name: "Refresh", exact: true }).click();
+      }
+    }
+  });
+}
+
 for (const failure of ["application", "media", "foreign", "scope"] as const) test(`Statistics ${failure} refresh refuses both report members and exports`, async ({ page }) => {
   const id = await alpha(page);
   await page.goto(`/projects/${id}/statistics`);

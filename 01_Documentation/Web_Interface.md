@@ -1156,7 +1156,11 @@ or displayed as current; an unknown direction still makes its combined total unk
 Malformed job evidence, invalid review-round counts or invalid revision details in a
 report show error/Retry without a successful-update time, rather than breaking the
 Quality tab. This includes the administrator's selected-project revision table;
-valid reports without revision details still load normally.
+valid reports without revision details still load normally. Invalid cost-per-job
+values or evidence counts, including an overflowing all-project weighted result,
+also show error/Retry before reporting success. They never appear as negative,
+non-numeric or infinite money. Unknown cost evidence remains unavailable rather
+than measured zero; valid measured zero and evidence-weighted costs remain distinct.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal

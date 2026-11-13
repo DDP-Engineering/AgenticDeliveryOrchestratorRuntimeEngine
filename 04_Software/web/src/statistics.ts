@@ -37,6 +37,16 @@ function financial(value: unknown, admin: boolean) {
     financial(child, false);
   }
 }
+/** Validate every present cost bucket before formatting, including pooled results. */
+function costEfficiency(value: unknown) {
+  const quality = object(value);
+  if (!("cost_efficiency" in quality)) return;
+  for (const item of Object.values(object(quality.cost_efficiency))) {
+    const row = object(item);
+    count(row.jobs_with_evidence); amount(row.usd_per_job);
+  }
+}
+
 /** Validate derived totals before render, including pooled safe-integer directions. */
 function tokenPair(value: unknown) {
   const row = object(value);
@@ -103,6 +113,7 @@ export function readStatistics(value: unknown, project: string, selection: Repor
   for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "runs_with_usage"]) count(coverage[key]);
   for (const value of Object.values(coverage)) count(value);
   const quality = object(row.quality);
+  costEfficiency(quality);
   for (const key of ["reviewed_jobs", "reworked_jobs", "validated_jobs", "first_pass_validations", "human_merged_jobs", "first_pass_merges", "open_review_jobs", "stage_failures", "operator_retries"]) count(quality[key]);
   for (const [rate, numerator, denominator] of [["review_rework_rate", "reworked_jobs", "reviewed_jobs"], ["first_validation_rate", "first_pass_validations", "validated_jobs"], ["first_pass_merge_rate", "first_pass_merges", "human_merged_jobs"]]) {
     const expected = quality[denominator] ? Number(quality[numerator]) / Number(quality[denominator]) : null;
@@ -252,7 +263,7 @@ export function createReportingRefresh(options: {
           // an aggregate error after ready data/success time has been published.
           const pooledMetrics = aggregateMetrics(Object.values(current.metrics), selection.timezone, selection.from, selection.through);
           const pooledUsage = aggregateUsage(Object.values(current.usage));
-          metricTokens(pooledMetrics);
+          metricTokens(pooledMetrics); costEfficiency(pooledMetrics.quality);
           amounts(pooledUsage.totals); pooledUsage.daily.forEach(amounts);
           settled = true; signal.removeEventListener("abort", aborted);
           resolve({ metrics: current.metrics, usage: current.usage, pooledMetrics, pooledUsage, metricsAt: current.metricsAt,

@@ -49,8 +49,10 @@ export function aggregateMetrics(items: Metrics[], timezone: string, from: strin
   for (const key of ["reported_per_completed", "estimated_per_completed", "reported_per_human_merged", "estimated_per_human_merged"]) {
     const evidence = items.flatMap(item => item.quality.cost_efficiency?.[key] ? [item.quality.cost_efficiency[key]] : []);
     const jobs = evidence.reduce((total, item) => total + item.jobs_with_evidence, 0);
+    // Unknown money in a contributing cohort cannot be presented as measured zero.
+    const known = evidence.every(item => item.jobs_with_evidence === 0 || item.usd_per_job !== null);
     quality.cost_efficiency[key] = { jobs_with_evidence: jobs,
-      usd_per_job: jobs ? evidence.reduce((total, item) => total + (item.usd_per_job || 0) * item.jobs_with_evidence, 0) / jobs : null };
+      usd_per_job: jobs && known ? evidence.reduce((total, item) => total + (item.usd_per_job ?? 0) * item.jobs_with_evidence, 0) / jobs : null };
   }
   const totals: Metrics["totals"] = {};
   for (const key of new Set(["runs", "tokens_in", "tokens_out", "mr_revisions", "pipeline_repairs", "cost_usd", "estimated_cost_usd",
