@@ -1,5 +1,7 @@
 # Was ADORE leistet
 
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
+
 ADORE macht aus einem vorbereiteten Ticket in Ihrer Code-Forge einen Entwurf für einen Merge Request oder Pull Request, den Menschen prüfen. Diese Seite erklärt den Ablauf und die beiden Rollen; die übrigen Themen behandeln jeweils einen Bildschirm.
 
 ## Was ADORE leistet {#what-adore-does}
@@ -27,7 +29,7 @@ Wenn sich der Auftragsstatus eines Projekts nicht lesen lässt, nennt **Handlung
 | 4. Validieren | In Arbeit | Coding-Agent | Der Agent meldet Prüfungen gemäß den Repository-Anweisungen, einschließlich nur in CI ausführbarer Prüfungen, und schließt die AEGIS-Aufgabe. ADORE beobachtet den Abschluss ohne erneute Tests. |
 | 5. Freigeben | Wartet auf Freigabe | Ein Mensch | ADORE stellt den Kandidaten in der Forge vor. Ein Mensch setzt das Freigabelabel. Die Freigabe ist an genau diesen Kandidaten gebunden. |
 | 6. Veröffentlichen | Veröffentlichung | ADORE | ADORE überträgt den Branch und öffnet den MR/PR-Entwurf. |
-| 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitungsanfrage startet eine weitere Überarbeitungsrunde, die eine neue Freigabe braucht. |
+| 7. Prüfen | Menschliche Prüfung | Ein Mensch | Menschen prüfen. Eine Überarbeitung wiederholt die Validierung und folgt der Freigaberegel. |
 | 8. Zusammenführen | Abgeschlossen | Ein Mensch | Ein Mensch führt in der Forge zusammen. ADORE tut das nicht. |
 
 Ändert sich der Kandidat oder sein Zielbranch nach der Freigabe, gilt die Freigabe nicht mehr und der Auftrag wird erneut validiert. Begriffe erklärt das [Glossar](/help/glossary).

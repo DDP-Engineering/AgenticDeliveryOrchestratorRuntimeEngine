@@ -51,7 +51,7 @@ evidence. Current configuration cannot replace saved results. Four-locale Jobs a
 Settings help maps direct stage limits to build/validate with general fallback.
 In an AEGIS-governed repository it runs one fresh executor session per AEGIS stage inside an
 isolated branch/worktree with container or native local execution, verifies the candidate independently,
-and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
+and publishes a draft or ready MR/PR according to `delivery.draft` after fresh human approval when configured, or automatically after validation and freshness checks when disabled. It never merges. After a human merge, configured remote run-branch cleanup uses an exact commit lease on all three forges.
 Administrator settings edit requested reviewers as a reviewed account list. Ready stays visible in Tickets; six status/answer-label names use an initially closed disclosure with reviewed edits, while the inactive scope-hint control is omitted.
 Its users are the operator who runs the conductor on a host, the reviewers who
 approve and merge on the forge, and the coding executor it launches: Pi,
@@ -102,7 +102,12 @@ ADORE's only coding agent.
   Settings, Access, global Change history and project History refresh while
   visible. Unsaved settings pause updates. Header Refresh is available on Users.
   Sidebar Jobs supplies scoped full-history navigation.
-  Project Settings exports the saved TOML bytes. Projects imports exact TOML
+  Project Settings exports the saved TOML bytes; container exports default to a
+  complete source ZIP with Dockerfile/context and local base definitions. Export saves directly through the browser destination picker when supported or
+  ordinary download otherwise; closed Technical details has separate image-shared
+  recipe management independent of project/job configuration;
+  the standard executor base is bundled automatically. Projects imports complete
+  exported ZIPs with configuration and recipes together, or exact TOML
   from a dialog that validates file selection automatically and publishes with stopped pickup.
   Settings → Agent and model has Internet access for the agent (`[executor] internet`, default Off: a container run reaches only the provider's hosts through its per-run proxy; On: open network with Pi's web search and page reading, Exa/Brave/Tavily/none, warned, shown not enforced for local projects).
   The container runtime editor suggests detected native and Windows WSL commands,

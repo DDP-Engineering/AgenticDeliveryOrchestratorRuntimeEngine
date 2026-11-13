@@ -99,6 +99,18 @@ def test_minimal_config_is_valid_with_defaults(tmp_path: Path) -> None:
     assert config.review.trigger == "label"
 
 
+
+@pytest.mark.parametrize("value, valid", [
+    (True, True), (False, True), ("false", False), (0, False),
+])
+def test_publication_approval_policy_boolean_boundary(tmp_path, value, valid):
+    """@brief Approval is required by default and invalid policy fails validation."""
+    config = load_config(_write_config(tmp_path, MINIMAL_VALID))
+    assert config.delivery.require_human_approval is True
+    config.delivery.require_human_approval = value
+    assert any("require_human_approval" in issue for issue in validate_config(config)) is not valid
+
+
 @pytest.mark.parametrize("reviewers", ["alice", [1], ["--repo"], ["two names"]])
 def test_reviewer_config_requires_account_list(tmp_path, reviewers):
     """@brief Human-authored reviewer configuration fails closed before forge invocation."""

@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 import subprocess
 import time
+from unittest.mock import patch
 
 from adore.executor.base import GateRun
 from adore.executor.diagnostics import record_diagnostics
@@ -945,6 +946,8 @@ def test_executor_output_is_scoped_operational_and_never_a_transcript(tmp_path):
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["availability"] == "observed"
+            assert body["attempt"] == 1 and body["stage"] == "build"
+            assert body["recorded_at"] and body["in_progress"] is False
             assert body["exit_code"] == 1 and body["timed_out"] is False
             assert "ModuleNotFoundError: No module named 'yaml'" in body["stdout"]
             assert "pytest: 1 failed, 2 passed" in body["stdout"]
@@ -997,6 +1000,38 @@ def test_executor_output_refuses_corrupt_and_foreign_sources(tmp_path, mutation)
         response = client.get(f"/api/v1/jobs/{items[0].project_id}/same/executor-output")
         assert response.status_code == 503
         assert response.json() == {"detail": {"code": "job_evidence_corrupt"}}
+
+
+def test_executor_output_read_conflict_is_recoverable(tmp_path):
+    """@brief Concurrent journal appends refuse a read, then a fresh read succeeds."""
+    from adore.web import executor_evidence
+    _, items, stores, app = _fixture(tmp_path)
+    _executor_archive(stores[0])
+    _state(stores[0], "same", iterations=2, stage="validate")
+    original = executor_evidence._read
+    changed = False
+
+    def append_during_read(path, limit):
+        """@brief Append one valid event between the two integrity reads."""
+        nonlocal changed
+        raw = original(path, limit)
+        if path == stores[0].run_dir("same") / "journal.jsonl" and not changed:
+            changed = True
+            stores[0].journal("same", "stage-launch", stage="validate", attempt=1)
+        return raw
+
+    with TestClient(app) as client:
+        _login(client)
+        url = f"/api/v1/jobs/{items[0].project_id}/same/executor-output"
+        with patch.object(executor_evidence, "_read", append_during_read):
+            conflict = client.get(url)
+        assert conflict.status_code == 409
+        assert conflict.json() == {"detail": {"code": "job_snapshot_changed"}}
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response.json()["in_progress"] is True
+        assert response.json()["attempt"] == 1
+        assert response.json()["stage"] == "build"
 
 
 def test_executor_output_missing_and_latest_only(tmp_path):

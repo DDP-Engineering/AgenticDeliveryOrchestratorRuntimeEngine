@@ -26,19 +26,11 @@ The global and project Jobs tables identify the saved **Workflow** as **AEGIS** 
 (`build`), **Validation** (`validate`), then **Done**, without an AEGIS task. AEGIS
 stage presentation is unchanged. Timelines show only recorded events.
 
-Direct details show the latest recorded executor attempt (not cumulative launches),
-then the saved verification command, result, duration in seconds and redacted literal
-output tail. **Passed**, **Failed**, **Timed out** and **Not configured: unverified**
-are distinct; absent attempt/result evidence stays explicitly unavailable. Empty
-recorded output is identified separately. Changing Settings does not replace saved
-verification evidence. Corrupt or unknown workflow/evidence produces an error, not
-a guessed workflow or result, and hides stale detail evidence.
-
-Under Settings → Implementation → Advanced stage time limits, direct implementation
-uses the `build` override and independent verification uses `validate` in
-`workflow.stage_timeout_overrides`. Each uses the general
-`budgets.per_gate_timeout_seconds` when no override is set. Other AEGIS stage limits
-do not apply to direct jobs. Jobs and Settings help explains this in all four locales.
+Direct details show the latest recorded executor attempt. The compact Jobs
+view keeps workflow and stage labels, budgets, output and recorded evidence.
+ADORE does not run a separate verification command. The agent selects and reports
+checks according to repository instructions. Direct implementation uses the
+`build` stage timeout override or the general attempt limit.
 
 ## Quick start
 
@@ -136,7 +128,7 @@ period, dates or timezone. Jobs holds technical evidence and Statistics owns
 reporting filters; displayed timestamps use the browser/device local timezone.
 
 Projects offers administrators **Enroll new project** for guided setup and
-**Import raw configuration** to select an existing `config.toml` in a dialog.
+**Import raw configuration** to select an existing `config.toml` or complete exported ZIP in a dialog.
 Enroll new project starts from the repository URL (https or ssh): **Read repository**
 detects the forge (github.com, gitlab.com or a matching server `tea` login), the
 repository, the Gitea login and the default branch, derives the project ID from the
@@ -161,7 +153,7 @@ quick-path and task-type labels) with a colour and description, never changing e
 ones, and lists created, existing and failed labels; a failure leaves the project created.
 Settings → Repository offers the same as **Create missing labels**. In repositories
 with AEGIS, ADORE conducts its framing, building and testing stages. Without AEGIS,
-it uses bounded direct implementation and optional independent verification.
+it uses bounded direct implementation with agent-owned repository checks.
 Both workflows publish draft or ready MR/PRs according to `delivery.draft` for human review.
 Reviewers are optional: an empty list opens the MR/PR without requesting a review.
 Choose the **Provider** (Pi's API-key providers, **ChatGPT subscription** or
@@ -342,7 +334,7 @@ Jobs shows pending and completed handoffs. A completed handoff preserves its
 worktree, remains in history and cannot be cancelled from the web interface.
 `delivery.publish_checkpoints` defaults to true in both CLI and web. Owned
 ticket-branch progress commits are fetchable before approval; MR/PR creation
-still waits for fresh candidate-bound human approval. An explicit false keeps
+follows the project human-approval setting. An explicit false keeps
 intermediate checkpoints local. The GUI shows the shared model default and
 retains saved project overrides.
 Disabling a user revokes sessions; the last
@@ -674,7 +666,27 @@ matching package alongside its backup.
 
 ## Portable working rules
 
-Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export downloads the saved `config.toml` bytes, including comments, formatting and any inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
+Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog with exact saved TOML. A standalone TOML download preserves comments, formatting and any inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview and selected attachment bytes are memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
+
+**Export raw configuration** opens the browser destination picker where available
+and saves directly; otherwise the browser's normal download preferences apply.
+Container projects always save the complete ZIP; native projects save exact TOML.
+No application export wizard or include/omit choices appear. Canceling the picker
+starts no request. An unavailable definition or failed save opens a concise error;
+no partial archive or automatic configuration-only fallback is downloaded.
+
+Administrators prepare or replace external image sources under closed **Technical
+details → Image definition**, using the existing automatically checked Dockerfile/ZIP
+input and **Save recipe**. The standard base is included automatically. Definitions
+remain image-shared and independent of configuration, pending edits and jobs.
+
+The ZIP contains exact saved `config.toml`, `recipe.json`, Compose, build instructions
+and every declared local-base context. Full build export refuses inline credentials. Extract
+the ZIP and run `docker compose build` with Docker Engine/BuildKit and Compose
+v2.17+. Public registry/package access is a separate prerequisite. Uploading a
+recipe does not rebuild the selected image or change running jobs. Availability,
+attachment feedback and errors stay inside the dialog; the Settings heading
+keeps its two symmetric actions. See [Project executor images](Project_Executor_Images.md).
 
 Portable working rules remain available through the transfer API.
 See
@@ -715,8 +727,8 @@ administrator price rules can provide a separate estimate. A subscription
 therefore still needs iteration and wall-clock limits because a monetary
 budget cannot be enforced from a provider charge that is not reported.
 Open the **Import raw configuration** dialog in Projects and select the UTF-8
-`config.toml` downloaded with **Export raw configuration**, or a file prepared
-for this server. Files may be up to 512 KiB.
+`config.toml` or complete ZIP downloaded with **Export raw configuration**, or a
+TOML prepared for this server. TOML files may be up to 512 KiB; ZIPs up to 18 MiB.
 
 1. Selecting the file validates it automatically. ADORE suggests an available
    project ID from the repository name.
@@ -731,13 +743,22 @@ Existing terminal history is visible when its job data already exists at the
 declared state location. Host checks are available from the imported project's
 Summary. Closing the dialog discards the selected file and its validation.
 
+A complete ZIP imports the configuration and all declared local image-source
+definitions together. ADORE checks the archive, Compose graph, effective image
+and current source associations automatically, without extracting or running
+files. An existing different definition for the root image is refused; it is
+never replaced implicitly. Failed publication withdraws newly created source
+associations while preserving existing projects and definitions. Imported sources
+can be exported again immediately. Image building stays separate: use the included
+Compose file on the execution server before checking its environment.
+
 Config edits include a SHA-256 revision so stale browser pages receive a
 conflict. CLI `config set` and web edits also share a local process lock;
 concurrent ADORE edits receive a conflict instead of overwriting each other.
 Direct host file edits do not use this lock. A start request still applies
 ADORE's ready-ticket and hold/exclude rules. The current publication policy
 remains: automatic draft MR/PR creation
-after the existing `agent-approved` publication gate, with a human deciding
+after the configured publication approval gate, with a human deciding
 whether to merge.
 
 In Projects, an administrator can archive a project after its jobs have
@@ -1028,7 +1049,7 @@ immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
 
 Review cohorts use first MR opening/adoption in scope; validation cohorts use
-first strict verdict in scope. Human merge uses reviewed jobs with actual done
+first recorded validation verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
 null. Review still open counts reviews open now, independent of the period. Monetary efficiency uses only
@@ -1129,8 +1150,8 @@ in supported environment references or protected mounts; inline secret values,
 provider JSON secrets and URL credentials are rejected without echoing them.
 
 
-Project Summary uses two panels beneath the shared project header. The first
-shows separated label/value tiles for Container type, Executor, Monitoring,
+Project Summary uses two panels beneath the shared project header. Its seven facts use one compact row on wide screens and wrap on smaller screens; the redundant Pi executor tile is omitted. Panel, empty-state and table spacing is reduced without hiding job evidence. The first
+shows compact label/value tiles for Container type, Monitoring,
 environment verification and actual scoped Active jobs, Waiting, Draft review
 and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
 and withholds job rows. The second groups compact Needs attention and Active
@@ -1221,7 +1242,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -1370,7 +1391,13 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 Job details explains normal Working, Waiting for clarification and Failed states and shows failed attempts in the current stage in the status card. Timeline events retain their recorded stage/context/transition destination and times include seconds. Questions use safe Markdown with local scrolling; HTML remains literal and images do not load automatically.
 
-Evidence and artifacts → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
+Technical details → View latest executor output reads host-captured operational stdout/stderr from the last completed recorded launch. Missing Python modules and test totals are preserved; credentials, prompts, reasoning, scripts, configuration, paths and financial text are withheld. The viewer keeps at most 500 records and 64 KiB per stream. Missing capture provenance is explicit, including for existing jobs; raw archives are never read as a fallback. The view never launches an executor. Corrupt snapshots are refused.
+
+The compact summary shows the attempt, its recorded stage when available,
+time, result and exit code. Open **stdout** and **stderr** to read their records.
+The view identifies a newer launch in progress, empty stderr, missing evidence
+and failed reads. If the job changes during the read, choose **Retry**. The
+last verified result stays visible and is marked as possibly out of date.
 
 Consumption failures have a Refresh consumption button. A corrected out-of-order projection race preserves verified journal prefixes without rolling back cursors. This controlled reproducer does not establish the cause of every historical 503; malformed sources continue to be rejected and need operator investigation.
 
@@ -1397,3 +1424,43 @@ Enrollment can select the Pi reasoning effort supported by its provider and mode
 Readiness evidence is bound to the server machine and account. Changes to relevant credential inputs make it stale. When using this build, delete `readiness.json` in each affected project profile before checking prerequisites again.
 
 An external CLI sign-in cannot be continuously bound to a project identity when a keyring or helper may change it invisibly. Its successful prerequisite check remains partial; connect project repository access and recheck for a bound verification.
+
+The Actions heading and ticket buttons align to the right. Ticket actions stay
+on one row on desktop when Details changes to Hide details, with the last
+button anchored to the same right edge.
+On narrow screens they may wrap to keep the controls and description within the page.
+
+## Human approval before publication
+
+An administrator can review and save **Require human approval before PR/MR**
+per project in **PR/MR and review** when its jobs are finished. It is enabled
+by default. When disabled, validated candidates are published automatically
+after freshness checks; draft state and progress checkpoint settings are
+independent and only a human decides whether to merge.
+
+## Job details presentation
+
+Opening a job replaces its list with a dedicated detail. The compact heading
+combines ticket number and title; **Job actions** shares the current-stage row.
+It contains only commands allowed for the selected job, including Retry, Cancel
+or confirmed fresh-run recovery. Existing confirmations and worker permissions
+still apply. **Close** restores the list with its filters.
+
+The current state, responsible actor and **Next step** come first. Budgets and
+Consumption sit beside them on wide screens and below on narrow screens; missing
+values never mean zero or guessed progress. **Activity** lists saved events
+newest first. **Agent question** contains the active clarification; other states
+show **Evidence and artifacts**. Leading HTML comments are omitted from the
+readable question and retained under **Original question and evidence**. Other
+HTML stays inert text and images do not load automatically. Once the job resumes,
+its earlier clarification events remain history, not current requests.
+
+**Technical details** holds identifiers, on-demand executor output, recovery
+diagnosis and expandable **Original recorded events**. The tabs support arrow
+keys, Home and End. These views never approve a candidate or start an executor.
+
+## Compact project and Jobs controls
+
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+
+Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.

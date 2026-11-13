@@ -94,7 +94,7 @@ best-effort telemetry.
 ## Approval Operations
 
 A direct approval presentation shows the retained agent summary, changed-file
-count and "Verification: not configured. This candidate is unverified." No
+count and exact candidate/target fingerprints. No
 AEGIS task line or strict-check pass is implied. Empty questions files park
 rather than complete a candidate. The summary and configured questions file are
 excluded from all direct checkpoints and published candidates; unsafe present
@@ -104,7 +104,7 @@ and entry into validate are saved together, so an interruption after that write
 can be recovered with Retry even at the launch limit.
 
 On adoption and each freshly approved direct revision, ADORE refreshes the MR/PR
-description with the current summary, file count and unverified notice. A refused
+description with the current summary, file count and candidate binding. A refused
 or timed-out description write fails publication with `MR_CREATE_FAILED` rather
 than entering review with stale evidence. Restore forge access and Retry; the
 same approved description is written again without another implementation session.
@@ -140,7 +140,7 @@ the `revision-task-created` journal event before manual recovery.
 
 During publication ADORE first adopts an existing open MR/PR for the task
 branch, avoiding duplicate creation after a crash or failed read-back.
-Publication pushes the approved candidate once and runs no executor session
+Publication pushes the validated candidate once and runs no executor session
 or AEGIS command before entering `in-review`; it refuses a run that is neither
 at stage `done` nor at the `publishing` reset pointer with `PUBLICATION_STAGE`.
 

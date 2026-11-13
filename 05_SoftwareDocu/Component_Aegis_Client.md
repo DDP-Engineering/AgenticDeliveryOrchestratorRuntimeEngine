@@ -83,9 +83,9 @@ stage/schema/version, timeout, and unexpected exit fail closed.
 ## 6. Workflow Integration
 
 The orchestrator creates a task after branch creation, rereads status before
-and after each executor attempt, and runs strict verification when the
-executor's validate session advances the task to done. Validate closes the
-task, so no AEGIS command runs after approval.
+and after each executor attempt. When Validate advances the task to Done, the
+orchestrator binds that result to the candidate checkpoint. Validate closes
+the task before approval and publication.
 
 ## 7. Validation and Tests
 

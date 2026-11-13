@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-UX-83494e0a"
+title = "Select TOML or complete ZIP in the same simple import dialog"
+status = "active"
+requirement = "When an administrator selects a TOML file or exported project ZIP in Import raw configuration, the existing dialog shall validate the selected file automatically and enable its single Import confirmation only for that exact successful preview."
+verification = "Offline Chromium proves ZIP and TOML selection/automatic preview, one confirmation, malformed/oversized/stale and changed-file refusal, late-response/cancel handling, no extra recipe controls and four-locale narrow layouts."
+affected_paths = ["04_Software/adore/project_bundle.py", "04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawImportDialog.tsx", "04_Software/web/src/importCopy.ts", "04_Software/web/src/errors.ts", "04_Software/web/e2e/import.spec.ts", "04_Software/adore/release_notes.toml", "04_Software/web/src/help/content", "04_Software/adore/web/static"]
+linked_tests = ["04_Software/tests/test_project_bundle.py", "04_Software/tests/test_web_bundle_import.py", "04_Software/web/e2e/import.spec.ts"]
+spec = "specs/REQ-FUNC-1ca885c7.md"
+created = 2026-11-11
+updated = 2026-11-11

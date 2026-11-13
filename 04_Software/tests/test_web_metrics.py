@@ -1029,7 +1029,7 @@ def test_quality_rates_use_evidence_cohorts_and_keep_open_reviews_separate(tmp_p
     state = StateStore(profile.store_root)
     examples = (
         ("first-pass", "done", "merged by human", [
-            ("strict-verification", {"passed": True}), ("mr-opened", {})]),
+            ("validation-accepted", {"passed": True}), ("mr-opened", {})]),
         ("reworked", "done", "merged by human", [
             ("strict-verification", {"passed": False}),
             ("strict-verification", {"passed": True}),
@@ -1131,7 +1131,10 @@ def test_quality_cost_per_job_uses_evidence_denominators_and_role_privacy(tmp_pa
         assert "usd" not in str(body).lower()
 
 
-def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(tmp_path):
+@pytest.mark.parametrize("validation_event", ["strict-verification", "validation-accepted"])
+def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(
+    tmp_path, validation_event,
+):
     """@brief Unknown cohorts stay unavailable and malformed verdicts fail closed."""
     profiles = ProfileStore(tmp_path / "home")
     profile = profiles.create("alpha", store_root=str(tmp_path / "state"))
@@ -1145,7 +1148,7 @@ def test_quality_rates_have_nullable_empty_denominators_and_reject_bad_verdict(t
         assert quality["review_rework_rate"] is None
         assert quality["first_validation_rate"] is None
         assert quality["first_pass_merge_rate"] is None
-        state.journal("run-1", "strict-verification", passed="yes")
+        state.journal("run-1", validation_event, passed="yes")
         response = client.get("/api/v1/projects/alpha/metrics")
         assert response.status_code == 503
         assert response.json()["detail"]["code"] == "metrics_corrupt"

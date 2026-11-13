@@ -1,5 +1,7 @@
 # Glossaire
 
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
 Voici les termes utilisés dans l’interface web d’ADORE et dans ces rubriques d’aide.
 
 ## Termes {#terms}
@@ -18,9 +20,9 @@ Voici les termes utilisés dans l’interface web d’ADORE et dans ces rubrique
 | Candidat | Le résultat validé d’une tâche qu’ADORE présente pour approbation, identifié par une empreinte et le commit cible. L’approbation s’applique à ce candidat exact et devient caduque si le candidat ou sa branche cible change. |
 | En attente de clarification | L’agent attend une réponse pour continuer. Répondez à sa question dans le ticket du dépôt. |
 | En attente d'approbation | Le résultat est validé et attend une autorisation humaine de publication. L’approbation est enregistrée sur la forge pour le candidat actuel. |
-| MR/PR brouillon | La demande de fusion (GitLab) ou de tirage (GitHub, Gitea) qu’ADORE ouvre après l’approbation, en brouillon sauf si le projet est configuré pour en publier une prête. Des personnes la relisent. |
+| MR/PR brouillon | La demande de fusion ou de tirage ouverte après validation et approbation si requise. Les personnes la relisent. |
 | Revue humaine | Une MR/PR est disponible pour revue humaine. La fusion reste une décision humaine. |
-| Tour de révision | Un passage supplémentaire de l’agent de programmation sur la même branche après qu’un relecteur a demandé des modifications, ou après l’échec de vérifications CI lorsque la réparation automatique est activée. Les tours sont limités par **Nombre maximal de tours de révision**, et chacun exige une nouvelle approbation avant toute publication. |
+| Tour de révision | Un nouveau passage de l’agent après une demande ou un échec CI. Chaque tour répète la validation et suit la politique d’approbation du projet. |
 | Forge | La plateforme d’hébergement où se trouvent les tickets, étiquettes, approbations et MR/PR : GitHub, GitLab ou Gitea. |
 
 > ADORE n’a aucune opération de fusion. La fusion est toujours une décision humaine sur la forge.

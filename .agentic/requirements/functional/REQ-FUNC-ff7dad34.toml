@@ -38,7 +38,7 @@ status = "active"
 # Do not contort prose to fit a pattern - a constraint that reads better
 # plainly is better plainly.
 requirement = """
-Before MR/PR publication, the conductor shall require fresh human approval bound to the exact candidate and target commit, with successful strict verification for an aegis run or, for a direct run, a passing configured verification result or explicit not-configured unverified evidence.
+Before publication, the conductor shall bind the agent-reported candidate and target to the configured human-approval policy, then create a draft or ready merge or pull request according to delivery.draft, preserving existing review records.
 """
 
 # The observation that settles whether the behavior holds — not a

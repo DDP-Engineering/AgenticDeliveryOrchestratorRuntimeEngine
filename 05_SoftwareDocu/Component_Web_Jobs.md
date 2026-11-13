@@ -226,4 +226,19 @@ Job cards explain normal Working, parked-clarification and Failed lifecycles in 
 
 `GET /api/v1/jobs/{project_id}/{run_id}/executor-output` authorizes before reads and rechecks grants after them. The last executor-artifacts event must carry a host-generated diagnostics reference (`file`, SHA-256, cumulative `attempt`). `executor_evidence.read_executor_output` reads only the run-owned executor-diagnostics snapshot, checks stable regular unlinked files, exact schema/identity/context/digest and normalized stream content. It never opens raw executor archives. Missing provenance/files return availability missing; corruption is a typed 503 and a changing snapshot is 409. Both roles get the same operational facts, without financial text.
 
+The response projects the attempt, known stage and UTC time from the bound
+event. A later launch marker on a working job indicates that the completed
+output belongs to an earlier launch. The UI keeps the last verified response
+for the current job while refreshing, labels stale results and provides inline
+retry for 409. Nonempty streams use independent, scrollable disclosures.
+
 Snapshots are capped at 150 KiB JSON, with at most 500 diagnostic records and 64 KiB per stream. Run/journal reads are bounded. Public HTTP tests cover concrete missing-module/test-count diagnostics, scoped/revoked grants, unsafe references, malformed/oversized/linked files and explicit missing provenance.
+
+## Job detail consumer
+
+`web/src/JobDetails.tsx` consumes this existing projection without changing the
+API or stored formats. Its current-action card and tabs keep active clarification
+separate from historical events. Outside the parked lifecycle the API does not
+supply historical question text; the frontend never reconstructs it from event
+names. Presentation, safe question rendering and command delegation are described
+in [Component Web Frontend](Component_Web_Frontend.md#job-details-presentation).

@@ -64,6 +64,57 @@ def test_reviewer_list_candidate_applies_without_changing_other_settings(tmp_pat
     assert b"\r\n" in path.read_bytes()
 
 
+
+def test_approval_policy_review_and_apply(tmp_path):
+    """@brief An admin can review and save only the selected project's approval policy."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha", store_root=str(tmp_path / "state"))
+    path = profiles.config_path("alpha")
+    text = (Path(__file__).resolve().parents[1] / "config.example.toml").read_text(encoding="utf-8")
+    text = text.replace('store_root = ".adore"',
+                        f'store_root = "{(tmp_path / "state").as_posix()}"')
+    path.write_text(text, encoding="utf-8")
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        view = client.get("/api/v1/projects/alpha/config").json()
+        row = next(row for row in view["settings"]
+                   if row["key"] == "delivery.require_human_approval")
+        assert row["editable"] and row["type"] == "boolean" and row["default"] is True
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": row["key"], "value": "false",
+                                     "revision": view["revision"]})
+        assert response.status_code == 200, response.text
+        candidate = response.json()
+        assert candidate["proposed_value"] is False
+        result = client.post("/api/v1/projects/alpha/config/apply", headers=headers,
+                             json={"candidate_revision": candidate["candidate_revision"],
+                                   "base_revision": candidate["base_revision"]})
+        assert result.status_code == 200, result.text
+    assert load_config(path).delivery.require_human_approval is False
+
+
+
+@pytest.mark.parametrize("value", ["maybe", "1", "null", ""])
+def test_approval_policy_rejects_invalid_web_values(tmp_path, value):
+    """@brief Invalid policy input cannot produce a pending reviewed candidate."""
+    profiles = ProfileStore(tmp_path / "home")
+    profiles.create("alpha")
+    path = profiles.config_path("alpha")
+    path.write_bytes((Path(__file__).resolve().parents[1] / "config.example.toml").read_bytes())
+    original = path.read_bytes()
+    with TestClient(create_app(profiles.home)) as client:
+        login = client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        headers = {"X-CSRF-Token": login.json()["csrf"]}
+        view = client.get("/api/v1/projects/alpha/config").json()
+        response = client.post("/api/v1/projects/alpha/config/pending", headers=headers,
+                               json={"key": "delivery.require_human_approval", "value": value,
+                                     "revision": view["revision"]})
+        assert response.status_code == 400, response.text
+        assert client.get("/api/v1/projects/alpha/config/pending").json() is None
+    assert path.read_bytes() == original
+
+
 def test_reviewer_list_accepts_an_empty_list(tmp_path):
     """@brief An empty reviewer list is a valid candidate: the MR/PR requests no review."""
     profiles = ProfileStore(tmp_path / "home")

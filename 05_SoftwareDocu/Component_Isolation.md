@@ -328,7 +328,7 @@ result = containers.exec("adore-run-gitlab-x-14", ["pi", "--version"])
   generated Squid ACLs.
 - `tests/test_orchestrator.py` covers the conductor's use of these seams:
   checkpoint commits after each stage and after its own verification, the
-  candidate fingerprint that binds approval, and one push of the approved
+  candidate fingerprint that binds validation and optional approval, and one push of the validated
   candidate at publication.
 - Minimum validation after a change: `uv run --group dev pytest tests/test_isolation.py`.
 - `docker/verify-runtime.sh` is the LIVE compatibility pass for a runtime. Its

@@ -26,8 +26,6 @@ from pathlib import Path
 from threading import Event
 
 from adore.aegis import (
-    AegisCheck,
-    AegisCommandRun,
     AegisTask,
     AegisTaskError,
     AegisTimeoutError,
@@ -387,10 +385,9 @@ class FakeExecutor:
 class FakeAegis:
     """@brief Typed-client fake returning scripted task journal snapshots."""
 
-    def __init__(self, tasks: list[AegisTask], check: AegisCheck | None = None) -> None:
+    def __init__(self, tasks: list[AegisTask]) -> None:
         self.tasks = deque(tasks)
         self.last = tasks[-1]
-        self.check_result = check or passing_check()
 
     def task_status(self, task_id: str):
         if self.tasks:
@@ -578,21 +575,9 @@ def task(stage: str, *, path="full", task_type="feature") -> AegisTask:
     )
 
 
-def passing_check() -> AegisCheck:
-    """@brief Return strict evidence with one successfully executed command."""
-    return AegisCheck(
-        exit_code=0,
-        task_id=TASK_ID,
-        findings=(),
-        errors=0,
-        warnings=0,
-        notes=0,
-        strict_enabled=True,
-        promoted_warnings=0,
-        passed=True,
-        runs=(AegisCommandRun("test", "ok", 0, 1.0),),
-        raw={},
-    )
+def executor_validation_evidence() -> dict:
+    """@brief Return saved validation evidence for the fixture task."""
+    return {"source": "executor", "task_id": TASK_ID, "deviations": []}
 
 
 def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
@@ -603,11 +588,8 @@ def sequence(*stages: str, path="full", task_type="feature") -> list[AegisTask]:
             task(current, path=path, task_type=task_type),
             task(following, path=path, task_type=task_type),
         ])
-    # Strict verification and the next loop each read done once more.
-    result.extend([
-        task(stages[-1], path=path, task_type=task_type),
-        task(stages[-1], path=path, task_type=task_type),
-    ])
+    # The next conduct loop reads the completed task before presenting it.
+    result.append(task(stages[-1], path=path, task_type=task_type))
     return result
 
 
@@ -1718,7 +1700,10 @@ def test_clean_full_and_quick_paths_stop_for_fresh_approval(
                and event["cost_status"] == "unavailable" for event in observations)
     assert saved.candidate_fingerprint == worktrees.fingerprint
     assert saved.validation_evidence["deviations"] == []
-    assert "Deviations recorded: 0" in forge.ticket_comments[saved.approval_comment_id]
+    approval = forge.ticket_comments[saved.approval_comment_id]
+    assert "Deviations recorded: 0" in approval
+    assert "AEGIS stage: done (reported by the agent)" in approval
+    assert "Verification commands:" not in approval
     assert len(executor.prompts) == len(stages) - 1
     strict = [event for event in engine.store.read_journal(run.run_id)
               if event.get("event") == "strict-verification"]
@@ -2321,7 +2306,7 @@ def test_approval_observation_refreshes_ticket_without_invalidating(
     run = make_run(engine)
     run.lifecycle = "awaiting-approval"
     run.stage = "done"
-    run.validation_evidence = {"source": "agent-aegis-journal", "stage": "done", "deviations": []}
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     run.approval_label_removed = True
@@ -2431,7 +2416,7 @@ def test_approval_rejects_stale_label_and_invalidates_on_target_drift(tmp_path: 
     engine, _, worktrees, _, _ = make_engine(tmp_path, forge=forge)
     run = make_run(engine)
     run.stage = "done"
-    run.validation_evidence = {"source": "agent-aegis-journal", "stage": "done", "deviations": []}
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     engine.store.save(run)
@@ -2461,7 +2446,7 @@ def test_approval_invalidation_preserves_work_and_resets_stage_failures(
     run = make_run(engine)
     run.lifecycle = "awaiting-approval"
     run.stage = "done"
-    run.validation_evidence = {"source": "agent-aegis-journal", "stage": "done", "deviations": []}
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     run.approval_label_removed = True
@@ -2502,7 +2487,7 @@ def test_retry_rechecks_missing_approval_before_publication(
     run.lifecycle = "failed"
     run.stage = "done"
     run.outcome = "PUSH_FAILED: unavailable"
-    run.validation_evidence = {"source": "agent-aegis-journal", "stage": "done", "deviations": []}
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     run.approval_label_removed = True
@@ -2544,7 +2529,7 @@ def test_retry_drift_reconducts_only_once(
     run.lifecycle = "failed"
     run.stage = "done"
     run.outcome = "PUSH_FAILED: unavailable"
-    run.validation_evidence = {"source": "agent-aegis-journal", "stage": "done", "deviations": []}
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     run.approval_label_removed = True
@@ -2661,13 +2646,209 @@ def _approved_run(engine: Orchestrator, worktrees: FakeWorktrees) -> RunState:
     run = make_run(engine)
     run.stage = "done"
     run.lifecycle = "awaiting-approval"
-    run.validation_evidence = {"source": "agent-aegis-journal", "stage": "done", "deviations": []}
+    run.validation_evidence = executor_validation_evidence()
     run.candidate_fingerprint = worktrees.fingerprint
     run.candidate_base_ref = worktrees.target
     run.approval_label_removed = True
     run.approval_presented_at = utc_now_iso()
     engine.store.save(run)
     return run
+
+
+
+@pytest.mark.parametrize("backend", ["local", "container"])
+@pytest.mark.parametrize("draft", [True, False])
+def test_disabled_approval_publishes_fresh_waiting_candidate(
+    tmp_path: Path, draft: bool, backend: str,
+) -> None:
+    """@brief Disabling approval publishes the same validated candidate without a label."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.draft = draft
+    engine.config.execution.backend = backend
+    run = _approved_run(engine, worktrees)
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert worktrees.pushes == [run.branch]
+    assert forge.opened[0]["draft"] is draft
+
+
+
+def test_disabled_approval_publishes_after_validate(tmp_path: Path) -> None:
+    """@brief A newly validated job proceeds directly to publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "working"
+    engine.store.save(run)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("done")]), "")
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert worktrees.pushes == [run.branch]
+
+
+def test_disabled_approval_git_error_stops_publication(tmp_path: Path) -> None:
+    """@brief An unavailable target check fails closed."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    def fail_fetch():
+        raise IsolationError("offline")
+    worktrees.fetch = fail_fetch
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "failed"
+    assert not worktrees.pushes and not forge.opened
+
+
+
+def test_disabled_approval_rejects_corrupt_validation_evidence(tmp_path: Path) -> None:
+    """@brief Corrupt persisted validation cannot authorize automatic publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.validation_evidence = {"source": "bogus"}
+    engine.store.save(run)
+    engine.poll_once()
+    assert engine.store.load(run.run_id).lifecycle == "failed"
+    assert not worktrees.pushes and not forge.opened
+
+
+
+@pytest.mark.parametrize("ticket_state", ["closed", "missing"])
+def test_automatic_publication_rechecks_source_ticket(tmp_path: Path, ticket_state: str) -> None:
+    """@brief A closed or deleted ticket cannot reach automatic publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "working"
+    engine.store.save(run)
+    snapshot = forge.ticket
+    forge.ticket = replace(snapshot, state="closed") if ticket_state == "closed" else None
+    engine._conduct_task(run, snapshot, FakeAegis([task("done")]), "")
+    assert not worktrees.pushes and not forge.opened
+
+
+def test_automatic_publication_rejects_partial_evidence_before_refresh(tmp_path: Path) -> None:
+    """@brief A missing validation field cannot be silently supplied before publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "working"
+    run.validation_evidence.pop("deviations")
+    engine.store.save(run)
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("done")]), "")
+    assert not worktrees.pushes and not forge.opened
+
+
+def test_automatic_publication_rejects_missing_task_binding(tmp_path: Path) -> None:
+    """@brief Missing task identity does not validate against a null identity."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.active_task_id = None
+    run.validation_evidence["task_id"] = None
+    engine.store.save(run)
+    engine.poll_once()
+    assert not worktrees.pushes and not forge.opened
+
+
+
+def test_automatic_retry_rejects_closed_ticket(tmp_path: Path) -> None:
+    """@brief Explicit retry never publishes after the source ticket closes."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    engine.store.save(run)
+    forge.ticket = replace(forge.ticket, state="closed")
+    assert engine.retry(run.run_id)
+    assert not worktrees.pushes and not forge.opened
+
+
+
+def test_automatic_retry_closed_ticket_never_pushes_dirty_checkpoint(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """@brief A closed ticket is checked before settling a dirty worktree."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.publish_checkpoints = True
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    engine.store.save(run)
+    worktrees.dirty = True
+    forge.ticket = replace(forge.ticket, state="closed")
+    pushes = []
+    monkeypatch.setattr(engine, "_push_checkpoint", lambda *args, **kwargs: pushes.append(True))
+    assert engine.retry(run.run_id)
+    assert not pushes and not worktrees.pushes and not forge.opened
+
+
+
+def test_automatic_retry_corrupt_evidence_never_pushes_dirty_checkpoint(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """@brief Corrupt validation evidence is rejected before worktree settlement."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.publish_checkpoints = True
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.validation_evidence.pop("deviations")
+    engine.store.save(run)
+    worktrees.dirty = True
+    pushes = []
+    monkeypatch.setattr(engine, "_push_checkpoint", lambda *args, **kwargs: pushes.append(True))
+    assert engine.retry(run.run_id)
+    assert not pushes and not worktrees.pushes and not forge.opened
+
+
+def test_reenabled_approval_blocks_automatic_retry(tmp_path: Path, monkeypatch) -> None:
+    """@brief Enabling approval again blocks an unapproved failed automatic publication."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = True
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    run.approval_label_removed = False
+    engine.store.save(run)
+    conducted = []
+    monkeypatch.setattr(
+        engine, "_conduct", lambda state, ticket, thread="": conducted.append(state.run_id),
+    )
+    assert engine.retry(run.run_id)
+    assert conducted == [run.run_id]
+    assert not worktrees.pushes and not forge.opened
+
+
+def test_disabled_approval_retry_verifies_then_publishes(tmp_path: Path) -> None:
+    """@brief A failed automatic publication retry checks freshness and resumes."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    run.lifecycle = "failed"
+    run.approval_presented_at = ""
+    run.approval_label_removed = False
+    engine.store.save(run)
+    assert engine.retry(run.run_id)
+    assert engine.store.load(run.run_id).lifecycle == "in-review"
+    assert worktrees.pushes == [run.branch] and forge.opened
+
+
+def test_disabled_approval_revalidates_target_drift(tmp_path: Path, monkeypatch) -> None:
+    """@brief Automatic publication does not bypass target freshness."""
+    engine, forge, worktrees, _, _ = make_engine(tmp_path)
+    engine.config.delivery.require_human_approval = False
+    run = _approved_run(engine, worktrees)
+    worktrees.target = "d" * 40
+    conducted = []
+    monkeypatch.setattr(
+        engine, "_conduct", lambda state, ticket, thread="": conducted.append(state.run_id),
+    )
+    engine.poll_once()
+    assert conducted == [run.run_id]
+    assert not worktrees.pushes and not forge.opened
 
 
 @pytest.mark.parametrize("draft", [True, False])
@@ -4797,3 +4978,69 @@ def test_completed_aegis_journal_never_launches_independent_checks(tmp_path):
                    for event in engine.store.read_journal(run.run_id))
     body = forge.ticket_comments[saved.approval_comment_id]
     assert "Strict errors" not in body and "Candidate ready" in body
+
+
+@pytest.mark.parametrize("draft", [True, False])
+def test_direct_completion_honors_disabled_human_approval(tmp_path, monkeypatch, draft):
+    """Direct completion follows the merged publication policy without new tests or a label."""
+    engine, forge, worktrees, _, executor, _work = direct_engine(tmp_path, monkeypatch)
+    engine.config.delivery.require_human_approval = False
+    engine.config.delivery.draft = draft
+    engine.config.budgets.max_iterations = 1
+    executor.attempts.append(direct_edit(worktrees, summary="Agent selected repository checks."))
+    engine.poll_once(ticket_iid=7)
+    run = engine.store.load("github-owner-repo-7")
+    assert run.lifecycle == "in-review"
+    assert run.workflow == "direct" and run.active_task_id is None
+    assert run.iterations == 1 and len(executor.prompts) == 1
+    assert worktrees.pushes == [run.branch]
+    assert forge.opened[0]["draft"] is draft
+    assert not run.approval_presented_at
+    assert any(e["event"] == "automatic-publication-authorized"
+               for e in engine.store.read_journal(run.run_id))
+
+
+def test_checkpoint_drift_before_presentation_requires_fresh_validation(tmp_path: Path) -> None:
+    """@brief A changed checkpoint cannot use the just-accepted validation."""
+    engine, forge, worktrees, _, executor = make_engine(tmp_path)
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+
+    class ChangedCandidate(FakeAegis):
+        def task_status(self, task_id):
+            if len(self.tasks) == 5:
+                worktrees.fingerprint = "e" * 64
+            return super().task_status(task_id)
+
+    client = ChangedCandidate([task("validate"), task("done"), task("done"),
+                               task("validate"), task("validate"), task("done"), task("done")])
+    engine._conduct_task(run, forge.ticket, client, "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "awaiting-approval"
+    assert saved.candidate_fingerprint == "e" * 64
+    assert len(executor.prompts) == 3
+    assert "current stage: done" in executor.prompts[1]
+    assert "Return the AEGIS task" in executor.prompts[1]
+    assert "current stage: validate" in executor.prompts[2]
+
+
+def test_failed_validate_session_does_not_record_approval_evidence(tmp_path: Path) -> None:
+    """@brief A nonzero Validate exit cannot authorize the candidate."""
+    engine, forge, _, _, executor = make_engine(
+        tmp_path, executor=FakeExecutor(GateRun(exit_code=1, stderr="validation failed")),
+    )
+    engine.config.recovery.max_stage_failures = 1
+    run = make_run(engine)
+    run.stage = "validate"
+    engine.store.save(run)
+
+    engine._conduct_task(run, forge.ticket, FakeAegis([task("validate"), task("done")]), "")
+
+    saved = engine.store.load(run.run_id)
+    assert saved.lifecycle == "failed" and saved.stage == "validate"
+    assert not saved.validation_evidence and saved.approval_comment_id is None
+    assert len(executor.prompts) == 1
+    assert not any(event["event"] == "validation-accepted"
+                   for event in engine.store.read_journal(run.run_id))

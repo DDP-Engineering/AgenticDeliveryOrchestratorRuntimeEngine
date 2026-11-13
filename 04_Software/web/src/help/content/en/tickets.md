@@ -11,7 +11,7 @@ Each project has a **Monitoring** state, shown as **Active** or **Paused** in th
 
 An administrator can use **Pause monitoring** and **Activate monitoring** on the project's Summary tab. Paused monitoring stops automatic pickups; running jobs continue.
 
-Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A present broken or unsupported payload is refused, never silently replaced by Direct. Without that file, the direct workflow uses the optional **Verification command**; empty means unverified. Both workflows retain the same labels, limits and human approval. See [Repository workflows](/help/projects#workflows).
+Before pickup, ADORE probes AEGIS only when `.agentic/aegis.py` is present. A broken or unsupported payload is refused. Without that file, the agent implements the ticket directly. The agent owns repository checks in both workflows; ADORE monitors progress and follows the configured approval policy. See [Repository workflows](/help/projects#workflows).
 
 ## Create the labels first {#labels}
 
@@ -64,6 +64,8 @@ Nothing is read until you press **Read tickets**. It loads up to 500 open ticket
 **Start** queues a job; the worker still applies the usual gates. If the ticket lacks the ready or a priority label, ADORE asks you to confirm, lets you choose a priority, and **Add labels and start** adds them in the repository first. Start is unavailable for closed, held or excluded tickets, tickets missing required acceptance criteria, and tickets with a job. **Retry** replaces Start when the job failed. **Stop** asks for confirmation, cancels an unfinished job and removes the ready label so monitoring does not pick the ticket up again. **Details** shows description and comments.
 
 **Start** manually starts only the selected ticket, including while **Monitoring** is **Paused**, and keeps monitoring paused. Capacity, repository workflow, eligibility, conductor locks and approval checks still apply. A failed operation displays its concrete reason; if the result is invalid or uncertain, inspect the host logs before retrying.
+
+On desktop, Start or Retry, Stop and Details or Hide details stay on one row, aligned to the right with the Actions heading. On narrow screens, the buttons can wrap to keep them within the page.
 
 ## Reading descriptions and comments {#reading-bodies}
 

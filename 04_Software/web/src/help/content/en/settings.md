@@ -18,8 +18,8 @@ Every group is closed when you open Settings, and the number beside its name cou
 |---|---|
 | Repository | Forge and repository, Gitea login, **Target branch** (base of new jobs and destination of PR/MRs), the job branch name template with an optional naming rule and a live example, and the agent's display name, resource name and commit author email. |
 | Tickets | **Ready for pickup label**, **Exclude from pickup label**, the folded **Status labels**, how often ADORE checks the forge, whether tickets need acceptance criteria or a priority label, and the default task type. See [Tickets for automatic pickup](/help/tickets#labels). |
-| Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Verification command**, **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
-| PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |
+| Implementation | Per-job limits: **Active job limit**, **Maximum executor launches per job**, **Active work time limit (seconds)**, **Job cost cap (USD)**, **Maximum changed files per job** and **Stage attempt time limit (seconds)**. It also holds **Clarifications**, **Recovery after errors**, **Advanced stage time limits**, **Publish progress commits** and the quick-path label. |
+| PR/MR and review | **Request review from**, **PR/MR state at publication** (Draft or Ready for review), **Require human approval before PR/MR** and the approval label, **Remove branch after human merge**, revision rounds and **Action when PR/MR CI checks fail** (Automatic repair, Notify only or Ignore). |
 | Statistics | **Record completed job measurements** and **Record agent-reported tokens**. **Statistics database file** is shown for information only. |
 | Agent and model | Provider, model, authentication and **Test AI connection** [Executors and models](/help/executors). |
 | Technical details | Read-only installation values such as the job state folder, the local repository path and the job working folders. They are changed in the project's `config.toml` on the server, and changing a path does not move existing data. |
@@ -33,6 +33,8 @@ A **Default** badge means the project's `config.toml` does not set the value, so
 Choose **Installed on the server** to use ADORE-managed Pi under the current OS account. The optional **Project tools PATH** selects the tool directories. See [Install Pi on the server](/help/executors#installed-executors).
 
 ## Editing {#editing}
+
+The **Save** and **Discard changes** bar appears only for unsaved or recovered changes, while saving, or when an error needs recovery. It disappears after a successful save or discard. Opening an editor without changing its value does not show the bar.
 
 1. Choose **Edit** beside each value you want to change. You can edit several settings across groups.
 2. Use the single **Save** button above the groups. It is enabled only when values change and all open edits are valid.
@@ -50,7 +52,15 @@ Navigation and browser reload ask before discarding unsaved settings edits. Brie
 
 ## Original TOML {#toml}
 
-Beside the Project settings heading, administrators have **Preview raw configuration** and **Export raw configuration**. Preview opens a closable dialog and keeps the text only in memory. Download gives the saved `config.toml` exactly as stored, with comments, formatting and any inline secrets, so handle it as a secret. Neither includes a pending candidate, resolved defaults, separate `.env` files or external credentials. Developers cannot use them. Select the exported file in [Import raw configuration](/help/projects#import-project) and ADORE automatically checks server paths, state-folder ownership and inline secrets before enrollment.
+Beside Project settings, administrators have **Preview raw configuration** and **Export raw configuration**. Preview shows the exact saved TOML in a closable dialog. Pending changes, separate environment files, external credentials and running job data are excluded. A standalone TOML can contain inline values, so handle it as a secret; complete build export refuses inline credentials.
+
+Choose **Export raw configuration**, select the destination and save. Container projects export one ZIP containing the saved configuration and the complete image definition. Native projects save `config.toml`. There is no export setup dialog. When the browser has no destination picker, its normal download preferences apply. Select the exported ZIP directly in Projects → Import raw configuration to import the configuration and recipes together, with automatic validation.
+
+Administrators manage sources separately under **Technical details → Image definition**. Select a Dockerfile or ZIP in **Definition file**; it is checked automatically. **Save recipe** retains it and **Change definition** replaces it. Missing local bases are added here too. ADORE's standard executor base is included automatically.
+
+Definitions are retained by image and shared by projects using that image. Saving a recipe does not rebuild an image, change settings or restart jobs. The ZIP includes all declared local-base sources and a Compose file for building on another server. Image binaries and packages installed later by an agent are excluded. Registry access and package sources must be available there.
+
+If a recipe is corrupt, the dialog names what to delete on the server to start fresh. Resetting the recipe catalog removes saved image definitions for all projects; configurations, credentials and jobs stay unchanged. ADORE never deletes this data automatically.
 
 ## Agent system packages {#system-packages}
 

@@ -1,5 +1,7 @@
 # Glossar
 
+Die menschliche Freigabe vor Veröffentlichung ist standardmäßig aktiv. Administratoren können **Menschliche Freigabe vor PR/MR verlangen** in Einstellungen ändern. Ohne diese Freigabe prüft ADORE vor Veröffentlichung Kandidat und Ziel auf Aktualität; Repository-Tests bleiben Aufgabe des Agenten.
+
 Diese Begriffe werden in der ADORE-Weboberfläche und in diesen Hilfethemen verwendet.
 
 ## Begriffe {#terms}
@@ -18,9 +20,9 @@ Diese Begriffe werden in der ADORE-Weboberfläche und in diesen Hilfethemen verw
 | Kandidat | Das validierte Ergebnis eines Auftrags, das ADORE zur Freigabe vorstellt, gekennzeichnet durch einen Fingerabdruck und den Ziel-Commit. Die Freigabe gilt für genau diesen Kandidaten und verfällt, wenn sich der Kandidat oder sein Zielbranch ändert. |
 | Wartet auf Klärung | Der Agent benötigt eine Antwort. Beantworten Sie seine Frage im Repository-Ticket. |
 | Wartet auf Freigabe | Das geprüfte Ergebnis wartet auf die menschliche Freigabe zur Veröffentlichung. Die Freigabe erfolgt auf der Forge für den aktuellen Kandidaten. |
-| Entwurf MR/PR | Der Merge Request (GitLab) oder Pull Request (GitHub, Gitea), den ADORE nach der Freigabe öffnet, als Entwurf, sofern das Projekt nicht auf einen fertigen eingestellt ist. Menschen prüfen ihn. |
+| Entwurf MR/PR | Der Merge- oder Pull-Request nach Validierung und gegebenenfalls Freigabe. Menschen prüfen ihn. |
 | Menschliche Prüfung | Ein MR/PR steht zur menschlichen Prüfung bereit. Das Zusammenführen bleibt eine menschliche Entscheidung. |
-| Überarbeitungsrunde | Ein weiterer Durchgang des Coding-Agenten auf demselben Branch, nachdem ein Reviewer Änderungen angefordert hat oder, bei aktiver automatischer Reparatur, nach fehlgeschlagenen CI-Prüfungen. Die Runden sind durch **Maximale Überarbeitungsrunden** begrenzt, und jede braucht eine neue Freigabe, bevor etwas veröffentlicht wird. |
+| Überarbeitungsrunde | Ein weiterer Agentendurchgang nach Änderungswunsch oder CI-Fehler. Jede Runde wiederholt die Validierung und folgt der Freigaberegel. |
 | Forge | Die Hosting-Plattform, auf der Tickets, Labels, Freigaben und MR/PRs liegen: GitHub, GitLab oder Gitea. |
 
 > ADORE hat keine Merge-Operation. Das Zusammenführen ist immer die Entscheidung eines Menschen in der Forge.

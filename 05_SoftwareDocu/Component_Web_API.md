@@ -31,7 +31,8 @@ imports share progress; crash-reclaiming locks serialize builds across web proce
 There are at most eight active and 64 retained operations; each build has a
 30-minute limit. Failed/restarted preparation can be retried with engine layer-cache
 reuse. Progress is in memory; after a web restart callers retry, and image presence
-is inspected again. Build files are included in the wheel as `adore/container_assets`.
+is inspected again. The wheel shares executor sources with `adore/_executor_recipe` and includes
+the proxy Dockerfile under `adore/container_assets`.
 Regression coverage: `test_web_environment.py`, browser enrollment/import journeys
 and `environment.test.mjs`. Existing API creation routes remain compatible; browser
 enrollment automatically invokes preparation before them. Manual checks/previews
@@ -47,6 +48,23 @@ timeouts even with exit code zero. They never pull/build images or alter credent
 The shared executor image is prepared once per container service and reused by
 projects selecting it. Regression coverage: `test_web_readiness.py` and
 `test_web_chatgpt.py`.
+
+## Executor source recipes
+
+Admin-only `/api/v1/projects/{name}/executor-recipe` GET reads image definition
+availability. POST `.../preview` validates a Dockerfile/context or complete-source
+ZIP in memory; PUT retains it with same-origin CSRF, config revision and observed
+image binding. The target is the effective selected image or a missing local
+base. Saving source metadata leaves project config, pending changes, credentials
+and job state untouched, including while a job is parked.
+
+The raw config route with `include_build=true` resolves managed, immutable Git
+and bundled definitions. Complete export includes every declared local base;
+it never runs Docker or silently emits a partial image chain. Native raw TOML
+export is unchanged. Typed 400/409/503 failures distinguish invalid or missing
+sources, concurrent changes and corrupt stored records with a deletion recovery
+path. See [Executor recipes](Component_Executor_Recipes.md) for current data and
+offline tests. Recipe-source errors do not affect the ordinary Settings read.
 
 Login and `/api/v1/me` return `factory_password` only for the authenticated account, reflecting current factory-password verification. Credential corruption returns 503; no hash or other account credential is returned.
 
@@ -475,6 +493,15 @@ row/default generation. Credential-bearing URLs are redacted in effective reads.
 
 `GET /api/v1/projects/{name}/config/raw` is administrator-only. It returns original saved UTF-8 TOML bytes, including inline secrets, as `text/plain`, with `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. `?download=true` adds a fixed `config.toml` attachment. Authorization precedes lookup. Empty, malformed, unreadable, symlinked or oversized sources return value-free 503 `config_corrupt`; changed bytes or immutable project identity return 409 `stale_config_revision`. Reads are bounded to 524288 bytes; no environment resolution, `.env`, pending changes or mutation.
 
+`include_build=true` returns an `application/zip` attachment. The build
+reader requires a Docker project, a registered manifest and an exact tagged
+image match. It reads declared regular Git blobs at the full reviewed commit,
+checks their sizes, identities and paths, and generates a Compose definition
+with a relative context. The archive preserves the original TOML bytes. A
+configuration containing inline credentials, an unavailable source or an
+invalid definition returns a stable, value-free error. The endpoint rechecks
+the configuration and project identity after ZIP generation.
+
 `POST /api/v1/projects/{name}/config/preview` builds the same validated candidate as preparation, without writing active settings, pending evidence or audit events. `GET/POST/DELETE /api/v1/projects/{name}/config/pending` read, prepare and discard one candidate. Preparation verifies the previous complete candidate against active bytes and replaces it only with its exact `pending_revision` and unchanged base; missing or stale replacement bindings return 409. Preview and preparation share `_prepare_config_candidate` and its final-document/plan checks.
 
 `settings.batch` is a virtual edit key whose wire value is strict JSON: 1–100 unique `{key,value}` objects with string fields. `settings_batch.py` rejects malformed, duplicate, overlapping or nested targets and connection aliases. Each member passes existing authority/type/secret checks, then the final combined TOML is validated. `proposed_value` is a safe typed map. Public read/apply recompute full candidate meaning against the unchanged active base, rejecting hidden collateral changes. Restart requirements are the union of member keys. Direct PUT refuses this vocabulary with `pending_config_required`.
@@ -530,7 +557,7 @@ immutable prices use the consumption UTC day, and never price reported money
 again. Coverage identifies partial evidence rather than asserting a full bill.
 
 Review cohorts use first MR opening/adoption in scope; validation cohorts use
-first strict verdict in scope. Human merge uses reviewed jobs with actual done
+first recorded validation verdict in scope. Human merge uses reviewed jobs with actual done
 in scope and `merged by human`. Rework requires reviewer-requested revision;
 pipeline repair is separate. Each rate exposes numerator/denominator; empty is
 null. Open reviews are labeled current state. Monetary efficiency uses only
@@ -870,7 +897,12 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Job diagnostics and concurrent usage
 
-The scoped executor-output GET delegates to the strict job snapshot and host-captured evidence reader. It returns only project/run identity, availability, normalized stdout/stderr and exit/timeout facts; source paths, argv and raw IO are never returned. Latest entries without a capture reference return missing, not an older output.
+The scoped executor-output GET delegates to the strict job snapshot and
+host-captured evidence reader. It returns project/run identity, state revision,
+availability, latest attempt, stage and recorded time, launch activity,
+normalized stdout/stderr and exit/timeout facts. Source paths, argv and raw IO
+are excluded. Latest entries without a capture reference return missing.
+A concurrent journal or state change returns 409 `job_snapshot_changed`.
 
 Usage projection accepts an older request snapshot after another request advanced the cursor only when a fresh strict selected-run journal confirms both the incoming prefix and the saved cursor digest. It validates every returned projected event, retains the newer cursor and preserves the older request's real snapshot. Changed or truncated sources still fail closed; no automatic retry or fabricated totals are used. `test_web_metrics.py` includes a controlled HTTP interleaving and persistent-cursor checks.
 
@@ -880,3 +912,9 @@ History projects verified ticket and job target identities independently of oper
 Readiness checks bind private hashes of relevant owned and external CLI authentication inputs. Draft tokens and project checks recheck the binding before publication; changed credentials make old evidence stale. Corrupt or old readiness records are refused before any replacement. Responses declare required checks, and the browser verifies their presence before displaying a verdict.
 
 A successful external CLI sign-in is not a bound identity and keeps the overall result partial. Only a validated project-scoped repository credential binds the forge identity; the project list separately reports the check keys derived from current config. Probe values are validated before replacing evidence.
+
+## Publication approval setting
+
+The project configuration catalog exposes `delivery.require_human_approval`
+as an editable boolean. The normal Admin candidate review, authorization,
+validation and idle-project checks apply. Invalid scalar values are rejected.

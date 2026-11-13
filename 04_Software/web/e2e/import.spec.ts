@@ -5,9 +5,10 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, rmdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { importCopy } from "../src/importCopy";
 import { environmentCopy } from "../src/environmentPreparation";
 import { errorMessages } from "../src/errors";
@@ -83,6 +84,101 @@ test("raw import shows automatic environment progress and can retry a failed bui
   await expect(submit).toBeEnabled(); expect(imports).toBe(0);
   outcome = "ready"; await submit.click();
   await expect(dialog).toHaveCount(0); expect(imports).toBe(1);
+});
+
+/** Use the public exporter to create the exact current archive without another ZIP dependency. */
+function bundle(text: string): Buffer {
+  const python=resolve("../.venv",process.platform==="win32"?"Scripts/python.exe":"bin/python");
+  return execFileSync(python,["-I","-B","-c",`
+import sys,tomllib
+from adore.recipe_sources import Definition,Recipe,recipe_archive,LEGAL_HEADER
+raw=sys.stdin.buffer.read()
+image=tomllib.loads(raw.decode('utf-8'))['container']['image']
+header=LEGAL_HEADER.encode()
+root=Definition(image,'Dockerfile',{'Dockerfile':(header+b'FROM e2e-import-base:1\\nCOPY tool.sh /tool.sh\\n',0o644),'tool.sh':(header+b'printf fixture\\n',0o755)})
+base=Definition('e2e-import-base:1','Dockerfile',{'Dockerfile':(header+b'FROM ubuntu:22.04\\n',0o644)})
+sys.stdout.buffer.write(recipe_archive(Recipe(image,{image:root,'e2e-import-base:1':base}),config_raw=raw))
+`],{input:text,cwd:resolve("..")});
+}
+
+test("complete exported ZIP validates automatically and imports config and image sources in one popup", async ({page})=>{
+  await signIn(page);
+  const dialog=await open(page);
+  const text=await document(page,"e2e-zip-import");
+  const bytes=bundle(text);
+  await page.getByLabel(copy.file,{exact:true}).setInputFiles({name:"adore-docker-build.zip",mimeType:"application/zip",buffer:bytes});
+  await expect(dialog.getByRole("status")).toContainText("e2e-zip-import");
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await expect(dialog.locator('input[type="file"]')).toHaveCount(1);
+  await dialog.getByRole("button",{name:copy.confirm,exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+  const projects=await (await page.request.get("/api/v1/projects")).json();
+  const project=projects.find((row:{name:string})=>row.name==="e2e-zip-import");
+  expect(project.pickup_state).toBe("stopped");
+  expect(await (await page.request.get(`/api/v1/projects/${project.id}/config/raw`)).text()).toBe(text);
+  expect((await (await page.request.get(`/api/v1/projects/${project.id}/executor-recipe`)).json()).available).toBe(true);
+  const exported=await page.request.get(`/api/v1/projects/${project.id}/config/raw?download=true&include_build=true`);
+  expect(exported.status()).toBe(200);
+  expect(exported.headers()["content-type"]).toContain("application/zip");
+});
+
+test("ZIP errors and corrupt preview evidence keep the single Import disabled", async ({page})=>{
+  await signIn(page);
+  const dialog=await open(page), submit=dialog.getByRole("button",{name:copy.confirm,exact:true});
+  const selectZip=(bytes:Buffer)=>page.getByLabel(copy.file,{exact:true}).setInputFiles({name:"project.zip",mimeType:"application/zip",buffer:bytes},{timeout:30_000});
+  for(const bytes of [Buffer.alloc(0),Buffer.alloc(18*1024*1024+1)]){
+    await selectZip(bytes);await expect(dialog.getByRole("alert")).toHaveText(copy.invalidFile);
+    await expect(submit).toBeDisabled();
+  }
+  await selectZip(Buffer.from("PK invalid archive"));
+  await expect(dialog.getByRole("alert")).toContainText("complete project ZIP");
+  const bytes=bundle(await document(page,"e2e-zip-invalid-preview"));
+  await page.route("**/api/v1/projects/import/bundle-preview",async route=>{
+    const response=await route.fetch(),preview=await response.json();
+    await route.fulfill({response,json:{...preview,bundle_revision:"invalid"}});
+  });
+  await selectZip(bytes);await expect(dialog.getByRole("alert")).toContainText(/unexpected/i);
+  await expect(submit).toBeDisabled();
+  await page.unroute("**/api/v1/projects/import/bundle-preview");
+  await page.route("**/api/v1/projects/import/bundle-preview",route=>route.fulfill({status:409,json:{detail:{code:"recipe_import_conflict"}}}));
+  await selectZip(bytes);await expect(dialog.getByRole("alert")).toContainText("existing definition was kept");
+  await expect(submit).toBeDisabled();
+  await expect(dialog.locator('input[type="file"]')).toHaveCount(1);
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+});
+
+test("switching from a pending ZIP to TOML ignores the old ZIP preview", async ({page})=>{
+  await signIn(page);
+  const dialog=await open(page);
+  const bytes=bundle(await document(page,"e2e-zip-replaced"));
+  let release=()=>{};let seen=false;
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/api/v1/projects/import/bundle-preview",async route=>{
+    const response=await route.fetch();seen=true;await held;
+    await route.fulfill({response}).catch(()=>undefined);
+  });
+  try{
+    await page.getByLabel(copy.file,{exact:true}).setInputFiles({name:"project.zip",mimeType:"application/zip",buffer:bytes});
+    await expect.poll(()=>seen).toBe(true);
+    await choose(page,"[invalid");await expect(dialog.getByRole("alert")).toBeVisible();
+    release();await expect(dialog.getByRole("button",{name:copy.confirm,exact:true})).toBeDisabled();
+    await page.keyboard.press("Escape");await open(page);
+    await expect(page.getByLabel(copy.file,{exact:true})).toHaveValue("");
+  }finally{release();await page.unrouteAll({behavior:"wait"});}
+});
+
+test("changed ZIP bytes are rejected before publication", async ({page})=>{
+  const directory=mkdtempSync(join(tmpdir(),"adore-zip-import-")),source=join(directory,"project.zip");
+  try{
+    await signIn(page);const dialog=await open(page);
+    const bytes=bundle(await document(page,"e2e-zip-changed"));writeFileSync(source,bytes);
+    await page.getByLabel(copy.file,{exact:true}).setInputFiles(source);
+    const submit=dialog.getByRole("button",{name:copy.confirm,exact:true});await expect(submit).toBeEnabled();
+    writeFileSync(source,Buffer.concat([bytes,Buffer.from("changed")]));
+    let imports=0;page.on("request",request=>{if(request.url().endsWith("/import/bundle"))imports++;});
+    await submit.click();await expect(dialog.getByRole("alert")).toHaveText(copy.changed);
+    expect(imports).toBe(0);
+  }finally{rmSync(source,{force:true});rmdirSync(directory);}
 });
 
 test("raw import dialog validates on file selection and enrolls the exact file", async ({ page }) => {
@@ -230,6 +326,10 @@ for (const locale of ["en", "fr", "de", "ro"] as const) {
       const dialog = await open(page, locale);
       await expect(dialog.getByLabel(importCopy[locale].file, { exact: true })).toBeFocused();
       await expect(dialog.getByRole("button", { name: importCopy[locale].confirm, exact: true })).toBeDisabled();
+      const bytes=bundle(await document(page,"e2e-zip-locale-"+locale));
+      await dialog.getByLabel(importCopy[locale].file,{exact:true}).setInputFiles({name:"project.zip",mimeType:"application/zip",buffer:bytes});
+      await expect(dialog.getByRole("status")).toContainText(importCopy[locale].ready);
+      await expect(dialog.getByRole("button",{name:importCopy[locale].confirm,exact:true})).toBeEnabled();
       expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
     } finally { expect((await setLanguage("en")).ok()).toBe(true); }
   });

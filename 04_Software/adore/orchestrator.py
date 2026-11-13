@@ -567,6 +567,9 @@ class Orchestrator:
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
             return False
+        if not self.config.delivery.require_human_approval and ticket.state != "opened":
+            self._fail_immediately(run, "TICKET_CLOSED", "ticket closed before retry publication")
+            return True
         try:
             self._revalidate_native_retry(run)
         except (IsolationError, PreparationError, OSError, ValueError) as exc:
@@ -579,12 +582,20 @@ class Orchestrator:
             self.store.journal(run_id, "operator-retry", stage="done")
             self._enter_review(run)
             return True
-        # An approved candidate waits at done; `reset --to publishing` points
+        if (not self.config.delivery.require_human_approval
+                and run.stage in {"done", "publishing"} and run.validation_evidence
+                and not self._valid_automatic_evidence(run)):
+            self._fail_immediately(
+                run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+            )
+            return True
+        # A validated candidate waits at done; `reset --to publishing` points
         # retry at the same publication.
         resume_publication = (
             run.stage in {"done", "publishing"}
             and bool(run.validation_evidence)
-            and bool(run.approval_presented_at)
+            and (bool(run.approval_presented_at)
+                 or not self.config.delivery.require_human_approval)
         )
         if resume_publication:
             # EVERY fingerprint refuses a dirty tree, including the freshness
@@ -600,8 +611,11 @@ class Orchestrator:
                 not run.approval_label_removed
                 or self.config.delivery.approval_label not in ticket.labels
             )
-            approval_ready = self._approval_ready(run, ticket)
-            if not approval_ready and not approval_absent:
+            approval_ready = (self._approval_ready(run, ticket)
+                              if self.config.delivery.require_human_approval
+                              else self._automatic_publication_ready(run, ticket))
+            if not approval_ready and (not approval_absent
+                                       or not self.config.delivery.require_human_approval):
                 # Freshness errors and candidate drift already fail or re-conduct.
                 return True
             resume_publication = approval_ready
@@ -1298,7 +1312,10 @@ class Orchestrator:
                     return
                 run.validation_evidence["changed_files"] = changed
                 self._successful_transition(run, run.stage, "done")
-                self._present_for_approval(run, ticket)
+                if self.config.delivery.require_human_approval:
+                    self._present_for_approval(run, ticket)
+                elif self._automatic_publication_ready(run, ticket):
+                    self._publish(run, ticket)
                 return
         except _CheckpointHalted:
             return
@@ -1361,6 +1378,28 @@ class Orchestrator:
             if run.lifecycle != "working":
                 return
             if task.done:
+                if (not self.config.delivery.require_human_approval
+                        and run.validation_evidence
+                        and not run.validation_evidence.get("agent_review_required")
+                        and not self._valid_automatic_evidence(run)):
+                    self._fail_immediately(
+                        run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+                    )
+                    return
+                if (run.validation_evidence
+                        and not run.validation_evidence.get("agent_review_required")
+                        and run.candidate_fingerprint):
+                    try:
+                        current = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
+                        target = self.worktrees.ref_head(run.base_ref)
+                    except IsolationError as exc:
+                        self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
+                        return
+                    if current != run.candidate_fingerprint or target != run.candidate_base_ref:
+                        run.validation_evidence = {"agent_review_required": True}
+                        run.candidate_fingerprint = ""
+                        run.candidate_base_ref = ""
+                        self.store.save(run)
                 if run.validation_evidence.get("agent_review_required"):
                     result = self._launch_stage(
                         run,
@@ -1403,11 +1442,16 @@ class Orchestrator:
                     run.validation_evidence = {}
                     self.store.save(run)
                     continue
-                if not self._record_aegis_completion(run, task):
+                if not run.validation_evidence and not self._record_aegis_completion(run, task):
                     return
+                run.validation_evidence["deviations"] = list(task.deviations)
+                self.store.save(run)
                 if self._cancel_if_requested(run):
                     return
-                self._present_for_approval(run, ticket)
+                if self.config.delivery.require_human_approval:
+                    self._present_for_approval(run, ticket)
+                elif self._automatic_publication_ready(run, ticket):
+                    self._publish(run, ticket)
                 return
             if task.stage == "validate" and not self._integrate_target(run):
                 failure_context = self.prompts.render("recovery/integration-conflict.md")
@@ -1491,6 +1535,9 @@ class Orchestrator:
                 return
             except IsolationError as exc:
                 self._fail_immediately(run, "CHECKPOINT_FAILED", exc)
+                return
+            if (task.stage == "validate" and updated.done
+                    and not self._record_aegis_completion(run, updated, checkpoint=False)):
                 return
 
     def _transition_accepted(
@@ -1874,9 +1921,12 @@ class Orchestrator:
         return False
 
 
-    def _record_aegis_completion(self, run: RunState, task: AegisTask) -> bool:
+    def _record_aegis_completion(
+        self, run: RunState, task: AegisTask, *, checkpoint: bool = True,
+    ) -> bool:
         """Record the agent's done journal and exact candidate without running tests."""
-        self._checkpoint(run, f"ADORE completed {run.active_task_id}")
+        if checkpoint:
+            self._checkpoint(run, f"ADORE completed {run.active_task_id}")
         try:
             fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
             target = self.worktrees.ref_head(run.base_ref)
@@ -1884,14 +1934,14 @@ class Orchestrator:
             self._fail_immediately(run, "CANDIDATE_FINGERPRINT", exc)
             return False
         run.validation_evidence = {
-            "source": "agent-aegis-journal", "stage": "done",
+            "source": "agent-aegis-journal", "stage": "done", "task_id": task.task_id,
             "deviations": list(task.deviations),
             "reported_checks": _sanitize("\n".join(task.log[-20:]), _MAX_EVIDENCE),
         }
         run.candidate_fingerprint = fingerprint
         run.candidate_base_ref = target
-        run.stage = "done"
         self.store.save(run)
+        self.store.journal(run.run_id, "validation-accepted", passed=True, task_id=task.task_id)
         return True
 
     def _present_for_approval(self, run: RunState, ticket: Ticket) -> None:
@@ -2006,6 +2056,71 @@ class Orchestrator:
             return False
         return True
 
+    @staticmethod
+    def _valid_automatic_evidence(run: RunState) -> bool:
+        """@brief Check the complete saved validation record and its task binding.
+        @param[in] run Run whose evidence is being evaluated.
+        @return True only for the current task's complete executor evidence.
+        """
+        evidence = run.validation_evidence
+        if run.workflow == "direct":
+            return (set(evidence) == {"summary", "implementation", "changed_files"}
+                    and evidence.get("implementation") == "completed"
+                    and isinstance(evidence.get("summary"), str)
+                    and type(evidence.get("changed_files")) is int
+                    and evidence["changed_files"] >= 0)
+        legacy = (set(evidence) == {"source", "task_id", "deviations"}
+                  and evidence.get("source") == "executor")
+        observed = (set(evidence) == {"source", "stage", "task_id", "deviations", "reported_checks"}
+                    and evidence.get("source") == "agent-aegis-journal"
+                    and evidence.get("stage") == "done"
+                    and isinstance(evidence.get("reported_checks"), str))
+        return ((legacy or observed)
+                and isinstance(run.active_task_id, str) and bool(run.active_task_id)
+                and run.active_task_id in run.task_ids
+                and evidence.get("task_id") == run.active_task_id
+                and isinstance(evidence.get("deviations"), list)
+                and all(isinstance(item, str) for item in evidence["deviations"]))
+
+    def _automatic_publication_ready(self, run: RunState, ticket: Ticket) -> bool:
+        """@brief Verify saved validation, candidate and target before automatic publication.
+        @param[in,out] run Validated run to check or return for validation.
+        @param[in] ticket Source ticket used for revalidation notifications.
+        @return True only for a fresh candidate and target.
+        """
+        evidence = run.validation_evidence
+        if not evidence or not run.candidate_fingerprint or not run.candidate_base_ref:
+            self._invalidate_approval(run, ticket, "candidate validation is missing or changed")
+            return False
+        if not self._valid_automatic_evidence(run):
+            self._fail_immediately(
+                run, "PUBLICATION_EVIDENCE_INVALID", "invalid validation evidence"
+            )
+            return False
+        try:
+            current_ticket = self.forge.get_ticket(ticket.iid)
+        except ForgeError as exc:
+            self._fail_immediately(run, "PUBLICATION_TICKET", exc)
+            return False
+        if current_ticket is None:
+            self._fail_immediately(run, "TICKET_DELETED", "ticket deleted before publication")
+            return False
+        if self._cancel_if_ticket_closed(run, current_ticket):
+            return False
+        try:
+            self._transient(run, "publication-fetch", self.worktrees.fetch)
+            target = self.worktrees.ref_head(run.base_ref)
+            fingerprint = self.worktrees.candidate_fingerprint(run.run_id, run.base_ref)
+        except IsolationError as exc:
+            self._fail_immediately(run, "PUBLICATION_FRESHNESS", exc)
+            return False
+        if target != run.candidate_base_ref or fingerprint != run.candidate_fingerprint:
+            self._invalidate_approval(run, ticket, "candidate or target changed after validation")
+            return False
+        self.store.journal(run.run_id, "automatic-publication-authorized",
+                           fingerprint=run.candidate_fingerprint, target=target)
+        return True
+
     def _invalidate_approval(self, run: RunState, ticket: Ticket, reason: str) -> None:
         """@brief Clear stale approval and require integration, validation and presentation."""
         try:
@@ -2031,9 +2146,10 @@ class Orchestrator:
             run,
             "approval-invalidated",
             f"{self.identity.tag} Approval invalidated: {_sanitize(reason)}. "
-            "The target will be integrated and the candidate revalidated before a fresh "
-            f"`{self.config.delivery.approval_label}` approval is accepted.\n"
-            f"{self.identity.make_marker(run.run_id, 'approval-invalidated')}",
+            "The target will be integrated and the candidate revalidated before publication. "
+            + (f"A fresh `{self.config.delivery.approval_label}` approval is required.\n"
+               if self.config.delivery.require_human_approval else "\n")
+            + f"{self.identity.make_marker(run.run_id, 'approval-invalidated')}",
         )
         if run.lifecycle == "working":
             self._conduct(run, ticket)
@@ -2051,10 +2167,8 @@ class Orchestrator:
                     a failed write retains publication retry authority, not success.
                     AEGIS 0.15.0 closes the task in validate, so publication is
                     Git and forge work only: no executor session and no AEGIS
-                    command runs after the human approved. `_approval_ready`
-                    fetched and re-checked the target commit and the candidate
-                    fingerprint just before every call, so the pushed branch is
-                    exactly the candidate the approval names.
+                    command runs during publication. The approval or automatic
+                    freshness check verifies target and candidate before the call.
         @param[in]  run The approved run at stage done.
         @param[in]  ticket The source ticket, for the MR/PR title.
         """
@@ -2542,9 +2656,8 @@ class Orchestrator:
         """
         @brief      Push the run branch, retrying a transient remote failure.
         @details    The push is the most expensive moment in a run to lose: every
-                    engineering stage has been paid for and a human has already
-                    approved this exact candidate, which a terminal failure
-                    discards along with the approval. Every fetch around it
+                    engineering stage has been paid for and the candidate has
+                    passed the configured publication policy. Every fetch around it
                     already retries through `_transient`; the push did not, so a
                     single "Failed to authenticate user" from a credential
                     refresh ended a fully validated run (live finding
@@ -2699,6 +2812,10 @@ class Orchestrator:
         if self._cancel_if_ticket_closed(run, ticket):
             return
         self._refresh_ticket_snapshot(run, ticket, context="approval")
+        if not self.config.delivery.require_human_approval:
+            if self._automatic_publication_ready(run, ticket):
+                self._publish(run, ticket)
+            return
         if not self._approval_ready(run, ticket):
             return
         summary["approved"] += 1

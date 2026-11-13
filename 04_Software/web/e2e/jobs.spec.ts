@@ -46,8 +46,10 @@ test.describe("Direct job evidence", () => {
     for (const suffix of ["whitespace", "publication-reset", "retried"]) {
       await page.goto(`/jobs?project=alpha&run=ux-direct-${suffix}`);
       const detail = page.locator(".detail-panel"), evidence = detail.locator(".direct-evidence");
+      await detail.getByRole("tab", {name:"Evidence and artifacts",exact:true}).click();
+      await expect(evidence).toBeVisible();
       await expect(evidence).toContainText("Latest recorded attempt");
-      await expect(detail.locator(".next-action-panel")).toContainText(
+      await expect(detail.locator(".job-detail-meta")).toContainText(
         suffix === "publication-reset" ? "Stage: Publishing" : "Stage: Done");
       if (suffix !== "whitespace")
         await expect(detail.locator(".timeline-table tr").filter({hasText:"reset"})).toContainText("Publishing");
@@ -130,6 +132,7 @@ test("overview surfaces worker faults and withholds corrupt active evidence", as
 });
 
 test("hub separates pickup and verification and keeps role-appropriate navigation", async ({ page }, info) => {
+  await page.setViewportSize({width:1366,height:768});
   let checks = 0;
   await page.route("**/api/v1/projects/*/readiness-check", route => {
     checks++; expect(route.request().headers()["x-csrf-token"]).toBeTruthy();
@@ -147,7 +150,8 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.locator(".project-summary-window > .panel")).toHaveCount(2);
   const facts = page.locator(".project-summary");
   await expect(facts.locator(".summary-fact").filter({ hasText: "Container type" })).toContainText("Docker");
-  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toContainText("Pi");
+  await expect(facts.locator(".summary-fact").filter({ hasText: "Executor" })).toHaveCount(0);
+  await expect(facts.locator(".summary-fact")).toHaveCount(7);
   await expect(facts.locator(".summary-fact").filter({ hasText: "Active jobs" })).toContainText("3");
   await expect(page.locator(".statistics-job-scope, .job-workspace .scope-note")).toHaveCount(0);
   await expect(page.locator(".project-summary-window .summary-job-window")).toContainText("Working");
@@ -169,6 +173,8 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
   await expect(page.getByRole("tab", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "History", exact: true })).toBeVisible();
   expect(checks).toBe(0);
+  expect((await facts.boundingBox())!.height).toBeLessThan(180);
+  await page.screenshot({path:info.outputPath("compact-project-summary.png"),fullPage:true});
   await facts.getByRole("button", { name: "Check host prerequisites", exact: true }).click();
   await expect(facts.locator(".readiness-verdict")).toHaveCount(0);
   await expect(facts.locator(".readiness-check").filter({ hasText: "Repository sign-in" })).toContainText("Sign in on the ADORE server");
@@ -189,6 +195,14 @@ test("hub separates pickup and verification and keeps role-appropriate navigatio
 
 test("jobs table shows compact columns and sorts on the server", async ({ page }) => {
   await signIn(page); await page.goto("/jobs?view=jobs");
+  const toolbar=page.locator(".jobs-toolbar");
+  const tabsBox=(await toolbar.getByRole("tablist").boundingBox())!;
+  const scopeBox=(await toolbar.locator("#jobs-project").boundingBox())!;
+  expect(scopeBox.x).toBeGreaterThan(tabsBox.x+tabsBox.width);
+  expect(Math.abs(scopeBox.y-tabsBox.y)).toBeLessThan(8);
+  await expect(page.locator("#job-search-help")).toHaveCount(0);
+  await expect(page.locator("#job-search")).not.toHaveAttribute("aria-describedby");
+  await expect(page.locator("#job-search")).toHaveAttribute("maxlength","80");
   const table = page.locator(".action-jobs-table");
   await expect(table.getByRole("columnheader")).toHaveText([/^Ticket/, /^Project/, /^Status/, /^Last activity/, /^Consumption/]);
   await expect(page.getByText(/Selected period/)).toHaveCount(0);
@@ -283,6 +297,7 @@ test("global Jobs mirrors the project hub with a compact scope and Tickets/Jobs 
 });
 
 test("all real lifecycle groups explain exact stage evidence and protected handoffs", async ({ page }) => {
+  test.setTimeout(90_000); // This journey opens eleven complete job details in sequence.
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await signIn(page);
   const projects = await (await page.request.get("/api/v1/projects")).json();
@@ -299,10 +314,10 @@ test("all real lifecycle groups explain exact stage evidence and protected hando
     const detail = page.locator(".detail-panel");
     await expect(detail.getByRole("heading", { name: "What is happening now" })).toBeVisible();
     await expect(detail.locator(".next-action-panel .status")).toContainText(_status);
-    await expect(detail.locator(".next-action-panel")).toContainText(`Stage: ${_stage}`);
-    await expect(detail.getByText("Who acts", { exact: true })).toBeVisible();
-    await expect(detail.getByText("Where", { exact: true })).toBeVisible();
-    await expect(detail.getByText("What follows", { exact: true })).toBeVisible();
+    await expect(detail.locator(".job-detail-meta")).toContainText(`Stage: ${_stage}`);
+    await expect(detail.getByText("Next step", { exact: true })).toBeVisible();
+    await expect(detail.getByRole("tab", {name:"Activity",exact:true})).toHaveAttribute("aria-selected", "true");
+    if (await detail.locator(".job-actions").count()) await detail.locator(".job-actions summary").click();
     await expect(detail.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(cancellable ? 1 : 0);
     await expect(detail.getByRole("button", { name: "Retry", exact: true })).toHaveCount(suffix === "failed" ? 1 : 0);
     await expect(detail.getByRole("button", { name: /merge|approve|pause|resume/i })).toHaveCount(0);
@@ -322,16 +337,20 @@ test("clarification candidate and draft actions open actual saved locations and 
   ]) {
     await page.goto(`/jobs?project=alpha&run=${run}`);
     const detail = page.locator(".detail-panel");
-    await expect(detail.locator(".next-action-panel").getByRole("link", { name })).toHaveAttribute("href", href);
-    await expect(detail).toContainText("Named person not recorded");
+    if (run === "ux-clarification") await detail.getByRole("button", {name:"Read the question",exact:true}).click();
+    await expect(detail.getByRole("link", { name }).first()).toHaveAttribute("href", href);
+
     if (run === "ux-clarification") {
       await expect(detail).toContainText("Which export format?");
       await expect(detail).not.toContainText("fixture-secret");
     }
     if (run === "ux-approval") {
+      await detail.getByRole("tab", {name:"Technical details",exact:true}).click();
+      await detail.getByText("Original recorded events", {exact:true}).click();
       const timeline = detail.getByRole("table", { name: "Timeline" });
       await expect(timeline).toContainText("Frame"); await expect(timeline).toContainText("Build"); await expect(timeline).toContainText("Validate");
       await expect(timeline).not.toContainText("Specify"); await expect(timeline).not.toContainText("Design");
+      await detail.getByRole("tab",{name:"Activity",exact:true}).click();
       await expect(detail).toContainText("Only saved events are shown.");
     }
   }
@@ -343,7 +362,7 @@ test("missing evidence and stale worker activity do not fabricate telemetry or a
   await page.goto("/jobs?project=alpha&run=ux-missing");
   await expect(page.getByText("Worker unavailable or heartbeat stale", { exact: true })).toBeVisible();
   const detail = page.locator(".detail-panel");
-  await expect(detail.getByRole("heading", { name: "Ticket title not recorded" })).toBeVisible();
+  await expect(detail.getByRole("heading", { name: /Ticket title not recorded/ })).toBeVisible();
   await expect(detail).toContainText("no human intervention is currently requested");
   await expect(detail.locator(".next-action-panel a")).toHaveCount(0);
   await expect(detail.locator(".job-consumption").first()).toContainText("Input tokens: —");
@@ -386,11 +405,11 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
   const links = await page.locator(".action-jobs-table tbody td:first-child a").evaluateAll(nodes => nodes.map(node => (node as HTMLAnchorElement).href));
   expect(new Set(links).size).toBe(2);
   await page.getByRole("link", { name: /Actual beta collision/ }).click();
-  await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
+  await expect(page.locator(".detail-panel .job-detail-title h2")).toContainText("Actual beta collision");
   await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
   await expect(page.locator("#jobs-project option:checked")).toHaveText("beta");
   await page.reload();
-  await expect(page.locator(".detail-panel .panel-heading h2")).toHaveText("Actual beta collision");
+  await expect(page.locator(".detail-panel .job-detail-title h2")).toContainText("Actual beta collision");
   await page.locator(".detail-panel").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page).not.toHaveURL(/run=/);
 });
@@ -467,7 +486,8 @@ test("queued pending and final successful commands do not predict job outcome", 
     release();
     await expect(notice).toContainText("finished");
     await page.goto("/jobs?project=alpha&run=ux-failed");
-    await expect(page.locator(".detail-panel")).toContainText("does not bypass validation or approval");
+    await page.locator(".detail-panel .job-actions summary").click();
+    await expect(page.locator(".job-action-menu")).toContainText("Retry follows validation");
     await page.locator(".detail-panel").getByRole("button", { name: "Retry", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Command failed" })).toBeVisible();
   } finally {
@@ -536,6 +556,8 @@ test("observed timeline retains paging and rejects unsafe action locations", asy
     await route.fulfill({ response, json: data });
   });
   await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await page.getByText("Original recorded events",{exact:true}).click();
   const timeline = page.getByRole("table", { name: "Timeline", exact: true });
   await expect(timeline.getByRole("row")).toHaveCount(11);
   await expect(timeline).toContainText("saved-25");
@@ -664,12 +686,18 @@ test("overview background poll stays visible while pending and fails closed", as
 
 
 test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", async ({ page }) => {
+  await signIn(page);
+  const projectResponse = await page.request.get("/api/v1/projects");
+  expect(projectResponse.ok()).toBe(true);
+  const projects = await projectResponse.json();
+  expect(Array.isArray(projects)).toBe(true);
   let archived = false;
   const writes: { path: string; csrf: string; data: Record<string, unknown> | null }[] = [];
-  await page.route("**/api/v1/projects", async route => {
-    const response = await route.fetch(); const projects = await response.json();
-    await route.fulfill({ response, json: projects.map((project: { name: string }) => project.name === "alpha" ? { ...project, archived } : project) });
-  });
+  // A fixed fixture catalog needs no upstream fetch during each poll. Removing
+  // an in-flight async proxy lets routing fall back before its fulfill resumes.
+  await page.route("**/api/v1/projects", route => route.fulfill({
+    json: projects.map((project: { name: string }) => project.name === "alpha" ? { ...project, archived } : project),
+  }));
   await page.route("**/api/v1/projects/*/archive", route => {
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: null });
     archived = true; return route.fulfill({ status: 200, json: {} });
@@ -685,7 +713,6 @@ test("project hub lifecycle actions keep scoped CSRF and exact-name deletion", a
     writes.push({ path: new URL(route.request().url()).pathname, csrf: route.request().headers()["x-csrf-token"], data: route.request().postDataJSON() });
     return route.fulfill({ status: 202, json: { id: 9001, status: "pending" } });
   });
-  await signIn(page);
   await nav(page).getByRole("link", { name: "Projects", exact: true }).click();
   await page.getByRole("link", { name: "alpha", exact: true }).click();
   const id = new URL(page.url()).pathname.split("/")[2];
@@ -1106,6 +1133,7 @@ test("job budgets show retained consumption and boundary timing in four locales"
     await expect(unavailable).toContainText("18 / —");
     await expect(unavailable).toContainText("90 / —");
     await expect(unavailable.getByRole("status")).toContainText("Current limits are unavailable");
+    await page.locator(".detail-panel .job-actions summary").click();
     await expect(page.locator(".detail-panel").getByRole("button",{name:"Retry",exact:true})).toBeVisible();
     await page.route("**/api/v1/jobs/*/ux-clarification", async route => {
       const response = await route.fetch(), data = await response.json();
@@ -1131,6 +1159,48 @@ test("job budgets show retained consumption and boundary timing in four locales"
 });
 
 
+test("executor output retains verified evidence across a live journal conflict", async ({page}) => {
+  await signIn(page);
+  const projects = await (await page.request.get("/api/v1/projects")).json();
+  const projectId = projects.find((project: {name: string}) => project.name === "alpha").id;
+  const source = await (await page.request.get(`/api/v1/jobs/${projectId}/ux-working`)).json();
+  let reads = 0;
+  await page.route("**/api/v1/jobs/*/ux-working/executor-output", route => {
+    reads++;
+    if (reads === 2) return route.fulfill({status:409,json:{detail:{code:"job_snapshot_changed"}}});
+    return route.fulfill({json:{
+      project_id:projectId,run_id:"ux-working",availability:"observed",
+      stdout:"RPC completed",stderr:"",exit_code:0,timed_out:false,
+      state_revision:source.job.state_revision,in_progress:reads === 3,attempt:reads === 1 ? 1 : 2,
+      stage:"validate",recorded_at:"2026-11-05T10:12:34Z",
+    }});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  await page.getByRole("tab",{name:"Technical details",exact:true}).click();
+  const output = page.locator(".executor-output");
+  const read = output.getByRole("button",{name:"View latest executor output",exact:true});
+  await read.click();
+  await expect(output.getByText("Succeeded",{exact:true})).toBeVisible();
+  await expect(output.getByText("No stderr records.",{exact:true})).toBeVisible();
+  await expect(output.locator("summary")).toHaveText(["stdout"]);
+  await expect(output.locator("time")).toHaveAttribute("datetime","2026-11-05T10:12:34Z");
+  await output.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(output.locator("pre")).toHaveText("RPC completed");
+  await read.click();
+  await expect(output.getByText(/Output changed during reading/)).toBeVisible();
+  await expect(output.getByText(/Last verified snapshot/)).toBeVisible();
+  await expect(output.locator("pre")).toBeVisible();
+  await output.getByRole("button",{name:"Retry",exact:true}).click();
+  await expect(output.getByText(/A launch is in progress/)).toBeVisible();
+  await expect(output.getByText(/Last verified snapshot/)).toHaveCount(0);
+  expect(reads).toBe(3);
+  await page.setViewportSize({width:390,height:844});
+  const box = await output.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+});
+
+
 test("issue35 job diagnostics clarify status, safe questions, seconds and consumption reload", async ({page}) => {
   await signIn(page);
   await page.route("**/api/v1/jobs/*/ux-working", async route => {
@@ -1142,18 +1212,23 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
   await page.route("**/api/v1/projects/*/usage?*",route=>route.fulfill({status:503,json:{detail:{code:"usage_corrupt"}}}));
   await page.route("**/api/v1/jobs/*/ux-working/executor-output",route=>route.fulfill({json:{
     project_id:new URL(route.request().url()).pathname.split("/")[4],run_id:"ux-working",availability:"observed",
-    stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",stderr:"diagnostic: credential",exit_code:1,timed_out:false}}));
+    stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",stderr:"diagnostic: credential",exit_code:1,timed_out:false,
+    state_revision:"a".repeat(64),in_progress:false,attempt:1,stage:"build",recorded_at:"2026-11-05T10:12:34Z"}}));
   await page.goto("/jobs?project=alpha&run=ux-working");
   const card=page.locator(".next-action-panel"),detail=page.locator(".detail-panel");
   await expect(card).toContainText("Failed attempts in this stage: 1");
   await expect(card).not.toContainText(/Reason not recorded|Unknown — no recorded evidence|does not identify/);
-  await expect(detail.getByRole("table",{name:"Timeline"})).toContainText(/:34/);
-  await expect(detail.getByRole("table",{name:"Timeline"})).toContainText("Build");
+  await detail.getByRole("tab",{name:"Technical details",exact:true}).click();
+  await detail.getByText("Original recorded events",{exact:true}).click();
+  await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText(/:34/);
+  await expect(detail.getByRole("table",{name:"Timeline",exact:true})).toContainText("Build");
   await expect(detail.getByRole("button",{name:"Refresh consumption",exact:true})).toBeVisible();
   await page.unroute("**/api/v1/projects/*/usage?*");
   await detail.getByRole("button",{name:"Refresh consumption",exact:true}).click();
   await expect(detail.locator(".job-consumption")).toBeVisible();
   await detail.getByRole("button",{name:"View latest executor output",exact:true}).click();
+  await detail.locator(".executor-output summary").filter({hasText:"stdout"}).click();
+  await detail.locator(".executor-output summary").filter({hasText:"stderr"}).click();
   await expect(detail.locator(".executor-output")).toContainText("credential");
   await expect(detail.locator(".executor-output")).toContainText("ModuleNotFoundError: No module named 'yaml'");
   await expect(detail.locator(".executor-output")).toContainText("pytest: 1 failed, 2 passed");
@@ -1166,13 +1241,15 @@ test("issue35 job diagnostics clarify status, safe questions, seconds and consum
     await route.fulfill({response,json:data});
   });
   await page.goto("/jobs?project=alpha&run=ux-clarification");
-  await expect(card.getByRole("heading",{name:"Choose a format"})).toBeVisible();
+  await card.getByRole("button",{name:"Read the question",exact:true}).click();
+  const question = detail.locator(".job-question");
+  await expect(question.getByRole("heading",{name:"Choose a format"})).toBeVisible();
   await expect(card).toContainText("Human responder");
   await expect(card).not.toContainText("Unknown — no recorded evidence");
-  await expect(card.locator("ul li")).toHaveCount(2);
-  await expect(card.locator("code")).toHaveText("code");
-  await expect(card).toContainText("<script>window.issue35=true</script>");
-  await expect(card.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
+  await expect(question.locator("ul li")).toHaveCount(2);
+  await expect(question.locator("code")).toHaveText("code");
+  await expect(question).toContainText("<script>window.issue35=true</script>");
+  await expect(question.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
   expect(await page.evaluate(()=>Object.hasOwn(window,"issue35"))).toBe(false);
 });
 
@@ -1210,7 +1287,8 @@ test("issue35 normal lifecycle copy in four locales and safe Markdown scroll on 
     await page.setViewportSize({width:390,height:900});
     await page.goto("/jobs?project=alpha&run=ux-clarification");
     await expect(page.locator("html")).toHaveAttribute("data-theme","dark");
-    const regions=page.locator(".next-action-panel .forge-scroll");
+    await page.getByRole("button",{name:"Read the question",exact:true}).click();
+    const regions=page.locator(".job-question .forge-scroll");
     await expect(regions).toHaveCount(2);
     // Detail reads can replace the card; query both current regions atomically on each poll.
     await expect.poll(()=>regions.evaluateAll(elements=>elements.map(element=>({
@@ -1220,4 +1298,43 @@ test("issue35 normal lifecycle copy in four locales and safe Markdown scroll on 
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({path:info.outputPath("issue35-question-dark-mobile.png"),fullPage:true});
   } finally {await preferences("en","light");}
+});
+
+
+test("compact summary and Jobs toolbar fit desktop and narrow screens", async ({page}, info) => {
+  await page.setViewportSize({width:1366,height:768});
+  await signIn(page);
+  await page.goto("/projects/beta");
+  const summary=page.locator(".project-summary-window");
+  await expect(summary.locator(".summary-fact")).toHaveCount(7);
+  await expect(summary.locator(".summary-job-window")).toContainText("Actual beta collision");
+  const summaryBox=(await summary.boundingBox())!;
+  expect(summaryBox.y+summaryBox.height).toBeLessThanOrEqual(768);
+  await page.screenshot({path:info.outputPath("summary-one-screen.png")});
+
+  await page.goto("/jobs?view=jobs");
+  const toolbar=page.locator(".jobs-toolbar");
+  await expect(toolbar.locator("#jobs-project")).toBeVisible();
+  await page.screenshot({path:info.outputPath("jobs-toolbar-desktop.png")});
+  await page.setViewportSize({width:390,height:844});
+  const tabs=(await toolbar.getByRole("tablist").boundingBox())!;
+  const scope=(await toolbar.locator("#jobs-project").boundingBox())!;
+  expect(scope.y).toBeGreaterThanOrEqual(tabs.y+tabs.height);
+  expect(scope.x+scope.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  const projects=await(await page.request.get("/api/v1/projects")).json();
+  const beta=projects.find((item:{name:string})=>item.name==="beta").id;
+  await toolbar.locator("#jobs-project").selectOption(beta);
+  await expect(page.locator(".action-jobs-table")).toContainText("Actual beta collision");
+  await expect(page.locator("#job-search-help")).toHaveCount(0);
+  await toolbar.getByRole("tab",{name:"Tickets",exact:true}).click();
+  await expect(toolbar.locator("#jobs-project")).toHaveValue(beta);
+  await expect(page.getByRole("button",{name:"Read tickets",exact:true})).toBeVisible();
+  await page.screenshot({path:info.outputPath("jobs-toolbar-mobile.png")});
+
+  await page.setViewportSize({width:1366,height:768});
+  await page.goto(`/projects/${beta}/configuration`);
+  await expect(page.locator("#project-settings")).toBeVisible();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
+  await page.screenshot({path:info.outputPath("settings-clean.png")});
 });

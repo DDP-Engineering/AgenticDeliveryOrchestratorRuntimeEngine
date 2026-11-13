@@ -42,10 +42,11 @@ build-backend = "hatchling.build"
 packages = ["adore"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"docker/Dockerfile.executor-base" = "adore/container_assets/Dockerfile.executor-base"
 "docker/Dockerfile.egress-proxy" = "adore/container_assets/Dockerfile.egress-proxy"
-"docker/pi/adore-guard.ts" = "adore/container_assets/pi/adore-guard.ts"
-"docker/pi/adore-chatgpt.mjs" = "adore/container_assets/pi/adore-chatgpt.mjs"
+"docker/Dockerfile.executor-base" = "adore/_executor_recipe/Dockerfile"
+"docker/pi/adore-guard.ts" = "adore/_executor_recipe/pi/adore-guard.ts"
+"docker/pi/adore-chatgpt.mjs" = "adore/_executor_recipe/pi/adore-chatgpt.mjs"
+"../LICENSE.txt" = "adore/_executor_recipe/LICENSE.txt"
 
 # ADORE's own tests only: worktrees/ holds live run checkouts of the TARGET
 # repository, whose test suites are not ours to collect.

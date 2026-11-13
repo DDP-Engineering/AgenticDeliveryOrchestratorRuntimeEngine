@@ -1,5 +1,7 @@
 # Ce face ADORE
 
+Aprobarea umană înainte de publicare este activată implicit. Administratorii pot modifica **Cere aprobare umană înainte de PR/MR** în Setări. Când este dezactivată, ADORE verifică actualitatea candidatului și a țintei înainte de publicare; testele repository-ului rămân responsabilitatea agentului.
+
 ADORE transformă un tichet pregătit de pe forge-ul de cod într-un MR/PR ciornă (merge request sau pull request) pe care oamenii îl revizuiesc. Această pagină explică fluxul și cele două roluri; celelalte subiecte acoperă fiecare ecran.
 
 ## Ce face ADORE {#what-adore-does}
@@ -27,7 +29,7 @@ Dacă starea lucrărilor unui proiect nu poate fi citită, secțiunea **Necesit�
 | 4. Validare | În lucru | Agentul de programare | Agentul raportează verificările conform instrucțiunilor repository-ului, inclusiv cele rezervate CI și nerulate local, și închide task-ul AEGIS. ADORE urmărește finalizarea fără să reia testele. |
 | 5. Aprobare | Așteaptă aprobarea | O persoană | ADORE prezintă candidatul pe forge. O persoană adaugă eticheta de aprobare. Aprobarea este legată de exact acel candidat. |
 | 6. Publicare | Publicare | ADORE | ADORE trimite ramura (push) și deschide MR/PR-ul ciornă. |
-| 7. Revizuire | Revizie umană | O persoană | Oamenii revizuiesc. Cererea unei modificări pornește o nouă rundă de revizie, care necesită o aprobare nouă. |
+| 7. Revizuire | Revizie umană | O persoană | Oamenii revizuiesc. O revizie repetă validarea și respectă politica de aprobare a proiectului. |
 | 8. Integrare | Finalizat | O persoană | O persoană integrează pe forge. ADORE nu o face. |
 
 Dacă după aprobare se schimbă candidatul sau ramura sa țintă, aprobarea nu se mai aplică, iar lucrarea se validează din nou. Termenii sunt explicați în [glosar](/help/glossary).

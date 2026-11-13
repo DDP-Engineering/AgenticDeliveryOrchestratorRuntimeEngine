@@ -75,8 +75,13 @@ def _copy_assets(destination: Path) -> None:
     for name in _ASSETS:
         target = destination / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        data = ((source / name).read_bytes() if source.is_dir()
-                else packaged.joinpath(name).read_bytes())
+        if source.is_dir():
+            data = (source / name).read_bytes()
+        elif name == "Dockerfile.egress-proxy":
+            data = packaged.joinpath(name).read_bytes()
+        else:
+            recipe_name = "Dockerfile" if name == "Dockerfile.executor-base" else name
+            data = files("adore").joinpath("_executor_recipe", recipe_name).read_bytes()
         target.write_bytes(data)
 
 

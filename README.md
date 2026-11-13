@@ -9,12 +9,13 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # ADORE - Agentic Delivery Orchestrator & Runtime Engine
 
 ADORE turns an opt-in GitHub, GitLab or Gitea ticket into an isolated,
-human-approved merge or pull request. Pi works in a dedicated branch and
+governed merge or pull request. Pi works in a dedicated branch and
 worktree using container or native local execution. A repository with AEGIS
 runs stage by stage with agent-owned checks; a repository without
 AEGIS runs a bounded direct implementation session and presents an explicitly
-unverified candidate. Both require fresh human approval before ADORE publishes
-a draft or ready MR/PR according to `delivery.draft`. It never merges.
+unverified candidate. By default both require fresh human approval; `delivery.require_human_approval`
+can disable this gate while retaining candidate/target freshness. ADORE publishes
+a draft or ready MR/PR according to `delivery.draft` and never merges.
 
 Current release: **ADORE 0.15.0**.
 
@@ -28,7 +29,7 @@ eligible ticket
        AEGIS present: task journal + fresh sessions per stage + agent-reported checks
        AEGIS absent: fresh direct implementation session + unverified evidence
   -> host-owned checkpoints + target integration
-  -> candidate fingerprint + fresh human approval label
+  -> candidate fingerprint + configured human approval policy
   -> push + draft MR/PR
   -> human review and merge
 ```
@@ -54,8 +55,9 @@ ADORE never installs or edits the target's AEGIS payload.
 - **Bounded, loud failure.** A stage gets a configurable number of attempts,
   three by default; the last one stops with durable JSONL evidence and a
   visible incident comment. Questions park the run without consuming attempts.
-- **A real approval gate.** ADORE presents the agent-reported result and waits for a fresh `agent-approved` label bound
-  to the exact candidate fingerprint and target commit. Drift invalidates it.
+- **A configurable approval gate.** By default ADORE presents the agent-reported
+  result and waits for a fresh `agent-approved` label bound to the exact candidate
+  and target. Projects can disable this gate; drift always invalidates the binding.
 - **The executor stays off the remote.** Pi runs in a container with no forge
   credentials and never commits, pushes, opens or merges. ADORE owns checkpoints,
   push and draft creation, and has no merge operation at all.

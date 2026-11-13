@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-SEC-409d6c82"
+title = "Reject unsafe executor recipe input and corrupt recipe storage"
+status = "active"
+requirement = "If uploaded executor recipe input violates the bounded source-archive contract, ADORE shall reject it with a typed validation error before retaining any source or association."
+verification = "Submit traversal, credentials, private keys, oversized files, symlinks, duplicate names, invalid metadata and missing COPY inputs; verify no stored files."
+affected_paths = ["04_Software/adore/recipe_sources.py", "04_Software/adore/executor_recipes.py", "04_Software/adore/build_bundle.py", "04_Software/adore/web/app.py", "04_Software/web/src/RawConfiguration.tsx"]
+linked_tests = ["04_Software/tests/test_executor_recipes.py", "04_Software/tests/test_web_executor_recipes.py", "04_Software/tests/test_web_config_raw.py"]
+spec = "specs/REQ-FUNC-c2cbfa1b.md"
+created = 2026-11-11
+updated = 2026-11-11

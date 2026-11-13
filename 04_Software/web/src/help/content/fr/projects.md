@@ -1,5 +1,7 @@
 # Ajouter un dépôt
 
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
 Ajoutez un dépôt comme projet pour qu’ADORE puisse prendre en charge ses tickets prêts, lancer un agent de programmation dessus et publier des demandes de fusion ou de tirage en brouillon que des personnes relisent. Seuls les administrateurs ajoutent des projets, et ADORE ne fusionne jamais.
 
 
@@ -47,7 +49,9 @@ Choisissez **Installé sur le serveur** pour utiliser le Pi géré par ADORE sou
 
 ## Importer la configuration brute {#import-project}
 
-Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un fichier UTF-8 `config.toml` exporté dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve le fichier exact.
+Dans [Projets](/projects), choisissez **Importer la configuration brute** et sélectionnez un ZIP exporté ou un fichier UTF-8 `config.toml` dans la boîte de dialogue. ADORE vérifie automatiquement le fichier, les chemins du serveur, le dossier d’état et les secrets en clair. Corrigez les problèmes signalés dans le fichier et sélectionnez-le à nouveau. Choisissez **Importer** après la validation. Le nouveau projet démarre avec la surveillance en pause et conserve les octets exacts de la configuration.
+
+Sélectionnez directement le ZIP exporté complet : la configuration et les définitions d’image sont importées ensemble. ADORE vérifie aussi le graphe des sources, la correspondance de l’image et les définitions existantes. Une autre définition utilisant déjà le nom de l’image racine est refusée. Les fichiers TOML sont limités à 512 Kio et les ZIP à 18 Mio. Utilisez le fichier Compose inclus pour construire les images séparément sur le serveur cible. Voir [Paramètres → Exporter la configuration brute](/help/settings#toml).
 
 
 Un nouveau projet démarre avec la surveillance arrêtée. Les développeurs le voient une fois qu’un administrateur leur donne accès dans son onglet **Accès**. Dans l’onglet **Résumé** :

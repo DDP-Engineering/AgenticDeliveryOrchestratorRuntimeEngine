@@ -14,12 +14,150 @@
 """
 
 # IMPORTS
+from hashlib import sha1
+from io import BytesIO
+import json
 from pathlib import Path
+import re
+import tarfile
+from zipfile import ZipFile
 
 from adore.profiles import ProfileStore
+from adore.util import CommandResult
 from adore.web.app import create_app
 from fastapi.testclient import TestClient
 import pytest
+
+# CONSTANTS
+_REVISION = "a" * 40
+_MANIFEST = "docker/build.json"
+_DOCKERFILE = "docker/Dockerfile"
+_IMAGE = "registry.example:5000/example/executor:Reviewed"
+_SOURCE = "assets/input.bin"
+
+
+# LOCAL HELPERS
+@pytest.fixture
+def docker_project(raw_project, tmp_path):
+    """@brief Create a Docker project and a fake immutable Git object database."""
+    profiles, path, raw = raw_project
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    text = raw.decode().split("[private_fixture]")[0]
+    text = re.sub(r'^repo_path = .+$', f'repo_path = "{repo.as_posix()}"', text, flags=re.M)
+    text = re.sub(r'^image = .+$', f'image = "{_IMAGE}"', text, count=1, flags=re.M)
+    text = text.replace("[container]", f'[container]\nbuild_definition = "{_MANIFEST}@{_REVISION}"')
+    raw = text.encode()
+    path.write_bytes(raw)
+    manifest = {"schema": 1, "image": _IMAGE, "dockerfile": _DOCKERFILE,
+                "files": [_DOCKERFILE, _SOURCE]}
+    blobs = {_DOCKERFILE: b"FROM scratch\nCOPY assets/input.bin /input.bin\n",
+             _SOURCE: b"\x00\xff\x10", "unrelated.txt": b"never included",
+             ".env": b"token=never included"}
+    commands = []
+
+    def runner(argv, *, cwd, timeout, env):
+        """@brief Model exact Git paths and binary archive output without external commands."""
+        commands.append(argv)
+        assert Path(cwd) == repo and timeout <= 30
+        assert env["GIT_NO_LAZY_FETCH"] == "1"
+        assert argv[0] == "git"
+        if argv[1] == "rev-parse":
+            if argv[2:] == ["--show-toplevel"]:
+                return CommandResult(stdout=repo.as_posix() + "\n")
+            assert argv[2:] == ["--verify", f"{_REVISION}^{{commit}}"]
+            return CommandResult(stdout=_REVISION + "\n")
+        paths = argv[argv.index("--") + 1:]
+        assert argv[argv.index("--") - 1] == _REVISION
+        present = {name: (json.dumps(manifest).encode() if name == _MANIFEST else blobs[name])
+                   for name in paths if name == _MANIFEST or name in blobs}
+        if argv[1] == "ls-tree":
+            records = []
+            for name, data in present.items():
+                git_blob = b"blob " + str(len(data)).encode() + b"\0" + data
+                digest = sha1(git_blob, usedforsecurity=False).hexdigest()
+                records.append(f"100644 blob {digest} {len(data)}\t{name}\0")
+            return CommandResult(stdout="".join(records))
+        assert argv[1] == "archive"
+        destination = Path(next(arg.removeprefix("--output=") for arg in argv
+                                if arg.startswith("--output=")))
+        with tarfile.open(destination, "w") as archive:
+            for name, data in present.items():
+                item = tarfile.TarInfo(name)
+                item.size = len(data)
+                archive.addfile(item, BytesIO(data))
+        return CommandResult()
+
+    return profiles, path, raw, manifest, blobs, commands, runner
+
+
+# PUBLIC CONTRACT TESTS
+def test_export_docker_build_bundle_contains_only_declared_bytes(docker_project):
+    """@brief Admin ZIP has the original TOML, relative Compose paths and exact Git blobs."""
+    profiles, _, raw, _, blobs, commands, runner = docker_project
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        url = "/api/v1/projects/alpha/config/raw"
+        response = client.get(url + "?download=true&include_build=true")
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"] == "application/zip"
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["content-disposition"].endswith('"adore-docker-build.zip"')
+        with ZipFile(BytesIO(response.content)) as bundle:
+            assert set(bundle.namelist()) == {
+                "config.toml", "compose.yaml", "BUILD.txt", "recipe.json",
+                f"context/{_DOCKERFILE}", f"context/{_SOURCE}",
+            }
+            assert bundle.read("config.toml") == client.get(url + "?download=true").content == raw
+            compose = bundle.read("compose.yaml").decode()
+            assert json.loads(compose[compose.index("{"):]) == {"services": {"executor": {
+                "image": _IMAGE, "build": {"context": "./context", "dockerfile": _DOCKERFILE},
+            }}}
+            assert bundle.read(f"context/{_SOURCE}") == blobs[_SOURCE]
+            assert bundle.read(f"context/{_DOCKERFILE}") == blobs[_DOCKERFILE]
+        assert [argv[1] for argv in commands] == [
+            "rev-parse", "rev-parse", "ls-tree", "archive", "ls-tree", "archive",
+        ]
+
+
+@pytest.mark.parametrize(("invalid", "error"), [
+    ("unregistered", "recipe_base_missing"),
+    ("mutable", "build_definition_invalid"),
+    ("missing", "build_source_unavailable"),
+    ("traversal", "build_definition_invalid"),
+    ("credential", "build_definition_invalid"),
+    ("private_key", "build_definition_invalid"),
+    ("wrong_image", "build_definition_invalid"),
+    ("inline", "build_config_has_secrets"),
+])
+def test_export_docker_build_refuses_unsafe_definition(docker_project, invalid, error):
+    """@brief Bad registrations fail closed and the standalone export remains available."""
+    profiles, path, raw, manifest, blobs, commands, runner = docker_project
+    if invalid == "unregistered":
+        path.write_bytes(raw.replace(f'{_MANIFEST}@{_REVISION}'.encode(), b""))
+    elif invalid == "mutable":
+        path.write_bytes(raw.replace(_REVISION.encode(), b"main"))
+    elif invalid == "missing":
+        del blobs[_SOURCE]
+    elif invalid == "traversal":
+        manifest["files"].append("../private.txt")
+    elif invalid == "credential":
+        manifest["files"].append(".env")
+    elif invalid == "private_key":
+        blobs[_SOURCE] = b"-----BEGIN OPENSSH PRIVATE KEY-----\nfixture-private\n"
+    elif invalid == "wrong_image":
+        manifest["image"] = "another:tag"
+    elif invalid == "inline":
+        path.write_bytes(raw + b'\n[extra]\napi_key = "fixture-private"\n')
+    with TestClient(create_app(profiles.home, probe_runner=runner)) as client:
+        url = "/api/v1/projects/alpha/config/raw"
+        assert client.get(url + "?include_build=true").status_code == 401
+        assert not commands
+        client.post("/api/v1/session", json={"username": "admin", "password": "admin"})
+        response = client.get(url + "?include_build=true")
+        assert response.status_code == 400, response.text
+        assert response.json()["detail"]["code"] == error
+        assert client.get(url + "?download=true").content == path.read_bytes()
 
 
 @pytest.fixture

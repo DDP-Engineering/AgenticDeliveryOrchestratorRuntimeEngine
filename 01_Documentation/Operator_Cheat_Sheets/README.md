@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # ADORE Operator Cheat Sheets
 
-Applies to ADORE 0.13.0 and AEGIS schema 1. ADORE migrates no earlier run
+Applies to ADORE 0.15.0 and AEGIS schema 1. ADORE migrates no earlier run
 state.
 
 - [Setup and First Run](Setup_And_First_Run.md)
@@ -23,6 +23,6 @@ evidence. It never merges.
 One behaviour reaches past that forward path and is worth knowing before the
 first run: a published draft whose forge pipeline turns red pulls the run back
 into a bounded repair round on its own, because `[review] on_pipeline_failure`
-defaults to `revise`. The repair still ends at a fresh human approval, and it
+defaults to `revise`. The repair follows the configured publication approval policy, and it
 is still bounded by `max_review_rounds`, so a permanently red pipeline waits
 for a human rather than looping.

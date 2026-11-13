@@ -96,7 +96,7 @@ runtime_env` and `[local] environment` names starting `OPENCODE_`, `CODEX_` or
 `... configures a removed coding agent: remove it from config.toml`.
 `delivery.publish_checkpoints` is a strict boolean, enabled by default for CLI
 and web with explicit false respected; candidate-bound MR/PR
-approval remains mandatory. The reported-cost cap accepts finite nonnegative
+approval follows the project policy. The reported-cost cap accepts finite nonnegative
 USD amounts, with zero disabling only that cap. Stage timeout overrides name
 only `frame`, `specify`, `design`, `build` or `validate`, the stages that
 launch an executor; any other key, `deliver` included, fails validation.
@@ -174,3 +174,9 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 `branch_naming_preview(..., run_id=..., iid=...)` permits actual identity checks using the same bounded one-second rule evaluation, with unchanged default example output. Fresh admission validates each generated actual name and refuses invalid identity types or rules. Proof: tests/test_drift_recovery.py and test_branch_naming.py.
 
 The optional executor.thinking setting accepts only a level proven for the exact provider/model in the pinned Pi catalog; blank uses Pi default. Custom endpoint models support off.
+
+## Publication approval
+
+`delivery.require_human_approval` is a strict boolean with default true. The
+project policy selects human approval or automatic publication after validation
+and fresh target/candidate checks. Human merge authority is unchanged.

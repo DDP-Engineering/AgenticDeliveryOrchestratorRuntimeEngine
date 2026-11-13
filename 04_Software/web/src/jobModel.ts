@@ -179,21 +179,26 @@ export function commandAllowed(job: Job, action: "retry" | "cancel" | "restart")
 }
 
 
-export type ExecutorOutput = {project_id:string;run_id:string} & (
-  {availability:"observed";stdout:string;stderr:string;exit_code:number;timed_out:boolean} |
-  {availability:"missing";stdout:null;stderr:null;exit_code:null;timed_out:null}
+export type ExecutorOutput = {project_id:string;run_id:string;state_revision:string;in_progress:boolean} & (
+  {availability:"observed";stdout:string;stderr:string;exit_code:number;timed_out:boolean;
+    attempt:number;stage:typeof stages[number] | null;recorded_at:string} |
+  {availability:"missing";stdout:null;stderr:null;exit_code:null;timed_out:null;
+    attempt:null;stage:null;recorded_at:null}
 );
 /** Closed operational evidence transport; raw transcript bytes are never displayable. */
 export function readExecutorOutput(value: unknown, project: string, run: string): ExecutorOutput {
   const row = object(value);
-  if (Object.keys(row).sort().join(",") !== "availability,exit_code,project_id,run_id,stderr,stdout,timed_out" ||
-    row.project_id !== project || row.run_id !== run) invalid();
+  if (Object.keys(row).sort().join(",") !== "attempt,availability,exit_code,in_progress,project_id,recorded_at,run_id,stage,state_revision,stderr,stdout,timed_out" ||
+    row.project_id !== project || row.run_id !== run || typeof row.in_progress !== "boolean" ||
+    !string(row.state_revision) || !/^[a-f0-9]{64}$/.test(row.state_revision)) invalid();
   if (row.availability === "missing") {
-    if ([row.stdout,row.stderr,row.exit_code,row.timed_out].some(value=>value!==null)) invalid();
+    if ([row.stdout,row.stderr,row.exit_code,row.timed_out,row.attempt,row.stage,row.recorded_at].some(value=>value!==null)) invalid();
   } else if (row.availability === "observed") {
     if (!string(row.stdout) || !string(row.stderr) || row.stdout.length>65536 || row.stderr.length>65536 ||
       !Number.isInteger(row.exit_code) || Number(row.exit_code)<-(2**31) || Number(row.exit_code)>=2**31 ||
-      typeof row.timed_out!=="boolean") invalid();
+      typeof row.timed_out!=="boolean" || !count(row.attempt) || Number(row.attempt)<1 ||
+      row.stage !== null && !stages.includes(row.stage as typeof stages[number]) ||
+      row.recorded_at === null || !stamp(row.recorded_at)) invalid();
     const credential = /(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|[a-fA-F0-9]{32,})/;
     const module = /^ModuleNotFoundError: No module named '[A-Za-z_][A-Za-z0-9_.]{0,79}'$/;
     const counts = /^pytest: [0-9]{1,7} (?:failed|passed|skipped|errors?|deselected|xfailed|xpassed)(?:, [0-9]{1,7} (?:failed|passed|skipped|errors?|deselected|xfailed|xpassed))*$/;

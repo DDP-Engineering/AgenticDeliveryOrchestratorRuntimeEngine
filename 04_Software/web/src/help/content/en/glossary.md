@@ -1,5 +1,7 @@
 # Glossary
 
+Human approval before publication is enabled by default. Administrators can change **Require human approval before PR/MR** in Settings. When disabled, ADORE checks candidate and target freshness before publishing; repository tests remain the agent’s responsibility.
+
 These are the terms used across the ADORE web interface and in these help topics.
 
 ## Terms {#terms}
@@ -18,9 +20,9 @@ These are the terms used across the ADORE web interface and in these help topics
 | Candidate | The validated result of a job that ADORE presents for approval, identified by a fingerprint and the target commit. Approval applies to that exact candidate and lapses if the candidate or its target branch changes. |
 | Waiting for clarification | The agent needs an answer before continuing. Respond to its question in the repository issue. |
 | Waiting for approval | The result is validated and waiting for a person to authorize publication. Approval is recorded on the forge for the current candidate. |
-| Draft MR/PR | The merge request (GitLab) or pull request (GitHub, Gitea) that ADORE opens after approval, as a draft unless the project is set to publish a ready one. People review it. |
+| Draft MR/PR | The merge or pull request ADORE opens after validation and any required approval. People review it. |
 | Human review | An MR/PR is available for human review. Merge remains a human decision. |
-| Revision round | One more pass of the coding agent on the same branch after a reviewer requests changes, or after failed CI checks when automatic repair is on. Rounds are limited by **Maximum revision rounds**, and each one needs a fresh approval before anything is published. |
+| Revision round | Another agent pass after requested changes or failed CI. Each round repeats validation and follows the project approval policy. |
 | Forge | The hosting platform where tickets, labels, approvals and MR/PRs live: GitHub, GitLab or Gitea. |
 
 > ADORE has no merge operation. Merging is always a person's decision on the forge.

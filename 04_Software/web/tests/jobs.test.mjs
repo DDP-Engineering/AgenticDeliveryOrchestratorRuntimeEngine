@@ -204,12 +204,14 @@ test("direct publication reset remains readable before and after retry", () => {
 test("executor output transport is identity bound and closed to arbitrary transcripts", async () => {
   const { readExecutorOutput } = await import("../src/jobModel.ts");
   const evidence = {project_id:id,run_id:"one",availability:"observed",stdout:"ModuleNotFoundError: No module named 'yaml'\npytest: 1 failed, 2 passed",
-    stderr:"diagnostic: credential\n[other output withheld]",exit_code:1,timed_out:false};
+    stderr:"diagnostic: credential\n[other output withheld]",exit_code:1,timed_out:false,
+    state_revision:"a".repeat(64),in_progress:false,attempt:1,stage:"build",recorded_at:"2026-11-05T10:12:34Z"};
   assert.equal(readExecutorOutput(evidence,id,"one").exit_code,1);
-  assert.equal(readExecutorOutput({...evidence,availability:"missing",stdout:null,stderr:null,exit_code:null,timed_out:null},id,"one").availability,"missing");
+  assert.equal(readExecutorOutput({...evidence,availability:"missing",stdout:null,stderr:null,exit_code:null,timed_out:null,attempt:null,stage:null,recorded_at:null},id,"one").availability,"missing");
   for (const change of [{project_id:"c".repeat(32)},{run_id:"foreign"},{stdout:"PRIVATE_REASONING"},
     {stderr:"api_key=PRIVATE_KEY"},{stdout:"ModuleNotFoundError: No module named 'ghp_ABCDEFGHIJKLMNOPQRST'"},{exit_code:true},{timed_out:0},{stdout:"response\n".repeat(10000)},
-    {availability:"missing"},{extra:"PRIVATE_CONFIG"}]) {
+    {availability:"missing"},{extra:"PRIVATE_CONFIG"},{attempt:true},{attempt:0},{stage:"secret"},
+    {recorded_at:"2026-11-05"},{state_revision:"unknown"},{in_progress:1}]) {
     assert.throws(()=>readExecutorOutput({...evidence,...change},id,"one"));
   }
 });

@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Setup and First Run
 
-Applies to ADORE 0.13.0 and AEGIS schema 1.
+Applies to ADORE 0.15.0 and AEGIS schema 1.
 
 1. Authenticate host `gh`, `glab`, or `tea`, then separately prove Git itself
    can reach the remote:
@@ -18,8 +18,8 @@ Applies to ADORE 0.13.0 and AEGIS schema 1.
 
    ADORE pushes the run branch with host Git and the host's own credentials;
    the platform CLI login does not cover that. A credential fault here surfaces
-   only at publication, after a human has already approved the candidate, and
-   that approval is discarded.
+   only at publication. When approval is required, the candidate was already
+   approved and that approval is discarded.
 
 2. Verify Docker/Podman and the project executor image.
 3. In the target clone run:

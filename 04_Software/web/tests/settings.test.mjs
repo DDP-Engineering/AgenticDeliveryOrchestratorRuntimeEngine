@@ -21,6 +21,12 @@ test("technical guidance covers external ownership and existing data in all loca
 import { durationParts, executionStages, implementationDraft, implementationEditorCopy } from "../src/implementationSettings.ts";
 import { SETTING_HELP } from "../src/settingHelp.ts";
 
+test("executor recipe attachment avoids manual Git registration in normal Settings", async () => {
+ const {settingVisible} = await import("../src/settings.ts");
+ assert.equal(settingVisible("container.build_definition"), false);
+ assert.equal(settingVisible("container.image"), true);
+});
+
 test("Settings owns the Pi model row and reviews it as one scalar", async () => {
  const {settingVisible} = await import("../src/settings.ts");
  assert.equal(settingVisible("executor.model"), true);
@@ -323,4 +329,18 @@ test("the internet switch and web search have labels, help, values and a warning
  assert.equal(searchKeyNeeded({executor:{internet:true,web:{search:"exa"}}}),false);
  assert.equal(searchKeyNeeded({executor:{internet:false,web:{search:"tavily"}}}),false);
  assert.equal(searchKeyNeeded({}),false);
+});
+
+
+test("human approval policy is a reviewed per-project boolean in four locales", () => {
+ const key = "delivery.require_human_approval";
+ assert.equal(settingPurpose(key), "reviews");
+ for (const locale of ["en", "fr", "de", "ro"]) {
+  assert.ok(SETTING_HELP[locale][key].length > 60);
+ }
+ const config = {delivery: {require_human_approval: true}};
+ const rows = settingRows(config, [{key, edit_key:key, source:"default", editable:true,
+   restart:false, type:"boolean", default:true}]);
+ assert.equal(rows[0].input, "boolean");
+ assert.equal(rows[0].value, true);
 });

@@ -97,7 +97,7 @@ class PortableDelivery(unittest.TestCase):
         self.payload = self.bundle / "payload.txt"
         self.payload.write_bytes(b"content")
         self.manifest = {
-            "schema": 1, "version": "0.13.0", "architecture": "x64",
+            "schema": 1, "version": "0.15.0", "architecture": "x64",
             "system": platform.system().lower(), "python_version": platform.python_version(),
             "files": {"payload.txt": hashlib.sha256(b"content").hexdigest()},
         }
@@ -109,7 +109,7 @@ class PortableDelivery(unittest.TestCase):
 
     def test_complete_inventory_verifies(self) -> None:
         """@brief A complete, host-matched manifest returns the recorded release."""
-        self.assertEqual(LAUNCHER.verify(self.bundle)["version"], "0.13.0")
+        self.assertEqual(LAUNCHER.verify(self.bundle)["version"], "0.15.0")
 
     def test_corrupt_missing_and_unlisted_files_fail_closed(self) -> None:
         """@brief Media corruption, absence and unlisted files are explicit errors."""

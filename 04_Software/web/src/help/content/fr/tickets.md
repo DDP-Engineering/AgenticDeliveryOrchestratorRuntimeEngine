@@ -11,7 +11,7 @@ Chaque projet a un état de **Surveillance**, affiché comme **Active** ou **En 
 
 Un administrateur peut utiliser **Suspendre la surveillance** et **Activer la surveillance** dans l’onglet Résumé du projet. Une surveillance en pause arrête les prises en charge automatiques ; les tâches en cours continuent.
 
-Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS présent mais défectueux ou non pris en charge est refusé, jamais remplacé silencieusement par le workflow direct. Sans ce fichier, le workflow direct utilise la **Commande de vérification** facultative ; vide signifie non vérifié. Les deux workflows gardent les mêmes étiquettes, limites et approbation humaine. Voir [Workflows du dépôt](/help/projects#workflows).
+Avant la prise en charge, ADORE ne vérifie AEGIS que si `.agentic/aegis.py` est présent. Un AEGIS défectueux ou non pris en charge est refusé. Sans ce fichier, l’agent implémente directement le ticket. L’agent choisit les contrôles du dépôt dans les deux workflows ; ADORE observe la progression et suit la politique d’approbation configurée. Voir [Workflows du dépôt](/help/projects#workflows).
 
 ## Créer d’abord les étiquettes {#labels}
 
@@ -64,6 +64,8 @@ Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela cha
 **Démarrer** met une tâche en file ; le worker applique toujours les contrôles habituels. Si le ticket n’a pas l’étiquette de disponibilité ou de priorité, ADORE vous demande de confirmer, vous laisse choisir une priorité, et **Ajouter les étiquettes et démarrer** les ajoute d’abord dans le dépôt. Démarrer n’est pas disponible pour les tickets fermés, bloqués ou exclus, les tickets sans les critères d’acceptation requis et les tickets qui ont une tâche. **Relancer** remplace Démarrer lorsque la tâche a échoué. **Arrêter** demande une confirmation, annule une tâche inachevée et retire l’étiquette de disponibilité pour que la surveillance ne reprenne pas le ticket. **Détails** affiche la description et les commentaires.
 
 **Démarrer** lance manuellement le seul ticket sélectionné, même avec la **Surveillance** **En pause**, et laisse la surveillance en pause. Capacité, workflow du dépôt, éligibilité, verrou du conducteur et approbations restent vérifiés. Une opération échouée affiche sa raison précise ; si le résultat est invalide ou incertain, consultez les journaux de l’hôte avant de réessayer.
+
+Sur ordinateur, Démarrer ou Relancer, Arrêter et Détails ou Masquer les détails restent sur une ligne, alignés à droite avec l’en-tête Actions. Sur les écrans étroits, les boutons peuvent passer à la ligne pour rester dans la page.
 
 ## Lire descriptions et commentaires {#reading-bodies}
 

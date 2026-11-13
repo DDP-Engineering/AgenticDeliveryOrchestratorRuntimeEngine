@@ -11,7 +11,7 @@ Fiecare proiect are o stare **Monitorizare**, afișată ca **Activă** sau **În
 
 Un administrator poate folosi **Pune monitorizarea în pauză** și **Activează monitorizarea** în fila Rezumat a proiectului. Monitorizarea în pauză oprește preluările automate; lucrările în curs continuă.
 
-Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS prezent, dar defect sau nesuportat, este refuzat, niciodată înlocuit automat cu Direct. Fără acest fișier, fluxul direct folosește câmpul opțional **Comandă de verificare**; gol înseamnă neverificat. Ambele fluxuri păstrează aceleași etichete, limite și aprobarea umană. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
+Înaintea preluării, ADORE verifică AEGIS numai dacă există `.agentic/aegis.py`. Un AEGIS defect sau nesuportat este refuzat. Fără acest fișier, agentul implementează direct tichetul. Agentul alege verificările repository-ului în ambele fluxuri; ADORE monitorizează progresul și urmează politica de aprobare configurată. Vedeți [Fluxurile repository-ului](/help/projects#workflows).
 
 ## Creați mai întâi etichetele {#labels}
 
@@ -64,6 +64,8 @@ Nimic nu se citește până nu apăsați **Citește tichetele**. Încarcă pân�
 **Pornește** pune o lucrare în coadă; workerul aplică în continuare verificările obișnuite. Dacă tichetului îi lipsește eticheta ready sau o etichetă de prioritate, ADORE vă cere confirmarea, vă lasă să alegeți o prioritate, iar **Adaugă etichetele și pornește** le adaugă mai întâi în repository. Pornirea nu este disponibilă pentru tichetele închise, blocate sau excluse, pentru tichetele fără criteriile de acceptare cerute și pentru tichetele care au o lucrare. **Reia** înlocuiește Pornește când lucrarea a eșuat. **Oprește** cere confirmare, anulează o lucrare neterminată și elimină eticheta ready, pentru ca monitorizarea să nu mai preia tichetul. **Detalii** afișează descrierea și comentariile.
 
 **Pornește** pornește manual doar tichetul selectat, inclusiv cu **Monitorizare** **În pauză**, și păstrează monitorizarea în pauză. Se aplică în continuare limita de lucrări, fluxul din repository, eligibilitatea, blocarea conductorului și aprobările. O operație eșuată afișează motivul concret; dacă rezultatul este invalid sau incert, consultă logurile gazdei înainte de reluare.
+
+Pe desktop, Pornește sau Reia, Oprește și Detalii sau Ascunde detaliile rămân pe același rând, aliniate la dreapta împreună cu antetul Acțiuni. Pe ecrane înguste, butoanele pot trece pe rândul următor pentru a rămâne în pagină.
 
 ## Citirea descrierilor și comentariilor {#reading-bodies}
 

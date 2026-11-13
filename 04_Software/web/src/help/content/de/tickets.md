@@ -11,7 +11,7 @@ Jedes Projekt hat einen Status der **Überwachung**, der in der Projekttabelle u
 
 Ein Administrator kann auf dem Reiter Zusammenfassung des Projekts **Überwachung pausieren** und **Überwachung aktivieren** verwenden. Pausierte Überwachung stoppt automatische Aufnahmen; laufende Aufträge laufen weiter.
 
-Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Ein vorhandenes defektes oder nicht unterstütztes AEGIS wird abgewiesen, nie stillschweigend durch Direkt ersetzt. Ohne diese Datei nutzt der direkte Workflow den optionalen **Prüfbefehl**; leer bedeutet ungeprüft. Beide Workflows behalten dieselben Labels, Limits und menschliche Freigabe. Siehe [Repository-Workflows](/help/projects#workflows).
+Vor der Aufnahme prüft ADORE AEGIS nur, wenn `.agentic/aegis.py` vorhanden ist. Eine defekte oder nicht unterstützte Installation wird abgelehnt. Ohne diese Datei implementiert der Agent das Ticket direkt. Repository-Prüfungen gehören bei beiden Workflows dem Agenten; ADORE beobachtet den Fortschritt und folgt der Freigaberichtlinie. Siehe [Repository-Workflows](/help/projects#workflows).
 
 ## Zuerst die Labels anlegen {#labels}
 
@@ -64,6 +64,8 @@ Es wird nichts gelesen, bis Sie **Tickets lesen** drücken. Das lädt bis zu 500
 **Starten** reiht einen Auftrag ein; der Worker wendet weiterhin die üblichen Prüfungen an. Fehlt dem Ticket das Bereitschafts- oder ein Prioritätslabel, bittet ADORE um Bestätigung, lässt Sie eine Priorität wählen, und **Labels hinzufügen und starten** ergänzt sie zuerst im Repository. Starten ist nicht verfügbar für geschlossene, angehaltene oder ausgeschlossene Tickets, für Tickets ohne erforderliche Akzeptanzkriterien und für Tickets mit einem Auftrag. **Wiederholen** ersetzt Starten, wenn der Auftrag fehlgeschlagen ist. **Stoppen** fragt nach Bestätigung, bricht einen unvollständigen Auftrag ab und entfernt das Bereitschaftslabel, damit die Überwachung das Ticket nicht erneut aufnimmt. **Details** zeigt Beschreibung und Kommentare.
 
 **Starten** startet manuell nur das ausgewählte Ticket, auch bei **Pausierter** **Überwachung**, und lässt die Überwachung pausiert. Kapazität, Repository-Workflow, Eignung, Conductor-Sperren und Freigaben gelten weiterhin. Fehlgeschlagene Vorgänge zeigen den konkreten Grund; prüfen Sie bei ungültigem oder unsicherem Ergebnis vor einem erneuten Versuch die Host-Protokolle.
+
+Auf dem Desktop bleiben Starten oder Wiederholen, Stoppen und Details oder Details ausblenden in einer Zeile, rechtsbündig wie die Überschrift Aktionen. Auf schmalen Bildschirmen können die Schaltflächen umbrechen, damit sie in die Seite passen.
 
 ## Beschreibungen und Kommentare lesen {#reading-bodies}
 

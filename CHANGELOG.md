@@ -10,7 +10,34 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 All notable changes to the Agentic Delivery Orchestrator & Runtime Engine are recorded here.
 This project follows Keep a Changelog and Semantic Versioning.
 
-## [0.15.0] - 2026-11-13
+## [0.15.0] - 2026-11-12
+
+### Added
+
+- Configure whether each project requires human approval before PR/MR publication.
+
+- Import complete project ZIPs in one automatically validated dialog, retaining
+  exact configuration and executor image sources together with monitoring paused.
+
+- Retain shared executor image recipes from Dockerfiles or source ZIPs and export
+  project configuration with complete local-base definitions from one compact dialog.
+- Include the standard executor base definition automatically in source exports.
+
+### Fixed
+
+- Compact Project Summary, remove its redundant executor tile, show Settings save controls only for pending work, and align Job scope with Tickets/Jobs tabs.
+- Remove the verbose job-search hint while retaining the search limit and filters.
+
+- Redesign Job details with a compact ticket heading, explicit next action, resources and evidence tabs.
+
+- Save complete project exports directly, with recipe administration kept in Technical details.
+
+- Align the ticket Actions header and buttons to the right, keeping desktop actions on one row.
+
+- Keep raw configuration export options and feedback in dialogs with symmetric Settings actions.
+
+- Keep Provider, Model and other single-line Settings controls at normal height.
+- Retain verified executor output through live read conflicts and summarize completed launches.
 
 ### Added
 
@@ -95,6 +122,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Delete each configured statistics database before starting this build; summaries now record workflow.
 
 - Store agent prompts as shipped Markdown files in `adore/prompts/`, preserving the text sent to Pi.
+- Use the executor's completed AEGIS validation for candidate approval, eliminating the duplicate strict run by ADORE.
 
 - Offer detected Docker and Podman commands in project Settings, including Windows WSL, with manual entry and WSL image suggestions.
 
@@ -114,6 +142,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 
 ### Added
+
+- Export a reviewed Docker build bundle alongside the raw project configuration.
 
 - Support ChatGPT subscription sign-in and scoped Pi execution natively on Windows and Linux/WSL2, with temporary stage tokens.
 

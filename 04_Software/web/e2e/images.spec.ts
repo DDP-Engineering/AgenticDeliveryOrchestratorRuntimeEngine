@@ -54,7 +54,7 @@ test("container runtime dropdown supports WSL, cancel and manual save", async ({
   await picker.selectOption({label: "Manual runtime command"});
   await expect(runtime.getByRole("textbox", {name: "Manual runtime command"})).toHaveValue(wsl);
   await runtime.getByRole("button", {name: "Cancel", exact: true}).click();
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
 
   discoveryAvailable = false;
   await edit();

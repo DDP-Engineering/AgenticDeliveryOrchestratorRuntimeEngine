@@ -95,8 +95,12 @@ right edge, wrapping when space is limited. `TicketWorkspace` mounts it for
 descriptions and comments in Rendered mode; Markdown source uses a focusable
 `pre` containing the untouched API string.
 An empty description uses the existing localized fallback before rendering.
-Ticket actions reserve a bounded column width and wrap whole buttons instead
-of shrinking their labels into broken words when Details changes to Hide details.
+Ticket actions reserve 26rem on desktop, keeping Start/Retry, Stop and
+Details/Hide details together on one line across the four interface languages.
+The Actions header and button group align to the right; the last button keeps
+the same right edge when details open or close.
+At 1100px and below, whole buttons may wrap; at 720px and below the column uses
+8rem and labels wrap at spaces. Expansion does not change desktop button-row layout.
 
 `App` owns the shared mode for both project and global Tickets workspaces.
 `ticketPreferences.ts::readPreferences` validates nullable language/theme and the
@@ -187,7 +191,7 @@ PR/MR settings names the CI response **Action when PR/MR CI checks fail**.
 Active/default values, option labels and candidate review use **Automatic repair**,
 **Notify only** and **Ignore**, localized in English, French, German and Romanian.
 The configured values remain `revise`, `notify` and `ignore`. Help explains the
-shared revision-round limit and fresh human approval before repair publication.
+shared revision-round limit and the configured approval policy before repair publication.
 The read-only Integration branch reference uses the standard responsive setting
 row: description and Repository link in the label column, Active value and the
 branch in the value column, with the same value typography as other settings.
@@ -385,8 +389,11 @@ Projects show archived state and let administrators archive or restore a
 quiescent project. Archived jobs and metrics stay visible, while job and pickup
 controls are hidden until restore.
 **Import raw configuration** opens a native dialog on Projects. Selecting a file
-validates UTF-8 and automatically calls the preview endpoint for the exact bytes
-and suggested identity. Replacing the file or closing the dialog aborts validation
+accepts UTF-8 TOML (512 KiB) or the current complete project ZIP (18 MiB) and
+automatically calls its preview endpoint for the exact bytes and suggested
+identity. ZIPs use base64 on the wire and require a separate bundle revision.
+Their configuration and recipe are published together without extra source
+controls or image building. Replacing the file or closing the dialog aborts validation
 and invalidates its result. Import rereads the selected file and sends the exact
 reviewed identity and revision to locked publication. The synchronous submission
 guard blocks duplicates and prevents leaving during publication. Success closes
@@ -422,7 +429,7 @@ shared `statisticsView(true)` without the project selector or the cross-project 
 selector on the global page, From, Through, Group by, All time, Export CSV) with no
 time zone control (UTC unless the URL supplies one), and `StatisticsEvidence` shows no
 current-stock panel.
-Summary holds Monitoring Active/Paused status, runtime/executor and explicit
+Summary holds Monitoring Active/Paused status, runtime and explicit
 revision-bound verification evidence. Administrators use Summary to pause or
 activate monitoring, archive/restore, and delete archived idle projects using
 exact-name confirmation. Deletion intent clears on page or selected-ID changes;
@@ -591,6 +598,20 @@ credentials. Portable transfer has its own API contract, exercised by
 
 Administrators use **Preview raw configuration** or **Export raw configuration** beside Project settings. Preview opens a closable dialog. Export preserves the exact saved `config.toml` bytes, including comments, formatting and inline secrets. Pending changes, resolved defaults, separate `.env` files and external credentials are excluded. Preview is memory-only and cleared on dismissal or project/session change. Developers retain redacted read-only settings. Candidate review/apply/discard remains inside Settings.
 
+The toolbar keeps two equally sized actions. Export directly opens the optional
+browser save picker in click activation, then validates the complete container ZIP
+or native TOML before writing exact bytes. Unsupported browsers retain ordinary
+Blob downloads. Picker cancellation makes no request; errors show a closable dialog.
+Write failures abort the writable and never silently download a fallback. A ref-based
+single flight and generation guards invalidate late picker/fetch/write results on
+project/account unmount. No inline export options or source-upload wizard exists.
+
+A separate `RawConfiguration definitionOnly` instance is mounted inside closed
+Technical details for administrator container projects. It retains the existing
+recipe validation, explicit Save recipe, replacement, CAS and CSRF safeguards.
+Dismissal restores focus; a recipe mutation cannot be dismissed mid-save.
+Four locales cover controls, save errors and help; no bytes enter browser storage.
+
 
 `DashboardShell.tsx` owns the authenticated frame, real navigation links,
 branding, responsive menu, header and content focus. `Presentation.tsx` owns
@@ -611,6 +632,8 @@ model input with `providerModels` as a datalist; endpoint URL and API select onl
 `host.docker.internal` works only on Docker Desktop; a note naming the credential
 variable, or for `chatgpt` that the server signs in to one ChatGPT Plus or Pro account
 shared by every ChatGPT project and that stages get a short-lived access token);
+Settings preserves native single-line heights for provider, model, reasoning
+and conditional endpoint inputs. Multiline editors keep their own sizing.
 `ChatGptSignIn.tsx` is the server's ChatGPT sign-in panel, shown to Admins of a
 non-archived `chatgpt` project in the Agent and model Authentication slot in place of
 the Provider API key form: status (`signed-in`, `not-signed-in`, `sign-in-again`, with
@@ -843,8 +866,8 @@ infrastructure, full accessibility and participant acceptance remain human work.
 Discard focus restoration runs in a post-render effect after the mutation busy guard clears, with the original captured scope checked before focusing the enabled edit control.
 
 
-Project Summary uses two panels beneath the shared project header. The first
-shows separated label/value tiles for Container type, Executor, Monitoring,
+Project Summary uses two panels beneath the shared project header. Its seven facts use one compact row on wide screens and wrap on smaller screens; the redundant Pi executor tile is omitted. Panel, empty-state and table spacing is reduced without hiding job evidence. The first
+shows compact label/value tiles for Container type, Monitoring,
 environment verification and actual scoped Active jobs, Waiting, Draft review
 and Failed jobs counts. Unavailable/corrupt job evidence shows unknown counts
 and withholds job rows. The second groups compact Needs attention and Active
@@ -1027,7 +1050,7 @@ the detail read. Metadata-only profile history retains its existing recovery beh
 
 ## Operational Job details
 
-JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. Observed clarification text uses ForgeMarkdown with literal HTML, permitted navigation, image placeholders and shared local scrolling for long code/tables in Tickets and Jobs. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
+JobWorkspace shows localized normal-state guidance, visible stage failure counts and second-precision times. The active clarification lives in its own tab and uses ForgeMarkdown with inert HTML, permitted navigation, image placeholders and local scrolling; its readable view omits leading comments while its original source remains expandable. Raw ticket source uses the same themed scroll region. Consumption errors include an actual localized refresh button while evidence/recovery stay separate.
 
 ExecutorOutputView fetches only on demand and rejects stale/unmounted or identity-mismatched responses. The viewer displays host-normalized diagnostics and explains omitted private content and unavailable provenance. Browser regressions exercise four locales, safe Markdown, concrete output, refresh and 390px dark-theme local scrolling.
 
@@ -1048,3 +1071,50 @@ History renders localized ticket/job identities, a CLI actor for CLI deletion, a
 Enrollment and Agent and model expose supported Pi thinking levels. Enrollment displays localized check names and times and transfers only server-issued current evidence; incomplete checks stay partial. Local execution and repository reconnect actions use descriptive labels.
 
 Project-list readiness is parsed as a closed identity/revision/checks verdict before display. The Repository access action does not infer repository access from CLI authentication.
+
+The project lifecycle browser fixture reads an authenticated initial catalog once
+and fulfills its local archive-state view without asynchronous upstream proxies.
+This avoids handler-removal races during polling teardown while preserving all
+lifecycle, scoped CSRF, clone ownership and exact-name deletion assertions.
+
+Recipe recovery errors name the server data to remove explicitly. A whole-catalog
+reset message in all four locales explains that image definitions for all projects
+are removed while configurations, credentials and jobs remain untouched.
+
+## Publication approval setting
+
+The PR/MR settings category presents the reviewed per-project human approval
+boolean in all four locales. It defaults to enabled and uses the existing
+administrator confirmation and idle-project mutation boundary.
+
+## Job details presentation
+
+`JobDetails.tsx` presents the verified detail separately from the job list. The
+header combines ticket number and title; Job actions shares the current-stage
+metadata row and exposes only commands allowed by the existing command policy.
+Retry, cancel and confirmed fresh-run recovery keep worker authorization, CSRF,
+revision binding and confirmation behavior. Close restores the existing list filters.
+
+The current lifecycle, responsible actor and Next step precede secondary budgets
+and consumption. Missing usage or limits remain explicitly unavailable, never
+zero or guessed progress. Activity lists saved events newest first with localized
+names for recognized events and the original event code. Unrecognized events use
+a neutral title. An older clarification event is historical, not a current action.
+
+Three keyboard-accessible tabs separate Activity, Agent question (only while
+clarification is active) or Evidence and artifacts, and Technical details. The
+question uses the existing safe Markdown renderer. Leading editorial HTML comments
+are omitted from its readable view; an expandable Original question and evidence
+retains the exact source. Other HTML stays inert text and images are never loaded.
+No historical question content is inferred when the API no longer provides it.
+Technical details retains identifiers, on-demand verified executor output, recovery
+diagnosis and the paged original timeline. All tabs use the same saved evidence;
+none starts an executor or grants candidate approval. Copy and help cover all four
+locales. The layout uses the application's light/dark tokens and stacks on narrow
+screens. No API, stored format or dependency change is required.
+
+## Compact project and Jobs controls
+
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+
+Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.

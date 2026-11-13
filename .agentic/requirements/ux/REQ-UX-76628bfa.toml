@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-76628bfa"
+
+title = "Review per-project publication approval policy"
+
+status = "active"
+
+requirement = """
+When an administrator edits project settings, ADORE shall provide a reviewed per-project control for human publication approval.
+"""
+
+verification = "Offline web tests cover administrator save, role denial, boolean validation and localized display."
+
+affected_paths = ["04_Software/adore/config.py", "04_Software/adore/orchestrator.py", "04_Software/adore/web/app.py", "04_Software/web/src/settings.ts"]
+
+linked_tests = ["04_Software/tests/test_web_config.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-12
+updated = 2026-11-12

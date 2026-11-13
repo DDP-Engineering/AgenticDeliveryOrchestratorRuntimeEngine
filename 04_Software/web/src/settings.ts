@@ -149,11 +149,12 @@ export function settingPurpose(key: string): string {
 
 /** Environment settings administrators choose in Agent and model; the rest stays external. */
 export const CHOSEN_ENVIRONMENT_KEYS = new Set(["execution.backend", "container.runtime", "container.image",
-  "container.system_packages",
+  "container.system_packages", "container.build_definition",
   "local.path"]);
 
 /** Only known informational worktree fields accompany the external environment. */
 export function settingVisible(key: string, executorOnly = false, backend = "container"): boolean {
+  if (key === "container.build_definition") return false; // Managed from the export dialog.
   if (HIDDEN_SETTING_KEYS.has(key) || backend === "local" && key === "executor.command") return false;
   // Container rows for container projects, local-account rows for local ones.
   if (CHOSEN_ENVIRONMENT_KEYS.has(key)) return key === "execution.backend" || key.startsWith("local.") === (backend === "local");

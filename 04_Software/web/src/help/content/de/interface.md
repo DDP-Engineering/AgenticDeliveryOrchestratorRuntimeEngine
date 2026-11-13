@@ -26,14 +26,16 @@ Die obere Leiste zeigt den Seitentitel und diese Bedienelemente.
 - **Über ADORE**: die ADORE-Version mit **Neuigkeiten** (Versionshinweise je Version, die neueste zuerst, gruppiert nach Neu, Verbessert und Behoben), **Lizenz** und **Hinweise zu Drittanbietern**.
 - **So funktioniert ADORE**: öffnet dieses Hilfezentrum.
 
+Unter Aufträge steht die Bereichsauswahl auf breiten Bildschirmen rechts neben **Tickets** und **Aufträge**. Auf schmalen Bildschirmen steht sie unter den Reitern.
+
 ## Projektzentrale {#project-hub}
 
 Wenn Sie ein Projekt unter Projekte öffnen, sehen Sie seinen Namen und den Repository-Pfad über diesen Reitern.
 
 | Reiter | Was er enthält |
 |---|---|
-| Zusammenfassung | Containertyp, Executor, Überwachung, Umgebungsprüfung, Auftragszahlen sowie kompakte Tabellen für Handlungsbedarf und aktive Aufträge. Administratoren erhalten außerdem **Überwachung pausieren** oder **Überwachung aktivieren**, **Projekt archivieren** oder **Projekt wiederherstellen**, **Host-Voraussetzungen prüfen** und **Repository-Zugang**. |
-| Einstellungen | Die wirksamen Einstellungen des Projekts in Gruppen. Administratoren ändern jeweils eine Einstellung über eine geprüfte Änderung; Devs lesen sie ohne Geheimnisse. Siehe [Projekteinstellungen](/help/settings). |
+| Zusammenfassung | Containertyp, Überwachung, Umgebungsprüfung, Auftragszahlen sowie kompakte Tabellen für Handlungsbedarf und aktive Aufträge. Administratoren erhalten außerdem **Überwachung pausieren** oder **Überwachung aktivieren**, **Projekt archivieren** oder **Projekt wiederherstellen**, **Host-Voraussetzungen prüfen** und **Repository-Zugang**. |
+| Einstellungen | Effektive Einstellungen, gemeinsames Speichern für Administratoren und Export mit gespeicherten Executor-Image-Definitionen. Entwickler lesen ohne Geheimnisse. Siehe [Projekteinstellungen](/help/settings). |
 | Aufträge | Die Unterreiter Tickets und Aufträge für dieses Projekt, ohne Projektauswahl. |
 | Statistiken | Derselbe Berichtszeitraum, dieselben Reiter und Exporte wie auf der Seite Statistiken, nur für dieses Projekt. |
 | Verlauf | Aufgezeichnete Änderungen am Projekt und seine abgeschlossenen Aufträge. |
@@ -48,7 +50,7 @@ Badges tragen neben der Farbe auch ein Symbol, und Auftragslisten zeigen die akt
 | Auftragsstatus | Bedeutung |
 |---|---|
 | In Arbeit | ADORE steuert eine Phase. |
-| Veröffentlichung | ADORE veröffentlicht einen freigegebenen Kandidaten. |
+| Veröffentlichung | ADORE veröffentlicht den validierten Kandidaten nach der Projektregel. |
 | Wartet auf Klärung | Der Agent braucht eine Antwort im Repository-Ticket. |
 | Wartet auf Freigabe | Ein Mensch muss den Kandidaten in der Forge freigeben. |
 | Menschliche Prüfung | Ein MR/PR-Entwurf ist offen; Menschen entscheiden über das Zusammenführen. |

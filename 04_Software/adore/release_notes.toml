@@ -14,12 +14,12 @@ schema = 1
 
 [[release]]
 version = "0.15.0"
-date = "2026-11-13"
+date = "2026-11-12"
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "See workflows, attempts and checks; inspect output and budgets, recover drift and edit waiting jobs.", fr = "Workflows, tentatives et contrôles ; sorties, budgets et reprise après dérive, même en attente.", de = "Workflows, Versuche und Prüfungen; Ausgaben, Budgets und Drift beheben, auch bei wartenden Jobs.", ro = "Fluxuri, încercări și verificări; ieșiri, bugete și recuperare după derivă, inclusiv în așteptare." }
+text = { en = "Compact jobs show workflows, attempts, budgets and output; recover drift and edit waiting jobs.", fr = "Détails compacts : flux, tentatives, limites, sorties, reprise de dérive et modification en attente.", de = "Kompakte Jobs: Workflows, Versuche, Budgets, Ausgabe, Drift beheben und wartende Jobs ändern.", ro = "Detalii compacte: fluxuri, încercări, bugete, ieșiri, recuperare și editare în așteptare." }
 
 [[release.entry]]
 category = "improved"
@@ -29,17 +29,17 @@ text = { en = "Simpler enrollment with ChatGPT, WSL and automatic setup checks; 
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Imports prepare shared images automatically, show progress and retain folder paths and branch.", fr = "Les imports préparent les images communes, affichent le progrès et gardent chemins et branche.", de = "Importe bereiten gemeinsame Images vor, zeigen Fortschritt und behalten Ordner und Branch.", ro = "Importurile pregătesc automat imaginile comune, arată progresul și păstrează căile și ramura." }
+text = { en = "Import ZIP recipes or TOML with automatic shared images, progress and retained paths and branch.", fr = "Importez ZIP ou TOML avec recettes, images communes automatiques, progrès et chemins conservés.", de = "ZIP-Rezepte oder TOML mit automatischen Images, Fortschritt und erhaltenen Pfaden importieren.", ro = "Importă rețete ZIP sau TOML cu imagini comune automate, progres, căi și ramură păstrate." }
 
 [[release.entry]]
 category = "new"
 topic = { en = "Direct workflow", fr = "Flux direct", de = "Direkter Ablauf", ro = "Flux direct" }
-text = { en = "Agents own repository checks; ADORE guides workflows and asks for human approval without reruns.", fr = "Les agents contrôlent le dépôt ; ADORE guide les workflows et demande l’approbation sans relance.", de = "Agenten prüfen das Repository; ADORE führt Workflows und fragt ohne erneute Tests nach Freigabe.", ro = "Agentul verifică repository-ul; ADORE ghidează fluxul și cere aprobarea fără să reia testele." }
+text = { en = "Agents own checks; ADORE guides workflows and follows the project approval policy without reruns.", fr = "Les agents contrôlent ; ADORE guide les flux et suit la politique d’approbation sans relance.", de = "Agenten prüfen; ADORE führt Workflows nach der Freigaberegel des Projekts ohne erneute Tests.", ro = "Agentul verifică; ADORE ghidează fluxul și urmează politica de aprobare fără să reia testele." }
 
 [[release.entry]]
 category = "improved"
 topic = { en = "Settings", fr = "Paramètres", de = "Einstellungen", ro = "Setări" }
-text = { en = "Save all edits in wider rows with effect confirmation; optional reviewers and five stage limits.", fr = "Un Enregistrer, effets confirmés, lignes larges, relecteurs facultatifs et cinq limites.", de = "Ein Speichern, bestätigte Folgen, breite Zeilen, optionale Reviewer und fünf Phasenlimits.", ro = "Un Salvează, efecte confirmate, rânduri largi, revieweri opționali și cinci limite de etapă." }
+text = { en = "Compact model fields, one Save and direct complete export; image definitions in Technical details.", fr = "Champs compacts, un enregistrement, export complet direct ; définitions dans Détails techniques.", de = "Kompakte Felder, einmal speichern, direkter Gesamtexport; Definitionen unter Technische Details.", ro = "Câmpuri compacte, un Save, export complet direct; definițiile sunt în Detalii tehnice." }
 
 
 [[release.entry]]
@@ -75,7 +75,7 @@ text = { en = "Follow projects, jobs and statistics in a web dashboard, in four 
 [[release.entry]]
 category = "new"
 topic = { en = "Tickets", fr = "Tickets", de = "Tickets", ro = "Tichete" }
-text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and unbroken action labels.", fr = "Numéros compacts, mode Markdown/source mémorisé, défilement local et boutons sans mots coupés.", de = "Schmale Nummernspalte, gemerkter Markdown/Quelltext-Modus, lokales Scrollen, ganze Buttontexte.", ro = "Numere compacte, mod Markdown/sursă salvat, derulare locală și butoane fără cuvinte rupte." }
+text = { en = "Compact numbers, saved Markdown/source mode, local scrolling and right-aligned actions.", fr = "Numéros compacts, mode mémorisé, défilement local et actions alignées à droite.", de = "Schmale Nummern, gespeicherter Anzeigemodus, lokales Scrollen und rechtsbündige Aktionen.", ro = "Numere compacte, mod salvat, derulare locală și butoane aliniate la dreapta." }
 
 [[release.entry]]
 category = "new"
@@ -95,7 +95,7 @@ text = { en = "Administrators create accounts and choose the projects each devel
 [[release.entry]]
 category = "new"
 topic = { en = "Executors", fr = "Exécuteurs", de = "Ausführung", ro = "Executori" }
-text = { en = "Prepare project images and let agents install system packages inside their containers.", fr = "Préparez les images et autorisez les agents à installer des paquets système dans leur conteneur.", de = "Projekt-Images vorbereiten und Agenten die Installation von Systempaketen im Container erlauben.", ro = "Pregătiți imaginile și permiteți agenților să instaleze pachete de sistem în container." }
+text = { en = "Keep image recipes, export complete build sources and allow agent system packages.", fr = "Conservez les recettes, exportez les sources complètes et autorisez les paquets système.", de = "Image-Rezepte speichern, vollständige Build-Quellen exportieren und Systempakete erlauben.", ro = "Păstrează rețetele imaginilor, exportă sursele complete și permite pachete de sistem." }
 
 [[release.entry]]
 category = "new"
@@ -105,7 +105,7 @@ text = { en = "Choose provider, model, reasoning and internet access; use an API
 [[release.entry]]
 category = "new"
 topic = { en = "Delivery", fr = "Livraison", de = "Auslieferung", ro = "Livrare" }
-text = { en = "Merge requests open as drafts or ready for review; ADORE watches and repairs failed pipelines.", fr = "Les demandes de fusion s'ouvrent en brouillon ou prêtes ; ADORE surveille et répare le pipeline.", de = "Merge-Requests öffnen als Entwurf oder prüfbereit; ADORE überwacht und repariert Pipelines.", ro = "Cererile de îmbinare se deschid ca schiță sau gata de revizie; ADORE repară pipeline-urile." }
+text = { en = "Choose draft or ready reviews and optional approval; failed pipelines trigger repair.", fr = "Choisissez brouillon ou pr\u00eat et approbation facultative ; les pipelines sont r\u00e9par\u00e9s.", de = "Entwurf oder bereit und optionale Freigabe w\u00e4hlen; fehlerhafte Pipelines werden repariert.", ro = "Alege\u021bi draft sau preg\u0103tit \u0219i aprobare op\u021bional\u0103; pipeline-urile sunt reparate." }
 
 [[release.entry]]
 category = "new"
@@ -125,7 +125,7 @@ text = { en = "Statistics is compact: one period row, each figure shown once, tr
 [[release.entry]]
 category = "improved"
 topic = { en = "Projects", fr = "Projets", de = "Projekte", ro = "Proiecte" }
-text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Statistics, History and Access.", fr = "Chaque projet s'ouvre en un espace avec Résumé, Paramètres, Tâches, Statistiques, Historique, Accès.", de = "Jedes Projekt bündelt Übersicht, Einstellungen, Aufträge, Statistik, Verlauf und Zugriff.", ro = "Fiecare proiect se deschide cu Rezumat, Setări, Lucrări, Statistici, Istoric și Acces." }
+text = { en = "Compact project hubs; save controls appear only for unsaved changes or recovery.", fr = "Projets compacts ; enregistrement visible seulement pour les changements ou la récupération.", de = "Kompakte Projektansicht; Speichern nur bei Änderungen oder Wiederherstellung sichtbar.", ro = "Proiecte compacte; bara de salvare apare doar pentru modificări sau recuperare." }
 
 [[release.entry]]
 category = "improved"

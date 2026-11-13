@@ -5,75 +5,110 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 
-# Project images: external preparation
+# Project executor images and retained recipes
 
 ## Routing
 
-Start at web/app.py config routes for external-ownership boundaries;
-ExecutorEnvironment.tsx owns read-only guidance; serverImages.ts owns server
-image suggestions. Runtime execution belongs to execution.py; recipes to
-preparation.md; native execution to local-execution.md.
+Start at `adore/web/app.py` recipe/raw-config routes for project export;
+`adore/executor_recipes.py` owns source retention/resolution and
+`adore/recipe_sources.py` validates input and creates the portable ZIP.
+`adore/project_bundle.py` validates complete exported project archives for import.
+Focused proof: `tests/test_executor_recipes.py`, `test_web_executor_recipes.py`,
+`test_web_config_raw.py` and `web/e2e/portable.spec.ts`. Actual runtime behavior
+belongs to execution.md; preparation profiles to preparation.md; native runs
+to local-execution.md.
 
 ## Purpose and boundaries
 
-The external administrator owns the Dockerfile and the image build. ADORE has
-no image-build subsystem: no Dockerfile draft store, runner, worker operation or
-build recovery. Backend, runtime and image selection are administrator choices
-at enrollment and in reviewed Settings edits. Web GUI displays
-instructions/current effective image; no image definition or build editor is
-exposed.
+ADORE retains reviewed image-source snapshots shared by exact image tag and
+exports saved configuration with the complete declared local image graph.
+The administrator owns actual image builds and deployment; preparation/readiness
+own effective runtime selection. Source registration preserves configuration,
+pending edits, credentials, job state and execution policy.
 
 ## Public interface
 
-The removed `/api/v1/projects/{name}/image-build` routes (draft, export,
-operations, operation status and cancel) answer 404. Config environment
-PUT/stage return 400 environment_managed_externally, except execution.backend,
-container.runtime, container.image and local.account/home/path/cgroup_root
-(reviewed flow; direct PUT 409 pending_config_required). GET
-/api/v1/executor-images (Admin, read-only) lists server images for standard
-native and Windows WSL runtime commands. Settings opens the runtime picker
-with Admin-only `GET /api/v1/executor-runtimes` suggestions and manual entry.
-Config GET executor_environment contains backend, effective image (or null if
-unresolvable), and resolved config_path only for Admin.
+Admin GET `/api/v1/projects/{name}/executor-recipe` returns availability, source,
+missing local images and binding/config revisions. Admin+CSRF POST `.../preview`
+validates Dockerfile/ZIP bytes without writes; PUT retains them with config
+revision and observed binding digest. GET `config/raw?download=true&include_build=true`
+exports complete sources; standalone TOML remains available.
+RawConfiguration directly saves complete container exports or exact native TOML,
+using the optional browser destination picker or ordinary download. Recipe
+validation, Save recipe, missing bases and replacement live separately in closed
+Technical details → Image definition. Normal Settings hides the advanced
+Git build-definition field. The old image-build routes answer 404.
+Runtime/image/account choices retain reviewed configuration saves, with detected
+native/WSL runtime suggestions and manual entry.
+
+Admin+CSRF POST `/api/v1/projects/import/bundle-preview` validates exact ZIP
+bytes in memory. POST `/api/v1/projects/import/bundle` rechecks its bundle
+revision and publishes a paused profile with the retained complete source graph.
+`read_project_bundle` requires current metadata, exact Compose correspondence
+and local-base closure; `validate_bundle_image` binds the effective image.
+`RecipeStore.preview_import` observes associations, and `publish_import` holds
+the catalog lock while calling the guarded profile publisher.
 
 ## Invariants
 
-Authorization/CSRF/project scoping precede mutation refusal. Corrupt
-config/pending input fails closed. A pending candidate with an `image_build`
-binding or for an operator-owned environment key, which only an earlier build
-could stage, is 503 `pending_config_corrupt` on view and apply; an administrator
-can still discard it (DELETE /api/v1/projects/{name}/config/pending). No image
-deletion or schema migration. The dedicated AI endpoint remains supported
-independently.
-
-## Key behaviors
-
-REQ-UX-01d189b8: conditional four-locale Dockerfile/profile guidance, real Admin
-path, Dev omission and responsive disclosure. REQ-FUNC-6b8494a7: all web environment
-mutation paths for the other environment keys fail before writes; a corrupt
-pending candidate can only be discarded. Runtime/readiness/preparation retain
-their own authority.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    Tab[Executor configuration] --> Read[Validated config read]
-    Read --> Guide[ExecutorEnvironment]
-    Operator[External administrator] --> Image[Installed image / server profile]
-    Image --> Runtime[Existing execution and readiness]
-    Tab --> Pending[Pending candidate]
-    Pending --> Corrupt[image_build binding / operator-owned key: 503, discard only]
-```
+- Current-schema image bindings and immutable SHA-256 source objects live only in
+  `ADORE_HOME/executor-recipes`; corruption names data for operator deletion and
+  never silently falls back. Bad bindings name their own file; missing/corrupt
+  shared objects name the whole catalog, since object-only deletion leaves dangling
+  bindings. The operator explicitly resets recipes for all projects; other stores
+  are preserved. No migration or automatic repair.
+- Source files are bounded and validated without extraction/execution. Links,
+  traversal, duplicate paths, private keys and unsupported Dockerfile semantics
+  are refused before retention. COPY/ADD and context-backed RUN bind sources must
+  exist under actual stage ARG/ENV scope; unknown source variables are refused.
+  Local cycles/missing definitions reject export.
+- Embedded sources are pinned. Supplemental image bindings never implicitly
+  overwrite existing reviewed associations or the standard builtin base.
+- Root binding is published last under the catalog lock with digest CAS.
+  Project revision/identity and existing Admin/CSRF checks precede source writes.
+- ZIP import never implicitly replaces a differing root definition. Identical
+  roots are reused; existing supplemental bindings stay unchanged. The imported
+  root retains its pinned embedded graph. Ordinary publication failure rolls back
+  only exact new bindings. Failed rollback reports uncertainty; unused immutable
+  objects may remain. Lock order is catalog, enrollment, candidate state.
+- Project and enrollment unlocks precede applied audit confirmation inside rollback.
+  Import uses no extraction, build, runtime or forge command; preparation-selected
+  image validation may use the existing bounded read-only local Git runner.
+- Public registry/package access is a separate build prerequisite. Managed source
+  lookup does not execute Docker, forge commands or agents; optional Git sources
+  use the existing injected immutable blob reader.
 
 ## Change map
 
-| Seam | Source | Proof |
-| --- | --- | --- |
-| External guards/current metadata | web/app.py | test_executor_environment_choice.py / test_web_pending_config.py |
-| Notice and guided defaults | ExecutorEnvironment/App/EnrollmentWizard | images/settings/enrollment.spec.ts |
+| Change requested | Start with | Focused verification |
+|---|---|---|
+| Complete project ZIP import and coordinated publication | project_bundle.py, executor_recipes.py, web/app.py, RawImportDialog.tsx | test_project_bundle.py, test_web_bundle_import.py, import.spec.ts |
+| Source syntax/ZIP/Compose | recipe_sources.py | test_executor_recipes.py |
+| Shared sources/effective image/closure | executor_recipes.py | test_executor_recipes.py |
+| Authorization/CAS/config preservation | web/app.py | test_web_executor_recipes.py |
+| Existing Git source export | build_bundle.py | test_web_config_raw.py |
+| Direct export/separate attachment dialog | RawConfiguration.tsx | portable.spec.ts |
+| Runtime selection/external build ownership | app.py/ContainerRuntimePicker | test_executor_environment_choice.py/images.spec.ts |
+
+## Key behaviors
+
+- REQ-FUNC-e5c8a96f: shared immutable recipes with explicit replacement.
+- REQ-FUNC-c2cbfa1b / REQ-REL-aa0c1685: complete source ZIP or named missing bases.
+- REQ-FUNC-4404d38b: canonical standard base sources ship in the wheel automatically.
+- REQ-SEC-409d6c82 / REQ-DATA-65ebe5f6: bounded input and refused corrupt storage.
+- REQ-REL-0f5a1e11 / REQ-SEC-c3a134af: CAS and administrator/CSRF authority.
+- REQ-UX-3534628b / REQ-NFR-5e0f55d9: compact dialog, preserved project/job stores.
+- Existing environment mutation guards and pending_config_corrupt refusal remain;
+  an invalid image_build candidate may be discarded through the pending endpoint.
 
 ## Files
 
-The source/tests above; Component_Project_Images.md and Project_Executor_Images.md
-provide implementation and operator contracts.
+- `04_Software/adore/{executor_recipes,recipe_sources,build_bundle,project_bundle}.py`: source contracts.
+- `04_Software/adore/web/app.py`: authorization, revision-bound recipe/export routes.
+- `04_Software/web/src/{RawConfiguration,App,ContainerRuntimePicker}.tsx`: user controls.
+- `04_Software/tests/test_executor_recipes.py`, `test_web_executor_recipes.py`,
+  `test_web_config_raw.py`, `test_executor_environment_choice.py`: offline contracts.
+- `04_Software/tests/{test_project_bundle,test_web_bundle_import}.py`: complete import contracts.
+- `04_Software/web/e2e/{portable,images,import}.spec.ts`: browser contracts.
+- `01_Documentation/Project_Executor_Images.md` and
+  `05_SoftwareDocu/Component_Executor_Recipes.md`: user/component guidance.

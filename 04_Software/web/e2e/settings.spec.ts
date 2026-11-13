@@ -58,7 +58,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
   await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   await page.locator('[data-setting-purpose="repository"] > summary').click();
   const rule = page.locator('[id="setting-worktree.branch_rule"]');
   await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
@@ -74,7 +74,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
   await expect(review).toContainText("Optional branch name rule");
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
   expect(applied.config.worktree.branch_template).toBe("feature/{slug}-{iid}");
   expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
@@ -88,7 +88,7 @@ test("branch naming previews invalid drafts and applies both fields through exac
     await settingsSave(page).click();
     await review.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   }
 });
 
@@ -217,6 +217,7 @@ test("request review from edits one account per line through reviewed apply", as
   const editor = row.getByRole("textbox", { name: "Request review from", exact: true });
   await expect(editor).toHaveValue(before.config.delivery.reviewers.join("\n"));
   await expect(editor).toHaveAttribute("rows", "6");
+  expect((await editor.boundingBox())!.height).toBeGreaterThanOrEqual(144);
   await editor.fill("alice\nbob.smith");
   await settingsSave(page).click();
   const review = settingsImpact(page);
@@ -226,7 +227,7 @@ test("request review from edits one account per line through reviewed apply", as
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.reviewers).toEqual(["alice", "bob.smith"]);
   // Restore the independent test profile using the same reviewed workflow.
   await page.locator("#project-settings > .setting-groups > details > summary").filter({ hasText: "PR/MR and review" }).click();
@@ -235,7 +236,7 @@ test("request review from edits one account per line through reviewed apply", as
   await settingsSave(page).click();
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
 });
 
 test("publication state offers draft and ready with explicit reviewed apply", async ({ page }) => {
@@ -255,7 +256,7 @@ test("publication state offers draft and ready with explicit reviewed apply", as
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
   await review.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   await expect(row.locator("code")).toHaveText("Ready for review");
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).config.delivery.draft).toBe(false);
   // Restore the independent test profile through the same reviewed UI.
@@ -292,7 +293,7 @@ test("purpose guidance, correction and important confirmation preserve unsaved d
   await expect(settingsSave(page)).toBeFocused();
   await discardSettings(page);
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -590,13 +591,15 @@ test("stale Save and malformed restored candidate fail closed while retaining ed
   await expect(settingsSave(page)).toBeDisabled();
   await expect(settingsImpact(page)).toHaveCount(0);
   await page.unroute("**/config/preview");
-  await discardSettings(page);
   await page.route("**/projects/*/config/pending", async route => {
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({json:{candidate_revision:"broken"}});
   });
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  // Discarding the stale draft reloads configuration. Intercept that read before
+  // starting it; a visibility event during an in-flight reload can be coalesced.
+  await page.locator(".settings-save-bar").getByRole("button", {name:"Discard changes",exact:true}).click();
   await expect(page.locator("#project-settings")).toContainText("could not be verified");
+  await expect(page.locator(".settings-save-bar")).toContainText("could not be verified");
   const implementation = page.locator('[data-setting-purpose="implementation"]');
   if (await implementation.getAttribute("open") === null) await implementation.locator("summary").first().click();
   await expect(page.getByRole("button", { name: "Edit Maximum executor launches per job", exact: true })).toBeDisabled();
@@ -681,7 +684,7 @@ test("administrators choose the executor image in Agent and model through review
   await expect(review.getByText(/managed externally|prepared externally/)).toHaveCount(0);
   await discardSettings(page);
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -703,7 +706,7 @@ test("internet access for the agent is off by default and warns before it is swi
   await expect(review.getByText(internetCopy.en.internetWarning)).toBeVisible();
   await discardSettings(page);
   await expect(review).toHaveCount(0);
-  await expect(settingsSave(page)).toBeDisabled();
+  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
   expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
 });
 
@@ -941,4 +944,23 @@ test("typed Implementation controls remain read-only for developers on narrow sc
   await expect(row.getByRole("button")).toHaveCount(0);
  }
  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
+
+test("human approval policy is reviewed and saved per project", async ({ page }) => {
+  await openSettings(page);
+  const name = "Require human approval before PR/MR";
+  const row = page.locator(".setting-row").filter({has: page.getByText(name, {exact: true})});
+  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+  expect(before.config.delivery.require_human_approval).toBe(true);
+  await row.getByRole("button", {name: `Edit ${name}`, exact: true}).click();
+  await row.getByRole("combobox").selectOption("false");
+  await settingsSave(page).click();
+  const review = settingsImpact(page);
+  await expect(review).toContainText(name);
+  await expect(review).toContainText("false");
+  await review.getByRole("button", {name: "Save changes", exact: true}).click();
+  await expect(review).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get("/api/v1/projects/alpha/config"))
+    .json()).config.delivery.require_human_approval).toBe(false);
 });

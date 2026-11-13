@@ -1,5 +1,7 @@
 # Ce que fait ADORE
 
+L’approbation humaine avant publication est activée par défaut. Les administrateurs peuvent modifier **Exiger une approbation humaine avant PR/MR** dans Paramètres. Si elle est désactivée, ADORE contrôle l’actualité du candidat et de la cible avant publication ; les tests du dépôt restent à la charge de l’agent.
+
 ADORE transforme un ticket préparé sur votre forge de code en une demande de fusion (MR) ou de tirage (PR) en brouillon que des personnes relisent. Cette page explique le flux et les deux rôles ; les autres sujets détaillent chaque écran.
 
 ## Ce que fait ADORE {#what-adore-does}
@@ -27,7 +29,7 @@ Si l’état des tâches d’un projet est illisible, **À traiter** nomme le pr
 | 4. Valider | En cours | Agent de programmation | L’agent rapporte les contrôles selon les instructions du dépôt, y compris ceux réservés à la CI et non exécutés localement, puis clôt la tâche AEGIS. ADORE observe la fin sans relancer les tests. |
 | 5. Approuver | En attente d'approbation | Une personne | ADORE présente le candidat sur la forge. Une personne ajoute l’étiquette d’approbation. L’approbation est liée à ce candidat précis. |
 | 6. Publier | Publication | ADORE | ADORE pousse la branche et ouvre la MR/PR en brouillon. |
-| 7. Relire | Revue humaine | Une personne | Des personnes relisent. Une demande de révision lance un nouveau tour de révision, qui exige une nouvelle approbation. |
+| 7. Relire | Revue humaine | Une personne | Les personnes relisent. Une révision répète la validation et suit la politique d’approbation du projet. |
 | 8. Fusionner | Terminé | Une personne | Une personne fusionne sur la forge. ADORE ne le fait pas. |
 
 Si le candidat ou sa branche cible change après l’approbation, celle-ci ne s’applique plus et la tâche est de nouveau validée. Les termes sont expliqués dans le [glossaire](/help/glossary).

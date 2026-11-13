@@ -26,14 +26,16 @@ Bara de sus afișează titlul paginii și aceste comenzi.
 - **Despre**: versiunea ADORE, cu **Noutăți** (notele de versiune pe versiuni, cele mai noi primele, grupate în Nou, Îmbunătățit și Corectat), **Licență** și **Notificări despre componente terțe**.
 - **Cum funcționează ADORE**: deschide acest centru de ajutor.
 
+În Lucrări, filtrul de proiect se află în dreapta filelor **Tichete** și **Lucrări** pe ecrane late. Pe ecrane înguste trece sub file.
+
 ## Pagina proiectului {#project-hub}
 
 Deschiderea unui proiect din Proiecte afișează numele și calea repository-ului deasupra acestor file.
 
 | Filă | Ce conține |
 |---|---|
-| Rezumat | Tipul de container, executorul, monitorizarea, verificarea mediului, numărul de lucrări și tabele compacte Necesită intervenție și Lucrări active. Administratorii primesc și **Pune monitorizarea în pauză** sau **Activează monitorizarea**, **Arhivează proiectul** sau **Restaurează proiectul**, **Verifică cerințele gazdei** și **Acces la repository**. |
-| Setări | Setările efective ale proiectului, pe grupuri. Administratorii modifică câte o setare pe rând printr-o modificare revizuită; Dev-ii le citesc fără secrete. Vezi [Setările proiectului](/help/settings). |
+| Rezumat | Tipul de container, monitorizarea, verificarea mediului, numărul de lucrări și tabele compacte Necesită intervenție și Lucrări active. Administratorii primesc și **Pune monitorizarea în pauză** sau **Activează monitorizarea**, **Arhivează proiectul** sau **Restaurează proiectul**, **Verifică cerințele gazdei** și **Acces la repository**. |
+| Setări | Setările efective, o singură salvare pentru administratori și exportul cu definițiile păstrate ale imaginilor executorului. Dezvoltatorii citesc fără secrete. Vezi [Setările proiectului](/help/settings). |
 | Lucrări | Sub-filele Tichete și Lucrări pentru acest proiect, fără selector de proiect. |
 | Statistici | Aceeași perioadă de raportare, aceleași file și exporturi ca pagina Statistici, doar pentru acest proiect. |
 | Istoric | Modificările înregistrate ale proiectului și lucrările lui încheiate. |
@@ -48,7 +50,7 @@ Insignele au un simbol, nu doar culoare, iar listele de lucrări arată etapa cu
 | Starea lucrării | Semnificație |
 |---|---|
 | În lucru | ADORE conduce o etapă. |
-| Publicare | ADORE publică un candidat aprobat. |
+| Publicare | ADORE publică un candidat validat conform politicii proiectului. |
 | Așteaptă clarificări | Agentul are nevoie de un răspuns în tichetul din repository. |
 | Așteaptă aprobarea | O persoană trebuie să aprobe candidatul pe forge. |
 | Revizie umană | Un MR/PR ciornă este deschis; oamenii decid dacă îl integrează. |

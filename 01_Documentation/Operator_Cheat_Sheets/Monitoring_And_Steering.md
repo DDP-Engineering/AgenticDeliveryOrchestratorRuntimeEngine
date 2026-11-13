@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # Monitoring And Steering
 
-Applies to ADORE 0.13.0 and its AEGIS schema-1 contract.
+Applies to ADORE 0.15.0 and its AEGIS schema-1 contract.
 
 Use this when ADORE is running, you need to understand its current state, or you
 need to pause and resume ticket pickup safely.
@@ -110,6 +110,6 @@ and MR/PR delivery have all been proven.
 One default is worth a deliberate decision on a new profile: `[review]
 on_pipeline_failure` is `revise`, so a newly failed pipeline on a published
 draft starts a repair round without anyone asking. It stays bounded by
-`max_review_rounds` and still ends at a fresh human approval before any push,
+`max_review_rounds` and follows the project approval policy before publication,
 but if you would rather be asked first while proving a project, set it to
 `notify`.
