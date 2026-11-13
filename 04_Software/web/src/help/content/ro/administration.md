@@ -11,6 +11,8 @@ Un semnal recent arată că lucrătorul este disponibil. **Ocupat** înseamnă c
 
 Sub **Administrare**, deschideți [Utilizatori](/admin/users). Pagina are un panou **Adaugă utilizator** și o listă **Utilizatori**.
 
+**Reîmprospătează** din antet recitește utilizatorii fără a șterge rândurile, revizuirile de acces deschise, ciornele din dialoguri sau focalizarea tastaturii. **Ultima actualizare** indică finalizarea reușită. Lista nu se actualizează automat; modificările conturilor declanșează o recitire. O eroare sau termenul de 30 de secunde ascunde datele conturilor și blochează acțiunile dependente, dar păstrează celelalte ciorne din dialoguri. Reîmprospătați pentru date actuale. O revizuire neschimbată rămâne deschisă; accesul contului sau identitatea proiectului schimbate cer corectare și o nouă revizuire. Un cont eliminat sau un proiect selectat indisponibil nu poate fi trimis.
+
 Pentru a crea un cont:
 
 1. Alegeți **Adaugă utilizator** deasupra listei pentru a deschide formularul de creare. Introduceți **Utilizator** și **Parolă** (cel puțin 8 caractere), apoi introduceți aceeași valoare în **Repetă parola nouă**. Butoanele cu ochi afișează sau ascund fiecare câmp. Alegeți **Continuă la acces**. După **Corectează identitatea**, completați din nou confirmarea. Parola este omisă din revizuire.

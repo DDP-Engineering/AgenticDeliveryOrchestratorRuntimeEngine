@@ -52,8 +52,10 @@ time. Closed failure clears both evidence and its success time.
 `refresh()` joins one active promise with no queued backlog or deadline extension.
 A deadline settles callers and aborts the signal even if the transport ignores
 cancellation. Failed aggregate validation also aborts remaining sibling work.
-`invalidate()` ends publication authority and clears evidence before an intervening
-write; the owner explicitly rereads after the mutation. `dispose()` aborts and
+`invalidate()` ends publication authority and clears evidence for an invalidated
+context. `cancel()` also settles/aborts old work but retains displayed evidence and
+its original success time; an intervening write must independently revoke action
+authority before cancellation and explicitly reread afterward. `dispose()` aborts and
 settles work without publication and prevents later reads. Late success/failure
 cannot change a replacement owner's data, error or time. Owners must separately
 stop their scheduler on cleanup and gate rendering by the captured context key
@@ -471,7 +473,28 @@ scope; the primary Overview URL/action resets it to all authorized projects.
 Explicit scoped deep links remain supported. Overview's visible15s job polling
 retains validated same-render-key rows until a successful replacement; failures,
 incomplete evidence and scope/access changes still hide them. Its refresh timestamp
-is omitted. The header Refresh and stamp render on Users.
+is omitted. The header Refresh and stamp render only on Users.
+
+Users has its own strict `createReadController<AccountUser[]>`, keyed by current
+session/role/grants and active Users view with a 30s deadline. It has no periodic
+or visible-return scheduler; header Refresh joins the existing read, exposes
+non-live localized progress and records validated completion in a semantic time
+node. Metadata/operation refresh counters do not own or remount this reader.
+Pending rereads preserve account row/disclosure/editor identity and dialogs;
+completed failures hide account evidence/authority and its success stamp, not
+unrelated credential drafts. Reset submission requires the current target's
+identity, role and disabled state; creation checks current live project choices
+again at final submit. AccountAccessEditor keys use immutable account ID, not
+its grants array. Its review binds semantic account/grant and selected-project
+name/archive preconditions; relevant changes latch submission invalid until a
+new review, preserving the local selection for correction. Unchanged reads do
+not refocus reviews. `sendUsers` serializes writes, calls the read owner's
+`cancel()` before mutation and requires a strict post-write reread before
+reenabling actions. Cancellation retains only presentation and original success
+time; it never renews authority. Old responses cannot publish after that write.
+`e2e/usersRefresh.spec.ts`, `e2e/users.spec.ts` and `tests/polling.test.mjs` cover
+manual/held continuity, time/no-auto behavior, failure/removed-target guards,
+changed reviews, pre-write cancellation, deadlines/retry and navigation.
 Settings, Access, global Change history and project History use visible 15-second reads and
 retain validated data while the response is pending. The Settings draft barrier
 tracks configuration, pricing and authentication independently and invalidates

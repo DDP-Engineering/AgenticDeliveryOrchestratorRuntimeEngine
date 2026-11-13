@@ -458,6 +458,17 @@ access changes and pickup completion have their own actual results.
 
 ### Create a user with reviewed access
 
+Users is read on entry and after account changes, not on a timer. The header
+**Refresh** keeps the current list, open access review, dialog drafts and focus
+while rereading; repeated requests share one read. **Last refreshed** records
+successful validated completion, never request start. A failed read or the
+30-second read deadline hides account evidence and blocks dependent submissions;
+unrelated dialog drafts remain in memory. Refresh again to obtain current data.
+Unchanged account/project authority preserves a review. Relevant account, grant
+or project changes require correction and a fresh access review, not a stale
+submission. A removed reset target cannot be submitted. A reviewed new account
+also rechecks that its selected projects are still available before creation.
+
 In **Users**, choose **Add user** above the list. In the dialog, enter the
 username and a password of at least eight characters.
 Enter it again in **Repeat new password**. The eye buttons reveal or hide each

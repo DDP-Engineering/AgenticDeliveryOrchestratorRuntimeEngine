@@ -11,6 +11,8 @@ A recent heartbeat means the worker is available. **Busy** means it is executing
 
 Under **Administration**, open [Users](/admin/users). The page has an **Add user** panel and a **Users** list.
 
+**Refresh** in the header rereads Users without clearing rows, open access reviews, dialog drafts or keyboard focus. **Last refreshed** records successful completion. Users has no automatic list refresh; account changes trigger a reread. A failed read or its 30-second deadline hides account data and blocks dependent actions, but keeps unrelated dialog drafts. Refresh again for current data. An unchanged review stays open; changed account access or project identity requires correction and a fresh review. A removed reset target or unavailable selected project cannot be submitted.
+
 To create an account:
 
 1. Choose **Add user** above the list to open the creation dialog. Enter the **Username** and **Password** (at least 8 characters), then fill **Repeat new password** with the same value. The eye buttons show or hide each field. Choose **Continue to access**. If you return via **Correct identity**, enter the confirmation again. The review omits the password.

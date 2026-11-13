@@ -11,6 +11,8 @@ Un battement récent indique que le worker est disponible. **Occupé** indique u
 
 Sous **Administration**, ouvrez [Utilisateurs](/admin/users). La page comporte un panneau **Ajouter un utilisateur** et une liste **Utilisateurs**.
 
+**Actualiser** dans l’en-tête relit les utilisateurs sans effacer les lignes, les vérifications d’accès ouvertes, les saisies des fenêtres ni le focus clavier. **Actualisé le** indique une lecture réussie. La liste ne s’actualise pas automatiquement ; une modification de compte déclenche une relecture. Un échec ou le délai de 30 secondes masque les comptes et bloque les actions liées, mais conserve les autres saisies des fenêtres. Actualisez pour obtenir les données actuelles. Une vérification inchangée reste ouverte ; un accès ou une identité de projet modifiés exigent une correction et une nouvelle vérification. Un compte supprimé ou un projet sélectionné indisponible ne peut pas être soumis.
+
 Pour créer un compte :
 
 1. Choisissez **Ajouter un utilisateur** au-dessus de la liste pour ouvrir la fenêtre de création. Saisissez l’**Identifiant** et le **Mot de passe** (au moins 8 caractères), puis répétez-le dans **Confirmer le nouveau mot de passe**. Les boutons en forme d’œil affichent ou masquent chaque champ. Choisissez **Continuer vers les accès**. Après **Corriger l’identité**, saisissez de nouveau la confirmation. La vérification omet le mot de passe.

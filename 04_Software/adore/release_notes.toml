@@ -129,7 +129,7 @@ text = { en = "Each project opens as one hub with Summary, Settings, Jobs, Stati
 [[release.entry]]
 category = "improved"
 topic = { en = "Administration", fr = "Administration", de = "Verwaltung", ro = "Administrare" }
-text = { en = "System status shows retention and storage; Users lists each account's projects.", fr = "État du système montre conservation et stockage ; Utilisateurs liste les projets de chaque compte.", de = "Systemstatus zeigt Aufbewahrung und Speicher; Benutzer listet die Projekte jedes Kontos.", ro = "Starea sistemului arată păstrarea și stocarea; Utilizatori listează proiectele fiecărui cont." }
+text = { en = "System status shows storage and retention; Users keeps drafts and reviews during refresh.", fr = "État du système : stockage et conservation ; Utilisateurs garde saisies et vérifications.", de = "Systemstatus zeigt Speicher und Aufbewahrung; Benutzer behält Entwürfe und Prüfungen beim Neuladen.", ro = "Starea sistemului: stocare și păstrare; Utilizatori păstrează ciornele și revizuirile la recitire." }
 
 [[release.entry]]
 category = "improved"

@@ -65,6 +65,18 @@ except stale failure status. `web/e2e/audit.spec.ts` proves held second-page rea
 unchanged/changed DOM/focus/scroll, fresh-time semantics, recovery/closed failures,
 hidden/visible counts, cancellation and narrow locale/theme keyboard retry.
 
+Users uses a dedicated strict 30s read owner keyed by active Users and the
+session/role/grants, with no periodic/visible-return reader. Header Refresh joins
+pending work and records validated completion, preserving rows, disclosures,
+reviews and unrelated dialog drafts. Failures hide account evidence/authority and
+the stamp. Writes serialize, cancel pre-write reads without remounting display,
+and require validated post-write authority. Reset checks the current identity,
+role and disabled state; creation rechecks selected project availability. Stable
+account editor keys and semantic review preconditions preserve unchanged reviews
+but latch relevant changes invalid until reviewed again. `web/e2e/usersRefresh.spec.ts`
+and `web/e2e/users.spec.ts` prove this seam; cross-view denial/operation ownership
+remains separate.
+
 The production static bundle is committed with every frontend build-input change. The existing asset stamper records input and output fingerprints; release consistency rejects drift and compares an isolated fresh build before packaging.
 
 Statistics browser fixtures restore the authenticated account's English/light

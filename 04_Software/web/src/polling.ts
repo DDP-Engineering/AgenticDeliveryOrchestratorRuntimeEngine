@@ -31,6 +31,7 @@ export type ReadEnv = {
 
 export type ReadController = {
   refresh(): Promise<void>;
+  cancel(): void;
   invalidate(): void;
   dispose(): void;
 };
@@ -50,7 +51,10 @@ const readEnv = (): ReadEnv => ({
  * queuing more reads. The promise settles after publication or cancellation;
  * read failures are published, not thrown to timer/click callers.
  *
- * Invalidate before an intervening mutation: abort and clear the old snapshot,
+ * `cancel()` ends in-flight publication without clearing displayed data or
+ * renewing its completion time. A mutation owner using it must separately revoke
+ * action authority until a successful post-write read; cancel is not validation.
+ * Invalidate before a context/evidence change: abort and clear the old snapshot,
  * then explicitly refresh after the write. Dispose on context exit/unmount and
  * stop the owner's visibility scheduler separately. Callers must synchronously
  * gate rendering by `key`; this controller never caches another context's data.
@@ -131,6 +135,12 @@ export function createReadController<T>(options: {
         : { ...snapshot, refreshing: true };
       options.publish(snapshot);
       return attempt.promise;
+    },
+    cancel() {
+      if (disposed) return;
+      cancel();
+      snapshot = { ...snapshot, refreshing: false };
+      options.publish(snapshot);
     },
     invalidate() {
       if (disposed) return;

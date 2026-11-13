@@ -11,7 +11,7 @@ import { NewPasswordFields, readConfirmedPassword } from "./PasswordField";
 import { userCopy, type UserCopy } from "./userCopy";
 
 export type AccessProject = { id: string; name: string; display_name: string; archived: boolean; platform?: string; repo?: string };
-export type Account = { id: number; username: string; role: "admin" | "developer"; project_ids: string[] };
+export type Account = { id: number; username: string; role: "admin" | "developer"; project_ids: string[]; disabled?: boolean };
 export type UserTransport = (path: string, method: string, body: unknown) => Promise<unknown>;
 type Intent = { username: string; password: string; role: "admin" | "developer"; project_ids: string[]; allow_no_projects: boolean };
 const initial = (): Intent => ({ username: "", password: "", role: "developer", project_ids: [], allow_no_projects: false });
@@ -22,6 +22,11 @@ export const validAccount = (value: unknown): value is Account => !!value && typ
   "role" in value && ["admin", "developer"].includes(String(value.role)) &&
   "project_ids" in value && validIds(value.project_ids);
 const sameIds = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
+/** Bind a review only to the immutable identities and live names/status it uses. */
+const projectBinding = (ids: string[], projects: AccessProject[]) => JSON.stringify([...ids].sort().map(id => {
+  const project = projects.find(item => item.id === id);
+  return project ? [id, project.name, project.archived] : [id, null];
+}));
 /** Choice text: the display name, plus the unique name when another project shows the same text. */
 const choiceName = (project: AccessProject, projects: AccessProject[]) => {
   const shown = project.display_name || project.name;
@@ -49,6 +54,8 @@ export function UserCreation({ projects, ready, locale, send, onCreated, onBusyC
   const [draft, setDraft] = useState<Intent>(initial);
   const [step, setStep] = useState<"identity" | "access" | "review" | "result">("identity");
   const [reviewed, setReviewed] = useState<Omit<Intent, "password"> | null>(null);
+  const [reviewBinding, setReviewBinding] = useState("");
+  const [reviewInvalid, setReviewInvalid] = useState(false);
   const [result, setResult] = useState<Account | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -58,9 +65,15 @@ export function UserCreation({ projects, ready, locale, send, onCreated, onBusyC
   useEffect(() => { heading.current?.focus(); }, [step]);
   const selectedValid = draft.project_ids.every(id => projects.some(p => p.id === id && !p.archived));
   const accessValid = ready && selectedValid && (draft.role === "admin" || draft.project_ids.length > 0 || draft.allow_no_projects);
-  const correction = (next: "identity" | "access") => { setReviewed(null); setStep(next); setError(null); };
+  const currentBinding = projectBinding(reviewed?.project_ids ?? [], projects);
+  const reviewValid = !!reviewed && !reviewInvalid && reviewBinding === currentBinding && accessValid;
+  useEffect(() => { if (reviewed && reviewBinding !== currentBinding) setReviewInvalid(true); }, [reviewed, reviewBinding, currentBinding]);
+  const correction = (next: "identity" | "access") => {
+    if (next === "access") setDraft(previous => ({ ...previous, project_ids: previous.project_ids.filter(id => projects.some(project => project.id === id && !project.archived)) }));
+    setReviewed(null); setReviewInvalid(false); setStep(next); setError(null);
+  };
   const submit = async () => {
-    if (sending.current || !reviewed || !ready || !active.current) return;
+    if (sending.current || !reviewed || !ready || !reviewValid || !active.current) return;
     sending.current = true; setBusy(true); onBusyChange(true); setError(null);
     const intent = reviewed;
     try {
@@ -99,12 +112,13 @@ export function UserCreation({ projects, ready, locale, send, onCreated, onBusyC
         {ready && <div className="access-choices">{projects.filter(p => !p.archived).map(p => <label key={p.id} className="access-choice"><input type="checkbox" checked={draft.project_ids.includes(p.id)} onChange={e => setDraft({ ...draft, allow_no_projects: false, project_ids: e.target.checked ? [...draft.project_ids, p.id] : draft.project_ids.filter(id => id !== p.id) })} /><ChoiceText project={p} projects={projects} /></label>)}</div>}
         <label className="access-choice"><input type="checkbox" checked={draft.allow_no_projects} onChange={e => setDraft({ ...draft, project_ids: [], allow_no_projects: e.target.checked })} /><span>{copy.emptyChoice}</span></label>
       </fieldset>}
-      <div className="actions"><button className="ghost" onClick={() => correction("identity")}>{copy.correctIdentity}</button><button className="primary" disabled={!accessValid} onClick={() => { setReviewed({ username: draft.username, role: draft.role, project_ids: [...draft.project_ids], allow_no_projects: draft.allow_no_projects }); setStep("review"); }}>{copy.review}</button></div>
+      <div className="actions"><button className="ghost" onClick={() => correction("identity")}>{copy.correctIdentity}</button><button className="primary" disabled={!accessValid} onClick={() => { setReviewed({ username: draft.username, role: draft.role, project_ids: [...draft.project_ids], allow_no_projects: draft.allow_no_projects }); setReviewBinding(projectBinding(draft.project_ids, projects)); setReviewInvalid(false); setStep("review"); }}>{copy.review}</button></div>
     </div>}
     {step === "review" && reviewed && <div className="form-stack">
       <dl><dt>{usernameLabel}</dt><dd>{reviewed.username}</dd><dt>{roleLabel}</dt><dd>{reviewed.role === "admin" ? "Admin" : "Dev"}</dd><dt>{copy.projects}</dt><dd>{reviewed.role === "admin" ? copy.global : reviewed.project_ids.length ? <ul>{reviewed.project_ids.map((id, index) => <li key={id}>{labels(reviewed.project_ids, projects)[index]}</li>)}</ul> : copy.empty}</dd></dl>
       <p>{reviewed.role === "admin" ? copy.adminHelp : copy.devHelp}</p>
-      <div className="actions"><button className="ghost" disabled={busy} onClick={() => correction("identity")}>{copy.correctIdentity}</button><button className="ghost" disabled={busy} onClick={() => correction("access")}>{copy.correctAccess}</button><button className="primary" disabled={busy || !ready} onClick={() => void submit()}>{copy.submit}</button></div>
+      {(reviewInvalid || reviewBinding !== currentBinding) && <p role="alert" className="alert">{copy.reviewChanged}</p>}
+      <div className="actions"><button className="ghost" disabled={busy} onClick={() => correction("identity")}>{copy.correctIdentity}</button><button className="ghost" disabled={busy} onClick={() => correction("access")}>{copy.correctAccess}</button><button className="primary" disabled={busy || !ready || !reviewValid} onClick={() => void submit()}>{copy.submit}</button></div>
       {busy && <p role="status">{copy.creating}</p>}
     </div>}
     {step === "result" && result && <><p role="status">{copy.created}: {result.username} · {result.role === "admin" ? copy.global : labels(result.project_ids, projects).join(", ") || copy.empty}</p><button className="ghost" onClick={() => { setResult(null); setStep("identity"); }}>{copy.another}</button></>}
@@ -112,8 +126,8 @@ export function UserCreation({ projects, ready, locale, send, onCreated, onBusyC
 }
 
 /** Shared visible confirmation; correction sends no mutation. */
-export function AccessReview({ before, after, subject, copy, busy, apply, correct }: {
-  before: string; after: string; subject: string; copy: UserCopy; busy: boolean;
+export function AccessReview({ before, after, subject, copy, busy, canApply = true, apply, correct }: {
+  before: string; after: string; subject: string; copy: UserCopy; busy: boolean; canApply?: boolean;
   apply: () => void; correct: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -122,7 +136,7 @@ export function AccessReview({ before, after, subject, copy, busy, apply, correc
     <h3 ref={heading} tabIndex={-1}>{copy.reviewAccess}: {subject}</h3>
     <dl><dt>{copy.before}</dt><dd>{before}</dd><dt>{copy.after}</dt><dd>{after}</dd></dl>
     <button className="ghost" disabled={busy} onClick={correct}>{copy.correctAccess}</button>
-    <button className="primary" disabled={busy} onClick={apply}>{copy.apply}</button>
+    <button className="primary" disabled={busy || !canApply} onClick={apply}>{copy.apply}</button>
     {busy && <p role="status">{copy.pending}</p>}
   </section>;
 }
@@ -135,13 +149,20 @@ export function AccountAccessEditor({ account, projects, ready, locale, saveLabe
   const copy = userCopy[locale];
   const [ids, setIds] = useState(account.project_ids);
   const [review, setReview] = useState<string[] | null>(null);
+  const [reviewBinding, setReviewBinding] = useState("");
+  const [reviewInvalid, setReviewInvalid] = useState(false);
+  const currentBinding = JSON.stringify([account.id, account.username, account.role, account.disabled,
+    [...account.project_ids].sort(), projectBinding([...new Set([...account.project_ids, ...(review ?? ids)])], projects)]);
+  const selectedValid = (review ?? ids).every(id => projects.some(project => project.id === id && (!project.archived || account.project_ids.includes(id))));
+  const reviewValid = ready && selectedValid && !reviewInvalid && reviewBinding === currentBinding;
+  useEffect(() => { if (review && reviewBinding !== currentBinding) setReviewInvalid(true); }, [review, reviewBinding, currentBinding]);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false), active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const apply = async () => {
-    if (lock.current || !review || !ready) return;
+    if (lock.current || !review || !reviewValid) return;
     const selected = review.map(id => projects.find(p => p.id === id));
-    if (selected.some(p => !p)) { onError(new ApiError("project_changed")); return; }
+    if (selected.some(p => !p || p.archived && !account.project_ids.includes(p.id))) { onError(new ApiError("project_changed")); return; }
     const names = selected.map(p => p!.name);
     lock.current = true; setBusy(true);
     try {
@@ -154,7 +175,8 @@ export function AccountAccessEditor({ account, projects, ready, locale, saveLabe
   };
   return <div className="form-stack user-access">
     <div className="access-choices">{projects.map(p => <label key={p.id} className="access-choice"><input type="checkbox" disabled={!ready || busy || review !== null} checked={ids.includes(p.id)} onChange={e => setIds(e.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} /><ChoiceText project={p} projects={projects} /></label>)}</div>
-    <button className="ghost" disabled={!ready || busy || review !== null} onClick={() => setReview([...ids])}>{saveLabel}</button>
-    {review && <AccessReview subject={account.username} before={labels(account.project_ids, projects).join(", ") || copy.none} after={labels(review, projects).join(", ") || copy.none} copy={copy} busy={busy} apply={() => void apply()} correct={() => setReview(null)} />}
+    <button className="ghost" disabled={!ready || busy || review !== null} onClick={() => { setReview([...ids]); setReviewBinding(currentBinding); setReviewInvalid(false); }}>{saveLabel}</button>
+    {review && (!selectedValid || reviewInvalid || reviewBinding !== currentBinding) && <p role="alert" className="alert">{copy.reviewChanged}</p>}
+    {review && <AccessReview subject={account.username} before={labels(account.project_ids, projects).join(", ") || copy.none} after={labels(review, projects).join(", ") || copy.none} copy={copy} busy={busy} canApply={reviewValid} apply={() => void apply()} correct={() => { setReview(null); setIds(previous => previous.filter(id => projects.some(project => project.id === id))); }} />}
   </div>;
 }

@@ -146,6 +146,9 @@ summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .top-actions .mobile-signout { display: none; }
 .top-actions .ghost { padding: 8px 12px; min-height: 36px; }
 .refresh-stamp { font-size: .7rem; color: var(--muted); margin-right: 8px; }
+.users-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; min-width: 0; max-width: 100%; }
+.users-refresh .refresh-stamp { display: block; min-height: 1.5em; max-width: 100%; font-size: .875rem; overflow-wrap: anywhere; }
+.users-refresh button[aria-disabled="true"] { opacity: .65; cursor: progress; }
 .refresh-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; margin-block: .75rem; min-width: 0; }
 .refresh-feedback button[aria-disabled="true"] { opacity: .65; cursor: progress; }
 .refresh-progress { min-width: 10rem; min-height: 1.5em; color: var(--muted); }

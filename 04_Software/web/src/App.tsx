@@ -182,7 +182,18 @@ export default function App() {
   }, [selected, session?.user.id]);
   const [prices, setPrices] = useState<Price[]>([]);
   const [pricesScope, setPricesScope] = useState("");
-  const [users, setUsers] = useState<AccountUser[]>([]);
+  const usersKey = page === "adminUsers" && session?.user.role === "admin" ? projectsPrincipal : "";
+  const [usersSnapshot, setUsersSnapshot] = useState<ReadSnapshot<AccountUser[]> | null>(null);
+  const usersRead = usersSnapshot?.key === usersKey ? usersSnapshot : null;
+  const users = usersRead?.data ?? [];
+  const usersState: DataState = usersRead?.status === "error" ? "error" : usersRead?.data ? "ready" : "loading";
+  const [usersAuthority, setUsersAuthority] = useState(false);
+  const [usersMutating, setUsersMutating] = useState(false);
+  const usersWriting = useRef(false);
+  const usersReader = useRef<ReadController | null>(null);
+  const liveUsersKey = useRef(usersKey);
+  liveUsersKey.current = usersKey;
+  const usersReady = !!usersKey && usersRead?.status === "ready" && usersAuthority && !usersMutating;
   const [auditPolicy, setAuditPolicy] = useState<AuditPolicy | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
   const [workerStatus, setWorkerStatus] = useState<WorkerStatus>("checking");
@@ -209,7 +220,6 @@ export default function App() {
   const [deleteClone, setDeleteClone] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [configState, setConfigState] = useState<ScopedState>({ key: "", state: "loading" });
-  const [usersState, setUsersState] = useState<DataState>("loading");
   const [jobScope, setJobScope] = useState("");
   const [requestedRun, setRequestedRun] = useState("");
   const [projectDataState, setProjectsState] = useState<DataState>("loading");
@@ -219,7 +229,7 @@ export default function App() {
   const preserveError = useRef(false);
   const [notice, setNotice] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const lastRefresh = usersRead?.completedAt == null ? null : new Date(usersRead.completedAt);
   const [operation, setOperation] = useState<Operation | null>(null);
   const operationId = useRef<number | null>(null);
   const operationBusy = useRef(false);
@@ -596,18 +606,48 @@ export default function App() {
     return () => { stop(); reader.dispose(); if (reportingReader.current === reader) reportingReader.current = null; };
   }, [reportKey]);
 
-  useEffect(() => {
-    setLastRefresh(new Date());
-    if (page === "adminUsers" && isAdmin) {
-      const generation = viewGeneration.current;
-      let active = true;
-      setUsersState("loading");
-      request<AccountUser[]>("/users").then(value => {
+  // Users is deliberately manual: neither metadata ticks nor viewRefresh owns
+  // this resource. Context exit cancels it; same-context clicks join one read.
+  useLayoutEffect(() => {
+    if (!usersKey) return;
+    const key = usersKey, generation = viewGeneration.current;
+    usersWriting.current = false;
+    setUsersMutating(false); setUsersAuthority(false);
+    const reader = createReadController<AccountUser[]>({ key, deadlineMs: 30000,
+      read: async signal => {
+        const value = await request<AccountUser[]>("/users", "GET", undefined, undefined, signal);
         if (!Array.isArray(value) || value.some(item => !validAccount(item) || typeof item.disabled !== "boolean") || new Set(value.map(item => item.id)).size !== value.length) throw new ApiError("unexpected_response");
-        if (active && generation === viewGeneration.current) { setUsers(value); setUsersState("ready"); }
-      }).catch(cause => { if (active && generation === viewGeneration.current) { setUsersState("error"); setError(cause); } });
-      return () => { active = false; };
+        return value;
+      },
+      publish: snapshot => {
+        if (key !== liveUsersKey.current || generation !== viewGeneration.current) return;
+        setUsersSnapshot(snapshot);
+        if (!snapshot.refreshing) setUsersAuthority(snapshot.status === "ready" && !usersWriting.current);
+        if (snapshot.status === "error") setError(snapshot.error);
+      },
+    });
+    usersReader.current = reader;
+    void reader.refresh();
+    return () => { reader.dispose(); if (usersReader.current === reader) usersReader.current = null; };
+  }, [usersKey]);
+
+  // Every Users mutation ends older read authority before sending. Preserve the
+  // mounted display/drafts, but withhold actions until strict post-write validation.
+  const sendUsers = async (path: string, method: string, body: unknown): Promise<unknown> => {
+    const reader = usersReader.current;
+    if (!usersReady || usersWriting.current || !reader) throw new ApiError("request_failed");
+    usersWriting.current = true; setUsersMutating(true); setUsersAuthority(false);
+    reader.cancel();
+    try { return await request(path, method, body, session?.csrf); }
+    finally {
+      if (usersReader.current === reader) {
+        usersWriting.current = false; setUsersMutating(false);
+        await reader.refresh();
+      }
     }
+  };
+
+  useEffect(() => {
     if (page === "administration" && isAdmin) {
       const generation = viewGeneration.current;
       request<AuditPolicy>("/audit-policy").then(value => { if (generation === viewGeneration.current) setAuditPolicy(value); }).catch(cause => setError(cause));
@@ -847,7 +887,7 @@ export default function App() {
     configRequest.current += 1;
     preferenceRequest.current.language += 1;
     preferenceRequest.current.theme += 1;
-    setProjects([]); setSelected(""); setRequestedRun(""); setUsersState("loading"); setConfigState({ key: "", state: "loading" });
+    setProjects([]); setSelected(""); setRequestedRun(""); setConfigState({ key: "", state: "loading" });
     projectsReader.current?.dispose(); projectsReader.current = null;
     projectsHaveSnapshot.current = false;
     setProjectsState("loading");
@@ -857,9 +897,11 @@ export default function App() {
     setMetricAllProjects(true); setMetricTimezone("UTC"); setMetricGranularity("day"); setMetricsTab("summary");
     setUsageSortKey("date"); setUsageSortDescending(false);
     setConfig(null); setPendingConfig(null); setPrices([]);
-    setUsers([]); setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
+    usersReader.current?.dispose(); usersReader.current = null;
+    setUsersSnapshot(null); setUsersAuthority(false); usersWriting.current = false; setUsersMutating(false);
+    setAuditPolicy(null); operationSubmission.current += 1; operationBusy.current = false; operationId.current = null; setOperationSubmitting(false); setOperation(null); setOperationVisible(false);
     setWorkerStatus("checking");
-    setNotice(""); setLastRefresh(null);
+    setNotice("");
   };
 
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
@@ -954,8 +996,9 @@ export default function App() {
   const setAccountEnabled = async (userId: number, enabled: boolean) => {
     setError("");
     try {
-      await request(`/users/${userId}/${enabled ? "enable" : "disable"}`, "POST", {}, session?.csrf);
-      setViewRefresh(value => value + 1);
+      if (!usersReady || !users.some(item => item.id === userId && item.id !== session?.user.id && item.disabled === enabled)) return;
+      const result = await sendUsers(`/users/${userId}/${enabled ? "enable" : "disable"}`, "POST", {});
+      if (!result || typeof result !== "object" || !("ok" in result) || result.ok !== true) throw new ApiError("unexpected_response");
     } catch (cause) { setError(cause); }
   };
 
@@ -1292,8 +1335,9 @@ export default function App() {
     menuOpen={menuOpen} onMenu={() => setMenuOpen(open => !open)} adminOpen={adminMenuOpen} onAdmin={() => setAdminMenuOpen(open => !open)}
     onSignOut={signOut} context={<>{session.user.factory_password && <p className="notice" role="status">{t("factoryPasswordNotice")} <a href="/account" onClick={event => { event.preventDefault(); navigatePage("settings"); }}>{t("changePassword")}</a></p>}{projectContext}</>}
     controls={page === "overview" && projectsState === "ready" && projects.length > 0 && <label className="overview-header-scope" htmlFor="overview-project">{t("project")}<select id="overview-project" aria-label={t("project")} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.allProjects}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>}
-    actions={<>{manualRefresh && <><span className="refresh-stamp">{lastRefresh && t("lastRefresh") + ": " + formatDate(lastRefresh.toISOString())}</span>
-      <button className="ghost" onClick={() => { if (refreshView(true)) void refreshProjects().catch(setError); }}>{t("refresh")}</button></>}
+    actions={<>{manualRefresh && <div className="users-refresh"><span className="refresh-stamp">{lastRefresh && <>{t("lastRefresh")}: <time dateTime={lastRefresh.toISOString()}>{formatDate(lastRefresh.toISOString())}</time></>}</span>
+      <button className="ghost" aria-disabled={!!usersRead?.refreshing || usersMutating} onClick={() => { if (!usersWriting.current) void usersReader.current?.refresh(); }}>{t("refresh")}</button>
+      <span className="refresh-progress">{usersRead?.refreshing ? t("refreshingData") : ""}</span></div>}
       <button className="ghost" ref={aboutTrigger} onClick={() => request<typeof about>("/about").then(setAbout).catch(cause => setError(cause))}>{t("about")}</button><a className="ghost link-button" href="/help" onClick={event => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigateHref("/help"); }}>{t("glossary")}</a></>}
     modal={about && <div className="modal-backdrop" onClick={closeAbout}><section role="dialog" aria-modal="true" aria-labelledby="adore-about-heading" className={"modal about-modal" + (aboutView === "whatsNew" ? " about-wide" : "")} onClick={event => event.stopPropagation()} onKeyDown={event => {
       if (event.key === "Escape") closeAbout();
@@ -1467,15 +1511,16 @@ export default function App() {
               <span className="user-avatar">{item.username.charAt(0).toUpperCase()}</span>
               <div><strong>{item.username}</strong><small>{t(item.role)}{item.disabled ? ` · ${t("disable")}` : ""}</small></div>
               {item.role === "developer" && <details className="membership-editor"><summary>{t("assignedProjects")}</summary>
-                <AccountAccessEditor key={item.id + ":" + item.project_ids.join()} account={item} projects={projects} ready={projectsState === "ready"} locale={locale} saveLabel={t("save")} send={(path, method, body) => request(path, method, body, session.csrf)} onError={setError} onApplied={result => { setNotice(result); setViewRefresh(value => value + 1); }} />
+                <AccountAccessEditor key={item.id} account={item} projects={projects} ready={usersReady && projectsState === "ready"} locale={locale} saveLabel={t("save")} send={sendUsers} onError={setError} onApplied={setNotice} />
               </details>}
-              {item.id !== session.user.id && <button type="button" className="ghost" onClick={() => setAccountEnabled(item.id, item.disabled)}>{t(item.disabled ? "enable" : "disable")}</button>}
+              {item.id !== session.user.id && <button type="button" className="ghost" disabled={!usersReady} onClick={() => setAccountEnabled(item.id, item.disabled)}>{t(item.disabled ? "enable" : "disable")}</button>}
               <button type="button" className="ghost" onClick={() => setAccountAction({ kind: "reset", account: item })}>{t("resetPassword")}</button>
             </div>
           )}</div>}</section>
-          {accountAction && <AccountActionDialog action={accountAction} projects={projects} ready={projectsState === "ready"}
-            locale={locale} send={(path, method, body) => request(path, method, body, session.csrf)}
-            onCreated={() => setViewRefresh(value => value + 1)} onReset={() => setNotice(t("passwordResetDone"))}
+          {accountAction && <AccountActionDialog action={accountAction} projects={projects}
+            ready={usersReady && projectsState === "ready" && (accountAction.kind === "add" || users.some(item => item.id === accountAction.account.id && item.username === accountAction.account.username && item.role === accountAction.account.role && item.disabled === accountAction.account.disabled))}
+            locale={locale} send={sendUsers}
+            onCreated={() => {}} onReset={() => setNotice(t("passwordResetDone"))}
             onClose={() => setAccountAction(null)} />}
         </>}
 

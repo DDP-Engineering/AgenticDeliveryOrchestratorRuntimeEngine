@@ -282,6 +282,28 @@ test("invalidation cancels old ownership and a late failure cannot replace post-
   assert.equal(h.clock.timers.size, 0);
 });
 
+test("cancel supersedes pre-write work without removing display or renewing authority evidence", async () => {
+  const h = reader();
+  await succeed(h, { count: 1 });
+  const previous = h.latest();
+  const pending = h.owner.refresh();
+  await flush();
+  const old = h.requests.at(-1);
+  h.owner.cancel();
+  await pending;
+  assert.equal(old.signal.aborted, true);
+  assert.equal(h.latest().data, previous.data);
+  assert.equal(h.latest().completedAt, previous.completedAt);
+  assert.equal(h.latest().refreshing, false);
+  await succeed(h, { count: 2 });
+  const current = h.latest();
+  old.resolve({ count: 999 });
+  await flush();
+  assert.equal(h.latest(), current);
+  await fail(h, new errors.ReadTransportError());
+  assert.equal(h.latest().data, null, "strict post-write failure still closes authority");
+});
+
 test("dispose cancels a hung read, settles joiners and forbids later reads/publication", async () => {
   const h = reader();
   const pending = h.owner.refresh();

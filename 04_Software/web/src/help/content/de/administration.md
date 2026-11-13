@@ -11,6 +11,8 @@ Ein aktueller Heartbeat zeigt einen verfügbaren Worker. **Beschäftigt** bedeut
 
 Öffnen Sie unter **Verwaltung** die Seite [Benutzer](/admin/users). Sie hat ein Feld **Benutzer hinzufügen** und eine Liste **Benutzer**.
 
+**Aktualisieren** in der Kopfzeile liest Benutzer erneut, ohne Zeilen, offene Zugriffsprüfungen, Dialogentwürfe oder Tastaturfokus zu entfernen. **Zuletzt aktualisiert** zeigt den erfolgreichen Abschluss. Die Liste lädt nicht automatisch; Kontoänderungen lösen eine Abfrage aus. Fehler oder die Lesefrist von 30 Sekunden blenden Kontodaten aus und sperren abhängige Aktionen, behalten aber andere Dialogentwürfe. Aktualisieren Sie für aktuelle Daten erneut. Eine unveränderte Prüfung bleibt offen; geänderter Kontozugriff oder eine andere Projektidentität erfordern Korrektur und erneute Prüfung. Ein entferntes Zielkonto oder nicht verfügbares gewähltes Projekt kann nicht bestätigt werden.
+
 So legen Sie ein Konto an:
 
 1. Wählen Sie **Benutzer hinzufügen** über der Liste, um den Dialog zu öffnen. Geben Sie **Benutzername** und **Passwort** ein (mindestens 8 Zeichen) und füllen Sie **Neues Passwort wiederholen** mit demselben Wert aus. Die Augen-Schaltflächen zeigen oder verbergen das jeweilige Feld. Wählen Sie **Weiter zum Zugriff**. Nach **Identität korrigieren** geben Sie die Wiederholung erneut ein. Das Passwort erscheint nicht in der Prüfung.

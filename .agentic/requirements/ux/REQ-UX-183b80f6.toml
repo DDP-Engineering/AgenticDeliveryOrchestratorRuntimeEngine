@@ -21,7 +21,7 @@ verification = "Chromium finds header Refresh and its timestamp on Administratio
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/Presentation.tsx"]
 
-linked_tests = ["04_Software/web/e2e/shell.spec.ts"]
+linked_tests = ["04_Software/web/e2e/shell.spec.ts", "04_Software/web/e2e/usersRefresh.spec.ts"]
 
 
 spec = ""
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-12
-updated = 2026-11-09
+updated = 2026-11-13

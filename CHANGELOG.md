@@ -43,6 +43,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep Users rows, access reviews, dialog drafts and focus during manual refresh;
+  record successful completion rather than request start. Refuse failed or changed
+  authority, recheck selected projects at creation and cancel pre-write list reads
+  before strict post-account-change revalidation without remounting unrelated forms.
+
 - Keep Jobs/History rows, pages, open details, consumption and manual executor output
   mounted during same-context background reads. Add scoped Refresh/retry, validated
   completion times and marked older information after transport/deadline failure;

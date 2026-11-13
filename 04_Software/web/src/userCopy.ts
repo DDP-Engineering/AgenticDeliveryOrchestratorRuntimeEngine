@@ -18,6 +18,7 @@ const en = {
   reviewAccess: "Review access change", before: "Before", after: "After", none: "No projects",
   apply: "Apply reviewed access", applied: "Access updated", pending: "Applying reviewed access…",
   creating: "Creating reviewed account…", loading: "Load project access before continuing.",
+  reviewChanged: "This review is no longer current. Correct the choices and review again.",
 };
 export type UserCopy = typeof en;
 export const userCopy: Record<Locale, UserCopy> = {
@@ -34,6 +35,7 @@ export const userCopy: Record<Locale, UserCopy> = {
     reviewAccess: "Vérifier le changement d’accès", before: "Avant", after: "Après", none: "Aucun projet",
     apply: "Appliquer les accès vérifiés", applied: "Accès mis à jour", pending: "Application des accès vérifiés…",
     creating: "Création du compte vérifié…", loading: "Charger les accès aux projets avant de continuer.",
+    reviewChanged: "Cette vérification n’est plus actuelle. Corrigez les choix et vérifiez à nouveau.",
   },
   de: {
     identity: "Identität und Zugangsdaten", access: "Rolle und Projektzugriff", review: "Konto prüfen",
@@ -47,6 +49,7 @@ export const userCopy: Record<Locale, UserCopy> = {
     reviewAccess: "Zugriffsänderung prüfen", before: "Vorher", after: "Nachher", none: "Keine Projekte",
     apply: "Geprüften Zugriff anwenden", applied: "Zugriff aktualisiert", pending: "Geprüfter Zugriff wird angewendet…",
     creating: "Geprüftes Konto wird erstellt…", loading: "Projektzugriff vor dem Fortfahren laden.",
+    reviewChanged: "Diese Prüfung ist nicht mehr aktuell. Auswahl korrigieren und erneut prüfen.",
   },
   ro: {
     identity: "Identitate și credențiale", access: "Rol și acces la proiecte", review: "Revizuiește contul",
@@ -60,5 +63,6 @@ export const userCopy: Record<Locale, UserCopy> = {
     reviewAccess: "Revizuiește modificarea accesului", before: "Înainte", after: "După", none: "Niciun proiect",
     apply: "Aplică accesul revizuit", applied: "Acces actualizat", pending: "Se aplică accesul revizuit…",
     creating: "Se creează contul revizuit…", loading: "Încarcă accesul la proiecte înainte de a continua.",
+    reviewChanged: "Revizuirea nu mai este actuală. Corectați opțiunile și revizuiți din nou.",
   },
 };
