@@ -449,6 +449,9 @@ test("composite colliding IDs and reload preserve the owning project", async ({ 
 
 test("incomplete corrupt and failed job reads hide totals and stale details", async ({ page }) => {
   await signIn(page);
+  // Finish the initial two-part Overview read before replacing the next response;
+  // visible revalidation now correctly joins an already-owned read.
+  await expect(page.locator(".overview-jobs-table").first()).toBeVisible();
   // One handler for the whole test: swapping handlers with unroute while a background
   // Overview poll is still inside the old one made its fulfill hit an already-handled route.
   let mode: "incomplete" | "malformed" | "server" = "incomplete";

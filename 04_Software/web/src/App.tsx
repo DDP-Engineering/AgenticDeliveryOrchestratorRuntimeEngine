@@ -1156,7 +1156,7 @@ export default function App() {
     </section>
   </main>;
 
-  const workspaceProps = { locale, projects, scope: jobScope, csrf: session.csrf, request, t, refresh: viewRefresh,
+  const workspaceProps = { locale, projects, scope: jobScope, principal: JSON.stringify([session.user.id, session.user.role, session.csrf]), csrf: session.csrf, request, t, refresh: viewRefresh,
     onScope: (id: string) => { setJobScope(id); if (id) setSelected(id); setRequestedRun(""); },
     onOpen: (id: string, runId: string) => { setSelected(id); setJobScope(id); setRequestedRun(runId); setJobsView("jobs"); setPage("jobs"); },
     onClose: () => setRequestedRun("") };

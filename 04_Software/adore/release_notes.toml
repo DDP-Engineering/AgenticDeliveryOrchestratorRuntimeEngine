@@ -44,7 +44,7 @@ text = { en = "Save all edits in wider rows with effect confirmation; optional r
 [[release.entry]]
 category = "fixed"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
-text = { en = "Jobs preserve progress and stop checkpoints containing suspicious new paths.", fr = "Les tâches gardent leur progrès et arrêtent les points de contrôle aux chemins suspects.", de = "Jobs bewahren Fortschritt und stoppen Prüfpunkte bei verdächtigen neuen Pfaden.", ro = "Joburile păstrează progresul și opresc punctele de control cu căi noi suspecte." }
+text = { en = "Jobs retain progress, pages and details on refresh. Unsafe checkpoints remain blocked.", fr = "Pages et détails conservés à l’actualisation ; réessayez. Points de contrôle suspects bloqués.", de = "Updates erhalten Seiten, Details und Fortschritt. Unsichere Prüfpunkte bleiben gesperrt.", ro = "Actualizarea păstrează progresul, paginile și detaliile. Punctele nesigure rămân blocate." }
 
 [[release.entry]]
 category = "fixed"

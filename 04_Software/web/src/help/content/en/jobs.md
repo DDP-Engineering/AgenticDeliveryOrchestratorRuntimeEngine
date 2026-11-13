@@ -89,6 +89,10 @@ Use **Jobs** in the sidebar or a project's **Jobs** tab, then the **Jobs** sub-t
 
 Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
 
+Lists and open details update every 15 seconds while visible; Consumption updates every 30 seconds. Background reads keep rows, sort, filters, page size, page, open sections and your reading position. Use the separate **Refresh** controls for jobs, detail and Consumption. **Last refreshed** records a validated completion, not the start of a request.
+
+After a connection failure or a 30-second read deadline, older validated information can remain with a stale notice and **Retry**. Stale job list or detail evidence cannot enable commands; a consumption failure alone does not block independently valid job actions. Invalid or denied evidence is hidden. A changed paging snapshot requires **Reload first page**, not a silent page reset. Open executor output is not fetched again by parent updates; a changed job evidence revision still clears its binding.
+
 The detail shows **What is happening now**, **Who acts**, **Where** and **What follows**, then Consumption, a Timeline (Date, Event, Stage), **Evidence and artifacts** links and **Technical details**. The timeline lists only saved events. Old activity alone does not show that work stopped.
 
 ## Job budgets {#budgets}

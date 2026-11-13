@@ -14,8 +14,8 @@ import { ticketCopy } from "./ticketCopy";
 import { PreparationResults } from "./ExecutionPlanReview";
 import { activityAge, commandAllowed, stableExecutionDrift, IncompleteJobs, readJobDetail, readJobPage, readExecutorOutput, type ExecutorOutput, type Job, type JobPage } from "./jobModel";
 import { recoveryCopy } from "./recoveryCopy";
-import { DataFeedback, StatusBadge } from "./Presentation";
-import { startVisiblePolling } from "./polling";
+import { DataFeedback, RefreshFeedback, StatusBadge } from "./Presentation";
+import { createReadController, startVisiblePolling, type ReadController, type ReadSnapshot } from "./polling";
 import { outcomeText } from "./operationReason";
 import { formatRoute } from "./routes";
 import { SortHeader } from "./SortHeader";
@@ -25,7 +25,7 @@ import { JobAmounts } from "./StatisticsEvidence";
 import { statisticsCopy } from "./statisticsCopy";
 
 export type JobProject = { id: string; name: string; display_name?: string; archived: boolean; paused: boolean };
-type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string) => Promise<T>;
+type Request = <T>(path: string, method?: string, body?: unknown, csrf?: string, signal?: AbortSignal) => Promise<T>;
 type Props = {
   mode: "overview" | "jobs" | "history"; locale: Locale; projects: JobProject[]; scope: string; run?: string;
   csrf: string; request: Request; t: (key: MessageKey) => string; refresh: number;
@@ -33,8 +33,15 @@ type Props = {
   fixedScope?: boolean;
   summaryHeader?: (evidence: JobPage | null) => ReactNode;
   admin: boolean;
+  principal: string;
 };
-type ReadState = "loading" | "ready" | "error" | "incomplete" | "changed";
+type ReadState = "loading" | "ready" | "stale" | "error" | "incomplete" | "changed";
+type JobLists = { page: JobPage; activePage: JobPage | null };
+/** Preserve the established explicit incomplete/source-change transitions. */
+const readState = (snapshot: ReadSnapshot<unknown> | null): ReadState => snapshot?.status === "error"
+  ? snapshot.error instanceof IncompleteJobs ? "incomplete"
+    : snapshot.error instanceof ApiError && snapshot.error.code === "job_snapshot_changed" ? "changed" : "error"
+  : snapshot?.status ?? "loading";
 type Operation = { id: number; status: "pending" | "running" | "succeeded" | "failed" | "uncertain"; result?: string; reason?: string; detail?: string };
 type JobSort = "ticket" | "project" | "status" | "activity";
 type Filters = { q: string; group: string; size: 10 | 25 | 50 | "all"; sort: JobSort; descending: boolean; offset: number };
@@ -45,7 +52,6 @@ const lifecycleKeys: Record<string, MessageKey> = {
   "handed-off": "handedOffStatus", done: "done", failed: "failed", cancelled: "cancelled",
 };
 const label = (value: string, keys: Record<string, MessageKey>, t: Props["t"]) => keys[value] ? t(keys[value]) : value;
-const normalizeFailure = (cause: unknown) => cause instanceof ApiError ? cause : new ApiError("unexpected_response");
 const readOperation = (value: unknown): Operation => {
   const operation = value as Operation;
   if (!operation || !Number.isSafeInteger(operation.id) || operation.id < 1 ||
@@ -62,13 +68,12 @@ export function JobWorkspace(props: Props) {
   const workflowText = (job: Job) => job.workflow === "direct" ? directText.direct : "AEGIS";
   const compactOverview = mode === "overview";
   const [filters, setFilters] = useState<Filters>(() => initialFilters(mode));
-  const [page, setPage] = useState<JobPage | null>(null);
-  const [activePage, setActivePage] = useState<JobPage | null>(null);
-  const [state, setState] = useState<ReadState>("loading");
-  const [failure, setFailure] = useState<unknown>(null);
-  const [detail, setDetail] = useState<Job | null>(null);
-  const [detailState, setDetailState] = useState<ReadState>("loading");
-  const [detailFailure, setDetailFailure] = useState<unknown>(null);
+  const [lists, setLists] = useState<ReadSnapshot<JobLists> | null>(null);
+  const [detailSnapshot, setDetailSnapshot] = useState<ReadSnapshot<Job> | null>(null);
+  const listOwner = useRef<ReadController | null>(null);
+  const detailOwner = useRef<ReadController | null>(null);
+  const usageOwner = useRef<ReadController | null>(null);
+  const reader = useRef(request); reader.current = request;
   const [operation, setOperation] = useState<Operation | null>(null);
   const [operationError, setOperationError] = useState<unknown>(null);
   const [commandStatusError, setCommandStatusError] = useState(false);
@@ -82,25 +87,33 @@ export function JobWorkspace(props: Props) {
   const project = projects.find(item => item.id === scope);
   const ids = projects.map(item => item.id).sort().join(",");
   const { offset, ...selection } = filters;
-  const baseKey = JSON.stringify([scope, mode, selection, ids]);
+  const baseKey = JSON.stringify([props.principal, props.admin, scope, mode, selection, ids]);
   const renderKey = JSON.stringify([baseKey, offset]);
-  const [dataKey, setDataKey] = useState("");
-  const detailKey = `${scope}/${run || ""}`;
-  const [loadedDetailKey, setLoadedDetailKey] = useState("");
-  const visible = dataKey === renderKey && state === "ready" ? page : null;
+  const currentList = lists?.key === renderKey ? lists : null;
+  const state = readState(currentList), failure = currentList?.error;
+  const detailKey = JSON.stringify([props.principal, props.admin, scope, run || "", ids]);
+  const currentDetail = detailSnapshot?.key === detailKey ? detailSnapshot : null;
+  const detailState = readState(currentDetail), detailFailure = currentDetail?.error;
+  // These synchronous gates precede effect cleanup: no old-context fallback.
+  const visible = currentList?.data?.page ?? null;
+  const activePage = currentList?.data?.activePage ?? null;
   const unreadable = visible?.unreadable_projects ?? [];
-  const visibleDetail = loadedDetailKey === detailKey && detailState === "ready" && ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? detail : null;
+  const visibleDetail = ids.split(",").includes(scope) && !["error", "incomplete", "changed"].includes(state) ? currentDetail?.data ?? null : null;
+  const canAct = currentList?.status === "ready" && currentDetail?.status === "ready" && !!project && !project.archived;
+  const actionAuthority = useRef({ canAct, detail: visibleDetail, project });
+  actionAuthority.current = { canAct, detail: visibleDetail, project };
   const consumptionProjects = [...new Set([...(visible?.items.map(job => job.project_id) ?? []), ...(visibleDetail ? [visibleDetail.project_id] : [])])].sort().join(",");
   const consumptionKey = JSON.stringify([consumptionProjects, ids, renderKey, detailKey]);
-  const [consumption, setConsumption] = useState<{ key: string; state: "loading" | "ready" | "error"; jobs: JobConsumption[] }>({ key: "", state: "loading", jobs: [] });
+  const [consumption, setConsumption] = useState<ReadSnapshot<JobConsumption[]> | null>(null);
+  const currentConsumption = consumption?.key === consumptionKey ? consumption : null;
   const statisticsText = statisticsCopy[locale];
   const consumptionView = (job: Job, full = false) => {
-    if (consumption.key !== consumptionKey || consumption.state !== "ready") return <>
-      <DataFeedback state={consumption.key === consumptionKey ? consumption.state : "loading"} t={t} />
-      {consumption.key === consumptionKey && consumption.state === "error" &&
-        <button className="ghost" onClick={() => setReload(value => value + 1)}>{copy.refreshConsumption}</button>}
+    if (!currentConsumption?.data) return <>
+      <DataFeedback state={currentConsumption?.status === "error" ? "error" : "loading"} t={t} />
+      {full && currentConsumption?.status === "error" &&
+        <button className="ghost" onClick={() => void usageOwner.current?.refresh()}>{copy.refreshConsumption}</button>}
     </>;
-    const usage = consumption.jobs.find(row => consumptionIdentity(row) === consumptionIdentity(job));
+    const usage = currentConsumption.data.find(row => consumptionIdentity(row) === consumptionIdentity(job));
     return usage ? <JobAmounts job={usage} locale={locale} admin={props.admin} t={t} compact={!full} /> : <span>{statisticsText.unavailable}</span>;
   };
   const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium" }).format(new Date(value)) : copy.unknown;
@@ -109,85 +122,80 @@ export function JobWorkspace(props: Props) {
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; commandGeneration.current += 1; }; }, []);
   useEffect(() => {
-    if (compactOverview) return;
-    let active = true, sequence = 0;
-    const fetchUsage = async () => {
-      const current = ++sequence;
-      setConsumption({ key: consumptionKey, state: "loading", jobs: [] });
-      try {
-        // Jobs show lifetime consumption only; reporting periods belong to Statistics.
+    if (compactOverview || !consumptionProjects) return;
+    const controller = createReadController<JobConsumption[]>({
+      key: consumptionKey, deadlineMs: 30000, policy: "informational", publish: setConsumption,
+      read: async signal => {
+        // Lifetime only; one validated multi-project publication, never partial amounts.
         const lifetime = { from: "", through: "", timezone: "UTC", granularity: "day" } as const;
-        const values = await Promise.all(consumptionProjects.split(",").filter(Boolean).map(async id => {
+        const values = await Promise.all(consumptionProjects.split(",").map(async id => {
           if (!ids.split(",").includes(id)) throw new ApiError("unexpected_response");
-          return readConsumption(await request(`/projects/${encodeURIComponent(id)}/usage?timezone=UTC&granularity=day`), id, lifetime, props.admin);
+          return readConsumption(await reader.current(`/projects/${encodeURIComponent(id)}/usage?timezone=UTC&granularity=day`, "GET", undefined, undefined, signal), id, lifetime, props.admin);
         }));
-        if (active && current === sequence) setConsumption({ key: consumptionKey, state: "ready", jobs: values.flatMap(value => value.jobs ?? []) });
-      } catch { if (active && current === sequence) setConsumption({ key: consumptionKey, state: "error", jobs: [] }); }
-    };
-    void fetchUsage(); const stop = startVisiblePolling(() => void fetchUsage(), 30000);
-    return () => { active = false; stop(); };
-  }, [consumptionKey, refresh, reload]);
+        return values.flatMap(value => value.jobs ?? []);
+      },
+    });
+    usageOwner.current = controller;
+    void controller.refresh(); const stop = startVisiblePolling(() => void controller.refresh(), 30000);
+    return () => { stop(); controller.dispose(); if (usageOwner.current === controller) usageOwner.current = null; };
+  }, [consumptionKey, reload]);
   useEffect(() => { commandGeneration.current += 1; setOperation(null); setOperationError(null); setCommandStatusError(false); submitLock.current = false; setSubmitting(false); }, [scope]);
 
   useEffect(() => {
-    let active = true, sequence = 0;
     if (offset > 0 && revision.current.key !== baseKey) { setFilters(current => ({ ...current, offset: 0 })); return; }
-    const fetchPage = async (background = false) => {
-      const current = ++sequence;
-      if (!compactOverview || !background) setState("loading");
-      setDataKey(renderKey); setFailure(null);
-      const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
-      if (scope) query.set("project_id", scope);
-      if (compactOverview) { query.set("overview", "true"); query.set("attention", "true"); }
-      for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group })) if (value) query.set(key, value);
-      if (mode !== "overview") { query.set("sort", filters.sort); query.set("order", filters.descending ? "desc" : "asc"); }
-      if (offset > 0) query.set("snapshot", revision.current.snapshot);
-      try {
+    let blocked = false;
+    const controller = createReadController<JobLists>({
+      key: renderKey, deadlineMs: 30000, policy: compactOverview ? "strict" : "informational",
+      publish: value => {
+        if (value.status === "ready" && value.data) revision.current = { key: baseKey, snapshot: value.data.page.snapshot };
+        if (readState(value) === "changed") blocked = true;
+        setLists(value);
+      },
+      read: async signal => {
+        const query = new URLSearchParams({ limit: String(filters.size), offset: String(offset) });
+        if (scope) query.set("project_id", scope);
+        if (compactOverview) { query.set("overview", "true"); query.set("attention", "true"); }
+        for (const [key, value] of Object.entries({ q: filters.q.trim(), status_group: filters.group })) if (value) query.set(key, value);
+        if (mode !== "overview") { query.set("sort", filters.sort); query.set("order", filters.descending ? "desc" : "asc"); }
+        if (offset > 0) query.set("snapshot", revision.current.snapshot);
         const authorized = ids.split(",").filter(id => !scope || id === scope);
-        const result = readJobPage(await request(`/jobs-page?${query}`), authorized, compactOverview);
+        const result = readJobPage(await reader.current(`/jobs-page?${query}`, "GET", undefined, undefined, signal), authorized, compactOverview);
         if (result.offset !== offset) throw new ApiError("unexpected_response");
         let activeResult: JobPage | null = null;
         if (compactOverview) {
           const activeQuery = new URLSearchParams({ overview: "true", limit: "all", offset: "0", status_group: "active" });
           if (scope) activeQuery.set("project_id", scope);
-          activeResult = readJobPage(await request(`/jobs-page?${activeQuery}`), authorized, true);
+          activeResult = readJobPage(await reader.current(`/jobs-page?${activeQuery}`, "GET", undefined, undefined, signal), authorized, true);
           if (activeResult.offset !== 0 || activeResult.items.length !== activeResult.total ||
             activeResult.items.some(row => !["working", "publishing"].includes(row.lifecycle))) throw new ApiError("unexpected_response");
           if ((result.unreadable_projects ?? []).slice().sort().join() !==
             (activeResult.unreadable_projects ?? []).slice().sort().join()) throw new ApiError("job_snapshot_changed");
         }
-        if (!active || sequence !== current) return;
-        revision.current = { key: baseKey, snapshot: result.snapshot };
-        setPage(result); setActivePage(activeResult); setState("ready");
-      } catch (cause) {
-        if (!active || sequence !== current) return;
-        setPage(null); setActivePage(null);
-        setState(cause instanceof IncompleteJobs ? "incomplete" : cause instanceof ApiError && cause.code === "job_snapshot_changed" ? "changed" : "error");
-        setFailure(normalizeFailure(cause));
-      }
-    };
-    void fetchPage();
-    const stop = startVisiblePolling(() => void fetchPage(true), 15000);
-    return () => { active = false; stop(); };
-  }, [renderKey, refresh, reload]);
+        return { page: result, activePage: activeResult };
+      },
+    });
+    // A rejected continuation requires the explicit zero-page reload, not another tick.
+    const reread = () => blocked ? Promise.resolve() : controller.refresh();
+    listOwner.current = { ...controller, refresh: reread };
+    void reread(); const stop = startVisiblePolling(() => void reread(), 15000);
+    return () => { stop(); controller.dispose(); listOwner.current = null; };
+  }, [renderKey, reload]);
 
   useEffect(() => {
-    if (!run || !scope || !ids.split(",").includes(scope)) { setDetail(null); return; }
-    let active = true, sequence = 0;
-    const fetchDetail = async () => {
-      const current = ++sequence;
-      setDetail(null); setDetailState("loading"); setDetailFailure(null); setLoadedDetailKey(detailKey);
-      try {
-        const result = readJobDetail(await request(`/jobs/${encodeURIComponent(scope)}/${encodeURIComponent(run)}`), scope, run);
-        if (active && sequence === current) { setDetail(result); setDetailState("ready"); }
-      } catch (cause) {
-        if (active && sequence === current) { setDetailState(cause instanceof IncompleteJobs ? "incomplete" : "error"); setDetailFailure(normalizeFailure(cause)); }
-      }
-    };
-    void fetchDetail();
-    const stop = startVisiblePolling(() => void fetchDetail(), 15000);
-    return () => { active = false; stop(); };
-  }, [detailKey, ids, refresh, reload]);
+    if (!run || !scope || !ids.split(",").includes(scope)) return;
+    const controller = createReadController<Job>({
+      key: detailKey, deadlineMs: 30000, policy: "informational", publish: setDetailSnapshot,
+      read: async signal => readJobDetail(await reader.current(`/jobs/${encodeURIComponent(scope)}/${encodeURIComponent(run)}`, "GET", undefined, undefined, signal), scope, run),
+    });
+    detailOwner.current = controller;
+    void controller.refresh(); const stop = startVisiblePolling(() => void controller.refresh(), 15000);
+    return () => { stop(); controller.dispose(); if (detailOwner.current === controller) detailOwner.current = null; };
+  }, [detailKey, reload]);
+
+  // Parent operation/Refresh signals revalidate owners; they are not view identities.
+  useEffect(() => {
+    void listOwner.current?.refresh(); void detailOwner.current?.refresh(); void usageOwner.current?.refresh();
+  }, [refresh]);
 
   useEffect(() => {
     let active = true;
@@ -217,7 +225,8 @@ export function JobWorkspace(props: Props) {
   }, [operation?.id, operation?.status]);
 
   const command = async (action: "retry" | "cancel" | "restart", job: Job) => {
-    if (submitLock.current || busy || !project || project.archived || !commandAllowed(job, action)) return;
+    const authority = actionAuthority.current;
+    if (submitLock.current || busy || !authority.canAct || authority.detail !== job || !authority.project || authority.project.archived || !commandAllowed(job, action)) return;
     if (action === "cancel" && !window.confirm(copy.cancelConfirm)) return;
     if (action === "restart" && !window.confirm(recoveryCopy[locale].confirm.replace("{ticket}", String(job.ticket_iid)))) return;
     submitLock.current = true; setSubmitting(true); setOperationError(null); setCommandStatusError(false);
@@ -232,7 +241,7 @@ export function JobWorkspace(props: Props) {
   };
   const feedback = (status: ReadState, cause: unknown) => status === "incomplete" || status === "changed" ?
     <section className="panel data-feedback" role="alert"><div><h2>{status === "incomplete" ? copy.incomplete : copy.changed}</h2><p>{status === "incomplete" ? copy.incompleteHelp : copy.changedHelp}</p><button className="ghost" onClick={() => { revision.current = { key: "", snapshot: "" }; setFilters(current => ({ ...current, offset: 0 })); setReload(value => value + 1); }}>{copy.reload}</button></div></section> :
-    <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause)}</p> : null}</>;
+    <><DataFeedback state={status === "loading" ? "loading" : "error"} t={t} />{cause && status !== "loading" ? <p className="muted">{describeError(locale, cause instanceof ApiError ? cause : new ApiError("unexpected_response"))}</p> : null}</>;
   const reason = (job: Job) => job.waiting.reason === "candidate_approval_requested" ? copy.approvalReason : job.waiting.reason === "draft_review_open" ? copy.reviewReason : job.waiting.reason || job.outcome || jobGuidance(locale, job.lifecycle).reason;
   const actionText = (job: Job) => job.waiting.next_action === "answer_question_on_ticket" ? copy.openQuestion : job.waiting.next_action === "review_candidate_on_ticket" ? copy.openApproval : copy.openReview;
   const actor = (job: Job) => ({ human_responder: copy.responder, human_approver: copy.approver, human_reviewer: copy.reviewer }[job.waiting.responsible_role || ""] ||
@@ -266,7 +275,9 @@ export function JobWorkspace(props: Props) {
     {operation && <div className={`notice command-result command-${operation.status}`} role="status">#{operation.id} · {copy[operation.status === "pending" ? "queued" : operation.status]}{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale)) && <p>{(operation.reason ? outcomeText(locale, operation) : operationResultText(operation.result || "", locale))}</p>}{operation.status !== "succeeded" && operation.detail && <pre className="operation-detail" tabIndex={0}>{operation.detail}</pre>}{operation.status === "pending" && <p>{t("workerQueueHelp")}</p>}{commandStatusError && <p>{copy.commandError}</p>}</div>}
     {mode !== "overview" && <section className="panel compact"><div className="job-filters job-basic-filters"><label htmlFor="job-search">{copy.search}<input id="job-search" type="search" maxLength={80} value={filters.q} onChange={event => change("q", event.target.value)} aria-describedby="job-search-help" /></label><label>{t("status")}<select value={filters.group} onChange={event => change("group", event.target.value)}><option value="">{t("all")}</option>{["active", "waiting", "review", "terminal"].map(group => <option key={group} value={group}>{group === "active" ? t("activeJobs") : group === "waiting" ? copy.waiting : group === "review" ? t("inReviewStatus") : copy.terminal}</option>)}</select></label></div><p id="job-search-help" className="field-hint">{copy.searchHelp}</p>
     </section>}
-    {run && !visibleDetail && state !== "changed" && feedback(loadedDetailKey === detailKey ? detailState : "loading", detailFailure)}
+    {!compactOverview && consumptionProjects && <div className="jobs-consumption-refresh" role="group" aria-label={copy.consumption}><h3>{copy.consumption}</h3><RefreshFeedback snapshot={currentConsumption} locale={locale} t={t} onRefresh={() => void usageOwner.current?.refresh()} /></div>}
+    {run && <div className="jobs-detail-refresh" role="group" aria-label={copy.details}><RefreshFeedback snapshot={currentDetail} locale={locale} t={t} onRefresh={() => void detailOwner.current?.refresh()} /></div>}
+    {run && !visibleDetail && state !== "changed" && feedback(detailState, detailFailure)}
     {visibleDetail && <section className="panel detail-panel" aria-label={`${t("ticket")} #${visibleDetail.ticket_iid}`}>
       <div className="panel-heading"><div><p className="eyebrow">{visibleDetail.project_display_name} · #{visibleDetail.ticket_iid}</p><h2>{visibleDetail.ticket_title || copy.titleUnknown}</h2></div><button className="ghost" onClick={onClose}>{t("close")}</button></div>
       <div className="next-action-panel"><h3>{copy.now}</h3><StatusBadge code={visibleDetail.lifecycle}>{visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}</StatusBadge><p>{visibleDetail.workflow === "direct" && visibleDetail.lifecycle === "working" ? directText.working : lifecycleExplanation(locale, visibleDetail.lifecycle)}</p><p>{directText.workflow}: <strong>{workflowText(visibleDetail)}</strong></p><p>{t("stage")}: <strong>{workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)}</strong></p>{visibleDetail.lifecycle === "parked-clarification" && visibleDetail.waiting.reason ?
@@ -276,9 +287,9 @@ export function JobWorkspace(props: Props) {
         <p className="muted">{t("lastActivity")}: {activity(visibleDetail)}</p>
       </div>
       {visibleDetail.direct && <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} />}
-      <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
+      <div className="button-row">{commandAllowed(visibleDetail, "retry") && <div><p className="field-hint">{copy.retryHelp}</p><button className="ghost" disabled={busy || !canAct} onClick={() => void command("retry", visibleDetail)}>{t("retry")}</button></div>}{commandAllowed(visibleDetail, "cancel") && <div><p className="field-hint">{copy.cancelHelp}</p><button className="danger" disabled={busy || !canAct} onClick={() => void command("cancel", visibleDetail)}>{t("cancel")}</button></div>}</div>
       {stableExecutionDrift(visibleDetail) && <p role="note">{recoveryCopy[locale].drift}</p>}
-      {commandAllowed(visibleDetail, "restart") && <div><p className="field-hint">{recoveryCopy[locale].help}</p><button className="danger" disabled={busy} onClick={() => void command("restart", visibleDetail)}>{recoveryCopy[locale].restart}</button></div>}
+      {commandAllowed(visibleDetail, "restart") && <div><p className="field-hint">{recoveryCopy[locale].help}</p><button className="danger" disabled={busy || !canAct} onClick={() => void command("restart", visibleDetail)}>{recoveryCopy[locale].restart}</button></div>}
       {visibleDetail.budget && <section className="job-budgets" aria-label={budgetCopy[locale].title}>
         <h3>{budgetCopy[locale].title}</h3>
         <dl className="action-explanation">
@@ -301,11 +312,12 @@ export function JobWorkspace(props: Props) {
     <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
+      {!compactOverview && <div className="jobs-list-refresh" role="group" aria-label={mode === "history" ? copy.history : t("jobs")}><RefreshFeedback snapshot={currentList} locale={locale} t={t} onRefresh={() => void listOwner.current?.refresh()} /></div>}
       {mode === "history" && <p className="muted">{copy.historyHelp}</p>}
       {projects.filter(item => unreadable.includes(item.id)).map(item => <p key={item.id} className="alert" role="alert">
         <strong>{item.display_name || item.name}</strong>{" · "}{describeError(locale, new ApiError("run_state_corrupt"))}
       </p>)}
-      {!visible ? feedback(dataKey === renderKey ? state : "loading", failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : unreadable.length === 0 && <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
+      {!visible ? feedback(state, failure) : <>{visible.items.length ? compactOverview ? compactTable(visible.items) : table(visible.items) : unreadable.length === 0 && <div className="empty-state" role="status">{mode === "overview" ? copy.noAttention : (selection.q.trim() || selection.group !== initialFilters(mode).group) ? t("noMatchingJobs") : t("noJobs")}</div>}{(!compactOverview || visible.total > 10) && pager}</>}
     </section>
     {compactOverview && visible && activePage && (activePage.items.length > 0 || unreadable.length === 0) && <section className="panel" aria-label={t("activeJobs")}><h2>{t("activeJobs")}</h2>{activePage.items.length ? compactTable(activePage.items) : <div className="empty-state" role="status">{copy.noActive}</div>}</section>}
 
@@ -334,10 +346,10 @@ function DirectEvidenceView({evidence, locale}: {evidence: NonNullable<Job["dire
 function ObservedTimeline({ events, workflow, date, t, unknown }: { events: NonNullable<Job["timeline"]>; workflow: Job["workflow"]; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
   const [size, setSize] = useState<number | "all">(10);
   const [offset, setOffset] = useState(0);
-  const rows = events.slice().reverse();
+  const rows = events.map((event, index) => ({ event, key: JSON.stringify([index, event.ts, event.event, event.stage]) })).reverse();
   const start = size === "all" ? 0 : Math.min(offset, Math.max(0, Math.ceil(rows.length / size) - 1) * size);
   const shown = size === "all" ? rows : rows.slice(start, start + size);
-  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? workflowStageLabel(event.stage, workflow, t) : unknown}</td></tr>)}</tbody></table></div>
+  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map(({ event, key }) => <tr key={key}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? workflowStageLabel(event.stage, workflow, t) : unknown}</td></tr>)}</tbody></table></div>
     {rows.length > 10 && <div className="table-pagination timeline-pagination"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t("all")}</option></select></label><span>{start + 1}–{start + shown.length} / {rows.length}</span><div className="button-row"><button className="ghost" disabled={!start || size === "all"} onClick={() => setOffset(start - Number(size))}>{t("previous")}</button><button className="ghost" disabled={size === "all" || start + shown.length >= rows.length} onClick={() => setOffset(start + Number(size))}>{t("next")}</button></div></div>}
   </>;
 }

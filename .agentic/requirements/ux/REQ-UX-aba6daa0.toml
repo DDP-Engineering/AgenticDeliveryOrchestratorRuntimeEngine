@@ -9,7 +9,7 @@ id = "REQ-UX-aba6daa0"
 
 title = "Keep executor output stable through parent revalidation"
 
-status = "draft"
+status = "active"
 
 requirement = """
 While the selected composite job and executor-output evidence binding remain valid, the web interface shall preserve already opened on-demand executor output through parent list/detail/consumption refresh without additional output requests or changes to its provenance, integrity and conflict handling.
@@ -19,7 +19,7 @@ verification = "Offline browser: explicitly open executor output, focus and scro
 
 affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/polling.ts"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/tests/jobs.test.mjs"]
 
 
 spec = ""

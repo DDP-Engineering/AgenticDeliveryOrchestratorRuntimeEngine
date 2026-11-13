@@ -89,6 +89,10 @@ Utilisez **Tâches** dans la barre latérale ou l’onglet **Tâches** d’un pr
 
 Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
 
+Listes et détails ouverts s’actualisent toutes les 15 secondes tant que la page est visible ; la Consommation toutes les 30 secondes. Les lectures conservent lignes, tri, filtres, taille et numéro de page, sections ouvertes et position de lecture. Utilisez les commandes **Actualiser** séparées pour les tâches, le détail et la Consommation. **Actualisé le** indique une lecture terminée et validée, pas son début.
+
+Après un échec de connexion ou un délai de lecture de 30 secondes, les anciennes informations validées peuvent rester avec un avis et **Réessayer**. Une liste ou un détail périmé ne permet pas de commandes ; un échec de consommation ne bloque pas les actions valides indépendamment. Les preuves invalides ou interdites sont masquées. Un instantané de pagination modifié exige **Recharger la première page**, sans réinitialisation silencieuse. Les mises à jour du parent ne relisent pas la sortie ouverte ; une nouvelle révision des preuves de tâche en efface toujours le lien.
+
 Le détail affiche **Que se passe-t-il maintenant**, **Qui intervient**, **Où** et **Ce qui suit**, puis la Consommation, une Chronologie (Date, Événement, Étape), des liens **Preuves et artefacts** et les **Détails techniques**. La chronologie ne liste que les événements enregistrés. Une ancienne activité ne prouve pas à elle seule que le travail s’est arrêté.
 
 ## Budgets du travail {#budgets}

@@ -359,6 +359,36 @@ which is their only scope indicator.
 remain independent of the Statistics selector. Statistics retains `/metrics`,
 existing exports and query parameters.
 
+Jobs/History list (including the Overview attention/active aggregate), detail and
+lifetime consumption each use a 30-second `createReadController` owner. The optional
+read AbortSignal reaches the shared transport. List/detail retain the 15-second
+cadence, consumption 30 seconds; context exit cancels requests and timers, and
+same-context automatic/manual/visible/parent reread triggers join owned work.
+Render keys include principal/session, role, authorized IDs, project/run and list
+query/paging context before effect cleanup. Refresh counters are triggers, not
+owner identity. Jobs/History/detail/consumption expose scoped, localized
+RefreshFeedback with non-live progress and validated completion times. Pending
+reads retain existing rows, amounts and detail. Positively typed transport/deadline
+failures retain only marked old informational evidence; malformed, incomplete,
+denied and other application failures hide affected evidence. Compact Overview
+keeps its existing closed failure policy without adding a reporting toolbar.
+A rejected continuation stops rereads until explicit Reload first page, which
+clears the snapshot/offset; an ordinary retry never silently rebases that page.
+
+Surviving composite rows, local filters/sort/page size/page, detail disclosures,
+clarification/output selection and scrolling remain mounted. Timeline keys use
+original saved position plus immutable event fields, not the reversed display
+index. Executor output stays manual and preserves the existing composite and
+state_revision remount boundary and closed diagnostic validator; unrelated title
+updates do not fetch or reset output. Current ready list AND detail plus live
+nonarchived project authority are required at render and submit for Retry/Cancel/
+Restart. Informational consumption alone is not action authority. Offline
+`e2e/jobRefresh.spec.ts` covers held and changed/unchanged reads in all three list
+scopes, failure classification, stale-action separation, deadline recovery,
+query/unmount cancellation, hidden/visible joins, output binding and narrow
+four-locale/two-theme keyboard retry. Cross-view authenticated-denial handling
+and post-mutation read invalidation remain App/operation-owner responsibilities.
+
 Loading and failed requests have separate status/error panels. Numeric
 cards and data tables render after successful scoped responses. Statistics keeps
 its complete report during same-context reads and marked transport/deadline

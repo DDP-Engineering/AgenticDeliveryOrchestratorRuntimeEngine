@@ -43,6 +43,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Keep Jobs/History rows, pages, open details, consumption and manual executor output
+  mounted during same-context background reads. Add scoped Refresh/retry, validated
+  completion times and marked older information after transport/deadline failure;
+  stale job evidence cannot enable commands and invalid evidence remains hidden.
+
 - Keep both change-evidence panels visible during manual and automatic rereads,
   preserving page, filter drafts, open evidence and focus. Add project Refresh,
   validated completion times and marked older evidence with retry after connection

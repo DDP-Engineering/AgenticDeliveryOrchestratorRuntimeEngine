@@ -974,13 +974,31 @@ The help center's **Glossary** topic (How ADORE works) defines the delivery voca
 Guided fields display essential instructions beside the control.
 Loading, an empty result and a failed request have distinct presentations.
 Failed reads normally withhold affected totals until a successful update;
-Statistics can retain a validated report with explicit stale feedback after a
-transport failure or read deadline, as described below. The header
+Statistics, Jobs/detail/consumption and change evidence can retain validated
+information with explicit stale feedback after a transport failure or read deadline,
+as described in their sections. The header
 **Refresh** and the last refresh time appear in the header on Users. Missing measurements
 remain unavailable. When the project list is empty, the card explains the next
 step for your role. Admins can select **Enroll new project** on Overview.
 
 ## Status and metrics
+
+Global and project Jobs, including project job History, refresh lists and open
+details every 15 seconds while visible; lifetime consumption refreshes every
+30 seconds. Same-context reads keep the displayed rows, sort, filters, page size,
+page and open sections. Each informational resource has its own **Refresh** or
+**Retry**, nonblocking progress and last validated completion time. Slow requests
+are coalesced and end after 30 seconds; navigating or changing context cancels them.
+An unchanged response does not collapse details or reread manual executor output.
+
+After a connection/deadline failure, previously validated information may remain
+with a stale notice and its earlier completion time. Use **Retry** to revalidate;
+stale list/detail evidence cannot enable Retry/Cancel/Restart commands. A failed
+consumption read alone does not remove independently valid job authority.
+Malformed, denied, incomplete and other application failures withhold affected
+evidence instead. Changed server paging snapshots require **Reload first page**;
+the page never silently combines different snapshots. Overview and Summary retain
+their existing closed failure presentation.
 
 Authenticated API clients can read global jobs through `GET /api/v1/jobs-page`.
 Administrators receive all current and archived project history; developers

@@ -19,7 +19,7 @@ verification = "Offline browser: activate Refresh/retry on each named informatio
 
 affected_paths = ["04_Software/web/src/polling.ts", "04_Software/web/src/statistics.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx"]
 
-linked_tests = []
+linked_tests = ["04_Software/web/e2e/jobRefresh.spec.ts", "04_Software/web/e2e/statistics.spec.ts"]
 
 
 spec = ""

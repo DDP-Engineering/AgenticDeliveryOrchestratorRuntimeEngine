@@ -32,8 +32,26 @@ Statistics retains content/export while pending; only positively typed transport
 deadline failures retain a marked stale report. Closed failures hide it. Shared
 four-locale RefreshFeedback exposes non-live progress and full/member successful
 times plus failure status/retry. CSV reads current server data, not the retained
-screen. Helper and offline Statistics browser tests cover the seam; Jobs/Users
+screen. Helper and offline Statistics browser tests cover the seam; Users
 integration and full cross-view authorization acceptance remain separate.
+
+`JobWorkspace` owns bounded list/Overview-pair, detail and lifetime-consumption
+reads through createReadController (30s deadlines; 15s list/detail and 30s usage
+cadence). Optional AbortSignal reaches the shared request transport. Principal,
+role, authorized IDs, project/run and list query/page keys synchronously withhold
+old contexts. Jobs/History/detail/consumption expose scoped RefreshFeedback;
+pending reads preserve rows/detail/amounts and only typed transport/deadline
+failures retain marked old information. Compact Overview keeps its strict failure
+policy and compact presentation. Continuation conflict stops rereads until the
+explicit zero-page reload. Current ready list/detail AND a live nonarchived project
+are required for command enablement and submission; usage is informational only.
+Surviving composite row/disclosure/pager state and revision-bound manual output
+remain mounted; saved timeline-position keys replace reversed display indexes.
+Output provenance/validator/state_revision invalidation remain unchanged.
+`web/e2e/jobRefresh.spec.ts` proves three list scopes, reading continuity, stale/
+closed failures, deadlines/recovery, hidden/visible joins and cancellation, output
+binding and four-locale/two-theme narrow retry. App's authenticated-denial,
+operation generation and cross-view action/review ownership are separate seams.
 
 `AuditHistory.tsx` uses a query-bound informational `createReadController<Page>`
 with a 10s deadline and 15s visible cadence. Manual Refresh/retry in both scopes,

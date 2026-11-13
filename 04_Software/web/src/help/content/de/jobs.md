@@ -89,6 +89,10 @@ Verwenden Sie **Aufträge** in der Seitenleiste oder den Reiter **Aufträge** ei
 
 Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
 
+Listen und offene Details werden sichtbar alle 15 Sekunden aktualisiert, Verbrauch alle 30 Sekunden. Hintergrundlesevorgänge erhalten Zeilen, Sortierung, Filter, Seitengröße, Seite, offene Abschnitte und Leseposition. Nutzen Sie die getrennten Schaltflächen **Aktualisieren** für Jobs, Details und Verbrauch. **Zuletzt aktualisiert** nennt den validierten Abschluss, nicht den Beginn einer Anfrage.
+
+Nach Verbindungsfehlern oder 30 Sekunden Lesezeitlimit können ältere geprüfte Daten mit Warnung und **Wiederholen** sichtbar bleiben. Veraltete Listen oder Details erlauben keine Befehle; ein Verbrauchsfehler blockiert nicht unabhängig gültige Jobaktionen. Ungültige oder verweigerte Nachweise werden verborgen. Ein geänderter Seiten-Snapshot verlangt **Erste Seite neu laden**, statt die Seite still zurückzusetzen. Elternaktualisierungen lesen offene Executor-Ausgaben nicht erneut; eine geänderte Jobnachweisrevision löscht weiterhin deren Bindung.
+
 Die Details zeigen **Was gerade geschieht**, **Wer handelt**, **Wo** und **Was folgt**, danach Verbrauch, einen Verlauf (Datum, Ereignis, Phase), Links unter **Nachweise und Artefakte** und **Technische Details**. Der Verlauf listet nur gespeicherte Ereignisse. Alte Aktivität allein belegt nicht, dass die Arbeit gestoppt hat.
 
 ## Jobbudgets {#budgets}
