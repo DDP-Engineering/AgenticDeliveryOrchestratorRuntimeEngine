@@ -13,7 +13,23 @@ STATED: live #15 eight criteria; current #14 scoped-metrics.md remains authorita
 
 Scope selection: Admin all authorized projects or one project; Dev one authorized project. Inclusive From/Through calendar days, an explicit All-time action, IANA zone and day/week/month grouping. Existing URL project/tab compatibility remains; selected date/zone/group serialize in the statistics URL and survive reload/Back. The server computes the canonical [from,to) interval (including DST 23/25-hour days); the browser never calculates date attribution and does not display the interval or boundary explanations.
 
-Response binding: each statistics request captures project identity, calendar/zone/group and current authorization set. Render keys hide old data immediately; effect invalidation and per-refresh sequence suppress reordered and unmounted completions. Validate required scope/job/stock/amount/sample fields and project identity before state becomes ready. Malformed/error/loading hides numeric presentations and CSV actions. Export anchors use the captured current query; server RBAC remains final authority. No client aggregate decides source filtering.
+Response binding — draft amendment for coordinated revalidation (not implemented
+by this specification-stage edit): each Statistics read captures principal/role,
+authorized immutable project set, calendar/zone/group and selected context. A true
+context change immediately hides the preceding context's data and export anchors.
+An initial pending read shows loading. A same-context pending read retains the
+committed validated report and export disclosure until a coherent replacement is
+ready. Reordered, superseded and unmounted completions cannot publish. Validate
+required scope/job/stock/amount/sample fields and immutable identity before any
+publication. Malformed, scope-mismatched, authorization, integrity and initial
+failures hide affected numeric evidence and CSV actions. A positively classified
+same-context informational transport/deadline failure may retain the last validated
+report only with stale/failed-refresh feedback, last-success time and inline retry;
+it grants no action authority. Export anchors stay bound to the selected authorized
+query, not to a claim that a later server export equals the retained report.
+Server RBAC remains final authority and no client aggregate decides filtering.
+The coordinated-generation protocol is specified in
+[REQ-DATA-d535499a](REQ-DATA-d535499a.md).
 
 Presentation: Summary shows only measure cards: started/completed/failed and known input/output/total tokens (plus Admin money); no heading, scope line, explanatory paragraphs, coverage counters or Messages. Job elapsed time (samples/mean/median) is in the Usage tab. Per-job consumption is shown only in Jobs (list column and detail) and the Job consumption CSV. Total tokens is available only when both known input/output are available; known partial subtotals keep explicit coverage. Null shows an em dash with Not available, explicit zero says measured zero, known values with missing events say partial. Unallocated observations cannot enter a period bucket. Duration sample definition is terminal summaries with valid elapsed span (waits included) whose end lies in scope, including zero; absent pairs excluded. Financial values are Admin-only, reported and estimated separately named. Launch counts never substitute for messages.
 

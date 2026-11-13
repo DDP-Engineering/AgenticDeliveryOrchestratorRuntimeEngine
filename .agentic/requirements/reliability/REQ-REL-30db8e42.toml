@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-30db8e42"
+
+title = "Isolate reporting readiness from irrelevant scope reads"
+
+status = "draft"
+
+requirement = """
+While Statistics displays a selected project, the interface shall determine that report's readiness only from reads required for that authorized project scope, independently of unrelated all-project metrics or usage reads.
+"""
+
+verification = "Offline browser as Admin: open Project Statistics and global Statistics filtered to one project; hold or fail an unrelated all-project read and resolve the selected project's valid metrics/usage, observing a ready selected report; required selected-project failure still prevents a ready replacement."
+
+affected_paths = ["04_Software/web/src/App.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-fbf7b13f"
+
+title = "Keep forge ticket and comment reads on demand"
+
+status = "draft"
+
+requirement = """
+When a global or project Tickets workspace is displayed, the interface shall fetch forge tickets and comments only on their explicit read actions, independently of automatic project metadata and queued-operation status revalidation.
+"""
+
+verification = "Offline browser: explicitly read tickets and open a comment body, hold its confirmation, advance metadata and pending-operation timers and visibility events, and count no extra ticket/comment requests; explicit read still works and unrelated updates preserve bodies and valid confirmations."
+
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/App.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

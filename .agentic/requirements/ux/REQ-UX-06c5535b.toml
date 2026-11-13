@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-06c5535b"
+
+title = "Localize refresh and freshness feedback"
+
+status = "draft"
+
+requirement = """
+Where the web interface presents Refresh, retry, refresh-in-progress, failed-refresh/stale or last-success feedback, it shall provide consistent accessible English, French, German and Romanian presentation in both light and dark themes, including narrow layouts.
+"""
+
+verification = "Offline copy/helper/browser: exercise ready, pending and failed-refresh/retry states in all four locales and both themes at desktop and 390px; assert localized control names, keyboard access, associated stale/time feedback and no overflow hiding retry; unchanged successful polling does not add repeated loading announcements."
+
+affected_paths = ["04_Software/web/src/i18n.ts", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/auditCopy.ts", "04_Software/web/src/jobCopy.ts", "04_Software/web/src/statisticsCopy.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

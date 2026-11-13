@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-d535499a"
+
+title = "Publish coherent Statistics refresh generations"
+
+status = "draft"
+
+requirement = """
+When Statistics publishes an initial or refreshed report globally or for one project, the interface shall publish metrics and usage only as a fully validated replacement from one coordinated reporting generation with matching authorized immutable project scope, period, timezone and granularity.
+"""
+
+verification = "Offline browser: exercise all four Statistics tabs in all-project, global single-project and project-hub modes with metrics-first and usage-first held completions; assert the previous report/export disclosure survives until a complete matching generation succeeds, then changes together; reject mismatched canonical intervals, project sets, malformed members, foreign identities and superseded generation completions."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/statistics.ts", "04_Software/web/src/StatisticsEvidence.tsx"]
+
+linked_tests = []
+
+
+spec = "specs/REQ-DATA-d535499a.md"
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-f3164557"
+
+title = "Require explicit reload after paging snapshot conflict"
+
+status = "draft"
+
+requirement = """
+If a server-paged jobs reread rejects the selected paging snapshot, the interface shall withhold the conflicting page, totals and dependent detail/actions behind explicit source-change feedback requiring the existing operator reload from page zero.
+"""
+
+verification = "Offline browser: select a nonfirst Jobs/History page and hold a background continuation carrying its snapshot; return job_snapshot_changed, assert source-change/reload feedback and hidden conflicting rows/detail, then click reload and observe offset zero without the rejected snapshot; unchanged snapshots preserve the page."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

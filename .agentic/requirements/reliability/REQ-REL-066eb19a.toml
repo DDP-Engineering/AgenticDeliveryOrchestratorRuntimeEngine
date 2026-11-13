@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-066eb19a"
+
+title = "Withhold incomplete job refresh results"
+
+status = "draft"
+
+requirement = """
+If a jobs web read reports incomplete evidence outside the Overview API's validated unreadable-project isolation contract, the interface shall withhold affected rows, totals and dependent detail/actions with explicit incomplete-evidence feedback and the existing reload transition.
+"""
+
+verification = "Offline browser: load complete Jobs/History/detail, then return a valid incomplete response and assert incomplete feedback, hidden totals/detail and explicit reload; a validated Overview response naming unreadable projects still displays only the remaining verified rows and warnings."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

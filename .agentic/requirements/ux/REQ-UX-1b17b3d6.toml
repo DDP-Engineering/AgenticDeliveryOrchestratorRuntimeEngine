@@ -9,17 +9,17 @@ schema = 1
 
 id = "REQ-UX-1b17b3d6"
 
-title = "Quiet Overview polling retains validated rows until result"
+title = "Retain validated snapshots while same-context web reads are pending"
 
-status = "active"
+status = "draft"
 
 requirement = """
-While Overview refreshes jobs in the background, the UI shall retain validated current-scope rows without a loading flash until the response is validated, replacing them on success and withholding them on any failed, malformed or unauthorized result.
+While an automatic, manual or operation-triggered same-context web reread is pending with a validated displayed snapshot, the interface shall retain that content in Statistics, Jobs/History/detail/consumption, audit, Users, Overview/Summary, Projects, clean Settings, Access and System status rather than replacing it with an initial-loading panel.
 """
 
-verification = "Offline jobs browser journeys check header/context geometry, navigation resets and scoped deep links, held background request visibility and malformed polling fail-closed behavior."
+verification = "Offline browser: hold each affected read after a valid success, trigger its normal timer or explicit Refresh and assert mounted content remains; cover all four global/project Statistics tabs and Users manual rereads; first/context reads still show initial loading and rejected completed reads use their error boundary rather than remaining current."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/DashboardShell.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/jobs.spec.ts", "04_Software/adore/web/static/"]
 
 linked_tests = ["04_Software/web/e2e/jobs.spec.ts"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-10-06
-updated = 2026-10-06
+updated = 2026-11-13

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-6d0b0125"
+
+title = "Invalidate reviews when underlying authority changes"
+
+status = "draft"
+
+requirement = """
+If a web refresh establishes that a pending review's account/project identity, grant, disabled/archive state, configuration/candidate revision or action precondition has changed, the interface shall invalidate that review's submission authority until the operator obtains a valid current review.
+"""
+
+verification = "Offline browser: open access, account, Settings and ticket/job action reviews, change their relevant authority in the next validated read, and assert the old review cannot send a mutation; an unchanged relevant read preserves the review, and a delayed older read cannot restore invalidated authority."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/JobWorkspace.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

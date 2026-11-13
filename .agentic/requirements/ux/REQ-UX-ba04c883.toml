@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-ba04c883"
+
+title = "Mark retained informational snapshots after transport failure"
+
+status = "draft"
+
+requirement = """
+If a same-context Statistics, jobs, job-detail, job-consumption or audit informational read fails with a positively classified transient transport failure or read deadline after a validated success, the interface shall retain that snapshot as explicitly stale information with concise failed-refresh feedback, its last successful update time and an inline retry action.
+"""
+
+verification = "Offline browser: load each informational resource, abort transport or expire a held read, and observe retained data with failed-refresh/stale text, unchanged last-success time and inline retry; initial failure has no retained data, and typed authorization, corruption, incomplete or snapshot errors do not enter this stale-retention path."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/Presentation.tsx", "04_Software/web/src/errors.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

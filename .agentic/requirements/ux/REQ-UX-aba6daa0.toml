@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-aba6daa0"
+
+title = "Keep executor output stable through parent revalidation"
+
+status = "draft"
+
+requirement = """
+While the selected composite job and executor-output evidence binding remain valid, the web interface shall preserve already opened on-demand executor output through parent list/detail/consumption refresh without additional output requests or changes to its provenance, integrity and conflict handling.
+"""
+
+verification = "Offline browser: explicitly open executor output, focus and scroll its literal text, then hold/resolve unchanged and unrelated changed parent reads; assert the snapshot remains and no extra output request occurs; changing job or invalidating the existing output binding uses its established unavailable/conflict behavior, never an unverified output fallback."
+
+affected_paths = ["04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/jobModel.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

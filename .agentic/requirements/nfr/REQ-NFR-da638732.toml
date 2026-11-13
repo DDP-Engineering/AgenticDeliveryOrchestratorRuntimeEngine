@@ -11,13 +11,13 @@ id = "REQ-NFR-da638732"
 
 title = "Pause background refresh while the page is hidden"
 
-status = "active"
+status = "draft"
 
 requirement = """
-While the ADORE web page is hidden in the browser, the interface shall send no periodic refresh requests, and when the page becomes visible again it shall refresh the current view immediately and resume its normal refresh interval.
+While the ADORE web page is hidden in the browser, the interface shall send no periodic refresh requests.
 """
 
-verification = "Automated: a unit test of the pure visibility-aware polling helper with a fake clock and document verifies no callback while hidden, one immediate callback on becoming visible and the resumed interval. Manual: in Chrome, open Overview with DevTools network logging, hide the tab for 60 seconds and confirm no API requests, then show it and confirm an immediate refresh."
+verification = "Offline fake-clock helper and browser: hide a loaded polling view and advance several normal intervals while counting requests, asserting no periodic reads begin; an already-owned in-flight request may settle, and visible return is tested separately from hidden suppression."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/styles.css", "04_Software/web/src/i18n.ts", "04_Software/adore/web/static/", "04_Software/web/src/polling.ts", "04_Software/web/tests/"]
 
@@ -30,4 +30,4 @@ priority = "normal"   # low | normal | high
 rationale = "Idle background tabs should not load the ADORE host."        # why this behavior exists, if not obvious
 
 created = 2026-10-03
-updated = 2026-10-03
+updated = 2026-11-13

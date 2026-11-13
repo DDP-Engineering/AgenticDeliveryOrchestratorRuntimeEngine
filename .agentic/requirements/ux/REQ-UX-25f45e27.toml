@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-25f45e27"
+
+title = "Offer non-destructive informational Refresh and retry"
+
+status = "draft"
+
+requirement = """
+While global/project Statistics, Jobs, project job History, job detail or consumption is displayed, the interface shall offer a localized Refresh/retry control invoking the same non-destructive, coalesced current-context read path as automatic revalidation rather than remounting the view.
+"""
+
+verification = "Offline browser: activate Refresh/retry on each named informational view with a held response and existing data; assert controls, rows, disclosures and focus survive and repeated clicks share bounded reads; retry initial failure through the same control, and verify corrupt/auth failures remain withheld."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/Presentation.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

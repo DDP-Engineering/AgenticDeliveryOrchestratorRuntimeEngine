@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-12a357a9"
+
+title = "Keep authority-bearing reads fail closed"
+
+status = "draft"
+
+requirement = """
+If an authority-bearing Users, Access, configuration, approval or operational-action read fails, the web interface shall withhold affected authority-bearing evidence and dependent mutation controls behind explicit error or unavailable feedback rather than reuse previous data as current authority.
+"""
+
+verification = "Offline browser: fail initial, manual and post-mutation Users/Access/configuration reads with transport, typed server and malformed errors; assert explicit failure and withheld affected evidence/dependent actions rather than stale-enabled grants/approvals; pending reads and independent informational consumption errors do not blanket-clear unrelated valid drafts."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/errors.ts"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

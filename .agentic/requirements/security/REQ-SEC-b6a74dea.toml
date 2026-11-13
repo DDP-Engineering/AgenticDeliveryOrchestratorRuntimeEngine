@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-SEC-b6a74dea"
+
+title = "Keep retained informational evidence separate from action authority"
+
+status = "draft"
+
+requirement = """
+While a web snapshot is retained after informational refresh failure, the interface shall treat it as non-authoritative for enabling, confirming or submitting privileged or operational mutations that depend on that evidence.
+"""
+
+verification = "Offline browser: retain a failed-refresh job detail that formerly offered Retry/Cancel/Restart and attempt keyboard/pointer activation; assert no evidence-dependent mutation is enabled or submitted until current authority is revalidated; unrelated informational consumption failure does not invent or invalidate independent server-owned authority."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-0bd9d921"
+
+title = "Transition explicitly when a displayed identity disappears"
+
+status = "draft"
+
+requirement = """
+When a validated web refresh establishes that a displayed project, account, job or row no longer exists in the selected context, the interface shall use an explicit unavailable, removed-item or existing safe navigation transition rather than retaining the vanished identity as current or substituting a different identity beneath its heading.
+"""
+
+verification = "Offline browser: remove a selected project/job/account or an expanded audit row from a validated reread and assert no orphaned detail/action remains under its old heading; archive a project and observe archived history with action restrictions rather than treating archive as deletion; unchanged identities preserve their view state."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13

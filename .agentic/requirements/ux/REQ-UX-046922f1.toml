@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-UX-046922f1"
+
+title = "Preserve same-context view controls"
+
+status = "draft"
+
+requirement = """
+While the authorized context and underlying items remain valid through automatic, explicit or operation-completion web revalidation, the interface shall preserve selected tabs, applied and draft filters, sort, page size and valid page, open job, expanded sections and export disclosure.
+"""
+
+verification = "Offline browser: choose nondefault Usage and Jobs/History pagination and sort, open export/detail/timeline/audit sections and audit filter drafts, then hold and resolve unchanged and changed same-context reads including operation completion; assert controls and disclosures persist; change actual context or remove the owning item and verify old state is not transplanted into a different identity."
+
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/AuditHistory.tsx", "04_Software/web/src/TicketWorkspace.tsx"]
+
+linked_tests = []
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-13
+updated = 2026-11-13
