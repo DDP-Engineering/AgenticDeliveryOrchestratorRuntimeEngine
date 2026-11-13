@@ -149,7 +149,13 @@ a restored identity cannot resurrect its old body. Archive alone can retain read
 bodies, but invalidates command/review authority until an explicit successful read.
 Start/Retry/Stop recheck current row, project and authority at submission. An unchanged
 review remains valid; changed authority latches it invalid with localized correction
-feedback, even after restore. Read tickets obtains a fresh action snapshot; it never
+feedback, even after restore. Pickup state has a separate monotonic Start epoch:
+a detected pause/resume invalidates the prior Start snapshot/review, including if
+the old state returns. Both render and submit require the current Start epoch and
+matching live pickup state. Captured in-flight ticket reads cannot acquire a newer
+epoch on completion. Stop authority/reviews, readable bodies and operation tracking
+remain independent of pickup changes. Read tickets obtains a fresh action snapshot;
+a fresh eligible manual Start still works while monitoring stays paused. It never
 runs automatically in response to metadata, operation or visibility updates.
 
 Explicit ticket/comment reads use strict 30s read owners with cancellation on context
@@ -237,7 +243,11 @@ Matching canonical scope fields (excluding each member's separately validated
 project identity) are checked across every project and both resource maps before
 publication. Metrics and usage pooled results are computed inside that same owned
 validation boundary and stored on the report; rendering never repeats aggregate
-work. Cross-project interval disagreement or aggregate failure withholds the report,
+work. Validation checks safe-integer token directions and known input-plus-output
+totals for raw and pooled period/total/day evidence, usage/cache buckets and job
+amounts before publication. A missing direction keeps the combined total unknown;
+known overflow is invalid, not an unknown or approximate number. Cross-project
+interval disagreement or aggregate failure withholds the report,
 exports and success time with explicit error/Retry, rather than throwing in render. App uses this owner for both global and
 project Statistics. Its render key captures the session principal/role, authorized
 immutable ID/name mapping, selected/all-project mode and reporting query; tab,

@@ -44,8 +44,9 @@ This project follows Keep a Changelog and Semantic Versioning.
 ### Fixed
 
 - Validate common reporting boundaries across all projects and pooled Statistics
-  before publication; invalid aggregates show error/Retry, never a rendering crash
-  or false success time. Latch Settings confirmations invalid after detected project
+  before publication, including exact safe-integer token directions and combined
+  totals in pooled reports and job consumption; invalid aggregates show error/Retry,
+  never a rendering crash or false success time. Latch Settings confirmations invalid after detected project
   rename/archive/monitoring changes, including reverts and in-flight preview/pending
   responses; keep unchanged reviews and drafts, and require a fresh review to save.
 
@@ -61,7 +62,9 @@ This project follows Keep a Changelog and Semantic Versioning.
   Observed results revalidate shared project metadata without rereading forge
   tickets/comments or interrupting open bodies and controls. Preserve unchanged
   ticket confirmations, invalidate changed project authority until an explicit
-  reread, and prune removed identities. Bound/cancel explicit list/comment reads
+  reread, and prune removed identities. Monitoring pause/resume invalidates old Start
+  reviews even after a revert; independent Stop reviews remain valid and a fresh
+  eligible manual Start still works while paused. Bound/cancel explicit list/comment reads
   and ignore obsolete action responses without claiming server rollback.
 
 - Preserve Project Access reviews/focus and Settings groups through background and

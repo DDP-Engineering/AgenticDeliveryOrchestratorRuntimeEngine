@@ -50,8 +50,11 @@ usage are computed within owned validation and stored in the committed report;
 rendering does not perform potentially throwing aggregate work. Individually valid
 members with inconsistent cross-project intervals or overflowing pooled amounts
 fail closed with error/Retry, no report/exports or new success time, and no render
-exception. All members and pooled results validate before any replacement becomes
-visible. The configured scope and role also bind CSV links; server authorization
+exception. Token validation includes safe-integer directions and known combined
+input/output totals before publication, for raw and pooled period/total/day evidence,
+usage/cache buckets and job amounts. Known overflow fails closed; a missing direction
+keeps the combined total unknown. All members and pooled results validate before
+any replacement becomes visible. The configured scope and role also bind CSV links; server authorization
 remains authoritative.
 
 A principal/role/grant, project identity or reporting-query change invalidates

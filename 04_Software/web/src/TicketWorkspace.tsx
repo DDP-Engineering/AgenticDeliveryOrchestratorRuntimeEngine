@@ -32,7 +32,7 @@ type StopResult = { cancel_operation_id: number | null; ready_label: "removed" |
 /** A notice follows one queued operation; `labels` are those its Start added to the ticket. */
 type Notice = { projectId: string; authority: number; lines: string[]; operation?: Operation; labels?: string[] };
 type CommentState = { state: "loading" } | { state: "ready"; comments: Comment[] } | { state: "error"; error: unknown };
-type Project = { id: string; name: string; display_name?: string; archived: boolean };
+type Project = { id: string; name: string; display_name?: string; archived: boolean; paused: boolean };
 type Props = {
   /** One project in the hub or for a selected scope; every authorized project for All projects. */
   projects: Project[]; principal: string; showProject?: boolean; locale: Locale; csrf: string; request: Request;
@@ -44,8 +44,8 @@ type Props = {
 type Row = { key: string; project: Project; list: TicketList; ticket: Ticket };
 type StartRequest = { row: Row; addsReady: boolean; needsPriority: boolean };
 /** One principal/project authority owns read and response lifetimes. */
-type ProjectOwner = { binding: string; epoch: number; reads: Set<ReadController>; writes: Set<AbortController> };
-type TicketSnapshot = { project: Project; list: TicketList; principal: string; authority: number };
+type ProjectOwner = { binding: string; epoch: number; paused: boolean; startEpoch: number; reads: Set<ReadController>; writes: Set<AbortController> };
+type TicketSnapshot = { project: Project; list: TicketList; principal: string; authority: number; startAuthority: number };
 
 const FINISHED = ["done", "failed", "cancelled", "handed-off", "handoff-pending"];
 const REASONS = ["epic", "not_open", "missing_ready_label", "held", "excluded", "has_job", "missing_priority_label", "missing_acceptance_criteria"];
@@ -149,7 +149,7 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
   const valid = (projectId: string, owner: ProjectOwner) => mounted.current && currentOwner(projectId) === owner;
   const visibleLists = (lists ?? []).filter(item => item.principal === principal && projects.some(project => project.id === item.project.id && project.name === item.project.name));
   const notice = noticeValue && currentOwner(noticeValue.projectId)?.epoch === noticeValue.authority ? noticeValue : null;
-  const scope = JSON.stringify([principal, csrf, projects.map(project => [project.id, project.name, project.archived]).sort()]);
+  const scope = JSON.stringify([principal, csrf, projects.map(project => [project.id, project.name, project.archived, project.paused]).sort()]);
   useLayoutEffect(() => {
     for (const [id, owner] of owners.current) {
       if (currentOwner(id) === owner) continue;
@@ -158,7 +158,14 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
       if (writing.current === owner) { writing.current = null; setBusy(false); }
     }
     projects.forEach(project => {
-      if (!owners.current.has(project.id)) owners.current.set(project.id, { binding: binding(project), epoch: ++epoch.current, reads: new Set(), writes: new Set() });
+      const owner = owners.current.get(project.id);
+      if (!owner) owners.current.set(project.id, { binding: binding(project), epoch: ++epoch.current, paused: project.paused,
+        startEpoch: ++epoch.current, reads: new Set(), writes: new Set() });
+      else if (owner.paused !== project.paused) {
+        // Pickup changes invalidate Start snapshots monotonically, not Stop,
+        // readable bodies or operation tracking. A revert cannot revive a review.
+        owner.paused = project.paused; owner.startEpoch = ++epoch.current;
+      }
     });
     // Permanently prune removed identities. Archive alone retains readable bodies
     // but its changed authority cannot restore a previously invalidated review.
@@ -211,9 +218,9 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
     const batch = ++readBatch.current;
     owners.current.forEach(owner => owner.reads.forEach(reader => reader.dispose()));
     commentReads.current.clear();
-    const captured = projects.flatMap(project => { const owner = currentOwner(project.id); return owner ? [{ project, owner }] : []; });
+    const captured = projects.flatMap(project => { const owner = currentOwner(project.id); return owner ? [{ project, owner, startAuthority: owner.startEpoch }] : []; });
     setReading(true); setScopeRemoved(false); setReadErrors([]); setStarting(null); setConfirm(null);
-    const results = await Promise.allSettled(captured.map(async ({ project, owner }) => ({ project, principal, authority: owner.epoch, list: await readOwned(project, owner, `${base(project)}/tickets`, readTicketList) })));
+    const results = await Promise.allSettled(captured.map(async ({ project, owner, startAuthority }) => ({ project, principal, authority: owner.epoch, startAuthority, list: await readOwned(project, owner, `${base(project)}/tickets`, readTicketList) })));
     if (mounted.current && batch === readBatch.current) {
       setLists(results.flatMap((result, index) => result.status === "fulfilled" && valid(captured[index].project.id, captured[index].owner) ? [result.value] : []));
       setReadErrors(results.flatMap((result, index) => result.status === "rejected" && valid(captured[index].project.id, captured[index].owner) ? [{ project: captured[index].project, error: result.reason, principal }] : []));
@@ -234,6 +241,9 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
   const liveRow = (row: Row) => rows.some(item => item.key === row.key && item.ticket === row.ticket);
   const canAct = (row: Row) => liveRow(row) && visibleLists.some(item => item.list === row.list && item.authority === currentOwner(row.project.id)?.epoch) && !live.current.projects.find(project => project.id === row.project.id)?.archived;
   const reviewValid = (row: Row) => canAct(row) && currentOwner(row.project.id)?.epoch === reviewEpoch;
+  const canStart = (row: Row) => canAct(row) && visibleLists.some(item => item.list === row.list &&
+    item.startAuthority === currentOwner(row.project.id)?.startEpoch && item.project.paused === live.current.projects.find(project => project.id === row.project.id)?.paused);
+  const startReviewValid = (row: Row) => reviewValid(row) && canStart(row);
   const toggle = async (row: Row) => {
     const owner = currentOwner(row.project.id), batch = readBatch.current;
     if (!owner || !liveRow(row)) return;
@@ -263,7 +273,7 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
   };
   // Start adds missing ready/priority labels server-side; a label change is confirmed first.
   const start = async (row: Row, chosen = "") => {
-    if (!row.ticket.can_start || (starting?.row.key === row.key && !reviewValid(row)) || (chosen && !row.list.priority_labels.includes(chosen))) return;
+    if (!canStart(row) || !row.ticket.can_start || (starting?.row.key === row.key && !startReviewValid(row)) || (chosen && !row.list.priority_labels.includes(chosen))) return;
     const write = beginWrite(row); if (!write) return;
     const { owner, controller } = write, iid = row.ticket.iid;
     setStarting(null);
@@ -282,7 +292,7 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
     } finally { finishWrite(write); }
   };
   const requestStart = (row: Row) => {
-    if (!canAct(row) || !row.ticket.can_start || writing.current || operationPending) return;
+    if (!canStart(row) || !row.ticket.can_start || writing.current || operationPending) return;
     setConfirm(null); setReviewEpoch(currentOwner(row.project.id)!.epoch);
     if (!row.ticket.adds_ready_label && !row.ticket.needs_priority) { void start(row); return; }
     setPriority(row.list.priority_labels.at(-1) ?? "");
@@ -375,7 +385,7 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
       {scopeRemoved && <p className="notice" role="status">{describeError(locale, new ApiError("project_not_found"))}</p>}
       {readErrors.filter(item => item.principal === principal && projects.some(project => project.id === item.project.id && project.name === item.project.name)).map(({ project, error }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{describeError(locale, error)}</p>)}
       {actionError !== null && currentOwner(actionError.project.id)?.epoch === actionError.authority && <p className="alert" role="alert">{showProject ? `${projectName(actionError.project)}: ` : ""}{pickupPaused(actionError.error) ? copy.pickupStopped : describeError(locale, actionError.error)}</p>}
-      {!starting && !confirm && visibleLists.filter(item => item.authority !== currentOwner(item.project.id)?.epoch).map(({ project }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.reviewChanged}</p>)}
+      {!starting && !confirm && visibleLists.filter(item => item.authority !== currentOwner(item.project.id)?.epoch || item.startAuthority !== currentOwner(item.project.id)?.startEpoch).map(({ project }) => <p className="alert" role="alert" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.reviewChanged}</p>)}
       {pausedLists.map(({ project }) => <p className="notice ticket-pickup-stopped" role="status" key={project.id}>{showProject ? `${projectName(project)}: ` : ""}{copy.pickupStopped}</p>)}
       {notice && <div className="notice ticket-notice" role="status">{notice.lines.map(line => <p key={line}>{line}</p>)}
         {notice.operation && <p className="muted">#{notice.operation.id} · {copy.operation[notice.operation.status]}{(notice.operation.reason ? outcomeText(locale, notice.operation) : operationResultText(notice.operation.result || "", locale)) ? ` · ${(notice.operation.reason ? outcomeText(locale, notice.operation) : operationResultText(notice.operation.result || "", locale))}` : ""}</p>}
@@ -406,7 +416,7 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
               <td><div className="button-row ticket-actions">
                 {ticket.job?.lifecycle === "failed"
                   ? <button className="primary" type="button" disabled={busy || operationPending || reading || !canAct(row) || queued.includes(row.key)} onClick={() => void retry(row)}>{copy.retry}</button>
-                  : <button className="primary" type="button" disabled={busy || operationPending || reading || !canAct(row) || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
+                  : <button className="primary" type="button" disabled={busy || operationPending || reading || !canStart(row) || !ticket.can_start || queued.includes(row.key)} onClick={() => requestStart(row)}>{copy.start}</button>}
                 <button className="ghost" type="button" disabled={busy || operationPending || reading || !canAct(row) || !stoppable(row)} onClick={() => { if (!canAct(row)) return; setReviewEpoch(currentOwner(row.project.id)!.epoch); setStarting(null); setConfirm(row); }}>{copy.stop}</button>
                 <button className="ghost" type="button" aria-expanded={open} aria-controls={detailId} onClick={() => void toggle(row)}>{open ? copy.hide : copy.details}</button>
               </div></td>
@@ -415,8 +425,8 @@ export function TicketWorkspace({ projects, principal, showProject = false, loca
             {starting?.row.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-start-confirm" role="alertdialog" aria-label={copy.startTicket}>
               <p>{named(row, fill(copy.startConfirm, { iid: ticket.iid, labels: [...(starting.addsReady ? [row.list.ready_label] : []), ...(starting.needsPriority && priority ? [priority] : [])].join(", ") }))}</p>
               {starting.needsPriority && <label>{copy.priority}<select aria-label={copy.priority} value={priority} onChange={event => setPriority(event.target.value)}>{row.list.priority_labels.map(label => <option key={label} value={label}>{label}</option>)}</select></label>}
-              {!reviewValid(row) && <p className="alert" role="alert">{copy.reviewChanged}</p>}
-              <div className="button-row"><button className="primary" type="button" disabled={busy || operationPending || !reviewValid(row) || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
+              {!startReviewValid(row) && <p className="alert" role="alert">{copy.reviewChanged}</p>}
+              <div className="button-row"><button className="primary" type="button" disabled={busy || operationPending || !startReviewValid(row) || starting.needsPriority && !priority} onClick={() => void start(row, starting.needsPriority ? priority : "")}>{copy.startTicket}</button><button className="ghost" type="button" onClick={() => setStarting(null)}>{copy.keep}</button></div>
             </div></td></tr>}
             {confirm?.key === row.key && <tr className="ticket-confirm-row"><td colSpan={columns}><div className="ticket-stop-confirm" role="alertdialog" aria-label={copy.stopTicket}>
               <p>{named(row, fill(copy.stopConfirm, { iid: ticket.iid, label: row.list.ready_label }))}</p>

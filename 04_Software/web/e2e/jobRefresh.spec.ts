@@ -30,6 +30,7 @@ const alphaId = async (page: Page): Promise<string> =>
 for (const resource of ["list", "detail", "usage"]) {
   test(`Jobs ${resource} failures distinguish stale information from authority and invalid evidence`, async ({ page }) => {
     await page.clock.install();
+    const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
     const id = await alphaId(page);
     let failure = "initial";
     const pattern = resource === "list" ? "**/api/v1/jobs-page?*" : resource === "detail" ? "**/api/v1/jobs/*/ux-working" : "**/api/v1/projects/*/usage?*";
@@ -38,6 +39,12 @@ for (const resource of ["list", "detail", "usage"]) {
       if (failure === "denied") return route.fulfill({ status: 403, json: { detail: { code: "forbidden" } } });
       if (failure === "application") return route.fulfill({ status: 503, json: { detail: { code: "arbitrary_failure" } } });
       if (failure === "malformed") return route.fulfill({ status: 200, contentType: "application/json", body: "{" });
+      if (failure === "token total") {
+        const value = await (await route.fetch()).json();
+        const job = value.jobs.find((item: { run_id: string }) => item.run_id === "ux-working");
+        expect(job).toBeTruthy(); Object.assign(job.lifetime, { tokens_in: 5e15, tokens_out: 5e15 });
+        return route.fulfill({ json: value });
+      }
       return route.continue();
     });
     await page.goto(`/jobs?project=${id}&run=ux-working`);
@@ -67,11 +74,11 @@ for (const resource of ["list", "detail", "usage"]) {
     }
     failure = ""; await feedback.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(feedback.getByRole("status")).toHaveCount(0); await expect(cancel).toBeEnabled();
-    for (const invalid of ["malformed", "application"]) {
+    for (const invalid of ["malformed", "application", ...(resource === "usage" ? ["token total"] : [])]) {
       failure = invalid; await feedback.getByRole("button", { name: "Refresh", exact: true }).click();
       await expect(feedback.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
       await expect(evidence).toHaveCount(0); await expect(feedback.locator("time")).toHaveCount(0);
-      await expect(feedback.getByRole("status")).toHaveCount(0);
+      await expect(feedback.getByRole("status")).toHaveCount(0); expect(errors).toEqual([]);
       failure = ""; await feedback.getByRole("button", { name: "Retry", exact: true }).click();
       await expect(evidence).toBeVisible();
     }

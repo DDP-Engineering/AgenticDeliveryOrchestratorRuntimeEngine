@@ -122,7 +122,7 @@ for (const scope of ["global", "project"] as const) test(`Statistics ${scope} ca
   } finally { held.resolve(); }
 });
 
-for (const failure of ["canonical interval", "metrics aggregate", "usage aggregate"] as const) test(`Statistics global ${failure} fails closed before rendering and recovers`, async ({ page }) => {
+for (const failure of ["canonical interval", "metrics aggregate", "usage aggregate", "metrics token direction", "metrics token total", "usage token direction", "usage token total"] as const) test(`Statistics global ${failure} fails closed before rendering and recovers`, async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   let corrupt = false;
@@ -136,6 +136,13 @@ for (const failure of ["canonical interval", "metrics aggregate", "usage aggrega
         value.scope.from = new Date(Date.parse(value.scope.from) + 3600000).toISOString();
         value.scope.to = new Date(Date.parse(value.scope.to) + 3600000).toISOString();
         if (value.period) Object.assign(value.period, { from: value.scope.from, to: value.scope.to });
+      } else if (failure.includes("token")) {
+        if (route.request().url().includes(failure.startsWith("metrics") ? "/metrics?" : "/usage?")) {
+          for (const value of entries) Object.assign(failure.startsWith("metrics") ? value.period! : value.totals, {
+            tokens_in: failure.endsWith("total") ? 3e15 : 5e15,
+            tokens_out: failure.endsWith("total") ? 3e15 : 0,
+          });
+        }
       } else if (route.request().url().includes(failure === "metrics aggregate" ? "/metrics?" : "/usage?")) {
         for (const value of entries) value.totals[failure === "metrics aggregate" ? "cost_usd" : "reported_cost_usd"] = 1e308;
       }

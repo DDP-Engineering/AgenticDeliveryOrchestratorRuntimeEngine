@@ -7,7 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 
 # TASK-5b9207ee - Keep automatic page refresh unobtrusive and preserve view state across the web interface
 
-stage: build
+stage: validate
 type: feature
 path: full
 interaction: autopilot
@@ -23,14 +23,16 @@ end each session with `advance` or `pause`.
 
 ## Done checklist (current stage)
 
-- [ ] each automated increment has a red line before its implementation and a
-      green line after; each manual one a logged observation
-- [ ] anchor recorded before implementation; evolution reviewed after
-- [ ] focused tests green, with the command and its scope logged
-- [ ] `affected_paths`, `linked_tests` and `status = "active"` current on every
-      requirement, or `retired` with its reason
-- [ ] affected docstrings, usage examples and setup instructions updated
-- [ ] `check` clean, or each remaining warning explained in the Log
+- [ ] diff reviewed against scope, requirements, design, error paths,
+      portability, security and unrequested work
+- [ ] knowledge pages of changed components current with the reviewed code
+- [ ] project and environment context reconciled with the candidate
+- [ ] requirements re-read: status, prose, verification, paths and links true
+- [ ] manual or inspection verification recorded where applicable
+- [ ] explicit review approved, when enabled
+- [ ] final `check --strict --run` result logged truthfully after the last edit
+- [ ] remaining warnings and pre-existing failures explained
+- [ ] `report` appended
 
 ## Frame
 
@@ -577,6 +579,33 @@ theme cases pass. These are focused build results, not a complete strict suite o
 independent approval. Return for round-2 reviews, reconciliation, final strict
 proof/report and task closure in validate; this session does not begin that stage.
 
+### Round-2 review corrections
+
+The returned build also corrects both round-2 findings. Statistics validates raw
+and pooled token directions as safe integers and checks known combined totals
+inside owned validation, before any ready publication or successful completion
+time. Coverage includes totals, period/day buckets, usage/cache and job amounts;
+a missing direction still means an unknown combined total. Individually valid
+two-project direction/combined overflow fails closed with error/Retry, no report,
+exports, success stamp or pageerror, followed by valid recovery.
+
+Ticket Start snapshots/reviews capture a separate monotonic pickup authority.
+Detected pause/resume invalidates prior Start authority even after a revert;
+only an explicit ticket reread and fresh review restores it. Unchanged reviews,
+open bodies/focus, independent Stop and eligible manual Start while monitoring
+is paused remain valid. This does not add forge polling or bind operation/body
+ownership to pickup changes. User/component documentation, four-locale Tickets
+help, existing localized release entries and scoped traceability are updated.
+
+Focused build proof passes 62 helper/help/request tests and 99 integrated offline
+Chromium cases across reporting, Statistics, Jobs, Tickets and Settings refresh.
+The inherited old-account preference fixture now asserts sign-out cancellation
+before releasing its obsolete route, retaining the no-next-account-effect oracle;
+no product session behavior was changed to satisfy the fixture. Production assets
+are rebuilt and fingerprint-audited before advance. Full strict proof, fresh
+independent round-3 reviews and task closure remain validate-stage work, not a
+claim made by this build session.
+
 ## Log
 
 - 2026-11-13 frame: journal opened
@@ -751,19 +780,30 @@ proof/report and task closure in validate; this session does not begin that stag
 - 2026-11-13 validate: validate reconciliation: updated existing web-interface knowledge change map/requirement seams and current project/environment context for owned reads, informational-vs-authority policy, coordinated reporting and offline fixture boundaries; corrected component/knowledge JSON-scope wording so RawConfiguration explicit raw-TOML preview/download is not falsely claimed to use App's request scope. Reviewed refreshed evolution (70 non-agentic changed paths): same frontend/docs/help/release/assets scope, no new component/backend/storage contract. git diff --check passed; release-notes checker since task base passed earlier this session. Advisory check: 0 errors, 61 warnings/28 notes including incomplete review, pre-existing stale links/journals/manual checks, generated/test password literals and requirement path coverage heuristics; none waives the reproduced implementation defect. Final strict proof/report intentionally not run because review requires return to build.
 - 2026-11-13 validate: validate round 2 independent reviews: specification=changes_required (pooled combined token overflow); implementation_quality=changes_required (pooled direction/combined safe-integer overflow plus ticket Start review surviving pickup pause). Quality reviewer ran 38 focused reporting/polling/request tests successfully and reproduced both findings in offline Chromium; spec reviewer ran 3 focused existing reporting tests successfully. Parent independently confirmed token publication failure and ticket failure via PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright node /tmp/task77-quality-round2/repro.mjs exit 0: confirmation enabled before/after detected paused=true, zero correction alerts, one POST from the invalid review. TicketWorkspace.tsx Project/binding/scope/canAct omit paused; App retains the same component key on this metadata change. Violates REQ-SEC-6d0b0125. Build must bind Start eligibility/review to live pickup state and latch invalidation across pause/resume while preserving independent Stop authority; add unchanged-control and pause/resume no-write regressions. Reporting correction must cover both pooled-direction overflow and individually safe directions whose combined total is unsafe, with closed error/Retry, no success publication/render exception and valid recovery. Both reviewers accepted the Settings round-1 correction and canonical/monetary reporting fixes. Context/documentation-only reconciliation does not resolve either blocker. No final strict proof/report, product patch, commit, push or forge access performed; route back to build and stop.
 - 2026-11-13 validate: returned to build - Round-2 independent reviews require corrections: reject pooled token safe-integer/combined-total overflow before ready publication; invalidate ticket Start review on detected pickup pause, including pause/resume.
+- 2026-11-13 build: Round-2 correction build bounds: 45 minutes, at most 24 ticket-scoped paths and 12 focused verification commands. Fix only recorded pooled-token validation and ticket pickup-review authority findings; preserve manual Start while monitoring is paused and independent Stop authority, existing anchor/review round and all prior history. Fresh Node 22.23.4, locked dependencies, matching image Chromium and machine-id verified; no provisioning required.
+- 2026-11-13 build: red: cd 04_Software/web && node --test tests/statistics.test.mjs exit 1 (16 pass/2 new failures: pooled safe-integer tokens publish ready; combined job/usage totals pass validation). npm run build:e2e && playwright reportingRefresh/ticketRefresh --grep token-direction/total-or-pickup-changes exit 1 (6/6): both metrics/usage direction and combined overflow fail to expose closed Retry; live pickup changes leave Start confirmation enabled in both scopes. These exercise the round-2 findings (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9, REQ-SEC-6d0b0125). Existing build anchor retained.
+- 2026-11-13 build: green: node --test tests/statistics.test.mjs tests/metrics.test.mjs exit 0 (27 tests); build:e2e/typecheck exit 0 and reportingRefresh --grep token-direction/total passes 4/4. Ticket pickup regressions pass 2/2 after reopening comments following the intentional explicit list reread in test setup. Publication now validates pooled token directions/combined totals, cache and usage/job totals before ready; Start-only monotonic pickup authority refuses pause/resume-old reviews while Stop and operation/body ownership remain independent, and fresh manual Start still works with monitoring paused (REQ-DATA-d535499a, REQ-SEC-7ee58549, REQ-UX-cbca5fd9, REQ-SEC-6d0b0125). Full focused integrated rerun/docs/assets still owed.
+- 2026-11-13 build: Integrated focused proof: 62 helpers/help/request tests pass; reporting/statistics/jobs/ticket-refresh/tickets/settings-refresh Chromium run exits 1 with 98/99 passing. The unchanged tickets.spec.ts old-account preference test waits for a PATCH response after sign-out has already aborted its request; it fails twice isolated and identically against the unchanged committed pre-fix static bundle (baseline exit 1). All new overflow and pickup regressions pass. DEVIATION build: correct this inherited cancellation fixture, not product/session behavior - the current request-ownership contract deliberately cancels on sign-out, so waiting for delivery makes the accepted no-old-account-effect oracle unreachable. Retain that oracle, additionally assert cancellation, then release the obsolete route and prove no next-account change; costs one extra scoped test path within 24-path bound.
+- 2026-11-13 build: Round-2 build completion resume: preserve the existing candidate/red-green history and anchor; bound this session to 45 minutes, 24 changed paths and 8 focused verification commands. Inspect both recorded fixes, finish cancellation-fixture proof and integrated reporting/Jobs/Tickets/Settings regression, audit documentation/traceability and rebuild production assets. No new findings scope or validate-stage work.
+- 2026-11-13 build: green: cd 04_Software/web && node --test tests/statistics.test.mjs tests/metrics.test.mjs tests/polling.test.mjs tests/request.test.mjs tests/help.test.mjs && npm run build:e2e && PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx playwright test e2e/reportingRefresh.spec.ts e2e/statistics.spec.ts e2e/jobRefresh.spec.ts e2e/ticketRefresh.spec.ts e2e/tickets.spec.ts e2e/settingsRefresh.spec.ts exit 0 (62 helpers/help/request tests; UI/E2E typecheck and isolated build; 99/99 offline Chromium journeys). Both recorded round-2 fixes and the cancellation-fixture correction pass integrated proof: pooled token directions/combined totals fail before publication with recovery; pickup pause/resume cannot revive Start review; unchanged review/body/focus, independent Stop and fresh paused manual Start remain valid. No session/product behavior changed for the inherited old-account fixture.
+- 2026-11-13 build: release-notes: updated (existing Statistics and Tickets entries in en/fr/de/ro now cover refused invalid token totals and fresh review after monitoring changes; no extra category entries. python 02_Tools/internal/check_release_notes.py --since bafae7e55bbcfda18451ee621368204af9dd864b exit 0).
+- 2026-11-13 build: help: updated (Tickets en/fr/de/ro describes pause/resume Start invalidation without revival, explicit reread/fresh review, independent Stop and eligible manual Start while paused. All 13 help contracts passed within the 62-test command; no changed UI labels or theme tokens).
+- 2026-11-13 build: Round-2 build audit: npm run build, release-note checker, git diff --check and direct SHA-256/traceability audit exit 0. All 127 frontend input and 7 output hashes independently match; all 42 requirements are active with nonempty existing source/test paths. Evolution exit 0 reviewed 71 post-anchor product/test/doc paths (13 added/56 modified/2 removed), preserving D1-D8 scope and original anchor. Current 24/24 changed paths comprise the two recorded fixes/proof, inherited cancellation-fixture correction, scoped requirements/spec/knowledge, user/component documentation, four Tickets help locales, changelog/localized release entries and four regenerated static paths. No new dependency/backend/schema/payload/publication change. Round-2 corrections complete; fresh independent round-3 reviews and final strict proof/report remain validate work.
+- 2026-11-13 build: Advisory check --task TASK-5b9207ee --json exit 0: 0 errors, 61 warnings, 28 notes. Thirty-five inherited ticket-ref/stale-path/journal-header/legacy-deliver findings remain outside scope; 23 uncovered-source heuristics classify frontend helper/browser files as source although real linked_tests exist (including the inherited Tickets fixture now changed). Journal credential-language prose and the Users deliberately fake offline literal are password-scan false positives. DEVIATION build: generated minified JS added-lines secret scan is unavailable - accepted because this candidate's bundle was rebuilt from reviewed source and all stamped hashes match; not a detected secret or final strict proof. Existing large-chunk warning retained without unrelated splitting/dependency expansion. No unresolved product finding identified by focused correction proof; no independent approval or complete suite claimed.
+- 2026-11-13 build: completed; next validate
 
 ## Rulings
 
 
 ## State
 
-status: waiting
-reported: build - paused
-next: Fix only round-2 reporting-token publication and ticket pickup-review findings, update regression coverage and affected docs, run focused proof, then return to validate for both round-3 reviews.
-must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/4_build.md
-changed: Reconciled frontend knowledge, project/environment context and component JSON/raw-TOML lifecycle wording; no product implementation edits.
-evidence: Independent round-2 spec/quality reviews changes_required; parent production-API overflow and offline Chromium pickup-pause reproductions confirmed both defects; git diff --check passed.
-issues: Reporting can publish ready then throw on pooled token totals; detected pickup pause leaves old ticket Start confirmation able to POST. Final strict proof/report deferred until corrected candidate is independently approved.
+status: ready
+reported: build - completed
+next: start validate: read .agentic/steps/5_validate.md
+must_read: .agentic/tasks/TASK-5b9207ee.md, .agentic/steps/5_validate.md
+changed: Completed round-2 pooled-token publication and ticket pickup-review fixes with negative/recovery and unchanged-authority regressions, localized docs/help/notes and rebuilt static assets.
+evidence: 62 helper/help/request tests and 99 offline Chromium cases pass; UI/E2E typecheck, isolated/production builds, release-note check, 127 input/7 output fingerprint audit, 42-contract traceability audit and git diff --check exit 0.
+issues: Fresh independent round-3 reviews and final strict proof/report remain for validate. Advisory check has 0 errors, 61 explained warnings and 28 notes; existing bundle-size warning retained. No live/deployed acceptance or publication performed.
 spec_compliance:
 implementation_quality:
 review_round: 2

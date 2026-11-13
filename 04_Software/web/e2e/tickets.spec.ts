@@ -439,21 +439,25 @@ test("ticket mode persists through the real API across projects and browsers ind
 });
 
 test("late old-account ticket save cannot change the next account or its pending guard", async ({ page }) => {
-  let release!: () => void; let seen!: () => void;
+  let release!: () => void; let seen!: () => void; let finish!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   const started = new Promise<void>(resolve => { seen = resolve; });
+  const finished = new Promise<void>(resolve => { finish = resolve; });
   await page.route("**/api/v1/me/preferences", async route => {
     if (route.request().method() === "PATCH") {
       seen(); await gate;
-      await route.fulfill({ json: { language: "ro", theme: "dark", ticket_body_mode: "source" } });
+      await route.fulfill({ json: { language: "ro", theme: "dark", ticket_body_mode: "source" } }).catch(() => {});
+      finish();
     } else await route.continue();
   });
   await signIn(page); await openBodies(page);
   await page.getByRole("combobox", { name: "Body display", exact: true }).first().selectOption("source");
   await started;
+  const cancelled = page.waitForEvent("requestfailed", { predicate: request => request.url().endsWith("/me/preferences") && request.method() === "PATCH" });
   await page.getByRole("button", { name: "Sign out", exact: true }).filter({ visible: true }).click();
-  // Keep the same App mounted: a document navigation would cancel the held fetch
-  // and would only test browser cleanup, not the session-generation guard.
+  await cancelled;
+  // Sign-out ends authenticated request ownership without a document navigation.
+  // The next account must remain unaffected when the obsolete route is released.
   await page.getByLabel("Username", { exact: false }).fill("developer");
   await page.getByLabel("Password", { exact: false }).fill("test-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -461,8 +465,7 @@ test("late old-account ticket save cannot change the next account or its pending
   await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   await page.locator("tr.ticket-row").filter({ hasText: "#21" }).getByRole("button", { name: "Details", exact: true }).click();
-  const delivered = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "PATCH");
-  release(); await delivered;
+  release(); await finished;
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect(page.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveValue("rendered");
   await expect(page.getByRole("combobox", { name: "Body display", exact: true }).first()).toHaveAttribute("aria-disabled", "false");

@@ -5,7 +5,7 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { test, expect, type Page } from "@playwright/test";
-import { revalidateVisiblePage } from "./polling";
+import { revalidateVisiblePage, trackScopeReads } from "./polling";
 
 const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; };
 const hidden = (page: Page) => page.evaluate(() => { Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" }); document.dispatchEvent(new Event("visibilitychange")); });
@@ -135,6 +135,52 @@ for (const action of ["start", "stop"] as const) test(`Tickets ${action} review 
   await expect(row(page, 21).getByRole("button", { name: action === "start" ? "Start" : "Stop", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Read tickets", exact: true }).click();
   await expect(row(page, 21).getByRole("button", { name: action === "start" ? "Start" : "Stop", exact: true })).toBeEnabled();
+});
+
+for (const global of [false, true]) test(`Tickets ${global ? "global" : "project"} pickup changes invalidate only Start authority until explicit reread`, async ({ page }) => {
+  const settle = trackScopeReads(page);
+  await page.clock.install(); const fixture = await open(page, global, true);
+  let projects = fixture.projects, metadata = 0, starts = 0, stops = 0;
+  await page.route("**/api/v1/projects", route => { metadata++; return route.fulfill({ json: projects }); });
+  await page.route("**/tickets/21/start", route => { starts++; return route.fulfill({ json: { operation_id: 7780, status: "succeeded", labels_added: ["agent-ready"] } }); });
+  await page.route("**/tickets/22/stop", route => { stops++; return route.fulfill({ json: { cancel_operation_id: null, ready_label: "removed", ready_label_error: null } }); });
+  const setPaused = async (paused: boolean) => {
+    const before = metadata;
+    projects = fixture.projects.map((item: { id: string }) => item.id === fixture.project.id ? { ...item, paused } : item);
+    await revalidateVisiblePage(page); await expect.poll(() => metadata).toBe(before + 1); await settle();
+  };
+  await setPaused(false);
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await expect(row(page, 21).getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+  await row(page, 21).getByRole("button", { name: "Details", exact: true }).click();
+  await expect(page.locator(".ticket-comments")).toContainText("Retained comment");
+  const counts = fixture.counts();
+  await row(page, 21).getByRole("button", { name: "Start", exact: true }).click();
+  const dialog = page.getByRole("alertdialog"), submit = dialog.getByRole("button", { name: "Add labels and start", exact: true });
+  await submit.focus(); const node = await submit.elementHandle();
+  await revalidateVisiblePage(page);
+  await expect(submit).toBeEnabled(); await expect(submit).toBeFocused();
+  expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+  await setPaused(true);
+  await expect(submit).toBeDisabled(); await expect(dialog.getByRole("alert")).toContainText("Read tickets again");
+  await submit.dispatchEvent("click"); expect(starts).toBe(0);
+  await setPaused(false);
+  await expect(submit).toBeDisabled(); await submit.dispatchEvent("click"); expect(starts).toBe(0);
+  expect(fixture.counts()).toEqual(counts);
+  await expect(page.locator(".ticket-comments")).toContainText("Retained comment");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(row(page, 21).getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+  // Monitoring changes must not revoke independent Stop authority or its valid review.
+  await row(page, 22).getByRole("button", { name: "Stop", exact: true }).click();
+  const stop = page.getByRole("alertdialog").getByRole("button", { name: "Stop ticket", exact: true });
+  await setPaused(true); await expect(stop).toBeEnabled();
+  await stop.click(); await expect.poll(() => stops).toBe(1);
+  await expect(notice(page)).toContainText("Ready label removed.");
+  // A fresh explicit snapshot/review may Start even with automatic monitoring paused.
+  await setPaused(true);
+  await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+  await row(page, 21).getByRole("button", { name: "Start", exact: true }).click();
+  await expect(submit).toBeEnabled(); await submit.click(); await expect.poll(() => starts).toBe(1);
 });
 
 test("Tickets removed global project cancels comments and never restores captured bodies", async ({ page }) => {

@@ -258,6 +258,61 @@ test("global reporting validates common canonical scope and pooled evidence befo
   }
 });
 
+/** Each project is valid alone; integer overflow exists only in the pooled report. */
+test("reporting rejects pooled token direction and combined totals before any successful publication", async () => {
+  for (const member of ["metrics", "usage"]) for (const location of ["totals", "period", "daily"]) {
+    if (member === "usage" && location === "period") continue;
+    for (const combined of [false, true]) {
+      const h = reporting({ projectIds: ["alpha", "beta"] });
+      const values = (bad = false) => {
+        const metrics = {}, usage = {};
+        for (const id of ["alpha", "beta"]) {
+          metrics[id] = fixture(); usage[id] = consumption();
+          for (const value of [metrics[id], usage[id]]) { value.scope = scope(id); value.jobs[0].project_id = id; }
+          usage[id].daily = [{ date: "2026-10-25", executor: "pi", model: "example", ...amounts(0, 0) }];
+          if (bad) {
+            const value = member === "metrics" ? metrics[id] : usage[id];
+            Object.assign(location === "daily" ? value.daily[0] : value[location], {
+              tokens_in: combined ? 3e15 : 5e15, tokens_out: combined ? 3e15 : 0,
+            });
+          }
+          // Positive control: neither fixture is individually out of range.
+          readStatistics(metrics[id], id, selection, false);
+          readConsumption(usage[id], id, selection, false);
+        }
+        return { metrics, usage };
+      };
+      const complete = async bad => {
+        const pending = h.owner.refresh(); await flush();
+        const value = values(bad);
+        h.requests.metrics.at(-1).resolve(value.metrics); h.requests.usage.at(-1).resolve(value.usage);
+        await pending;
+      };
+      await complete(true);
+      assert.equal(h.latest().status, "error", `${member}/${location}/${combined ? "combined" : "direction"}`);
+      assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+      assert.equal(h.states.some(state => state.status === "ready"), false, "no transient ready publication");
+      await complete(false); assert.equal(h.latest().status, "ready");
+      await complete(true); assert.equal(h.latest().status, "error");
+      assert.equal(h.latest().data, null); assert.equal(h.latest().completedAt, null);
+      await complete(false); assert.equal(h.latest().status, "ready", "valid recovery remains possible");
+      h.owner.dispose();
+    }
+  }
+});
+
+test("known combined token overflow fails validation for single-project consumption and job amounts", () => {
+  for (const location of ["totals", "lifetime", "unallocated", "daily", "job lifetime", "job in_period", "job unallocated"]) {
+    const value = consumption();
+    value.daily = [{ date: "2026-10-25", executor: "pi", model: "example", ...amounts(0, 0) }];
+    const target = location.startsWith("job ") ? value.jobs[0][location.slice(4)] : location === "daily" ? value.daily[0] : value[location];
+    Object.assign(target, { tokens_in: 5e15, tokens_out: 5e15 });
+    assert.throws(() => readConsumption(value, "alpha", selection, false), RangeError, location);
+    target.tokens_out = null;
+    assert.doesNotThrow(() => readConsumption(value, "alpha", selection, false), "unknown combined total stays unknown");
+  }
+});
+
 test("empty periodic masks cannot manufacture a new successful read time", async () => {
   const h = reporting(); await completeReport(h);
   const current = h.latest();

@@ -37,10 +37,18 @@ function financial(value: unknown, admin: boolean) {
     financial(child, false);
   }
 }
+/** Validate derived totals before render, including pooled safe-integer directions. */
+function tokenPair(value: unknown) {
+  const row = object(value);
+  totalTokens({ tokens_in: tokens(row.tokens_in), tokens_out: tokens(row.tokens_out) });
+}
+function metricTokens(value: Metrics) {
+  for (const row of [value.period, value.totals, ...value.daily]) tokenPair(row);
+}
 function amounts(value: unknown) {
   const row = object(value);
-  count(row.events);
-  for (const key of ["tokens_in", "tokens_out", "cache_read_tokens", "cache_write_tokens"]) tokens(row[key]);
+  count(row.events); tokenPair(row);
+  for (const key of ["cache_read_tokens", "cache_write_tokens"]) tokens(row[key]);
   for (const key of ["reported_cost_usd", "estimated_cost_usd"]) if (key in row) amount(row[key]);
 }
 function jobs(value: unknown, project: string) {
@@ -69,8 +77,8 @@ export function readStatistics(value: unknown, project: string, selection: Repor
   const period = object(row.period);
   if (period.from !== object(row.scope).from || period.to !== object(row.scope).to) invalid();
   for (const key of ["started", "completed", "failed"]) count(period[key]);
-  tokens(period.tokens_in); tokens(period.tokens_out);
-  const totals = object(row.totals);
+  tokenPair(period);
+  const totals = object(row.totals); tokenPair(totals);
   for (const [key, value] of Object.entries(totals)) key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   const coverage = object(row.coverage);
   for (const key of ["usage_events_with_tokens", "usage_events_without_tokens", "runs_with_usage"]) count(coverage[key]);
@@ -88,7 +96,7 @@ export function readStatistics(value: unknown, project: string, selection: Repor
     if (typeof day.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day.date) || dates.has(day.date)) invalid();
     dates.add(String(day.date));
     for (const key of ["started", "completed", "failed", "mr_revisions", "pipeline_repairs"]) count(day[key]);
-    tokens(day.tokens_in); tokens(day.tokens_out);
+    tokenPair(day);
     for (const [key, value] of Object.entries(day)) if (key !== "date") key.includes("tokens") ? tokens(value) : key.includes("cost") ? amount(value) : count(value);
   }
   const result = row as unknown as Metrics;
@@ -117,7 +125,8 @@ export function readConsumption(value: unknown, project: string, selection: Repo
     buckets.add(identity);
   }
   const result = row as unknown as Usage;
-  aggregateUsage([result]);
+  const pooled = aggregateUsage([result]);
+  amounts(pooled.totals); pooled.daily.forEach(amounts);
   return result;
 }
 
@@ -218,6 +227,8 @@ export function createReportingRefresh(options: {
           // an aggregate error after ready data/success time has been published.
           const pooledMetrics = aggregateMetrics(Object.values(current.metrics), selection.timezone, selection.from, selection.through);
           const pooledUsage = aggregateUsage(Object.values(current.usage));
+          metricTokens(pooledMetrics);
+          amounts(pooledUsage.totals); pooledUsage.daily.forEach(amounts);
           settled = true; signal.removeEventListener("abort", aborted);
           resolve({ metrics: current.metrics, usage: current.usage, pooledMetrics, pooledUsage, metricsAt: current.metricsAt,
             usageAt: current.usageAt, fullReportAt: current.requested.metrics && current.requested.usage ? now() : current.fullReportAt });

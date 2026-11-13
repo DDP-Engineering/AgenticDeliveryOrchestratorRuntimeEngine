@@ -73,7 +73,11 @@ fields across every project and both maps (project identities validate separatel
 and computes pooled metrics/usage within owned validation before publishing them
 on the complete report. App renders those stored aggregates without recomputing.
 Cross-project interval mismatch or pooled failure clears report/exports/success
-time with error/Retry; two-project helper/browser negatives also assert no pageerror. Explicit masks pin not-due baseline inputs with
+time with error/Retry; two-project helper/browser negatives also assert no pageerror.
+Raw and pooled token directions/cache counts and known combined input/output totals
+validate as safe integers before publication, including period/total/day and job
+consumption evidence. Missing directions keep totals unknown; known overflow fails
+closed rather than becoming approximate or throwing in StatisticsEvidence/JobAmounts. Explicit masks pin not-due baseline inputs with
 original times; full/due triggers promote pins without duplicate reads. Selected
 metrics keeps 15s cadence, usage/global metrics 30s, with full visible/manual reads.
 Failed proposals discard staged values and require requested dependencies on recovery.
@@ -187,6 +191,13 @@ rows render live project metadata, while removed identities are withheld and pru
 so restoring them cannot resurrect old bodies. Unchanged metadata retains review,
 body/focus/pager state. Changed authority latches Start/Stop review invalid and
 commands require a fresh explicit ticket snapshot, including after archive/restore.
+Pickup changes advance a separate monotonic Start epoch, invalidating old Start
+snapshots/reviews even after pause/resume; in-flight list reads retain their captured
+epoch. Render and submit check both epoch and live pickup state. Stop reviews,
+bodies and operation ownership remain independent. A fresh explicit list/review
+permits eligible manual Start while monitoring stays paused. Both scope regressions
+in ticketRefresh prove unchanged focus/review preservation, pause/resume zero writes,
+independent Stop success and fresh paused Start success without added forge polling.
 Start/Retry/Stop recheck current row/project authority, serialize submissions and
 ignore obsolete response/error/notices/metadata notifications. Aborting an obsolete
 browser write never claims server rollback. Operation ownership uses its own project

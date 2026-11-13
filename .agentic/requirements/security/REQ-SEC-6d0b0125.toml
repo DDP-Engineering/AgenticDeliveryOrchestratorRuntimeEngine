@@ -15,7 +15,7 @@ requirement = """
 If a web refresh establishes that a pending review's account/project identity, grant, disabled/archive state, configuration/candidate revision or action precondition has changed, the interface shall invalidate that review's submission authority until the operator obtains a valid current review.
 """
 
-verification = "Offline browser: open access, account, Settings and ticket/job action reviews, change their relevant authority in the next validated read, and assert the old review cannot send a mutation; an unchanged relevant read preserves the review, and a delayed older read cannot restore invalidated authority."
+verification = "Offline browser: open access, account, Settings and ticket/job action reviews, change their relevant authority in the next validated read, and assert the old review cannot send a mutation; an unchanged relevant read preserves the review, and a delayed older read cannot restore invalidated authority. Ticket Start reviews remain invalid after detected monitoring pause/resume until an explicit reread/review; unchanged reviews, independent Stop authority and fresh eligible manual Start with monitoring paused remain valid."
 
 affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/UserCreation.tsx", "04_Software/web/src/AccountActionDialog.tsx", "04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/userCopy.ts", "04_Software/web/src/ticketCopy.ts"]
 

@@ -165,7 +165,11 @@ unchanged metadata update does not close or invalidate the confirmation.
 Tickets retain open bodies and unchanged Start/Stop confirmations through project
 updates. If project identity, access or archive status changes, the old confirmation
 cannot submit, even after the project is restored. Use **Read tickets** and review
-again; removed projects' bodies do not reappear without a new explicit read. Ticket
+again; removed projects' bodies do not reappear without a new explicit read. A
+monitoring pause/resume also invalidates the old Start confirmation, even if the
+previous monitoring state returns. Read tickets again for a fresh Start review;
+eligible manual Start remains available while monitoring is paused. Monitoring
+changes alone do not invalidate Stop confirmations or close ticket bodies. Ticket
 and comment reads end after 30 seconds with an error, never an automatic forge retry.
 Retry a list with **Read tickets**, or close/reopen **Details** for failed comments.
 Leaving the context cancels browser reads and ignores obsolete action responses;
@@ -1156,6 +1160,9 @@ scope-mismatched and other application failures hide the affected report and exp
 All projects must share the same server reporting boundaries. An inconsistent
 project interval or invalid pooled result also shows error/Retry without a new
 successful-update time; it cannot replace the page with a rendering failure.
+Token directions and known combined totals must be exact safe integers, including
+pooled reports and job consumption. Out-of-range evidence is refused, not rounded
+or displayed as current; an unknown direction still makes its combined total unknown.
 
 Summary shows only the measure cards: jobs started, completed and failed and
 known input/output/total tokens. Completed includes all terminal
