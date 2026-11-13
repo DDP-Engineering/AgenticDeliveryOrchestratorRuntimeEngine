@@ -54,6 +54,7 @@ def retry_fixture(tmp_path, monkeypatch, system="Windows", agent="pi", iid=7):
     trees.create = lambda *args: work
     forge.ticket = replace(forge.ticket, iid=iid)
     run = make_run(engine)
+    engine.store.delete_run(run.run_id)  # Rename the fixture, without a second active job.
     run.run_id = f"{agent}-job-{iid}"
     run.ticket_iid = iid
     run.branch = f"adore/{agent}-{iid}"

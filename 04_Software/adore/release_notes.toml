@@ -20,6 +20,11 @@ category = "improved"
 topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
 text = { en = "Start confirms job admission; Cancel confirms the actual stop. Live work survives worker recovery.", fr = "Démarrage et annulation confirment le résultat réel. Les tâches actives survivent à la reprise.", de = "Start bestätigt Aufnahme, Abbruch den Stopp. Aktive Arbeit bleibt bei der Wiederherstellung sicher.", ro = "Pornirea confirmă admiterea, anularea oprirea reală. Recuperarea păstrează lucrările active." }
 
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Concurrent jobs share project limits; waiting uses no active time and live jobs stay protected.", fr = "Les tâches partagent la limite du projet ; l’attente ne consomme pas de temps actif.", de = "Parallele Aufträge teilen die Projektgrenze; Wartezeit zählt nicht als aktive Arbeit.", ro = "Lucrările respectă limita proiectului; așteptarea nu consumă timp activ." }
+
 [[release]]
 version = "0.15.0"
 date = "2026-11-12"

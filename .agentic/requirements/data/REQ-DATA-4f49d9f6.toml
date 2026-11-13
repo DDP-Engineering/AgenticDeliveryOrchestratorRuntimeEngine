@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-DATA-4f49d9f6"
+
+title = "Exclude pre-execution waiting from active budget"
+
+status = "active"
+
+requirement = """
+When an admitted run begins execution, the conductor shall exclude its pre-execution queue interval from cumulative active work time.
+"""
+
+verification = "Admit under a fake old timestamp, conduct later, and verify active budget excludes queue time while retaining prior consumed work."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py", "04_Software/adore/cli.py", "04_Software/adore/web/worker_context.py"]
+
+linked_tests = ["04_Software/tests/test_run_concurrency.py", "04_Software/tests/test_web_ownership.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

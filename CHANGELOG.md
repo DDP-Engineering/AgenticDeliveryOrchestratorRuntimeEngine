@@ -14,6 +14,11 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Separate short project admission from exclusive run execution and reconciliation;
+  apply the project concurrency limit to manual starts, retries and resumed work.
+- Add revision-bound single-run CLI dispatch, preserve live foreign owners and
+  exclude initial queue waits from active execution budgets.
+- Delete each project's `store_root/runs` before starting this build.
 - Persist scoped execution/configuration claims, worker generations and process-bound ownership;
   recover only demonstrably dead owners and fence stale results and publication.
 - Confirm Start at durable job admission and Cancel only from the actual saved cancellation result.

@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-FUNC-cbac7e6c"
+
+title = "Conduct only the explicitly owned run"
+
+status = "active"
+
+requirement = """
+When invoked for an explicitly owned run, the single-run CLI shall conduct only that run after validating ownership and configuration revision without reconciling or claiming another ticket.
+"""
+
+verification = "Admit separately then conduct a bound run; refuse foreign ownership, changed config revision and missing state before executor effects."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py", "04_Software/adore/cli.py", "04_Software/adore/web/worker_context.py", "04_Software/adore/web/store.py", "04_Software/adore/start_result.py"]
+
+linked_tests = ["04_Software/tests/test_run_concurrency.py", "04_Software/tests/test_web_ownership.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

@@ -78,7 +78,9 @@ reported-cost cap; iteration, wall-clock and file bounds still apply.
 | Command | Purpose |
 | --- | --- |
 | `adore [selector] run --dry-run` | Show ticket selection and intended actions without delivery side effects. |
-| `adore [selector] run --once` | Run one poll pass. |
+| `adore [selector] run --once` | Reconcile available runs, atomically admit one eligible ticket and conduct it outside the admission lock. |
+| `adore [selector] run --once --admit-only [--ticket IID]` | Allocate and durably reserve one eligible job without launching its executor; returns `run_id`. Explicit Start preserves monitoring pause. |
+| `adore [selector] conduct <run-id> --config-revision <SHA-256>` | Build fresh conductor/executor/backend instances and advance only the owned run using the exact configuration-file revision. Never polls or claims other tickets. |
 | `adore [selector] run --loop` | Run continuously until interrupted. |
 | `adore [selector] status` | Show configuration, pause, lock, and run-state summary. |
 | `adore [selector] runs` | List active, parked, and review runs. |
@@ -95,7 +97,7 @@ resolved configuration.
 | --- | --- |
 | `adore [selector] retry <run-id>` | Re-arm a retryable run. |
 | `adore [selector] cancel <run-id>` | Cancel a run gracefully. |
-| `adore [selector] handoff <run-id>` | Transfer a run to a human at the next safe boundary, preserving its worktree and checkpoint evidence. If the conductor lock is held, the command queues the request; wait for `handed-off` before editing. This does not approve publication. |
+| `adore [selector] handoff <run-id>` | Transfer a run to a human at the next safe boundary, preserving its worktree and checkpoint evidence. If the selected run lock is held, the command queues the request; wait for `handed-off` before editing. This does not approve publication. |
 | `adore [selector] reset <run-id> --to <stage> --force` | Deliberately move ADORE's own pointer to `frame`, `specify`, `design`, `build`, `validate`, or `publishing`; any other target is refused and the run stays unchanged. After `publishing`, `retry` returns an already published candidate to review, publishes a fresh eligible unpublished one under the configured policy, and otherwise conducts the run from `done`. It never edits the AEGIS task journal; conduction rereads that journal. `--force` is required. Run `retry` afterwards. |
 | `adore [selector] delete <run-id> --force` | Irreversibly remove run state. |
 | `adore [selector] cleanup` | Reclaim a provably stale local lock and remove the selected project's finished and orphaned run resources: the executor/proxy containers, egress networks and worktree directories of its done, cancelled, stale and state-less runs. Other projects' resources stay, even with a shared slug, egress network prefix or worktree root. Active, failed, human-owned and corrupt runs are protected; a live/unknown lock remains held and is reported. |
@@ -114,12 +116,28 @@ Failed-run resources are released only by explicit `cancel <run-id>` (audit
 state retained) or `delete <run-id> --force` (state removed irreversibly), not
 by routine cleanup.
 
-`retry`, `cancel`, `delete`, and `reset` hold the single-conductor lock for the
-entire mutation and refuse when a live or unknown holder owns it. Stop the
-service poller first; `pause` does not release its process lock. Read-only
-`logs` remains available while the lock is held. `run --once` prints lock
-guidance only for actual lock contention; other runtime errors retain their own
-diagnostic.
+Lifecycle mutations take the selected run's exclusive kernel lock. A live or
+unknown durable owner protects that run from other conductors. Cancel queues a
+durable request when execution owns the run; the owner alone confirms cleanup.
+Reconciliation and publication are serialized per run. Interrupted publication
+becomes `STALE_PUBLISHING` for explicit inspection instead of automatic replay.
+
+Admission uses a short local lock to check ticket uniqueness and
+`polling.max_concurrent_runs`, then retains a separate execution reservation
+while allocating and initializing the job. Git, forge and executor calls run
+outside the admission lock. Retry, Restart, clarification answers, approval
+invalidation and review revisions reserve the same project capacity. Capacity
+refusal preserves existing work; Retry reports `at_capacity`.
+
+`conduct` requires a lowercase 64-character SHA-256 of the exact selected TOML
+bytes. A worker context must name the same project and run; stale generations,
+foreign targets, missing/corrupt dispatch evidence and changed revisions fail
+closed before a new executor launch. Queued dispatch consumes initial-launch
+authority once, before effects. A second attempt after an uncertain start needs
+explicit Retry. Queue time before first conduction is excluded from active work.
+Use the returned run ID and admitted configuration revision for process dispatch.
+The synchronous `run --once` and `run --loop` remain available; several independent
+conductors can advance different jobs of the same project.
 
 ## Metrics and Reports
 
@@ -194,3 +212,9 @@ Confirmed `restart` may retain an older unproven branch only when no remote chec
 CLI `delete` records a local deletion attempt outside the job before cleanup. It refuses cleanup if the deletion audit is corrupt or inaccessible; unsupported schema errors identify `deletion-audit.db` for manual removal to start fresh. After cleanup, failure to confirm the audit is reported separately because the job may already be gone. The receipt does not create a web database or user account.
 
 Restart prints a final structured outcome bound to the requested job and confirmed revision for the web worker.
+
+Cancel prints `cancelled` only after reading the saved cancellation result.
+A busy-owner marker prints `cancellation requested; awaiting confirmed stop`;
+exit zero then means the request was accepted, not that cleanup completed.
+An unavailable result is reported as unconfirmed with a nonzero exit.
+Admission-only performs no reconciliation of other jobs.

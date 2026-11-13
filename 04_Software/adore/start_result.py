@@ -27,7 +27,7 @@ RETRY_REASONS = frozenset({
     "retried", "retry_failed", "run_unavailable", "not_failed", "notification_pending",
     "reprepare_unavailable", "configuration_invalid", "engine_setup_failed", "lock_held",
     "repository_unavailable", "state_unavailable", "engine_fault",
-    "executable_missing", "account_mismatch", "permission_denied",
+    "executable_missing", "account_mismatch", "permission_denied", "at_capacity",
 })
 START_REASONS = frozenset(INELIGIBILITY_REASONS) | {
     "started", "at_capacity", "workflow_unavailable", "ticket_unavailable",

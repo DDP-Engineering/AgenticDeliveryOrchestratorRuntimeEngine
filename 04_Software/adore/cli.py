@@ -99,6 +99,13 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--ticket", type=int, metavar="IID",
                      help="Run one eligible ticket (with --once); readiness still applies")
 
+    run.add_argument("--admit-only", action="store_true",
+                     help="Reserve one job without launching its executor (requires --once)")
+    conduct = sub.add_parser("conduct", help="Conduct exactly one reserved, owned run")
+    conduct.add_argument("run_id")
+    conduct.add_argument("--config-revision", required=True,
+                         help="SHA-256 of the exact project configuration bytes")
+
     sub.add_parser("status", help="Show overall state")
     pi = sub.add_parser("pi", help="Manage the pinned native Pi installation")
     pi.add_argument("action", choices=("install", "verify"))
@@ -624,20 +631,27 @@ def _engine(args: argparse.Namespace) -> tuple[Config, Orchestrator] | None:
     engine = Orchestrator.from_config(
         config, env_file=_env_file_for_config(args.config), **options,
     )
-    if args.command in {"delete", "restart"}:
-        profiles = ProfileStore()
-        database = profiles.home / "web.db"
-        if database.is_file():
-            matches = [item for item in profiles.list_profiles()
-                       if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
-            if len(matches) == 1:
-                from adore.web.store import WebStore
+    profiles = ProfileStore()
+    database = profiles.home / "web.db"
+    if database.is_file():
+        matches = [item for item in profiles.list_profiles()
+                   if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+        if len(matches) == 1:
+            from adore.web.store import WebStore
 
-                web = WebStore(database)
-                project_id = matches[0].project_id
-                engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
-                    project_id, run_id, remove_source=remove_source,
-                )
+            web = WebStore(database)
+            project_id = matches[0].project_id
+
+            def run_available(run_id: str) -> bool:
+                """@brief Preserve live or uncertain web owners for standalone operators."""
+                web.recover_interrupted(project_id=project_id, role="run")
+                return not web.worker_heartbeats(role="run", project_id=project_id,
+                                                 run_id=run_id)
+
+            engine.run_available = run_available
+            engine.on_delete = lambda run_id, remove_source: web.forget_run_usage(
+                project_id, run_id, remove_source=remove_source,
+            )
     from adore.web.worker_context import current_context
 
     context = current_context()
@@ -677,6 +691,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             emit_start_result(args.ticket, code, reason)
         return code
 
+    if args.admit_only and (not args.once or args.loop or args.dry_run):
+        print("error: --admit-only requires --once without --loop or --dry-run")
+        return finish(EXIT_ERROR, "invalid_request")
     if args.ticket is not None and (args.ticket < 1 or not args.once or args.loop):
         print("error: --ticket requires a positive IID and --once")
         return finish(EXIT_ERROR, "invalid_request")
@@ -707,6 +724,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     logger = ProcessLogger(process_log_path(config.state.store_root))
     engine.log = logger.emit
     poll_options = {"ticket_iid": args.ticket} if args.ticket is not None else {}
+    if args.admit_only:
+        poll_options["admit_only"] = True
     if args.dry_run:
         summary = engine.poll_once(dry_run=True, **poll_options)
         logger.emit(json.dumps(summary))
@@ -739,6 +758,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
         logger.emit(f"error: ticket #{args.ticket} not started: {_not_started_code(summary)}")
         return finish(EXIT_ERROR, summary.get("start_reason", "not_eligible"))
     return finish(EXIT_OK, "started")
+
+
+def _cmd_conduct(args: argparse.Namespace) -> int:
+    """@brief Build a fresh conductor/executor/backend for one revision-bound run.
+    @param[in] args Parsed run identity and exact configuration revision.
+    @return Zero for an owned handled run; one for refused or unavailable authority.
+    """
+    if not re.fullmatch(r"[a-f0-9]{64}", args.config_revision):
+        print("error: invalid configuration revision")
+        return EXIT_ERROR
+    try:
+        built = _engine(args)
+        if built is None:
+            return EXIT_ERROR
+        _config, engine = built
+        return EXIT_OK if engine.conduct_run(args.run_id,
+                                              config_revision=args.config_revision) else EXIT_ERROR
+    except (LockHeldError, StateError, OSError, ValueError):
+        print("error: run ownership, state or configuration revision unavailable")
+        return EXIT_ERROR
 
 
 def _cmd_run_op(args: argparse.Namespace) -> int:
@@ -785,7 +824,7 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
     if args.command == "handoff":
         try:
             store.request_handoff(args.run_id)
-            with _operator_lock(store):
+            with contextlib.nullcontext():
                 ok = engine.handoff(args.run_id)
                 print("handed off; inspect remote checkpoint and local evidence"
                       if ok else "handoff pending; ownership has not transferred")
@@ -816,60 +855,73 @@ def _cmd_run_op(args: argparse.Namespace) -> int:
             return finish(EXIT_ERROR, "force_required")
     deleted = False
     try:
-        with _operator_lock(store):
-            if args.command == "cancel":
-                ok = engine.cancel(args.run_id)
-                print("cancelled" if ok else f"no such run: {args.run_id}")
-                return EXIT_OK if ok else EXIT_ERROR
-            if args.command == "retry":
-                try:
-                    before = store.load(args.run_id)
-                except FileNotFoundError:
-                    print(f"cannot retry: {args.run_id}")
-                    return finish(EXIT_ERROR, "run_unavailable")
-                ok = (engine.retry(args.run_id, reprepare=True) if args.reprepare
-                      else engine.retry(args.run_id))
-                if not ok:
-                    reason = ("notification_pending" if before.notification_outbox else
-                              "not_failed" if before.lifecycle != "failed" else
-                              "reprepare_unavailable" if args.reprepare else "run_unavailable")
-                    print(f"cannot retry: {args.run_id} ({reason})")
-                    return finish(EXIT_ERROR, reason)
-                after = store.load(args.run_id)
-                if after.lifecycle == "failed":
-                    print(f"retry failed: {after.outcome}")
-                    return finish(EXIT_ERROR, "retry_failed")
-                print("retried")
-                return finish(EXIT_OK, "retried")
-            if args.command == "restart":
-                summary = engine.restart(args.run_id, args.expected_revision)
-                print(json.dumps(summary))
-                picked = summary.get("picked")
-                code = EXIT_OK if picked is not None else EXIT_ERROR
-                return finish(code, "restarted" if code == EXIT_OK else "not_started",
-                              picked if code == EXIT_OK else None,
-                              code == EXIT_OK and summary.get("unproven_branch_retained") is True)
-            # Validate all durable identity/evidence before touching owned resources.
-            store.load(args.run_id)
-            profiles = ProfileStore()
-            if profiles.invalid_profiles():
-                raise StateError("project identity is corrupt")
-            matches = [item for item in profiles.list_profiles()
-                       if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
-            if len(matches) > 1:
-                raise StateError("project identity is ambiguous")
-            project = matches[0] if matches else None
-            ledger = DeletionAudit(profiles.home)
-            receipt = ledger.begin(
-                project.name if project else "",
-                project.project_id if project else None,
-                args.run_id,
-            )
-            engine.delete(args.run_id, owned_resources=args.owned_resources)
-            deleted = True
-            ledger.confirm(receipt)
-            print(f"deleted {args.run_id}")
-            return EXIT_OK
+        if args.command == "cancel":
+            ok = engine.cancel(args.run_id)
+            if not ok:
+                print(f"no such run: {args.run_id}")
+                return EXIT_ERROR
+            try:
+                stopped = store.load(args.run_id)
+                if stopped.lifecycle == "cancelled" and stopped.outcome == "cancelled":
+                    print("cancelled")
+                    return EXIT_OK
+                if store.cancel_requested(args.run_id):
+                    print("cancellation requested; awaiting confirmed stop")
+                    return EXIT_OK
+            except (StateError, OSError):
+                pass
+            print("cancellation outcome unconfirmed; inspect job state")
+            return EXIT_ERROR
+        if args.command == "retry":
+            try:
+                before = store.load(args.run_id)
+            except FileNotFoundError:
+                print(f"cannot retry: {args.run_id}")
+                return finish(EXIT_ERROR, "run_unavailable")
+            ok = (engine.retry(args.run_id, reprepare=True) if args.reprepare
+                  else engine.retry(args.run_id))
+            if not ok:
+                reason = (getattr(engine, "last_retry_reason", "") or
+                          ("notification_pending" if before.notification_outbox else
+                          "not_failed" if before.lifecycle != "failed" else
+                          "reprepare_unavailable" if args.reprepare else "run_unavailable"))
+                print(f"cannot retry: {args.run_id} ({reason})")
+                return finish(EXIT_ERROR, reason)
+            after = store.load(args.run_id)
+            if after.lifecycle == "failed":
+                print(f"retry failed: {after.outcome}")
+                return finish(EXIT_ERROR, "retry_failed")
+            print("retried")
+            return finish(EXIT_OK, "retried")
+        if args.command == "restart":
+            summary = engine.restart(args.run_id, args.expected_revision)
+            print(json.dumps(summary))
+            picked = summary.get("picked")
+            code = EXIT_OK if picked is not None else EXIT_ERROR
+            return finish(code, "restarted" if code == EXIT_OK else "not_started",
+                          picked if code == EXIT_OK else None,
+                          code == EXIT_OK and summary.get("unproven_branch_retained") is True)
+        # Validate all durable identity/evidence before touching owned resources.
+        store.load(args.run_id)
+        profiles = ProfileStore()
+        if profiles.invalid_profiles():
+            raise StateError("project identity is corrupt")
+        matches = [item for item in profiles.list_profiles()
+                   if profiles.config_path(item.name).resolve() == Path(args.config).resolve()]
+        if len(matches) > 1:
+            raise StateError("project identity is ambiguous")
+        project = matches[0] if matches else None
+        ledger = DeletionAudit(profiles.home)
+        receipt = ledger.begin(
+            project.name if project else "",
+            project.project_id if project else None,
+            args.run_id,
+        )
+        engine.delete(args.run_id, owned_resources=args.owned_resources)
+        deleted = True
+        ledger.confirm(receipt)
+        print(f"deleted {args.run_id}")
+        return EXIT_OK
     except LockHeldError as exc:
         print(f"error: {exc}")
         return finish(EXIT_ERROR, "lock_held")
@@ -1340,6 +1392,8 @@ def _main(argv: list[str] | None = None) -> int:
         return _cmd_pause(args, paused=False)
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "conduct":
+        return _cmd_conduct(args)
     if args.command in ("cancel", "retry", "logs", "delete", "restart", "handoff"):
         return _cmd_run_op(args)
     if args.command == "stats":

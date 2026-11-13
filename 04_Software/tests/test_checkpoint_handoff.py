@@ -325,18 +325,20 @@ def test_checkpoint_handoff_request_rejects_corrupt_or_foreign_marker(tmp_path):
 
 
 def test_checkpoint_handoff_cli_queues_with_live_lock(tmp_path, monkeypatch, capsys):
-    """@brief An operator may request handoff without stealing the conductor lock."""
+    """@brief An operator may request handoff without stealing the run lock."""
     import adore.cli as cli
 
     config_path = _config_file(tmp_path)
     config = load_config(config_path)
     store = StateStore(config.state.store_root, config.agent.slug)
     store.save(RunState("run-1", 1))
-    assert store.acquire_lock()
+    held = store.run_lock("run-1")
+    held.__enter__()
 
     class Engine:
         def handoff(self, run_id):
-            pytest.fail("must queue while conductor owns lock")
+            with StateStore(config.state.store_root, config.agent.slug).run_lock(run_id):
+                pytest.fail("must queue while conductor owns run lock")
 
     monkeypatch.setattr(cli, "_engine", lambda _: (config, Engine()))
     try:
@@ -344,7 +346,7 @@ def test_checkpoint_handoff_cli_queues_with_live_lock(tmp_path, monkeypatch, cap
         assert "queued" in capsys.readouterr().out
         assert store.handoff_requested("run-1")
     finally:
-        store.release_lock()
+        held.__exit__(None, None, None)
 
 
 @pytest.mark.parametrize("remote", ["", "a" * 40 + "\trefs/heads/adore/ticket\n"])
@@ -577,7 +579,7 @@ def test_checkpoint_handoff_cli_rejects_released_run(tmp_path, monkeypatch, caps
 
 
 def test_checkpoint_handoff_cli_completes_when_lock_is_free(tmp_path, monkeypatch, capsys):
-    """@brief Idle operator handoff takes the conductor lock and uses the typed engine."""
+    """@brief Idle operator handoff uses the run lock and uses the typed engine."""
     import adore.cli as cli
 
     config_path = _config_file(tmp_path)
@@ -587,9 +589,10 @@ def test_checkpoint_handoff_cli_completes_when_lock_is_free(tmp_path, monkeypatc
 
     class Engine:
         def handoff(self, run_id):
-            assert store.lock_info() is not None
-            assert store.handoff_requested(run_id)
-            return True
+            with store.run_lock(run_id):
+                assert StateStore(config.state.store_root, config.agent.slug).run_locked(run_id)
+                assert store.handoff_requested(run_id)
+                return True
 
     monkeypatch.setattr(cli, "_engine", lambda _: (config, Engine()))
     assert main(["-c", config_path, "handoff", "run-1"]) == 0

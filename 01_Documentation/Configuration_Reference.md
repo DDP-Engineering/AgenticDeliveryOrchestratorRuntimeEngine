@@ -57,7 +57,7 @@ The server preview uses the effective agent slug, ticket number `1` and run iden
 | `poll_interval_seconds` | Base wait after each completed CLI loop/web round. | `60` |
 | `poll_jitter_seconds` | Add 0..maximum random seconds after backoff, CLI loop/web. | `5` |
 | `poll_backoff` | Double failed-round waits up to 8x, reset on success; CLI loop/web. | `true` |
-| `max_concurrent_runs` | Capacity ceiling for persisted `working` and `handoff-pending` runs; clarification, approval and review waits release capacity. Conduction remains serial. | `1` |
+| `max_concurrent_runs` | Maximum admitted execution places per project, including manual Start, Retry/Restart and resumed work. Queued web commands use no executor; a durably admitted job reserves a place until dispatch. Settled clarification, approval and review waits release capacity. Initialization, handoff-pending and active cleanup keep their reservation. Lowering the limit preserves existing executions. | `1` |
 | `quiet_hours` | Server-local `HH:MM-HH:MM` automatic polling pause windows, CLI loop/web. | `[]` |
 | `readiness.require_acceptance_criteria` | Optional text gate: `acceptance criteria` or an unchecked `- [ ]` item. | `false` |
 | `readiness.require_priority_label` | Require a configured priority. | `true` |

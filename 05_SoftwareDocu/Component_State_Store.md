@@ -16,7 +16,7 @@ audit log. The closed run-state schema is `1`.
 
 - atomically save/load run state and ticket snapshots;
 - append/read JSONL events;
-- own pause and single-instance lock files;
+- own pause, short admission/operator lock files and per-run kernel locks;
 - own per-run `cancel.request` markers used by the web worker and conductor;
 - own validated `handoff-request.json` markers for operator ownership transfer;
 - expose fail-closed stale-lock reclamation for cleanup: only a readable local
@@ -150,3 +150,37 @@ The parked-poll counter is a strictly nonnegative integer; positive values confi
 ## Optional writer authority
 
 StateStore.before_write is an optional caller-supplied fence. JSON writes (including the final atomic replacement), journal appends, pause/resume, cancellation/handoff markers and run deletion call it before mutation. The worker-bound CLI installs the current operation/project owner check; ordinary standalone CLI leaves it unset. A lost owner cannot overwrite saved run state or append journal evidence. The run-state schema remains unchanged.
+
+## Admission, execution and lifecycle locks
+
+`run_lock(run_id)` is an exclusive nonblocking OS lock on a stable file under
+`locks/`; Windows byte-range locking and POSIX flock release it on process death.
+The same store/thread may nest a run scope. Independent stores/threads remain
+exclusive. Persistent lock-file presence never proves a live owner; files are
+not unlinked or reclaimed during ordinary execution.
+
+`admission_lock()` combines short local exclusion with the existing operator
+lock. Execution slots are acquired under admission before initialization and
+remain held through cleanup. `execution_slots()` observes actual kernel locks,
+including Restart reservations whose old run state has already been removed.
+No admission section waits for a run lock or launches an external command.
+
+`dispatch.json` has one closed current schema: `schema = 1`, the lowercase
+64-character SHA-256 `config_revision`, and `status` (`queued` or `started`).
+`save_dispatch` creates it once and consumes queued authority atomically before
+initial execution. `load_dispatch` refuses missing, linked, oversized, corrupt,
+unknown-key or other-schema data with `StateError` naming the file to inspect or
+delete. Audit lines cannot grant execution authority. Explicit Retry owns
+recovery; no earlier dispatch format is read or converted.
+
+State deletion and terminal-metric deletion share the short admission boundary
+with statistics rebuilding. The preceding resource cleanup uses only the run
+lock. Run-state schema remains 1; no migration is introduced.
+
+Current state requires `execution_pending` as a strict boolean. A newly admitted
+job sets it true with zero executor/task progress, so every state reader reports
+zero active time until dispatch. StateStore treats that interval as inactive on
+all saves, including Cancel. Activation clears and saves the flag/clock before
+consuming dispatch authority or performing a forge/provisioning effect. A true
+flag with executor/task progress is corrupt; a missing field is refused with the
+run directory to delete, without repair or conversion.

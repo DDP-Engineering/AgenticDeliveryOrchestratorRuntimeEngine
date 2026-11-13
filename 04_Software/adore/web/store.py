@@ -496,16 +496,17 @@ class WebStore:
                                (_now(), owner.id))
 
     def authorize_worker(self, owner: WorkerOwner) -> dict[str, Any]:
-        """@brief Authorize autonomous project polling under explicit ownership."""
+        """@brief Authorize project polling or single-run conduction under explicit ownership."""
         with self._ownership_connect() as connection:
             self._participant(connection, owner)
-        if owner.role != "project":
-            raise OwnershipError("project polling ownership required")
+        if owner.role not in {"project", "run"}:
+            raise OwnershipError("project or run ownership required")
         profile = ProfileStore(self.path.parent).find_by_id(owner.project_id)
         if profile is None or profile.archived:
             raise OwnershipError("project polling ownership target unavailable")
-        return {"action": "poll", "project_id": owner.project_id, "project": profile.name,
-                "run_id": ""}
+        return {"action": "conduct" if owner.role == "run" else "poll",
+                "project_id": owner.project_id, "project": profile.name,
+                "run_id": owner.run_id}
 
     def assert_worker(self, owner: WorkerOwner) -> None:
         """@brief Verify this process still participates in an exact role/project/run owner."""

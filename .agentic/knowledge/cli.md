@@ -51,7 +51,7 @@ accepts a positive forge ticket IID with normal selection checks.
 
 Explicit `-c`, named profile, active profile and local `config.toml` define
 configuration precedence. Invalid config returns nonzero. Engine mutations
-respect the conductor lock; force is required for destructive state changes.
+respect the selected run lock; force is required for destructive state changes.
 `config set` shares a per-directory edit lock with the web API; contention
 returns a nonzero result without changing the config file. It reads and
 writes the file as bytes and keeps its CR LF or LF line endings; added lines
@@ -68,7 +68,7 @@ a late corrupt run cannot partially refresh the projection.
 
 Invalid/missing configuration produces a clear nonzero result rather than a
 traceback. Destructive state operations require `--force`; mutations acquire
-the single-conductor lock; `profile delete --remove-resources` releases the
+the selected run lock; `profile delete --remove-resources` releases the
 containers and worktrees recorded for the project's own runs, except human-owned
 ones, before deleting the profile; `--remove-clone` also removes an ADORE-owned
 clone under <home>/repos after the profile (checked before and after the sweep);
@@ -123,7 +123,7 @@ Native Pi lifecycle: `adore pi install` and `adore pi verify` work without a pro
 
 ## Confirmed destructive recovery
 
-The CLI adds delete --owned-resources for failed/cancelled jobs and restart --force --expected-revision for one confirmed failed incarnation. Both hold the conductor lock; cleanup errors are clean/nonzero and preserve remaining evidence. Native cleanup-only construction does not resolve current tools. Live-lock guidance names the web worker, Project Summary pause and waiting for the bounded job, plus stopping a standalone CLI loop. Proof: tests/test_drift_recovery.py and mutation tests in test_smoke.py.
+The CLI adds delete --owned-resources for failed/cancelled jobs and restart --force --expected-revision for one confirmed failed incarnation. Both hold the selected run lock; cleanup errors are clean/nonzero and preserve remaining evidence. Native cleanup-only construction does not resolve current tools. A busy run remains owned; cleanup refuses and handoff/cancellation queue exact durable requests. Proof: tests/test_drift_recovery.py and mutation tests in test_smoke.py.
 
 
 CLI delete records an uncertain local receipt outside the job before cleanup and confirms only afterward. It refuses corrupt/unavailable audit storage and reports post-delete confirmation failure as uncertain. A standalone CLI deletion never bootstraps web authentication.
@@ -169,3 +169,22 @@ A run-role command binds engine.owned_run_id so reconciliation skips unrelated r
 before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
 capacity always counts all working jobs in that project. Completion verifies owner
 project/domain/run scope and validates the persisted operation again.
+
+## Owned run dispatch
+
+`run --once --admit-only [--ticket IID]` initializes and reserves one job,
+returning its run_id without an executor. `conduct RUN --config-revision SHA256`
+builds fresh conductor/executor/backend instances and advances only that run.
+The lowercase digest binds exact configuration bytes; worker contexts bind the
+same project/run and cannot use this entrypoint to poll or claim other jobs.
+Missing/corrupt state or dispatch, changed revision and lost/foreign ownership
+fail closed with exit 1. Lifecycle operators use selected-run locks; Cancel can
+queue its marker for a live owner. Retry capacity refusal is `at_capacity` in the
+closed terminal protocol. Standalone profile commands observe web run ownership.
+Proof: test_run_concurrency.py, test_profile_cli.py and test_web_ownership.py.
+
+Cancel prints `cancelled` only after reading the saved cancellation result.
+A busy-owner marker prints `cancellation requested; awaiting confirmed stop`;
+exit zero then means the request was accepted, not that cleanup completed.
+An unavailable result is reported as unconfirmed with a nonzero exit.
+Admission-only performs no reconciliation of other jobs.

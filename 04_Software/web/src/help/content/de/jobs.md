@@ -9,6 +9,8 @@ Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverz
 
 Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt. Der Auftrag hat danach seinen eigenen Fortschritt und Ausgang. Ein wartender oder laufender Befehl bestätigt die Aufnahme allein nicht. Der Abbruch wird erst nach dem Auftragsstopp mit gespeichertem Abbruchergebnis bestätigt. Warteschlange oder Stoppsignal bestätigen keinen Abbruch. Prüfen Sie bei unklarem Ergebnis den Auftrag vor dem Wiederholen.
 
+Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.
+
 ## Phasen {#stages}
 
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.

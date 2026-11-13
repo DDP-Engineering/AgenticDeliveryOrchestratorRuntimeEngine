@@ -236,7 +236,7 @@ Container profiles without recipes or enabled package permission retain the exis
 ## Automatic loop cadence
 
 `run_loop()` uses the shared `adore.polling.PollCadence` policy documented in
-[Polling cadence](polling.md). It retains the conductor lock, typed
+[Polling cadence](polling.md). It uses independent run scopes, typed
 forge/unexpected-error logging, local quiet windows and interrupt cleanup.
 Success resets backoff; a quiet round preserves it. Each wait begins after the
 round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.
@@ -299,7 +299,7 @@ forge claim labels and conduction. The bound web Start uses this callback to ack
 admission independently of job outcome; polling/Retry/Restart install no Start callback.
 before_effect checks current worker authority at conduction and publication boundaries.
 The bound CLI additionally fences state writers and Git/forge/container command runners.
-The existing conductor lock and human merge boundary remain authoritative. The parameterized
+Per-run lifecycle locks, short admission reservations and the human merge boundary remain authoritative. The parameterized
 claim-workflow tests assert callback durability/order without executing target tests.
 
 
@@ -320,3 +320,39 @@ A run-role command binds engine.owned_run_id so reconciliation skips unrelated r
 before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
 capacity always counts all working jobs in that project. Completion verifies owner
 project/domain/run scope and validates the persisted operation again.
+
+## Project admission and owned-run execution
+
+REQ-FUNC-58a8d9d5, REQ-REL-ab1c7560, REQ-FUNC-cbac7e6c,
+REQ-REL-4659ba9d, REQ-FUNC-eb167b66 and REQ-DATA-4f49d9f6 govern the
+short admission transaction, kernel run/execution locks and durable worker scope.
+`poll_once(admit_only=True)` initializes a reserved job without an executor;
+`conduct_run(run_id, config_revision=...)` advances exactly one owned job.
+Initialization occurs after admission lock release and before the first actual
+workflow save. Atomic closed dispatch schema 1 consumes initial-launch authority
+before effects; audit lines cannot authorize replay. Queue waits are excluded
+from the initial active clock. A started interrupted dispatch needs explicit Retry.
+
+All execution entrypoints share current-source `polling.max_concurrent_runs`.
+Capacity includes working reservations, handoff-pending, unsettled parking and
+held execution slots through cleanup; settled waits do not occupy executors.
+Reducing this operational limit leaves already-running jobs intact. Run controls
+serialize lifecycle, journals, publication and cancellation. Foreign durable
+live/uncertain owners and foreign kernel locks are skipped before any mutation.
+Proof: test_run_concurrency.py plus conductor, native Retry and ownership tests.
+
+An uncertain STALE_PUBLISHING outcome also excludes automatic failed-run
+checkpoint pushes on later polls; only explicit operator recovery can rearm
+external publication effects.
+
+Admission-only skips all reconciliation, so it cannot resume an existing answered
+or review job. The required `execution_pending` state flag freezes the queue
+clock in every reader and through pre-dispatch cancellation; activation persists
+the clock before effects. Explicit recovery of a pending job consumes its queued
+dispatch authority once. A run-bound Cancel refuses foreign targets before its
+busy-owner marker fallback.
+
+Cancel of an admitted native job whose pinned plan has no resource receipt
+proves absence of its exact local-control directory before removing the worktree.
+Any unrecorded control entry blocks cleanup and preserves state; no process is
+assumed absent merely from missing saved resource identity.

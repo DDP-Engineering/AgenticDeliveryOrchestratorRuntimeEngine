@@ -232,3 +232,14 @@ snapshot through an indexed generation lookup before inserting the successor.
 The current unique owner/resource indexes are validated at open. Deterministic
 held-projection tests prove another role can commit a heartbeat before validation
 is released, without replacing real SQLite writes with mocks.
+
+## Per-run engine scope
+
+`WorkerContext.run_available` recovers only provably dead run owners, then
+protects any active foreign owner regardless of heartbeat age. Engine run
+control combines that evidence with a kernel lifecycle lock before effects.
+A run-role context without an operation claim authorizes only `conduct` for its
+exact project/run; it cannot poll, reconcile another run or claim another ticket.
+`WebStore.authorize_worker` exposes this exact run action in addition to the
+existing project polling action. Process supervision remains separate from the
+conductor's admission and single-run interfaces.

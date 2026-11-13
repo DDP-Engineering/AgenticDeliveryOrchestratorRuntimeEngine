@@ -41,8 +41,8 @@ the `adore` package. An optional web API also exposes selected controls.
   `adore logs <run-id>`
   (journal, including executor archive paths when present), and
   `adore delete <run-id> --force` (destructive; refuses without `--force`,
-  design 8c guardrail). Retry, cancel, delete, and reset acquire the
-  single-conductor lock for their entire mutation; logs remain unlocked.
+  design 8c guardrail). Retry, cancel, delete and reset acquire the selected
+  run lock for their mutation; logs remain unlocked.
   Handoff queues an exact durable request when that lock is held, then the
   conductor stops at a safe boundary and preserves human-owned work. With an
   idle lock, the CLI completes the transfer directly.
@@ -272,7 +272,7 @@ Focused proof: tests/test_retry_revalidation.py and CLI mutation-lock tests.
 
 ## Confirmed drift recovery
 
-`delete <run-id> --force` uses verified resource/worktree and exact remote-branch cleanup before deleting state. Typed native, Git, storage and forge failures return nonzero with actionable guidance. `--owned-resources` explicitly authorizes release using the saved native plan/receipt despite changed executable/environment settings; it never authorizes another host/account, foreign receipt or human-owned job. `restart <run-id> --force --expected-revision <sha256>` requires the confirmed failed state under the conductor lock and then manually admits its ticket with current settings, preserving monitoring pause. A web-worker lock names Project Summary -> Pause monitoring and waiting for the bounded job; CLI loop processes must be stopped separately. Offline proof: `tests/test_drift_recovery.py`.
+`delete <run-id> --force` uses verified resource/worktree and exact remote-branch cleanup before deleting state. Typed native, Git, storage and forge failures return nonzero with actionable guidance. `--owned-resources` explicitly authorizes release using the saved native plan/receipt despite changed executable/environment settings; it never authorizes another host/account, foreign receipt or human-owned job. `restart <run-id> --force --expected-revision <sha256>` requires the confirmed failed state under the selected run lock and then manually admits its ticket with current settings, preserving monitoring pause. A busy run remains protected; explicit cancellation or handoff uses a durable request. Offline proof: `tests/test_drift_recovery.py`.
 
 
 The CLI delete boundary records a durable uncertain receipt in the home deletion audit before cleanup, then confirms it only after successful job removal. It refuses corrupt or unavailable receipts before cleanup and reports an unconfirmed post-delete receipt without asserting the job remains. CLI identity is not a web user.
@@ -298,3 +298,24 @@ A run-role command binds engine.owned_run_id so reconciliation skips unrelated r
 before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
 capacity always counts all working jobs in that project. Completion verifies owner
 project/domain/run scope and validates the persisted operation again.
+
+## Owned run dispatch
+
+`run --once --admit-only [--ticket IID]` reserves and initializes one eligible
+job without an executor. Its JSON includes `run_id`; the job's dispatch record
+binds the exact configuration bytes. The option refuses loop/dry-run modes.
+`conduct RUN --config-revision SHA256` builds fresh collaborators and conducts
+or reconciles that run alone. Invalid revision, lost/foreign ownership, corrupt
+state and changed configuration return exit 1 before an executor launch.
+
+Lifecycle commands delegate per-run ownership to the engine rather than holding
+the project lock throughout execution. Cancel may enqueue a durable marker;
+only saved cancellation confirms stopping. Retry refuses capacity with the
+closed `at_capacity` result. Standalone profile commands also consult current
+web run ownership; attached worker contexts retain WK-01 generation fencing.
+
+Cancel prints `cancelled` only after reading the saved cancellation result.
+A busy-owner marker prints `cancellation requested; awaiting confirmed stop`;
+exit zero then means the request was accepted, not that cleanup completed.
+An unavailable result is reported as unconfirmed with a nonzero exit.
+Admission-only performs no reconciliation of other jobs.

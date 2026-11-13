@@ -123,7 +123,7 @@ def test_restart_checks_revision_and_preserves_paused_manual_admission(tmp_path,
         engine.restart(run.run_id, "0" * 64)
     assert engine.store.exists(run.run_id) and not calls
     assert engine.restart(run.run_id, revision)["picked"] == run.ticket_iid
-    assert calls == [{"locked": True, "ticket_iid": run.ticket_iid}]
+    assert calls == [{"ticket_iid": run.ticket_iid, "reconcile": False}]
 
 
 @pytest.mark.parametrize("fault", ["native", "state", "git", "lock"])
@@ -139,7 +139,9 @@ def test_cli_delete_refuses_cleanly_with_guidance(tmp_path, monkeypatch, capsys,
     monkeypatch.setattr("adore.cli._engine", lambda args: (engine.config, engine))
     monkeypatch.setattr("adore.cli._store", lambda cfg: engine.store)
     if fault == "lock":
-        engine.store.acquire_lock()
+        from adore.state import StateStore
+        held = StateStore(engine.store.root).run_lock(run.run_id)
+        held.__enter__()
     else:
 
         def refuse(*args, **kwargs):
@@ -151,11 +153,12 @@ def test_cli_delete_refuses_cleanly_with_guidance(tmp_path, monkeypatch, capsys,
     try:
         assert main(["-c", config, "delete", run.run_id, "--force"]) == 1
     finally:
-        engine.store.release_lock()
+        if fault == "lock":
+            held.__exit__(None, None, None)
     output = capsys.readouterr().out
     assert "error:" in output and "private raw evidence" not in output
     if fault == "lock":
-        assert "web worker" in output and "Pause monitoring" in output
+        assert "owned by another conductor" in output
     else:
         assert "inspect" in output.lower() or "restore" in output.lower()
     assert engine.store.exists(run.run_id)

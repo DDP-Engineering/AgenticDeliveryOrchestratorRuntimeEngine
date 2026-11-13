@@ -25,7 +25,8 @@
 from __future__ import annotations
 
 # IMPORTS
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta
 import hashlib
@@ -37,6 +38,7 @@ import shutil
 import socket
 import stat
 import tempfile
+from threading import local
 from typing import Any
 
 from adore.branding import DEFAULT_STATE_ROOT, PRODUCT_SLUG
@@ -93,6 +95,10 @@ class StateError(RuntimeError):
              ticket.json (for example after a crash or manual edit). Callers
              skip or escalate the affected run; they never reinitialize it.
     """
+
+
+class LockHeldError(RuntimeError):
+    """@brief Another owner holds the requested admission or run scope."""
 
 
 @dataclass
@@ -159,6 +165,8 @@ class RunState:
     checkpoint_error: str = ""
     #: Effective clock anchor, shifted over inactive intervals to retain consumed work.
     active_started_at: str = ""
+    #: A reserved job has not begun any executor/provisioning work yet.
+    execution_pending: bool = False
     created_at: str = ""
     updated_at: str = ""
 
@@ -170,7 +178,8 @@ class RunState:
         @exception StateError For malformed or timezone-free clock evidence.
         """
         end = _clock_stamp(now if self.lifecycle == "working" else self.updated_at)
-        return max(0.0, (end - _clock_stamp(self.active_started_at)).total_seconds())
+        elapsed = max(0.0, (end - _clock_stamp(self.active_started_at)).total_seconds())
+        return 0.0 if self.execution_pending else elapsed
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -220,6 +229,11 @@ class RunState:
             _clock_stamp(state.active_started_at)
         if type(state.iterations) is not int or state.iterations < 0:
             raise StateError("run-state iterations must be nonnegative")
+        if type(state.execution_pending) is not bool:
+            raise StateError("run-state execution_pending must be boolean")
+        if state.execution_pending and (state.iterations != 0 or state.active_task_id is not None
+                                        or state.task_ids != []):
+            raise StateError("run-state pending execution cannot contain executor/task progress")
         if type(state.parked_polls) is not int or state.parked_polls < 0:
             raise StateError("run-state parked_polls must be nonnegative")
         if (
@@ -512,6 +526,7 @@ class StateStore:
         self.slug = slug
         self._process_alive = process_alive
         self.before_write: Callable[[], object] | None = None
+        self._scoped_locks = local()
 
     # -- paths ----------------------------------------------------------------
 
@@ -616,7 +631,11 @@ class StateStore:
             previous = self.load(state.run_id)
             # Move the effective anchor over waiting time, including repeated
             # inactive saves. Resume keeps all work consumed before the wait.
-            if previous.lifecycle != "working":
+            if previous.execution_pending:
+                # A queued admission has consumed no active work on any read,
+                # cancellation or crash path. Persist activation before effects.
+                state.active_started_at = now
+            elif previous.lifecycle != "working":
                 waiting = max(0.0, (_clock_stamp(now)
                                    - _clock_stamp(previous.updated_at)).total_seconds())
                 state.active_started_at = (
@@ -707,6 +726,55 @@ class StateStore:
             shutil.rmtree(target)
 
     # -- ticket snapshot --------------------------------------------------------
+
+    def save_dispatch(self, run_id: str, revision: str, *, started: bool = False) -> None:
+        """@brief Persist exact initial dispatch authority independently of the audit log.
+        @param[in] run_id Run already protected by its lifecycle lock.
+        @param[in] revision Exact SHA-256 of the admitted configuration.
+        @param[in] started Irreversibly consume initial-launch authority before effects.
+        @exception StateError Missing, corrupt or already consumed dispatch evidence.
+        """
+        if not isinstance(revision, str) or not re.fullmatch(r"[a-f0-9]{64}", revision):
+            raise StateError("invalid dispatch configuration revision")
+        if not isinstance(run_id, str) or not _RUN_ID_RE.fullmatch(run_id):
+            raise StateError("invalid run dispatch identity")
+        path = self.run_dir(run_id) / "dispatch.json"
+        if started:
+            previous = self.load_dispatch(run_id)
+            if previous["status"] != "queued" or previous["config_revision"] != revision:
+                raise StateError("dispatch authority already consumed or changed")
+        elif path.exists() or path.is_symlink():
+            raise StateError("dispatch evidence already exists")
+        self._write_json(path, {"schema": 1, "config_revision": revision,
+                                "status": "started" if started else "queued"})
+
+    def load_dispatch(self, run_id: str) -> dict[str, Any]:
+        """@brief Read closed dispatch schema 1; absence/corruption never grants launch authority.
+        @exception StateError Invalid evidence; explicit operator recovery is required.
+        """
+        if not isinstance(run_id, str) or not _RUN_ID_RE.fullmatch(run_id):
+            raise StateError("invalid run dispatch identity")
+        path = self.run_dir(run_id) / "dispatch.json"
+        try:
+            if path.is_symlink():
+                raise ValueError("linked evidence")
+            with path.open(encoding="utf-8") as handle:
+                raw = handle.read(4097)
+            if len(raw) > 4096:
+                raise ValueError("oversized evidence")
+            value = strict_json_loads(raw)
+            if (not isinstance(value, dict)
+                    or set(value) != {"schema", "config_revision", "status"}
+                    or type(value["schema"]) is not int or value["schema"] != 1
+                    or not isinstance(value["config_revision"], str)
+                    or not re.fullmatch(r"[a-f0-9]{64}", value["config_revision"])
+                    or value["status"] not in ("queued", "started")):
+                raise ValueError("invalid evidence")
+        except (OSError, ValueError, TypeError, RecursionError) as exc:
+            raise StateError(
+                f"invalid dispatch evidence for {run_id}; inspect or delete {path}"
+            ) from exc
+        return value
 
     def save_ticket(self, run_id: str, ticket: dict[str, Any]) -> None:
         """
@@ -828,12 +896,134 @@ class StateStore:
 
     # -- single-instance lock ------------------------------------------------------
 
+    @contextmanager
+    def run_lock(self, run_id: str) -> Iterator[None]:
+        """@brief Hold one crash-released, thread-reentrant lifecycle lock.
+        @param[in] run_id Exact safe run identity.
+        @exception LockHeldError Another process or store owns this run.
+        @exception StateError Invalid identity or unavailable lock storage.
+        @note Lock files remain present; only the kernel lock proves ownership.
+        """
+        if not isinstance(run_id, str) or not _RUN_ID_RE.fullmatch(run_id):
+            raise StateError("invalid run lock identity")
+        with self._scope_lock("run-" + run_id):
+            yield
+
+    @contextmanager
+    def _scope_lock(self, name: str) -> Iterator[None]:
+        """@brief Lock a stable inode without unlink/reclaim races on either host OS."""
+        held = getattr(self._scoped_locks, "held", None)
+        if held is None:
+            held = self._scoped_locks.held = set()
+        if name in held:
+            yield
+            return
+        directory = self.root / "locks"
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise StateError("cannot create lifecycle lock storage") from exc
+        path = directory / (name + ".lock")
+        if directory.is_symlink() or path.is_symlink():
+            raise StateError("linked lifecycle lock storage")
+        try:
+            handle = path.open("a+b")
+        except OSError as exc:
+            raise StateError("cannot open lifecycle lock") from exc
+        acquired = False
+        try:
+            if os.name == "nt":
+                import msvcrt
+                # Locking a byte beyond EOF is supported on Windows. No metadata
+                # write is needed, so an occupied inode is never modified.
+                handle.seek(0)
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                except OSError as exc:
+                    if exc.errno in (13, 11, 36):
+                        raise LockHeldError("run lifecycle is owned by another conductor") from exc
+                    raise StateError("cannot acquire lifecycle lock") from exc
+            else:
+                import fcntl
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError as exc:
+                    raise LockHeldError("run lifecycle is owned by another conductor") from exc
+                except OSError as exc:
+                    raise StateError("cannot acquire lifecycle lock") from exc
+            acquired = True
+            held.add(name)
+            yield
+        finally:
+            try:
+                if acquired:
+                    held.remove(name)
+                    if os.name == "nt":
+                        handle.seek(0)
+                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
+
+    def owns_run_lock(self, run_id: str) -> bool:
+        """@brief Whether this thread already conducts the run under a kernel lock."""
+        return "run-" + run_id in getattr(self._scoped_locks, "held", set())
+
+    def run_locked(self, run_id: str) -> bool:
+        """@brief Observe foreign lifecycle ownership without relying on PID age.
+        @param[in] run_id Exact run to observe.
+        @return True only while another store or thread holds its kernel lock.
+        """
+        try:
+            with self.run_lock(run_id):
+                return False
+        except LockHeldError:
+            return True
+
+    @contextmanager
+    def execution_slot(self, run_id: str) -> Iterator[None]:
+        """@brief Retain a reserved executor place through final backend cleanup."""
+        if not isinstance(run_id, str) or not _RUN_ID_RE.fullmatch(run_id):
+            raise StateError("invalid execution slot identity")
+        with self._scope_lock("execution-" + run_id):
+            yield
+
+    def execution_slots(self) -> set[str]:
+        """@brief Return live cleanup/execution reservations, including removed run state.
+        @return Set of run identities with a held kernel execution slot.
+        """
+        result = set()
+        for path in (self.root / "locks").glob("execution-*.lock"):
+            run_id = path.name[len("execution-"):-len(".lock")]
+            # The current thread's reservation also counts for other run IDs.
+            if "execution-" + run_id in getattr(self._scoped_locks, "held", set()):
+                result.add(run_id)
+                continue
+            try:
+                with self.execution_slot(run_id):
+                    pass
+            except LockHeldError:
+                result.add(run_id)
+        return result
+
+    @contextmanager
+    def admission_lock(self) -> Iterator[None]:
+        """@brief Serialize short local reservations and preserve operator exclusion."""
+        with self._scope_lock("admission"):
+            if not self.acquire_lock():
+                raise LockHeldError("another instance holds the admission lock")
+            try:
+                yield
+            finally:
+                self.release_lock()
+
     def acquire_lock(self) -> bool:
         """
-        @brief   Take the single-instance lock (exclusive create).
-        @details State is locally authoritative, so two pollers on the same
-                 repo must never run at once (design doc 12a). A lock left by a
-                 CRASHED poller on THIS host - its recorded pid is provably gone
+        @brief   Take the project admission/operator lock (exclusive create).
+        @details Short local admission transactions serialize capacity and
+                 uniqueness. Run kernel locks separately protect each lifecycle.
+                 A lock left by a CRASHED local operator - its PID is provably gone
                  - is reclaimed automatically, so a hard crash under
                  systemd/Task Scheduler does not wedge every future start until
                  a manual `adore cleanup`. Every other case fails closed: a live

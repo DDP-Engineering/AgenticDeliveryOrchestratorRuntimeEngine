@@ -9,6 +9,8 @@ Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **An
 
 Pornirea este confirmată după admiterea durabilă și preluarea lucrării de către serviciu. Lucrarea are apoi propriul progres și rezultat. O comandă în coadă sau în curs nu confirmă singură admiterea. Anularea este confirmată numai după oprirea lucrării cu un rezultat de anulare salvat. Punerea cererii în coadă sau trimiterea semnalului de oprire nu confirmă anularea. Dacă rezultatul este incert, verifică lucrarea înainte de reluare.
 
+Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, reîncercării, repornirii de la zero și reluării. Pauza monitorizării oprește preluarea automată și păstrează pornirea explicită. Reducerea limitei lasă lucrările existente să continue. Comenzile în coadă și așteptările stabilizate de clarificare, aprobare sau review nu ocupă un executor; inițializarea și curățarea păstrează locul până la eliberarea sigură. Așteptarea înainte de execuție nu consumă timp de lucru activ.
+
 ## Etape {#stages}
 
 ADORE parcurge etapele AEGIS pe rând, fiecare încercare într-o sesiune nouă de executor. Executorii nu fac niciodată push, nu deschid un MR/PR și nu integrează.

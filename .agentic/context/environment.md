@@ -309,3 +309,9 @@ independent SQLite connections and deterministic barriers/events. It never start
 contacts a forge/model or executes a target repository check. Linux /proc and Windows
 process creation evidence distinguish PID reuse; unavailable probes retain ownership.
 Existing stores in other schemas are refused with explicit database/marker deletion guidance.
+
+Owned-run concurrency proof uses isolated state roots, injected forge/executor/
+backend boundaries, deterministic events and an owned spawned helper solely for
+kernel-lock death recovery. Targeted tests cover admission, single-run CLI,
+capacity resumptions, dispatch corruption, live/unknown durable ownership and
+cleanup boundaries; no target repository checks or DCP operations run.

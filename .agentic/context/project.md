@@ -68,7 +68,7 @@ ADORE's only coding agent.
   replays notifications, verifies AEGIS strictly or runs optional direct
   verification with bounded fresh fixes, records explicit unverified evidence
   when no command is configured and publishes draft/ready reviews; `adore/state.py` persists schema-1
-  run state, the single-conductor lock and an append-only JSONL journal.
+  run state, short admission/per-run kernel locks and an append-only JSONL journal.
 - `adore/forge/` adapts GitLab (`glab`), GitHub (`gh`) and Gitea (`tea`);
   `adore/isolation.py` owns worktrees, checkpoint commits, candidate
   fingerprints and the Docker/Podman lifecycle; `adore/executor/` launches
@@ -146,8 +146,11 @@ each component to its source and tests.
 
 ## Supported operation
 
-One conductor per state root polls in a loop or in externally scheduled single
-passes, on Windows 11 through Task Scheduler or on Ubuntu 22+ through systemd.
+Project admission uses short local transactions; independent run conductors
+can advance different jobs of the same project on Windows or Linux. Synchronous
+CLI loops/single passes remain available. Each run process owns its conductor,
+executor, backend and bound configuration revision; no project lock spans agent
+execution. polling.max_concurrent_runs is the common project admission ceiling.
 Run lifecycle states (`working`, parked, awaiting approval, publishing, in
 review, terminal) are separate from workflow stage. Workflow is selected from
 the pinned worktree before the first claim save and retained on continuation.
@@ -454,3 +457,8 @@ attached CLI child do not grant takeover. The CLI bridge retains serial scheduli
 this step. Start confirms durable admission before conduction; Cancel confirms the saved
 cancelled result. Protected configuration references remain with their dedicated consumer.
 See web-interface.md and test_web_ownership.py.
+
+Initial queued execution has the required current-state execution_pending flag;
+all readers freeze active work until its durable activation. Admission-only never
+reconciles another job. Cancel distinguishes an accepted request from saved
+stopping and cannot use marker fallback to mutate a foreign run target.

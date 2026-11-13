@@ -10,7 +10,7 @@ SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 
 ## Routing
 
-Use this page for schema-1 run state, journals, conductor locks, outbox and
+Use this page for schema-1 run state, journals, admission and run locks, outbox and
 cancellation and handoff markers. Start at `04_Software/adore/state.py`; verify with
 `04_Software/tests/test_state.py`. Web queue state belongs to
 `web-interface.md`.
@@ -18,7 +18,7 @@ cancellation and handoff markers. Start at `04_Software/adore/state.py`; verify 
 ## Purpose and boundaries
 
 Persists schema-1 `RunState` records, append-only JSONL audit events, pending
-notification outbox records, pause state, and the single-conductor lock.
+notification outbox records, pause state, and short admission and per-run lifecycle locks.
 
 ## Public interface
 
@@ -111,3 +111,28 @@ handoff and deletion mutations check before effects. The web-bound CLI installs 
 worker/operation authority. Standalone CLI leaves it unset; run-state schema stays 1.
 A lost worker cannot overwrite a run or append evidence. Tests include state/CLI regressions
 and test_web_ownership.py::test_cli_attaches_and_fences_state_and_external_effects.
+
+## Concurrent lifecycle storage
+
+`run_lock` gives independent stores/processes exclusive kernel ownership on a
+stable per-run file. Thread nesting is allowed only within the same StateStore.
+`admission_lock` is short and contains local capacity/uniqueness reservation;
+`execution_slot` keeps initialization/cleanup visible before/after active state.
+Locks release on process death and their files are never unlinked during normal
+operation. A held lock, not its file's age, proves a live conductor.
+
+`save_dispatch` and `load_dispatch` own a separate closed schema-1
+`dispatch.json`: schema, exact SHA-256 config_revision, queued/started status.
+Missing, linked, oversized, unknown-key, other-schema or malformed records fail
+with StateError and file-named operator guidance. Started launch authority never
+reappears from a missing audit line. State schema remains 1 with no migration.
+Terminal metric and state deletion publish together under short admission.
+Proof: test_run_concurrency.py and existing state-store tests.
+
+Current state requires `execution_pending` as a strict boolean. A newly admitted
+job sets it true with zero executor/task progress, so every state reader reports
+zero active time until dispatch. StateStore treats that interval as inactive on
+all saves, including Cancel. Activation clears and saves the flag/clock before
+consuming dispatch authority or performing a forge/provisioning effect. A true
+flag with executor/task progress is corrupt; a missing field is refused with the
+run directory to delete, without repair or conversion.

@@ -214,9 +214,10 @@ directories (those of its done, cancelled, stale and state-less runs) and
 leaves other projects' resources in place. It reports corrupt runs while
 keeping their state and resources. It reclaims only a
 provably stale local lock; a live/unknown holder is reported and left in
-place. Stop the service poller
-before retry/cancel/reset/delete because those mutations use the same
-single-conductor lock.
+place. Run mutations serialize only the selected run. Cancel queues a durable
+request to a live owner, while an idle run is cleaned by one exclusive owner.
+Never remove persistent files under `locks/`: ownership is the kernel lock,
+not the file's existence or age.
 
 ## Native local execution
 
@@ -259,3 +260,28 @@ infrastructure error and no further executor attempt. Inspect retained evidence
 and runtime ownership before using explicit Retry. Cancel and delete retain their
 normal authority; ADORE never automatically replaces a container to hide the error.
 A preparation timeout still needs its existing explicit replay procedure.
+
+
+## Concurrent project execution
+
+`polling.max_concurrent_runs` is the project's admission ceiling (default 1).
+Manual Start, automatic pickup, Retry, Restart and automatic resumptions share
+one short reservation boundary. Independent conductors have their own executor,
+backend and configuration revision; no project lock spans an agent call.
+Reducing the ceiling blocks later reservations and leaves existing jobs running.
+Pause stops automatic pickup and preserves explicit eligible Start.
+
+Queued web commands do not allocate an executor. An admitted job reserves its
+execution place until the run process begins; that wait is excluded from its
+active-work budget. Settled clarification, approval and review waits release
+executor capacity. Initialization, `handoff-pending`, unsettled parking and an
+active conductor finishing backend cleanup retain their place until safe release.
+
+A live or uncertain durable owner is never classified as stale from heartbeat
+age. Reconciliation skips foreign run locks and owns outbox/publication effects
+one run at a time. An interrupted publisher fails visibly for remote-state
+inspection and explicit recovery; it is not published again automatically.
+
+Pending execution is recorded explicitly in current run state. Active-work
+readouts remain zero before first dispatch, including if a queued job is
+cancelled; dispatch persists clock activation before any external claim effect.

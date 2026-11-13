@@ -1301,3 +1301,12 @@ Delayed fresh-file observations and schema-zero waiters re-read under the initia
 lock and release it immediately once another initializer has committed a nonzero schema.
 They then validate existing history without writer ownership. An existing schema-zero
 store is refused without rebuilding, changing bytes or recreating accounts.
+
+## Run-scoped engine authorization
+
+WorkerContext binds the engine's run_available check to durable process
+ownership and retains live/uncertain foreign owners even when a run lock is free.
+A run-role context with no operation claim authorizes only conduct for its exact
+project/run. Project-role autonomous polling remains separate. Public proof is
+in test_web_ownership.py and test_run_concurrency.py; supervision dispatch uses
+the conductor's admission-only and single-run interfaces independently.

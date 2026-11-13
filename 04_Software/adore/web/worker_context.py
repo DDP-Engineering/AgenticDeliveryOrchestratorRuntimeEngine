@@ -89,6 +89,7 @@ class WorkerContext:
         self.authorize()
         engine.before_effect = self.authorize
         engine.run_scope = self.run_scope
+        engine.run_available = self.run_available
         engine.owned_run_id = self.owner.run_id if self.owner.role == "run" else ""
         engine.store.before_write = self.authorize
         for collaborator in (engine.forge, engine.worktrees, engine.containers):
@@ -97,6 +98,20 @@ class WorkerContext:
                 collaborator.runner = self._runner(original)
         if self.authorize()["action"] == "start":
             engine.on_admitted = self.admitted
+
+    def run_available(self, run_id: str) -> bool:
+        """@brief Protect durable foreign owners even across lock/dispatch gaps.
+        @param[in] run_id Exact run identity considered by the conductor.
+        @return Whether no foreign durable owner prevents entering the run scope.
+        @note Stale heartbeats and unavailable process probes retain ownership.
+        """
+        self.authorize()
+        with self.lock:
+            if run_id in self.runs or self.owner.role == "run" and self.owner.run_id == run_id:
+                return True
+        self.web.recover_interrupted(project_id=self.owner.project_id, role="run")
+        return not self.web.worker_heartbeats(role="run", project_id=self.owner.project_id,
+                                               run_id=run_id)
 
     def _own_run(self, run_id: str) -> None:
         """@brief Claim actual execution of a job before acknowledgement or conduction."""
@@ -159,6 +174,13 @@ class WorkerContext:
         """@brief Bind parsed CLI action and target to the immutable queued request."""
         operation = self.authorize()
         action, target = operation["action"], operation["run_id"]
+        if action == "conduct":
+            if (self.owner.role != "run" or self.operation_id != 0
+                    or args.command != "conduct" or args.run_id != self.owner.run_id
+                    or getattr(args, "profile", None) != operation["project"]
+                    or getattr(args, "config", None)):
+                raise OwnershipError("worker ownership run command mismatch")
+            return
         command = ("run" if action in ("start", "poll") else
                    "profile" if action == "delete" else action)
         if args.command != command or getattr(args, "config", None):

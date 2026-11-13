@@ -323,6 +323,8 @@ Bestätigen Sie **Abbrechen**. Die Bereinigung versucht Laufzeit und Arbeitsverz
 \r
 Der Start wird nach dauerhafter Aufnahme und Übernahme des Auftrags bestätigt. Der Auftrag hat danach seinen eigenen Fortschritt und Ausgang. Ein wartender oder laufender Befehl bestätigt die Aufnahme allein nicht. Der Abbruch wird erst nach dem Auftragsstopp mit gespeichertem Abbruchergebnis bestätigt. Warteschlange oder Stoppsignal bestätigen keinen Abbruch. Prüfen Sie bei unklarem Ergebnis den Auftrag vor dem Wiederholen.\r
 \r
+Jedes Projekt hat eine gemeinsame Grenze für gleichzeitige Aufträge: Start, Wiederholen, Neustart und Fortsetzung. Die Überwachungspause stoppt die automatische Aufnahme und lässt den ausdrücklichen Start zu. Eine niedrigere Grenze lässt bestehende Aufträge weiterlaufen. Wartende Befehle und abgeschlossene Übergänge zur Klärungs-, Freigabe- oder Review-Wartephase nutzen keinen Executor; Initialisierung und Bereinigung behalten ihren Platz bis zur sicheren Freigabe. Warten vor der Ausführung verbraucht keine aktive Arbeitszeit.\r
+\r
 ## Phasen {#stages}\r
 \r
 ADORE führt die AEGIS-Phasen nacheinander aus, jeden Versuch in einer neuen Executor-Sitzung. Executoren übertragen nie, öffnen keinen MR/PR und führen nie zusammen.\r
@@ -1117,6 +1119,8 @@ Confirm **Cancel** before submitting it. Cleanup attempts to remove the runtime 
 Open **Job actions**, beside the current stage, for **Retry**, **Cancel** or the confirmed fresh-run recovery when available. Only commands allowed for this job are shown.\r
 \r
 Start is confirmed after the job is durably admitted and taken by the worker. The job then has its own progress and outcome. A queued or running command alone does not confirm admission. Cancel is confirmed only after the job has stopped with a saved cancellation result. Queueing the request or sending a stop signal does not confirm cancellation. If the result is uncertain, inspect the job before retrying.\r
+\r
+Each project has one concurrent-job limit, shared by Start, Retry, fresh restarts and resumed work. Pausing monitoring stops automatic pickup and keeps explicit Start available. Lowering the limit leaves existing jobs running. Queued commands and settled clarification, approval or review waits use no executor; initialization and cleanup keep their place until safe release. Waiting before execution does not consume active work.\r
 \r
 ## Stages {#stages}\r
 \r
@@ -1913,6 +1917,8 @@ Ouvrez **Actions du travail**, près de l’étape actuelle, pour **Réessayer**
 \r
 Le démarrage est confirmé après l’enregistrement durable et la prise en charge de la tâche. Celle-ci garde sa propre progression et son résultat. Une commande en attente ou en cours ne confirme pas son admission. L’annulation est confirmée uniquement après l’arrêt de la tâche avec un résultat enregistré. La mise en attente ou un signal d’arrêt ne confirme pas l’annulation. Si le résultat est incertain, vérifiez la tâche avant de réessayer.\r
 \r
+Chaque projet a une limite de tâches simultanées, commune au démarrage, aux reprises, aux nouveaux départs et au travail repris. La pause arrête la prise en charge automatique et conserve le démarrage explicite. Réduire la limite laisse les tâches actives continuer. Les commandes en attente et les attentes stabilisées de réponse, approbation ou revue n’utilisent pas d’exécuteur ; l’initialisation et le nettoyage gardent leur place jusqu’à libération sûre. L’attente avant exécution ne consomme pas de travail actif.\r
+\r
 ## Étapes {#stages}\r
 \r
 ADORE exécute les étapes AEGIS une à une, chaque tentative dans une session d’exécuteur neuve. Les exécuteurs ne poussent jamais, n’ouvrent jamais de MR/PR et ne fusionnent jamais.\r
@@ -2707,6 +2713,8 @@ Confirmați **Anulează**. Curățarea încearcă să elimine mediul și directo
 Deschide **Acțiuni job**, lângă etapa curentă, pentru **Reîncearcă**, **Anulează** sau recuperarea confirmată într-un job nou, când sunt disponibile. Apar doar comenzile permise pentru acest job.\r
 \r
 Pornirea este confirmată după admiterea durabilă și preluarea lucrării de către serviciu. Lucrarea are apoi propriul progres și rezultat. O comandă în coadă sau în curs nu confirmă singură admiterea. Anularea este confirmată numai după oprirea lucrării cu un rezultat de anulare salvat. Punerea cererii în coadă sau trimiterea semnalului de oprire nu confirmă anularea. Dacă rezultatul este incert, verifică lucrarea înainte de reluare.\r
+\r
+Fiecare proiect are o singură limită de lucrări simultane, comună pornirii, reîncercării, repornirii de la zero și reluării. Pauza monitorizării oprește preluarea automată și păstrează pornirea explicită. Reducerea limitei lasă lucrările existente să continue. Comenzile în coadă și așteptările stabilizate de clarificare, aprobare sau review nu ocupă un executor; inițializarea și curățarea păstrează locul până la eliberarea sigură. Așteptarea înainte de execuție nu consumă timp de lucru activ.\r
 \r
 ## Etape {#stages}\r
 \r

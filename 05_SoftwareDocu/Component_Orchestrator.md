@@ -120,8 +120,8 @@ that uses the bound backend's bounded interrupt call. Executor abort grace appli
 only to gates. Direct verification rechecks cancellation before dispatch and after
 execution, stopping conduction rather than scheduling remediation, checkpointing
 or presenting approval. The marker is cleared after normal cancellation teardown.
-The 60-second grace is valid only under the single-conductor lock invariant:
-operator mutations and poll conduction cannot run concurrently.
+The stale grace is applied only after exclusive run ownership is obtained;
+a live or uncertain foreign owner is preserved regardless of timestamp age.
 Closing the source ticket while clarification or approval is waiting, or while
 an MR/PR remains open in review, cancels through the normal teardown path with
 outcome `ticket closed`. A merged or closed-unmerged MR/PR is authoritative and
@@ -287,7 +287,7 @@ See [Local execution](../01_Documentation/Local_Execution.md) and
 ## Automatic loop cadence
 
 `run_loop()` uses the shared `adore.polling.PollCadence` policy documented in
-[Polling cadence](Component_Polling.md). It retains the conductor lock, typed
+[Polling cadence](Component_Polling.md). It uses independent run scopes, typed
 forge/unexpected-error logging, local quiet windows and interrupt cleanup.
 Success resets backoff; a quiet round preserves it. Each wait begins after the
 round completes. Offline regression: `test_loop_polling_cadence_matches_web_errors_and_success`.
@@ -362,7 +362,7 @@ separate from the container internet switch. See
 
 ## Owned abandonment and restart
 
-`delete(run_id, owned_resources=False)` requires the conductor lock and verifies derived names (including configured branch templates), dedicated paths and Git ownership. Native drift acknowledgement uses the saved validated plan and immutable receipt without execution authority. An early unprovisioned native plan may release only proven absence of any unrecorded control directory. All containers prove dedicated repository/worktree/IO mounts; proxies prove the saved IO config bind. Actual internal networks must contain only verified executor/proxy IDs. Cleanup ignores current egress/backend choices and removes only observed immutable IDs, with verified absence. The remote branch is deleted only at its recorded checkpoint commit using an exact lease; an unpublished branch must already be absent. Local cleanup and state deletion follow verified resource cleanup; any failure prevents fresh admission and retains remaining state/evidence. Human-owned runs are refused. `restart(run_id, expected_revision)` accepts only the confirmed SHA-256 failed incarnation and an open ticket, completes owned deletion, restores ready eligibility and invokes normal manual ticket admission under the same lock. Monitoring pause remains set. Current hold/exclusion/capacity/approval checks retain authority. Offline proof: `tests/test_drift_recovery.py`.
+`delete(run_id, owned_resources=False)` requires the selected run lock and verifies derived names (including configured branch templates), dedicated paths and Git ownership. Native drift acknowledgement uses the saved validated plan and immutable receipt without execution authority. An early unprovisioned native plan may release only proven absence of any unrecorded control directory. All containers prove dedicated repository/worktree/IO mounts; proxies prove the saved IO config bind. Actual internal networks must contain only verified executor/proxy IDs. Cleanup ignores current egress/backend choices and removes only observed immutable IDs, with verified absence. The remote branch is deleted only at its recorded checkpoint commit using an exact lease; an unpublished branch must already be absent. Local cleanup and state deletion follow verified resource cleanup; any failure prevents fresh admission and retains remaining state/evidence. Human-owned runs are refused. `restart(run_id, expected_revision)` accepts only the confirmed SHA-256 failed incarnation and an open ticket, completes owned deletion, restores ready eligibility and invokes normal manual ticket admission under the same run ownership. Monitoring pause remains set. Current hold/exclusion/capacity/approval checks retain authority. Offline proof: `tests/test_drift_recovery.py`.
 
 Completed deletion also clears the old terminal summary. For registered web profiles, the injected deletion boundary holds the usage-projection transaction across local source removal and cursor reset; normal CLI-only state deletion remains independent of optional web dependencies. A stale reporting reader cannot reproject the old journal into the new job.
 
@@ -410,7 +410,7 @@ already in review remain there. Publication remains guarded and never merges.
 
 ## Durable admission and worker fencing
 
-on_admitted runs after run state, ticket snapshot and picked journal evidence are saved, before forge claim labels or conduction. The web-bound CLI uses it to acknowledge Start independently of the later job lifecycle. before_effect checks worker authority before conduction and publication; bound state and command collaborators check again before writes and Git/forge commands. No admission callback is installed for automatic polling or Retry/Restart. Existing conductor locks, validation and human merge boundaries retain authority.
+on_admitted runs after run state, ticket snapshot and picked journal evidence are saved, before forge claim labels or conduction. The web-bound CLI uses it to acknowledge Start independently of the later job lifecycle. before_effect checks worker authority before conduction and publication; bound state and command collaborators check again before writes and Git/forge commands. No admission callback is installed for automatic polling or Retry/Restart. Per-run locks, short admission reservations, validation and human merge boundaries retain authority.
 
 
 Actual conductor and publication scopes acquire a unique run-role owner for the
@@ -429,3 +429,60 @@ A run-role command binds engine.owned_run_id so reconciliation skips unrelated r
 before handoff/cancel/outbox effects. Project-owned reconciliation stays unchanged;
 capacity always counts all working jobs in that project. Completion verifies owner
 project/domain/run scope and validates the persisted operation again.
+
+## Concurrent admission and run ownership
+
+`poll_once(..., admit_only=False)` probes/selects outside admission, then takes
+the selected run lock and a short admission lock to recheck pause, ticket
+uniqueness and canonical project capacity. It acquires an execution-slot kernel
+lock inside that transaction, releases admission, then allocates the pinned
+worktree and saves the actual workflow before acknowledging Start. No Git,
+forge or executor call holds admission. `admit_only=True` leaves a closed queued
+dispatch for a separate process; ordinary polls conduct synchronously.
+
+`conduct_run(run_id, config_revision=...)` advances only that run. It validates
+loaded/configuration bytes and atomic `dispatch.json`, consumes initial launch
+authority before labels/executor effects and starts the active clock after the
+queue wait. Uncertain started dispatch requires explicit Retry. Nonworking runs
+receive only their own reconciliation action. Each fresh CLI invocation owns its
+conductor, executor, backend and configuration object.
+
+Run lifecycle changes, journals, reconciliation, publication and operator actions
+share a reentrant kernel run lock plus WK-01 durable run ownership/fencing.
+Foreign live/uncertain owners are skipped before cancellation, outbox or stale
+handling. The same project's other run continues independently. Interrupted
+publication becomes `STALE_PUBLISHING`; automatic replay never opens another MR.
+
+Capacity is the union of working reservations, handoff-pending, unsettled parked
+cleanup and held execution-slot locks. The latter cover initialization before
+state exists, Restart teardown and cleanup after lifecycle becomes inactive.
+Settled approval/clarification/review waits consume no executor. Retry, Restart,
+clarification resume, review revision and approval invalidation reserve capacity
+before executing; a decrease never cancels existing jobs. Before each new
+reservation the current source supplies `polling.max_concurrent_runs`; active
+budget refresh permits this operational limit to change independently.
+
+Proof: `tests/test_run_concurrency.py`, conductor admission/budget regressions,
+`tests/test_web_ownership.py`, native retry and drift-recovery tests.
+
+Ordinary cleanup takes exclusive ownership of every eligible run and reloads its
+lifecycle before selecting resources, retaining those locks throughout the bulk
+cleanup calls. Busy/foreign/corrupt runs remain protected. Profile resource purge
+also rechecks the selected run under ownership before any removal. This prevents
+cleanup from racing initialization, reconciliation or explicit Reset/Retry.
+
+An uncertain STALE_PUBLISHING outcome also excludes automatic failed-run
+checkpoint pushes on later polls; only explicit operator recovery can rearm
+external publication effects.
+
+Admission-only skips all reconciliation, so it cannot resume an existing answered
+or review job. The required `execution_pending` state flag freezes the queue
+clock in every reader and through pre-dispatch cancellation; activation persists
+the clock before effects. Explicit recovery of a pending job consumes its queued
+dispatch authority once. A run-bound Cancel refuses foreign targets before its
+busy-owner marker fallback.
+
+Cancel of an admitted native job whose pinned plan has no resource receipt
+proves absence of its exact local-control directory before removing the worktree.
+Any unrecorded control entry blocks cleanup and preserves state; no process is
+assumed absent merely from missing saved resource identity.

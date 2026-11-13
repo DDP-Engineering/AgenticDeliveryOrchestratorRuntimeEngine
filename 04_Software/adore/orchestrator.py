@@ -25,6 +25,8 @@ from collections.abc import Callable, Iterator
 import contextlib
 from copy import deepcopy
 from datetime import timedelta
+from functools import wraps
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -82,6 +84,7 @@ from adore.prompts import PromptCatalog
 from adore.repository_auth import project_runner
 from adore.selection import ineligibility
 from adore.state import (
+    LockHeldError,
     RunState,
     StateError,
     StateStore,
@@ -186,8 +189,15 @@ def _task_type(ticket: Ticket, config: Config) -> str:
 # PUBLIC API
 
 
-class LockHeldError(RuntimeError):
-    """@brief A live or unknown holder owns the single-conductor lock."""
+def _exclusive_run(method):
+    """@brief Serialize public lifecycle operations, including nested conductor calls."""
+    @wraps(method)
+    def controlled(self, run_id, *args, **kwargs):
+        """@brief Acquire the exact run before reading or changing its lifecycle."""
+        identity = run_id.run_id if isinstance(run_id, RunState) else run_id
+        with self._run_control(identity):
+            return method(self, run_id, *args, **kwargs)
+    return controlled
 
 
 class Orchestrator:
@@ -241,12 +251,13 @@ class Orchestrator:
         self.identity = AgentIdentity(name=config.agent.name, slug=config.agent.slug)
         self.on_delete = on_delete
         self.on_admitted: Callable[[RunState], None] | None = None
+        self.last_retry_reason = ""
         self.before_effect: Callable[[], object] | None = None
         self.run_scope: Callable[[str], Any] | None = None
         self.owned_run_id = ""
+        self.run_available: Callable[[str], bool] = lambda run_id: True
         self._admission_branches: dict[int, str] = {}
         self.questions_file = config.executor.questions_file or DEFAULT_QUESTIONS_FILE
-        self._in_flight_run_id = ""
         self.chatgpt_token = chatgpt_token or (
             lambda seconds: chatgpt.bearer_token(
                 chatgpt.helper_for(self.config, self.containers),
@@ -314,10 +325,7 @@ class Orchestrator:
     # Main entries
 
     def run_loop(self) -> int:
-        """@brief Poll forever with the existing lock, jitter and forge backoff."""
-        if not self.store.acquire_lock():
-            self.log(f"error: another instance holds the lock ({self.store.lock_path})")
-            return 1
+        """@brief Poll with independent run scopes, jitter and forge backoff."""
         cadence = PollCadence()
         try:
             while True:
@@ -326,7 +334,7 @@ class Orchestrator:
                     self.log("quiet hours: polling paused")
                 else:
                     try:
-                        self.poll_once(locked=True)
+                        self.poll_once()
                         failed = False
                     except ForgeError as exc:
                         self.log(f"poll error (platform): {exc}")
@@ -346,78 +354,194 @@ class Orchestrator:
         except KeyboardInterrupt:
             self.log("interrupted; shutting down cleanly")
             return 0
-        finally:
-            self.store.release_lock()
 
     def poll_once(self, *, dry_run: bool = False, locked: bool = False,
-                  ticket_iid: int | None = None) -> dict[str, Any]:
-        """@brief Reconcile work and admit one ticket; explicit admission preserves pause.
-        @param[in] ticket_iid Positive manual ticket identity, independent of monitoring.
-        @exception ValueError A manual identity is not a positive integer.
+                  ticket_iid: int | None = None, admit_only: bool = False,
+                  reconcile: bool = True) -> dict[str, Any]:
+        """@brief Reconcile independently, reserve atomically, then conduct outside admission.
+        @param[in] ticket_iid Positive explicit Start; monitoring pause is preserved.
+        @param[in] admit_only Reserve without launching work, for process dispatch.
+        @param[in] locked Retained call signature; admission always locks itself.
         """
         if ticket_iid is not None and (type(ticket_iid) is not int or ticket_iid < 1):
             raise ValueError("manual ticket identity must be a positive integer")
-        own_lock = False
-        if not dry_run and not locked:
-            if not self.store.acquire_lock():
-                raise LockHeldError("another instance holds the lock")
-            own_lock = True
-        summary: dict[str, Any] = {
-            "resumed": 0,
-            "timed_out": 0,
-            "notifications": 0,
-            "approved": 0,
-            "revised": 0,
-            "done": 0,
-            "picked": None,
-        }
-        try:
-            if not dry_run:
-                self._reconcile_runs(summary)
-            if self.store.is_paused() and ticket_iid is None:
-                summary["paused"] = True
-                return summary
-            active = [r for r in self.store.list_runs()
-                      if r.lifecycle in {"working", "handoff-pending"}]
-            if len(active) >= self.config.polling.max_concurrent_runs:
-                summary["at_capacity"] = True
+        if self.owned_run_id and (ticket_iid is None
+                                  or self._run_id(ticket_iid) != self.owned_run_id):
+            raise LockHeldError("single-run owners cannot poll or claim other tickets")
+        summary: dict[str, Any] = dict(resumed=0, timed_out=0, notifications=0,
+                                       approved=0, revised=0, done=0, picked=None)
+        if not dry_run and reconcile and not admit_only and not self.owned_run_id:
+            self._reconcile_runs(summary)
+        if self.store.is_paused() and ticket_iid is None:
+            summary["paused"] = True
+            return summary
+        if not dry_run:
+            try:
+                self._probe_repository_payload()
+            except AegisError as exc:
+                summary["payload_error"] = _sanitize(exc)
                 if ticket_iid is not None:
-                    summary["start_reason"] = "at_capacity"
+                    summary["start_reason"] = "workflow_unavailable"
+                self.log(f"AEGIS pre-pick probe failed: {_sanitize(exc)}")
                 return summary
-            if not dry_run:
-                try:
-                    self._probe_repository_payload()
-                except AegisError as exc:
-                    summary["payload_error"] = _sanitize(exc)
-                    if ticket_iid is not None:
-                        summary["start_reason"] = "workflow_unavailable"
-                    self.log(f"AEGIS pre-pick probe failed: {_sanitize(exc)}")
-                    return summary
+        ticket = (self.forge.get_ticket(ticket_iid) if ticket_iid is not None
+                  else self._pick_ticket())
+        if ticket is None or ticket_iid is not None and ticket.iid != ticket_iid:
             if ticket_iid is not None:
-                ticket = self.forge.get_ticket(ticket_iid)
-                if ticket is None or ticket.iid != ticket_iid:
-                    summary["start_reason"] = "ticket_unavailable"
+                summary["start_reason"] = "ticket_unavailable"
+            return summary
+        run_id = self._run_id(ticket.iid)
+        # Never wait on a run while holding admission. A competing pickup of the
+        # same ticket either observes the durable reservation or refuses its lock.
+        with (self._run_control(run_id) if not dry_run else contextlib.nullcontext(),
+              contextlib.ExitStack() as reservation):
+            with self.store.admission_lock() if not dry_run else contextlib.nullcontext():
+                if self.store.is_paused() and ticket_iid is None:
+                    summary["paused"] = True
                     return summary
-                reason = ineligibility(ticket, self.config,
-                                       has_run=self.store.exists(self._run_id(ticket.iid)))
+                if not self._has_capacity(excluding=run_id):
+                    summary["at_capacity"] = True
+                    if ticket_iid is not None:
+                        summary["start_reason"] = "at_capacity"
+                    return summary
+                reason = ineligibility(ticket, self.config, has_run=self.store.exists(run_id))
                 if reason is not None:
-                    summary["start_reason"] = reason
+                    if ticket_iid is not None:
+                        summary["start_reason"] = reason
                     return summary
-            else:
-                ticket = self._pick_ticket()
-            if ticket is None:
-                return summary
-            summary["picked"] = ticket.iid
+                if not dry_run:
+                    reservation.enter_context(self.store.execution_slot(run_id))
+                summary["picked"] = ticket.iid
+                summary["run_id"] = run_id
             if dry_run:
                 self.log(f"dry-run: would pick #{ticket.iid} '{ticket.title}'")
-                return summary
-            self._claim_and_conduct(ticket)
-            return summary
-        finally:
-            if own_lock:
-                self.store.release_lock()
+            else:
+                self._reserve_ticket(ticket)
+                if not admit_only:
+                    self.conduct_run(run_id)
+        return summary
+
+    def _has_capacity(self, *, excluding: str = "") -> bool:
+        """@brief Count durable execution reservations and unsettled cleanup only.
+        @param[in] excluding Exact run already controlled by this operation.
+        @return Whether the current canonical project limit permits another reservation.
+        """
+        if self.store.invalid_runs():
+            raise StateError("corrupt run state prevents safe capacity accounting")
+        occupied = self.store.execution_slots()
+        occupied.update(run.run_id for run in self.store.list_runs() if (
+            run.lifecycle in {"working", "handoff-pending"}
+            or run.lifecycle == "parked-clarification" and run.parked_polls == 0
+        ))
+        occupied.discard(excluding)
+        limit = self.config.polling.max_concurrent_runs
+        if self.config.source_path is not None:
+            try:
+                limit = load_config(self.config.source_path).polling.max_concurrent_runs
+            except (OSError, ValueError, TypeError) as exc:
+                raise StateError("cannot read current project capacity") from exc
+        if type(limit) is not int or limit < 1:
+            raise StateError("invalid current project capacity")
+        return len(occupied) < limit
+
+    def _reserve_execution(self, run: RunState) -> bool:
+        """@brief Reserve a resumed executor place before any execution-side effects."""
+        with self.store.admission_lock():
+            if not self._has_capacity(excluding=run.run_id):
+                return False
+            run.lifecycle = "working"
+            self.store.save(run)
+            return True
+
+    @contextlib.contextmanager
+    def _run_control(self, run_id: str) -> Iterator[None]:
+        """@brief Combine kernel exclusion with WK-01 durable ownership/fencing."""
+        if self.owned_run_id and self.owned_run_id != run_id:
+            raise LockHeldError("single-run ownership target mismatch")
+        if not self.run_available(run_id):
+            raise LockHeldError("run has another durable owner")
+        with self.store.run_lock(run_id):
+            scope = (self.run_scope(run_id) if self.run_scope is not None
+                     else contextlib.nullcontext())
+            with scope:
+                yield
+
+    def configuration_revision(self) -> str:
+        """@brief Bind a process launch to exact source bytes or injected config.
+        @return Lowercase SHA-256 configuration revision.
+        """
+        data = (self.config.source_path.read_bytes() if self.config.source_path is not None
+                else json.dumps(self.config.to_dict(), sort_keys=True).encode())
+        return hashlib.sha256(data).hexdigest()
+
+    @_exclusive_run
+    def conduct_run(self, run_id: str, *, config_revision: str | None = None) -> bool:
+        """@brief Conduct or reconcile one owned run, without claiming another ticket.
+        @param[in] run_id Exact reserved run identity.
+        @param[in] config_revision Optional exact loaded-configuration SHA-256 binding.
+        @return True after handling this run; False for an uncertain interrupted start.
+        @exception ValueError The bound configuration revision changed.
+        @exception LockHeldError The requested run belongs to another owner.
+        """
+        revision = self.configuration_revision()
+        if config_revision is not None and config_revision != revision:
+            raise ValueError("single-run configuration revision changed")
+        if self.config.source_path is not None:
+            parsed = load_config(self.config.source_path)
+            if (json.dumps((parsed.to_dict(), parsed.raw), sort_keys=True, allow_nan=False)
+                    != json.dumps((self.config.to_dict(), self.config.raw),
+                                  sort_keys=True, allow_nan=False)
+                    or self.configuration_revision() != revision):
+                raise ValueError("single-run loaded configuration revision changed")
+        run = self.store.load(run_id)
+        if run.lifecycle != "working":
+            summary = dict(resumed=0, timed_out=0, notifications=0, approved=0,
+                           revised=0, done=0)
+            self._reconcile_one(run, summary)
+            return True
+        dispatch = self.store.load_dispatch(run_id)
+        if dispatch["status"] == "queued" and run.execution_pending:
+            if dispatch["config_revision"] != revision:
+                raise ValueError("single-run admitted configuration revision changed")
+            if not self._activate_initial_dispatch(run, revision):
+                return False
+        else:
+            self._fail_immediately(
+                run, "STALE_WORKING", "execution interrupted; explicit retry required"
+            )
+            return False
+        self._conduct(run, self._ticket_from_snapshot(run))
+        return True
+
+    def _activate_initial_dispatch(self, run: RunState, revision: str) -> bool:
+        """@brief Persist clock activation and consume initial authority before effects.
+        @param[in,out] run Reserved job with no executor/task progress.
+        @param[in] revision The queued dispatch revision being consumed.
+        @return Whether forge claim completed; a failure remains explicit and stopped.
+        """
+        run.execution_pending = False
+        self.store.save(run)
+        self.store.save_dispatch(run.run_id, revision, started=True)
+        self.store.journal(run.run_id, "execution-started", config_revision=revision)
+        try:
+            self.forge.remove_labels(run.ticket_iid, [self.config.labels.lifecycle.ready])
+            self.forge.add_labels(run.ticket_iid, [self.config.labels.lifecycle.working])
+        except ForgeError as exc:
+            self._fail_without_notification(run, "FORGE_CLAIM", exc)
+            return False
+        return True
 
     def cancel(self, run_id: str, *, outcome: str = "cancelled") -> bool:
+        """@brief Request cancellation from a live owner or exclusively settle an idle run."""
+        if self.owned_run_id and self.owned_run_id != run_id:
+            raise LockHeldError("single-run ownership target mismatch")
+        try:
+            with self._run_control(run_id):
+                return self._cancel_owned(run_id, outcome=outcome)
+        except LockHeldError:
+            return self.store.request_cancel(run_id)
+
+    def _cancel_owned(self, run_id: str, *, outcome: str = "cancelled") -> bool:
         """@brief Stop a run, remove resources, and retain its audit state."""
         try:
             run = self.store.load(run_id)
@@ -435,9 +559,10 @@ class Orchestrator:
         self._record_metrics(run)
         return True
 
+    @_exclusive_run
     def delete(self, run_id: str, *, owned_resources: bool = False,
                retain_unpublished: bool = False) -> bool:
-        """@brief Delete verified run resources and state; caller holds conductor lock.
+        """@brief Delete verified resources under the run lock and publish deletion atomically.
         @param[in] run_id Selected stored run.
         @param[in] owned_resources Explicit cleanup authority despite native policy drift.
         @param[in] retain_unpublished Restart-only retention of an unproven occupied old ref.
@@ -493,21 +618,32 @@ class Orchestrator:
                 run.branch, "", self.config.delivery.target_branch, allow_absent=True
             )
         self.worktrees.remove(run_id, delete_branch=run.branch if run.worktree else None)
-        metrics.delete_summary(self.config.metrics.db_path, run_id,
-                               self.config.metrics.export_jsonl)
-        if self.on_delete is not None:
-            self.on_delete(run_id, lambda: self.store.delete_run(run_id))
-        else:
-            self.store.delete_run(run_id)
+        with self.store.admission_lock():
+            metrics.delete_summary(self.config.metrics.db_path, run_id,
+                                   self.config.metrics.export_jsonl)
+            if self.on_delete is not None:
+                self.on_delete(run_id, lambda: self.store.delete_run(run_id))
+            else:
+                self.store.delete_run(run_id)
         return retained
 
+    @_exclusive_run
     def restart(self, run_id: str, expected_revision: str) -> dict[str, Any]:
         """@brief Abandon a confirmed failed incarnation and manually admit its ticket.
         @param[in] run_id Stored failed job.
         @param[in] expected_revision SHA-256 of the exact confirmed state bytes.
-        @return Normal selected-ticket poll result; caller holds conductor lock.
+        @return Normal selected-ticket poll result under the same run ownership.
         @exception IsolationError Changed/nonfailed state or unconfirmed cleanup.
         """
+        with contextlib.ExitStack() as reservation:
+            with self.store.admission_lock():
+                if not self._has_capacity(excluding=run_id):
+                    return {"picked": None, "at_capacity": True, "start_reason": "at_capacity"}
+                reservation.enter_context(self.store.execution_slot(run_id))
+            return self._restart_owned(run_id, expected_revision)
+
+    def _restart_owned(self, run_id: str, expected_revision: str) -> dict[str, Any]:
+        """@brief Retain the execution reservation throughout verified abandonment."""
         from hashlib import sha256
 
         raw = (self.store.run_dir(run_id) / "state.json").read_bytes()
@@ -535,15 +671,17 @@ class Orchestrator:
         self.forge.add_labels(run.ticket_iid, [lifecycle.ready])
         self._admission_branches[run.ticket_iid] = selected
         try:
-            result = self.poll_once(locked=True, ticket_iid=run.ticket_iid)
+            result = self.poll_once(ticket_iid=run.ticket_iid, reconcile=False)
             if retained:
                 result["unproven_branch_retained"] = True
             return result
         finally:
             self._admission_branches.pop(run.ticket_iid, None)
 
+    @_exclusive_run
     def retry(self, run_id: str, *, reprepare: bool = False) -> bool:
         """@brief Explicitly re-arm a failed run without erasing history."""
+        self.last_retry_reason = ""
         try:
             run = self.store.load(run_id)
         except (FileNotFoundError, StateError):
@@ -560,13 +698,6 @@ class Orchestrator:
                     or record["attempts"] >= self.config.execution.preparation_max_attempts):
                 self.log(f"retry {run_id}: no recipe or preparation replay limit reached")
                 return False
-            record["reprepare"] = True
-            self.store.journal(
-                run_id,
-                "operator-reprepare-authorized",
-                attempts=record["attempts"],
-                note="All steps replay; retained worktree may contain partial effects",
-            )
         ticket = self.forge.get_ticket(run.ticket_iid)
         if ticket is None:
             self.log(f"retry {run_id}: ticket #{run.ticket_iid} no longer exists")
@@ -574,6 +705,16 @@ class Orchestrator:
         if not self.config.delivery.require_human_approval and ticket.state != "opened":
             self._fail_immediately(run, "TICKET_CLOSED", "ticket closed before retry publication")
             return True
+        if not self._reserve_execution(run):
+            self.last_retry_reason = "at_capacity"
+            self.log(f"retry {run_id}: project is at capacity")
+            return False
+        if reprepare:
+            record["reprepare"] = True
+            self.store.journal(
+                run_id, "operator-reprepare-authorized", attempts=record["attempts"],
+                note="All steps replay; retained worktree may contain partial effects",
+            )
         try:
             self._revalidate_native_retry(run)
         except (IsolationError, PreparationError, OSError, ValueError) as exc:
@@ -679,6 +820,7 @@ class Orchestrator:
                            previous=previous["fingerprint"], current=current["fingerprint"],
                            executor=EXECUTOR_NAME)
 
+    @_exclusive_run
     def reset(self, run_id: str, stage: str) -> bool:
         """@brief Reset ADORE state only; the executor still owns the journal."""
         if stage not in RESETTABLE_STAGES:
@@ -703,6 +845,11 @@ class Orchestrator:
         return True
 
     def cleanup(self) -> dict[str, Any]:
+        """@brief Clean eligible resources while retaining their exact run ownership."""
+        with contextlib.ExitStack() as scopes:
+            return self._cleanup_owned(scopes)
+
+    def _cleanup_owned(self, scopes: contextlib.ExitStack) -> dict[str, Any]:
         """
         @brief   Remove this project's resources that no kept run still needs.
         @details Works only on run IDs this project owns (see
@@ -733,7 +880,7 @@ class Orchestrator:
                 report["lock_held_by"] = lock.get("pid", "unknown")
         prefix = f"{self.identity.slug}-run-"
         if self.config.execution.backend == "local":
-            eligible, _, runs = self._cleanup_run_ids(prefix, set(corrupt), set())
+            eligible, _, runs = self._cleanup_run_ids(prefix, set(corrupt), set(), scopes=scopes)
             for run_id in sorted(eligible):
                 run = runs.get(run_id)
                 if run is None or not run.execution.get("resource"):
@@ -750,7 +897,7 @@ class Orchestrator:
         with contextlib.suppress(IsolationError):
             listed = set(self.containers.list_executors(prefix))
         eligible, protected, runs = self._cleanup_run_ids(
-            prefix, set(corrupt), listed or set()
+            prefix, set(corrupt), listed or set(), scopes=scopes
         )
         native = {run_id for run_id, run in runs.items()
                   if run.execution.get("plan", {}).get("backend") == "local"}
@@ -796,6 +943,7 @@ class Orchestrator:
         prefix: str,
         corrupt: set[str],
         executors: set[str],
+        *, scopes: contextlib.ExitStack | None = None,
     ) -> tuple[set[str], set[str], dict[str, RunState]]:
         """
         @brief      Split this project's run IDs into removable and kept ones.
@@ -824,6 +972,24 @@ class Orchestrator:
             name[len(prefix):] for name in executors
             if own_form.fullmatch(name[len(prefix):])
         }
+        if scopes is not None:
+            for run_id in sorted(owned - protected):
+                try:
+                    scopes.enter_context(self._run_control(run_id))
+                except LockHeldError:
+                    protected.add(run_id)
+                    continue
+                try:
+                    current = self.store.load(run_id)
+                except FileNotFoundError:
+                    continue  # Owned state-less resources remain eligible under their run lock.
+                except StateError:
+                    protected.add(run_id)
+                    continue
+                runs[run_id] = current
+                if (current.lifecycle in ACTIVE_LIFECYCLES
+                        or current.lifecycle in {"failed", "handed-off", "handoff-pending"}):
+                    protected.add(run_id)
         return owned - protected, protected, runs
 
     def purge_resources(self) -> dict[str, Any]:
@@ -842,51 +1008,57 @@ class Orchestrator:
         report: dict[str, list[str]] = {
             "containers_removed": [], "worktrees_removed": [], "worktrees_retained": [],
         }
-        for run in self.store.list_runs():
-            path = self.worktrees.path_for(run.run_id)
-            if run.lifecycle in {"handed-off", "handoff-pending"}:
-                if path.is_dir():
-                    report["worktrees_retained"].append(run.run_id)
-                continue
-            if (self.config.execution.backend != "local"
-                    and run.execution.get("plan", {}).get("backend") == "local"):
-                report["worktrees_retained"].append(run.run_id)
-                continue
-            if self.config.execution.backend == "local":
-                try:
-                    resource = run.execution.get("resource")
-                    if not resource:
-                        raise ExecutionRecoveryError("local cleanup identity missing")
-                    self.backend.remove(run.container, expected=resource)
+        for candidate in self.store.list_runs():
+            with self._run_control(candidate.run_id):
+                run = self.store.load(candidate.run_id)
+                if (run.lifecycle in ACTIVE_LIFECYCLES
+                        and run.lifecycle not in {"handed-off", "handoff-pending"}):
+                    raise LockHeldError("profile cleanup cannot release unfinished run resources")
+                path = self.worktrees.path_for(run.run_id)
+                if run.lifecycle in {"handed-off", "handoff-pending"}:
                     if path.is_dir():
-                        self.worktrees.remove(run.run_id)
-                        report["worktrees_removed"].append(run.run_id)
-                except IsolationError:
-                    report["worktrees_retained"].append(run.run_id)
-                continue
-            names = {self.identity.container_name(run.run_id)}
-            if run.container:
-                names.add(run.container)
-            for name in sorted(names):
-                try:
-                    self.backend.remove(name, expected=run.execution.get("resource") or None)
-                except IsolationError:
+                        report["worktrees_retained"].append(run.run_id)
                     continue
-                report["containers_removed"].append(name)
-            if path.is_dir():
-                with contextlib.suppress(IsolationError):
-                    self.worktrees.remove(run.run_id)
-                force_rmtree(path)
-                report["worktrees_removed"].append(run.run_id)
+                if (self.config.execution.backend != "local"
+                        and run.execution.get("plan", {}).get("backend") == "local"):
+                    report["worktrees_retained"].append(run.run_id)
+                    continue
+                if self.config.execution.backend == "local":
+                    try:
+                        resource = run.execution.get("resource")
+                        if not resource:
+                            raise ExecutionRecoveryError("local cleanup identity missing")
+                        self.backend.remove(run.container, expected=resource)
+                        if path.is_dir():
+                            self.worktrees.remove(run.run_id)
+                            report["worktrees_removed"].append(run.run_id)
+                    except IsolationError:
+                        report["worktrees_retained"].append(run.run_id)
+                    continue
+                names = {self.identity.container_name(run.run_id)}
+                if run.container:
+                    names.add(run.container)
+                for name in sorted(names):
+                    try:
+                        self.backend.remove(name, expected=run.execution.get("resource") or None)
+                    except IsolationError:
+                        continue
+                    report["containers_removed"].append(name)
+                if path.is_dir():
+                    with contextlib.suppress(IsolationError):
+                        self.worktrees.remove(run.run_id)
+                    force_rmtree(path)
+                    report["worktrees_removed"].append(run.run_id)
         report["worktrees_retained"].sort()
         return report
 
+    @_exclusive_run
     def handoff(self, run_id: str) -> bool:
         """
         @brief Stop at an operator-owned safe boundary and preserve human-owned work.
         @param[in] run_id Existing run selected explicitly by the operator.
         @return True when durable ownership was transferred; False when unsafe.
-        @note The caller must hold the conductor lock. Active CLI requests are queued.
+        @note The selected run is locked; active CLI handoff requests are queued.
         """
         try:
             run = self.store.load(run_id)
@@ -1087,22 +1259,15 @@ class Orchestrator:
         )
         return True
 
-    def _claim_and_conduct(self, ticket: Ticket) -> None:
-        """@brief Persist ticket identity before any isolated code work starts."""
+    def _reserve_ticket(self, ticket: Ticket) -> RunState:
+        """@brief Initialize a reserved place outside admission, then durably acknowledge it."""
         run_id = self._run_id(ticket.iid)
-        branch = self._admission_branches.pop(ticket.iid, None)
-        if branch is None:
-            branch = self.worktrees.fresh_branch(
-                self._branch_name(run_id, ticket.iid), validate=self._valid_admission_branch,
-            )
+        branch = self._admission_branches.pop(ticket.iid, self._branch_name(run_id, ticket.iid))
+        branch = self.worktrees.fresh_branch(branch, validate=self._valid_admission_branch)
         run = RunState(
-            run_id=run_id,
-            ticket_iid=ticket.iid,
-            stage="frame",
-            lifecycle="working",
+            run_id=run_id, ticket_iid=ticket.iid, lifecycle="working", execution_pending=True,
             content_hash=content_hash(ticket.title, ticket.description),
-            aegis_type=_task_type(ticket, self.config),
-            branch=branch,
+            aegis_type=_task_type(ticket, self.config), branch=branch,
             base_ref=f"origin/{self.config.delivery.target_branch}",
             container=self.identity.container_name(run_id),
         )
@@ -1113,35 +1278,36 @@ class Orchestrator:
         run.stage = "frame" if run.workflow == "aegis" else "build"
         self.store.save(run)
         self.store.save_ticket(run_id, self._ticket_snapshot(ticket))
+        self.store.save_dispatch(run_id, self.configuration_revision())
         self.store.journal(run_id, "picked", ticket=ticket.iid, title=ticket.title)
+        self.store.journal(run_id, "admitted", config_revision=self.configuration_revision())
         if self.on_admitted is not None:
             self.on_admitted(run)
-        try:
-            self.forge.remove_labels(ticket.iid, [self.config.labels.lifecycle.ready])
-            self.forge.add_labels(ticket.iid, [self.config.labels.lifecycle.working])
-        except ForgeError as exc:
-            self._fail_without_notification(run, "FORGE_CLAIM", exc)
-            return
-        self._conduct(run, ticket)
+        return run
 
-    @contextlib.contextmanager
-    def _conducting(self, run_id: str) -> Iterator[None]:
-        """@brief Mark the run driven by this process for stale-run detection."""
-        previous = self._in_flight_run_id
-        self._in_flight_run_id = run_id
-        try:
-            scope = (self.run_scope(run_id) if self.run_scope is not None
-                     else contextlib.nullcontext())
-            with scope:
-                yield
-        finally:
-            self._in_flight_run_id = previous
+    def _claim_and_conduct(self, ticket: Ticket) -> None:
+        """@brief Initialize a selected ticket using the same atomic reservation contract."""
+        run_id = self._run_id(ticket.iid)
+        with self._run_control(run_id), contextlib.ExitStack() as reservation:
+            with self.store.admission_lock():
+                if self.store.exists(run_id) or not self._has_capacity(excluding=run_id):
+                    raise LockHeldError("ticket already reserved or project at capacity")
+                reservation.enter_context(self.store.execution_slot(run_id))
+            self._reserve_ticket(ticket)
+            self.conduct_run(run_id)
 
+    @_exclusive_run
     def _conduct(self, run: RunState, ticket: Ticket, thread: str = "") -> None:
         """@brief Provision and dispatch the recorded workflow to candidate approval."""
         if self.before_effect is not None:
             self.before_effect()
-        with self._conducting(run.run_id):
+        if run.execution_pending:
+            dispatch = self.store.load_dispatch(run.run_id)
+            if dispatch["status"] != "queued":
+                raise StateError("pending job has consumed dispatch authority")
+            if not self._activate_initial_dispatch(run, dispatch["config_revision"]):
+                return
+        with self.store.execution_slot(run.run_id):
             if not self._refresh_budgets(run):
                 return
             try:
@@ -2134,6 +2300,8 @@ class Orchestrator:
 
     def _invalidate_approval(self, run: RunState, ticket: Ticket, reason: str) -> None:
         """@brief Clear stale approval and require integration, validation and presentation."""
+        if not self._reserve_execution(run):
+            return
         try:
             self.forge.remove_labels(ticket.iid, [self.config.delivery.approval_label])
         except ForgeError as exc:
@@ -2165,6 +2333,7 @@ class Orchestrator:
         if run.lifecycle == "working":
             self._conduct(run, ticket)
 
+    @_exclusive_run
     def _publish(self, run: RunState, ticket: Ticket) -> None:
         """@brief Publish approved delivery while honoring safe ownership transfer."""
         if self.before_effect is not None:
@@ -2740,53 +2909,64 @@ class Orchestrator:
 
     def _reconcile_runs(self, summary: dict[str, Any]) -> None:
         """@brief Give every nonterminal state one bounded next action."""
-        for run in self.store.list_runs():
-            if self.owned_run_id and run.run_id != self.owned_run_id:
+        for candidate in self.store.list_runs():
+            if self.store.owns_run_lock(candidate.run_id):
                 continue
-            if self._handoff_at_boundary(run):
+            if self.owned_run_id and candidate.run_id != self.owned_run_id:
                 continue
-            if run.lifecycle != "publishing" and self._cancel_if_requested(run):
+            try:
+                with self._run_control(candidate.run_id):
+                    self._reconcile_one(self.store.load(candidate.run_id), summary)
+            except LockHeldError:
                 continue
-            if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
-                continue
+
+    def _reconcile_one(self, run: RunState, summary: dict[str, Any]) -> None:
+        """@brief Advance one exclusively owned lifecycle and its notifications."""
+        if self._handoff_at_boundary(run):
+            return
+        if run.lifecycle != "publishing" and self._cancel_if_requested(run):
+            return
+        if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
+            return
+        if run.notification_outbox:
+            summary["notifications"] += self._retry_outbox(run)
+            run = self.store.load(run.run_id)
             if run.notification_outbox:
-                summary["notifications"] += self._retry_outbox(run)
-                run = self.store.load(run.run_id)
-                if run.notification_outbox:
-                    continue
-                if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
-                    continue
-            if run.lifecycle == "parked-clarification":
-                self._reconcile_clarification(run, summary)
-            elif run.lifecycle == "awaiting-approval":
-                self._reconcile_approval(run, summary)
-            elif run.lifecycle == "in-review":
-                self._reconcile_review(run, summary)
-            elif run.lifecycle == "publishing":
-                self._fail_immediately(
-                    run,
-                    "STALE_PUBLISHING",
-                    "publication lost its conductor; inspect remote state before retry",
-                )
-            elif run.lifecycle == "working" and run.run_id != self._in_flight_run_id:
-                self._reconcile_stale_working(run)
-            elif (run.lifecycle == "failed" and self.config.delivery.publish_checkpoints
-                  and not run.notification_outbox and self.worktrees.exists(run.run_id)
-                  and not run.outcome.startswith(("REMOTE_CHECKPOINT_CONFLICT:",
-                                                  "REMOTE_CHECKPOINT_PROTOCOL:"))):
-                # A rollout or an earlier transport failure may leave committed recovery
-                # work local. Publish it without starting an executor or committing dirty files.
-                if run.branch and run.checkpoint_remote_commit and not run.checkpoint_error:
-                    try:
-                        local_head = self.worktrees.ref_head(run.branch)
-                    except IsolationError as exc:
-                        self.log(f"failed-run checkpoint identity unavailable: {_sanitize(exc)}")
-                        continue
-                    if local_head == run.checkpoint_remote_commit:
-                        continue
-                with contextlib.suppress(_CheckpointHalted):
-                    self._push_checkpoint(run)
-                self._status(run)
+                return
+            if run.lifecycle == "parked-clarification" and not self._settle_parked(run):
+                return
+        if run.lifecycle == "parked-clarification":
+            self._reconcile_clarification(run, summary)
+        elif run.lifecycle == "awaiting-approval":
+            self._reconcile_approval(run, summary)
+        elif run.lifecycle == "in-review":
+            self._reconcile_review(run, summary)
+        elif run.lifecycle == "publishing":
+            self._fail_immediately(
+                run,
+                "STALE_PUBLISHING",
+                "publication lost its conductor; inspect remote state before retry",
+            )
+        elif run.lifecycle == "working":
+            self._reconcile_stale_working(run)
+        elif (run.lifecycle == "failed" and self.config.delivery.publish_checkpoints
+              and not run.notification_outbox and self.worktrees.exists(run.run_id)
+              and not run.outcome.startswith(("REMOTE_CHECKPOINT_CONFLICT:",
+                                              "REMOTE_CHECKPOINT_PROTOCOL:",
+                                              "STALE_PUBLISHING:"))):
+            # A rollout or an earlier transport failure may leave committed recovery
+            # work local. Publish it without starting an executor or committing dirty files.
+            if run.branch and run.checkpoint_remote_commit and not run.checkpoint_error:
+                try:
+                    local_head = self.worktrees.ref_head(run.branch)
+                except IsolationError as exc:
+                    self.log(f"failed-run checkpoint identity unavailable: {_sanitize(exc)}")
+                    return
+                if local_head == run.checkpoint_remote_commit:
+                    return
+            with contextlib.suppress(_CheckpointHalted):
+                self._push_checkpoint(run)
+            self._status(run)
 
     def _cancel_if_requested(self, run: RunState) -> bool:
         """@brief Honor an authorized durable cancellation before more work."""
@@ -2802,6 +2982,11 @@ class Orchestrator:
 
     def _reconcile_stale_working(self, run: RunState) -> None:
         """@brief Convert a crashed conductor's stale slot into a visible failure."""
+        dispatch_path = self.store.run_dir(run.run_id) / "dispatch.json"
+        if ((dispatch_path.exists() or dispatch_path.is_symlink())
+                and self.store.load_dispatch(run.run_id)["status"] == "queued"
+                and run.execution_pending):
+            return
         updated = iso_to_datetime(run.updated_at)
         now = iso_to_datetime(utc_now_iso())
         if updated and now and (now - updated).total_seconds() < _STALE_WORKING_GRACE_SECONDS:
@@ -2920,6 +3105,8 @@ class Orchestrator:
         ]
         answered = self.config.labels.lifecycle.answered in ticket.labels
         if answers and answered:
+            if not self._reserve_execution(run):
+                return
             content_changed = self._refresh_ticket_snapshot(
                 run, ticket, context="clarification-resume"
             )
@@ -3035,6 +3222,8 @@ class Orchestrator:
                 "REVIEW_LIMIT",
                 f"review rounds exceeded {self.config.review.max_review_rounds}",
             )
+            return
+        if not self._reserve_execution(run):
             return
         try:
             comments = self.forge.list_mr_comments(run.mr_iid)
@@ -3610,6 +3799,10 @@ class Orchestrator:
             raw_before, raw_after = dict(self.config.raw), dict(current.raw)
             raw_before.pop("budgets", None)
             raw_after.pop("budgets", None)
+            for value in (before, after, raw_before, raw_after):
+                polling = dict(value.get("polling", {}))
+                polling.pop("max_concurrent_runs", None)
+                value["polling"] = polling
             # JSON preserves scalar types where Python equality conflates
             # False with 0 or True with 1. Raw binding also rejects unknown keys.
             if any(json.dumps(left, sort_keys=True, allow_nan=False)
@@ -3759,8 +3952,18 @@ class Orchestrator:
 
     def _teardown(self, run: RunState, *, remove_worktree: bool) -> None:
         """@brief Remove execution resources while retaining local state evidence."""
-        if (self.config.execution.backend == "local"
-                or run.execution.get("plan", {}).get("backend") == "local"):
+        pinned_native = run.execution.get("plan", {}).get("backend") == "local"
+        if pinned_native and not run.execution.get("resource"):
+            # Admission resolves the native plan before provisioning. Absence
+            # of its control directory proves that there is no scope to stop.
+            control = self.store.run_dir(run.run_id) / "local-control"
+            try:
+                control.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                raise IsolationError("unrecorded native control prevents cancellation cleanup")
+        elif self.config.execution.backend == "local" or pinned_native:
             self.backend.remove(run.container, expected=run.execution.get("resource") or None)
         else:
             with contextlib.suppress(IsolationError):

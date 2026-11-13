@@ -937,7 +937,7 @@ def test_direct_retry_settlement_failure_cannot_publish(tmp_path, monkeypatch, f
     assert not forge.opened and len(executor.prompts) == 1
 
 
-@pytest.mark.parametrize("change", ["raise", "lower", "corrupt", "missing", "identity"])
+@pytest.mark.parametrize("change", ["raise", "lower", "corrupt", "missing", "identity", "capacity"])
 def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, monkeypatch, change):
     """@brief Direct retry reads the selected source with cumulative attempts and fixed identity."""
     from adore.config import load_config
@@ -951,13 +951,20 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
         "max_iterations           = 20", f"max_iterations           = {initial_limit}",
     ).replace("enabled = true", "enabled = false").replace(
         "publish_checkpoints = true", "publish_checkpoints = false")
+    if change == "capacity":
+        text = text.replace("max_concurrent_runs = 1", "max_concurrent_runs = 2")
     source.write_text(text, encoding="utf-8")
     engine.config = load_config(source)
+    if change == "capacity":
+        assert engine.config.polling.max_concurrent_runs == 2
     def attempt(root):
         if change == "missing":
             source.unlink()
         elif change == "corrupt":
             source.write_text("[budgets\ninvalid")
+        elif change == "capacity":
+            source.write_text(text.replace("max_concurrent_runs = 2",
+                                           "max_concurrent_runs = 1"))
         elif change == "identity":
             source.write_text(text.replace('target_branch = "develop"', 'target_branch = "other"'))
         else:
@@ -967,7 +974,7 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
         return GateRun(exit_code=1, stderr="retry with refreshed budget")
 
     executor.attempts.append(attempt)
-    if change == "raise":
+    if change in {"raise", "capacity"}:
         executor.attempts.append(direct_edit(worktrees))
     run = make_run(engine)
     run.workflow, run.stage, run.lifecycle = "direct", "build", "failed"
@@ -976,9 +983,12 @@ def test_direct_attempt_rereads_only_budgets_without_resetting_work(tmp_path, mo
     assert engine.retry(run.run_id)
     saved = engine.store.load(run.run_id)
     assert saved.workflow == "direct" and saved.task_ids == []
-    assert saved.iterations == len(executor.prompts) == (2 if change == "raise" else 1)
-    if change == "raise":
+    expected_launches = 2 if change in {"raise", "capacity"} else 1
+    assert saved.iterations == len(executor.prompts) == expected_launches
+    if change in {"raise", "capacity"}:
         assert saved.lifecycle == "awaiting-approval"
+        if change == "capacity":
+            assert load_config(source).polling.max_concurrent_runs == 1
     else:
         assert saved.outcome.startswith("BUDGET_EXHAUSTED:" if change == "lower"
                                         else "BUDGET_CONFIG_INVALID:")
@@ -1382,7 +1392,7 @@ def test_claim_selects_worktree_workflow_before_first_save(
     def on_admitted(admitted):
         """@brief The admission callback observes durable state before forge claim/conduction."""
         observed = engine.store.load(admitted.run_id)
-        assert observed.lifecycle == "working"
+        assert observed.lifecycle == "working" and observed.execution_pending
         assert engine.store.load_ticket(admitted.run_id)["iid"] == 7
         assert any(event["event"] == "picked"
                    for event in engine.store.read_journal(admitted.run_id))
@@ -1398,7 +1408,8 @@ def test_claim_selects_worktree_workflow_before_first_save(
     assert run.workflow == expected
     assert run.stage == ("frame" if worktree_payload else "build")
     assert run.active_task_id is None and run.task_ids == []
-    assert saved == [(expected, run.stage, str(work))]
+    assert saved and all(row == (expected, run.stage, str(work)) for row in saved)
+    assert not run.execution_pending
     assert probes == (["probe"] if clone_payload else [])
     assert allocations == [("origin/main", {"new_branch": True})]
     assert not executor.prompts
@@ -2129,7 +2140,7 @@ def test_aegis_timeout_retries_inside_the_same_conductor(
     assert saved.lifecycle == "parked-clarification"
     assert saved.failure_history[-1]["code"] == "AEGIS_TIMEOUT"
     assert len(executor.prompts) == 1
-    assert engine._in_flight_run_id == ""
+    assert not engine.store.owns_run_lock(run.run_id)
 
 
 def test_aegis_timeout_at_attempt_limit_is_terminal(
@@ -3342,7 +3353,7 @@ def test_public_pickup_obeys_optional_acceptance_criteria(tmp_path, monkeypatch,
     forge.ready = [forge.ticket]
     selected = []
     monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
-    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     result = engine.poll_once()
     assert result["picked"] == (None if require_criteria else forge.ticket.iid)
     assert selected == ([] if require_criteria else [forge.ticket.iid])
@@ -3360,7 +3371,7 @@ def test_explicit_ticket_start_keeps_readiness_boundary(
     forge.ready = [other, forge.ticket]
     selected = []
     monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
-    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
 
     assert engine.poll_once(ticket_iid=99)["picked"] is None
     assert selected == []
@@ -4420,7 +4431,7 @@ def test_loop_polling_cadence_matches_web_errors_and_success(
 
     def poll(**kwargs):
         """@brief Report forge/unexpected faults through the public polling seam."""
-        assert kwargs == {"locked": True}
+        assert kwargs == {}
         value = outcomes[len(delays)]
         if value is not None:
             raise value
@@ -4446,7 +4457,7 @@ def test_manual_start_preserves_monitoring_pause(tmp_path, monkeypatch):
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
     monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
-    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     engine.store.pause()
     assert engine.poll_once()["picked"] is None
     assert engine.poll_once(ticket_iid=forge.ticket.iid)["picked"] == forge.ticket.iid
@@ -4474,7 +4485,7 @@ def test_paused_manual_start_reports_its_actual_blocker(tmp_path, monkeypatch, b
     forge.ticket.labels = [engine.config.labels.lifecycle.ready, "P2"]
     selected = []
     monkeypatch.setattr(engine, "_probe_repository_payload", lambda: None)
-    monkeypatch.setattr(engine, "_claim_and_conduct", lambda ticket: selected.append(ticket.iid))
+    monkeypatch.setattr(engine, "_conduct", lambda run, ticket: selected.append(ticket.iid))
     engine.store.pause()
     if blocker == "held":
         forge.ticket.labels.append(engine.config.labels.control.hold)

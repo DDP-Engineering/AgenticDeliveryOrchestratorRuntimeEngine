@@ -1,0 +1,31 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+
+id = "REQ-REL-ab1c7560"
+
+title = "Exclude foreign run owners from reconciliation"
+
+status = "active"
+
+requirement = """
+While a run has a live or uncertain durable owner or a held run lock, the project reconciler shall leave that run unchanged.
+"""
+
+verification = "Block one conductor and reconcile from another; old working timestamps never cause stale diagnostics; durable unknown owner remains protected."
+
+affected_paths = ["04_Software/adore/orchestrator.py", "04_Software/adore/state.py", "04_Software/adore/cli.py", "04_Software/adore/web/worker_context.py"]
+
+linked_tests = ["04_Software/tests/test_run_concurrency.py", "04_Software/tests/test_web_ownership.py"]
+
+
+spec = ""
+
+priority = "normal"   # low | normal | high
+rationale = ""        # why this behavior exists, if not obvious
+
+created = 2026-11-14
+updated = 2026-11-14

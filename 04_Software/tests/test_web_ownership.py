@@ -954,3 +954,50 @@ def test_linux_process_evidence_never_confuses_unknown_and_dead(
 
 
 # END OF FILE
+
+
+def test_project_reconciliation_retains_live_and_unknown_run_owners(tmp_path):
+    """@brief Durable owner evidence protects a run even between kernel-lock scopes."""
+    profiles, web, _, alpha, _ = setup_store(tmp_path)
+    project = web.register_worker('project', project_id=alpha.project_id)
+    run = web.register_worker('run', project_id=alpha.project_id, run_id='job-42')
+    context = WorkerContext(web, project, 0, 0)
+    assert not context.run_available('job-42')
+    assert context.run_available('job-43')
+    import os
+    with web._connect() as connection:
+        connection.execute('UPDATE worker_processes SET pid=123456 WHERE owner_id=?', (run.id,))
+    def unknown(pid):
+        if pid == os.getpid():
+            return 'birth'
+        raise WebStoreError('process evidence unavailable')
+    web._process_probe = unknown
+    assert not context.run_available('job-42')
+    web._process_probe = lambda pid: 'birth'
+    with web._connect() as connection:
+        connection.execute('UPDATE worker_processes SET pid=? WHERE owner_id=?',
+                           (os.getpid(), run.id))
+    web.clear_worker(run)
+    assert context.run_available('job-42')
+
+
+def test_run_process_context_authorizes_only_its_conduct_command(tmp_path):
+    """@brief A standalone run process has its own scope and cannot poll another job."""
+    from adore.cli import _build_parser
+    profiles, web, _, alpha, _ = setup_store(tmp_path)
+    owner = web.register_worker('run', project_id=alpha.project_id, run_id='job-42')
+    context = WorkerContext(web, owner, 0, 0)
+    revision = 'a' * 64
+    parser = _build_parser()
+    args = parser.parse_args(['--profile', 'alpha', 'conduct', 'job-42',
+                              '--config-revision', revision])
+    context.validate_command(args)
+    context.validate_configuration(profiles.config_path('alpha'))
+    assert context.authorize()['action'] == 'conduct'
+    foreign = parser.parse_args(['--profile', 'alpha', 'conduct', 'job-43',
+                                 '--config-revision', revision])
+    with pytest.raises(WebStoreError, match='mismatch'):
+        context.validate_command(foreign)
+    poll = parser.parse_args(['--profile', 'alpha', 'run', '--once'])
+    with pytest.raises(WebStoreError, match='mismatch'):
+        context.validate_command(poll)
