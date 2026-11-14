@@ -325,8 +325,8 @@ test("job list and direct detail show lifetime consumption without same-run coll
   await page.goto(`/jobs?project=${alpha}&run=ux-working`);
   const detail = page.locator(".detail-panel"); await expect(detail.locator(".job-consumption").first()).toContainText("12");
   await expect(detail).not.toContainText("Selected period");
-  await detail.getByRole("tab",{name:"Technical details",exact:true}).click();
-  await expect(detail.getByRole("tabpanel",{name:"Technical details",exact:true})
+  await detail.getByRole("tab",{name:"Technical information",exact:true}).click();
+  await expect(detail.getByRole("tabpanel",{name:"Technical information",exact:true})
     .locator(".action-explanation")).toContainText(alpha);
 });
 

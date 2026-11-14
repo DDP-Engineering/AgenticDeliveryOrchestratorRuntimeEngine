@@ -17,7 +17,7 @@ When a monitoring operation finishes, the web interface shall refresh the displa
 
 verification = "Offline browser fixtures return successful and failed operation outcomes and inspect the tile."
 
-affected_paths = ["04_Software/web/src/App.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/e2e/issue37.spec.ts"]
 
 linked_tests = ["04_Software/web/e2e/issue37.spec.ts"]
 
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-08
-updated = 2026-11-08
+updated = 2026-11-14

@@ -17,7 +17,7 @@ When there are no projects, the interface shall offer administrators project enr
 
 verification = "Offline browser checks inspect empty Overview and Projects for admin and developer roles."
 
-affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/Presentation.tsx"]
+affected_paths = ["04_Software/web/src/App.tsx", "04_Software/web/src/Presentation.tsx", "04_Software/web/e2e/issue37.spec.ts"]
 
 linked_tests = ["04_Software/web/e2e/issue37.spec.ts"]
 
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-08
-updated = 2026-11-08
+updated = 2026-11-14

@@ -165,10 +165,11 @@ test("worker processes queued requests and preserves a rejected engine exit", as
   await setPickup("alpha", true);
   try {
     await signIn(page, "developer", "test-password");
-    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Jobs", exact: true }).click();
+    await page.getByRole("navigation", { name: "Primary navigation", exact: true }).getByRole("link", { name: "Tickets", exact: true }).click();
     const assigned = await (await page.request.get("/api/v1/projects")).json();
     await page.locator("#jobs-project").selectOption(assigned[0].id);
     await page.getByRole("button", { name: "Read tickets", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeEnabled();
     const submitted = page.waitForResponse(response => response.url().endsWith("/tickets/44/start") &&
       response.request().method() === "POST");
     await page.locator(".ticket-table tbody tr.ticket-row").filter({ hasText: "#44" }).getByRole("button", { name: "Start", exact: true }).click();

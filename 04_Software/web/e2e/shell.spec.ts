@@ -374,9 +374,18 @@ test("localized shell and assigned Dev remain usable in both themes and widths",
       await expect(page.locator("#jobs-project")).toHaveValue(assigned[0].id);
       await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
       await expect(page.locator("#jobs-project option")).toHaveCount(2);
-      await expect(page.locator(".jobs-subtabs").getByRole("tab", { name: "Tickets", exact: true })).toBeVisible();
+      await expect(page.locator(".jobs-subtabs").getByRole("tab")).toHaveText(["Jobs", "Capacity"]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       await page.screenshot({ path: info.outputPath(`dev-jobs-${theme}-${width}.png`), fullPage: true });
+      if (width === 390) await page.getByRole("button", { name: /Menu/ }).click();
+      await nav(page).getByRole("link", { name: "Tickets", exact: true }).click();
+      await expect(page.locator("#jobs-project")).toHaveValue(assigned[0].id);
+      await expect(page.locator("#jobs-project option")).toHaveCount(2);
+      await expect(page.getByRole("region", { name: "Project context" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Read tickets", exact: true })).toBeEnabled();
+      await expect(page.locator(".ticket-table")).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+      await page.screenshot({ path: info.outputPath(`dev-tickets-${theme}-${width}.png`), fullPage: true });
       if (width === 390) await page.getByRole("button", { name: /Menu/ }).click();
       await nav(page).getByRole("link", { name: "My account", exact: true }).click();
     }

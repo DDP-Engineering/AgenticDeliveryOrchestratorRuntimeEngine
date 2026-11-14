@@ -14,7 +14,7 @@ verification = "Exercise missing/stale/corrupt heartbeats and independent projec
 
 affected_paths = ["04_Software/adore/web/app.py", "04_Software/adore/web/status.py", "04_Software/adore/web/store.py", "04_Software/adore/web/supervisor.py", "04_Software/web/src/JobWorkspace.tsx", "04_Software/web/src/ProjectCapacity.tsx", "04_Software/web/src/projectStatus.ts", "04_Software/web/e2e/issue37.spec.ts", "04_Software/web/e2e/jobs.spec.ts", "04_Software/web/e2e/server.py", "04_Software/web/src/help/content/en/administration.md", "04_Software/web/src/help/content/fr/administration.md", "04_Software/web/src/help/content/de/administration.md", "04_Software/web/src/help/content/ro/administration.md"]
 
-linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts"]
+linked_tests = ["04_Software/tests/test_web_project_status.py", "04_Software/web/tests/projectStatus.test.mjs", "04_Software/web/e2e/projectCapacity.spec.ts", "04_Software/web/e2e/issue37.spec.ts"]
 
 
 spec = ""

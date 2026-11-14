@@ -48,6 +48,14 @@ prevent injection. Running enrollment.spec.ts followed by statistics.spec.ts in
 one offline fixture home proves the integration with unchanged error,
 hidden-evidence and unavailable-export assertions.
 
+Retained global worker/developer browser journeys open the separate Tickets page;
+the project hub keeps its Tickets sub-tab. Job-detail evidence assertions use
+Artifacts and Technical information while retaining question safety and history.
+The issue37 monitoring/four-locale/two-width matrix has a finite90-second body
+budget. Its file-scoped afterEach restores authenticated English/light preferences
+through bounded CSRF-checked API requests, including after a body timeout;
+suite, navigation, action and assertion limits remain unchanged.
+
 Technical details displays Durable job state folder (`state.store_root`), Workflow Python command (`workflow.aegis_python`), Existing local repository path (`worktree.repo_path`) and Job working folders (`worktree.root`) as informational installation values. Operators configure them in the project TOML on the ADORE server; generic web mutations are refused. The localized guidance explains that changing a path does not relocate existing job state, repositories or working folders.
 
 Project Settings follows **Repository → Tickets → Implementation → PR/MR and review → Statistics → Agent and model**, followed by closed **Technical details**. Repository owns platform/author identity and the single integration-branch editor; PR/MR shows its value and a link that opens/focuses that row. Tickets owns eligibility, polling, priority/type and pickup/status labels; hold/exclude affect pickup, not already-started jobs. Implementation owns capacity, budgets and progress commits, with closed Clarifications, Recovery after errors and Advanced stage time limits. Statistics owns recording/token switches and the informational database file inside closed Advanced statistics paths. Technical details and worktree paths are read-only; Repository branch naming uses reviewed edits and a server-checked example; runtime installation stays external and Agent and model groups executor settings in Settings. Interval, jitter and backoff remain visible; standalone CLI startup mode (`polling.mode`) stays in TOML/raw configuration and the effective catalog. Inactive reserved controls are omitted without changing CLI configuration. All categories start closed, retain reviewed Admin edits and Dev redaction, and have four-locale names.

@@ -17,7 +17,7 @@ At desktop and mobile widths the tickets view shall keep ticket actions reachabl
 
 verification = "Offline browser checks at 1366 pixels and mobile exercise Details and ticket actions."
 
-affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css"]
+affected_paths = ["04_Software/web/src/TicketWorkspace.tsx", "04_Software/web/src/styles.css", "04_Software/web/e2e/issue37.spec.ts"]
 
 linked_tests = ["04_Software/web/e2e/issue37.spec.ts"]
 
@@ -28,4 +28,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-08
-updated = 2026-11-08
+updated = 2026-11-14

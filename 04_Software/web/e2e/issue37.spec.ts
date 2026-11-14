@@ -6,7 +6,22 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test, expect } from "@playwright/test";
 
+// afterEach owns a separate teardown budget even if a scenario exhausts its body timeout.
+// Direct authenticated requests do not depend on a still-pending page navigation.
+test.afterEach(async ({ page }) => {
+  const response = await page.request.get("/api/v1/me", { timeout: 5_000 });
+  if (response.status() === 401) return;
+  expect(response.ok()).toBe(true);
+  const session = await response.json();
+  const reset = await page.request.patch("/api/v1/me/preferences", {
+    headers: { "X-CSRF-Token": session.csrf },
+    data: { language: "en", theme: "light" }, timeout: 5_000,
+  });
+  expect(reset.ok()).toBe(true);
+});
+
 test("monitoring and responsive epic tickets in four languages", async ({ page, context }) => {
+  test.setTimeout(90_000); // Monitoring transitions plus four locales at two viewport widths.
   await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort());
   await page.goto("/");
   await page.getByLabel("Username", { exact: false }).fill("admin");
@@ -25,27 +40,21 @@ test("monitoring and responsive epic tickets in four languages", async ({ page, 
     body.tickets[0] = {...body.tickets[0], labels: ["epic"], startable: false, reason: "epic", can_start: false, blocked_by: "epic", adds_ready_label: false, needs_priority: false};
     await route.fulfill({response, json: body});
   });
-  try {
-    for (const [locale, read, details] of [["en","Read tickets","Details"],["fr","Lire les tickets","Détails"],["de","Tickets lesen","Details"],["ro","Citește tichetele","Detalii"]]) {
-      await page.goto("/account");
-      const language = page.getByLabel(/Language|Langue|Sprache|Limbă/);
-      if (await language.inputValue() !== locale) await Promise.all([page.waitForResponse(r => r.url().endsWith("/api/v1/me/preferences") && r.request().method() === "PATCH"), language.selectOption(locale)]);
-      for (const width of [1366, 390]) {
-        await page.setViewportSize({width, height: 900});
-        await page.goto(`/projects/${alpha}/jobs`);
-        await page.getByRole("button", {name: read, exact:true}).click();
-        const row = page.locator(".ticket-row").first();
-        await expect(row.locator("button").first()).toBeDisabled();
-        const detail = row.getByRole("button", {name:details, exact:true});
-        await detail.scrollIntoViewIfNeeded(); await detail.click();
-        await expect(page.locator(".ticket-detail").first()).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-      }
-    }
-  } finally {
+  for (const [locale, read, details] of [["en","Read tickets","Details"],["fr","Lire les tickets","Détails"],["de","Tickets lesen","Details"],["ro","Citește tichetele","Detalii"]]) {
     await page.goto("/account");
     const language = page.getByLabel(/Language|Langue|Sprache|Limbă/);
-    if (await language.inputValue() !== "en") await Promise.all([page.waitForResponse(r => r.url().endsWith("/api/v1/me/preferences") && r.request().method() === "PATCH"), language.selectOption("en")]);
+    if (await language.inputValue() !== locale) await Promise.all([page.waitForResponse(r => r.url().endsWith("/api/v1/me/preferences") && r.request().method() === "PATCH"), language.selectOption(locale)]);
+    for (const width of [1366, 390]) {
+      await page.setViewportSize({width, height: 900});
+      await page.goto(`/projects/${alpha}/jobs`);
+      await page.getByRole("button", {name: read, exact:true}).click();
+      const row = page.locator(".ticket-row").first();
+      await expect(row.locator("button").first()).toBeDisabled();
+      const detail = row.getByRole("button", {name:details, exact:true});
+      await detail.scrollIntoViewIfNeeded(); await detail.click();
+      await expect(page.locator(".ticket-detail").first()).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    }
   }
 });
 
