@@ -56,6 +56,13 @@ budget. Its file-scoped afterEach restores authenticated English/light preferenc
 through bounded CSRF-checked API requests, including after a body timeout;
 suite, navigation, action and assertion limits remain unchanged.
 
+Branch settings browser journeys require an empty pending baseline and record accepted
+preview/stage/apply operations through a pass-through route. AfterEach with its own30-second teardown allowance stops new browser
+writes, waits for in-flight requests and confirmed operations, removes only a recorded
+candidate and restores the original branch fields. The four reviewed UI saves have a
+90-second case limit; interrupted-Save proof checks cleanup independently. Preview
+negative cases choose the exact named Edit button, preserving recovered-editor semantics.
+
 The complete offline Chromium suite has a45-minute total limit; ordinary case,
 action, navigation and assertion limits remain unchanged. Jobs and Tickets
 share e2e/lifecycle.ts: afterEach detaches context routes before page routes,

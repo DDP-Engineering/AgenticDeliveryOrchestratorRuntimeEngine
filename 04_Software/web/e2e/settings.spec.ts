@@ -8,7 +8,7 @@ import {settingsSave,settingsImpact,saveSettings,discardSettings} from "./settin
 import {settingsSaveCopy} from "../src/settingsSave";
 import { agentSettingsCopy, internetCopy } from "../src/executorSettings";
 import { connectionRowVisible, settingVisible } from "../src/settings";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type APIResponse, type Route } from "@playwright/test";
 import { configurationResponse } from "./configuration";
 import { branchNamingCopy, implementationLabels, pipelineFailureCopy, statisticsDatabaseCopy } from "../src/settingsCopy";
 
@@ -25,98 +25,205 @@ async function openSettings(page: Page, name = "alpha", user = "admin") {
   for (const summary of await page.locator("#project-settings > .setting-groups > details > summary").all()) await summary.click();
 }
 
+const branchFixturePages = new WeakSet<Page>();
+const branchFixtureCleanup = new WeakMap<Page, () => Promise<void>>();
+type BranchBaseline = { revision: string; config: { agent: { slug: string }; worktree: { branch_template: string; branch_rule: string } } };
+
+/** Settle this journey's accepted writes before deleting its pending candidate or restoring values. */
+async function withBranchSettings(page: Page, run: (before: BranchBaseline) => Promise<void>) {
+  branchFixturePages.add(page);
+  await openSettings(page);
+  const endpoint = "/api/v1/projects/alpha/config";
+  const before: BranchBaseline = await (await page.request.get(endpoint)).json();
+  expect(await (await page.request.get(endpoint + "/pending")).json()).toBeNull();
+  const accepted: APIResponse[] = [];
+  const forwarding: Promise<void>[] = [];
+  let stopping = false;
+  const pattern = /\/api\/v1\/projects\/[^/]+\/config\/(preview|pending|apply)$/;
+  const forward = async (route: Route) => {
+    if (route.request().method() !== "POST") { await route.fallback(); return; }
+    if (stopping) { await route.abort(); return; }
+    const response = await route.fetch({ timeout: 5_000 });
+    if (response.status() === 202) accepted.push(response);
+    // During teardown the application has left the page; the accepted server work still belongs to us.
+    if (stopping) { await route.abort().catch(() => {}); return; }
+    await route.fulfill({ response });
+  };
+  const handler = (route: Route) => {
+    const pending = forward(route);
+    forwarding.push(pending);
+    return pending;
+  };
+  await page.route(pattern, handler);
+  branchFixtureCleanup.set(page, async () => {
+    stopping = true;
+    try {
+      await page.goto("about:blank", { timeout: 5_000 });
+      const requests = await Promise.allSettled(forwarding);
+      const failures: unknown[] = requests.filter(result => result.status === "rejected");
+      const ownedCandidates = new Set<string>();
+      for (const response of accepted) {
+        try {
+          const completed = await configurationResponse(response, page.request);
+          const result = await completed.json();
+          if (!completed.ok()) failures.push({ status: completed.status(), body: result });
+          if (typeof result.candidate_revision === "string") ownedCandidates.add(result.candidate_revision);
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      const session = await (await page.request.get("/api/v1/me")).json();
+      const headers = { "X-CSRF-Token": session.csrf };
+      const pending = await (await page.request.get(endpoint + "/pending")).json();
+      if (pending !== null) {
+        expect(ownedCandidates.has(pending.candidate_revision)).toBe(true);
+        const removed = await configurationResponse(await page.request.delete(endpoint + "/pending", { headers }), page.request);
+        expect(removed.ok()).toBe(true);
+      }
+      const current = await (await page.request.get(endpoint)).json();
+      const keys = ["branch_rule", "branch_template"] as const;
+      if (keys.some(key => current.config.worktree[key] !== before.config.worktree[key])) {
+        const restored = await configurationResponse(await page.request.post(endpoint + "/pending", { headers, data: {
+          key: "settings.batch", revision: current.revision,
+          value: JSON.stringify(keys.map(key => ({ key: "worktree." + key, value: before.config.worktree[key] }))),
+        } }), page.request);
+        expect(restored.ok()).toBe(true);
+        const candidate = await restored.json();
+        const applied = await configurationResponse(await page.request.post(endpoint + "/apply", { headers, data: {
+          base_revision: candidate.base_revision, candidate_revision: candidate.candidate_revision,
+        } }), page.request);
+        expect(applied.ok()).toBe(true);
+      }
+      const restored = await (await page.request.get(endpoint)).json();
+      for (const key of keys) expect(restored.config.worktree[key]).toBe(before.config.worktree[key]);
+      expect(await (await page.request.get(endpoint + "/pending")).json()).toBeNull();
+      expect(failures).toEqual([]);
+    } finally {
+      await page.unroute(pattern, handler);
+    }
+    branchFixtureCleanup.delete(page);
+  });
+  await run(before);
+}
+
 test.beforeEach(async ({ context }) => {
   await context.route("**/*", route => new URL(route.request().url()).origin === "http://127.0.0.1:18765" ? route.continue() : route.abort("blockedbyclient"));
 });
 
-test.afterEach(async ({ page }) => {
-  const me = await page.request.get("/api/v1/me");
-  if (me.ok()) {
-    const session = await me.json();
-    await page.request.patch("/api/v1/me/preferences", {headers:{"X-CSRF-Token":session.csrf},data:{language:"en"}});
-    if (session.user.role === "admin") await configurationResponse(await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": session.csrf } }), page.request);
+test.afterEach(async ({ page }, testInfo) => {
+  const cleanup = branchFixtureCleanup.get(page);
+  if (cleanup) testInfo.setTimeout(30_000);
+  try {
+    if (cleanup) await cleanup();
+  } finally {
+    const me = await page.request.get("/api/v1/me");
+    if (me.ok()) {
+      const session = await me.json();
+      await page.request.patch("/api/v1/me/preferences", {headers:{"X-CSRF-Token":session.csrf},data:{language:"en"}});
+      if (session.user.role === "admin" && !branchFixturePages.has(page)) await configurationResponse(await page.request.delete("/api/v1/projects/alpha/config/pending", { headers: { "X-CSRF-Token": session.csrf } }), page.request);
+    }
   }
 });
 
 test("branch naming previews invalid drafts and applies both fields through exact review", async ({ page }) => {
-  await openSettings(page);
-  const before = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  const preview = page.getByRole("region", { name: "Example job branch", exact: true });
-  await expect(preview).toContainText("No naming rule configured.");
-  const template = page.locator('[id="setting-worktree.branch_template"]');
-  await template.getByRole("button", { name: "Edit Job branch name template", exact: true }).click();
-  const text = template.getByRole("textbox", { name: "Job branch name template", exact: true });
-  await text.fill("feature/{unknown}-{iid}");
-  await expect(preview).toContainText("Use only {slug}, {iid} and {run_id}");
-  await expect(settingsSave(page)).toBeDisabled();
-  expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
-  await text.fill("feature/{slug}-{iid}");
-  await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
-  await expect(settingsSave(page)).toBeEnabled();
-  await settingsSave(page).click();
-  const review = settingsImpact(page);
-  await expect(review).toContainText("Job branch name template");
-  await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
-  await review.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(review).toHaveCount(0);
-  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
-  await page.locator('[data-setting-purpose="repository"] > summary').click();
-  const rule = page.locator('[id="setting-worktree.branch_rule"]');
-  await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
-  const regex = rule.getByRole("textbox", { name: "Optional branch name rule", exact: true });
-  await regex.fill("[");
-  await expect(preview).toContainText("not a valid Python regular expression");
-  await expect(settingsSave(page)).toBeDisabled();
-  await regex.fill("^bugfix/");
-  await expect(preview).toContainText("does not match the rule");
-  await regex.fill("^(?P<prefix>feature)/.*$");
-  await expect(preview).toContainText("This example matches the rule.");
-  await settingsSave(page).click();
-  await expect(review).toContainText("Optional branch name rule");
-  await review.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(review).toHaveCount(0);
-  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
-  const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
-  expect(applied.config.worktree.branch_template).toBe("feature/{slug}-{iid}");
-  expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
-  // Restore the isolated profile through the same reviewed workflow, rule first.
-  for (const [key, value] of [["worktree.branch_rule", before.config.worktree.branch_rule], ["worktree.branch_template", before.config.worktree.branch_template]]) {
-    await page.locator('[data-setting-purpose="repository"] > summary').click();
-    const row = page.locator(`[id="setting-${key}"]`);
-    await row.getByRole("button").click();
-    await row.getByRole("textbox").fill(value);
+  test.setTimeout(90_000);
+  await withBranchSettings(page, async before => {
+    const preview = page.getByRole("region", { name: "Example job branch", exact: true });
+    await expect(preview).toContainText("No naming rule configured.");
+    const template = page.locator('[id="setting-worktree.branch_template"]');
+    await template.getByRole("button", { name: "Edit Job branch name template", exact: true }).click();
+    const text = template.getByRole("textbox", { name: "Job branch name template", exact: true });
+    await text.fill("feature/{unknown}-{iid}");
+    await expect(preview).toContainText("Use only {slug}, {iid} and {run_id}");
+    await expect(settingsSave(page)).toBeDisabled();
+    expect((await (await page.request.get("/api/v1/projects/alpha/config")).json()).revision).toBe(before.revision);
+    await text.fill("feature/{slug}-{iid}");
+    await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
     await expect(settingsSave(page)).toBeEnabled();
     await settingsSave(page).click();
+    const review = settingsImpact(page);
+    await expect(review).toContainText("Job branch name template");
+    await expect(preview).toContainText(`feature/${before.config.agent.slug}-1`);
     await review.getByRole("button", { name: "Save changes", exact: true }).click();
     await expect(review).toHaveCount(0);
-  await expect(page.locator(".settings-save-bar")).toHaveCount(0);
-  }
+    await expect(page.locator(".settings-save-bar")).toHaveCount(0);
+    await page.locator('[data-setting-purpose="repository"] > summary').click();
+    const rule = page.locator('[id="setting-worktree.branch_rule"]');
+    await rule.getByRole("button", { name: "Edit Optional branch name rule", exact: true }).click();
+    const regex = rule.getByRole("textbox", { name: "Optional branch name rule", exact: true });
+    await regex.fill("[");
+    await expect(preview).toContainText("not a valid Python regular expression");
+    await expect(settingsSave(page)).toBeDisabled();
+    await regex.fill("^bugfix/");
+    await expect(preview).toContainText("does not match the rule");
+    await regex.fill("^(?P<prefix>feature)/.*$");
+    await expect(preview).toContainText("This example matches the rule.");
+    await settingsSave(page).click();
+    await expect(review).toContainText("Optional branch name rule");
+    await review.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(review).toHaveCount(0);
+    await expect(page.locator(".settings-save-bar")).toHaveCount(0);
+    const applied = await (await page.request.get("/api/v1/projects/alpha/config")).json();
+    expect(applied.config.worktree.branch_template).toBe("feature/{slug}-{iid}");
+    expect(applied.config.worktree.branch_rule).toBe("^(?P<prefix>feature)/.*$");
+    // Restore the isolated profile through the same reviewed workflow, rule first.
+    for (const [key, label, value] of [["worktree.branch_rule", "Optional branch name rule", before.config.worktree.branch_rule], ["worktree.branch_template", "Job branch name template", before.config.worktree.branch_template]]) {
+      await page.locator('[data-setting-purpose="repository"] > summary').click();
+      const row = page.locator(`[id="setting-${key}"]`);
+      await row.getByRole("button", { name: "Edit " + label, exact: true }).click();
+      await row.getByRole("textbox").fill(value);
+      await expect(settingsSave(page)).toBeEnabled();
+      await settingsSave(page).click();
+      await review.getByRole("button", { name: "Save changes", exact: true }).click();
+      await expect(review).toHaveCount(0);
+      await expect(page.locator(".settings-save-bar")).toHaveCount(0);
+    }
+  });
 });
 
 test("branch preview rejects corrupt and late responses before preparing a candidate", async ({ page }) => {
-  await openSettings(page);
-  const row = page.locator('[id="setting-worktree.branch_template"]');
-  await row.getByRole("button").click();
-  const editor = row.getByRole("textbox");
-  const preview = page.getByRole("region", { name: "Example job branch", exact: true });
-  await page.route("**/config/branch-preview", route => route.fulfill({ json: { valid: true } }));
-  await editor.fill("feature/{iid}");
-  await expect(preview).toContainText("Preview unavailable");
-  await expect(settingsSave(page)).toBeDisabled();
-  await page.unroute("**/config/branch-preview");
-  await page.route("**/config/branch-preview", async route => {
-    const response = await route.fetch();
-    if (route.request().postDataJSON().template === "slow/{iid}") await new Promise(resolve => setTimeout(resolve, 700));
-    await route.fulfill({ response });
+  await withBranchSettings(page, async () => {
+    const row = page.locator('[id="setting-worktree.branch_template"]');
+    await row.getByRole("button", { name: "Edit Job branch name template", exact: true }).click();
+    const editor = row.getByRole("textbox");
+    const preview = page.getByRole("region", { name: "Example job branch", exact: true });
+    await page.route("**/config/branch-preview", route => route.fulfill({ json: { valid: true } }));
+    await editor.fill("feature/{iid}");
+    await expect(preview).toContainText("Preview unavailable");
+    await expect(settingsSave(page)).toBeDisabled();
+    await page.unroute("**/config/branch-preview");
+    await page.route("**/config/branch-preview", async route => {
+      const response = await route.fetch();
+      if (route.request().postDataJSON().template === "slow/{iid}") await new Promise(resolve => setTimeout(resolve, 700));
+      await route.fulfill({ response });
+    });
+    const slow = page.waitForRequest(request => request.url().endsWith("/config/branch-preview") && request.postDataJSON().template === "slow/{iid}");
+    await editor.fill("slow/{iid}");
+    await slow;
+    await editor.fill("latest/{iid}");
+    await expect(preview).toContainText("latest/1");
+    await page.waitForTimeout(900);
+    await expect(preview).not.toContainText("slow/1");
+    await expect(settingsSave(page)).toBeEnabled();
   });
-  const slow = page.waitForRequest(request => request.url().endsWith("/config/branch-preview") && request.postDataJSON().template === "slow/{iid}");
-  await editor.fill("slow/{iid}");
-  await slow;
-  await editor.fill("latest/{iid}");
-  await expect(preview).toContainText("latest/1");
-  await page.waitForTimeout(900);
-  await expect(preview).not.toContainText("slow/1");
-  await expect(settingsSave(page)).toBeEnabled();
+});
+
+test("branch fixture settles an interrupted Save and restores its owned configuration", async ({ page }) => {
+  test.setTimeout(90_000);
+  const endpoint = "/api/v1/projects/alpha/config";
+  await expect(withBranchSettings(page, async () => {
+    const row = page.locator('[id="setting-worktree.branch_template"]');
+    await row.getByRole("button", { name: "Edit Job branch name template", exact: true }).click();
+    await row.getByRole("textbox").fill("interrupted/{slug}-{iid}");
+    await expect(settingsSave(page)).toBeEnabled();
+    await settingsSave(page).click();
+    const staged = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/config/pending"));
+    await settingsImpact(page).getByRole("button", { name: "Save changes", exact: true }).click();
+    expect((await staged).status()).toBe(202);
+    throw new Error("intentional branch fixture interruption");
+  })).rejects.toThrow("intentional branch fixture interruption");
+  await branchFixtureCleanup.get(page)!();
+  expect(await (await page.request.get(endpoint + "/pending")).json()).toBeNull();
 });
 
 test("branch naming is read-only for developers and wraps on narrow screens", async ({ page }) => {

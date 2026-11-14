@@ -30,6 +30,13 @@ The authenticated factory administrator sees a persistent localized password rem
 
 Job and ticket cancellation require confirmation and explain attempted cleanup and retained evidence. Monitoring refreshes after the actual operation result. System status separates worker activity from heartbeat, and explains scoped commands and independent cancel signals. Empty project views offer enrollment and raw import to administrators. Deleting the last project returns to Projects, which omits the empty table panel. The delete dialog keeps the clone choice and exact-name instruction without the introductory paragraphs.
 
+Branch settings browser proof retains four reviewed UI saves with a90-second case
+limit. A clean pending precondition and exact Edit selectors expose leaked state.
+Branch-only afterEach cleanup with its own30-second allowance leaves the app, drains accepted configuration operations,
+removes only its recorded candidate and confirms original branch values plus empty
+pending state; an interrupted-Save case covers this ownership boundary. Ordinary
+assertion/action limits and production behavior stay unchanged.
+
 ## Direct Jobs presentation
 
 `jobModel.ts` requires saved `workflow: aegis | direct` on list and detail reads.

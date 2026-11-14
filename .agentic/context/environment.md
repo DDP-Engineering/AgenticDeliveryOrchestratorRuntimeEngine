@@ -60,6 +60,12 @@ Complete project ZIP import uses isolated source catalogs and temporary profile
 roots with injected failures; no Docker, forge or network command is required.
 Browser import fixtures create current ZIPs through the public Python exporter.
 
+Branch settings focused proof runs the successful four-save journey, corrupt/late
+preview negatives, interrupted-Save cleanup and developer read-only case in one serial
+18765 fixture home. Its90-second long-case limit does not alter suite/assertion/action
+limits. Accepted operations settle before owned candidate removal and baseline restore.
+This fixture-only change needs no production asset rebuild or Python suite.
+
 ## Configuration and services
 
 Runtime configuration is `config.toml`, started from
