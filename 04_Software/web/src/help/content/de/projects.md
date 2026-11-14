@@ -56,6 +56,8 @@ Wählen Sie die vollständige exportierte ZIP direkt: Konfiguration und Image-De
 
 Ein neues Projekt startet mit gestoppter Überwachung. Entwickler sehen es, sobald ein Administrator ihnen auf dem Reiter **Zugriff** Zugriff gewährt. Auf dem Reiter **Zusammenfassung**:
 
+Die Zusammenfassung zeigt zusätzlich die Parallelgrenze, freie Plätze und wartende Aufträge als kompakte Rechtecke neben den Betriebsangaben.
+
 1. Wählen Sie **Repository-Zugang**. Geben Sie die Adresse des Forge-Servers und ein in der Forge erstelltes Zugriffstoken ein, dann **Prüfen und verbinden**. Das bestätigt das Konto und den Lesezugriff auf das Repository. Das Token bleibt auf dem Server, nie im Browser. Alternativ melden Sie das Forge-Werkzeug unter dem ADORE-Dienstkonto an.
 2. Wählen Sie **Host-Voraussetzungen prüfen**. Die Details betreffen Git, das Repository-Befehlswerkzeug, die Repository-Anmeldung, die Container-Engine, Pi im Image, bei einem ChatGPT-Abonnement außerdem die ChatGPT-Anmeldung des Servers, bei ausgeschaltetem [Internetzugang](/help/executors#internet) das Netzwerk-Proxy-Image und den Websuche-Schlüssel, wenn Brave oder Tavily einen braucht. Für ein Projekt, das direkt auf dem Server läuft, ersetzt **Lokale Ausführung** die Zeilen zu Container-Engine und Image: Sie prüft kompatibles Node, das von ADORE verwaltete Pi und die Zugangsdaten des Anbieters. Die separate Zeile **Workflow** bestimmt den Workflow, ohne AEGIS auszuführen. Das ist kein vollständiger Auftrag und belegt keine Push-Berechtigung.
 3. Führen Sie **KI-Verbindung testen** in den Einstellungen aus, wie unter [Executor und Modelle](/help/executors#test-connection) beschrieben.

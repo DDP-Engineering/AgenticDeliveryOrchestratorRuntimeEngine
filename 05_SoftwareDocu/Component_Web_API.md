@@ -970,3 +970,7 @@ Delayed-response scenarios hold a completed old result after its server resource
 is free, so they test stale browser delivery rather than overlapping enrollment
 publication. Capacity content may move panels during initial loading; layout
 checks use simultaneous measurements and panel viewport bounds.
+
+## Current capacity projection
+
+The authorized project capacity read adds explicit `paused` and `job_counts` for working, publishing, clarification, approval, review and pending handoff. Counts exclude terminal jobs and execution-pending reservations, which remain in the queue. These are current observations, not history or logs; stored formats are unchanged.

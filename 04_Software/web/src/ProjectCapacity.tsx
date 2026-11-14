@@ -15,7 +15,7 @@ import { HelpLink } from "./HelpCenter";
 type Read = <T>(path:string)=>Promise<T>;
 
 /** Project capacity is independent of heartbeat freshness and observed worker activity. */
-export function ProjectCapacity({project,name,locale,request,refresh=0}:{project:string;name?:string;locale:Locale;request:Read;refresh?:number}) {
+export function ProjectCapacity({project,name,locale,request,refresh=0,compact=false}:{project:string;name?:string;locale:Locale;request:Read;refresh?:number;compact?:boolean}) {
   const copy=workerCopy[locale];
   const [state,setState]=useState<{project:string;data?:Capacity;error?:unknown}>({project});
   useEffect(()=>{
@@ -28,8 +28,12 @@ export function ProjectCapacity({project,name,locale,request,refresh=0}:{project
     };
     void load();const stop=startVisiblePolling(()=>void load(),2000);
     return ()=>{active=false;stop();};
-  },[project,refresh]);
+  },[project,refresh,request]);
   const data=state.project===project?state.data:undefined;
+  if(compact)return <>{[["limit",copy.limit,data?.limit],["free",copy.free,data?.free],["queued",copy.waiting,data?.waiting_jobs]].map(([key,label,value],index)=><div className="summary-fact" data-capacity-fact={key} key={key}>
+    <dt>{label}</dt><dd>{value===undefined?"—":new Intl.NumberFormat(locale).format(Number(value))}</dd>
+    {index===0&&state.project===project&&state.error!==undefined&&<small role="alert" className="field-hint">{copy.error}: {describeError(locale,state.error)}</small>}
+  </div>)}</>;
   return <section className="panel compact project-capacity" aria-label={`${copy.capacity}${name ? ` · ${name}` : ""}`}>
     <div className="panel-heading"><h2>{copy.capacity}{name && <> · {name}</>}</h2><HelpLink topic="jobs" locale={locale}/></div>
     {state.project===project&&state.error!==undefined?<p className="alert" role="alert">{copy.error}: {describeError(locale,state.error)}</p>:!data?<p>…</p>:<>

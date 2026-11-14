@@ -56,6 +56,8 @@ Select a complete exported ZIP directly; its configuration and image definitions
 
 A new project starts with monitoring stopped. Developers see it once an administrator grants access on its **Access** tab. On the **Summary** tab:
 
+Summary also shows the parallel job limit, free places and queued jobs as compact rectangles beside the existing operational facts.
+
 1. Choose **Repository access**. Enter the forge server address and an access token created on the forge, then **Verify and connect**. This confirms the account and read access to the repository. The token stays on the server, never in the browser. Alternatively, sign in the forge tool under the ADORE service account.
 2. Choose **Check host prerequisites**. The details cover Git, the repository command tool, repository sign-in, the container engine, Pi in the image, plus the server's ChatGPT sign-in for a ChatGPT subscription, the network proxy image while [internet access](/help/executors#internet) is Off and the web search key when Brave or Tavily needs one. For a project that runs on the server itself, **Local execution** replaces the container engine and image rows: it checks compatible Node, ADORE-managed Pi and the selected provider credential. The separate **Workflow** row identifies the workflow without running AEGIS. This is not a full job and does not prove push permission.
 3. Run **Test AI connection** in Settings, as described in [Executors and models](/help/executors#test-connection).

@@ -916,7 +916,7 @@ so colliding run IDs remain distinct after reload. Closing detail clears its ID.
 
 The dedicated project header displays its name and repository path beside
 Summary, Settings, Jobs, Statistics, History and Access tabs; Access is
-Admin-only. **Jobs** has two sub-tabs. **Tickets** (the default) reads the
+Admin-only. **Jobs** has three sub-tabs: **Tickets**, **Jobs** and **Capacity**. **Tickets** (the default) reads the
 project's open tickets from its repository only when you press **Read tickets**,
 then lists number, title, labels and whether ADORE can start the ticket (or
 which rule blocks it, or its job's state). More than 10 tickets are paged: 10 per
@@ -1506,7 +1506,7 @@ keys, Home and End. These views never approve a candidate or start an executor.
 
 ## Compact project and Jobs controls
 
-The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs/Capacity tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
 
@@ -1536,7 +1536,7 @@ their own consumer contract. No host-wide single-job ceiling is imposed.
 
 ## Project capacity and retained work
 
-Project Summary, Settings and Jobs show the selected project's effective parallel limit, occupied/free slots, queued job count and request causes. Global Jobs names each project's capacity card. Causes distinguish a full project, missing project worker, operation on the same job, staged lower limit and awaiting dispatch. Queued counts include submitted requests and admitted jobs awaiting dispatch, not unread forge tickets. A busy project does not block another project's Start or settings.
+Project Summary places only Parallel job limit, Free and Queued jobs in the operational rectangles, in two rows on wide screens and wrapped on smaller screens. The project and global Jobs workspaces offer Tickets, Jobs and Capacity. Capacity shows one row per authorized project with limit, free places, queue, monitoring and current unfinished job states. Rows per page offers 10, 25, 50 and All, with Previous/Next controls; finished history, operation history and logs are excluded. Settings retains the detailed capacity and own-operation panel. Failed project reads stay explicit instead of becoming zero counts. Queued counts include submitted requests and admitted jobs awaiting dispatch, not unread forge tickets. A busy project does not block another project's Start or settings.
 
 Implementation retains one canonical `polling.max_concurrent_runs`, default 1. A staged lower N already fences Start/Retry/resume admission without cancelling existing admitted jobs. Safe apply still waits for unfinished work; reductions below occupancy explain the conflict and keep the candidate. Staged increases wait for safe application. Discard removes the staged ceiling.
 

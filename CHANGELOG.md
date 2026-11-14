@@ -19,6 +19,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Compact Summary capacity into operational tiles and move cross-project capacity/current job states into a paginated Capacity tab.
+
 - Document integrated worker acceptance, per-project parallel execution and explicit platform/distribution smoke boundaries.
 - Show per-project capacity, queue causes and separate worker roles; retain Settings drafts and durable operation results across navigation/refresh. Staged lower job limits fence new admission while existing jobs continue.
 

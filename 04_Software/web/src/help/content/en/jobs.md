@@ -128,6 +128,8 @@ If **Consumption** cannot load, use **Refresh consumption** beside the error. Jo
 
 ## Project capacity {#project-capacity}
 
-**Project capacity** on Summary and Jobs shows the effective parallel limit, occupied/free slots, queued jobs and the cause: project limit, unavailable project worker, another operation on the same job or a staged lower limit. The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. **Your latest operations** restores your own saved Start, Retry, Cancel and settings results after navigation or reload. Queued and In progress do not mean Confirmed.
+**Summary** shows only **Parallel job limit**, **Free** and **Queued jobs** as compact rectangles alongside the project’s operational facts. In the project or global **Jobs** page, choose **Capacity** beside **Tickets** and **Jobs**. Each project has one table row with its limit, free places, queue, monitoring and current job states. Finished jobs, operation history and logs are excluded. Choose 10, 25, 50 or All in **Rows per page** and use **Previous** and **Next**.
+
+The queue counts submitted requests and admitted jobs waiting for dispatch, not unrequested forge tickets. A project at capacity does not block other projects. Settings still shows **Your latest operations** with saved Start, Retry, Cancel and settings results; Queued and In progress do not mean Confirmed.
 
 A staged lower limit already stops new starts and resumptions until occupancy falls below it; already-running jobs continue; queued reservations wait for a current execution place. It never raises the active limit. Safe application still waits for unfinished work; the saved value and staged candidate remain visible until Save or Discard changes.

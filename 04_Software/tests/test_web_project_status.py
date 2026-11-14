@@ -470,3 +470,28 @@ def test_staged_capacity_corruption_blocks_only_its_project(setup, damage):
 
 
 # END OF FILE
+
+
+def test_capacity_exposes_only_current_job_states_and_monitoring(setup):
+    """@brief Current capacity excludes finished history and reserved, unstarted execution.
+    @param[in] setup Isolated authorized projects and offline stores.
+    """
+    profiles, states, _web, client, _headers = setup
+    for index, lifecycle in enumerate(("working", "publishing", "parked-clarification",
+                                        "awaiting-approval", "in-review", "handoff-pending",
+                                        "done", "failed", "cancelled"), 1):
+        states["alpha"].save(RunState(f"state-{index}", index, lifecycle=lifecycle))
+    states["alpha"].save(RunState("reserved", 20, execution_pending=True))
+    identity = profiles.load("alpha").project_id
+    response = client.get(f"/api/v1/projects/{identity}/capacity")
+    assert response.status_code == 200
+    assert response.json()["paused"] is True
+    assert response.json()["job_counts"] == {
+        "working": 1, "publishing": 1, "parked-clarification": 1,
+        "awaiting-approval": 1, "in-review": 1, "handoff-pending": 1,
+    }
+    states["alpha"].resume()
+    assert client.get(f"/api/v1/projects/{identity}/capacity").json()["paused"] is False
+    state_file = states["alpha"].run_dir("reserved") / "state.json"
+    state_file.write_text("{corrupt", encoding="utf-8")
+    assert client.get(f"/api/v1/projects/{identity}/capacity").status_code == 503

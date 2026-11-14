@@ -128,6 +128,8 @@ Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă 
 
 ## Capacitatea proiectului {#project-capacity}
 
-**Capacitatea proiectului** din Rezumat și Lucrări arată limita efectivă, locurile ocupate/libere, joburile în coadă și cauza: limita proiectului, worker indisponibil, operație pe același job sau limita redusă pregătită. Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele nesolicitate. Un proiect plin nu le blochează pe celelalte. **Ultimele tale operații** recuperează rezultatele salvate pentru Pornește, Reîncearcă, Anulează și setări după navigare ori reîncărcare. În coadă și În desfășurare nu înseamnă Confirmat.
+**Rezumatul** arată doar **Limita lucrărilor în paralel**, **Libere** și **Lucrări în coadă** ca dreptunghiuri compacte lângă informațiile operaționale. În pagina **Lucrări** a proiectului sau globală, alege **Capacitate** lângă **Tichete** și **Lucrări**. Fiecare proiect are un rând cu limita, locurile libere, coada, monitorizarea și stările curente ale joburilor. Joburile încheiate, istoricul operațiilor și logurile sunt excluse. Alege 10, 25, 50 sau Toate în **Rânduri pe pagină**, apoi **Anterior** sau **Următor**.
+
+Coada numără cererile trimise și joburile admise care așteaptă lansarea, nu tichetele necerute. Un proiect ocupat nu blochează alte proiecte. Setările păstrează **Ultimele tale operații** și rezultatele salvate; În coadă și În desfășurare nu înseamnă Confirmat.
 
 O limită redusă pregătită oprește deja pornirile și reluările noi până când ocuparea scade sub ea; joburile deja pornite continuă; rezervările în coadă așteaptă un loc de execuție. Nu mărește niciodată limita activă. Aplicarea sigură așteaptă în continuare lucrul neterminat; valoarea salvată și candidatul rămân vizibile până la Salvează sau Renunță la modificări.

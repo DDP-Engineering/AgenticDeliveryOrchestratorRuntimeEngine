@@ -128,6 +128,8 @@ Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** pr
 
 ## Capacité du projet {#project-capacity}
 
-**Capacité du projet** dans Résumé et Tâches montre la limite effective, les places occupées/libres, les tâches en file et la cause : limite du projet, service indisponible, opération sur la même tâche ou limite réduite préparée. La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. **Vos dernières opérations** retrouve vos résultats Démarrer, Réessayer, Annuler et paramètres après navigation ou rechargement. En file et En cours ne signifient pas Confirmé.
+Le **Résumé** affiche seulement **Limite de tâches en parallèle**, **Libres** et **Tâches en file** dans des rectangles compacts avec les informations opérationnelles. Dans la page **Tâches** du projet ou globale, choisissez **Capacité** à côté de **Tickets** et **Tâches**. Chaque projet occupe une ligne avec sa limite, ses places libres, sa file, sa surveillance et les états actuels des tâches. Les tâches terminées, l’historique des opérations et les journaux sont exclus. Choisissez 10, 25, 50 ou Tout dans **Lignes par page**, puis **Précédent** ou **Suivant**.
+
+La file compte les demandes soumises et les tâches admises attendant leur lancement, pas les tickets non demandés. Un projet plein ne bloque pas les autres. Les paramètres conservent **Vos dernières opérations** et leurs résultats ; En file et En cours ne signifient pas Confirmé.
 
 Une limite réduite préparée retient déjà les nouveaux démarrages et reprises jusqu’à ce que l’occupation passe sous la limite ; les tâches déjà en cours continuent ; les réservations en file attendent une place d’exécution. Elle n’augmente jamais la limite active. L’application sûre attend les travaux inachevés ; la valeur enregistrée et le candidat restent visibles jusqu’à Enregistrer ou Abandonner les modifications.

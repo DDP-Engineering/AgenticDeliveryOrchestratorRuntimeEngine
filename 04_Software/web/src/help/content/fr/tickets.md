@@ -49,7 +49,7 @@ Des étiquettes facultatives orientent la tâche : `bug` ou `fix` donne une tâc
 
 ## Examiner et démarrer les tickets {#tickets-view}
 
-Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes deux sous-onglets et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.
+Ouvrez un projet depuis Projets, choisissez son onglet **Tâches** et restez dans le sous-onglet **Tickets**. La page globale **Tâches** de la barre latérale a les mêmes trois sous-onglets : Tickets, Tâches et Capacité et un sélecteur **Périmètre des travaux**. Avec **Tous les projets**, le tableau gagne une colonne Projet et chaque ligne agit sur son propre projet.
 
 Rien n’est lu tant que vous n’appuyez pas sur **Lire les tickets**. Cela charge jusqu’à 500 tickets ouverts. Au-delà de 10 tickets, ils s’affichent page par page : choisissez 10, 25, 50 ou Tout dans **Lignes par page** et naviguez avec **Précédent** et **Suivant** ; le numéro de page et le nombre de pages sont indiqués. Chaque ligne affiche le numéro dans une colonne étroite, à côté du titre, des étiquettes, de l’état et des actions. L’état nomme ce qui bloque un ticket :
 

@@ -16,6 +16,12 @@
 # IMPORTS
 from adore.capacity import initial_start_slots
 
+# CONSTANTS
+CURRENT_JOB_STATES = (
+    "working", "publishing", "parked-clarification", "awaiting-approval",
+    "in-review", "handoff-pending",
+)
+
 
 # PUBLIC API
 def worker_status(rows: list[dict], role: str, project_id: str = "", run_id: str = "") -> dict:
@@ -138,6 +144,13 @@ def capacity_status(
             )
     return {
         "project_id": project_id,
+        "paused": state.is_paused(),
+        "job_counts": {
+            lifecycle: sum(
+                run.lifecycle == lifecycle and not run.execution_pending for run in runs
+            )
+            for lifecycle in CURRENT_JOB_STATES
+        },
         "limit": limit,
         "occupied": occupied,
         "free": free,

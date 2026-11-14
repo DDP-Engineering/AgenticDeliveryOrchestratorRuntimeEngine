@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import {test,expect,type Page} from "@playwright/test";
 import {settingsSave,discardSettings} from "./settings-actions";
-import {workerCopy} from "../src/projectStatus";
+import {capacityCopy,workerCopy} from "../src/projectStatus";
 import type {Locale} from "../src/i18n";
 import {jobCopy} from "../src/jobCopy";
 
@@ -76,18 +76,19 @@ test("capacity and durable operation feedback stay local through reload in all l
   for(const locale of ["en","fr","de","ro"] as Locale[]){
     const me=await(await page.request.get("/api/v1/me")).json();
     await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:locale,theme:locale==="de"?"dark":"light"}});
-    await page.goto(`/projects/${a.id}`);
+    await page.goto(`/projects/${a.id}/configuration`);
     const card=page.getByRole("region",{name:workerCopy[locale].capacity});
     await expect(card).toContainText(workerCopy[locale].worker_unavailable);
     await expect(card).toContainText(workerCopy[locale].pending);
     await page.reload();await expect(card.locator('[data-operation-id="901"]')).toContainText(workerCopy[locale].pending);
     await page.screenshot({path:info.outputPath(`capacity-${locale}.png`),fullPage:true});
-    await page.goto(`/projects/${b.id}`);
+    await page.goto(`/projects/${b.id}/configuration`);
     await expect(page.getByRole("region",{name:workerCopy[locale].capacity})).toContainText(workerCopy[locale].recent);
     await expect(page.locator('[data-operation-id="901"]')).toHaveCount(0);
+    await page.goto(`/projects/${b.id}`);
     await expect(page.getByRole("button",{name:jobCopy[locale].startPickup,exact:true})).toBeEnabled();
   }
-  status="failed";await page.goto(`/projects/${a.id}`);
+  status="failed";await page.goto(`/projects/${a.id}/configuration`);
   await expect(page.locator('[data-operation-id="901"]')).toContainText(workerCopy.ro.failed);
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:info.outputPath("capacity-mobile.png"),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
@@ -114,7 +115,7 @@ test("staged increases and unrelated settings never claim a reduced admission li
     const me=await(await page.request.get("/api/v1/me")).json();
     await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:locale}});
     for(const limit of [3,2,1]){
-      proposed=limit;await page.goto(`/projects/${a.id}`);
+      proposed=limit;await page.goto(`/projects/${a.id}/configuration`);
       const card=page.getByRole("region",{name:workerCopy[locale].capacity});
       await expect(card).toContainText(workerCopy[locale].staged);
       if(limit<2)await expect(card).toContainText(workerCopy[locale].stagedLower);
@@ -136,4 +137,72 @@ test("credential-bearing endpoint drafts remain only in memory",async({page})=>{
   expect(retained).not.toContain("private-password");
   await expect(settingsSave(page)).toBeDisabled();
   await discardSettings(page);
+});
+
+
+function capacityRow(id:string) {
+  return {project_id:id,active_limit:2,limit:2,occupied:1,free:1,waiting_jobs:3,available:true,
+    worker:{role:"project",project_id:id,run_id:"",heartbeat:"recent",activity:"busy",updated_at:"2026-11-14T01:00:00+00:00"},
+    paused:false,job_counts:{working:1,publishing:0,"parked-clarification":2,"awaiting-approval":0,"in-review":0,"handoff-pending":0},
+    waiting_runs:[],queue:[],staged_change:false,staged_limit:null,
+    recent_operations:[{id:901,action:"start",status:"succeeded",result:"historical-operation-marker",reason:""}]};
+}
+
+test("Summary folds only three capacity facts into two rows",async({page},info)=>{
+  const projects=await login(page),a=projects.find(item=>item.name==="alpha")!;
+  await page.route(`**/api/v1/projects/${a.id}/capacity`,route=>route.fulfill({json:capacityRow(a.id)}));
+  await page.setViewportSize({width:1560,height:1000});
+  await page.goto(`/projects/${a.id}`);
+  const summary=page.locator(".project-summary"),facts=summary.locator(".summary-fact");
+  await expect(facts).toHaveCount(10);
+  await expect(summary.locator('[data-capacity-fact="limit"]')).toHaveText("Parallel job limit2");
+  await expect(summary.locator('[data-capacity-fact="free"]')).toHaveText("Free1");
+  await expect(summary.locator('[data-capacity-fact="queued"]')).toHaveText("Queued jobs3");
+  await expect(page.locator(".project-capacity")).toHaveCount(0);
+  await expect(summary).not.toContainText("historical-operation-marker");
+  const tops=await facts.evaluateAll(items=>items.map(item=>Math.round(item.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(2);
+  await page.screenshot({path:info.outputPath("summary-capacity-compact.png"),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+});
+
+test("Capacity is a paginated current-state table, separate from Tickets and Jobs",async({page},info)=>{
+  test.setTimeout(90_000);
+  const projects=await login(page),template=projects.find(item=>item.name==="alpha")!;
+  const rows=Array.from({length:12},(_,index)=>({...template,id:(index+1).toString(16).padStart(32,"0"),name:`capacity-${index+1}`,display_name:`Project ${String(index+1).padStart(2,"0")}`,archived:false}));
+  await page.route("**/api/v1/projects",route=>route.fulfill({json:rows}));
+  await page.route("**/api/v1/projects/*/capacity",route=>{
+    const id=new URL(route.request().url()).pathname.split("/").at(-2)!;
+    return route.fulfill(id===rows[2].id?{status:503,json:{detail:{code:"project_capacity_unavailable"}}}:{json:{...capacityRow(id),paused:id===rows[1].id}});
+  });
+  for(const locale of ["en","fr","de","ro"] as Locale[]){
+    const me=await(await page.request.get("/api/v1/me")).json();
+    await page.request.patch("/api/v1/me/preferences",{headers:{"X-CSRF-Token":me.csrf},data:{language:locale}});
+    await page.goto("/jobs?view=capacity");
+    const panel=page.getByRole("region",{name:capacityCopy[locale].tab,exact:true});
+    await expect(page.getByRole("tab",{name:capacityCopy[locale].tab,exact:true})).toHaveAttribute("aria-selected","true");
+    await expect(panel.locator("tbody tr")).toHaveCount(10);
+    await expect(panel.locator("tbody tr").first()).toContainText("1 ·");
+    await expect(panel.locator("tbody tr").nth(1)).toContainText(jobCopy[locale].pickupStopped);
+    await expect(panel.locator("tbody tr").nth(2).getByRole("alert")).toBeVisible();
+    await expect(panel.locator("tbody tr").nth(2).locator("td").first()).toHaveText("—");
+    await expect(panel).not.toContainText("historical-operation-marker");
+    await expect(page.locator(".project-capacity,.project-operations")).toHaveCount(0);
+    const next=panel.locator(".page-controls button").last();await next.click();
+    await expect(panel.locator("tbody tr")).toHaveCount(2);
+    await panel.locator(".page-controls select").selectOption("25");
+    await expect(panel.locator("tbody tr")).toHaveCount(12);
+    await page.screenshot({path:info.outputPath(`capacity-table-${locale}.png`),fullPage:true});
+    await page.reload();await expect(page.getByRole("tab",{name:capacityCopy[locale].tab,exact:true})).toHaveAttribute("aria-selected","true");
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:info.outputPath("capacity-table-mobile.png"),fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+  await page.locator("#jobs-subtab-jobs").click();
+  await expect(page.locator(".project-capacity,.capacity-table")).toHaveCount(0);
+  await page.locator("#jobs-subtab-tickets").click();
+  await expect(page.locator(".project-capacity,.capacity-table")).toHaveCount(0);
+  await page.locator("#jobs-subtab-tickets").press("End");
+  await expect(page.locator("#jobs-subtab-capacity")).toHaveAttribute("aria-selected","true");
 });

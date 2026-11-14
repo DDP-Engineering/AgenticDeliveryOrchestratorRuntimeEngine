@@ -14,6 +14,8 @@ export type TrackedOperation = {id:number;action:"start"|"retry"|"restart"|"canc
 export type Capacity = {project_id:string;active_limit:number;limit:number;occupied:number;free:number;waiting_jobs:number;available:boolean;
   worker:Worker;queue:Array<{id:number;action:TrackedOperation["action"];reason:"project_limit"|"worker_unavailable"|"same_job"|"staged_change"|"dispatching"}>;
   waiting_runs:Array<{ticket_iid:number;reason:"dispatching"|"worker_unavailable"|"project_limit"|"staged_change"}>;staged_change:boolean;staged_limit:number|null;recent_operations:TrackedOperation[]};
+export const currentJobStates=["working","publishing","parked-clarification","awaiting-approval","in-review","handoff-pending"] as const;
+export type CapacityOverview=Capacity&{paused:boolean;job_counts:Record<typeof currentJobStates[number],number>};
 const integer=(value:unknown,minimum=0):value is number=>Number.isSafeInteger(value)&&Number(value)>=minimum;
 const identity=(value:unknown)=>typeof value==="string"&&/^[a-f0-9]{32}$/.test(value);
 const actions=["start","retry","restart","cancel","configure","pause","resume","delete"];
@@ -48,6 +50,22 @@ export function readCapacity(value:unknown,project:string):Capacity {
       &&[item.reason,item.result].every(text=>typeof text==="string")))throw new ApiError("unexpected_response");
   return row;
 }
+
+/** Validate current status counts separately from historical operations and finished jobs. */
+export function readCapacityOverview(value:unknown,project:string):CapacityOverview {
+  const row=readCapacity(value,project) as CapacityOverview;
+  if(typeof row.paused!=="boolean"||!row.job_counts||typeof row.job_counts!=="object"||Array.isArray(row.job_counts)
+    ||Object.keys(row.job_counts).length!==currentJobStates.length
+    ||!currentJobStates.every(status=>integer(row.job_counts[status])))throw new ApiError("unexpected_response");
+  return row;
+}
+
+export const capacityCopy={
+  en:{tab:"Capacity",jobStatus:"Current job status",noActiveJobs:"No active jobs"},
+  fr:{tab:"Capacité",jobStatus:"État actuel des tâches",noActiveJobs:"Aucune tâche active"},
+  de:{tab:"Kapazität",jobStatus:"Aktueller Auftragsstatus",noActiveJobs:"Keine aktiven Aufträge"},
+  ro:{tab:"Capacitate",jobStatus:"Starea curentă a joburilor",noActiveJobs:"Niciun job activ"},
+} satisfies Record<Locale,{tab:string;jobStatus:string;noActiveJobs:string}>;
 
 export const workerCopy = {
  en:{capacity:"Project capacity",occupied:"Occupied",free:"Free",waiting:"Queued jobs",limit:"Parallel job limit",supervisor:"Supervisor",configuration:"Configuration worker",project:"Project worker",run:"Job worker",command:"Job control",recent:"Recent heartbeat",stale:"Late heartbeat",missing:"No heartbeat",busy:"Working",idle:"Idle",unknown:"Activity unknown",available:"Slot available",unavailable:"Admission unavailable",project_limit:"Project limit reached",staged_change:"Waiting for the staged lower limit",worker_unavailable:"Project worker unavailable",same_job:"Waiting for this job's current operation",dispatching:"Awaiting dispatch",staged:"Settings are staged; saved values remain unchanged.",stagedLower:"A lower job limit already holds new starts.",operations:"Your latest operations",pending:"Queued",running:"In progress",succeeded:"Confirmed",failed:"Failed",uncertain:"Result unconfirmed",start:"Start",retry:"Retry",restart:"Restart",cancel:"Cancel",configure:"Settings operation",pause:"Pause monitoring",resume:"Activate monitoring",delete:"Delete project",error:"Project status unavailable",workers:"Workers",heartbeatHelp:"Heartbeat shows contact; activity and free slots are separate.",retention:"Your draft could not be retained. Keep this page open or discard it.",corrupt:"The retained draft is unreadable. Discard changes to start fresh.",retained:"Unsaved values stay with this project in this browser tab."},

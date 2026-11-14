@@ -29,7 +29,7 @@ Typed config, schema-1 state, existing schema-1 pending settings and the current
 
 ## 5. Inputs And Outputs
 
-Capacity returns `project_id`, effective `limit`, `active_limit`, `occupied`, `free`, `waiting_jobs`, `available`, `worker`, `queue`, `waiting_runs`, `staged_change`, `staged_limit` and `recent_operations`. Queue reasons are `project_limit`, `worker_unavailable`, `same_job`, `staged_change` and `dispatching`. Queued jobs count submitted execution requests and admitted pending dispatch, not unrequested forge tickets. Cancel is not held by a full project.
+Capacity returns `project_id`, effective `limit`, `active_limit`, `occupied`, `free`, `waiting_jobs`, `available`, `worker`, `queue`, `waiting_runs`, `staged_change`, `staged_limit` and `recent_operations`, plus `paused` and closed `job_counts` for unfinished lifecycle states. Reserved unstarted jobs appear in the queue rather than the working count; terminal history is excluded. Queue reasons are `project_limit`, `worker_unavailable`, `same_job`, `staged_change` and `dispatching`. Queued jobs count submitted execution requests and admitted pending dispatch, not unrequested forge tickets. Cancel is not held by a full project.
 
 Role observations contain role, project/run scope, `heartbeat` (recent/stale/missing), observed `activity` (busy/idle/unknown) and last timestamp. Public status carries no PID, owner capability or credential. Own configuration outcome errors are reduced to their public code.
 
@@ -41,7 +41,7 @@ Browser drafts store only bounded editable strings, base revision and editor key
 
 ## 7. Workflow Integration
 
-Project Summary/Settings/Jobs keep capacity and latest own results visible. Global Jobs names each project's card. Accepted/pending/running operations remain distinct from confirmed success; revisiting reads server evidence without resubmitting. Settings choices remain per project; System status is informational.
+Project Summary embeds only limit, free and queued counts in the operational fact grid (five columns/two rows on wide screens). Settings retains the detailed capacity and own-operation panel. The project/global Jobs workspace has Tickets, Jobs and Capacity sub-tabs. CapacityTable.tsx renders one authorized project per row with limit/free/queue, monitoring and current job-state counts; it reuses the normal row-size selector and pager. It shows no finished history, operation history or logs. Rows load independently, with at most one read per project, a 15-second timeout and cancellation when leaving the view; a slow project does not hold other rows. Failed project reads stay explicit and never become zero counts. Capacity deep links retain the selected scope across refresh. Accepted/pending/running operations remain distinct from confirmed success; revisiting reads server evidence without resubmitting. Settings choices remain per project; System status is informational.
 
 ## 9. Validation And Tests
 

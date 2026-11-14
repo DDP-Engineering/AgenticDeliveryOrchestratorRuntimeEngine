@@ -129,3 +129,14 @@ test("legacy price links open Settings, where prices live, for both roles", () =
     normalizeRoute(parseRoute(`/projects/${ID}/prices`), { isAdmin }),
     { route: { view: "projectDetails", project: ID, tab: "configuration" }, replaced: true }, String(isAdmin));
 });
+
+
+test("capacity sub-tabs retain global and project scope across direct links",()=>{
+  for(const route of [{view:"jobs",jobsView:"capacity"},{view:"jobs",project:ID,jobsView:"capacity"},
+    {view:"projectDetails",project:ID,tab:"jobs",jobsView:"capacity"}]){
+    const url=new URL(formatRoute(route),"http://localhost");
+    assert.deepEqual(parseRoute(url.pathname,url.search),route);
+  }
+  assert.deepEqual(parseRoute("/jobs","?view=unknown"),{view:"jobs"});
+  assert.equal(parseRoute("/jobs",`?project=${ID}&run=job-1&view=capacity`).run,"job-1");
+});

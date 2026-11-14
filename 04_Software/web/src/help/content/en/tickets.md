@@ -49,7 +49,7 @@ Optional labels shape the job: `bug` or `fix` makes a fix task, `change` a chang
 
 ## Reviewing and starting tickets {#tickets-view}
 
-Open a project from Projects, choose its **Jobs** tab and stay on the **Tickets** sub-tab. The global **Jobs** page in the sidebar has the same two sub-tabs and a **Job scope** selector. With **All projects**, the table gains a Project column and each row acts on its own project.
+Open a project from Projects, choose its **Jobs** tab and stay on the **Tickets** sub-tab. The global **Jobs** page in the sidebar has the same three sub-tabs: Tickets, Jobs and Capacity and a **Job scope** selector. With **All projects**, the table gains a Project column and each row acts on its own project.
 
 Nothing is read until you press **Read tickets**. It loads up to 500 open tickets. More than 10 tickets are shown a page at a time: choose 10, 25, 50 or All in **Rows per page**, and move with **Previous** and **Next**; the pager shows the page number of the page count. Each row shows the number in a narrow column alongside the title, labels, Status and actions. Status names what blocks a ticket:
 

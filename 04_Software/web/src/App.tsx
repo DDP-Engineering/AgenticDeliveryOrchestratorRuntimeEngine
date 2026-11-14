@@ -5,8 +5,9 @@ Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
 import { ProjectCapacity, WorkerStatus as WorkerRoles } from "./ProjectCapacity";
+import { CapacityTable } from "./CapacityTable";
 import { readDraft, writeDraft, clearDraft, clearPrivateDrafts } from "./settingsDrafts";
-import { workerCopy } from "./projectStatus";
+import { capacityCopy, workerCopy } from "./projectStatus";
 import { completedConfiguration } from "./configurationTasks";
 import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { aggregateMetrics, aggregateUsage, type Metrics, type Usage } from "./metrics";
@@ -30,7 +31,7 @@ import { groupRelease, type Release } from "./releaseNotes";
 import { auditPolicyPayload } from "./auditPolicy";
 import { ApiError, describeError } from "./errors";
 import { startVisiblePolling } from "./polling";
-import { formatRoute, normalizeRoute, parseRoute, type ProjectTab, type Route } from "./routes";
+import { formatRoute, normalizeRoute, parseRoute, type JobsView, type ProjectTab, type Route } from "./routes";
 import { BATCH_KEY, hasDefault, settingGroups, settingRows, type SettingMeta, type SettingRow, settingValue, validSettingCatalog, validPendingConfig, type PendingConfig, settingVisible, settingSubgroup, STATUS_LABEL_KEYS, BRANCH_NAMING_KEYS, validBranchPreview, type BranchPreview, connectionRowVisible } from "./settings";
 import { ExecutorEnvironment, type ExecutorEnvironmentInfo } from "./ExecutorEnvironment";
 import { ExecutionPlanReview } from "./ExecutionPlanReview";
@@ -206,7 +207,7 @@ export default function App() {
   const [passwordSession, setPasswordSession] = useState<Session | null>(null);
   useEffect(() => { setPasswordMismatch(false); }, [page, session?.csrf, passwordSession?.csrf]);
   const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
-  const [jobsView, setJobsView] = useState<"tickets" | "jobs">("tickets");
+  const [jobsView, setJobsView] = useState<JobsView>("tickets");
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteName, setDeleteName] = useState("");
   const [deleteClone, setDeleteClone] = useState(false);
@@ -332,11 +333,13 @@ export default function App() {
     setProjectTab(tab);
     return true;
   };
-  const selectJobsView = (view: "tickets" | "jobs") => { setRequestedRun(""); setJobsView(view); };
+  const selectJobsView = (view: JobsView) => { setRequestedRun(""); setJobsView(view); };
   const onJobsViewKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === "Home" ? "tickets" : event.key === "End" ? "jobs" : jobsView === "tickets" ? "jobs" : "tickets";
+    const views:JobsView[]=["tickets","jobs","capacity"];
+    const index=views.indexOf(jobsView);
+    const next=views[event.key==="Home"?0:event.key==="End"?views.length-1:(index+(event.key==="ArrowRight"?1:-1)+views.length)%views.length];
     selectJobsView(next);
     document.getElementById(`jobs-subtab-${next}`)?.focus();
   };
@@ -787,9 +790,9 @@ export default function App() {
     switch (page) {
       case "overview": return jobScope ? { view: "overview", project: jobScope } : { view: "overview" };
       case "projectDetails": return selected ? { view: "projectDetails", project: selected, tab: projectTab,
-        ...(projectTab === "jobs" ? requestedRun ? { run: requestedRun } : jobsView === "jobs" ? { jobsView: "jobs" as const } : {} : {}),
+        ...(projectTab === "jobs" ? requestedRun ? { run: requestedRun } : jobsView !== "tickets" ? { jobsView } : {} : {}),
         ...(projectTab === "statistics" ? { ...reportingRoute, ...(metricsTab !== "summary" && metricsTab !== "projects" ? { metricsTab } : {}) } : {}) } : { view: "projects" };
-      case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : jobsView === "jobs" ? { jobsView: "jobs" as const } : {}) };
+      case "jobs": return { view: "jobs", ...reportingRoute, ...(jobScope ? { project: jobScope } : {}), ...(jobScope && requestedRun ? { run: requestedRun } : jobsView !== "tickets" ? { jobsView } : {}) };
       case "metrics": return { view: "metrics", ...reportingRoute, ...(selected && !(isAdmin && metricAllProjects) ? { project: selected } : {}), ...(metricsTab !== "summary" ? { tab: metricsTab } : {}) };
       case "help": return helpTopic ? { view: "help", topic: helpTopic } : { view: "help" };
       default: return { view: page };
@@ -804,7 +807,7 @@ export default function App() {
     if ("project" in route && route.project) { routedProject.current = route.project; setSelected(route.project); }
     if (route.view === "projectDetails") setProjectTab(route.tab);
     if (route.view === "help") setHelpTopic(route.topic);
-    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run || route.jobsView === "jobs" ? "jobs" : "tickets");
+    if (route.view === "jobs" || route.view === "projectDetails" && route.tab === "jobs") setJobsView(route.run ? "jobs" : route.jobsView || "tickets");
     if (route.view === "metrics" || route.view === "jobs" || route.view === "projectDetails" && route.tab === "statistics") {
       setMetricFrom(route.reporting?.from ?? ""); setMetricTo(route.reporting?.through ?? "");
       setMetricTimezone(route.reporting?.timezone ?? "UTC"); setMetricGranularity((route.reporting?.granularity ?? "day") as "day" | "week" | "month");
@@ -1255,7 +1258,7 @@ export default function App() {
 
   /** Tickets/Jobs sub-tabs shared by the project hub and the global Jobs page. */
   const jobsSubtabs = <div className="metrics-tabs jobs-subtabs" role="tablist" aria-label={ticketCopy[locale].sections}>
-    {(["tickets", "jobs"] as const).map(view => <button key={view} id={`jobs-subtab-${view}`} type="button" role="tab" aria-controls="jobs-subtab-panel" aria-selected={jobsView === view} tabIndex={jobsView === view ? 0 : -1} onClick={() => selectJobsView(view)} onKeyDown={onJobsViewKeyDown}>{ticketCopy[locale][view]}</button>)}
+    {(["tickets", "jobs", "capacity"] as const).map(view => <button key={view} id={`jobs-subtab-${view}`} type="button" role="tab" aria-controls="jobs-subtab-panel" aria-selected={jobsView === view} tabIndex={jobsView === view ? 0 : -1} onClick={() => selectJobsView(view)} onKeyDown={onJobsViewKeyDown}>{view==="capacity"?capacityCopy[locale].tab:ticketCopy[locale][view]}</button>)}
   </div>;
   const jobScopeProject = projects.find(item => item.id === jobScope);
 
@@ -1397,7 +1400,7 @@ export default function App() {
 
         {page === "projectDetails" && projectsState === "ready" && selectedProject && <>
           <div id="project-tab-panel" role="tabpanel" aria-labelledby={`project-tab-${projectTab}`}>
-          <ProjectCapacity key={`${session.user.id}:${selected}`} project={selected} locale={locale} request={request} refresh={viewRefresh}/>
+          {projectTab!=="overview"&&projectTab!=="jobs"&&<ProjectCapacity key={`${session.user.id}:${selected}`} project={selected} locale={locale} request={request} refresh={viewRefresh}/>}
           {projectTab === "overview" && <>
           <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="overview" fixedScope summaryHeader={evidence => <section className="panel project-summary">
             <dl className="summary-facts">
@@ -1405,6 +1408,7 @@ export default function App() {
               <div className="summary-fact"><dt>{jc.pickup}</dt><dd><StatusBadge code={selectedProject.archived ? "archived" : selectedProject.paused ? "paused" : "working"}>{selectedProject.archived ? t("archived") : selectedProject.paused ? jc.pickupStopped : jc.pickupActive}</StatusBadge></dd></div>
               <div className="summary-fact"><dt>{jc.verification}</dt><dd>{verificationLabel(selectedProject)}</dd></div>
               {[{ label: t("activeJobs"), value: evidence?.groups.active }, { label: jc.waiting, value: evidence?.groups.waiting }, { label: t("inReviewStatus"), value: evidence ? evidence.counts["in-review"] || 0 : undefined }, { label: t("failedJobs"), value: evidence ? evidence.counts.failed || 0 : undefined }].map(fact => <div className="summary-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value === undefined ? "—" : new Intl.NumberFormat(locale).format(fact.value)}</dd></div>)}
+              <ProjectCapacity compact key={`${session.user.id}:${selected}`} project={selected} locale={locale} request={request} refresh={viewRefresh}/>
             </dl>
             {isAdmin && <div className="summary-actions button-row">{!selectedProject.archived && <button className="ghost" disabled={operationSubmitting || !!operation && ["pending", "running"].includes(operation.status)} onClick={() => void operate(selectedProject.paused ? "resume" : "pause", "", selectedProject.id)}>{selectedProject.paused ? jc.startPickup : jc.stopPickup}</button>}
               <button className="ghost" onClick={() => void setProjectArchive(!selectedProject.archived, selectedProject.id)}>{t(selectedProject.archived ? "restoreProject" : "archiveProject")}</button>
@@ -1435,7 +1439,7 @@ export default function App() {
           {projectTab === "jobs" && selectedProject && <>
             {jobsSubtabs}
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
+              {jobsView === "capacity" ? <CapacityTable projects={[selectedProject]} locale={locale} request={request} t={t} refresh={viewRefresh} paginate={table=><PagedTable alwaysControls t={t}>{table}</PagedTable>}/> : jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${selectedProject.id}`} projects={[selectedProject]} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...hubWorkspaceProps} mode="jobs" run={requestedRun} fixedScope />}
             </div>
           </>}
@@ -1461,13 +1465,12 @@ export default function App() {
         </>}
 
         {page === "jobs" && projectsState === "ready" && projects.length > 0 && <>
-          {projects.filter(item=>!jobScope || item.id===jobScope).map(item=><ProjectCapacity key={item.id} project={item.id} name={item.display_name || item.name} locale={locale} request={request} refresh={viewRefresh}/>)}
           <div className="jobs-toolbar">
             {jobsSubtabs}
             <label className="jobs-scope" htmlFor="jobs-project">{jc.scope}<select id="jobs-project" aria-label={jc.scope} value={jobScope} onChange={event => workspaceProps.onScope(event.target.value)}><option value="">{jc.all}</option>{projects.map(item => <option key={item.id} value={item.id}>{item.display_name || item.name}</option>)}</select></label>
           </div>
             <div id="jobs-subtab-panel" role="tabpanel" aria-labelledby={`jobs-subtab-${jobsView}`}>
-              {jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
+              {jobsView === "capacity" ? <CapacityTable projects={jobScopeProject?[jobScopeProject]:projects} locale={locale} request={request} t={t} refresh={viewRefresh} paginate={table=><PagedTable alwaysControls t={t}>{table}</PagedTable>}/> : jobsView === "tickets" ? <TicketWorkspace key={`${session.user.id}:${jobScopeProject?.id ?? ""}`} projects={jobScopeProject ? [jobScopeProject] : projects.filter(item => !item.archived)} showProject={!jobScopeProject} locale={locale} csrf={session.csrf} request={request} bodyMode={ticketBodyMode} modeBusy={ticketModeBusy} onBodyMode={updateTicketBodyMode} />
                 : <JobWorkspace admin={isAdmin} {...workspaceProps} mode="jobs" run={requestedRun} />}
             </div>
         </>}
@@ -1525,7 +1528,7 @@ function Chips({ items, className }: { items: Chip[]; className?: string }) {
 
 function Empty({ label }: { label: string }) { return <p className="empty">{label}</p>; }
 
-function PagedTable({ t, children }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }> }) {
+function PagedTable({ t, children, alwaysControls=false }: { t: (key: MessageKey) => string; children: ReactElement<{ children?: ReactNode }>; alwaysControls?:boolean }) {
   const [size, setSize] = useState<10 | 25 | 50 | "all">(10);
   const [requestedPage, setRequestedPage] = useState(0);
   const sections = Children.toArray(children.props.children);
@@ -1535,7 +1538,7 @@ function PagedTable({ t, children }: { t: (key: MessageKey) => string; children:
   const page = Math.min(requestedPage, pageCount - 1);
   const visible = size === "all" ? rows : rows.slice(page * size, (page + 1) * size);
   const table = body ? cloneElement(children, undefined, ...sections.map(section => section === body ? cloneElement(body, undefined, ...visible) : section)) : children;
-  return <><div className="table-scroll">{table}</div>{rows.length > 10 && <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); setRequestedPage(0); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={page === 0} onClick={() => setRequestedPage(page - 1)}>{t("previous")}</button><span>{page * size + 1}–{Math.min((page + 1) * size, rows.length)} / {rows.length}</span><button className="ghost" disabled={page + 1 >= pageCount} onClick={() => setRequestedPage(page + 1)}>{t("next")}</button></>}</div>}</>;
+  return <><div className="table-scroll">{table}</div>{(alwaysControls || rows.length > 10) && <div className="page-controls"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value) as 10 | 25 | 50); setRequestedPage(0); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="all">{t("all")}</option></select></label>{size !== "all" && <><button className="ghost" disabled={page === 0} onClick={() => setRequestedPage(page - 1)}>{t("previous")}</button><span>{page * size + 1}–{Math.min((page + 1) * size, rows.length)} / {rows.length}</span><button className="ghost" disabled={page + 1 >= pageCount} onClick={() => setRequestedPage(page + 1)}>{t("next")}</button></>}</div>}</>;
 }
 
 function RouteLink({ to, onNavigate, children }: { to: string; onNavigate: () => void; children: ReactNode }) {

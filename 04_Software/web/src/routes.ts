@@ -6,6 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { isHelpTopic, type HelpTopic } from "./help/topics.ts";
 
+export type JobsView = "tickets" | "jobs" | "capacity";
 export type ProjectTab = "overview" | "configuration" | "executor" | "prices" | "access" | "jobs" | "statistics" | "history";
 export type MetricsTabRoute = "summary" | "usage" | "quality" | "trends" | "projects";
 type PlainView = "projects" | "createProject" | "administration" | "adminUsers" | "adminAudit" | "settings";
@@ -13,8 +14,8 @@ export type ReportingRoute = { from: string; through: string; timezone: string; 
 export type Route =
   | { view: "overview"; project?: string }
   | { view: PlainView }
-  | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; jobsView?: "jobs"; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
-  | { view: "jobs"; project?: string; run?: string; jobsView?: "jobs"; reporting?: ReportingRoute }
+  | { view: "projectDetails"; project: string; tab: ProjectTab; run?: string; jobsView?: Exclude<JobsView,"tickets">; metricsTab?: MetricsTabRoute; reporting?: ReportingRoute }
+  | { view: "jobs"; project?: string; run?: string; jobsView?: Exclude<JobsView,"tickets">; reporting?: ReportingRoute }
   | { view: "metrics"; project?: string; tab?: MetricsTabRoute; reporting?: ReportingRoute }
   | { view: "help"; topic?: HelpTopic };
 
@@ -57,7 +58,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   if (help) return isHelpTopic(help[1]) ? { view: "help", topic: help[1] } : null;
   if (path === "/jobs") {
     const run = identifier(query.get("run"));
-    return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : query.get("view") === "jobs" ? { jobsView: "jobs" as const } : {}) };
+    return { view: "jobs", ...(reporting ? { reporting } : {}), ...(project ? { project } : {}), ...(project && run ? { run } : ["jobs","capacity"].includes(query.get("view") || "") ? { jobsView: query.get("view") as Exclude<JobsView,"tickets"> } : {}) };
   }
   if (path === "/metrics") {
     const tab = query.get("tab") as MetricsTabRoute | null;
@@ -73,7 +74,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
     if (tab === "jobs") {
       // A selected run always shows the Jobs sub-tab; otherwise `view=jobs` selects it over Tickets.
       const run = identifier(query.get("run"));
-      return { view: "projectDetails", project: id, tab, ...(run ? { run } : query.get("view") === "jobs" ? { jobsView: "jobs" as const } : {}) };
+      return { view: "projectDetails", project: id, tab, ...(run ? { run } : ["jobs","capacity"].includes(query.get("view") || "") ? { jobsView: query.get("view") as Exclude<JobsView,"tickets"> } : {}) };
     }
     if (tab === "statistics") {
       const metricsTab = query.get("tab") as MetricsTabRoute | null;

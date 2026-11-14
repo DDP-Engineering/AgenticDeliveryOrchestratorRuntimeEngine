@@ -6,7 +6,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readCapacity, readWorkers, workerCopy } from "../src/projectStatus.ts";
+import { readCapacity, readCapacityOverview, currentJobStates, readWorkers, workerCopy } from "../src/projectStatus.ts";
 import { readDraft, writeDraft, clearDraft } from "../src/settingsDrafts.ts";
 
 const id = "a".repeat(32);
@@ -47,4 +47,14 @@ test("unsaved values retain account/project/revision scope and invalid input wit
   assert.deepEqual(readDraft(storage,1,id),{corrupt:true});
   clearDraft(storage,1,id);assert.equal(readDraft(storage,1,id),null);
   assert.equal(writeDraft({...storage,setItem:()=>{throw Error("quota");}},1,id,saved),false);
+});
+
+
+test("capacity overview accepts only current job counts and an explicit monitoring state",()=>{
+  const value={...capacity,paused:true,job_counts:Object.fromEntries(currentJobStates.map(status=>[status,status==="working"?2:0]))};
+  assert.equal(readCapacityOverview(value,id).job_counts.working,2);
+  for(const patch of [{paused:"yes"},{job_counts:null},{job_counts:{working:1}},
+    {job_counts:{...value.job_counts,working:-1}},{job_counts:{...value.job_counts,done:4}}]){
+    assert.throws(()=>readCapacityOverview({...value,...patch},id),/unexpected_response/);
+  }
 });

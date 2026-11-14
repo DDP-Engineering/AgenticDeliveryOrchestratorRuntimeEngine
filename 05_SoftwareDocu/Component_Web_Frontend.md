@@ -1113,13 +1113,13 @@ screens. No API, stored format or dependency change is required.
 
 ## Compact project and Jobs controls
 
-The global Jobs page places its project scope selector at the right of the Tickets/Jobs tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
+The global Jobs page places its project scope selector at the right of the Tickets/Jobs/Capacity tab row. It wraps below the tabs on narrow screens; the project hub retains its fixed scope without that selector. Job search keeps its accessible label, 80-character limit and status filter without a descriptive paragraph.
 
 Project Settings hides the Save/Discard bar when the draft is clean, including when an unchanged editor is open. Unsaved or recovered edits, an in-flight save and failed pending-candidate reads retain the controls and recovery feedback. Successful save/discard hides the bar and returns focus to the settings panel. Invalid and stale drafts remain visible and cannot save.
 
 ## Retained project drafts and durable feedback
 
-`ProjectCapacity.tsx` renders scoped slots, queue causes, staged settings and latest own server-backed results on project tabs and named global Jobs cards. `WorkerStatus` distinguishes server and project roles in System status. Heartbeat is a contact observation; active work and free slots are separate.
+`ProjectCapacity.tsx` embeds only limit/free/queued rectangles in Summary and retains the detailed panel on other non-Jobs project tabs. `CapacityTable.tsx` owns the paginated Capacity sub-tab, showing project capacity, monitoring and current unfinished job counts without histories or logs; Tickets and Jobs render no capacity cards. Its closed response reader rejects malformed status counts. Capacity routes preserve project scope and keyboard tab navigation. `WorkerStatus` distinguishes server and project roles in System status. Heartbeat is a contact observation; active work and free slots are separate.
 
 `settingsDrafts.ts` retains bounded editable values/base revision per account and immutable project in tab session storage. It stores no full configuration or credentials. Navigation and reload retain unsaved values; stale revisions block Save and corrupt retention requires explicit discard. Save/discard/logout clear drafts. Storage failure retains memory and presents recovery guidance. Ticket submission busy flags are per project; an operation in A cannot disable B.
 

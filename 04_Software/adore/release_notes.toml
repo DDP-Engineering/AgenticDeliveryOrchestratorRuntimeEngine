@@ -15,6 +15,12 @@ schema = 1
 [[release]]
 version = "Unreleased"
 
+
+[[release.entry]]
+category = "improved"
+topic = { en = "Jobs", fr = "Tâches", de = "Aufträge", ro = "Lucrări" }
+text = { en = "Capacity and current job states have their own table; Summary keeps three compact values.", fr = "Capacité et états des tâches dans un tableau paginé ; trois valeurs compactes dans le résumé.", de = "Kapazität und aktuelle Aufträge als Seitentabelle; drei kompakte Werte in der Übersicht.", ro = "Capacitatea și starea joburilor într-un tabel paginat; trei valori compacte în Rezumat." }
+
 [[release.entry]]
 category = "fixed"
 topic = { en = "Setup", fr = "Configuration", de = "Einrichtung", ro = "Configurare" }
