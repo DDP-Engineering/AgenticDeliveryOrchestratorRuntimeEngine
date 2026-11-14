@@ -55,8 +55,9 @@ export function InstructionComposer({project,run,locale,lifecycle,active,csrf,re
   return <>{!show&&error&&<p role="alert">{message}</p>}{!show&&notices.length>0&&<p role="alert">{copy.notice}</p>}<section className="instruction-composer" aria-label={chat.message} hidden={!show}>
     {error&&<p role="alert" id={`${id}-error`}>{message}{error!=="invalid"&&<button className="ghost" onClick={()=>{setError("");void load(true);}}>{t("retry")}</button>}</p>}
     {notices.length>0&&<p role="alert">{copy.notice}</p>}
-    <label htmlFor={`${id}-text`}>{chat.message}</label>
-    <textarea id={`${id}-text`} rows={3} value={text} disabled={busy} aria-invalid={error==="invalid"} aria-describedby={error?`${id}-error`:undefined} onChange={event=>{setText(event.target.value);if(error==="invalid")setError("");}} />
-    <div className="button-row"><button className="primary" disabled={busy||!canSendNow||!text.length} onClick={()=>void send("now")}>{copy.now}</button><button className="ghost" disabled={busy||!text.length} onClick={()=>void send("after")}>{chat.queue}</button></div>
+    <div className="instruction-input"><label htmlFor={`${id}-text`}>{chat.message}</label>
+    <textarea id={`${id}-text`} rows={2} value={text} disabled={busy} aria-invalid={error==="invalid"} aria-describedby={error?`${id}-error`:undefined} onChange={event=>{setText(event.target.value);if(error==="invalid")setError("");}} />
+    </div>
+    <div className="instruction-actions"><button className="primary" disabled={busy||!canSendNow||!text.length} onClick={()=>void send("now")}>{copy.now}</button><button className="ghost" disabled={busy||!text.length} onClick={()=>void send("after")}>{chat.queue}</button></div>
   </section></>;
 }

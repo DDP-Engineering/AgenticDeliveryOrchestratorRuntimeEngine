@@ -4,7 +4,8 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {createPortal} from "react-dom";
 import type {Locale,MessageKey} from "./i18n";
 import {InstructionComposer} from "./InstructionComposer";
 import type {Instruction} from "./instructionModel";
@@ -18,10 +19,11 @@ import {readSessions,readSessionPage,shouldPollSession,applySessionActivity,type
 type Request=<T>(path:string,method?:string,body?:unknown,csrf?:string)=>Promise<T>;
 
 /** Follow a launch with fenced cursor reads; explicit history selection owns the view. */
-export function SessionView({project,run,workflow,locale,admin,request,t,lifecycle,active,csrf,target}:{csrf:string;target?:{id:string;sequence:number};project:string;run:string;workflow:"aegis"|"direct";locale:Locale;admin:boolean;request:Request;t:(key:MessageKey)=>string;lifecycle:string;active:boolean}) {
+export function SessionView({project,run,workflow,locale,admin,request,t,lifecycle,active,csrf,target,toolbarHost}:{toolbarHost?:HTMLElement|null;csrf:string;target?:{id:string;sequence:number};project:string;run:string;workflow:"aegis"|"direct";locale:Locale;admin:boolean;request:Request;t:(key:MessageKey)=>string;lifecycle:string;active:boolean}) {
   const copy=sessionCopy[locale],chat=conversationCopy[locale],instructionsText=instructionCopy[locale];
   const [instructions,setInstructions]=useState<Instruction[]>([]);
   const [newMessages,setNewMessages]=useState(false);
+  const composeArea=useRef<HTMLDivElement>(null);
   const chatWindow=useRef<HTMLDivElement>(null),stickToBottom=useRef(true),appliedTarget=useRef(0);
   const [sessions,setSessions]=useState<AgentSession[]>([]),[selected,setSelected]=useState("");
   const [items,setItems]=useState<SessionItem[]>([]),[cursor,setCursor]=useState<number|null>(null);
@@ -140,10 +142,35 @@ export function SessionView({project,run,workflow,locale,admin,request,t,lifecyc
     if(stickToBottom.current){const frame=requestAnimationFrame(()=>{if(chatWindow.current)chatWindow.current.scrollTop=chatWindow.current.scrollHeight;});return()=>cancelAnimationFrame(frame);}
     setNewMessages(true);
   },[messageVersion,active]);
+  useLayoutEffect(()=>{
+    const node=chatWindow.current,footer=composeArea.current;
+    if(!active||!visible||!node||!footer)return;
+    let frame=0;
+    const fit=()=>{
+      const viewport=window.visualViewport;
+      const height=viewport?.height||window.innerHeight;
+      const top=Math.max(0,node.getBoundingClientRect().top-(viewport?.offsetTop||0));
+      const footerHeight=footer.getBoundingClientRect().height;
+      const available=Math.min(height-24,Math.max(160,height-top-footerHeight-24));
+      if(Math.abs(node.getBoundingClientRect().height-available)>1)node.style.height=`${available}px`;
+      node.parentElement?.style.setProperty("--session-footer-height",`${footerHeight}px`);
+    };
+    const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(fit);};
+    const scrolled=(event:Event)=>{if(event.target instanceof Node&&!node.contains(event.target))schedule();};
+    const observer=new ResizeObserver(schedule);
+    observer.observe(footer);
+    if(node.parentElement)observer.observe(node.parentElement);
+    const header=toolbarHost?.closest("header");if(header)observer.observe(header);
+    window.addEventListener("resize",schedule);
+    document.addEventListener("scroll",scrolled,true);
+    window.visualViewport?.addEventListener("resize",schedule);
+    fit();
+    return()=>{cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener("resize",schedule);document.removeEventListener("scroll",scrolled,true);window.visualViewport?.removeEventListener("resize",schedule);};
+  },[active,visible,toolbarHost]);
   const results=new Map(items.filter(item=>item.kind==="tool_result").map(item=>[item.call_id,item]));
   const calls=new Set(items.filter(item=>item.kind==="tool_call").map(item=>item.call_id));
   const markdown=(source:string)=><ForgeMarkdown source={source} imageLabel={ticketCopy[locale].imageNotLoaded} codeLabel={ticketCopy[locale].code} tableLabel={ticketCopy[locale].table}/>;
-  const renderItem=(entry:typeof entries[number],index:number)=>{
+  const renderItem=(entry:typeof entries[number])=>{
     const {item,instruction,key}=entry;
     if(item.kind==="tool_result"&&calls.has(item.call_id))return null;
     if(item.kind==="reasoning")return <li key={key} className="session-reasoning"><details><summary>{copy.reasoning}</summary><pre tabIndex={0}>{item.text}</pre></details></li>;
@@ -151,20 +178,20 @@ export function SessionView({project,run,workflow,locale,admin,request,t,lifecyc
       const result=item.kind==="tool_call"?results.get(item.call_id):undefined;
       return <li key={key} className="session-tool"><details><summary>{item.tool} {(item.is_error||result?.is_error)&&<span className="error">· {t("failed")}</span>}</summary><pre tabIndex={0}>{item.text}</pre>{result&&<><strong>{copy.tool_result}</strong><pre tabIndex={0}>{result.text}</pre></>}</details></li>;
     }
-    const initial=item.kind==="prompt"&&!item.instruction_id&&entries.findIndex(entry=>entry.item.kind==="prompt"&&!entry.item.instruction_id)===index;
     return <li key={key} className={`session-message session-${item.kind}`}>
-      <div className="session-message-meta"><strong>{instruction?instruction.user.username:item.kind==="assistant"?chat.agent:copy[item.kind]}</strong>{item.at&&<time dateTime={item.at}>{date(item.at)}</time>}{instruction&&<span className="session-delivery">{instruction.last_error?t("failed"):instruction.delivery?chat.received:instructionsText.queued}</span>}</div>
-      {initial?<details className="session-initial" open={item.text.length<2000}><summary>{chat.initial}</summary>{markdown(item.text)}</details>:item.kind==="assistant"?markdown(item.text):<pre tabIndex={0}>{instruction?.text||item.text}</pre>}
+      <div className="session-message-meta"><strong>{instruction?instruction.user.username:item.kind==="assistant"?chat.agent:item.kind==="prompt"?"ADORE":copy[item.kind]}</strong>{item.at&&<time dateTime={item.at}>{date(item.at)}</time>}{instruction&&<span className="session-delivery">{instruction.last_error?t("failed"):instruction.delivery?chat.received:instructionsText.queued}</span>}</div>
+      {item.kind==="assistant"||item.kind==="prompt"&&!item.instruction_id?markdown(item.text):<pre tabIndex={0}>{instruction?.text||item.text}</pre>}
       {instruction?.last_error&&<p role="status">{instructionsText.rejected}</p>}
     </li>;
   };
   const latestSession=()=>{following.current=true;stickToBottom.current=true;if(liveSession)setSelected(liveSession.id);else void refresh(null);};
-  return <section className="agent-sessions" aria-label={copy.title}>
-    <div className="session-toolbar">
-      {sessions.length>0&&<label>{chat.session}<select aria-label={chat.session} value={selected} onChange={event=>{following.current=Boolean(sessions.find(row=>row.id===event.target.value)?.live);setSelected(event.target.value);}}>{sessions.map(row=><option value={row.id} key={row.id}>{workflowStageLabel(row.stage,workflow,t)} · {row.attempt} · {row.live?copy.live:date(row.end_at!)} · {row.live?copy.live:copy[row.outcome === "failed" ? "failedOutcome" : row.outcome!]}</option>)}</select></label>}
+  const toolbar=(<div className="session-toolbar">
+      {sessions.length>0&&<label>{chat.session}<select aria-label={chat.session} value={selected} onChange={event=>{following.current=Boolean(sessions.find(row=>row.id===event.target.value)?.live);setSelected(event.target.value);}}>{sessions.map(row=><option value={row.id} key={row.id}>{workflowStageLabel(row.stage,workflow,t)} · {row.attempt} · {row.live?copy.live:`${date(row.end_at!)} · ${copy[row.outcome === "failed" ? "failedOutcome" : row.outcome!]}`}</option>)}</select></label>}
       {lifecycle==="working"&&!selectedSession?.live&&<button className="ghost" onClick={latestSession}>{chat.current}</button>}
       {selectedSession?.live&&<span className="session-live" role="status">● {copy.live}{activity.thinking||Object.keys(activity.tools).length?` · ${Object.values(activity.tools).at(-1)||copy.thinking}`:""}</span>}
-    </div>
+    </div>);
+  return <section className="agent-sessions" aria-label={copy.title}>
+    {toolbarHost?createPortal(toolbar,toolbarHost):toolbar}
     {loading&&<p role="status">{t("loadingData")}</p>}
     {error&&<p role="alert">{copy.failed} <button className="ghost" onClick={()=>setReload(value=>value+1)}>{t("retry")}</button></p>}
     {!loading&&!error&&!sessions.length&&<p role="status">{copy.empty}</p>}
@@ -174,6 +201,6 @@ export function SessionView({project,run,workflow,locale,admin,request,t,lifecyc
       {pageError&&<p role="alert">{copy.failed} <button className="ghost" onClick={()=>void load(selected,cursor??0,items.length>0)}>{t("retry")}</button></p>}
     </div>
     {newMessages&&<button className="ghost session-new-messages" onClick={()=>{stickToBottom.current=true;setNewMessages(false);chatWindow.current?.scrollTo({top:chatWindow.current.scrollHeight,behavior:"smooth"});}}>{chat.newMessages} ↓</button>}
-    <InstructionComposer project={project} run={run} locale={locale} lifecycle={lifecycle} active={active} csrf={csrf} request={request} t={t} show={lifecycle==="working"&&currentView} canSendNow={Boolean(selectedSession?.live)} onRows={setInstructions} onSent={()=>{stickToBottom.current=true;setNewMessages(false);}}/>
+    <div className="session-compose-area" ref={composeArea}><InstructionComposer project={project} run={run} locale={locale} lifecycle={lifecycle} active={active} csrf={csrf} request={request} t={t} show={lifecycle==="working"&&currentView} canSendNow={Boolean(selectedSession?.live)} onRows={setInstructions} onSent={()=>{stickToBottom.current=true;setNewMessages(false);}}/></div>
   </section>;
 }

@@ -24,6 +24,7 @@ export type Job = {
   preparation?: PreparationEvidence | null;
   project_id: string; project_name: string; project_display_name: string; project_archived: boolean;
   run_id: string; ticket_iid: number; ticket_title: string | null; ticket_url: string | null; mr_url: string | null;
+  branch: string | null; published_commit: string | null;
   lifecycle: Lifecycle; stage: string; status_group: string; outcome: string;
   stage_failures: number; review_rounds: number; created_at: string | null; updated_at: string | null; last_activity_at: string | null;
   waiting: { availability: "observed" | "unknown"; reason: string | null; next_action: string | null;
@@ -72,6 +73,8 @@ export function readJob(value: unknown, authorized: string[]): Job {
       && !(row.stage === "publishing" && row.lifecycle === "failed") ||
     !lifecycles.includes(row.lifecycle as Lifecycle) || !stages.includes(row.stage as typeof stages[number]) ||
     row.status_group !== lifecycleGroup(String(row.lifecycle)) || !string(row.outcome) ||
+    !optionalText(row.branch) || typeof row.branch === "string" && (row.branch.length > 4096 || /[\x00-\x20\x7f]/.test(row.branch)) ||
+    !(row.published_commit === null || typeof row.published_commit === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(row.published_commit)) ||
     !count(row.stage_failures) || !count(row.review_rounds) ||
     ![row.created_at, row.updated_at, row.last_activity_at].every(stamp) ||
     row.evidence_url !== `/api/v1/jobs/${row.project_id}/${row.run_id}` ||

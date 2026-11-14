@@ -277,10 +277,9 @@ export function JobWorkspace(props: Props) {
       stageLabel={workflowStageLabel(visibleDetail.stage, visibleDetail.workflow, t)} stageName={stage => workflowStageLabel(stage, visibleDetail.workflow, t)}
       statusLabel={visibleDetail.lifecycle === "done" ? copy.completed : visibleDetail.lifecycle === "stale" ? copy.staleJob : label(visibleDetail.lifecycle, lifecycleKeys, t)}
       directEvidence={visibleDetail.direct ? <DirectEvidenceView evidence={visibleDetail.direct} locale={locale} /> : null}
-      sessions={(active,target)=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} target={target} />}
+      sessions={(active,target,toolbarHost)=><SessionView key={detailKey} project={visibleDetail.project_id} run={visibleDetail.run_id} workflow={visibleDetail.workflow} locale={locale} admin={props.admin} request={request} t={t} active={active} lifecycle={visibleDetail.lifecycle} csrf={csrf} target={target} toolbarHost={toolbarHost} />}
       consumption={consumptionView(visibleDetail, true)}
-      output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />}
-      timeline={<ObservedTimeline key={detailKey} events={visibleDetail.timeline ?? []} workflow={visibleDetail.workflow} date={date} t={t} unknown={copy.unknown} />} />}
+      output={<ExecutorOutputView key={`output:${detailKey}`} job={visibleDetail} locale={locale} request={request} t={t} />} />}
     {!run && <div className={props.summaryHeader ? "panel summary-job-window" : undefined}>
     <section className="panel" aria-label={mode === "overview" ? copy.attention : mode === "history" ? copy.history : t("jobs")}>
       {mode !== "jobs" && <h2>{mode === "overview" ? copy.attention : copy.history}</h2>}
@@ -305,19 +304,6 @@ function DirectEvidenceView({evidence, locale}: {evidence: NonNullable<Job["dire
     <p>{evidence.attempt === null ? copy.attemptUnavailable : `${copy.attempt}: ${evidence.attempt}`}</p>
   </section>;
 }
-
-/** Page actual events in reverse saved order without inferring progress. */
-function ObservedTimeline({ events, workflow, date, t, unknown }: { events: NonNullable<Job["timeline"]>; workflow: Job["workflow"]; date: (value: string | null) => string; t: Props["t"]; unknown: string }) {
-  const [size, setSize] = useState<number | "all">(10);
-  const [offset, setOffset] = useState(0);
-  const rows = events.slice().reverse();
-  const start = size === "all" ? 0 : Math.min(offset, Math.max(0, Math.ceil(rows.length / size) - 1) * size);
-  const shown = size === "all" ? rows : rows.slice(start, start + size);
-  return <><div className="table-scroll"><table className="timeline-table" aria-label={t("timeline")}><thead><tr><th>{t("date")}</th><th>{t("timelineEvent")}</th><th>{t("stage")}</th></tr></thead><tbody>{shown.map((event, index) => <tr key={start + index}><td>{date(event.ts)}</td><td>{event.event}</td><td>{event.stage ? workflowStageLabel(event.stage, workflow, t) : unknown}</td></tr>)}</tbody></table></div>
-    {rows.length > 10 && <div className="table-pagination timeline-pagination"><label>{t("rowsPerPage")}<select value={size} onChange={event => { setSize(event.target.value === "all" ? "all" : Number(event.target.value)); setOffset(0); }}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}<option value="all">{t("all")}</option></select></label><span>{start + 1}–{start + shown.length} / {rows.length}</span><div className="button-row"><button className="ghost" disabled={!start || size === "all"} onClick={() => setOffset(start - Number(size))}>{t("previous")}</button><button className="ghost" disabled={size === "all" || start + shown.length >= rows.length} onClick={() => setOffset(start + Number(size))}>{t("next")}</button></div></div>}
-  </>;
-}
-
 
 /** Fetch on demand, discarding completions after the selected job is unmounted. */
 function ExecutorOutputView({job, locale, request, t}: {job:Job;locale:Locale;request:Request;t:Props["t"]}) {

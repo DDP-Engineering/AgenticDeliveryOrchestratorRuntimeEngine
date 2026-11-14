@@ -41,7 +41,7 @@ Direkte **Implementierung** nutzt `build` aus `workflow.stage_timeout_overrides`
 
 ## Klärung {#clarification}
 
-Braucht der Executor Informationen, postet ADORE einen Ticketkommentar, Klärung erforderlich für die Phase, der die Fragen auflistet, und setzt `agent-clarify`. Der Auftrag zeigt **Wartet auf Klärung**, und seine Details bieten **Im Ticket antworten**. Wählen Sie **Frage lesen**, um **Frage des Agenten** zu öffnen, dann **Im Ticket antworten**, wenn ein gespeicherter Ort vorliegt.
+Wenn der Executor Informationen benötigt, veröffentlicht ADORE einen Klärungskommentar mit den Fragen und setzt `agent-clarify`. Der Job wartet auf Klärung. **Frage lesen** öffnet die Frage in **Jobdetails**; die Antwortaktion führt zum gespeicherten Ort im Ticket.
 
 Antworten Sie mit einem normalen Kommentar am Ticket und setzen Sie dann `agent-answered`. Beides ist nötig; Kommentare von ADORE selbst zählen nicht. ADORE entfernt beide Labels und setzt die Arbeit fort. Fragen zählen nicht als Fehlversuche. **Maximale Rückfragerunden** (standardmäßig 3) begrenzt, wie oft ein Auftrag fragen darf, und **Wartezeit auf eine menschliche Antwort** (standardmäßig 72 Stunden) lässt den Auftrag bei Ablauf fehlschlagen.
 
@@ -97,13 +97,15 @@ Hat ein früher gelöschter Auftrag einen Branch ohne gespeicherten Checkpoint h
 
 Klicken Sie auf eine Spaltenüberschrift, um zu sortieren. **Jobs suchen** findet Titel, Nummern, Projekte, Auftrags-IDs, Status, Phase oder Ergebnis. Der Filter **Status** bietet Aktive Aufträge, Wartend, Menschliche Prüfung und Beendete Jobs. Die Seite aktualisiert sich selbst, solange sie sichtbar ist.
 
-Die Details ersetzen ihre Ursprungsliste. Über dem Titel stehen **Aktivität**, **Agentensitzungen**, **Artefakte** und **Technische Informationen**, dann **Ticket anzeigen** und rechts **Schließen**. Gespeicherter Status, Phase und Workflow folgen unter dem Titel. Aktionen, Budgets, Verbrauch sowie Rückfrage-, Freigabe- und Prüfaktionen bleiben erreichbar. **Schließen** stellt Ansicht, Bereich, Suche, Filter und Seitenauswahl wieder her.
+Die Detailansicht ersetzt ihre Ursprungsliste. **Aktivität**, **Agentensitzungen** und **Jobdetails** stehen über dem Titel, **Ticket anzeigen** und **Schließen** rechts. Status, Phase und Workflow folgen dem Titel. Budgets und Verbrauch stehen rechts. Erforderliche Frage-, Freigabe- und Reviewaktionen bleiben sichtbar. **Schließen** stellt Ansicht, Umfang, Suche, Filter und Seitenauswahl wieder her.
 
 **Aktivität** ist eine paginierte Tabelle mit Zeit, Aktivität, Phase und Sitzung. 10, 25, 50 oder Alle Zeilen wählen und Zurück/Weiter verwenden. **Unterhaltung öffnen** führt zur genauen Sitzung, wenn Phase und Versuch einen aufgezeichneten Start eindeutig bestimmen; andere Ereignisse haben keinen Link. Die Rückkehr erhält die Seite. Budgets und Verbrauch stehen rechts, auf schmalen Bildschirmen darunter.
 
 ## Verlauf der Agentensitzungen {#agent-sessions}
 
-**Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Lange Anweisungen und Überlegungen lassen sich aufklappen. Der Verbrauch bleibt rechts.
+**Agentensitzungen** öffnet die aktuelle oder zuletzt abgeschlossene Sitzung. Die Unterhaltung zeigt die ursprüngliche Anweisung, Agentenantworten, Benutzernachrichten sowie ausklappbare Werkzeugaufrufe und Ergebnisse. Antworten verwenden lesbares Markdown. Nachrichten erscheinen direkt mit einer Autorenzeile; Überlegungen und Werkzeuge lassen sich aufklappen. Der Verbrauch bleibt rechts.
+
+Die Bezeichnung Sitzung steht neben der Auswahl im Jobstatusbereich. Die Unterhaltung nutzt die verfügbare Bildschirmhöhe und scrollt bei neuen Nachrichten intern. Die Sendeschaltflächen stehen auf breiten Bildschirmen rechts neben dem Textfeld, auf schmalen darunter.
 
 Der Verlauf lädt schrittweise, ohne gespeicherten Nachrichtentext zu kürzen. Neue Nachrichten werden nur am unteren Ende automatisch verfolgt; **Neue Nachrichten** führt dorthin zurück. Die Sitzungsauswahl erhält frühere Versuche, **Aktuelle Sitzung** führt zur laufenden Arbeit.
 
@@ -127,22 +129,19 @@ Budgets werden vor jedem Versuch, Fortsetzen und Wiederholen neu gelesen. Ein la
 
 Sind aktuelle Grenzen nicht lesbar, bleiben Verbrauch, Nachweise und Wiederherstellung sichtbar. Grenzen zeigen — mit einem ausdrücklichen Hinweis; Standardwerte werden nicht angenommen. Vor erneutem Ausführen die Projektkonfiguration korrigieren.
 
-## Status und Executor-Nachweise {#operational-evidence}
+## Jobdetails und Diagnose {#operational-evidence}
 
-**In Arbeit** bedeutet, dass ADORE die gespeicherte Phase steuert; derzeit ist keine menschliche Aktion angefordert. **Klärung ausstehend** benötigt eine Antwort im Ticket. **Fehlgeschlagen** hält autonome Arbeit an und bewahrt Wiederherstellungsnachweise. Die Statuskarte zeigt Fehlversuche der aktuellen Phase auch bei laufendem Job.
+**Jobdetails** zeigt das gespeicherte Ergebnis einmal, den aufgezeichneten **Branch**, den **Letzten veröffentlichten Commit**, falls vorhanden, den MR/PR-Link und Reviewrunden getrennt. Ein fehlender Branch wird als **Nicht aufgezeichnet** angezeigt. Der veröffentlichte Commit ist der letzte verifizierte, gepushte Kontrollpunkt, kein Kandidatenfingerabdruck.
 
-Fragen erscheinen unter **Frage des Agenten** als Markdown mit Listen, Tabellen und Code. Führende HTML-Kommentare fehlen in der lesbaren Ansicht; **Originalfrage und Nachweise** bewahrt die genaue Quelle. Sonstiges HTML bleibt Text, unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Breite Tabellen und Code scrollen innerhalb der Frage.
+Bei Klärungsbedarf öffnet **Frage lesen** diesen Reiter. Die Frage verwendet lesbares Markdown; unsichere Links bleiben inaktiv und Bilder laden nicht automatisch. Antwort-, Freigabe- und Reviewaktionen bleiben bei Bedarf neben dem Status sichtbar. Die Originalfrage steht unter **Diagnose**.
 
-Zeitleistenphasen stammen aus der gespeicherten Phase, dem Phasenkontext oder dem Übergangsziel des Ereignisses; andere Ereignisse bleiben unbekannt. Jobzeiten enthalten Sekunden. Ein Ereignis ist ein gespeicherter Nachweis, kein Live-Fortschritt.
+**Diagnose** ist zunächst eingeklappt. Dort stehen interne Projekt-/Jobkennungen, **Fehlversuche in der aktuellen Phase**, direkte Versuche oder Vorbereitungsergebnisse sowie die letzte Executorausgabe. Reviewrunden bleiben von aktuellen Phasenfehlern getrennt.
 
-Unter **Technische Informationen** wählen Sie **Letzte Executor-Ausgabe anzeigen**. Operative Ausgaben des letzten abgeschlossenen Starts werden vom Host erfasst, einschließlich fehlender Module und Testsummen. Prompts, Gedankengänge, Skripte, Konfiguration, Pfade, Zugangsdaten und Finanzdaten bleiben verborgen. Unbekannte Ausgaben werden durch einen Hinweis oder eine Diagnosekategorie ersetzt. Höchstens die letzten 500 Diagnoseeinträge je Stream innerhalb von 64 KiB bleiben erhalten.
+**Nicht verfügbare Daten** nennt Ticket, Aktivitätsverlauf, Titel oder Aktivitätszeit nur bei fehlenden Quellen. Dies beschreibt verfügbare Nachweise, keinen Tokenverbrauch. Der Verbrauch bleibt rechts.
 
-Die Zusammenfassung zeigt Versuch, Aufzeichnungszeit, Ergebnis und Exitcode. Klappen Sie **stdout** oder **stderr** bei vorhandenen Einträgen auf. Einen laufenden Start zeigt die Ansicht zusammen mit der letzten abgeschlossenen Ausgabe. Ändert sich das Journal beim Lesen, wählen Sie **Wiederholen**. Der letzte geprüfte Stand ist als möglicherweise veraltet gekennzeichnet.
+Die letzte Executorausgabe zeigt normalisiertes operatives stdout/stderr mit Zeit, Versuch, Phase und Exitcode. Private Inhalte bleiben verborgen; höchstens 500 Einträge innerhalb 64 KiB je Stream werden behalten. Fehlende oder beschädigte Nachweise werden gemeldet; geänderte Nachweise bieten Erneut versuchen.
 
-Ein Start ohne belegte Erfassung oder mit gelöschtem Snapshot ist ausdrücklich nicht verfügbar; rohe Archive werden nie ersatzweise gelesen. Beschädigte Nachweise werden abgelehnt. Bestehende Jobs können bis zu einem späteren Start ohne Ausgabe bleiben; diese Ansicht startet nichts.
-
-Wenn **Verbrauch** nicht lädt, nutzen Sie **Verbrauch aktualisieren** neben dem Fehler. Jobnachweise und Wiederherstellung bleiben getrennt. Beschädigte Quellen erfordern weiterhin eine Untersuchung durch den Betreiber.
-
+**Aktivität** ist die einzige Ereignistabelle. Veröffentlichter Code ist über den MR/PR-Link erreichbar. Die Details verwenden gespeicherte Nachweise, erstellen keine Dateien und starten keinen Executor.
 
 ## Projektkapazität {#project-capacity}
 

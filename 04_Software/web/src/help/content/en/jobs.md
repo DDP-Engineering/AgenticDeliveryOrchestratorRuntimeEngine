@@ -41,7 +41,7 @@ Direct **Implementation** uses the `build` override in `workflow.stage_timeout_o
 
 ## Clarification {#clarification}
 
-When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**, and its detail offers **Answer on the ticket**. Choose **Read the question** to open **Agent question**, then **Answer on the ticket** when a saved location is available.
+When the executor needs information, ADORE posts a ticket comment, Clarification required for the stage, listing the questions, and sets `agent-clarify`. The job shows **Waiting for clarification**. **Read the question** opens the question in **Job details**; **Answer on the ticket** uses its saved location.
 
 Reply with a normal comment on the ticket, then add `agent-answered`. Both are needed; ADORE's own comments do not count. ADORE removes both labels and resumes. Questions do not count as failed attempts. **Maximum question rounds** (3 by default) limits how often a job may ask, and **Time allowed for a human answer** (72 hours by default) fails the job when it expires.
 
@@ -97,13 +97,15 @@ Use **Jobs** in the sidebar or the project’s separate **Jobs** tab. The table 
 
 Click a column heading to sort. **Search jobs** matches titles, numbers, projects, job IDs, state, stage or outcome. The **Status** filter offers Active jobs, Waiting, Human review and Finished jobs. The page refreshes itself while visible.
 
-The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions**, **Artifacts** and **Technical information**, then **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Job actions, budgets and consumption remain available. Clarification, approval and review controls use saved locations. **Close** restores the originating view, scope, search, filters and pagination.
+The detail replaces its originating list while open. Above the title are **Activity**, **Agent sessions** and **Job details**, with **Show ticket** and **Close** on the right. Saved status, stage and workflow appear below the title. Budgets and consumption occupy the right-hand column. Required question, approval and review actions stay visible. **Close** restores the originating view, scope, search, filters and pagination.
 
 **Activity** is a paginated table with time, activity, stage and session. Choose 10, 25, 50 or All rows and use Previous/Next. **Open conversation** opens the exact session when the stage and attempt identify one recorded launch; unrelated or ambiguous events have no link. Returning to Activity keeps its page. Job budgets and Consumption occupy the right-hand column, below the content on narrow screens.
 
 ## Agent session history {#agent-sessions}
 
-**Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Long initial prompts and reasoning can be expanded. Usage remains in the right-hand Consumption panel.
+**Agent sessions** opens the current session, or the latest completed session. The conversation shows the initial prompt, agent replies, user messages and expandable tool calls/results. Agent replies use readable Markdown. Messages appear inline with a single author label; reasoning and tools can be expanded. Usage remains in the right-hand Consumption panel.
+
+The Session label sits beside its selector in the job status area. The conversation fits the available screen height and scrolls internally as messages arrive. Send now and Queue message sit beside the message box on wide screens, below it on narrow screens.
 
 History loads progressively without shortening retained message text. New messages follow automatically only while you are at the bottom; use **New messages** to return after reading earlier messages. The session selector keeps other attempts available, and **Current session** returns to live work.
 
@@ -127,22 +129,19 @@ Budgets are reread before each attempt, including resume and retry. A running at
 
 If current limits cannot be read, the detail keeps saved consumption, evidence and recovery controls visible. Limits show — with an explicit unavailable notice; no default is guessed. Correct the project configuration before running again.
 
-## Status and executor evidence {#operational-evidence}
+## Job details and diagnostic {#operational-evidence}
 
-**Working** means ADORE is conducting the saved stage; no human action is currently requested. **Waiting for clarification** needs an answer on the ticket. **Failed** stops autonomous work and keeps recovery evidence. The status card shows failed attempts in the current stage even while the job stays Working.
+**Job details** shows the saved result once, the recorded **Branch**, the **Last published commit** when available, the MR/PR link and **Review rounds** separately. A missing branch is shown as **Not recorded**. A published commit identifies the last verified pushed checkpoint, not a candidate fingerprint.
 
-Questions appear in **Agent question** as Markdown with lists, tables and code. Leading HTML comments are omitted in the readable view; **Original question and evidence** retains the exact source. Other HTML remains literal, unsafe links are inactive and images do not load automatically. Wide tables and code scroll inside the question.
+When clarification is required, **Read the question** opens this tab. The question uses readable Markdown, with unsafe links inactive and images not loaded automatically. **Answer on the ticket**, approval and review actions remain visible near the status when needed. The original question is available inside **Diagnostic**.
 
-Timeline stages come from each event's recorded stage, stage context or transition destination; unrelated events remain unknown. Job times include seconds. An event is saved evidence, not a live progress signal.
+**Diagnostic** starts collapsed. Open it for internal project/job IDs, **Failed attempts in current stage**, direct-attempt or preparation evidence, and **View latest executor output**. Review rounds are separate from current-stage failures.
 
-Under **Technical information**, choose **View latest executor output**. This shows host-captured operational stdout/stderr for the latest recorded completed launch, including missing modules and test totals. Prompts, reasoning, scripts, configuration, paths, credentials and financial content are withheld. Unrecognized output is replaced by a notice or diagnostic category. Only the last 500 diagnostic records per stream, within 64 KiB, are kept.
+**Unavailable data** names missing ticket, activity history, title or last activity time only when relevant sources are absent. This describes available evidence, not token usage. Consumption remains in the right-hand panel.
 
-The summary shows the attempt, recorded time, result and exit code. Expand **stdout** or **stderr** when records are present. If a launch is in progress, the panel identifies it and keeps the latest completed output. When the journal changes during a read, choose **Retry**. The last verified output is marked as possibly out of date.
+**View latest executor output** reads normalized operational stdout/stderr for the latest recorded launch, with its time, attempt, stage and exit code. Private content is withheld; at most 500 diagnostic records within 64 KiB per stream are retained. Missing or corrupt evidence is reported explicitly, and changing evidence offers Retry.
 
-A launch without proven capture, or a deleted snapshot, is explicitly unavailable; raw archives are never used as a fallback. Corrupt evidence is refused. Existing jobs can remain unavailable until a later executor launch records evidence; this view never starts one.
-
-If **Consumption** cannot load, use **Refresh consumption** beside the error. Job evidence and recovery controls remain separate. A corrupt source still requires operator investigation.
-
+**Activity** is the single event table. Published code is accessible through the MR/PR link. Job details uses saved evidence and does not create files or start an executor.
 
 ## Project capacity {#project-capacity}
 

@@ -41,7 +41,7 @@ Lista și pagina jobului arată **Flux de lucru**: **AEGIS** sau **Direct**, con
 
 ## Clarificare {#clarification}
 
-Când executorul are nevoie de informații, ADORE postează un comentariu pe tichet, „Clarification required for stage” (în engleză, așa cum îl publică ADORE), care listează întrebările, și setează `agent-clarify`. Lucrarea afișează **Așteaptă clarificări**, iar detaliile ei oferă **Răspunde pe tichet**. Alege **Citește întrebarea** pentru a deschide **Întrebarea agentului**, apoi **Răspunde pe tichet** când există un loc înregistrat.
+Când executorul cere informații, ADORE publică pe tichet un comentariu de clarificare cu întrebările și adaugă `agent-clarify`. Jobul arată așteptarea clarificării. **Citește întrebarea** deschide întrebarea în **Detalii job**, iar **Răspunde pe tichet** folosește locația salvată.
 
 Răspundeți cu un comentariu obișnuit pe tichet, apoi adăugați `agent-answered`. Ambele sunt necesare; comentariile ADORE nu contează. ADORE elimină ambele etichete și reia lucrul. Întrebările nu se numără ca încercări eșuate. **Numărul maxim de runde de întrebări** (3 implicit) limitează de câte ori poate întreba o lucrare, iar **Timpul acordat unui răspuns uman** (72 de ore implicit) face lucrarea să eșueze când expiră.
 
@@ -97,13 +97,15 @@ Folosește **Lucrări** din meniul lateral sau fila separată **Lucrări** a pro
 
 Faceți clic pe un antet de coloană pentru a sorta. **Caută joburi** potrivește titluri, numere, proiecte, ID-uri de lucrare, stare, etapă sau rezultat. Filtrul **Stare** oferă Lucrări active, În așteptare, Revizie umană și Joburi încheiate. Pagina se reîmprospătează singură cât timp este vizibilă.
 
-Detaliile înlocuiesc lista de origine. Deasupra titlului sunt **Activitate**, **Sesiunile agentului**, **Artefacte** și **Informații tehnice**, apoi **Arată tichetul** și **Închide** în dreapta. Starea salvată, etapa și fluxul apar sub titlu. Acțiunile, bugetele, consumul și comenzile de clarificare, aprobare și revizie rămân disponibile. **Închide** restabilește vizualizarea, domeniul, căutarea, filtrele și pagina.
+Detaliile înlocuiesc lista din care au fost deschise. Deasupra titlului sunt **Activitate**, **Sesiunile agentului** și **Detalii job**, cu **Arată tichetul** și **Închide** în dreapta. Statusul, etapa și workflow-ul sunt sub titlu. Bugetele și consumul ocupă coloana din dreapta. Acțiunile necesare pentru întrebare, aprobare și review rămân vizibile. **Închide** restaurează pagina, selecția proiectului, căutarea, filtrele și paginarea.
 
 **Activitate** este un tabel paginat cu ora, activitatea, etapa și sesiunea. Alege 10, 25, 50 sau Toate și folosește Anterior/Următor. **Deschide conversația** deschide sesiunea exactă atunci când etapa și încercarea identifică o singură lansare înregistrată; evenimentele fără o asociere sigură nu au legătură. Revenirea păstrează pagina. Bugetele și consumul sunt în coloana din dreapta, sub conținut pe ecrane înguste.
 
 ## Istoricul sesiunilor agentului {#agent-sessions}
 
-**Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Prompturile lungi și raționamentul pot fi extinse. Consumul rămâne în panoul din dreapta.
+**Sesiunile agentului** deschide sesiunea curentă sau ultima sesiune încheiată. Conversația arată promptul inițial, răspunsurile agentului, mesajele utilizatorului și apelurile/rezultatele instrumentelor care pot fi extinse. Răspunsurile folosesc Markdown lizibil. Mesajele apar direct, cu un singur autor; raționamentul și instrumentele pot fi extinse. Consumul rămâne în panoul din dreapta.
+
+Eticheta Sesiune stă lângă selector, în zona de status a jobului. Conversația folosește înălțimea disponibilă și se derulează în interior când apar mesaje noi. Butoanele de trimitere sunt în dreapta câmpului pe ecrane late și sub el pe ecrane înguste.
 
 Istoricul se încarcă progresiv fără scurtarea textului păstrat. Mesajele noi sunt urmărite automat doar când ești la final; **Mesaje noi** te aduce înapoi. Selectorul păstrează celelalte încercări, iar **Sesiunea curentă** revine la lucrul în direct.
 
@@ -127,22 +129,19 @@ Bugetele sunt recitite înaintea fiecărei încercări, inclusiv la reluare și 
 
 Dacă limitele actuale nu pot fi citite, detaliile păstrează consumul salvat, dovezile și acțiunile de recuperare. Limitele arată — cu un mesaj explicit de indisponibilitate; nu se presupune o valoare implicită. Corectează configurația înainte de o nouă execuție.
 
-## Stare și dovezi ale executorului {#operational-evidence}
+## Detalii job și diagnostic {#operational-evidence}
 
-**În lucru** înseamnă că ADORE conduce etapa salvată; momentan nu se cere intervenția unui om. **Așteaptă clarificare** necesită un răspuns pe tichet. **Eșuat** oprește lucrul autonom și păstrează dovezile de recuperare. Cardul afișează încercările eșuate ale etapei curente chiar când jobul rămâne În lucru.
+**Detalii job** arată o singură dată rezultatul salvat, **Branch**, **Ultimul commit publicat** când există, legătura MR/PR și rundele de review separat. Un branch absent apare ca **Neînregistrat**. Commitul publicat este ultimul checkpoint trimis și verificat, nu amprenta unui candidat.
 
-Întrebările apar în **Întrebarea agentului** ca Markdown cu liste, tabele și cod. Comentariile HTML de la început sunt omise din vizualizarea lizibilă; **Întrebarea originală și dovezile** păstrează sursa exactă. Restul HTML rămâne text, linkurile nesigure sunt inactive și imaginile nu se încarcă automat. Tabelele late și codul se derulează în interiorul întrebării.
+Când este necesară clarificarea, **Citește întrebarea** deschide această filă. Întrebarea folosește Markdown lizibil, legăturile nesigure sunt inactive și imaginile nu sunt încărcate automat. Acțiunile de răspuns, aprobare și review rămân vizibile lângă status când sunt necesare. Întrebarea originală este în **Diagnostic**.
 
-Etapele cronologiei provin din etapa, contextul de etapă sau destinația tranziției salvate în fiecare eveniment; evenimentele fără legătură rămân necunoscute. Orele includ secunde. Un eveniment este o dovadă salvată, nu progres în timp real.
+**Diagnostic** este inițial restrâns. Deschide-l pentru identificatorii interni ai proiectului și jobului, **Încercări eșuate în etapa curentă**, dovezi ale încercării directe sau pregătirii și ultima ieșire a executorului. Rundele de review sunt separate de erorile etapei curente.
 
-În **Informații tehnice**, alege **Vezi ultima ieșire a executorului**. Sunt afișate ieșirile operaționale capturate de host pentru ultima lansare încheiată, inclusiv modulele lipsă și totalurile testelor. Prompturile, raționamentul, scripturile, configurația, căile, credențialele și datele financiare sunt ascunse. Ieșirile necunoscute devin o notificare sau o categorie de diagnostic. Se păstrează cel mult ultimele 500 de diagnostice pe flux, în 64 KiB.
+**Date indisponibile** numește tichetul, istoricul, titlul sau ora activității doar când aceste surse lipsesc. Acestea descriu dovezile disponibile, nu consumul de tokenuri. Consumul rămâne în dreapta.
 
-Rezumatul arată încercarea, ora înregistrării, rezultatul și codul de ieșire. Extinde **stdout** sau **stderr** când au înregistrări. Dacă o lansare este în curs, panoul o semnalează și păstrează ultima ieșire finalizată. Dacă jurnalul se schimbă în timpul citirii, alege **Reîncearcă**. Ultima ieșire verificată este marcată ca posibil neactualizată.
+Ultima ieșire a executorului prezintă stdout/stderr operaționale normalizate, cu ora, încercarea, etapa și codul de ieșire. Conținutul privat este ascuns; sunt păstrate cel mult 500 de înregistrări în 64 KiB pe flux. Dovezile lipsă sau corupte sunt semnalate, iar datele modificate oferă Reîncearcă.
 
-O lansare fără captură dovedită sau cu snapshotul șters este explicit indisponibilă; arhivele brute nu sunt citite ca alternativă. Dovezile corupte sunt refuzate. Joburile existente pot rămâne fără ieșire până la o lansare ulterioară; această vizualizare nu pornește niciuna.
-
-Dacă **Consum** nu se încarcă, folosește **Actualizează consumul** lângă eroare. Dovezile și recuperarea rămân separate. O sursă coruptă necesită în continuare investigarea operatorului.
-
+**Activitate** este singurul tabel de evenimente. Codul publicat este accesibil prin legătura MR/PR. Detaliile folosesc dovezile salvate fără să creeze fișiere sau să pornească executorul.
 
 ## Capacitatea proiectului {#project-capacity}
 

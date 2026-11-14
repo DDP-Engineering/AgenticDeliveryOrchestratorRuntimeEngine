@@ -41,7 +41,7 @@ La liste et le détail affichent **Workflow** : **AEGIS** ou **Direct**, selon l
 
 ## Clarification {#clarification}
 
-Lorsque l’exécuteur a besoin d’informations, ADORE publie un commentaire de ticket, « Clarification required for stage » (en anglais, tel que publié par ADORE), qui liste les questions, et pose `agent-clarify`. La tâche affiche **En attente de clarification**, et son détail propose **Répondre sur le ticket**. Choisissez **Lire la question** pour ouvrir **Question de l’agent**, puis **Répondre sur le ticket** si un emplacement enregistré est disponible.
+Lorsque l’exécuteur demande des informations, ADORE publie un commentaire de clarification avec les questions et ajoute `agent-clarify`. Le travail indique l’attente de clarification. **Lire la question** ouvre la question dans **Détails du travail** ; **Répondre sur le ticket** utilise son emplacement enregistré.
 
 Répondez par un commentaire normal sur le ticket, puis ajoutez `agent-answered`. Les deux sont nécessaires ; les commentaires d’ADORE lui-même ne comptent pas. ADORE retire les deux étiquettes et reprend. Les questions ne comptent pas comme des tentatives échouées. **Nombre maximal de tours de questions** (3 par défaut) limite le nombre de fois qu’une tâche peut poser des questions, et **Temps accordé à une réponse humaine** (72 heures par défaut) fait échouer la tâche à l’expiration.
 
@@ -97,13 +97,15 @@ Utilisez **Travaux** dans la barre latérale ou l’onglet **Travaux** distinct 
 
 Cliquez sur un titre de colonne pour trier. **Rechercher des travaux** cherche dans les titres, numéros, projets, identifiants de tâche, état, étape ou résultat. Le filtre **État** propose Tâches actives, En attente, Revue humaine et Travaux terminés. La page s’actualise seule tant qu’elle est visible.
 
-Le détail remplace sa liste d’origine. Au-dessus du titre : **Activité**, **Sessions de l’agent**, **Artefacts** et **Informations techniques**, puis **Afficher le ticket** et **Fermer** à droite. L’état, l’étape et le workflow enregistrés suivent le titre. Actions, budgets, consommation et commandes de clarification, approbation et revue restent disponibles. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
+Le détail remplace sa liste d’origine. **Activité**, **Sessions de l’agent** et **Détails du travail** sont au-dessus du titre, avec **Afficher le ticket** et **Fermer** à droite. État, étape et workflow suivent le titre. Budgets et consommation occupent la colonne droite. Les actions de question, approbation et revue restent visibles si nécessaires. **Fermer** restaure la vue, le périmètre, la recherche, les filtres et la pagination.
 
 **Activité** est un tableau paginé avec heure, activité, étape et session. Choisissez 10, 25, 50 ou Tout et utilisez Précédent/Suivant. **Ouvrir la conversation** ouvre la session exacte quand l’étape et la tentative identifient un seul lancement enregistré ; les événements sans lien certain n’ont pas de lien. Le retour conserve la page. Budgets et consommation occupent la colonne droite, sous le contenu sur petit écran.
 
 ## Historique des sessions de l’agent {#agent-sessions}
 
-**Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les longues consignes et le raisonnement peuvent être dépliés. La consommation reste dans le panneau droit.
+**Sessions de l’agent** ouvre la session actuelle ou la dernière session terminée. La conversation montre la consigne initiale, les réponses de l’agent, les messages utilisateur et les appels/résultats d’outils dépliables. Les réponses utilisent Markdown. Les messages apparaissent directement avec un seul auteur ; le raisonnement et les outils peuvent être dépliés. La consommation reste dans le panneau droit.
+
+Le libellé Session est à côté du sélecteur dans la zone d’état du travail. La conversation tient dans la hauteur disponible et défile à l’intérieur à l’arrivée des messages. Les boutons d’envoi sont à droite du champ sur grand écran et dessous sur petit écran.
 
 L’historique se charge progressivement sans raccourcir le texte conservé. Les nouveaux messages défilent automatiquement uniquement en bas ; **Nouveaux messages** permet d’y revenir. Le sélecteur conserve les autres tentatives et **Session actuelle** revient au travail en direct.
 
@@ -127,22 +129,19 @@ Les budgets sont relus avant chaque tentative, reprise ou relance. Une tentative
 
 Si les limites actuelles sont illisibles, le détail conserve la consommation, les preuves et les actions de reprise. Les limites affichent — avec un avis d’indisponibilité ; aucune valeur par défaut n’est supposée. Corrigez la configuration avant de relancer.
 
-## État et preuves de l’exécuteur {#operational-evidence}
+## Détails du travail et diagnostic {#operational-evidence}
 
-**En cours** signifie qu’ADORE conduit l’étape enregistrée ; aucune action humaine n’est demandée. **En attente de clarification** nécessite une réponse sur le ticket. **Échoué** arrête le travail autonome et conserve les preuves de récupération. La carte affiche les tentatives échouées de l’étape courante même si le travail reste En cours.
+**Détails du travail** affiche une seule fois le résultat enregistré, la **Branche**, le **Dernier commit publié** si disponible, le lien MR/PR et les tours de revue séparément. Une branche absente indique **Non enregistré**. Le commit publié correspond au dernier point de contrôle poussé et vérifié, pas à une empreinte de candidat.
 
-Les questions apparaissent dans **Question de l’agent** en Markdown avec listes, tableaux et code. Les commentaires HTML initiaux sont omis de la vue lisible ; **Question originale et preuves** conserve la source exacte. Le reste du HTML reste littéral, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les tableaux larges et le code défilent dans la question.
+Lorsqu’une clarification est requise, **Lire la question** ouvre cet onglet. La question utilise Markdown lisible, les liens dangereux sont inactifs et les images ne se chargent pas automatiquement. Les actions de réponse, approbation et revue restent visibles près de l’état si nécessaires. La question originale est dans **Diagnostic**.
 
-Les étapes de la chronologie viennent de l’étape, du contexte d’étape ou de la destination de transition enregistrés dans chaque événement ; les événements sans rapport restent inconnus. Les heures incluent les secondes. Un événement est une preuve enregistrée, pas une progression en direct.
+**Diagnostic** est replié au départ. Ouvrez-le pour les identifiants internes du projet et du travail, les **Tentatives échouées à l’étape actuelle**, les preuves de tentative directe ou de préparation et la dernière sortie de l’exécuteur. Les tours de revue sont distincts des échecs de l’étape actuelle.
 
-Dans **Informations techniques**, choisissez **Voir la dernière sortie de l’exécuteur**. Les sorties opérationnelles capturées par l’hôte du dernier lancement terminé sont affichées, avec modules absents et totaux des tests. Prompts, raisonnement, scripts, configuration, chemins, identifiants et données financières sont masqués. Les sorties inconnues deviennent un avis ou une catégorie de diagnostic. Seuls les 500 derniers diagnostics par flux, dans 64 Kio, sont conservés.
+**Données indisponibles** nomme le ticket, l’historique, le titre ou l’heure d’activité seulement lorsque ces sources manquent. Il s’agit des preuves disponibles, pas des jetons consommés. La consommation reste à droite.
 
-Le résumé affiche la tentative, son heure, le résultat et le code de sortie. Dépliez **stdout** ou **stderr** si des données sont présentes. Si un lancement est en cours, le panneau le signale et conserve la dernière sortie terminée. Si le journal change pendant la lecture, choisissez **Réessayer**. La dernière sortie vérifiée est signalée comme potentiellement périmée.
+La dernière sortie de l’exécuteur présente stdout/stderr opérationnels normalisés, avec heure, tentative, étape et code de sortie. Le contenu privé est masqué ; au plus 500 enregistrements dans 64 Kio par flux sont conservés. Les preuves absentes ou corrompues sont signalées et une lecture modifiée propose Réessayer.
 
-Un lancement sans capture prouvée ou un instantané supprimé est explicitement indisponible ; aucune archive brute ne sert de repli. Les preuves corrompues sont refusées. Un travail existant peut rester sans sortie jusqu’à un lancement ultérieur ; cette vue n’en démarre aucun.
-
-Si **Consommation** ne se charge pas, utilisez **Actualiser la consommation** près de l’erreur. Preuves et récupération restent séparées. Une source corrompue nécessite toujours l’intervention de l’opérateur.
-
+**Activité** est l’unique tableau d’événements. Le code publié est accessible par le lien MR/PR. Les détails utilisent les preuves sauvegardées sans créer de fichiers ni démarrer d’exécuteur.
 
 ## Capacité du projet {#project-capacity}
 

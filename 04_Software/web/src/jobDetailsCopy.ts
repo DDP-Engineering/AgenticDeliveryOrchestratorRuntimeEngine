@@ -7,6 +7,7 @@ See the LICENSE.txt file for full license details. SPDX-License-Identifier: Lice
 import type { Locale } from "./i18n.ts";
 
 const en = {
+  details:"Job details", result:"Result", branch:"Branch", publishedCommit:"Last published commit", review:"Review", diagnostic:"Diagnostic", dataMissing:"Unavailable data", currentFailures:"Failed attempts in current stage", mergedOutcome:"MR/PR merged by a person", notRecorded:"Not recorded", sources:{ticket:"Ticket",journal:"Activity history",title:"Ticket title",last_activity:"Last activity time"},
   clarificationNext: "Read the question, answer on the ticket and add the response label configured for this project.",
   approvalNext: "Review the candidate evidence on the ticket and add the configured approval label for this candidate.",
   reviewNext: "Review the MR/PR on the forge. A person decides whether to merge.",
@@ -28,6 +29,7 @@ const en = {
 export const jobDetailsCopy: Record<Locale, typeof en> = {
   en,
   fr: {
+    details:"Détails du travail", result:"Résultat", branch:"Branche", publishedCommit:"Dernier commit publié", review:"Revue", diagnostic:"Diagnostic", dataMissing:"Données indisponibles", currentFailures:"Tentatives échouées à l’étape actuelle", mergedOutcome:"MR/PR fusionnée par une personne", notRecorded:"Non enregistré", sources:{ticket:"Ticket",journal:"Historique d’activité",title:"Titre du ticket",last_activity:"Heure de dernière activité"},
     clarificationNext: "Lisez la question, répondez sur le ticket et ajoutez l’étiquette de réponse du projet.",
     approvalNext: "Examinez les preuves du candidat sur le ticket et ajoutez l’étiquette d’approbation configurée.",
     reviewNext: "Examinez la MR/PR sur la forge. Une personne décide de la fusion.",
@@ -47,6 +49,7 @@ export const jobDetailsCopy: Record<Locale, typeof en> = {
       cancelled: "Annulation enregistrée", failed: "Échec enregistré" },
   },
   de: {
+    details:"Jobdetails", result:"Ergebnis", branch:"Branch", publishedCommit:"Letzter veröffentlichter Commit", review:"Review", diagnostic:"Diagnose", dataMissing:"Nicht verfügbare Daten", currentFailures:"Fehlversuche in der aktuellen Phase", mergedOutcome:"MR/PR von einer Person zusammengeführt", notRecorded:"Nicht aufgezeichnet", sources:{ticket:"Ticket",journal:"Aktivitätsverlauf",title:"Tickettitel",last_activity:"Zeit der letzten Aktivität"},
     clarificationNext: "Frage lesen, im Ticket antworten und das für dieses Projekt konfigurierte Antwortlabel setzen.",
     approvalNext: "Kandidatennachweise im Ticket prüfen und das konfigurierte Freigabelabel für den Kandidaten setzen.",
     reviewNext: "MR/PR auf der Forge prüfen. Ein Mensch entscheidet über die Zusammenführung.",
@@ -66,6 +69,7 @@ export const jobDetailsCopy: Record<Locale, typeof en> = {
       cancelled: "Abbruch gespeichert", failed: "Fehler gespeichert" },
   },
   ro: {
+    details:"Detalii job", result:"Rezultat", branch:"Branch", publishedCommit:"Ultimul commit publicat", review:"Review", diagnostic:"Diagnostic", dataMissing:"Date indisponibile", currentFailures:"Încercări eșuate în etapa curentă", mergedOutcome:"MR/PR integrat de o persoană", notRecorded:"Neînregistrat", sources:{ticket:"Tichet",journal:"Istoric de activitate",title:"Titlul tichetului",last_activity:"Ora ultimei activități"},
     clarificationNext: "Citește întrebarea, răspunde pe tichet și adaugă eticheta de răspuns configurată pentru proiect.",
     approvalNext: "Verifică dovezile candidatului pe tichet și adaugă eticheta de aprobare configurată pentru candidat.",
     reviewNext: "Verifică MR/PR-ul pe platforma Git. Un om decide integrarea.",

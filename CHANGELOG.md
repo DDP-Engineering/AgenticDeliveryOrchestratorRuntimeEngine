@@ -37,6 +37,10 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Changed
 
+- Compact session controls and message actions; flatten the conversation and keep its viewport height bounded.
+
+- Merge job evidence into Activity, Agent sessions and Job details, with branch/review metadata and collapsed diagnostic.
+
 - Remove the budget explanation and Details disclosure from job budget cards.
 
 - Sort global and project Tickets by number, project, title, labels or status before pagination.

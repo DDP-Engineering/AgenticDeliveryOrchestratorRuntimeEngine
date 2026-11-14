@@ -253,7 +253,7 @@ on entry and scope changes; Read tickets remains available. Generation and synch
 pending guards prevent duplicate pending reads and stale completions. Project listing,
 project listing stays unchanged. The project hub exposes separate Jobs and Tickets pages; capacity stays in Summary.
 
-Job details place Activity / Agent sessions / Artifacts / Technical information tabs,
+Job details place Activity / Agent sessions / Job details tabs,
 Show ticket and right-aligned Close above the ticket title. The status line uses saved
 status, stage and workflow. Actions, budgets, consumption, clarification, approval and
 review remain available; closing restores the originating list state.
@@ -337,8 +337,7 @@ only global Jobs keeps its separate Capacity table. Project capacity remains in 
 Job detail retains its command header, with Show ticket and Close grouped on the right.
 Its content uses a wide main column and a 300px vertical budgets/consumption sidebar;
 at 1100px and below the sidebar follows the content. Activity uses the shared
-PagedTable component with 10/25/50/All rows and Previous/Next controls. Raw event names
-stay in Technical information. The typed timeline exports positive attempts for
+PagedTable component with 10/25/50/All rows and Previous/Next controls. Raw journals remain stored for operational diagnosis; Activity is the only event table. The typed timeline exports positive attempts for
 stage-launch events. Open conversation requires a unique stage/attempt and launch-time
 interval match in both directions; ambiguous, missing and unrelated events are not linked.
 Activity stays mounted so navigating back retains its page.
@@ -363,3 +362,27 @@ Optional session message time is validated only when present. Its absence means
 unknown time and does not invalidate an otherwise readable JSONL record. Explicitly
 malformed times still produce a refused-record notice. Damaged or previously truncated
 source text is not reconstructed by this correction.
+
+## Three-tab job detail contract
+
+JobDetails exposes Activity, Agent sessions and Job details. Keyboard navigation uses
+that actual tab count. Activity is the sole event table; there is no repeated original
+event table. Agent sessions keeps its existing view state and delivery controls.
+Job details combines the saved outcome (once), recorded branch, last published commit
+when available, MR/PR link and separately labelled review rounds. A published commit
+is the verified remote checkpoint digest, not a candidate content fingerprint. Empty
+branch metadata is explicitly unrecorded; no forge or git command runs to infer it.
+
+The authenticated local projection adds branch (nullable bounded safe display text)
+and published_commit (nullable validated 40/64-hex checkpoint) to current job responses.
+Both are read from existing schema-1 state; no stored format or schema changes.
+The browser rejects malformed metadata. Existing normalized text redaction still applies.
+
+Clarification/read-answer and required approval/review actions remain above the active
+panel. Read the question opens Job details. Missing source coverage is named only when
+relevant data is absent; the misleading Usage coverage row is removed. Diagnostic is
+collapsed by default and contains internal project/job IDs, current-stage failures,
+original question source, direct/preparation evidence and on-demand latest normalized
+executor output. Reviews and stage failures are separate counts. Budget/consumption
+stay in the right sidebar. There is no empty file-results block: the saved MR/PR link
+is the current published-code result; execution archives remain operational evidence.

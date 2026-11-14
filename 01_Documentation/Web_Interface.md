@@ -1499,14 +1499,14 @@ independent and only a human decides whether to merge.
 ## Job details presentation
 
 Opening a job navigates to Jobs and replaces the originating list with a dedicated detail.
-Activity / Agent sessions / Artifacts / Technical information, Show ticket and a
+Activity / Agent sessions / Job details, Show ticket and a
 right-aligned Close appear above the ticket title. Saved status, stage and workflow
 appear below it; no transcript event is used to infer job status. Job actions retain
 Retry, Cancel and confirmed recovery when allowed. Budgets, consumption and saved
 clarification/approval/review controls remain available. Artifacts holds questions,
 preparation results and saved delivery evidence. Leading editorial HTML comments
 are omitted only from the readable question; the original source remains available.
-Technical information holds identifiers, operational executor output, recovery
+Job details → Diagnostic holds identifiers, operational executor output, recovery
 diagnosis and Original recorded events. Tabs support arrow keys, Home and End.
 Close restores the originating page/tab, scope, search, filters and pagination.
 
@@ -1562,7 +1562,7 @@ on entry and scope changes; Read tickets remains available. Generation and synch
 pending guards prevent duplicate pending reads and stale completions. Project listing,
 project listing stays unchanged. The project hub exposes separate Jobs and Tickets pages; capacity stays in Summary.
 
-Job details place Activity / Agent sessions / Artifacts / Technical information tabs,
+Job details place Activity / Agent sessions / Job details tabs,
 Show ticket and right-aligned Close above the ticket title. The status line uses saved
 status, stage and workflow. Actions, budgets, consumption, clarification, approval and
 review remain available; closing restores the originating list state.
@@ -1678,8 +1678,7 @@ only global Jobs keeps its separate Capacity table. Project capacity remains in 
 Job detail retains its command header, with Show ticket and Close grouped on the right.
 Its content uses a wide main column and a 300px vertical budgets/consumption sidebar;
 at 1100px and below the sidebar follows the content. Activity uses the shared
-PagedTable component with 10/25/50/All rows and Previous/Next controls. Raw event names
-stay in Technical information. The typed timeline exports positive attempts for
+PagedTable component with 10/25/50/All rows and Previous/Next controls. Raw journals remain stored for operational diagnosis; Activity is the only event table. The typed timeline exports positive attempts for
 stage-launch events. Open conversation requires a unique stage/attempt and launch-time
 interval match in both directions; ambiguous, missing and unrelated events are not linked.
 Activity stays mounted so navigating back retains its page.
@@ -1722,3 +1721,42 @@ the chosen column/direction; both fixed and selectable project scopes use this t
 Job budgets shows the consumed/current-limit values, near/reached/unavailable warnings
 and the administrator Settings link. It omits the explanatory progress paragraph and
 Details/timing disclosure; budget timing semantics remain documented in Help.
+
+## Three-tab job detail contract
+
+JobDetails exposes Activity, Agent sessions and Job details. Keyboard navigation uses
+that actual tab count. Activity is the sole event table; there is no repeated original
+event table. Agent sessions keeps its existing view state and delivery controls.
+Job details combines the saved outcome (once), recorded branch, last published commit
+when available, MR/PR link and separately labelled review rounds. A published commit
+is the verified remote checkpoint digest, not a candidate content fingerprint. Empty
+branch metadata is explicitly unrecorded; no forge or git command runs to infer it.
+
+The authenticated local projection adds branch (nullable bounded safe display text)
+and published_commit (nullable validated 40/64-hex checkpoint) to current job responses.
+Both are read from existing schema-1 state; no stored format or schema changes.
+The browser rejects malformed metadata. Existing normalized text redaction still applies.
+
+Clarification/read-answer and required approval/review actions remain above the active
+panel. Read the question opens Job details. Missing source coverage is named only when
+relevant data is absent; the misleading Usage coverage row is removed. Diagnostic is
+collapsed by default and contains internal project/job IDs, current-stage failures,
+original question source, direct/preparation evidence and on-demand latest normalized
+executor output. Reviews and stage failures are separate counts. Budget/consumption
+stay in the right sidebar. There is no empty file-results block: the saved MR/PR link
+is the current published-code result; execution archives remain operational evidence.
+
+## Compact session viewport
+
+SessionView portals its selector into the job status header; Session is an inline
+label and each live option includes Live only once. The transcript is a flat list,
+with author/time and content rather than nested Prompt/Initial prompt cards. The
+message composer places its action buttons to the right of the textarea on wide
+screens and below it on narrow screens. Message text and durable send semantics stay
+unchanged.
+
+A layout effect fits the chat height from the actual viewport position and composer
+height, observing header/footer size and viewport changes. CSS size/layout containment
+keeps message growth inside the scroll area; the height never derives from transcript
+length. New messages is an overlay so its appearance does not resize the conversation.
+Only the chat scrolls as content grows; expanded tools have no second vertical scroll.
