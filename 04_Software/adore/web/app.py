@@ -5309,10 +5309,14 @@ def create_app(home: str | Path | None = None,
     def job_session(project_id: str, run_id: str, attempt_id: str,
                     user: Annotated[dict, Depends(principal)],
                     cursor: Annotated[int, Query(ge=0, le=2**53 - 1)] = 0,
-                    limit: Annotated[int, Query(ge=1, le=200)] = 200) -> JSONResponse:
+                    limit: Annotated[int, Query(ge=1, le=200)] = 200,
+                    continuity: Annotated[str | None, Query(max_length=64)] = None,
+                    archive_id: Annotated[str | None, Query(max_length=160)] = None,
+                    ) -> JSONResponse:
         """@brief Return literal recorded session text with role-bound usage."""
         item, root = session_run(project_id, run_id, user)
-        result = read_session(root, attempt_id, cursor, limit, include_cost=user["role"] == "admin")
+        result = read_session(root, attempt_id, cursor, limit, include_cost=user["role"] == "admin",
+                              continuity=continuity, archive_id=archive_id)
         if item not in job_projects(user, project_id):
             raise JobReadError("job_snapshot_changed", 409)
         return JSONResponse(result, headers={"Cache-Control": "no-store"})

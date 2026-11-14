@@ -23,6 +23,6 @@ Offline injected commands prove authorization uses only the owned container, pre
 
 ## Retained output and authentication
 
-Enabled gates retain at most 64 KiB stdout/stderr after completion while streaming complete original JSONL usage first. Truncation never changes authoritative usage/cost totals or coverage. Known API keys and ephemeral ChatGPT stage access tokens are redacted. The refresh token and server sign-in stay outside the job container. Pi RPC accounts complete original per-turn usage before retained output is capped; native Pi uses the file protocol.
+Enabled RPC gates keep returned operational tails, stderr and questions sanitized and bounded at 64 KiB. Their separate session stdout preserves literal bounded events, including known API keys and ephemeral stage access tokens that the agent printed, and archives without post-gate rewriting. The shared reader authorizes job readers and excludes system messages. Complete original usage remains authoritative. Native RPC shares this policy; non-RPC file-protocol streams retain their sanitized 64 KiB bounds. The refresh token and server sign-in stay outside the job container.
 
-Retained stdout/stderr limits count encoded UTF-8 bytes, including redaction/decoding results. Immutable archives encode the returned stream directly, preserving line endings on every host. Original usage is collected before retention and remains authoritative.
+Operational limits count encoded UTF-8 bytes after sanitization. RPC archives copy the literal bounded session file, independently of returned operational tails. Non-RPC archives encode sanitized retained streams without newline expansion. Original usage remains authoritative.

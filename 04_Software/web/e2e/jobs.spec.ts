@@ -30,6 +30,199 @@ test.afterEach(async ({ request, page }) => {
   expect(response.ok()).toBe(true);
 });
 
+test("LA-02 live append, hidden views and history selection keep cursor state", async ({page}) => {
+  await signIn(page);
+  const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
+  const live={...archive,id:"live-"+"a".repeat(32),live:true,archive_id:"build-attempt-2-attempt1",attempt:2,start_at:archive.end_at,end_at:null,outcome:null,exit_code:null};
+  let appended=false,reads=0;
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[live,archive]}}));
+  await page.route("**/sessions/live-*?*",route=>{
+    reads++;
+    const cursor=Number(new URL(route.request().url()).searchParams.get("cursor"));
+    return route.fulfill({json:{session:live,session_ended:false,continuity:"b".repeat(64),thinking:!appended,
+      items:cursor===0?[{kind:"prompt",text:"live prompt"}]:appended&&cursor===100?[
+        {kind:"tool_call",text:"args",tool:"bash",call_id:"x"},{kind:"tool_result",text:"completed tool",tool:"bash",call_id:"x",is_error:false}]:[],next_cursor:appended&&cursor>=100?200:100}});
+  });
+  await page.route("**/sessions/build-attempt-1-attempt1?*",route=>route.fulfill({json:{session:archive,items:[{kind:"assistant",text:"selected history"}],next_cursor:null}}));
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByText("live prompt",{exact:true})).toBeVisible();
+  await expect(history.getByText("Agent is working: thinking",{exact:true})).toBeVisible();
+  appended=true;
+  await expect(history.locator(".session-tool").filter({hasText:"completed tool"})).toHaveCount(1,{timeout:4500});
+  const accepted=reads;
+  await detail.getByRole("tab",{name:"Activity",exact:true}).click();
+  await page.waitForTimeout(3300);
+  expect(reads).toBe(accepted);
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.locator(".session-tool").filter({hasText:"completed tool"})).toHaveCount(1);
+  await page.evaluate(()=>{Object.defineProperty(document,"visibilityState",{configurable:true,value:"hidden"});document.dispatchEvent(new Event("visibilitychange"));});
+  const hiddenReads=reads;
+  await page.waitForTimeout(3300);
+  expect(reads).toBe(hiddenReads);
+  await page.evaluate(()=>{Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"});document.dispatchEvent(new Event("visibilitychange"));});
+  await history.getByLabel("Attempt",{exact:true}).selectOption(archive.id);
+  await expect(history.getByText("selected history",{exact:true})).toBeVisible();
+  await detail.getByRole("tab",{name:"Activity",exact:true}).click();
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(archive.id);
+  await expect(history.getByText("selected history",{exact:true})).toBeVisible();
+});
+
+test("LA-02 ended launch reloads final archive then follows next live",async({page})=>{
+  await signIn(page);
+  const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
+  const live={...archive,id:"live-"+"a".repeat(32),live:true,archive_id:archive.id,start_at:archive.end_at,end_at:null,outcome:null,exit_code:null};
+  const next={...live,id:"live-"+"c".repeat(32),stage:"validate",archive_id:"validate-attempt-1-attempt1"};
+  let phase=0;
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:phase===0?[live]:phase===1?[archive]:[next,archive]}}));
+  await page.route("**/sessions/live-*?*",route=>{
+    const isNext=route.request().url().includes(next.id);
+    return route.fulfill({json:phase>0&&!isNext?{session_ended:true,archive_id:archive.id,items:[],next_cursor:null}:{session:isNext?next:live,session_ended:false,continuity:"d".repeat(64),thinking:true,items:[{kind:"prompt",text:isNext?"next launch":"initial launch"}],next_cursor:100}});
+  });
+  await page.route("**/sessions/build-attempt-1-attempt1?*",route=>route.fulfill({json:{session:archive,items:[{kind:"assistant",text:"final archived tail"}],next_cursor:null}}));
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByText("initial launch",{exact:true})).toBeVisible();
+  phase=1;
+  await expect(history.getByText("final archived tail",{exact:true})).toBeVisible({timeout:4500});
+  phase=2;
+  await expect(history.getByText("next launch",{exact:true})).toBeVisible({timeout:4500});
+  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(next.id);
+  await expect(history.getByLabel("Attempt",{exact:true}).locator("option")).toHaveCount(2);
+});
+
+test("LA-02 stale live completion cannot steal history and saved terminal state stops reads",async({page})=>{
+  await page.clock.install();
+  await signIn(page);
+  const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
+  const live={...archive,id:"live-"+"a".repeat(32),live:true,archive_id:"build-attempt-2-attempt1",attempt:2,start_at:archive.end_at,end_at:null,outcome:null,exit_code:null};
+  let reads=0,terminal=false,release:()=>void=()=>{};
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/api/v1/jobs/*/ux-working",async route=>{
+    const response=await route.fetch(),data=await response.json();
+    if(terminal){data.job.lifecycle="failed";data.job.status_group="terminal";}
+    return route.fulfill({response,json:data});
+  });
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:terminal?[archive]:[live,archive]}}));
+  await page.route("**/sessions/live-*?*",async route=>{
+    reads++;
+    if(reads===2)await held;
+    return route.fulfill({json:terminal?{session_ended:true,archive_id:archive.id,items:[],next_cursor:null}:{session:live,session_ended:false,continuity:"b".repeat(64),thinking:true,items:[{kind:"assistant",text:reads===1?"initial live":reads===2?"STALE_LIVE_NEVER":"resumed live"}],next_cursor:100}});
+  });
+  await page.route("**/sessions/build-attempt-1-attempt1?*",route=>route.fulfill({json:{session:archive,items:[{kind:"assistant",text:"retained history"}],next_cursor:null}}));
+  await page.goto("/jobs?project=alpha&run=ux-working");
+  const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByText("initial live",{exact:true})).toBeVisible();
+  await page.clock.fastForward(3100);
+  await expect.poll(()=>reads,{timeout:4500}).toBe(2);
+  await history.getByLabel("Attempt",{exact:true}).selectOption(archive.id);
+  await expect(history.getByText("retained history",{exact:true})).toBeVisible();
+  release();
+  await expect(history.getByText("STALE_LIVE_NEVER",{exact:true})).toHaveCount(0);
+  await history.getByLabel("Attempt",{exact:true}).selectOption(live.id);
+  await expect(history.getByText("resumed live",{exact:true})).toBeVisible();
+  terminal=true;
+  const refreshed=page.waitForResponse(response=>/\/api\/v1\/jobs\/[^/]+\/ux-working$/.test(response.url()));
+  await page.clock.fastForward(16000);await refreshed;
+  await expect(detail.locator(".job-detail-meta")).toContainText("Failed");
+  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(archive.id);
+  const stopped=reads;
+  await page.clock.fastForward(3300);
+  expect(reads).toBe(stopped);
+  await expect(history.getByLabel("Attempt",{exact:true})).toHaveValue(archive.id);
+});
+
+for(const finished of [false,true])test(`LA-02 archived pagination survives hidden views at ${finished?"EOF":"a partial page"}`,async({page})=>{
+  await signIn(page);
+  const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
+  let reads=0;
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[archive]}}));
+  await page.route("**/sessions/build-attempt-1-attempt1?*",route=>{
+    reads++;
+    const second=new URL(route.request().url()).searchParams.get("cursor")==="100";
+    return route.fulfill({json:{session:archive,items:[{kind:"assistant",text:second?"archived second page":"archived first page"}],next_cursor:second?null:100}});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-done");
+  const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByText("archived first page",{exact:true})).toBeVisible();
+  if(finished){
+    await history.getByRole("button",{name:"Load more",exact:true}).click();
+    await expect(history.getByText("archived second page",{exact:true})).toBeVisible();
+  }
+  const accepted=reads;
+  await detail.getByRole("tab",{name:"Activity",exact:true}).click();
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await page.waitForTimeout(250);
+  expect(reads).toBe(accepted);
+  await page.evaluate(()=>{Object.defineProperty(document,"visibilityState",{configurable:true,value:"hidden"});document.dispatchEvent(new Event("visibilitychange"));});
+  await page.evaluate(()=>{Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"});document.dispatchEvent(new Event("visibilitychange"));});
+  await page.waitForTimeout(250);
+  expect(reads).toBe(accepted);
+  await expect(history.getByText("archived first page",{exact:true})).toBeVisible();
+  if(finished)await expect(history.getByText("archived second page",{exact:true})).toBeVisible();
+  else await expect(history.getByRole("button",{name:"Load more",exact:true})).toBeVisible();
+});
+
+for(const failed of [false,true])test(`LA-02 unaccepted initial history resumes after ${failed?"failure":"hiding an in-flight read"}`,async({page})=>{
+  await signIn(page);
+  const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
+  let reads=0,release:()=>void=()=>{};
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[archive]}}));
+  await page.route("**/sessions/build-attempt-1-attempt1?*",async route=>{
+    const count=++reads;
+    if(count===1){
+      if(failed)return route.fulfill({status:503,json:{detail:{code:"job_evidence_corrupt"}}});
+      await held;
+    }
+    return route.fulfill({json:{session:archive,items:[{kind:"assistant",text:count===1?"STALE_HISTORY_NEVER":"accepted initial history"}],next_cursor:null}});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-done");
+  const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect.poll(()=>reads).toBe(1);
+  if(failed)await expect(history.getByRole("button",{name:"Retry",exact:true})).toBeVisible();
+  await detail.getByRole("tab",{name:"Activity",exact:true}).click();
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByText("accepted initial history",{exact:true})).toBeVisible();
+  release();
+  await expect(history.getByText("STALE_HISTORY_NEVER",{exact:true})).toHaveCount(0);
+  expect(reads).toBe(2);
+});
+
+test("LA-02 interrupted archive Load more keeps its cursor and remains retryable",async({page})=>{
+  await signIn(page);
+  const archive={id:"build-attempt-1-attempt1",stage:"build",attempt:1,start_at:null,end_at:"2026-11-14T10:00:00Z",outcome:"succeeded",exit_code:0};
+  let reads=0,release:()=>void=()=>{};
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/sessions",route=>route.fulfill({json:{sessions:[archive]}}));
+  await page.route("**/sessions/build-attempt-1-attempt1?*",async route=>{
+    const count=++reads,offset=Number(new URL(route.request().url()).searchParams.get("cursor"));
+    if(count===2)await held;
+    return route.fulfill({json:{session:archive,items:[{kind:"assistant",text:offset?"accepted second page":"accepted first page"}],next_cursor:offset?null:100}});
+  });
+  await page.goto("/jobs?project=alpha&run=ux-done");
+  const detail=page.locator(".job-details"),history=detail.locator(".agent-sessions");
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  await expect(history.getByText("accepted first page",{exact:true})).toBeVisible();
+  const more=history.getByRole("button",{name:"Load more",exact:true});
+  await more.click();await expect.poll(()=>reads).toBe(2);
+  await detail.getByRole("tab",{name:"Activity",exact:true}).click();
+  await detail.getByRole("tab",{name:"Agent sessions",exact:true}).click();
+  release();
+  await expect(more).toBeEnabled();
+  await expect(history.getByText("accepted second page",{exact:true})).toHaveCount(0);
+  await more.click();
+  await expect(history.getByText("accepted second page",{exact:true})).toBeVisible();
+  await expect(history.getByText("accepted first page",{exact:true})).toBeVisible();
+  expect(reads).toBe(3);
+});
+
 test("LA-01 compact detail preserves global list and reads recorded sessions", async ({page}, info) => {
   await signIn(page);
   await nav(page).getByRole("link", {name:"Jobs",exact:true}).click();

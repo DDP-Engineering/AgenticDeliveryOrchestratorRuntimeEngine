@@ -96,6 +96,123 @@ class FakePi:
         return all(process.poll() is not None for process in self.processes)
 
 
+@pytest.mark.parametrize("fault", [False, True])
+def test_live_launch_marker_owned_until_archive_and_removed_on_fault(tmp_path, monkeypatch, fault):
+    """@brief Only an actual RPC launch advertises live output, including archive handoff."""
+    from adore.executor import pi_rpc
+    worktree, io_dir = tmp_path / "work", tmp_path / "io"
+    worktree.mkdir()
+    io_dir.mkdir()
+    (io_dir / "output.jsonl").write_text("old output", encoding="utf-8")
+    seen = []
+
+    def rpc(*args, **kwargs):
+        """@brief Inspect live ownership from inside the injected launch boundary."""
+        marker = json.loads((io_dir / "live.json").read_text())
+        assert marker["schema"] == 1 and marker["id"].startswith("live-")
+        assert marker["archive_id"] == "build-attempt-1-attempt1"
+        assert not (io_dir / "output.jsonl").read_bytes()
+        seen.append(marker)
+        if fault:
+            raise OSError("injected spawn fault")
+        (io_dir / "output.jsonl").write_text('{}\n', encoding="utf-8")
+        return PiRpcResult(outcome="completed", exit_code=0)
+
+    monkeypatch.setattr(pi_rpc, "run_pi_rpc", rpc)
+    executor = PiExecutor("pi", "m")
+    target = SpawnTarget(FakePi(tmp_path, "run_tool_calls_chatgpt"))
+    if fault:
+        with pytest.raises(OSError, match="injected"):
+            executor.run_gate(target, worktree, io_dir, PROMPT, archive_stem="build-attempt-1")
+    else:
+        result = executor.run_gate(target, worktree, io_dir, PROMPT, archive_stem="build-attempt-1")
+        assert Path(result.artifact_dirs[0]).name == seen[0]["archive_id"]
+    assert seen and not (io_dir / "live.json").exists()
+
+
+def test_live_rpc_completed_record_is_readable_before_launch_ends(tmp_path):
+    """@brief A short completed prompt reaches disk while the fake Pi still waits."""
+    fixture = tmp_path / "live.jsonl"
+    fixture.write_text('\n'.join(json.dumps(row) for row in [
+        {"dir": "stdin", "record": {"type": "prompt"}},
+        {"dir": "stdout", "record": {"type": "message_end", "message": {
+            "role": "user", "content": "VISIBLE_LIVE_PROMPT"}}},
+    ]) + '\n', encoding="utf-8")
+    fake = FakePi(tmp_path, "run_tool_calls_chatgpt", "--hang")
+    fake.command = [sys.executable, "-I", str(FAKE), str(fixture), "--hang"]
+    output = tmp_path / "output.jsonl"
+    observed = False
+
+    def cancel_after_visible():
+        """@brief Observe the public evidence file before asking the fake to settle."""
+        nonlocal observed
+        observed = output.exists() and b"VISIBLE_LIVE_PROMPT" in output.read_bytes()
+        return observed
+
+    result = run_pi_rpc(fake, ["pi", "--mode", "rpc"], {}, PROMPT, timeout=2,
+                        cancelled=cancel_after_visible, output_path=output, **FAST)
+    assert observed and result.outcome == "cancelled"
+    assert fake.all_exited()
+
+
+@pytest.mark.parametrize("kind", ["hardlink", "oversize", "missing", "archive-reparse"])
+def test_literal_rpc_archive_refuses_unsafe_recording(tmp_path, monkeypatch, kind):
+    """@brief Raw archive copies retain regular-file identity and total-byte bounds."""
+    from adore.executor import pi_rpc
+    from adore.isolation import IsolationError
+    worktree, io_dir = _dirs(tmp_path)
+    external = tmp_path / "external"
+    external.write_text("outside-recording", encoding="utf-8")
+
+    def rpc(*args, **kwargs):
+        """@brief Inject an untrusted recording after the RPC producer boundary."""
+        output = kwargs["output_path"]
+        output.unlink(missing_ok=True)
+        if kind == "hardlink":
+            output.hardlink_to(external)
+        elif kind == "missing":
+            return PiRpcResult(outcome="completed", exit_code=0,
+                               output="sanitized operational tail")
+        elif kind == "archive-reparse":
+            import os
+            output.write_bytes(b'{}\n')
+            archive = io_dir / ARCHIVE_DIR
+            outside = tmp_path / "external-archive"
+            outside.mkdir()
+            if os.name == "nt":
+                import _winapi
+                _winapi.CreateJunction(str(outside), str(archive))
+            else:
+                archive.symlink_to(outside, target_is_directory=True)
+        else:
+            with output.open("wb") as handle:
+                handle.truncate(pi_rpc.PERSIST_TOTAL_BYTES + 256)
+        return PiRpcResult(outcome="completed", exit_code=0)
+
+    monkeypatch.setattr(pi_rpc, "run_pi_rpc", rpc)
+    executor = PiExecutor("pi", "m")
+    target = SpawnTarget(FakePi(tmp_path, "run_tool_calls_chatgpt"))
+    if kind == "missing":
+        result = executor.run_gate(target, worktree, io_dir, PROMPT,
+            archive_stem="build-attempt-1", package_secrets={})
+        assert not result.ok and "archive write failed" in result.stderr
+        archived = io_dir / ARCHIVE_DIR / "build-attempt-1-attempt1" / OUTPUT_FILE
+        assert not archived.exists()
+    else:
+        with pytest.raises(IsolationError, match="recording|archive"):
+            executor.run_gate(target,
+            worktree, io_dir, PROMPT, archive_stem="build-attempt-1", package_secrets={})
+    if kind == "archive-reparse":
+        assert list((tmp_path / "external-archive").iterdir()) == []
+        archive = io_dir / ARCHIVE_DIR
+        if archive.is_symlink():
+            archive.unlink()
+        else:
+            archive.rmdir()  # Removes only the temporary Windows junction.
+    assert external.read_text(encoding="utf-8") == "outside-recording"
+    assert not (io_dir / "live.json").exists()
+
+
 class SpawnTarget:
     """
     @brief   Container-target double: container paths plus the spawn seam.
@@ -330,7 +447,8 @@ def test_pi_executor_failure_reaches_the_existing_failure_path(tmp_path: Path) -
         SpawnTarget(fake), worktree, io_dir, PROMPT, timeout=30)
     assert not run.ok and not run.timed_out
     assert run.stderr.startswith("Pi run failed (credential): ")
-    assert "sk-inval" not in (io_dir / OUTPUT_FILE).read_text(encoding="utf-8")
+    assert "sk-inval****0000" in (io_dir / OUTPUT_FILE).read_text(encoding="utf-8")
+    assert "sk-inval" not in run.output + run.stderr
 
 
 def test_pi_executor_keeps_the_file_protocol_without_a_spawn_seam(tmp_path: Path) -> None:
@@ -546,26 +664,34 @@ def test_native_pi_template_receives_provider_and_model(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("package", [False, True])
-def test_pi_rpc_package_retention_keeps_usage_and_redacts_archive(tmp_path, package):
-    """@brief Package authority caps the RPC archive without losing late turn usage."""
+def test_pi_rpc_package_retention_keeps_usage_and_literal_session_archive(tmp_path, package):
+    """@brief RPC sessions keep literal bounded events while operational tails stay safe."""
     worktree, io_dir = _dirs(tmp_path)
     fake = FakePi(tmp_path, "run_tool_calls_chatgpt", "--big-count", "4",
                   "--big-size", "40000", "--key-hint", "private-test-value")
+    fixture = tmp_path / "literal-package.jsonl"
+    rows = [json.loads(line) for line in (FIXTURES / "run_tool_calls_chatgpt.jsonl")
+            .read_text(encoding="utf-8").splitlines()]
+    index = next(index for index, row in enumerate(rows)
+                 if row["dir"] == "stdout" and row["record"].get("type") == "agent_settled")
+    rows.insert(index, {"dir": "stdout", "record": {"type": "message_end", "message": {
+        "role": "user", "content": "private-test-value"}}})
+    fixture.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    fake.command[3] = str(fixture)
+    target = SpawnTarget(fake)
+    target.redact = lambda text: text.replace("private-test-value", "[REDACTED]")
     options = {"package_secrets": {"KEY": "private-test-value"}} if package else {}
     run = PiExecutor("pi", "m").run_gate(
-        SpawnTarget(fake), worktree, io_dir, PROMPT,
+        target, worktree, io_dir, PROMPT,
         timeout=30, archive_stem="packages", **options)
     assert run.ok and run.tokens_reported
     assert (run.tokens_in, run.tokens_out) == (5275, 141)
     archive = Path(run.artifact_dirs[0])
-    if package:
-        for root in (io_dir, archive):
-            for name in ("output.jsonl", "stderr.log"):
-                content = (root / name).read_bytes()
-                assert len(content) <= 65536
-                assert b"private-test-value" not in content
-    else:
-        assert (archive / "output.jsonl").stat().st_size > 65536
+    for root in (io_dir, archive):
+        assert (root / "output.jsonl").stat().st_size > 65536
+        assert b"private-test-value" in (root / "output.jsonl").read_bytes()
+        assert b"private-test-value" not in (root / "stderr.log").read_bytes()
+    assert "private-test-value" not in run.output + run.stderr
     assert fake.all_exited()
 
 

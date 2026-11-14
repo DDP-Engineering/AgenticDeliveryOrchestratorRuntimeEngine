@@ -135,9 +135,9 @@ launching Pi, and normal bounded recovery applies. Stage limits remain 3000 s.
   Selection and transport preserve original bytes. Loading/rendering contracts
   belong to `prompts.md`; the executor-neutral gate interface stays unchanged.
 
-- REQ-FUNC-c405688e: optional package_secrets enables post-gate known-credential redaction and 64 KiB retained stdout/stderr, live and archived. Complete original usage is streamed before retention truncation; linked output fails closed. Native and disabled profiles retain existing behavior.
+- REQ-FUNC-c405688e: optional package_secrets keeps operational tails, stderr and questions sanitized and bounded. Bounded RPC stdout sessions persist literal values and archive without post-gate rewriting; complete usage remains independent. The non-RPC file protocol retains its existing sanitized stream policy.
 
-- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native Pi lends owned pipes to the shared RPC client and retains fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native files are contained bounded UTF-8 and redacted before retention, including the conductor questions file.
+- REQ-FUNC-ffb9ed29 / REQ-UX-b75e1df8: Native Pi lends owned pipes to the shared RPC client and retains fresh sessions, questions, usage and archives. gate.sh is a legal-header native launch description. Native operational evidence and conductor questions are contained bounded UTF-8 and sanitized; RPC job-session recordings retain literal bounded events.
 
 Native ownership/auth route to `local-execution.md`; focused proof is
 `04_Software/tests/test_local_execution.py`.
@@ -186,9 +186,9 @@ Native ownership/auth route to `local-execution.md`; focused proof is
 - `04_Software/tests/test_executor.py` - launch, timeout and usage contracts.
 - `04_Software/tests/test_prompts.py` - original notice bytes through native/container branches and shared construction-time reads.
 
-Retained stdout/stderr archives encode the returned text directly as UTF-8 bytes. Host newline conversion cannot enlarge bounded package logs; multiline, redaction-expansion and malformed-UTF-8 cases are covered through the public gate interface. Complete original usage remains independent of text retention.
+The non-RPC file protocol encodes sanitized retained stdout/stderr directly as UTF-8 bytes without host newline expansion. RPC session archives copy the literal bounded stdout recording; sanitized stderr and returned tails retain their limits. Complete original usage remains independent of text retention.
 
-Package-enabled Pi gates combine cancellation with `package_secrets`: the complete RPC turn usage is kept, then live/archive stdout and stderr are redacted and capped at 64 KiB in UTF-8 bytes. Ordinary RPC gates keep their full event archive. A timed-out RPC gate settles the bound container before another command; unconfirmed interruption raises `ExecutionRecoveryError`. Native Pi uses the same bounded file-protocol retention.
+Package-enabled Pi RPC gates combine cancellation with `package_secrets`: complete turn usage is kept; returned operational tails, stderr and questions stay sanitized and bounded. Live/archive stdout preserves literal bounded events, including known credentials, without a post-gate rewrite. Native RPC shares this policy. A timed-out gate settles the bound container before another command; unconfirmed interruption raises `ExecutionRecoveryError`. The non-RPC file protocol retains its existing sanitized retention.
 
 RPC clarification questions apply the binding credential redactor before publication. Package-enabled questions also use the shared regular-file/identity checks, known-secret redaction and 64 KiB UTF-8 retention cap; linked question files fail closed.
 
@@ -199,3 +199,35 @@ Pi RPC captures bounded canonical diagnostics from protocol error fields, failed
 Recognized token-shaped module identifiers are withheld even when they satisfy Python identifier syntax. Diagnostic ring mutation and result snapshots share the evidence lock, including readers that outlive a bounded join.
 
 Pi stage argv includes --thinking when configured; blank leaves Pi default. Both native and container paths use the same level.
+
+
+## Live launch ownership
+
+REQ-FUNC-fe8ecf4c: PiExecutor with a stage-attempt archive stem clears old output,
+acquires StateStore(io_dir).run_lock("agent-session"), then atomically publishes
+schema-1 live.json with UUID id, planned collision-safe archive id and start timestamp.
+The ExitStack holds this crash-released kernel ownership until RPC/archive handling
+finishes, then removes the marker on normal or exceptional exit. A crashed owner leaves
+no held lock, so a retained marker cannot label an abandoned session live. Targets and
+probes without a stage-attempt stem do not publish a job session. Existing archive
+layout and one-RPC-per-stage behavior remain. Completed persisted RPC records flush
+immediately for live readers. Offline lifetime/fault/producer visibility proof is in
+`test_pi_rpc.py`; web projections and cursor continuity route to web-interface.md.
+
+
+## Literal session persistence boundary
+
+REQ-SEC-97e45ffb: completed RPC stdout records are persisted literally within the
+existing per-record and 32 MiB total bounds; deltas remain omitted and oversized
+records remain stubs. _Evidence keeps separate sanitized operational tail bytes.
+Known binding/package credentials, key-hint and Bearer masking apply only to these
+operational tails, stderr, questions, error messages and normalized diagnostics.
+Package jobs never rewrite the raw session file before archiving. The shared authenticated
+reader excludes system messages and restricts structured costs. Public fake-producer
+live/archive tests prove literal secret-shaped samples and continued operational
+masking; no old recordings are rewritten.
+
+Raw archive source absence fails closed instead of substituting an operational tail.
+Archive destination parents reject symlink/reparse redirection before writes; raw
+outputs are exclusively created. Public missing-source and real junction/symlink
+fixtures cover these boundaries through run_gate.

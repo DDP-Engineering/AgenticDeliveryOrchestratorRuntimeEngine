@@ -14,6 +14,8 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 
+- Live agent sessions show completed activity every three seconds, unfinished tools/thinking and safe archive handoff.
+
 - Browse completed agent sessions with literal recorded prompts, tool calls/results, reasoning and usage through authorized no-store reads.
 
 ### Fixed

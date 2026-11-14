@@ -314,28 +314,34 @@ class _Evidence:
         with self.lock:
             return "\n".join(self.diagnostics)
 
-    def add(self, line: str) -> None:
+    def add(self, line: str, *, recorded: str | None = None) -> None:
         """
-        @brief      Persist one line within the file limit and keep it in the tail.
-        @param[in]  line Redacted line without its LF.
+        @brief      Persist a bounded record separately from its sanitized operational tail.
+        @param[in]  line Redacted operational line without its LF.
+        @param[in]  recorded Literal session record; None retains the operational line.
         """
         data = line.encode("utf-8") + b"\n"
+        persisted = data if recorded is None else recorded.encode("utf-8") + b"\n"
         with self.lock:
-            self._add(line, data)
+            self._add(line, data, persisted)
 
-    def _add(self, line: str, data: bytes) -> None:
+    def _add(self, line: str, data: bytes, persisted: bytes) -> None:
         """
         @brief      Persist and retain one line; the caller holds the lock.
         @param[in]  line Redacted line without its LF.
-        @param[in]  data The line encoded with its LF.
+        @param[in]  data Sanitized tail line encoded with its LF.
+        @param[in]  persisted Bounded literal record bytes for the session file.
         """
         if self.handle is not None and not self.truncated:
-            if self.written + len(data) > self.limit:
+            if self.written + len(persisted) > self.limit:
                 self.truncated = True
                 self.handle.write(b'{"type":"adore_output_truncated"}\n')
             else:
-                self.handle.write(data)
-                self.written += len(data)
+                self.handle.write(persisted)
+                self.written += len(persisted)
+            # The web live reader must see each completed record before the
+            # RPC launch closes, even when the Python buffer is still small.
+            self.handle.flush()
         self.tail.append(line)
         self.tail_bytes += len(data)
         while self.tail_bytes > self.tail_limit and self.tail:
@@ -398,8 +404,9 @@ def _read_stdout(stream: IO[bytes], sink: queue.Queue, evidence: _Evidence, limi
             evidence.add_diagnostics(protocol_diagnostics(record, evidence.clean))
             kind = record.get("type")
             if kind != "message_update":
-                evidence.add(_stub(str(kind), size) if size > evidence.record_limit
-                             else evidence.clean(line.decode("utf-8")))
+                recorded = (_stub(str(kind), size) if size > evidence.record_limit
+                            else line.decode("utf-8"))
+                evidence.add(evidence.clean(recorded), recorded=recorded)
             facts = _facts(record)
             if facts is not None:
                 sink.put(facts)

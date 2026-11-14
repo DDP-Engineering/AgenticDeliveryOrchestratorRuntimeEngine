@@ -344,9 +344,13 @@ Explicit `container.system_packages = true` authorizes direct package-manager su
 
 ## Recorded agent session visibility
 
-Job administrators and developers assigned to the owning project can read completed
+Job administrators and developers assigned to the owning project can read live and completed
 agent sessions exactly as recorded, including any secret values in prompts or tool
-output. The session reader adds no redaction. Pi system messages and files outside
+output. RPC session persistence and the reader apply no masking to retained valid
+records, including known binding/package credentials and key-hint/Bearer values.
+Package jobs archive the bounded literal session without rewriting it to a sanitized
+tail. Returned operational tails, stderr, questions and normalized diagnostics keep
+their existing masking. The non-RPC file protocol retains its operational policy. Pi system messages and files outside
 the selected run are excluded. Structured cost amounts retain administrator-only
 visibility. These authenticated API responses use Cache-Control: no-store; serve the
 web interface over TLS. The normalized latest executor-output view remains separate.

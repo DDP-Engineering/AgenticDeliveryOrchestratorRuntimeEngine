@@ -367,3 +367,19 @@ stores and fake HTTP/browser collaborators. Windows without link creation privil
 skips symlink creation cases; hardlinks are still verified. No Pi/provider/forge/runtime
 job is run. This child uses targeted validation; the parent runs integrated suites after
 the final activity child. Source/help changes require the committed production build.
+
+
+## Live session offline checks
+
+Live session fixtures hold the same crash-released StateStore agent-session kernel
+lock used by PiExecutor, without Pi/provider/container execution. Targeted proof uses
+`tests/test_web_executor_session.py`, `tests/test_web_jobs.py`, RPC launch lifetime
+cases in `tests/test_pi_rpc.py`, session/help model checks and LA-02/retained LA-01
+browser journeys. An abandoned marker, same-inode rewrite and incomplete tail are
+explicit injected boundaries. Linux symlink acceptance remains operator-owned when
+Windows cannot create links. Production assets use the existing npm build/stamper.
+
+Producer-to-session offline cases drive a fake RPC process through live and archived
+HTTP reads with synthetic known binding/package credentials and key-hint/Bearer values;
+operational output masking is checked independently. No actual credentials/provider
+are involved. Raw archive hardlink and size-bound cases fail closed.

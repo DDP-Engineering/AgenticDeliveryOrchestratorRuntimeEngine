@@ -132,3 +132,8 @@ checks continue to fence interruption and cleanup; no process-global environment
 is modified for project settings.
 
 Focused proof: `04_Software/tests/test_shared_resources.py` and the component’s existing offline contracts.
+
+Native RPC job-session recordings retain literal bounded stdout events, including
+known credentials printed by the agent. Operational tails, stderr, questions, diagnostics
+and model-check responses retain masking. Session reads use the authorized no-store
+job surface and exclude system messages; no old recording is rewritten.

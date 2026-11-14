@@ -373,11 +373,11 @@ LocalTarget lends owned binary pipes from the exact native Node and Pi installat
 
 ## Agent-controlled system packages
 
-run_gate accepts optional package_secrets for opted-in container jobs. It bounds retained live and archived stdout/stderr to 64 KiB per stream after completion, redacts known credentials and Bearer tokens, rejects linked output paths and streams complete original usage before truncation so cost/token accounting remains intact. Native and legacy output policy remains unchanged. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
+run_gate accepts optional package_secrets for opted-in container jobs. Operational tails, stderr and questions remain sanitized and bounded at 64 KiB. RPC stdout is a separate literal session recording with its standard record/total bounds, copied unchanged into the archive. The non-RPC file protocol retains its sanitized 64 KiB stdout/stderr policy. Complete usage remains independent of retention. See [Package permissions](Component_Package_Permissions.md) and the operator dependency-installation guide.
 
-Retained stdout/stderr archives encode the returned text directly as UTF-8 bytes. Host newline conversion cannot enlarge bounded package logs; multiline, redaction-expansion and malformed-UTF-8 cases are covered through the public gate interface. Complete original usage remains independent of text retention.
+The non-RPC file protocol encodes sanitized retained stdout/stderr directly as UTF-8 bytes without host newline expansion. RPC session archives copy the literal bounded stdout recording; sanitized stderr and returned tails retain their limits. Complete original usage remains independent of text retention.
 
-Package-enabled Pi gates combine cancellation with `package_secrets`: the complete RPC turn usage is kept, then live/archive stdout and stderr are redacted and capped at 64 KiB in UTF-8 bytes. Ordinary RPC gates keep their full event archive. A timed-out RPC gate settles the bound container before another command; unconfirmed interruption raises `ExecutionRecoveryError`. Native Pi uses the same bounded file-protocol retention.
+Package-enabled Pi RPC gates combine cancellation with `package_secrets`: complete turn usage is kept; returned operational tails, stderr and questions stay sanitized and bounded. Live/archive stdout preserves literal bounded events, including known credentials, without a post-gate rewrite. Native RPC shares this policy. A timed-out gate settles the bound container before another command; unconfirmed interruption raises `ExecutionRecoveryError`. The non-RPC file protocol retains its existing sanitized retention.
 
 RPC clarification questions apply the binding credential redactor before publication. Package-enabled questions also use the shared regular-file/identity checks, known-secret redaction and 64 KiB UTF-8 retention cap; linked question files fail closed.
 
@@ -391,3 +391,39 @@ Recognized token-shaped module identifiers are withheld even when they satisfy P
 
 Executor publication guards always leave Git publication to ADORE, whether the
 project requires a human approval or permits automatic validated publication.
+
+## Live launch ownership
+
+PiExecutor RPC launches with a valid stage-attempt archive stem publish `io/live.json`
+(schema 1: random live id, planned archive id, start timestamp) after stale output is
+cleared. A StateStore rooted at the IO directory holds `run_lock("agent-session")`
+through RPC and archive completion. The web reader uses its crash-released kernel
+ownership as a liveness probe; marker presence alone never proves a running launch.
+ExitStack removes the marker on success and exceptional returns; a host crash releases
+the lock even when cleanup did not run. No PID reuse or file mtime establishes launch
+identity. The collision suffix matches the normal archive allocator. Package/model
+probes without a stage-attempt stem do not advertise a job session. Each persisted complete RPC record is flushed immediately so a short record reaches
+live readers before launch completion. Offline marker lifetime/fault and producer
+visibility checks live in `tests/test_pi_rpc.py`.
+
+
+## Literal session persistence boundary
+
+REQ-SEC-97e45ffb: completed RPC stdout records are persisted literally within the
+existing per-record and 32 MiB total bounds; deltas remain omitted and oversized
+records remain stubs. _Evidence keeps separate sanitized operational tail bytes.
+Known binding/package credentials, key-hint and Bearer masking apply only to these
+operational tails, stderr, questions, error messages and normalized diagnostics.
+Package jobs never rewrite the raw session file before archiving. The shared authenticated
+reader excludes system messages and restricts structured costs. Public fake-producer
+live/archive tests prove literal secret-shaped samples and continued operational
+masking; no old recordings are rewritten.
+
+Literal archive copies stream at most the producer total bound plus its truncation
+notice, refusing symlink/reparse/hardlinked files, unsafe parents and changed identities.
+
+A supplied raw recording is mandatory: missing files fail the archive operation and
+never become sanitized operational tails presented as transcripts. Archive destination
+parents reject symlinks and Windows reparse points before any write. Raw files use
+exclusive creation inside the new guarded archive directory. Public fixtures prove
+missing output and real Windows junction/Linux symlink refusal.

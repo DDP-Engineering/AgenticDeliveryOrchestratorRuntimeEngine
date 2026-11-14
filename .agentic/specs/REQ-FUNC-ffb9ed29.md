@@ -111,3 +111,8 @@ identity/PID/scope/control, native argv/path/file/timeout/auth, conductor and UI
 readiness contracts. The configured Python/frontend product suites and aggregate
 strict check validate an integrated candidate. Live OS/executor/provider/forge
 acceptance remains a separate operator action.
+
+Native RPC job-session recordings retain literal bounded stdout events, including
+known credentials printed by the agent. Operational tails, stderr, questions, diagnostics
+and model-check responses retain masking. Session reads use the authorized no-store
+job surface and exclude system messages; no old recording is rewritten.

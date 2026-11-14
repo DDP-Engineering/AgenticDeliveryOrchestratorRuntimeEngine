@@ -119,3 +119,8 @@ configured. It does not contact the model. **Test AI connection** explicitly
 runs a bounded RPC challenge in a temporary worktree and may incur charges.
 The test requires a successful shell command and the exact final reply. Neither
 check proves the project's toolchain or a complete job.
+
+Native RPC job-session recordings retain literal bounded stdout events, including
+known credentials printed by the agent. Operational tails, stderr, questions, diagnostics
+and model-check responses retain masking. Session reads use the authorized no-store
+job surface and exclude system messages; no old recording is rewritten.

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
+schema = 1
+id = "REQ-FUNC-20e2ffe7"
+title = "Poll completed live session records"
+status = "active"
+requirement = "When an authorized reader polls a continuous live launch at a complete-line byte cursor, the shared reader shall return bounded completed source items and a cursor that leaves any partial final record for a later request."
+verification = "Append complete and partial JSONL, poll at returned cursors, assert every completed item appears once with existing text, usage, system and cost boundaries."
+affected_paths = ["04_Software/adore/web/executor_session.py", "04_Software/adore/web/app.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/executor/pi_rpc.py", "04_Software/web/src/SessionView.tsx", "04_Software/web/src/sessionModel.ts"]
+linked_tests = ["04_Software/tests/test_web_executor_session.py", "04_Software/tests/test_pi_rpc.py", "04_Software/web/tests/sessions.test.mjs", "04_Software/web/e2e/jobs.spec.ts"]
+created = 2026-11-14
+updated = 2026-11-14
+spec = "specs/REQ-FUNC-20e2ffe7.md"

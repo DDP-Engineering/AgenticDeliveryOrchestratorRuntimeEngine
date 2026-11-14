@@ -17,7 +17,7 @@ verification = "A fake Pi process replaying the recorded tool-call run receives 
 
 affected_paths = ["04_Software/adore/executor/pi_rpc.py", "04_Software/adore/executor/launcher.py", "04_Software/adore/executor/base.py", "04_Software/adore/isolation.py", "04_Software/adore/execution.py", "04_Software/adore/branding.py"]
 
-linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_rpc_package_retention_keeps_usage_and_redacts_archive", "04_Software/tests/test_pi_rpc.py::test_successful_run_with_tool_calls_sums_usage_over_turns", "04_Software/tests/test_pi_rpc.py::test_exit_code_after_settling_is_not_the_result", "04_Software/tests/test_pi_rpc.py::test_pi_executor_launches_an_isolated_rpc_process", "04_Software/tests/test_pi_rpc.py::test_pi_executor_keeps_the_file_protocol_without_a_spawn_seam", "04_Software/tests/test_isolation.py::test_container_spawn_attaches_stdin_with_the_exec_env_contract", "04_Software/tests/test_execution.py::test_bound_target_spawn_verifies_identity_and_merges_env"]
+linked_tests = ["04_Software/tests/test_pi_rpc.py::test_pi_rpc_package_retention_keeps_usage_and_literal_session_archive", "04_Software/tests/test_pi_rpc.py::test_successful_run_with_tool_calls_sums_usage_over_turns", "04_Software/tests/test_pi_rpc.py::test_exit_code_after_settling_is_not_the_result", "04_Software/tests/test_pi_rpc.py::test_pi_executor_launches_an_isolated_rpc_process", "04_Software/tests/test_pi_rpc.py::test_pi_executor_keeps_the_file_protocol_without_a_spawn_seam", "04_Software/tests/test_isolation.py::test_container_spawn_attaches_stdin_with_the_exec_env_contract", "04_Software/tests/test_execution.py::test_bound_target_spawn_verifies_identity_and_merges_env"]
 
 
 spec = ""
@@ -26,4 +26,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-01
-updated = 2026-11-03
+updated = 2026-11-14

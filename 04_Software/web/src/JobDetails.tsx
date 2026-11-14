@@ -4,7 +4,7 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0.
 Commercial use requires a separate commercial license.
 See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 */
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Locale, MessageKey } from "./i18n";
 import { commandAllowed, stableExecutionDrift, type Job } from "./jobModel";
 import { budgetCopy, directCopy, jobCopy, sessionCopy } from "./jobCopy";
@@ -20,7 +20,7 @@ type Tab = "activity" | "sessions" | "evidence" | "technical";
 type Props = {
   job: Job; locale: Locale; t: (key: MessageKey) => string; admin: boolean; busy: boolean;
   onClose: () => void; onCommand: (action: "retry" | "cancel" | "restart", job: Job) => void;
-  sessions: ReactNode; consumption: ReactNode; output: ReactNode; timeline: ReactNode; directEvidence?: ReactNode;
+  sessions: (active:boolean)=>ReactNode; consumption: ReactNode; output: ReactNode; timeline: ReactNode; directEvidence?: ReactNode;
   stageLabel: string; stageName: (stage: string) => string; statusLabel: string;
 };
 
@@ -28,6 +28,8 @@ type Props = {
 export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, sessions, consumption, output, timeline, directEvidence, stageLabel, stageName, statusLabel }: Props) {
   const copy = jobCopy[locale], text = jobDetailsCopy[locale], budget = budgetCopy[locale];
   const [selected, setSelected] = useState<Tab>("activity");
+  const [sessionsVisited,setSessionsVisited]=useState(false);
+  useEffect(()=>{if(selected==="sessions")setSessionsVisited(true);},[selected]);
   const [eventLimit, setEventLimit] = useState(10);
   const prefix = useId(), tabs = useRef<HTMLDivElement>(null);
   const tabList: Tab[] = ["activity", "sessions", "evidence", "technical"];
@@ -87,7 +89,7 @@ export function JobDetails({ job, locale, t, admin, busy, onClose, onCommand, se
       {events.length > eventLimit && <button className="ghost" onClick={() => setEventLimit(events.length)}>{t("all")} ({events.length})</button>}
     </section>
     <section id={`${prefix}-sessions`} role="tabpanel" tabIndex={0} aria-labelledby={`${prefix}-sessions-tab`} hidden={selected !== "sessions"} className="job-detail-content">
-      {selected === "sessions" && sessions}
+      {(selected === "sessions" || sessionsVisited) && sessions(selected === "sessions")}
     </section>
     <section id={`${prefix}-evidence`} role="tabpanel" tabIndex={0} aria-labelledby={`${prefix}-evidence-tab`} hidden={selected !== "evidence"} className="job-detail-content job-question">
       <h3>{question ? text.question : copy.artifacts}</h3>

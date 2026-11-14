@@ -34,6 +34,7 @@ import re
 import shlex
 import shutil
 import stat
+from uuid import uuid4
 
 from adore.branding import (
     CONTAINER_PI_AGENT_DIR,
@@ -49,6 +50,7 @@ from adore.isolation import IsolationError
 from adore.pi_installation import GUARD, ManagedPi
 from adore.pi_providers import pi_provider
 from adore.prompts import PromptCatalog
+from adore.state import StateStore
 from adore.util import CommandResult, utc_now_iso
 
 # CONSTANTS
@@ -84,6 +86,62 @@ PI_RPC_ENV = {
 PI_CANCEL_GRACE_SECONDS = (
     pi_rpc.ABORT_GRACE_SECONDS + pi_rpc.EXIT_GRACE_SECONDS + pi_rpc.KILL_GRACE_SECONDS + 5.0
 )
+
+# LOCAL HELPERS
+
+def _archive_directories(path: Path) -> None:
+    """@brief Refuse linked/reparse archive destinations before any archive write."""
+    for parent in (path, *path.parents):
+        try:
+            info = parent.lstat()
+        except FileNotFoundError:
+            continue
+        if (not stat.S_ISDIR(info.st_mode) or parent.is_symlink()
+                or getattr(info, "st_file_attributes", 0) & 0x400):
+            raise IsolationError("archive destination is linked or not a directory")
+
+
+def _archive_recording(source: Path, destination: Path) -> None:
+    """@brief Copy one quiescent literal RPC recording within its producer bound.
+    @param[in] source Run-owned recording after RPC shutdown.
+    @param[in] destination New immutable archive output file.
+    @exception IsolationError Linked, oversized or changing recording.
+    """
+    def identity(path: Path):
+        """@brief Refuse linked/reparse files and parents before inspecting bytes."""
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or getattr(info, "st_file_attributes", 0) & 0x400):
+            raise IsolationError("RPC recording is linked or not a regular file")
+        for parent in path.parents:
+            if (parent.is_symlink()
+                    or getattr(parent.lstat(), "st_file_attributes", 0) & 0x400):
+                raise IsolationError("RPC recording parent is linked")
+        return info
+
+    def signature(info):
+        return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
+
+    _archive_directories(destination.parent)
+    before = identity(source)
+    # The producer may add its small truncation notice after reaching the cap.
+    bound = pi_rpc.PERSIST_TOTAL_BYTES + 128
+    if before.st_size > bound:
+        raise IsolationError("RPC recording exceeds its byte bound")
+    with source.open("rb") as incoming, destination.open("xb") as outgoing:
+        if signature(os.fstat(incoming.fileno())) != signature(before):
+            raise IsolationError("RPC recording identity changed")
+        remaining = before.st_size
+        while remaining:
+            data = incoming.read(min(65536, remaining))
+            if not data:
+                raise IsolationError("RPC recording changed while archiving")
+            outgoing.write(data)
+            remaining -= len(data)
+        if (signature(os.fstat(incoming.fileno())) != signature(before)
+                or signature(identity(source)) != signature(before)):
+            raise IsolationError("RPC recording changed while archiving")
+
 
 # PUBLIC API
 
@@ -352,8 +410,10 @@ class FileProtocolExecutor(Executor):
         @param[in]  output_file Bounded output file copied instead of `output`.
         @return     Archive directory path.
         @exception  OSError When any archive write fails.
+        @exception  IsolationError Unsafe or changing literal RPC recording.
         """
         archive_root = io_dir / ARCHIVE_DIR
+        _archive_directories(archive_root)
         archive_root.mkdir(parents=True, exist_ok=True)
         # One physical launch per gate now that nothing relaunches, so the
         # suffix is constant; the collision loop below still disambiguates a
@@ -365,9 +425,10 @@ class FileProtocolExecutor(Executor):
             archive_dir = archive_root / f"{base_name}-{suffix}"
             suffix += 1
         archive_dir.mkdir()
+        _archive_directories(archive_dir)
         shutil.copy2(io_dir / GATE_SCRIPT, archive_dir / GATE_SCRIPT)
-        if output_file is not None and output_file.is_file():
-            shutil.copy2(output_file, archive_dir / OUTPUT_FILE)
+        if output_file is not None:
+            _archive_recording(output_file, archive_dir / OUTPUT_FILE)
         else:
             (archive_dir / OUTPUT_FILE).write_bytes(output.encode("utf-8"))
         (archive_dir / STDERR_FILE).write_bytes(stderr.encode("utf-8"))
@@ -618,6 +679,25 @@ class PiExecutor(FileProtocolExecutor):
             return redact_output(target_redact(text), package_secrets or {})
 
         with ExitStack() as stack:
+            # Publish ownership only after stale output is gone; keep it through
+            # archive completion so the web can resolve the exact handoff.
+            live_path = io_dir / "live.json"
+            live_path.unlink(missing_ok=True)
+            if re.fullmatch(r"(frame|specify|design|build|validate)-attempt-[1-9][0-9]*",
+                            archive_stem):
+                stack.enter_context(StateStore(io_dir).run_lock("agent-session"))
+                base = f"{archive_stem}-attempt1"
+                archive_id, suffix = base, 2
+                while (io_dir / ARCHIVE_DIR / archive_id).exists():
+                    archive_id, suffix = f"{base}-{suffix}", suffix + 1
+                output_path.touch()
+                marker = {"schema": 1, "id": "live-" + uuid4().hex,
+                          "archive_id": archive_id, "start_at": utc_now_iso()}
+                temporary = io_dir / (marker["id"] + ".tmp")
+                stack.callback(temporary.unlink, missing_ok=True)
+                stack.callback(live_path.unlink, missing_ok=True)
+                temporary.write_text(json.dumps(marker) + "\n", encoding="utf-8")
+                temporary.replace(live_path)
             def spawn_rpc(command, env):
                 """@brief Use the native scope or container exec for the same RPC client."""
                 if native is not None:
@@ -630,55 +710,58 @@ class PiExecutor(FileProtocolExecutor):
                 output_path=output_path, stderr_path=stderr_path,
                 redact=redact,
             )
-        if result.timed_out:
-            settle = getattr(execute, "settle_timeout", None)
-            if settle is not None:
-                settle()
-        output = result.output
-        if package_secrets is not None:
-            output, *_unused = self._retain_package_output(output_path, package_secrets)
-            self._retain_package_output(stderr_path, package_secrets)
-        evidence = pi_rpc.bounded_text("\n".join(
-            redact(part) for part in (result.message, *result.notes, result.stderr) if part))
-        artifacts: list[str] = []
-        if archive_stem:
-            launch = CommandResult(argv=argv, exit_code=result.exit_code,
+            if result.timed_out:
+                settle = getattr(execute, "settle_timeout", None)
+                if settle is not None:
+                    settle()
+            # Session stdout is the bounded literal RPC recording. Package
+            # retention continues to sanitize operational tails and stderr,
+            # but must never rewrite the transcript that live readers consume.
+            output = result.output
+            if package_secrets is not None:
+                output = pi_rpc.bounded_text(redact(output))
+                self._retain_package_output(stderr_path, package_secrets)
+            evidence = pi_rpc.bounded_text("\n".join(
+                redact(part) for part in (result.message, *result.notes, result.stderr) if part))
+            artifacts: list[str] = []
+            if archive_stem:
+                launch = CommandResult(argv=argv, exit_code=result.exit_code,
+                                       timed_out=result.timed_out)
+                try:
+                    artifacts.append(str(self._archive_launch(
+                        io_dir, archive_stem, launch, output, evidence, timeout,
+                        output_path.is_file(), stderr_path.is_file(),
+                        output_file=output_path)))
+                except OSError as exc:
+                    return GateRun(exit_code=result.exit_code or 1, output=output,
+                                   stderr=(evidence + f"\narchive write failed: {exc}").strip(),
                                    timed_out=result.timed_out)
-            try:
-                artifacts.append(str(self._archive_launch(
-                    io_dir, archive_stem, launch, output, evidence, timeout,
-                    output_path.is_file(), stderr_path.is_file(),
-                    output_file=output_path if package_secrets is None else None)))
-            except OSError as exc:
-                return GateRun(exit_code=result.exit_code or 1, output=output,
-                               stderr=(evidence + f"\narchive write failed: {exc}").strip(),
-                               timed_out=result.timed_out)
-        if native is not None:
-            questions = execute.read_output(questions_path, optional=True)
-        elif package_secrets is not None:
-            questions, *_unused = self._retain_package_output(
-                questions_path, package_secrets, redact=target_redact)
-        else:
-            questions = target_redact(self._read(questions_path))
-        usage = result.usage
-        reported = usage.complete and usage.turns > 0
-        return GateRun(
-            exit_code=result.exit_code,
-            has_questions=questions_path.is_file(),
-            questions=questions,
-            output=output,
-            stderr=evidence,
-            timed_out=result.timed_out,
-            tokens_in=usage.tokens_in if reported else 0,
-            tokens_out=usage.tokens_out if reported else 0,
-            cache_read_tokens=usage.cache_read if reported else None,
-            cache_write_tokens=usage.cache_write if reported else None,
-            tokens_reported=reported,
-            cost_usd=0.0,
-            cost_reported=False,
-            artifact_dirs=artifacts,
-            diagnostics=result.diagnostics,
-        )
+            if native is not None:
+                questions = execute.read_output(questions_path, optional=True)
+            elif package_secrets is not None:
+                questions, *_unused = self._retain_package_output(
+                    questions_path, package_secrets, redact=target_redact)
+            else:
+                questions = target_redact(self._read(questions_path))
+            usage = result.usage
+            reported = usage.complete and usage.turns > 0
+            return GateRun(
+                exit_code=result.exit_code,
+                has_questions=questions_path.is_file(),
+                questions=questions,
+                output=output,
+                stderr=evidence,
+                timed_out=result.timed_out,
+                tokens_in=usage.tokens_in if reported else 0,
+                tokens_out=usage.tokens_out if reported else 0,
+                cache_read_tokens=usage.cache_read if reported else None,
+                cache_write_tokens=usage.cache_write if reported else None,
+                tokens_reported=reported,
+                cost_usd=0.0,
+                cost_reported=False,
+                artifact_dirs=artifacts,
+                diagnostics=result.diagnostics,
+            )
 
     def _place_file(self, execute: ExecTarget, io_dir: Path, source: str, target: str,
                     document: dict, reason: str) -> GateRun | None:

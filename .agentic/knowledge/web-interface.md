@@ -1361,8 +1361,8 @@ Project tabs and named global Jobs cards show scoped slots, queued causes, stage
 
 ## Recorded session reader and retained navigation
 
-`executor_session.py` reads only exact completed physical archives beneath the authorized
-run. Parent/link/hardlink guards reuse executor_evidence; typed API failures preserve
+`executor_session.py` reads exact completed physical archives and the launch-owned live
+output beneath the authorized run. Parent/link/hardlink guards reuse executor_evidence; typed API failures preserve
 run evidence. GET job sessions and per-attempt byte-cursor pages are authenticated and
 no-store. System/delta/agent_end data is omitted; literal recorded prompt, assistant,
 tool and readable reasoning text remains unredacted. Structured costs are admin-only.
@@ -1371,8 +1371,9 @@ notice without scanning. A requested item maximum is strict (1..200); assistant 
 items can group bounded text/reasoning/usage parts. Complete LF lines only are read;
 partial archived tails do not offer endless continuation. Archive completion is known,
 start time unavailable. SessionView/sessionModel validate and render on demand with
-collapsed reasoning, expandable tools and Load more. No live polling or instruction
-transport exists in this change.
+collapsed reasoning, expandable tools and Load more. Live selection polls complete-line
+cursors every three seconds only in a visible working session view; explicit archive
+selection and tab changes retain history state. No instruction transport is present.
 
 App records the job origin and retained list filters to restore page/tab/scope/search/
 status/sort/pagination after coherent Jobs navigation. Project tabs/capacity remain as
@@ -1382,3 +1383,33 @@ Proof: test_web_executor_session.py, test_web_jobs.py, sessions/routes/jobs/help
 checks and LA-01 plus retained jobs/tickets/project-capacity browser journeys.
 
 Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.
+
+
+## Live session ownership and continuity
+
+REQ-FUNC-fe8ecf4c / REQ-FUNC-20e2ffe7: a working run's live marker plus held existing
+StateStore agent-session kernel lock proves the first listed active launch. The marker
+records random id, planned archive id and start time. Abandoned markers are ignored.
+The one reader retains grouped source items and all existing security/size boundaries.
+REQ-REL-725d3e4a: live cursors additionally bind stable file identity and consumed-prefix
+SHA-256. Proof is built while parsing and verified against current bytes; replacement,
+truncate/regrow, rewrite or stopped/missing ownership returns session_ended. Ordinary
+append and partial tails retain every complete item exactly once. Bounded thinking
+hints and existing tool start/end items maintain unfinished state without text deltas.
+REQ-UX-236cf3e2 / REQ-UX-acc17615: SessionView stays mounted after first visit, fences
+hidden/selection completions, reloads ended archive from zero or follows next live.
+Between launches only the attempt list is checked while following; selecting history
+stops following. Technical latest-output evidence remains independent.
+Focused proof: live reader cases, test_pi_rpc marker lifecycle, sessions model/helper
+and jobs.spec.ts LA-02/retained LA-01 journeys. Full integrated proof is parent-owned.
+
+Live continuity verification uses a fresh unbuffered descriptor, independent of parser
+read-ahead. EOF before the captured size ends the changed session without retry loops.
+
+RPC session persistence also retains known credential values literally; its bounded
+raw file is copied unchanged for package jobs. Operational tails, stderr, questions
+and diagnostics retain masking. Archive copies reject links and oversize/change races.
+
+Accepted archived pages and EOF retain their exact pagination across hidden views.
+Only live cursors or an initial history read not yet accepted resume automatically;
+failed/interrupted initial history remains retryable.

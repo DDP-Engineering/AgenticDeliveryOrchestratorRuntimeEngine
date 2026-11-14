@@ -16,6 +16,11 @@ schema = 1
 version = "Unreleased"
 
 [[release.entry]]
+category = "improved"
+topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
+text = { en = "Follow live agent activity and unfinished tools; earlier attempts stay available.", fr = "Suivez l’activité et les outils en cours ; les tentatives précédentes restent accessibles.", de = "Live-Agentenaktivität und laufende Werkzeuge verfolgen; frühere Versuche bleiben verfügbar.", ro = "Urmărește activitatea și instrumentele în curs; încercările anterioare rămân disponibile." }
+
+[[release.entry]]
 category = "new"
 topic = { en = "Agent sessions", fr = "Sessions de l’agent", de = "Agentensitzungen", ro = "Sesiunile agentului" }
 text = { en = "Read recorded prompts, agent text, tools and usage from completed attempts.", fr = "Consultez consignes, textes, outils et jetons des tentatives terminées.", de = "Anweisungen, Agententext, Werkzeuge und Verbrauch abgeschlossener Versuche lesen.", ro = "Citește instrucțiunile, textul, instrumentele și consumul încercărilor încheiate." }

@@ -1575,9 +1575,52 @@ text is not redacted. Existing normalized latest executor output stays independe
 
 `SessionView.tsx` and `sessionModel.ts` own on-demand attempt selection, validated
 transport, stale-response guards, collapsed reasoning and expandable tools plus cursor
-Load more. No live polling or instructions are added. Focused proof lives in
+Load more. Live polling uses the launch protocol below; instruction transport is absent. Focused proof lives in
 `test_web_executor_session.py`, retained `test_web_jobs.py`, frontend session/routes/job
 model tests and jobs/tickets browser journeys. Real-provider and Linux link acceptance
 remain operator checks; Windows hosts without symlink privilege skip those cases.
 
 Global Jobs retains its Jobs/Capacity sub-tabs; Tickets is its own sidebar page. The project Jobs tab retains Tickets/Jobs/Capacity.
+
+## Live agent sessions
+
+The shared reader also serves `io/output.jsonl` for the first listed live attempt.
+PiExecutor publishes schema-1 `io/live.json` only after clearing stale output and
+holds the existing crash-released StateStore kernel lock for `agent-session` around
+RPC and archival. A working lifecycle, exact marker and held lock are all required;
+an abandoned marker or retained old output cannot advertise an active launch. The
+marker records a random launch id, exact planned archive id and start timestamp,
+and is removed on success or exception after archive handling.
+
+Live GET pages use the existing numeric complete-line cursor and item bounds plus
+`continuity`, a digest of stable file/launch identity and the consumed byte prefix.
+The returned digest is built from exactly the bytes parsed, then verified against
+the file. Normal appends are allowed; replacement, truncation, equal-length rewrite
+or marker/lifecycle change returns `session_ended` with `archive_id` and no items.
+Partial tails retain their starting cursor. No older-format reader is provided.
+The live route accepts the retained archive id for handoff after marker removal.
+Source files above the size bound return one notice and stop transcript reads.
+
+SessionView polls accepted live cursors every three seconds only while working,
+visible and selected in Agent sessions. Hidden views fence in-flight completions
+and preserve accepted state. Bounded thinking hints and completed tool start/end
+items maintain unfinished work without streaming text. Ended sessions reload the
+final archive from zero or follow the next live launch. While following between
+launches, the list discovers the next launch every three seconds; explicit history
+selection stops following and survives ordinary detail/visibility refreshes.
+Agent sessions remains mounted after its first visit so tab changes retain choice.
+Saved lifecycle status and compact job header remain independent of transcript data.
+No instruction transport is implemented. Focused contracts: live cases in
+`test_web_executor_session.py`, marker lifetime cases in `test_pi_rpc.py`, session
+model/helper tests and LA-02 browser journeys in `e2e/jobs.spec.ts`.
+
+Live continuity verification uses a fresh unbuffered descriptor, independent of parser
+read-ahead. EOF before the captured size ends the changed session without retry loops.
+
+RPC session persistence also retains known credential values literally; its bounded
+raw file is copied unchanged for package jobs. Operational tails, stderr, questions
+and diagnostics retain masking. Archive copies reject links and oversize/change races.
+
+Accepted archived pages and EOF retain their exact pagination across hidden views.
+Only live cursors or an initial history read not yet accepted resume automatically;
+failed/interrupted initial history remains retryable.

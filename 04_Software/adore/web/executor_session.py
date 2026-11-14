@@ -15,12 +15,14 @@
 """
 
 # IMPORTS
+from hashlib import sha256
 import json
 import math
 import os
 from pathlib import Path
 import re
 
+from adore.state import StateError, StateStore
 from adore.web.executor_evidence import _identity, _read, _signature
 from adore.web.jobs import JobReadError, _object, _stamp
 
@@ -28,6 +30,7 @@ from adore.web.jobs import JobReadError, _object, _stamp
 _ATTEMPT = re.compile(
     r"(frame|specify|design|build|validate)-attempt-([1-9][0-9]*)"
     r"-attempt1(?:-([2-9]|[1-9][0-9]+))?")
+_LIVE = re.compile(r"live-[a-f0-9]{32}")
 _TEXT_BYTES = 16 * 1024
 _LINE_BYTES = 256 * 1024
 _SCAN_BYTES = 4 * 1024 * 1024
@@ -169,10 +172,61 @@ def _metadata(folder: Path) -> dict:
             "exit_code": meta["exit_code"]}
 
 
+def _live_metadata(run: Path) -> dict | None:
+    """@brief Resolve only a working run's exact launch-owned marker."""
+    _folder(run)
+    state = _object(_read(run / "state.json", 4 * 1024 * 1024), "job_evidence_corrupt")
+    if state.get("lifecycle") != "working":
+        return None
+    io = run / "io"
+    if not io.exists() and not io.is_symlink():
+        return None
+    _folder(io)
+    try:
+        marker = _object(_read(io / "live.json", 4096), "job_evidence_corrupt")
+    except FileNotFoundError:
+        return None
+    lock_store = StateStore(io)
+    try:
+        _folder(lock_store.locks_root)
+        _identity(lock_store.locks_root / "run-agent-session.lock")
+        if not lock_store.run_locked("agent-session"):
+            return None
+    except FileNotFoundError:
+        return None
+    except StateError as exc:
+        raise JobReadError("job_evidence_corrupt") from exc
+    match = _ATTEMPT.fullmatch(marker.get("archive_id", ""))
+    if (type(marker.get("schema")) is not int or marker["schema"] != 1
+            or not _LIVE.fullmatch(marker.get("id", ""))
+            or not match or int(match[2]) > 2**53 - 1):
+        raise JobReadError("job_evidence_corrupt")
+    start = _stamp(marker.get("start_at"), "job_evidence_corrupt")
+    if start is None:
+        raise JobReadError("job_evidence_corrupt")
+    return {"id": marker["id"], "live": True, "archive_id": marker["archive_id"],
+            "stage": match[1], "attempt": int(match[2]), "start_at": start,
+            "end_at": None, "outcome": None, "exit_code": None}
+
+
+def _continuity(source, info, launch: str, cursor: int) -> str:
+    """@brief Hash a bounded consumed prefix and stable file/launch identity."""
+    digest = sha256(f"{info.st_dev}:{info.st_ino}:{launch}:".encode())
+    source.seek(0)
+    remaining = cursor
+    while remaining:
+        chunk = source.read(min(remaining, 65536))
+        if not chunk:
+            return ""
+        digest.update(chunk)
+        remaining -= len(chunk)
+    return digest.hexdigest()
+
+
 # PUBLIC API
 def list_sessions(run: Path) -> list[dict]:
     """
-    @brief List completed physical launches newest first in an authorized run.
+    @brief List an owned active launch first, then completed launches newest first.
     @param[in] run Verified run directory, never a browser-supplied path.
     @return Bounded metadata; absent archives are an empty list.
     @exception JobReadError Unsafe or corrupt archive metadata.
@@ -180,18 +234,23 @@ def list_sessions(run: Path) -> list[dict]:
     archive = run / "io" / "archive"
     try:
         _folder(run)
+        live = _live_metadata(run)
         if (run / "io").exists() or (run / "io").is_symlink():
             _folder(run / "io")
         if not archive.exists() and not archive.is_symlink():
-            return []
+            return [live] if live else []
         _folder(archive)
         sessions = []
         for index, folder in enumerate(archive.iterdir()):
             if index >= _MAX_ARCHIVES:
                 raise JobReadError("job_evidence_corrupt")
             if _ATTEMPT.fullmatch(folder.name):
+                if (live and folder.name == live["archive_id"]
+                        and not (folder / "meta.json").exists()):
+                    continue
                 sessions.append(_metadata(folder))
-        return sorted(sessions, key=lambda item: (item["end_at"], item["id"]), reverse=True)
+        return ([live] if live else []) + sorted(
+            sessions, key=lambda item: (item["end_at"], item["id"]), reverse=True)
     except JobReadError:
         raise
     except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
@@ -199,7 +258,8 @@ def list_sessions(run: Path) -> list[dict]:
 
 
 def read_session(run: Path, attempt_id: str, cursor: int = 0, limit: int = 200,
-                 *, include_cost: bool = False) -> dict:
+                 *, include_cost: bool = False, continuity: str | None = None,
+                 archive_id: str | None = None) -> dict:
     """
     @brief Read complete JSONL records with bounded memory and line-start cursors.
     @param[in] run Authorized run directory.
@@ -207,75 +267,148 @@ def read_session(run: Path, attempt_id: str, cursor: int = 0, limit: int = 200,
     @param[in] cursor Byte offset at a complete line start.
     @param[in] limit Maximum number of source items, from 1 to 200.
     @param[in] include_cost Administrator structured-cost visibility.
+    @param[in] continuity Stable file and consumed-prefix proof for live continuation.
+    @param[in] archive_id Exact handoff identity retained by a live caller.
     @return Items and next_cursor; a message groups its text/reasoning/usage parts.
     @exception JobReadError Invalid cursor, missing attempt or unsafe source.
     @note Records never split across pages; each grouped part has its own text bound.
     """
-    if (not isinstance(attempt_id, str) or not _ATTEMPT.fullmatch(attempt_id)
+    live = isinstance(attempt_id, str) and bool(_LIVE.fullmatch(attempt_id))
+    if (not isinstance(attempt_id, str) or not (live or _ATTEMPT.fullmatch(attempt_id))
             or type(cursor) is not int or cursor < 0 or cursor > 2**53 - 1
             or type(limit) is not int or not 1 <= limit <= 200):
         raise JobReadError("run_not_found", 404)
-    folder = run / "io" / "archive" / attempt_id
+    if ((continuity is not None and not re.fullmatch(r"[a-f0-9]{64}", continuity))
+            or (archive_id is not None and not _ATTEMPT.fullmatch(archive_id))):
+        raise JobReadError("job_evidence_corrupt")
+    ended = {"session_ended": True, "archive_id": archive_id,
+             "items": [], "next_cursor": None}
+    folder = run / "io" if live else run / "io" / "archive" / attempt_id
     try:
-        session = _metadata(folder)
+        session = _live_metadata(run) if live else _metadata(folder)
+        if live:
+            if not session or session["id"] != attempt_id:
+                return ended
+            ended["archive_id"] = session["archive_id"]
+            _folder(folder)
         path = folder / "output.jsonl"
         before = _identity(path)
-        # A deliberately huge physical line cannot make a request scan unbounded
-        # work. Ordinary malformed lines still skip through to subsequent records.
         if before.st_size > _FILE_BYTES:
             if cursor:
+                if live:
+                    return ended
                 raise JobReadError("job_evidence_corrupt")
             return {"session": session,
                     "items": [_notice("Session exceeds the 64 MiB read bound.")],
-                    "next_cursor": None}
+                    "next_cursor": None,
+                    **({"session_ended": False, "thinking": None, "read_bound": True}
+                       if live else {})}
         items = []
         with path.open("rb") as source:
-            if _signature(os.fstat(source.fileno())) != _signature(before):
+            opened = os.fstat(source.fileno())
+            if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+                if live:
+                    return ended
                 raise JobReadError("job_snapshot_changed", 409)
             if cursor > before.st_size:
+                if live:
+                    return ended
                 raise JobReadError("job_evidence_corrupt")
+            captured = sha256(f"{before.st_dev}:{before.st_ino}:{attempt_id}:".encode())
+            if live:
+                remaining = cursor
+                while remaining:
+                    chunk = source.read(min(remaining, 65536))
+                    if not chunk:
+                        return ended
+                    captured.update(chunk)
+                    remaining -= len(chunk)
+                if continuity is not None and captured.hexdigest() != continuity:
+                    return ended
+                if cursor and continuity is None:
+                    raise JobReadError("job_evidence_corrupt")
             if cursor:
                 source.seek(cursor - 1)
                 if source.read(1) != b"\n":
                     raise JobReadError("job_evidence_corrupt")
             source.seek(cursor)
-            scanned, next_cursor = 0, None
+            scanned, consumed, thinking = 0, cursor, None
             while source.tell() < before.st_size and scanned < _SCAN_BYTES:
-                line = source.readline(_LINE_BYTES + 1)
+                prior = captured.copy()
+                line = source.readline(min(_LINE_BYTES + 1, before.st_size - source.tell()))
+                if not line:
+                    if live:
+                        return ended
+                    raise JobReadError("job_snapshot_changed", 409)
                 scanned += len(line)
+                captured.update(line)
                 oversize = len(line) > _LINE_BYTES
                 while not line.endswith(b"\n") and source.tell() < before.st_size:
-                    chunk = source.readline(_LINE_BYTES + 1)
-                    scanned += len(chunk)
-                    line = chunk
+                    line = source.readline(min(_LINE_BYTES + 1, before.st_size - source.tell()))
+                    if not line:
+                        if live:
+                            return ended
+                        raise JobReadError("job_snapshot_changed", 409)
+                    scanned += len(line)
+                    captured.update(line)
                     oversize = True
                 if not line.endswith(b"\n"):
-                    # Completed archives never gain a finished tail later. Do not
-                    # offer an endless Load more loop for an interrupted record.
-                    next_cursor = None
+                    captured = prior
                     break
                 if oversize:
                     batch = [_notice("Oversize session record omitted.")]
                 else:
                     try:
-                        batch = _items(_object(line, "job_evidence_corrupt"), include_cost)
+                        record = _object(line, "job_evidence_corrupt")
+                        batch = _items(record, include_cost)
+                        if live:
+                            if (record.get("type") == "message_start"
+                                    and isinstance(record.get("message"), dict)
+                                    and record["message"].get("role") == "assistant"):
+                                thinking = True
+                            elif record.get("type") in {
+                                    "message_end", "agent_end", "agent_settled"}:
+                                thinking = False
                     except (JobReadError, UnicodeError, ValueError, TypeError,
                             KeyError, RecursionError):
                         batch = [_notice("Malformed session record omitted.")]
                 if len(batch) > 1:
                     batch = [{"kind": "assistant", "text": "", "parts": batch}]
                 items.extend(batch)
+                consumed = source.tell()
                 if len(items) >= limit:
-                    next_cursor = source.tell() if source.tell() < before.st_size else None
                     break
+            if live:
+                next_cursor = consumed
+                token = captured.hexdigest()
+                # Never verify through the parser's read-ahead cache: a seek
+                # within that buffer can otherwise hide a same-inode rewrite.
+                with path.open("rb", buffering=0) as verification:
+                    verified = os.fstat(verification.fileno())
+                    if ((verified.st_dev, verified.st_ino) != (before.st_dev, before.st_ino)
+                            or _continuity(verification, before, attempt_id, consumed) != token):
+                        return ended
+                after = _identity(path)
+                opened = os.fstat(source.fileno())
+                if ((after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
+                        or min(after.st_size, opened.st_size) < before.st_size
+                        or _live_metadata(run) != session):
+                    return ended
             else:
-                next_cursor = source.tell() if source.tell() < before.st_size else None
-            if (_signature(os.fstat(source.fileno())) != _signature(before)
-                    or _signature(_identity(path)) != _signature(before)):
-                raise JobReadError("job_snapshot_changed", 409)
+                # An interrupted archived tail has no future complete record.
+                next_cursor = (consumed if consumed < before.st_size
+                               and source.tell() == consumed else None)
+                if (_signature(os.fstat(source.fileno())) != _signature(before)
+                        or _signature(_identity(path)) != _signature(before)):
+                    raise JobReadError("job_snapshot_changed", 409)
         _folder(folder)
-        return {"session": session, "items": items, "next_cursor": next_cursor}
+        result = {"session": session, "items": items, "next_cursor": next_cursor}
+        if live:
+            result.update(session_ended=False, continuity=token, thinking=thinking)
+        return result
     except FileNotFoundError as exc:
+        if live:
+            return ended
         raise JobReadError("run_not_found", 404) from exc
     except JobReadError:
         raise

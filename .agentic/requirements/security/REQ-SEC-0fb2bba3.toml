@@ -1,3 +1,8 @@
+# Copyright (c) 2026 DDP Engineering
+# This software is licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a separate commercial license.
+# See the LICENSE.txt file for full license details. SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+
 schema = 1
 
 id = "REQ-SEC-0fb2bba3"
@@ -6,13 +11,13 @@ title = "Each ChatGPT stage receives only a short-lived access token"
 
 status = "active"
 
-requirement = """When ADORE launches a ChatGPT Pi stage or explicit model check on a container or local backend, it shall obtain through the trusted helper an access token valid for the launch limit plus five minutes, inject it only into that launch environment as OPENAI_API_KEY, and redact it from retained evidence, keeping the credential store and refresh token outside the executor session."""
+requirement = """When ADORE launches a ChatGPT Pi stage or explicit model check on a container or local backend, it shall obtain through the trusted helper an access token valid for the launch limit plus five minutes, inject it only into that launch environment as OPENAI_API_KEY, and redact it from operational and model-check evidence while retaining literal bounded job-session recordings, keeping the credential store and refresh token outside the executor session."""
 
-verification = "Offline helper, orchestrator and native model tests assert token lifetime, launch-only injection, no credential file in agent directories, redacted evidence and no Pi launch when token acquisition fails."
+verification = "Offline helper, orchestrator and native model tests assert token lifetime, launch-only injection, no credential file in agent directories, sanitized operational/model-check evidence, literal bounded job sessions when the agent prints a token, and no Pi launch when token acquisition fails."
 
 affected_paths = ["04_Software/adore/chatgpt.py", "04_Software/adore/orchestrator.py", "04_Software/adore/local_execution.py", "04_Software/adore/web/model_connection.py"]
 
-linked_tests = ["04_Software/tests/test_native_chatgpt.py", "04_Software/tests/test_chatgpt_stage.py", "04_Software/tests/test_model_connection.py"]
+linked_tests = ["04_Software/tests/test_native_chatgpt.py", "04_Software/tests/test_chatgpt_stage.py", "04_Software/tests/test_model_connection.py", "04_Software/tests/test_web_executor_session.py::test_rpc_producer_keeps_literal_live_and_archive_but_masks_operations"]
 
 
 spec = ""
@@ -21,4 +26,4 @@ priority = "normal"   # low | normal | high
 rationale = ""        # why this behavior exists, if not obvious
 
 created = 2026-11-03
-updated = 2026-11-04
+updated = 2026-11-14

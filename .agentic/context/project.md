@@ -476,4 +476,14 @@ capacity retain their current layout. Job details have Activity, Agent sessions,
 Artifacts and Technical information above title and saved status/stage/workflow. Origin
 and list state survive Close. Authenticated no-store session reads expose exact archived
 text including secrets to job readers, omit system messages, and restrict structured
-costs to administrators. History is on-demand only; current metadata has no start time.
+costs to administrators. Archived attempts are on demand; an active launch is listed
+first and polls completed records every three seconds only while the view is visible
+and the job is working. Crash-released launch ownership and consumed-prefix proofs
+fence replacement/truncation/handoff. Explicit history selection survives refreshes;
+archive start time remains unavailable, while live markers record their start time.
+
+RPC session stdout persists literal bounded events, including known binding/package
+credentials and key-hint/Bearer-shaped values. Package jobs archive this file without
+post-gate masking or truncation to operational tail size. Returned operational tails,
+stderr, questions and normalized diagnostics remain sanitized; no stored recording is
+rewritten. Raw archive copies enforce recording identity and byte bounds.
